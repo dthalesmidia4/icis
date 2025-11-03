@@ -14,7 +14,171 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      cards: {
+        Row: {
+          column_name: string | null
+          created_at: string
+          description: string | null
+          file_location: string | null
+          id: string
+          observations: string | null
+          plan_id: string
+          publication_date: string
+          responsible_name: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          column_name?: string | null
+          created_at?: string
+          description?: string | null
+          file_location?: string | null
+          id?: string
+          observations?: string | null
+          plan_id: string
+          publication_date: string
+          responsible_name?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          column_name?: string | null
+          created_at?: string
+          description?: string | null
+          file_location?: string | null
+          id?: string
+          observations?: string | null
+          plan_id?: string
+          publication_date?: string
+          responsible_name?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cards_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      companies: {
+        Row: {
+          cnpj_cpf: string
+          created_at: string
+          email: string
+          id: string
+          name: string
+          phone: string
+          products_services: string
+          sector: string
+          selected_month: string
+          size: string
+          updated_at: string
+        }
+        Insert: {
+          cnpj_cpf: string
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          phone: string
+          products_services: string
+          sector: string
+          selected_month: string
+          size: string
+          updated_at?: string
+        }
+        Update: {
+          cnpj_cpf?: string
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string
+          products_services?: string
+          sector?: string
+          selected_month?: string
+          size?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      marketing_plans: {
+        Row: {
+          approved: boolean
+          approved_at: string | null
+          company_id: string
+          created_at: string
+          id: string
+          plan_data: Json
+          updated_at: string
+        }
+        Insert: {
+          approved?: boolean
+          approved_at?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          plan_data: Json
+          updated_at?: string
+        }
+        Update: {
+          approved?: boolean
+          approved_at?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          plan_data?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_plans_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      strategies: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          strategy_text: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          strategy_text: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          strategy_text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
