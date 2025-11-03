@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { KanbanSquare, Plus, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { StepNavigation } from "@/components/StepNavigation";
 
 interface CardItem {
   id: string;
@@ -97,8 +98,10 @@ const Cards = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background">
+      <StepNavigation />
+      <div className="p-4 md:p-8">
+        <div className="max-w-7xl mx-auto space-y-6">
         <Card className="shadow-[var(--shadow-elevated)]">
           <CardHeader className="space-y-4">
             <div className="flex items-center gap-3">
@@ -169,6 +172,7 @@ const Cards = () => {
             </div>
           ))}
         </div>
+      </div>
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Calendar, Edit, CheckCircle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { StepNavigation } from "@/components/StepNavigation";
 
 interface PlanItem {
   week: string;
@@ -153,8 +154,10 @@ const Plan = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background">
+      <StepNavigation />
+      <div className="p-4 md:p-8">
+        <div className="max-w-6xl mx-auto space-y-6">
         <Card className="shadow-[var(--shadow-elevated)]">
           <CardHeader className="space-y-3">
             <div className="flex items-center gap-3">
@@ -210,6 +213,7 @@ const Plan = () => {
             Aprovar Plano
           </Button>
         </div>
+      </div>
       </div>
     </div>
   );

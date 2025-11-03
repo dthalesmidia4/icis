@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Building2 } from "lucide-react";
+import { StepNavigation } from "@/components/StepNavigation";
 
 const CompanyRegistration = () => {
   const navigate = useNavigate();
@@ -83,8 +84,10 @@ const CompanyRegistration = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl shadow-[var(--shadow-elevated)]">
+    <div className="min-h-screen bg-background">
+      <StepNavigation />
+      <div className="flex items-center justify-center p-4">
+        <Card className="w-full max-w-2xl shadow-[var(--shadow-elevated)]">
         <CardHeader className="space-y-3">
           <div className="flex items-center gap-3">
             <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-secondary">
@@ -217,6 +220,7 @@ const CompanyRegistration = () => {
           </form>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };
