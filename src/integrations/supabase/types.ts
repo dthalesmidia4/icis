@@ -26,6 +26,7 @@ export type Database = {
           publication_date: string
           responsible_name: string | null
           status: string
+          tenant_id: string
           title: string
           updated_at: string
         }
@@ -40,6 +41,7 @@ export type Database = {
           publication_date: string
           responsible_name?: string | null
           status?: string
+          tenant_id: string
           title: string
           updated_at?: string
         }
@@ -54,6 +56,7 @@ export type Database = {
           publication_date?: string
           responsible_name?: string | null
           status?: string
+          tenant_id?: string
           title?: string
           updated_at?: string
         }
@@ -63,6 +66,13 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "marketing_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cards_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -117,6 +127,7 @@ export type Database = {
           created_at: string
           id: string
           plan_data: Json
+          tenant_id: string
           updated_at: string
         }
         Insert: {
@@ -126,6 +137,7 @@ export type Database = {
           created_at?: string
           id?: string
           plan_data: Json
+          tenant_id: string
           updated_at?: string
         }
         Update: {
@@ -135,6 +147,7 @@ export type Database = {
           created_at?: string
           id?: string
           plan_data?: Json
+          tenant_id?: string
           updated_at?: string
         }
         Relationships: [
@@ -145,6 +158,51 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "marketing_plans_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          full_name: string
+          id: string
+          settings: Json | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name: string
+          id: string
+          settings?: Json | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name?: string
+          id?: string
+          settings?: Json | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       strategies: {
@@ -153,6 +211,7 @@ export type Database = {
           created_at: string
           id: string
           strategy_text: string
+          tenant_id: string
           updated_at: string
         }
         Insert: {
@@ -160,6 +219,7 @@ export type Database = {
           created_at?: string
           id?: string
           strategy_text: string
+          tenant_id: string
           updated_at?: string
         }
         Update: {
@@ -167,6 +227,7 @@ export type Database = {
           created_at?: string
           id?: string
           strategy_text?: string
+          tenant_id?: string
           updated_at?: string
         }
         Relationships: [
@@ -177,6 +238,160 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "strategies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_companies: {
+        Row: {
+          cnpj_cpf: string
+          created_at: string | null
+          email: string
+          id: string
+          name: string
+          phone: string
+          products_services: string
+          sector: string
+          selected_month: string
+          size: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          cnpj_cpf: string
+          created_at?: string | null
+          email: string
+          id?: string
+          name: string
+          phone: string
+          products_services: string
+          sector: string
+          selected_month: string
+          size: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          cnpj_cpf?: string
+          created_at?: string | null
+          email?: string
+          id?: string
+          name?: string
+          phone?: string
+          products_services?: string
+          sector?: string
+          selected_month?: string
+          size?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_companies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          cnpj_cpf: string | null
+          created_at: string | null
+          email: string | null
+          hierarchy_level: number | null
+          hierarchy_path: string | null
+          id: string
+          metadata: Json | null
+          name: string
+          parent_id: string | null
+          phone: string | null
+          settings: Json | null
+          slug: string
+          status: string | null
+          tenant_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          cnpj_cpf?: string | null
+          created_at?: string | null
+          email?: string | null
+          hierarchy_level?: number | null
+          hierarchy_path?: string | null
+          id?: string
+          metadata?: Json | null
+          name: string
+          parent_id?: string | null
+          phone?: string | null
+          settings?: Json | null
+          slug: string
+          status?: string | null
+          tenant_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          cnpj_cpf?: string | null
+          created_at?: string | null
+          email?: string | null
+          hierarchy_level?: number | null
+          hierarchy_path?: string | null
+          id?: string
+          metadata?: Json | null
+          name?: string
+          parent_id?: string | null
+          phone?: string | null
+          settings?: Json | null
+          slug?: string
+          status?: string | null
+          tenant_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenants_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -184,10 +399,45 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_tenant_descendants: {
+        Args: { _tenant_id: string }
+        Returns: {
+          id: string
+          level: number
+          name: string
+          tenant_type: string
+        }[]
+      }
+      get_tenant_hierarchy: {
+        Args: { _tenant_id: string }
+        Returns: {
+          id: string
+          level: number
+          name: string
+          tenant_type: string
+        }[]
+      }
+      get_user_tenant: { Args: { _user_id: string }; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      user_has_tenant_access: {
+        Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role:
+        | "super_admin"
+        | "agency_admin"
+        | "agency_user"
+        | "client_admin"
+        | "client_user"
+        | "subclient_user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -314,6 +564,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: [
+        "super_admin",
+        "agency_admin",
+        "agency_user",
+        "client_admin",
+        "client_user",
+        "subclient_user",
+      ],
+    },
   },
 } as const
