@@ -67,9 +67,30 @@ const CompanyRegistration = () => {
     }
 
     try {
+      // Get tenant_id from user's profile
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Usuário não autenticado");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!profile?.tenant_id) {
+        toast.error("Tenant não encontrado. Entre em contato com o administrador.");
+        return;
+      }
+
       const { data, error } = await supabase
-        .from("companies")
-        .insert([formData])
+        .from("tenant_companies")
+        .insert([{
+          ...formData,
+          tenant_id: profile.tenant_id
+        }])
         .select()
         .single();
 

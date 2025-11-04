@@ -25,10 +25,10 @@ const Strategy = () => {
 
     const fetchCompany = async () => {
       const { data, error } = await supabase
-        .from("companies")
+        .from("tenant_companies")
         .select("name, selected_month")
         .eq("id", companyId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         toast.error("Erro ao carregar dados da empresa");
@@ -36,7 +36,9 @@ const Strategy = () => {
         return;
       }
 
-      setCompanyName(data.name);
+      if (data) {
+        setCompanyName(data.name);
+      }
     };
 
     fetchCompany();
@@ -51,12 +53,31 @@ const Strategy = () => {
     }
 
     try {
+      // Get tenant_id from user's profile
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Usuário não autenticado");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!profile?.tenant_id) {
+        toast.error("Tenant não encontrado");
+        return;
+      }
+
       const { error } = await supabase
         .from("strategies")
         .insert([
           {
             company_id: companyId,
             strategy_text: strategyText,
+            tenant_id: profile.tenant_id
           },
         ])
         .select()

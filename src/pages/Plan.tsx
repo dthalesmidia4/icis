@@ -34,10 +34,10 @@ const Plan = () => {
     const fetchData = async () => {
       try {
         const { data: company, error: companyError } = await supabase
-          .from("companies")
+          .from("tenant_companies")
           .select("*")
           .eq("id", companyId)
-          .single();
+          .maybeSingle();
 
         if (companyError) throw companyError;
 
@@ -45,11 +45,13 @@ const Plan = () => {
           .from("strategies")
           .select("*")
           .eq("company_id", companyId)
-          .single();
+          .maybeSingle();
 
         if (strategyError) throw strategyError;
 
-        setCompanyData({ ...company, strategy: strategy.strategy_text });
+        if (company && strategy) {
+          setCompanyData({ ...company, strategy: strategy.strategy_text });
+        }
 
         // Generate mock plan (will be replaced with AI generation later)
         const mockPlan: PlanItem[] = [
@@ -119,6 +121,24 @@ const Plan = () => {
 
   const handleApprovePlan = async () => {
     try {
+      // Get tenant_id from user's profile
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Usuário não autenticado");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!profile?.tenant_id) {
+        toast.error("Tenant não encontrado");
+        return;
+      }
+
       const { data, error } = await supabase
         .from("marketing_plans")
         .insert([
@@ -127,6 +147,7 @@ const Plan = () => {
             plan_data: { items: planItems } as any,
             approved: true,
             approved_at: new Date().toISOString(),
+            tenant_id: profile.tenant_id
           },
         ])
         .select()
