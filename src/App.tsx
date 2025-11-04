@@ -12,6 +12,7 @@ import Strategy from "./pages/Strategy";
 import Plan from "./pages/Plan";
 import Cards from "./pages/Cards";
 import AdminDashboard from "./pages/AdminDashboard";
+import AgencySetup from "./pages/AgencySetup";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,11 @@ const App = () => (
         <TenantProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/agency-setup" element={
+              <ProtectedRoute>
+                <AgencySetup />
+              </ProtectedRoute>
+            } />
             <Route path="/admin" element={
               <ProtectedRoute>
                 <AdminDashboard />
