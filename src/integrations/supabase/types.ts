@@ -400,6 +400,7 @@ export type Database = {
     }
     Functions: {
       can_create_tenant: { Args: { _user_id: string }; Returns: boolean }
+      debug_tenant_creation: { Args: { _user_id: string }; Returns: Json }
       get_tenant_descendants: {
         Args: { _tenant_id: string }
         Returns: {

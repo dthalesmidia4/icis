@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -49,6 +49,26 @@ export default function AgencySetup() {
     },
   });
 
+  // Verificar se usuário já possui tenant ao carregar a página
+  useEffect(() => {
+    const checkExistingTenant = async () => {
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.tenant_id) {
+        toast.info('Você já possui um tenant associado.');
+        navigate('/');
+      }
+    };
+
+    checkExistingTenant();
+  }, [user, navigate]);
+
   const onSubmit = async (data: AgencyFormData) => {
     if (!user) {
       toast.error('Você precisa estar autenticado');
@@ -59,6 +79,32 @@ export default function AgencySetup() {
     setIsLoading(true);
 
     try {
+      // DEBUG: Verificar estado atual
+      console.log('🔍 Debug - User ID:', user.id);
+      
+      const { data: debugData } = await supabase
+        .rpc('debug_tenant_creation', { _user_id: user.id });
+      
+      console.log('🔍 Debug - Can create tenant?', debugData);
+
+      // Verificar se já tem roles
+      const { data: existingRoles, error: rolesCheckError } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (rolesCheckError) {
+        console.error('❌ Erro ao verificar roles:', rolesCheckError);
+      }
+
+      console.log('🔍 Existing roles:', existingRoles);
+
+      if (existingRoles && existingRoles.length > 0) {
+        toast.error('Você já possui um tenant associado. Não é possível criar outro.');
+        navigate('/');
+        return;
+      }
+
       // 1. Criar o tenant principal (agência raiz)
       const { data: tenant, error: tenantError } = await supabase
         .from('tenants')
@@ -70,7 +116,7 @@ export default function AgencySetup() {
           cnpj_cpf: data.cnpjCpf,
           slug: data.officialName.toLowerCase().replace(/\s+/g, '-'),
           status: 'active',
-          parent_id: null, // Tenant raiz
+          parent_id: null,
           metadata: {
             tradeName: data.tradeName,
             legalName: data.legalName,
@@ -87,7 +133,12 @@ export default function AgencySetup() {
         .select()
         .single();
 
-      if (tenantError) throw tenantError;
+      if (tenantError) {
+        console.error('❌ Erro ao criar tenant:', tenantError);
+        throw tenantError;
+      }
+
+      console.log('✅ Tenant criado:', tenant);
 
       // 2. Atualizar o perfil do usuário com o tenant_id
       const { error: profileError } = await supabase
@@ -95,7 +146,12 @@ export default function AgencySetup() {
         .update({ tenant_id: tenant.id })
         .eq('id', user.id);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('❌ Erro ao atualizar profile:', profileError);
+        throw profileError;
+      }
+
+      console.log('✅ Profile atualizado');
 
       // 3. Criar o role de super_admin para o usuário
       const { error: roleError } = await supabase
@@ -106,13 +162,24 @@ export default function AgencySetup() {
           role: 'super_admin',
         });
 
-      if (roleError) throw roleError;
+      if (roleError) {
+        console.error('❌ Erro ao criar role:', roleError);
+        throw roleError;
+      }
+
+      console.log('✅ Role criado');
 
       toast.success('Agência principal cadastrada com sucesso!');
       navigate('/');
     } catch (error: any) {
-      console.error('Erro ao cadastrar agência:', error);
-      toast.error(error.message || 'Erro ao cadastrar agência');
+      console.error('❌ Erro geral:', error);
+      
+      // Mensagem de erro mais detalhada
+      if (error.code === '42501') {
+        toast.error(`Erro de permissão: ${error.message}. Entre em contato com o suporte.`);
+      } else {
+        toast.error(error.message || 'Erro ao cadastrar agência');
+      }
     } finally {
       setIsLoading(false);
     }
