@@ -6,7 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { signupSchema } from '@/lib/validations/authSchemas';
+import { Building2, MapPin, Briefcase, Lock, Upload } from 'lucide-react';
+import { z } from 'zod';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -17,10 +24,32 @@ const Auth = () => {
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
-  // Signup state
-  const [signupEmail, setSignupEmail] = useState('');
-  const [signupPassword, setSignupPassword] = useState('');
-  const [signupFullName, setSignupFullName] = useState('');
+  // Signup state - Cadastro completo da empresa
+  const [signupData, setSignupData] = useState({
+    companyName: '',
+    fantasyName: '',
+    cnpjCpf: '',
+    razaoSocial: '',
+    corporateEmail: '',
+    phone: '',
+    street: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: 'Brasil',
+    website: '',
+    sector: '',
+    size: '',
+    productsServices: '',
+    adminEmail: '',
+    adminName: '',
+    adminPassword: '',
+    confirmPassword: ''
+  });
+  
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string>('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Redirect if already logged in
   useEffect(() => {
@@ -53,34 +82,192 @@ const Auth = () => {
     }
   };
 
+  // Auto-save rascunho
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (Object.values(signupData).some(v => v !== '' && v !== 'Brasil')) {
+        localStorage.setItem('signup_draft', JSON.stringify(signupData));
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [signupData]);
+
+  // Carregar rascunho
+  useEffect(() => {
+    const draft = localStorage.getItem('signup_draft');
+    if (draft) {
+      try {
+        setSignupData(JSON.parse(draft));
+        toast.info('Rascunho carregado automaticamente');
+      } catch (e) {
+        console.error('Erro ao carregar rascunho:', e);
+      }
+    }
+  }, []);
+
+  const handleSignupChange = (field: string, value: string) => {
+    setSignupData(prev => ({ ...prev, [field]: value }));
+    setFieldErrors(prev => ({ ...prev, [field]: '' }));
+  };
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error('Logo deve ter no máximo 2MB');
+        return;
+      }
+      setLogoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setLogoPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadLogo = async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `logos/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('company-logos')
+        .upload(filePath, file);
+      
+      if (uploadError) throw uploadError;
+      
+      const { data } = supabase.storage
+        .from('company-logos')
+        .getPublicUrl(filePath);
+      
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Erro no upload da logo:', error);
+      toast.error('Erro ao fazer upload da logo');
+      return null;
+    }
+  };
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setFieldErrors({});
 
     try {
-      if (signupPassword.length < 6) {
-        toast.error('A senha deve ter pelo menos 6 caracteres');
-        setIsLoading(false);
-        return;
-      }
-
-      const { error } = await signUp(signupEmail, signupPassword, signupFullName);
+      // Validar com Zod
+      const validated = signupSchema.parse(signupData);
       
-      if (error) {
-        if (error.message.includes('User already registered')) {
-          toast.error('Este email já está cadastrado');
-        } else {
-          toast.error(error.message);
-        }
-      } else {
-        toast.success('Conta criada com sucesso! Verifique seu email.');
+      // Upload da logo (se existir)
+      let logoUrl = null;
+      if (logoFile) {
+        logoUrl = await uploadLogo(logoFile);
       }
+      
+      // Criar conta de autenticação
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: validated.adminEmail,
+        password: validated.adminPassword,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            full_name: validated.adminName,
+            company_name: validated.companyName
+          }
+        }
+      });
+      
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Falha ao criar usuário');
+      
+      // Criar tenant
+      const { data: tenant, error: tenantError } = await supabase
+        .from('tenants')
+        .insert({
+          tenant_type: 'agency',
+          name: validated.companyName,
+          slug: validated.companyName
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, ''),
+          cnpj_cpf: validated.cnpjCpf,
+          email: validated.corporateEmail,
+          phone: validated.phone,
+          metadata: {
+            razao_social: validated.razaoSocial || null,
+            nome_fantasia: validated.fantasyName || null,
+            endereco: {
+              rua: validated.street,
+              cidade: validated.city,
+              estado: validated.state,
+              cep: validated.zipCode,
+              pais: validated.country
+            },
+            setor: validated.sector,
+            tamanho: validated.size,
+            produtos_servicos: validated.productsServices,
+            site: validated.website || null,
+            logo_url: logoUrl
+          }
+        })
+        .select()
+        .single();
+      
+      if (tenantError) throw tenantError;
+      
+      // Atualizar profile com tenant_id
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ tenant_id: tenant.id })
+        .eq('id', authData.user.id);
+      
+      if (profileError) throw profileError;
+      
+      // Criar role de admin
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .insert({
+          user_id: authData.user.id,
+          tenant_id: tenant.id,
+          role: 'agency_admin'
+        });
+      
+      if (roleError) throw roleError;
+      
+      // Limpar rascunho e redirecionar
+      localStorage.removeItem('signup_draft');
+      toast.success('Empresa cadastrada com sucesso!');
+      navigate('/');
+      
     } catch (error) {
-      toast.error('Erro ao criar conta');
+      if (error instanceof z.ZodError) {
+        const errors: Record<string, string> = {};
+        error.errors.forEach(err => {
+          const field = err.path[0] as string;
+          errors[field] = err.message;
+        });
+        setFieldErrors(errors);
+        toast.error('Por favor, corrija os campos destacados');
+      } else {
+        console.error('Erro no cadastro:', error);
+        toast.error('Erro ao cadastrar empresa. Tente novamente.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Calcular progresso do formulário
+  const filledRequiredFields = [
+    signupData.companyName, signupData.cnpjCpf, signupData.corporateEmail,
+    signupData.phone, signupData.street, signupData.city, signupData.state,
+    signupData.zipCode, signupData.sector, signupData.size, 
+    signupData.productsServices, signupData.adminEmail, signupData.adminName,
+    signupData.adminPassword, signupData.confirmPassword
+  ].filter(v => v && v !== '').length;
+  const totalRequiredFields = 15;
+  const progress = (filledRequiredFields / totalRequiredFields) * 100;
 
   if (authLoading) {
     return (
@@ -95,11 +282,11 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-4xl">
         <CardHeader>
           <CardTitle className="text-2xl text-center">Bem-vindo</CardTitle>
           <CardDescription className="text-center">
-            Faça login ou crie uma nova conta
+            Faça login ou cadastre sua empresa
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -139,47 +326,329 @@ const Auth = () => {
               </form>
             </TabsContent>
 
-            <TabsContent value="signup">
-              <form onSubmit={handleSignup} className="space-y-4">
+            <TabsContent value="signup" className="max-h-[70vh] overflow-y-auto px-1">
+              <form onSubmit={handleSignup} className="space-y-6">
+                
+                {/* Progresso */}
                 <div className="space-y-2">
-                  <Label htmlFor="signup-name">Nome Completo</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="Seu nome"
-                    value={signupFullName}
-                    onChange={(e) => setSignupFullName(e.target.value)}
-                    required
-                  />
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Progresso do cadastro</span>
+                    <span className="font-medium">{Math.round(progress)}%</span>
+                  </div>
+                  <Progress value={progress} className="h-2" />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                    required
-                  />
+
+                {/* Seção 1: Identificação Institucional */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    Identificação Institucional
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="companyName">Nome da Empresa *</Label>
+                      <Input
+                        id="companyName"
+                        value={signupData.companyName}
+                        onChange={(e) => handleSignupChange('companyName', e.target.value)}
+                        placeholder="Ex: Empresa Marketing LTDA"
+                        className={fieldErrors.companyName ? 'border-destructive' : ''}
+                      />
+                      {fieldErrors.companyName && (
+                        <p className="text-xs text-destructive">{fieldErrors.companyName}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="fantasyName">Nome Fantasia</Label>
+                      <Input
+                        id="fantasyName"
+                        value={signupData.fantasyName}
+                        onChange={(e) => handleSignupChange('fantasyName', e.target.value)}
+                        placeholder="Ex: Marketing Pro"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cnpjCpf">CNPJ ou CPF *</Label>
+                      <Input
+                        id="cnpjCpf"
+                        value={signupData.cnpjCpf}
+                        onChange={(e) => handleSignupChange('cnpjCpf', e.target.value)}
+                        placeholder="00.000.000/0000-00"
+                        className={fieldErrors.cnpjCpf ? 'border-destructive' : ''}
+                      />
+                      {fieldErrors.cnpjCpf && (
+                        <p className="text-xs text-destructive">{fieldErrors.cnpjCpf}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="razaoSocial">Razão Social</Label>
+                      <Input
+                        id="razaoSocial"
+                        value={signupData.razaoSocial}
+                        onChange={(e) => handleSignupChange('razaoSocial', e.target.value)}
+                        placeholder="Razão social da empresa"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Senha</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Mínimo de 6 caracteres
-                  </p>
+
+                {/* Seção 2: Contato e Localização */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    Contato e Localização
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="corporateEmail">Email Corporativo *</Label>
+                      <Input
+                        id="corporateEmail"
+                        type="email"
+                        value={signupData.corporateEmail}
+                        onChange={(e) => handleSignupChange('corporateEmail', e.target.value)}
+                        placeholder="contato@empresa.com"
+                        className={fieldErrors.corporateEmail ? 'border-destructive' : ''}
+                      />
+                      {fieldErrors.corporateEmail && (
+                        <p className="text-xs text-destructive">{fieldErrors.corporateEmail}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Telefone / WhatsApp *</Label>
+                      <Input
+                        id="phone"
+                        value={signupData.phone}
+                        onChange={(e) => handleSignupChange('phone', e.target.value)}
+                        placeholder="(11) 99999-9999"
+                        className={fieldErrors.phone ? 'border-destructive' : ''}
+                      />
+                      {fieldErrors.phone && (
+                        <p className="text-xs text-destructive">{fieldErrors.phone}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="street">Endereço *</Label>
+                      <Input
+                        id="street"
+                        value={signupData.street}
+                        onChange={(e) => handleSignupChange('street', e.target.value)}
+                        placeholder="Rua, número, complemento"
+                        className={fieldErrors.street ? 'border-destructive' : ''}
+                      />
+                      {fieldErrors.street && (
+                        <p className="text-xs text-destructive">{fieldErrors.street}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="city">Cidade *</Label>
+                      <Input
+                        id="city"
+                        value={signupData.city}
+                        onChange={(e) => handleSignupChange('city', e.target.value)}
+                        placeholder="São Paulo"
+                        className={fieldErrors.city ? 'border-destructive' : ''}
+                      />
+                      {fieldErrors.city && (
+                        <p className="text-xs text-destructive">{fieldErrors.city}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="state">Estado *</Label>
+                      <Input
+                        id="state"
+                        value={signupData.state}
+                        onChange={(e) => handleSignupChange('state', e.target.value.toUpperCase())}
+                        placeholder="SP"
+                        maxLength={2}
+                        className={fieldErrors.state ? 'border-destructive' : ''}
+                      />
+                      {fieldErrors.state && (
+                        <p className="text-xs text-destructive">{fieldErrors.state}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="zipCode">CEP *</Label>
+                      <Input
+                        id="zipCode"
+                        value={signupData.zipCode}
+                        onChange={(e) => handleSignupChange('zipCode', e.target.value)}
+                        placeholder="00000-000"
+                        className={fieldErrors.zipCode ? 'border-destructive' : ''}
+                      />
+                      {fieldErrors.zipCode && (
+                        <p className="text-xs text-destructive">{fieldErrors.zipCode}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="website">Site (opcional)</Label>
+                      <Input
+                        id="website"
+                        type="url"
+                        value={signupData.website}
+                        onChange={(e) => handleSignupChange('website', e.target.value)}
+                        placeholder="https://www.empresa.com"
+                      />
+                    </div>
+                  </div>
                 </div>
+
+                {/* Seção 3: Perfil da Empresa */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Briefcase className="h-5 w-5" />
+                    Perfil da Empresa
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sector">Setor de Atuação *</Label>
+                      <Select 
+                        value={signupData.sector} 
+                        onValueChange={(value) => handleSignupChange('sector', value)}
+                      >
+                        <SelectTrigger className={fieldErrors.sector ? 'border-destructive' : ''}>
+                          <SelectValue placeholder="Selecione o setor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Serviços">Serviços</SelectItem>
+                          <SelectItem value="Comércio">Comércio</SelectItem>
+                          <SelectItem value="Indústria">Indústria</SelectItem>
+                          <SelectItem value="Saúde">Saúde</SelectItem>
+                          <SelectItem value="Educação">Educação</SelectItem>
+                          <SelectItem value="Tecnologia">Tecnologia</SelectItem>
+                          <SelectItem value="Alimentação">Alimentação</SelectItem>
+                          <SelectItem value="Moda e Beleza">Moda e Beleza</SelectItem>
+                          <SelectItem value="Construção">Construção</SelectItem>
+                          <SelectItem value="Consultoria">Consultoria</SelectItem>
+                          <SelectItem value="Outros">Outros</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {fieldErrors.sector && (
+                        <p className="text-xs text-destructive">{fieldErrors.sector}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="size">Tamanho da Empresa *</Label>
+                      <Select 
+                        value={signupData.size} 
+                        onValueChange={(value) => handleSignupChange('size', value)}
+                      >
+                        <SelectTrigger className={fieldErrors.size ? 'border-destructive' : ''}>
+                          <SelectValue placeholder="Selecione o tamanho" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="MEI">MEI</SelectItem>
+                          <SelectItem value="Micro (até 9 funcionários)">Micro (até 9 funcionários)</SelectItem>
+                          <SelectItem value="Pequena (10-49 funcionários)">Pequena (10-49 funcionários)</SelectItem>
+                          <SelectItem value="Média (50-249 funcionários)">Média (50-249 funcionários)</SelectItem>
+                          <SelectItem value="Grande (250+ funcionários)">Grande (250+ funcionários)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {fieldErrors.size && (
+                        <p className="text-xs text-destructive">{fieldErrors.size}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="productsServices">Produtos ou Serviços Oferecidos *</Label>
+                      <Textarea
+                        id="productsServices"
+                        value={signupData.productsServices}
+                        onChange={(e) => handleSignupChange('productsServices', e.target.value)}
+                        placeholder="Descreva os principais produtos ou serviços oferecidos pela empresa"
+                        rows={3}
+                        className={fieldErrors.productsServices ? 'border-destructive' : ''}
+                      />
+                      {fieldErrors.productsServices && (
+                        <p className="text-xs text-destructive">{fieldErrors.productsServices}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="logo">Logo da Empresa (opcional)</Label>
+                      <div className="flex items-center gap-4">
+                        <Input
+                          id="logo"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleLogoChange}
+                          className="flex-1"
+                        />
+                        {logoPreview && (
+                          <img src={logoPreview} alt="Preview" className="h-12 w-12 object-contain rounded border" />
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Formatos aceitos: JPG, PNG. Tamanho máximo: 2MB
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Seção 4: Dados de Acesso */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Lock className="h-5 w-5" />
+                    Dados de Acesso do Administrador
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="adminName">Nome do Administrador *</Label>
+                      <Input
+                        id="adminName"
+                        value={signupData.adminName}
+                        onChange={(e) => handleSignupChange('adminName', e.target.value)}
+                        placeholder="Seu nome completo"
+                        className={fieldErrors.adminName ? 'border-destructive' : ''}
+                      />
+                      {fieldErrors.adminName && (
+                        <p className="text-xs text-destructive">{fieldErrors.adminName}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="adminEmail">Email do Administrador *</Label>
+                      <Input
+                        id="adminEmail"
+                        type="email"
+                        value={signupData.adminEmail}
+                        onChange={(e) => handleSignupChange('adminEmail', e.target.value)}
+                        placeholder="admin@empresa.com"
+                        className={fieldErrors.adminEmail ? 'border-destructive' : ''}
+                      />
+                      {fieldErrors.adminEmail && (
+                        <p className="text-xs text-destructive">{fieldErrors.adminEmail}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="adminPassword">Senha *</Label>
+                      <Input
+                        id="adminPassword"
+                        type="password"
+                        value={signupData.adminPassword}
+                        onChange={(e) => handleSignupChange('adminPassword', e.target.value)}
+                        placeholder="••••••••"
+                        className={fieldErrors.adminPassword ? 'border-destructive' : ''}
+                      />
+                      {fieldErrors.adminPassword && (
+                        <p className="text-xs text-destructive">{fieldErrors.adminPassword}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword">Confirmar Senha *</Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={signupData.confirmPassword}
+                        onChange={(e) => handleSignupChange('confirmPassword', e.target.value)}
+                        placeholder="••••••••"
+                        className={fieldErrors.confirmPassword ? 'border-destructive' : ''}
+                      />
+                      {fieldErrors.confirmPassword && (
+                        <p className="text-xs text-destructive">{fieldErrors.confirmPassword}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? 'Criando conta...' : 'Criar conta'}
+                  {isLoading ? 'Criando empresa...' : 'Finalizar Cadastro'}
                 </Button>
               </form>
             </TabsContent>
