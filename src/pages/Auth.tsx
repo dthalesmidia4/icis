@@ -179,6 +179,20 @@ const Auth = () => {
       if (authError) throw authError;
       if (!authData.user) throw new Error('Falha ao criar usuário');
       
+      // Aguardar um pouco para garantir que o trigger de criação do profile seja executado
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Fazer login imediato para estabelecer a sessão
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: validated.adminEmail,
+        password: validated.adminPassword
+      });
+      
+      if (signInError) throw signInError;
+      
+      // Aguardar a sessão ser estabelecida
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Criar tenant
       const { data: tenant, error: tenantError } = await supabase
         .from('tenants')
@@ -241,6 +255,14 @@ const Auth = () => {
       navigate('/');
       
     } catch (error: any) {
+      console.error('Erro completo no cadastro:', {
+        error,
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint
+      });
+      
       if (error instanceof z.ZodError) {
         const errors: Record<string, string> = {};
         error.errors.forEach(err => {
@@ -250,15 +272,15 @@ const Auth = () => {
         setFieldErrors(errors);
         toast.error('Por favor, corrija os campos destacados');
       } else {
-        console.error('Erro no cadastro:', error);
-        
         // Mensagens de erro específicas
         if (error?.message?.includes('User already registered')) {
           toast.error('Este email já está cadastrado. Tente fazer login.');
-        } else if (error?.message?.includes('row-level security')) {
-          toast.error('Erro de permissão. Contate o suporte.');
-        } else if (error?.code === '23505') {
-          toast.error('CNPJ/CPF já cadastrado no sistema.');
+        } else if (error?.message?.includes('row-level security') || error?.message?.includes('RLS')) {
+          toast.error('Erro de permissão ao criar empresa. Aguarde alguns segundos e tente novamente.');
+        } else if (error?.code === '23505' || error?.message?.includes('duplicate key')) {
+          toast.error('CNPJ/CPF ou email já cadastrado no sistema.');
+        } else if (error?.code === 'PGRST116') {
+          toast.error('Erro ao criar tenant. Verifique se já existe uma empresa com estes dados.');
         } else {
           toast.error(error?.message || 'Erro ao cadastrar empresa. Tente novamente.');
         }
