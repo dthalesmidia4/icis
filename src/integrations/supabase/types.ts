@@ -399,6 +399,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_create_tenant: { Args: { _user_id: string }; Returns: boolean }
       get_tenant_descendants: {
         Args: { _tenant_id: string }
         Returns: {

@@ -154,16 +154,22 @@ const Auth = () => {
     setFieldErrors({});
 
     try {
+      console.log('🚀 Iniciando cadastro...');
+      
       // Validar com Zod
       const validated = signupSchema.parse(signupData);
+      console.log('✅ Validação concluída');
       
       // Upload da logo (se existir)
       let logoUrl = null;
       if (logoFile) {
+        console.log('📤 Fazendo upload da logo...');
         logoUrl = await uploadLogo(logoFile);
+        console.log('✅ Logo uploaded:', logoUrl);
       }
       
       // Criar conta de autenticação
+      console.log('👤 Criando conta de usuário...');
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: validated.adminEmail,
         password: validated.adminPassword,
@@ -178,22 +184,27 @@ const Auth = () => {
       
       if (authError) throw authError;
       if (!authData.user) throw new Error('Falha ao criar usuário');
+      console.log('✅ Usuário criado:', authData.user.id);
       
       // Aguardar um pouco para garantir que o trigger de criação do profile seja executado
+      console.log('⏳ Aguardando criação do profile...');
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Fazer login imediato para estabelecer a sessão
+      console.log('🔐 Fazendo login automático...');
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: validated.adminEmail,
         password: validated.adminPassword
       });
       
       if (signInError) throw signInError;
+      console.log('✅ Sessão estabelecida');
       
       // Aguardar a sessão ser estabelecida
       await new Promise(resolve => setTimeout(resolve, 500));
       
       // Criar tenant
+      console.log('🏢 Criando tenant...');
       const { data: tenant, error: tenantError } = await supabase
         .from('tenants')
         .insert({
@@ -228,17 +239,27 @@ const Auth = () => {
         .select()
         .single();
       
-      if (tenantError) throw tenantError;
+      if (tenantError) {
+        console.error('❌ Erro ao criar tenant:', tenantError);
+        throw tenantError;
+      }
+      console.log('✅ Tenant criado:', tenant.id);
       
       // Atualizar profile com tenant_id
+      console.log('👤 Atualizando profile...');
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ tenant_id: tenant.id })
         .eq('id', authData.user.id);
       
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('❌ Erro ao atualizar profile:', profileError);
+        throw profileError;
+      }
+      console.log('✅ Profile atualizado');
       
       // Criar role de admin
+      console.log('🎭 Criando role de admin...');
       const { error: roleError } = await supabase
         .from('user_roles')
         .insert({
@@ -247,10 +268,15 @@ const Auth = () => {
           role: 'agency_admin'
         });
       
-      if (roleError) throw roleError;
+      if (roleError) {
+        console.error('❌ Erro ao criar role:', roleError);
+        throw roleError;
+      }
+      console.log('✅ Role criada');
       
       // Limpar rascunho e redirecionar
       localStorage.removeItem('signup_draft');
+      console.log('✅ Cadastro concluído com sucesso!');
       toast.success('Empresa cadastrada com sucesso!');
       navigate('/');
       
