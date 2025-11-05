@@ -240,7 +240,7 @@ const Auth = () => {
       toast.success('Empresa cadastrada com sucesso!');
       navigate('/');
       
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         const errors: Record<string, string> = {};
         error.errors.forEach(err => {
@@ -251,7 +251,17 @@ const Auth = () => {
         toast.error('Por favor, corrija os campos destacados');
       } else {
         console.error('Erro no cadastro:', error);
-        toast.error('Erro ao cadastrar empresa. Tente novamente.');
+        
+        // Mensagens de erro específicas
+        if (error?.message?.includes('User already registered')) {
+          toast.error('Este email já está cadastrado. Tente fazer login.');
+        } else if (error?.message?.includes('row-level security')) {
+          toast.error('Erro de permissão. Contate o suporte.');
+        } else if (error?.code === '23505') {
+          toast.error('CNPJ/CPF já cadastrado no sistema.');
+        } else {
+          toast.error(error?.message || 'Erro ao cadastrar empresa. Tente novamente.');
+        }
       }
     } finally {
       setIsLoading(false);
