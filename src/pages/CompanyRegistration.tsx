@@ -122,7 +122,8 @@ const CompanyRegistration = () => {
         .maybeSingle();
 
       if (!profile?.tenant_id) {
-        toast.error("Tenant não encontrado. Entre em contato com o administrador.");
+        toast.error("Configure sua agência antes de cadastrar clientes");
+        navigate('/agency-setup');
         return;
       }
 
@@ -142,7 +143,14 @@ const CompanyRegistration = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '42501') {
+          toast.error("Erro de permissão. Verifique se sua agência está configurada corretamente");
+          navigate('/agency-setup');
+          return;
+        }
+        throw error;
+      }
 
       setShowConfirmModal(false);
       toast.success("✅ Cliente cadastrado com sucesso!");

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { TenantProvider } from "./contexts/TenantContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { RequireTenant } from "./components/RequireTenant";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import CompanyRegistration from "./pages/CompanyRegistration";
@@ -43,22 +44,30 @@ const App = () => (
             } />
             <Route path="/registration" element={
               <ProtectedRoute>
-                <CompanyRegistration />
+                <RequireTenant>
+                  <CompanyRegistration />
+                </RequireTenant>
               </ProtectedRoute>
             } />
             <Route path="/strategy" element={
               <ProtectedRoute>
-                <Strategy />
+                <RequireTenant>
+                  <Strategy />
+                </RequireTenant>
               </ProtectedRoute>
             } />
             <Route path="/plan" element={
               <ProtectedRoute>
-                <Plan />
+                <RequireTenant>
+                  <Plan />
+                </RequireTenant>
               </ProtectedRoute>
             } />
             <Route path="/cards" element={
               <ProtectedRoute>
-                <Cards />
+                <RequireTenant>
+                  <Cards />
+                </RequireTenant>
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
