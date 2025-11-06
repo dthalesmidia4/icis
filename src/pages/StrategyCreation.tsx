@@ -24,13 +24,12 @@ export default function StrategyCreation() {
   const [strategyText, setStrategyText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  console.log('StrategyCreation - selectedClient:', selectedClient);
-
   useEffect(() => {
-    if (!selectedClient) {
-      setShowModal(true);
+    if (!selectedClient && !showModal) {
+      // Se o modal foi fechado sem selecionar um cliente, voltar ao hub
+      navigate('/');
     }
-  }, [selectedClient]);
+  }, [showModal, selectedClient, navigate]);
 
   const handleClientSelected = (client: Client) => {
     setSelectedClient(client);
@@ -92,12 +91,7 @@ export default function StrategyCreation() {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
       <ClientSelectionModal
         open={showModal}
-        onOpenChange={(open) => {
-          setShowModal(open);
-          if (!open && !selectedClient) {
-            navigate('/');
-          }
-        }}
+        onOpenChange={setShowModal}
         onClientSelected={handleClientSelected}
       />
 

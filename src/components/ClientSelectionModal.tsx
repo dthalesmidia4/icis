@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,15 @@ export const ClientSelectionModal = ({
   } = useTenant();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  
+  // Limpar o estado quando o modal fechar
+  useEffect(() => {
+    if (!open) {
+      setSelectedClient(null);
+      setSearchTerm('');
+    }
+  }, [open]);
+  
   const {
     data: clients,
     isLoading
@@ -53,9 +62,7 @@ export const ClientSelectionModal = ({
       return;
     }
     onClientSelected(selectedClient);
-    onOpenChange(false);
-    setSelectedClient(null);
-    setSearchTerm('');
+    // Não limpar imediatamente - deixar o componente pai gerenciar
   };
   return <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
