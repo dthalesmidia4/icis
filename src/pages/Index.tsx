@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Building2, FileText, Users, LogOut, Edit, CheckCircle2, UserPlus, BarChart3 } from "lucide-react";
+import { Building2, FileText, Users, LogOut, Edit, CheckCircle2, UserPlus, BarChart3, FileQuestion } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -80,6 +80,14 @@ const Index = () => {
       color: "from-emerald-500 to-emerald-600",
       route: "/strategies",
       emoji: "📊"
+    },
+    {
+      title: "Gerar Perguntas",
+      description: "Gere perguntas personalizadas para criar cronogramas de marketing baseados na estratégia",
+      icon: FileQuestion,
+      color: "from-orange-500 to-orange-600",
+      route: "/generate-questions",
+      emoji: "❓"
     }
   ];
 
