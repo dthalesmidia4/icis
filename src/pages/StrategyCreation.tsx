@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, ArrowLeft, Save } from 'lucide-react';
+import { Building2, ArrowLeft, Save, FileQuestion } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -75,6 +75,15 @@ export default function StrategyCreation() {
     } else {
       navigate('/');
     }
+  };
+
+  const handleGenerateQuestions = () => {
+    if (!strategyText.trim()) {
+      toast.error('Por favor, descreva a estratégia primeiro');
+      return;
+    }
+    // TODO: Implementar geração de perguntas
+    toast.info('Funcionalidade em desenvolvimento');
   };
 
   return (
@@ -154,6 +163,14 @@ export default function StrategyCreation() {
                 disabled={isSaving}
               >
                 Cancelar
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleGenerateQuestions}
+                disabled={isSaving || !strategyText.trim()}
+              >
+                <FileQuestion className="h-4 w-4 mr-2" />
+                Gerar perguntas para o cronograma
               </Button>
               <Button
                 onClick={handleSave}
