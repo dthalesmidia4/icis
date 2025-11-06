@@ -58,7 +58,6 @@ const Index = () => {
   const actionCards = [
     {
       title: "Cadastro de Clientes",
-      description: "Adicione novos clientes à sua base, com informações essenciais como nome, contato e setor",
       icon: UserPlus,
       color: "from-blue-500 to-blue-600",
       route: "/registration",
@@ -66,7 +65,6 @@ const Index = () => {
     },
     {
       title: "Lista de Clientes",
-      description: "Visualize todos os clientes cadastrados com filtros, buscas e opções de edição",
       icon: Users,
       color: "from-purple-500 to-purple-600",
       route: "/clientes",
@@ -74,7 +72,6 @@ const Index = () => {
     },
     {
       title: "Estratégias",
-      description: "Crie e acompanhe planos de marketing e ações estratégicas da empresa",
       icon: BarChart3,
       color: "from-emerald-500 to-emerald-600",
       route: "/strategies",
@@ -82,7 +79,6 @@ const Index = () => {
     },
     {
       title: "Gerar Perguntas",
-      description: "Gere perguntas personalizadas para criar cronogramas de marketing baseados na estratégia",
       icon: FileQuestion,
       color: "from-orange-500 to-orange-600",
       route: "/generate-questions",
@@ -155,11 +151,6 @@ const Index = () => {
                       <span className="text-2xl">{card.emoji}</span>
                       <h3 className="text-xl font-semibold">{card.title}</h3>
                     </div>
-
-                    {/* Descrição */}
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {card.description}
-                    </p>
 
                     {/* Indicador de Hover */}
                     <div className="mt-4 flex items-center text-primary text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
