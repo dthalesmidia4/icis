@@ -93,10 +93,7 @@ const Index = () => {
               </Avatar>
               <div>
                 <h3 className="text-lg font-semibold">{tenantName || 'Carregando...'}</h3>
-                <Badge variant="outline" className="mt-0.5">
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                  {tenantData?.status || 'ativo'}
-                </Badge>
+                
               </div>
             </div>
 
