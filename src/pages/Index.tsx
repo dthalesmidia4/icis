@@ -137,12 +137,7 @@ const Index = () => {
                     <h3 className="text-xl font-semibold mb-3">{card.title}</h3>
 
                     {/* Indicador de Hover */}
-                    <div className="mt-4 flex items-center text-primary text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                      Acessar
-                      <svg className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
+                    
                   </CardContent>
                 </Card>;
           })}
