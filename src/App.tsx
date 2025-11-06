@@ -21,6 +21,7 @@ import StrategyCreation from "./pages/StrategyCreation";
 import GenerateQuestions from "./pages/GenerateQuestions";
 import DevHub from "./pages/DevHub";
 import DevPrompts from "./pages/DevPrompts";
+import DevApis from "./pages/DevApis";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -123,6 +124,13 @@ const App = () => (
             <ProtectedRoute>
               <RequireTenant>
                 <DevPrompts />
+              </RequireTenant>
+            </ProtectedRoute>
+          } />
+          <Route path="/dev/apis" element={
+            <ProtectedRoute>
+              <RequireTenant>
+                <DevApis />
               </RequireTenant>
             </ProtectedRoute>
           } />
