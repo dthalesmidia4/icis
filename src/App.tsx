@@ -17,6 +17,7 @@ import AgencySetup from "./pages/AgencySetup";
 import ClientList from "./pages/ClientList";
 import ClientDetails from "./pages/ClientDetails";
 import ClientStrategies from "./pages/ClientStrategies";
+import StrategyCreation from "./pages/StrategyCreation";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -91,6 +92,13 @@ const App = () => (
             <ProtectedRoute>
               <RequireTenant>
                 <ClientStrategies />
+              </RequireTenant>
+            </ProtectedRoute>
+          } />
+          <Route path="/strategies" element={
+            <ProtectedRoute>
+              <RequireTenant>
+                <StrategyCreation />
               </RequireTenant>
             </ProtectedRoute>
           } />

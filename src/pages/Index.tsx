@@ -78,7 +78,7 @@ const Index = () => {
       description: "Crie e acompanhe planos de marketing e ações estratégicas da empresa",
       icon: BarChart3,
       color: "from-emerald-500 to-emerald-600",
-      route: "/strategy",
+      route: "/strategies",
       emoji: "📊"
     }
   ];
