@@ -257,7 +257,7 @@ export type Database = {
             foreignKeyName: "strategies_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "companies"
+            referencedRelation: "tenant_companies"
             referencedColumns: ["id"]
           },
           {
