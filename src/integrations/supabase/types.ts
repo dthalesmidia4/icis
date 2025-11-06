@@ -215,6 +215,42 @@ export type Database = {
           },
         ]
       }
+      question_sessions: {
+        Row: {
+          answers: Json
+          company_id: string
+          created_at: string
+          id: string
+          questions: Json
+          status: string
+          strategy_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          answers?: Json
+          company_id: string
+          created_at?: string
+          id?: string
+          questions?: Json
+          status?: string
+          strategy_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          answers?: Json
+          company_id?: string
+          created_at?: string
+          id?: string
+          questions?: Json
+          status?: string
+          strategy_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       strategies: {
         Row: {
           company_id: string
