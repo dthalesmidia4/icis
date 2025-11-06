@@ -70,7 +70,7 @@ const Index = () => {
       description: "Visualize todos os clientes cadastrados com filtros, buscas e opções de edição",
       icon: Users,
       color: "from-purple-500 to-purple-600",
-      route: "/registration", // Pode criar rota específica depois
+      route: "/clientes",
       emoji: "📋"
     },
     {

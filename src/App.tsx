@@ -14,6 +14,9 @@ import Plan from "./pages/Plan";
 import Cards from "./pages/Cards";
 import AdminDashboard from "./pages/AdminDashboard";
 import AgencySetup from "./pages/AgencySetup";
+import ClientList from "./pages/ClientList";
+import ClientDetails from "./pages/ClientDetails";
+import ClientStrategies from "./pages/ClientStrategies";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -67,6 +70,27 @@ const App = () => (
               <ProtectedRoute>
                 <RequireTenant>
                   <Cards />
+                </RequireTenant>
+              </ProtectedRoute>
+            } />
+            <Route path="/clientes" element={
+              <ProtectedRoute>
+                <RequireTenant>
+                  <ClientList />
+                </RequireTenant>
+              </ProtectedRoute>
+            } />
+            <Route path="/clientes/:id" element={
+              <ProtectedRoute>
+                <RequireTenant>
+                  <ClientDetails />
+                </RequireTenant>
+              </ProtectedRoute>
+            } />
+            <Route path="/clientes/:id/estrategias" element={
+              <ProtectedRoute>
+                <RequireTenant>
+                  <ClientStrategies />
                 </RequireTenant>
               </ProtectedRoute>
             } />
