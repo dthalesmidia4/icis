@@ -10,11 +10,18 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
 import { toast } from "sonner";
-
 const Index = () => {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
-  const { tenantName, tenantType, tenantId, isLoading: tenantLoading } = useTenant();
+  const {
+    user,
+    signOut
+  } = useAuth();
+  const {
+    tenantName,
+    tenantType,
+    tenantId,
+    isLoading: tenantLoading
+  } = useTenant();
 
   // Redirecionar para setup se não tiver tenant configurado
   useEffect(() => {
@@ -25,69 +32,54 @@ const Index = () => {
   }, [tenantLoading, user, tenantId, navigate]);
 
   // Buscar informações detalhadas do tenant
-  const { data: tenantData } = useQuery({
+  const {
+    data: tenantData
+  } = useQuery({
     queryKey: ['tenant-details', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
-      const { data, error } = await supabase
-        .from('tenants')
-        .select('*')
-        .eq('id', tenantId)
-        .single();
-      
+      const {
+        data,
+        error
+      } = await supabase.from('tenants').select('*').eq('id', tenantId).single();
       if (error) throw error;
       return data;
     },
     enabled: !!tenantId
   });
-
   const handleSignOut = async () => {
     await signOut();
     navigate("/auth");
   };
-
   const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+    return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
   };
-
-  const actionCards = [
-    {
-      title: "Cadastro de Clientes",
-      icon: UserPlus,
-      color: "from-blue-500 to-blue-600",
-      route: "/registration",
-      emoji: "💬"
-    },
-    {
-      title: "Lista de Clientes",
-      icon: Users,
-      color: "from-purple-500 to-purple-600",
-      route: "/clientes",
-      emoji: "📋"
-    },
-    {
-      title: "Estratégias",
-      icon: BarChart3,
-      color: "from-emerald-500 to-emerald-600",
-      route: "/strategies",
-      emoji: "📊"
-    },
-    {
-      title: "Gerar Perguntas",
-      icon: FileQuestion,
-      color: "from-orange-500 to-orange-600",
-      route: "/generate-questions",
-      emoji: "❓"
-    }
-  ];
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
+  const actionCards = [{
+    title: "Cadastro de Clientes",
+    icon: UserPlus,
+    color: "from-blue-500 to-blue-600",
+    route: "/registration",
+    emoji: "💬"
+  }, {
+    title: "Lista de Clientes",
+    icon: Users,
+    color: "from-purple-500 to-purple-600",
+    route: "/clientes",
+    emoji: "📋"
+  }, {
+    title: "Estratégias",
+    icon: BarChart3,
+    color: "from-emerald-500 to-emerald-600",
+    route: "/strategies",
+    emoji: "📊"
+  }, {
+    title: "Gerar Perguntas",
+    icon: FileQuestion,
+    color: "from-orange-500 to-orange-600",
+    route: "/generate-questions",
+    emoji: "❓"
+  }];
+  return <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
       {/* Navbar - Informações da Empresa */}
       <nav className="w-full bg-card border-b border-border sticky top-0 z-50">
         <div className="container max-w-7xl mx-auto px-6 py-4">
@@ -133,13 +125,8 @@ const Index = () => {
           {/* Cards de Ação */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {actionCards.map((card, index) => {
-              const Icon = card.icon;
-              return (
-                <Card 
-                  key={index}
-                  className="group cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 hover:border-primary/50"
-                  onClick={() => navigate(card.route)}
-                >
+            const Icon = card.icon;
+            return <Card key={index} className="group cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 hover:border-primary/50" onClick={() => navigate(card.route)}>
                   <CardContent className="p-6">
                     {/* Ícone com Gradiente */}
                     <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${card.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
@@ -148,7 +135,7 @@ const Index = () => {
 
                     {/* Emoji e Título */}
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-2xl">{card.emoji}</span>
+                      
                       <h3 className="text-xl font-semibold">{card.title}</h3>
                     </div>
 
@@ -160,23 +147,18 @@ const Index = () => {
                       </svg>
                     </div>
                   </CardContent>
-                </Card>
-              );
-            })}
+                </Card>;
+          })}
           </div>
 
           {/* Footer Info */}
-          {user && (
-            <div className="mt-12 text-center">
+          {user && <div className="mt-12 text-center">
               <p className="text-xs text-muted-foreground">
                 Logado como: <span className="font-medium">{user.email}</span>
               </p>
-            </div>
-          )}
+            </div>}
         </div>
       </main>
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
