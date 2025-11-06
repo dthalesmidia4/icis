@@ -24,6 +24,8 @@ export default function StrategyCreation() {
   const [strategyText, setStrategyText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  console.log('StrategyCreation - selectedClient:', selectedClient);
+
   useEffect(() => {
     if (!selectedClient) {
       setShowModal(true);
