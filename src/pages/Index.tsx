@@ -127,17 +127,14 @@ const Index = () => {
             {actionCards.map((card, index) => {
             const Icon = card.icon;
             return <Card key={index} className="group cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 hover:border-primary/50" onClick={() => navigate(card.route)}>
-                  <CardContent className="p-6">
+                  <CardContent className="p-6 flex flex-col items-center text-center">
                     {/* Ícone com Gradiente */}
-                    <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${card.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                      <Icon className="h-7 w-7 text-white" />
+                    <div className={`h-20 w-20 rounded-2xl bg-gradient-to-br ${card.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                      <Icon className="h-10 w-10 text-white" />
                     </div>
 
-                    {/* Emoji e Título */}
-                    <div className="flex items-center gap-2 mb-3">
-                      
-                      <h3 className="text-xl font-semibold">{card.title}</h3>
-                    </div>
+                    {/* Título */}
+                    <h3 className="text-xl font-semibold mb-3">{card.title}</h3>
 
                     {/* Indicador de Hover */}
                     <div className="mt-4 flex items-center text-primary text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
