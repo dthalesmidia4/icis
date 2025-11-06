@@ -44,17 +44,29 @@ export default function StrategyCreation() {
     }
     setIsSaving(true);
     try {
-      const {
-        error
-      } = await supabase.from('strategies').insert({
-        company_id: selectedClient.id,
-        tenant_id: tenantId,
-        strategy_text: strategyText,
-        status: 'Em elaboração'
-      });
+      const { data, error } = await supabase
+        .from('strategies')
+        .insert({
+          company_id: selectedClient.id,
+          tenant_id: tenantId,
+          strategy_text: strategyText,
+          status: 'Em elaboração'
+        })
+        .select()
+        .single();
+      
       if (error) throw error;
+      
       toast.success('✅ Estratégia criada com sucesso!');
-      navigate('/');
+      
+      // Navegar para geração de perguntas
+      navigate('/generate-questions', {
+        state: {
+          companyId: selectedClient.id,
+          strategyId: data.id,
+          companyName: selectedClient.name
+        }
+      });
     } catch (error) {
       console.error('Erro ao salvar estratégia:', error);
       toast.error('Erro ao salvar estratégia. Tente novamente.');
