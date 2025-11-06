@@ -269,6 +269,36 @@ export type Database = {
           },
         ]
       }
+      system_prompts: {
+        Row: {
+          created_at: string
+          id: string
+          prompt_content: string
+          prompt_key: string
+          prompt_title: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          prompt_content: string
+          prompt_key: string
+          prompt_title: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          prompt_content?: string
+          prompt_key?: string
+          prompt_title?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tenant_companies: {
         Row: {
           cnpj_cpf: string

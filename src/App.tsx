@@ -20,6 +20,7 @@ import ClientStrategies from "./pages/ClientStrategies";
 import StrategyCreation from "./pages/StrategyCreation";
 import GenerateQuestions from "./pages/GenerateQuestions";
 import DevHub from "./pages/DevHub";
+import DevPrompts from "./pages/DevPrompts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -115,6 +116,13 @@ const App = () => (
             <ProtectedRoute>
               <RequireTenant>
                 <DevHub />
+              </RequireTenant>
+            </ProtectedRoute>
+          } />
+          <Route path="/dev/prompts" element={
+            <ProtectedRoute>
+              <RequireTenant>
+                <DevPrompts />
               </RequireTenant>
             </ProtectedRoute>
           } />
