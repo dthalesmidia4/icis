@@ -87,13 +87,13 @@ const App = () => (
                 </RequireTenant>
               </ProtectedRoute>
             } />
-            <Route path="/clientes/:id/estrategias" element={
-              <ProtectedRoute>
-                <RequireTenant>
-                  <ClientStrategies />
-                </RequireTenant>
-              </ProtectedRoute>
-            } />
+          <Route path="/clientes/:id/planejamentos" element={
+            <ProtectedRoute>
+              <RequireTenant>
+                <ClientStrategies />
+              </RequireTenant>
+            </ProtectedRoute>
+          } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

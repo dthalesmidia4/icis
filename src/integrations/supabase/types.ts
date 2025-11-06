@@ -127,6 +127,7 @@ export type Database = {
           created_at: string
           id: string
           plan_data: Json
+          strategy_id: string | null
           tenant_id: string
           updated_at: string
         }
@@ -137,6 +138,7 @@ export type Database = {
           created_at?: string
           id?: string
           plan_data: Json
+          strategy_id?: string | null
           tenant_id: string
           updated_at?: string
         }
@@ -147,6 +149,7 @@ export type Database = {
           created_at?: string
           id?: string
           plan_data?: Json
+          strategy_id?: string | null
           tenant_id?: string
           updated_at?: string
         }
@@ -156,6 +159,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_plans_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
             referencedColumns: ["id"]
           },
           {
@@ -210,6 +220,10 @@ export type Database = {
           company_id: string
           created_at: string
           id: string
+          name: string | null
+          period_end: string | null
+          period_start: string | null
+          status: string | null
           strategy_text: string
           tenant_id: string
           updated_at: string
@@ -218,6 +232,10 @@ export type Database = {
           company_id: string
           created_at?: string
           id?: string
+          name?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          status?: string | null
           strategy_text: string
           tenant_id: string
           updated_at?: string
@@ -226,6 +244,10 @@ export type Database = {
           company_id?: string
           created_at?: string
           id?: string
+          name?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          status?: string | null
           strategy_text?: string
           tenant_id?: string
           updated_at?: string

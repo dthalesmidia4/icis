@@ -235,17 +235,18 @@ const ClientDetails = () => {
                     <BarChart3 className="h-6 w-6 text-primary-foreground" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold mb-1">Estratégias e Planos</h3>
+                    <h3 className="text-lg font-semibold mb-1">Estratégias e Planejamentos</h3>
                     <p className="text-sm text-muted-foreground">
-                      Acompanhe e gerencie as estratégias de marketing deste cliente
+                      Acompanhe e gerencie as estratégias de marketing e os planejamentos deste cliente
                     </p>
                   </div>
                 </div>
                 <Button
-                  onClick={() => navigate(`/clientes/${client.id}/estrategias`)}
+                  onClick={() => navigate(`/clientes/${client.id}/planejamentos`)}
                   className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
                 >
-                  Ver Estratégias
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Ver Estratégias e Planejamentos
                 </Button>
               </div>
             </CardContent>
