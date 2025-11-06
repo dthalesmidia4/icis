@@ -127,7 +127,10 @@ export default function StrategyCreation() {
               <Button variant="outline" onClick={handleBack} disabled={isSaving}>
                 Cancelar
               </Button>
-              
+              <Button variant="secondary" onClick={handleGenerateQuestions} disabled={isSaving || !strategyText.trim()}>
+                <FileQuestion className="h-4 w-4 mr-2" />
+                Gerar perguntas para o cronograma
+              </Button>
               <Button onClick={handleSave} disabled={isSaving || !strategyText.trim()} className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
                 <Save className="h-4 w-4 mr-2" />
                 {isSaving ? 'Salvando...' : 'Salvar Estratégia'}
