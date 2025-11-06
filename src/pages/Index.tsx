@@ -113,11 +113,11 @@ const Index = () => {
       <main className="p-6 lg:p-12">
         <div className="max-w-5xl mx-auto">
           {/* Header */}
-          <div className="mb-12 text-center lg:text-left">
-            <h1 className="text-3xl md:text-4xl font-bold mb-3">
+          <div className="mb-16 text-center">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
               Hub de Controle
             </h1>
-            <p className="text-muted-foreground text-lg">
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               Acesse rapidamente as principais funcionalidades da plataforma
             </p>
           </div>
