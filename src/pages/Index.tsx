@@ -97,11 +97,16 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Botão Sair */}
-            <Button variant="ghost" size="sm" onClick={handleSignOut}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sair
-            </Button>
+            {/* Menu de Navegação */}
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => navigate('/dev-hub')}>
+                Dev
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Sair
+              </Button>
+            </div>
           </div>
         </div>
       </nav>
