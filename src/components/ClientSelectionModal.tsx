@@ -91,8 +91,6 @@ export const ClientSelectionModal = ({
                   </div>
                 </div>)}
             </div>}
-
-          {selectedClient}
         </div>
 
         <div className="flex justify-end gap-2">
