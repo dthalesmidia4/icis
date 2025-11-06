@@ -127,7 +127,7 @@ const Index = () => {
             {actionCards.map((card, index) => {
             const Icon = card.icon;
             return <Card key={index} className="group cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 hover:border-primary/50" onClick={() => navigate(card.route)}>
-                  <CardContent className="p-6 flex flex-col items-center text-center">
+                  <CardContent className="p-6 flex flex-col items-center text-center px-[24px] py-[24px] my-[24px] mx-[24px]">
                     {/* Ícone com Gradiente */}
                     <div className={`h-20 w-20 rounded-2xl bg-gradient-to-br ${card.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
                       <Icon className="h-10 w-10 text-white" />
