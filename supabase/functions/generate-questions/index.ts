@@ -101,21 +101,29 @@ As perguntas devem cobrir aspectos como:
 - Canais de divulgação preferidos
 `;
 
-    // Chamar Lovable AI
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY não configurada');
+    // Buscar chave da API OpenAI
+    const { data: apiKeyData, error: apiKeyError } = await supabase
+      .from('api_keys')
+      .select('key_value')
+      .eq('key_name', 'OPENAI_API_KEY')
+      .single();
+
+    if (apiKeyError || !apiKeyData) {
+      console.error('Error fetching API key:', apiKeyError);
+      throw new Error('Chave da API OpenAI não configurada. Configure em Dev → APIs');
     }
 
-    console.log('Calling Lovable AI...');
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const openaiApiKey = apiKeyData.key_value;
+
+    console.log('Calling OpenAI API...');
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
         messages: [
           { 
             role: 'system', 
@@ -127,27 +135,28 @@ As perguntas devem cobrir aspectos como:
           }
         ],
         temperature: 0.7,
+        max_tokens: 2000,
       }),
     });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('AI Gateway error:', aiResponse.status, errorText);
+      console.error('OpenAI API error:', aiResponse.status, errorText);
       
       if (aiResponse.status === 429) {
         return new Response(
-          JSON.stringify({ error: 'Limite de requisições excedido. Tente novamente em alguns instantes.' }), 
+          JSON.stringify({ error: 'Limite de requisições excedido na API OpenAI. Tente novamente em alguns instantes.' }), 
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (aiResponse.status === 402) {
+      if (aiResponse.status === 401) {
         return new Response(
-          JSON.stringify({ error: 'Créditos insuficientes. Por favor, adicione créditos ao seu workspace.' }), 
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Chave da API OpenAI inválida. Verifique sua configuração em Dev → APIs.' }), 
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
-      throw new Error('Erro ao gerar perguntas com IA');
+      throw new Error('Erro ao gerar perguntas com OpenAI');
     }
 
     const aiData = await aiResponse.json();

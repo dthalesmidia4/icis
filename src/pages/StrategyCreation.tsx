@@ -42,9 +42,14 @@ export default function StrategyCreation() {
       toast.error('Informações do cliente ou tenant não encontradas');
       return;
     }
+    
     setIsSaving(true);
+    
     try {
-      const { data, error } = await supabase
+      // 1. Salvar a estratégia
+      toast.info('Salvando estratégia...');
+      
+      const { data: strategyData, error: strategyError } = await supabase
         .from('strategies')
         .insert({
           company_id: selectedClient.id,
@@ -55,18 +60,63 @@ export default function StrategyCreation() {
         .select()
         .single();
       
-      if (error) throw error;
+      if (strategyError) throw strategyError;
       
-      toast.success('✅ Estratégia criada com sucesso!');
+      toast.success('✅ Estratégia salva com sucesso!');
       
-      // Navegar para geração de perguntas
+      // 2. Gerar perguntas automaticamente
+      toast.info('🤖 Gerando perguntas guias com base na estratégia e nos dados do cliente...');
+      
+      const { data: questionData, error: questionError } = await supabase.functions.invoke(
+        'generate-questions',
+        {
+          body: {
+            companyId: selectedClient.id,
+            strategyId: strategyData.id,
+            tenantId: tenantId
+          }
+        }
+      );
+
+      if (questionError) {
+        console.error('Erro ao gerar perguntas:', questionError);
+        toast.error('⚠️ Não foi possível gerar as perguntas guias. Tente novamente mais tarde.');
+        // Mesmo com erro nas perguntas, navegar para a próxima tela
+        navigate('/generate-questions', {
+          state: {
+            companyId: selectedClient.id,
+            strategyId: strategyData.id,
+            companyName: selectedClient.name
+          }
+        });
+        return;
+      }
+
+      if (questionData?.error) {
+        console.error('Erro na resposta:', questionData.error);
+        toast.error(`⚠️ ${questionData.error}`);
+        navigate('/generate-questions', {
+          state: {
+            companyId: selectedClient.id,
+            strategyId: strategyData.id,
+            companyName: selectedClient.name
+          }
+        });
+        return;
+      }
+      
+      toast.success('✅ Perguntas guias geradas com sucesso!');
+      
+      // 3. Navegar para a página de perguntas
       navigate('/generate-questions', {
         state: {
           companyId: selectedClient.id,
-          strategyId: data.id,
-          companyName: selectedClient.name
+          strategyId: strategyData.id,
+          companyName: selectedClient.name,
+          sessionId: questionData.sessionId
         }
       });
+      
     } catch (error) {
       console.error('Erro ao salvar estratégia:', error);
       toast.error('Erro ao salvar estratégia. Tente novamente.');
