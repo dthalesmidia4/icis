@@ -156,17 +156,7 @@ export default function GenerateQuestions() {
   };
 
   const handleBack = () => {
-    if (showQuestions) {
-      setShowQuestions(false);
-      setQuestions([]);
-      setAnswers({});
-      setCurrentQuestionIndex(0);
-    } else if (selectedClient) {
-      setSelectedClient(null);
-      setSelectedStrategy(null);
-    } else {
-      navigate('/');
-    }
+    navigate('/');
   };
 
   const progress = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
