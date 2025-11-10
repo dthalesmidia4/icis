@@ -165,7 +165,7 @@ export default function GenerateQuestions() {
       setSelectedClient(null);
       setSelectedStrategy(null);
     } else {
-      navigate('/dev');
+      navigate('/');
     }
   };
 
@@ -179,7 +179,7 @@ export default function GenerateQuestions() {
         onOpenChange={(open) => {
           setShowModal(open);
           if (!open && !selectedClient) {
-            navigate('/dev');
+            navigate('/');
           }
         }}
         onClientSelected={handleClientSelected}
