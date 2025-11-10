@@ -15,7 +15,6 @@ interface ConfirmationModalProps {
   title: string;
   description: string;
   onConfirm: () => void;
-  onCancel?: () => void;
   loading?: boolean;
 }
 
@@ -25,7 +24,6 @@ export const ConfirmationModal = ({
   title,
   description,
   onConfirm,
-  onCancel,
   loading = false,
 }: ConfirmationModalProps) => {
   return (
@@ -43,10 +41,7 @@ export const ConfirmationModal = ({
         <DialogFooter className="sm:justify-center gap-2">
           <Button
             variant="outline"
-            onClick={() => {
-              onOpenChange(false);
-              onCancel?.();
-            }}
+            onClick={() => onOpenChange(false)}
             disabled={loading}
           >
             Cancelar
