@@ -64,10 +64,13 @@ export default function StrategyCreation() {
       
       toast.success('✅ Estratégia salva com sucesso!');
       
-      // 2. Gerar perguntas automaticamente
-      toast.info('🤖 Gerando perguntas guias com base na estratégia e nos dados do cliente...');
+      // 2. Gerar perguntas automaticamente em background
+      toast.info('🤖 Gerando perguntas guias com base na estratégia. Isso pode levar alguns segundos…', {
+        duration: 5000,
+      });
       
-      const { data: questionData, error: questionError } = await supabase.functions.invoke(
+      // Disparar geração de perguntas em background
+      supabase.functions.invoke(
         'generate-questions',
         {
           body: {
@@ -76,44 +79,22 @@ export default function StrategyCreation() {
             tenantId: tenantId
           }
         }
-      );
-
-      if (questionError) {
-        console.error('Erro ao gerar perguntas:', questionError);
-        toast.error('⚠️ Não foi possível gerar as perguntas guias. Tente novamente mais tarde.');
-        // Mesmo com erro nas perguntas, navegar para a próxima tela
-        navigate('/generate-questions', {
-          state: {
-            companyId: selectedClient.id,
-            strategyId: strategyData.id,
-            companyName: selectedClient.name
-          }
-        });
-        return;
-      }
-
-      if (questionData?.error) {
-        console.error('Erro na resposta:', questionData.error);
-        toast.error(`⚠️ ${questionData.error}`);
-        navigate('/generate-questions', {
-          state: {
-            companyId: selectedClient.id,
-            strategyId: strategyData.id,
-            companyName: selectedClient.name
-          }
-        });
-        return;
-      }
+      ).then(({ data: questionData, error: questionError }) => {
+        if (questionError || questionData?.error) {
+          console.error('Erro ao gerar perguntas:', questionError || questionData.error);
+          toast.error('⚠️ Não foi possível gerar as perguntas guias. Tente novamente mais tarde.');
+        } else {
+          toast.success('✅ Perguntas guias geradas com sucesso!');
+        }
+      });
       
-      toast.success('✅ Perguntas guias geradas com sucesso!');
-      
-      // 3. Navegar para a página de perguntas
-      navigate('/generate-questions', {
+      // 3. Navegar imediatamente para a página de perguntas
+      navigate('/questions', {
         state: {
           companyId: selectedClient.id,
           strategyId: strategyData.id,
           companyName: selectedClient.name,
-          sessionId: questionData.sessionId
+          companyCnpjCpf: selectedClient.cnpj_cpf
         }
       });
       
