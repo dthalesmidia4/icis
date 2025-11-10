@@ -275,6 +275,7 @@ Objetivo Principal: ${formData.main_objective}
         title="Confirmar Estratégia"
         description="Deseja salvar esta estratégia e gerar o plano mensal?"
         onConfirm={confirmSubmit}
+        onCancel={() => navigate("/")}
         loading={loading}
       />
     </div>
