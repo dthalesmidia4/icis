@@ -73,7 +73,7 @@ const Index = () => {
     route: "/strategies",
     emoji: "📊"
   }, {
-    title: "Gerar Perguntas",
+    title: "Perguntas Guias",
     icon: FileQuestion,
     color: "from-orange-500 to-orange-600",
     route: "/generate-questions",
