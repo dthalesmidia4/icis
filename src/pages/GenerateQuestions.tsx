@@ -38,7 +38,6 @@ export default function GenerateQuestions() {
   const { tenantId } = useTenant();
   const [showModal, setShowModal] = useState(true);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [selectedStrategy, setSelectedStrategy] = useState<Strategy | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -46,20 +45,22 @@ export default function GenerateQuestions() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [showQuestions, setShowQuestions] = useState(false);
 
-  const { data: strategies, isLoading: loadingStrategies } = useQuery({
-    queryKey: ['strategies', selectedClient?.id, tenantId],
+  const { data: clientStrategy, isLoading: loadingStrategy } = useQuery({
+    queryKey: ['client-strategy', selectedClient?.id, tenantId],
     queryFn: async () => {
-      if (!selectedClient || !tenantId) return [];
+      if (!selectedClient || !tenantId) return null;
 
       const { data, error } = await supabase
         .from('strategies')
         .select('*')
         .eq('company_id', selectedClient.id)
         .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
 
-      if (error) throw error;
-      return data as Strategy[];
+      if (error && error.code !== 'PGRST116') throw error;
+      return data as Strategy | null;
     },
     enabled: !!selectedClient && !!tenantId
   });
@@ -70,8 +71,8 @@ export default function GenerateQuestions() {
   };
 
   const handleGenerateQuestions = async () => {
-    if (!selectedStrategy || !selectedClient || !tenantId) {
-      toast.error('Selecione uma estratégia');
+    if (!clientStrategy || !selectedClient || !tenantId) {
+      toast.error('Cliente não possui estratégia cadastrada');
       return;
     }
 
@@ -81,7 +82,7 @@ export default function GenerateQuestions() {
       const { data, error } = await supabase.functions.invoke('generate-questions', {
         body: {
           companyId: selectedClient.id,
-          strategyId: selectedStrategy.id,
+          strategyId: clientStrategy.id,
           tenantId: tenantId
         }
       });
@@ -216,18 +217,15 @@ export default function GenerateQuestions() {
             <div className="space-y-4">
               <div>
                 <Label className="text-base font-semibold">
-                  Selecione uma estratégia *
+                  Estratégia do Cliente
                 </Label>
-                <p className="text-sm text-muted-foreground mt-1 mb-3">
-                  Escolha a estratégia que será usada para gerar as perguntas
-                </p>
               </div>
 
-              {loadingStrategies ? (
+              {loadingStrategy ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  Carregando estratégias...
+                  Carregando estratégia...
                 </div>
-              ) : !strategies || strategies.length === 0 ? (
+              ) : !clientStrategy ? (
                 <Card className="p-8 text-center border-dashed">
                   <p className="text-muted-foreground mb-4">
                     Nenhuma estratégia encontrada para este cliente.
@@ -240,33 +238,19 @@ export default function GenerateQuestions() {
                   </Button>
                 </Card>
               ) : (
-                <div className="space-y-3">
-                  {strategies.map((strategy) => (
-                    <Card
-                      key={strategy.id}
-                      className={`p-4 cursor-pointer transition-all border-2 ${
-                        selectedStrategy?.id === strategy.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/50 hover:bg-accent/50'
-                      }`}
-                      onClick={() => setSelectedStrategy(strategy)}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <h4 className="font-semibold mb-1">
-                            {strategy.name || 'Estratégia sem nome'}
-                          </h4>
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {strategy.strategy_text}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            Status: {strategy.status}
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
+                <Card className="p-6 bg-gradient-to-br from-primary/5 to-secondary/5 border-2 border-primary/20">
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-lg">
+                      {clientStrategy.name || 'Estratégia sem nome'}
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      {clientStrategy.strategy_text}
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t border-border/50">
+                      <span>Status: {clientStrategy.status}</span>
+                    </div>
+                  </div>
+                </Card>
               )}
             </div>
 
@@ -280,7 +264,7 @@ export default function GenerateQuestions() {
               </Button>
               <Button
                 onClick={handleGenerateQuestions}
-                disabled={isGenerating || !selectedStrategy}
+                disabled={isGenerating || !clientStrategy}
                 className="bg-gradient-to-r from-orange-500 to-orange-600 hover:opacity-90"
               >
                 <Sparkles className="h-4 w-4 mr-2" />
