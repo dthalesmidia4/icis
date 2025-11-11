@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, ArrowLeft, Save, Edit2 } from 'lucide-react';
+import { Building2, ArrowLeft, Save, Edit2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -29,7 +29,9 @@ export default function StrategyCreation() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showCancelEditModal, setShowCancelEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isLoadingStrategy, setIsLoadingStrategy] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   useEffect(() => {
     if (!selectedClient && !showModal) {
       // Se o modal foi fechado sem selecionar um cliente, voltar ao hub
@@ -166,12 +168,40 @@ export default function StrategyCreation() {
       navigate('/');
     }
   };
+
+  const handleDeleteStrategy = async () => {
+    if (!existingStrategy) return;
+
+    setIsDeleting(true);
+    try {
+      // Deletar a estratégia
+      const { error } = await supabase
+        .from('strategies')
+        .delete()
+        .eq('id', existingStrategy.id);
+
+      if (error) throw error;
+
+      toast.success('✅ Estratégia removida com sucesso!');
+      
+      // Redirecionar para o hub
+      navigate('/');
+    } catch (error) {
+      console.error('Erro ao remover estratégia:', error);
+      toast.error('Erro ao remover estratégia. Tente novamente.');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+    }
+  };
   return <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
       <ClientSelectionModal open={showModal} onOpenChange={setShowModal} onClientSelected={handleClientSelected} />
       
       <ConfirmationModal open={showConfirmModal} onOpenChange={setShowConfirmModal} title="Substituir estratégia existente?" description="A estratégia anterior será substituída pela nova versão. Esta ação não pode ser desfeita. Deseja continuar?" onConfirm={handleSave} loading={isSaving} />
 
       <ConfirmationModal open={showCancelEditModal} onOpenChange={setShowCancelEditModal} title="Descartar alterações?" description="As alterações que você fez na estratégia não serão salvas. Deseja realmente cancelar a edição?" onConfirm={handleCancelEdit} loading={false} />
+
+      <ConfirmationModal open={showDeleteModal} onOpenChange={setShowDeleteModal} title="Remover estratégia?" description="Esta ação não pode ser desfeita. A estratégia e todas as perguntas guias relacionadas serão removidas permanentemente. Deseja continuar?" onConfirm={handleDeleteStrategy} loading={isDeleting} />
 
       {selectedClient && <div className="container max-w-4xl mx-auto py-8 px-4">
           <Button variant="ghost" onClick={handleBack} className="mb-6">
@@ -229,26 +259,42 @@ export default function StrategyCreation() {
                 </Card> : <Textarea id="strategy" placeholder="Exemplo: Aumentar presença digital através de conteúdo educativo nas redes sociais, focando em LinkedIn e Instagram. Público-alvo: profissionais de 25-45 anos interessados em tecnologia..." value={strategyText} onChange={e => setStrategyText(e.target.value)} className="min-h-[300px] resize-y" />}
             </div>
 
-            <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={handleBack} disabled={isSaving}>
-                {isEditMode && existingStrategy ? 'Cancelar Edição' : 'Cancelar'}
-              </Button>
-              
-              {existingStrategy && !isEditMode && <Button variant="secondary" onClick={() => navigate('/generate-questions', {
-            state: {
-              companyId: selectedClient.id,
-              strategyId: existingStrategy.id,
-              companyName: selectedClient.name,
-              companyCnpjCpf: selectedClient.cnpj_cpf
-            }
-          })}>
-                  Ver Perguntas Guias
-                </Button>}
-              
-              {isEditMode && <Button onClick={handleSaveClick} disabled={isSaving || !strategyText.trim()} className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
-                  <Save className="h-4 w-4 mr-2" />
-                  {isSaving ? 'Salvando...' : 'Salvar Estratégia'}
-                </Button>}
+            <div className="flex justify-between items-center gap-3 pt-4">
+              <div>
+                {existingStrategy && !isEditMode && (
+                  <Button 
+                    variant="destructive" 
+                    onClick={() => setShowDeleteModal(true)}
+                    disabled={isDeleting}
+                    className="gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Remover Estratégia
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={handleBack} disabled={isSaving}>
+                  {isEditMode && existingStrategy ? 'Cancelar Edição' : 'Cancelar'}
+                </Button>
+                
+                {existingStrategy && !isEditMode && <Button variant="secondary" onClick={() => navigate('/generate-questions', {
+              state: {
+                companyId: selectedClient.id,
+                strategyId: existingStrategy.id,
+                companyName: selectedClient.name,
+                companyCnpjCpf: selectedClient.cnpj_cpf
+              }
+            })}>
+                    Ver Perguntas Guias
+                  </Button>}
+                
+                {isEditMode && <Button onClick={handleSaveClick} disabled={isSaving || !strategyText.trim()} className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? 'Salvando...' : 'Salvar Estratégia'}
+                  </Button>}
+              </div>
             </div>
           </div>
         </div>}
