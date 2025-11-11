@@ -1,12 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, ArrowLeft } from 'lucide-react';
+import { Building2, ArrowLeft, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClientSelectionModal } from '@/components/ClientSelectionModal';
 import { useTenant } from '@/contexts/TenantContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 interface Client {
   id: string;
@@ -17,8 +21,11 @@ interface Client {
 export default function GenerateQuestions() {
   const navigate = useNavigate();
   const { tenantId } = useTenant();
+  const { toast } = useToast();
   const [showModal, setShowModal] = useState(true);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
   const { data: questionSession, isLoading: loadingSession } = useQuery({
     queryKey: ['question-session', selectedClient?.id, tenantId],
     queryFn: async () => {
@@ -38,6 +45,13 @@ export default function GenerateQuestions() {
     },
     enabled: !!selectedClient && !!tenantId
   });
+  // Load answers when session is loaded
+  useEffect(() => {
+    if (questionSession?.answers) {
+      setAnswers(questionSession.answers as Record<string, string>);
+    }
+  }, [questionSession]);
+
   const handleClientSelected = (client: Client) => {
     setSelectedClient(client);
     setShowModal(false);
@@ -45,6 +59,33 @@ export default function GenerateQuestions() {
 
   const handleBack = () => {
     navigate('/');
+  };
+
+  const handleAnswerChange = async (questionId: string, value: string) => {
+    const updatedAnswers = { ...answers, [questionId]: value };
+    setAnswers(updatedAnswers);
+    
+    // Auto-save
+    if (questionSession?.id) {
+      setIsSaving(true);
+      try {
+        const { error } = await supabase
+          .from('question_sessions')
+          .update({ answers: updatedAnswers })
+          .eq('id', questionSession.id);
+        
+        if (error) throw error;
+      } catch (error) {
+        console.error('Error saving answer:', error);
+        toast({
+          title: "Erro ao salvar",
+          description: "Não foi possível salvar a resposta automaticamente.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsSaving(false);
+      }
+    }
   };
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
@@ -107,33 +148,59 @@ export default function GenerateQuestions() {
                 </p>
               </Card>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-8">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-semibold">Perguntas Guias</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Preencha as respostas para gerar um plano personalizado
+                    </p>
+                  </div>
+                  {isSaving && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-2">
+                      <span className="inline-block w-2 h-2 bg-primary rounded-full animate-pulse" />
+                      Salvando...
+                    </span>
+                  )}
+                </div>
+
                 {/* Perguntas e Respostas */}
-                <div className="space-y-4">
-                  <h3 className="text-xl font-semibold">Perguntas e Respostas</h3>
+                <div className="space-y-6">
                   {Array.isArray(questionSession.questions) && questionSession.questions.length > 0 ? (
                     questionSession.questions.map((q: any, index: number) => {
                       const questionId = q.id || `q_${index}`;
                       const questionText = q.question || q.text || q;
-                      const answer = questionSession.answers?.[questionId] || '';
+                      const questionType = q.type || 'long';
+                      const currentAnswer = answers[questionId] || '';
                       
                       return (
-                        <Card key={questionId} className="p-6">
-                          <div className="space-y-3">
+                        <Card key={questionId} className="p-6 hover:shadow-md transition-shadow">
+                          <div className="space-y-4">
                             <div className="flex items-start gap-3">
                               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">
                                 {index + 1}
                               </div>
-                              <div className="flex-1">
-                                <h4 className="font-semibold mb-2">{questionText}</h4>
-                                {answer ? (
-                                  <div className="p-4 bg-muted/50 rounded-md">
-                                    <p className="text-sm whitespace-pre-wrap">{answer}</p>
-                                  </div>
+                              <div className="flex-1 space-y-3">
+                                <Label htmlFor={questionId} className="text-base font-semibold">
+                                  {questionText}
+                                </Label>
+                                {questionType === 'short' ? (
+                                  <Input
+                                    id={questionId}
+                                    value={currentAnswer}
+                                    onChange={(e) => handleAnswerChange(questionId, e.target.value)}
+                                    placeholder="Digite sua resposta..."
+                                    className="w-full"
+                                  />
                                 ) : (
-                                  <p className="text-sm text-muted-foreground italic">
-                                    Sem resposta
-                                  </p>
+                                  <Textarea
+                                    id={questionId}
+                                    value={currentAnswer}
+                                    onChange={(e) => handleAnswerChange(questionId, e.target.value)}
+                                    placeholder="Digite sua resposta..."
+                                    className="w-full min-h-[120px] resize-y"
+                                  />
                                 )}
                               </div>
                             </div>
@@ -150,12 +217,25 @@ export default function GenerateQuestions() {
                   )}
                 </div>
 
+                {/* Botão Gerar Plano */}
+                {Array.isArray(questionSession.questions) && questionSession.questions.length > 0 && (
+                  <div className="flex justify-end pt-6 border-t">
+                    <Button 
+                      size="lg"
+                      className="gap-2"
+                    >
+                      <Sparkles className="h-5 w-5" />
+                      Gerar Plano
+                    </Button>
+                  </div>
+                )}
+
                 {/* Status */}
-                <div className="flex items-center justify-between pt-4 border-t">
-                  <p className="text-sm text-muted-foreground">
+                <div className="flex items-center justify-between pt-4 border-t text-xs text-muted-foreground">
+                  <p>
                     Status: {questionSession.status === 'completed' ? '✅ Concluído' : '⏳ Em progresso'}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p>
                     Atualizado em: {new Date(questionSession.updated_at).toLocaleDateString('pt-BR')}
                   </p>
                 </div>
