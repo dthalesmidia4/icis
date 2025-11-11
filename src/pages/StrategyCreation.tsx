@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, ArrowLeft, Save, FileQuestion } from 'lucide-react';
+import { Building2, ArrowLeft, Save, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { ClientSelectionModal } from '@/components/ClientSelectionModal';
+import { ConfirmationModal } from '@/components/ConfirmationModal';
 import { useTenant } from '@/contexts/TenantContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Card, CardContent } from '@/components/ui/card';
 interface Client {
   id: string;
   name: string;
@@ -23,15 +25,48 @@ export default function StrategyCreation() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [strategyText, setStrategyText] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [existingStrategy, setExistingStrategy] = useState<any>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isLoadingStrategy, setIsLoadingStrategy] = useState(false);
   useEffect(() => {
     if (!selectedClient && !showModal) {
       // Se o modal foi fechado sem selecionar um cliente, voltar ao hub
       navigate('/');
     }
   }, [showModal, selectedClient, navigate]);
-  const handleClientSelected = (client: Client) => {
+  const handleClientSelected = async (client: Client) => {
     setSelectedClient(client);
     setShowModal(false);
+    
+    // Carregar estratégia existente
+    setIsLoadingStrategy(true);
+    try {
+      const { data, error } = await supabase
+        .from('strategies')
+        .select('*')
+        .eq('company_id', client.id)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      if (data) {
+        setExistingStrategy(data);
+        setStrategyText(data.strategy_text);
+        setIsEditMode(false);
+      } else {
+        setIsEditMode(true);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar estratégia:', error);
+      toast.error('Erro ao carregar estratégia existente');
+      setIsEditMode(true);
+    } finally {
+      setIsLoadingStrategy(false);
+    }
   };
   const handleSave = async () => {
     if (!strategyText.trim()) {
@@ -46,30 +81,48 @@ export default function StrategyCreation() {
     setIsSaving(true);
     
     try {
-      // 1. Salvar a estratégia
       toast.info('Salvando estratégia...');
       
-      const { data: strategyData, error: strategyError } = await supabase
-        .from('strategies')
-        .insert({
-          company_id: selectedClient.id,
-          tenant_id: tenantId,
-          strategy_text: strategyText,
-          status: 'Em elaboração'
-        })
-        .select()
-        .single();
+      let strategyData;
       
-      if (strategyError) throw strategyError;
+      if (existingStrategy) {
+        // Atualizar estratégia existente
+        const { data, error: updateError } = await supabase
+          .from('strategies')
+          .update({
+            strategy_text: strategyText,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingStrategy.id)
+          .select()
+          .single();
+        
+        if (updateError) throw updateError;
+        strategyData = data;
+      } else {
+        // Criar nova estratégia
+        const { data, error: insertError } = await supabase
+          .from('strategies')
+          .insert({
+            company_id: selectedClient.id,
+            tenant_id: tenantId,
+            strategy_text: strategyText,
+            status: 'Em elaboração'
+          })
+          .select()
+          .single();
+        
+        if (insertError) throw insertError;
+        strategyData = data;
+      }
       
       toast.success('✅ Estratégia salva com sucesso!');
       
-      // 2. Gerar perguntas automaticamente em background
+      // Gerar perguntas automaticamente em background
       toast.info('🤖 Gerando perguntas guias com base na estratégia. Isso pode levar alguns segundos…', {
         duration: 5000,
       });
       
-      // Disparar geração de perguntas em background
       supabase.functions.invoke(
         'generate-questions',
         {
@@ -88,7 +141,6 @@ export default function StrategyCreation() {
         }
       });
       
-      // 3. Navegar imediatamente para a página de perguntas
       navigate('/questions', {
         state: {
           companyId: selectedClient.id,
@@ -103,26 +155,38 @@ export default function StrategyCreation() {
       toast.error('Erro ao salvar estratégia. Tente novamente.');
     } finally {
       setIsSaving(false);
+      setShowConfirmModal(false);
+    }
+  };
+  
+  const handleSaveClick = () => {
+    if (existingStrategy) {
+      setShowConfirmModal(true);
+    } else {
+      handleSave();
     }
   };
   const handleBack = () => {
     if (selectedClient) {
       setSelectedClient(null);
       setStrategyText('');
+      setExistingStrategy(null);
+      setIsEditMode(false);
     } else {
       navigate('/');
     }
   };
-  const handleGenerateQuestions = () => {
-    if (!strategyText.trim()) {
-      toast.error('Por favor, descreva a estratégia primeiro');
-      return;
-    }
-    // TODO: Implementar geração de perguntas
-    toast.info('Funcionalidade em desenvolvimento');
-  };
   return <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
       <ClientSelectionModal open={showModal} onOpenChange={setShowModal} onClientSelected={handleClientSelected} />
+      
+      <ConfirmationModal
+        open={showConfirmModal}
+        onOpenChange={setShowConfirmModal}
+        title="Substituir estratégia existente?"
+        description="A estratégia anterior será substituída pela nova versão. Esta ação não pode ser desfeita. Deseja continuar?"
+        onConfirm={handleSave}
+        loading={isSaving}
+      />
 
       {selectedClient && <div className="container max-w-4xl mx-auto py-8 px-4">
           <Button variant="ghost" onClick={handleBack} className="mb-6">
@@ -156,14 +220,49 @@ export default function StrategyCreation() {
             </div>
 
             <div className="space-y-4">
-              <div>
+              <div className="flex items-center justify-between">
                 <Label htmlFor="strategy" className="text-base font-semibold">
-                  Descreva a estratégia principal deste cliente *
+                  {existingStrategy ? 'Estratégia do Cliente' : 'Descreva a estratégia principal deste cliente *'}
                 </Label>
-                
+                {existingStrategy && !isEditMode && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditMode(true)}
+                    className="gap-2"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                    Editar
+                  </Button>
+                )}
               </div>
               
-              <Textarea id="strategy" placeholder="Exemplo: Aumentar presença digital através de conteúdo educativo nas redes sociais, focando em LinkedIn e Instagram. Público-alvo: profissionais de 25-45 anos interessados em tecnologia..." value={strategyText} onChange={e => setStrategyText(e.target.value)} className="min-h-[300px] resize-y" />
+              {isLoadingStrategy ? (
+                <Card>
+                  <CardContent className="py-12">
+                    <div className="flex flex-col items-center justify-center gap-4">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                      <p className="text-sm text-muted-foreground">Carregando estratégia...</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : existingStrategy && !isEditMode ? (
+                <Card>
+                  <CardContent className="py-6">
+                    <p className="text-foreground whitespace-pre-wrap leading-relaxed">
+                      {strategyText}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Textarea 
+                  id="strategy" 
+                  placeholder="Exemplo: Aumentar presença digital através de conteúdo educativo nas redes sociais, focando em LinkedIn e Instagram. Público-alvo: profissionais de 25-45 anos interessados em tecnologia..." 
+                  value={strategyText} 
+                  onChange={e => setStrategyText(e.target.value)} 
+                  className="min-h-[300px] resize-y" 
+                />
+              )}
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
@@ -171,10 +270,16 @@ export default function StrategyCreation() {
                 Cancelar
               </Button>
               
-              <Button onClick={handleSave} disabled={isSaving || !strategyText.trim()} className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
-                <Save className="h-4 w-4 mr-2" />
-                {isSaving ? 'Salvando...' : 'Salvar Estratégia'}
-              </Button>
+              {isEditMode && (
+                <Button 
+                  onClick={handleSaveClick} 
+                  disabled={isSaving || !strategyText.trim()} 
+                  className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {isSaving ? 'Salvando...' : 'Salvar Estratégia'}
+                </Button>
+              )}
             </div>
           </div>
         </div>}
