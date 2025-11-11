@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import InputMask from "react-input-mask";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,8 +40,17 @@ const CompanyRegistration = () => {
     if (field === "email" && value && !/\S+@\S+\.\S+/.test(value)) {
       return "E-mail inválido";
     }
-    if (field === "cnpj_cpf" && value && value.replace(/\D/g, "").length < 11) {
-      return "CNPJ/CPF inválido";
+    if (field === "cnpj_cpf" && value) {
+      const cleanValue = value.replace(/\D/g, "");
+      if (cleanValue.length !== 11 && cleanValue.length !== 14) {
+        return "CNPJ/CPF inválido";
+      }
+    }
+    if (field === "phone" && value) {
+      const cleanValue = value.replace(/\D/g, "");
+      if (cleanValue.length < 10 || cleanValue.length > 11) {
+        return "Telefone inválido";
+      }
     }
     return "";
   };
@@ -162,7 +172,21 @@ const CompanyRegistration = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="cnpj_cpf">CNPJ ou CPF *</Label>
-                    <Input id="cnpj_cpf" value={formData.cnpj_cpf} onChange={e => handleChange("cnpj_cpf", e.target.value)} placeholder="00.000.000/0000-00" className={errors.cnpj_cpf ? "border-destructive" : ""} />
+                    <InputMask
+                      mask={formData.cnpj_cpf.replace(/\D/g, "").length <= 11 ? "999.999.999-99" : "99.999.999/9999-99"}
+                      value={formData.cnpj_cpf}
+                      onChange={e => handleChange("cnpj_cpf", e.target.value)}
+                      maskChar={null}
+                    >
+                      {(inputProps: any) => (
+                        <Input
+                          {...inputProps}
+                          id="cnpj_cpf"
+                          placeholder="000.000.000-00"
+                          className={errors.cnpj_cpf ? "border-destructive" : ""}
+                        />
+                      )}
+                    </InputMask>
                     {errors.cnpj_cpf && <p className="text-xs text-destructive">{errors.cnpj_cpf}</p>}
                   </div>
 
@@ -174,7 +198,22 @@ const CompanyRegistration = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="phone">Telefone *</Label>
-                    <Input id="phone" type="tel" value={formData.phone} onChange={e => handleChange("phone", e.target.value)} placeholder="(00) 00000-0000" className={errors.phone ? "border-destructive" : ""} />
+                    <InputMask
+                      mask={formData.phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"}
+                      value={formData.phone}
+                      onChange={e => handleChange("phone", e.target.value)}
+                      maskChar={null}
+                    >
+                      {(inputProps: any) => (
+                        <Input
+                          {...inputProps}
+                          id="phone"
+                          type="tel"
+                          placeholder="(00) 00000-0000"
+                          className={errors.phone ? "border-destructive" : ""}
+                        />
+                      )}
+                    </InputMask>
                     {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
                   </div>
 
@@ -230,8 +269,10 @@ const CompanyRegistration = () => {
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="address">Endereço</Label>
-                    <Input id="address" value={formData.address} onChange={e => handleChange("address", e.target.value)} placeholder="Endereço completo (opcional)" />
+                    <Label htmlFor="address" className="text-muted-foreground">
+                      Endereço <span className="text-xs">(opcional)</span>
+                    </Label>
+                    <Input id="address" value={formData.address} onChange={e => handleChange("address", e.target.value)} placeholder="Endereço completo" />
                   </div>
 
                   
