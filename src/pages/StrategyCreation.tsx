@@ -28,6 +28,7 @@ export default function StrategyCreation() {
   const [existingStrategy, setExistingStrategy] = useState<any>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showCancelEditModal, setShowCancelEditModal] = useState(false);
   const [isLoadingStrategy, setIsLoadingStrategy] = useState(false);
   useEffect(() => {
     if (!selectedClient && !showModal) {
@@ -166,8 +167,16 @@ export default function StrategyCreation() {
       handleSave();
     }
   };
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    setStrategyText(existingStrategy.strategy_text);
+    setShowCancelEditModal(false);
+  };
+
   const handleBack = () => {
-    if (selectedClient) {
+    if (isEditMode && existingStrategy) {
+      setShowCancelEditModal(true);
+    } else if (selectedClient) {
       setSelectedClient(null);
       setStrategyText('');
       setExistingStrategy(null);
@@ -186,6 +195,15 @@ export default function StrategyCreation() {
         description="A estratégia anterior será substituída pela nova versão. Esta ação não pode ser desfeita. Deseja continuar?"
         onConfirm={handleSave}
         loading={isSaving}
+      />
+
+      <ConfirmationModal
+        open={showCancelEditModal}
+        onOpenChange={setShowCancelEditModal}
+        title="Descartar alterações?"
+        description="As alterações que você fez na estratégia não serão salvas. Deseja realmente cancelar a edição?"
+        onConfirm={handleCancelEdit}
+        loading={false}
       />
 
       {selectedClient && <div className="container max-w-4xl mx-auto py-8 px-4">
@@ -267,7 +285,7 @@ export default function StrategyCreation() {
 
             <div className="flex justify-end gap-3 pt-4">
               <Button variant="outline" onClick={handleBack} disabled={isSaving}>
-                Cancelar
+                {isEditMode && existingStrategy ? 'Cancelar Edição' : 'Cancelar'}
               </Button>
               
               {isEditMode && (
