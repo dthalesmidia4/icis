@@ -10,7 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Building2, ArrowLeft } from "lucide-react";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
-
 const CompanyRegistration = () => {
   const navigate = useNavigate();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -26,123 +25,85 @@ const CompanyRegistration = () => {
     phone: "",
     address: "",
     contracted_services: "",
-    selected_month: "",
+    selected_month: ""
   });
-  
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const sectors = [
-    "Serviços",
-    "Comércio",
-    "Indústria",
-    "Saúde",
-    "Educação",
-    "Tecnologia",
-    "Outros",
-  ];
-
+  const sectors = ["Serviços", "Comércio", "Indústria", "Saúde", "Educação", "Tecnologia", "Outros"];
   const sizes = ["Micro", "Pequena", "Média", "Grande"];
-
-  const months = [
-    "Janeiro",
-    "Fevereiro",
-    "Março",
-    "Abril",
-    "Maio",
-    "Junho",
-    "Julho",
-    "Agosto",
-    "Setembro",
-    "Outubro",
-    "Novembro",
-    "Dezembro",
-  ];
-
+  const months = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
   const validateField = (field: string, value: string) => {
     const requiredFields = ["name", "cnpj_cpf", "sector", "size", "products_services", "email", "phone", "selected_month"];
-    
     if (requiredFields.includes(field) && !value.trim()) {
       return "Este campo é obrigatório";
     }
-    
     if (field === "email" && value && !/\S+@\S+\.\S+/.test(value)) {
       return "E-mail inválido";
     }
-    
     if (field === "cnpj_cpf" && value && value.replace(/\D/g, "").length < 11) {
       return "CNPJ/CPF inválido";
     }
-    
     return "";
   };
-
   const handleChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    
-    const error = validateField(field, value);
-    setErrors((prev) => ({
+    setFormData(prev => ({
       ...prev,
-      [field]: error,
+      [field]: value
+    }));
+    const error = validateField(field, value);
+    setErrors(prev => ({
+      ...prev,
+      [field]: error
     }));
   };
-
   const isFormValid = () => {
     const requiredFields = ["name", "cnpj_cpf", "sector", "size", "products_services", "email", "phone", "selected_month"];
-    return requiredFields.every((field) => {
+    return requiredFields.every(field => {
       const value = formData[field as keyof typeof formData];
       return value.trim() !== "" && !validateField(field, value);
     });
   };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!isFormValid()) {
       toast.error("Por favor, preencha todos os campos obrigatórios corretamente");
       return;
     }
-    
     setShowConfirmModal(true);
   };
-
   const confirmSubmit = async () => {
     setLoading(true);
-    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: {
+          user
+        }
+      } = await supabase.auth.getUser();
       if (!user) {
         toast.error("Usuário não autenticado");
         return;
       }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('id', user.id)
-        .maybeSingle();
-
+      const {
+        data: profile
+      } = await supabase.from('profiles').select('tenant_id').eq('id', user.id).maybeSingle();
       if (!profile?.tenant_id) {
         toast.error("Configure sua agência antes de cadastrar clientes");
         navigate('/agency-setup');
         return;
       }
-
-      const { data, error } = await supabase
-        .from("tenant_companies")
-        .insert([{
-          name: formData.name,
-          cnpj_cpf: formData.cnpj_cpf,
-          sector: formData.sector,
-          size: formData.size,
-          products_services: formData.products_services,
-          email: formData.email,
-          phone: formData.phone,
-          selected_month: formData.selected_month,
-          tenant_id: profile.tenant_id
-        }])
-        .select()
-        .single();
-
+      const {
+        data,
+        error
+      } = await supabase.from("tenant_companies").insert([{
+        name: formData.name,
+        cnpj_cpf: formData.cnpj_cpf,
+        sector: formData.sector,
+        size: formData.size,
+        products_services: formData.products_services,
+        email: formData.email,
+        phone: formData.phone,
+        selected_month: formData.selected_month,
+        tenant_id: profile.tenant_id
+      }]).select().single();
       if (error) {
         if (error.code === '42501') {
           toast.error("Erro de permissão. Verifique se sua agência está configurada corretamente");
@@ -151,10 +112,8 @@ const CompanyRegistration = () => {
         }
         throw error;
       }
-
       setShowConfirmModal(false);
       toast.success("✅ Cliente cadastrado com sucesso!");
-      
       setTimeout(() => {
         navigate('/');
       }, 1000);
@@ -165,16 +124,10 @@ const CompanyRegistration = () => {
       setLoading(false);
     }
   };
-
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       <div className="p-4 md:p-8">
         <div className="max-w-4xl mx-auto space-y-6">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/")}
-            className="mb-4"
-          >
+          <Button variant="ghost" onClick={() => navigate("/")} className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar ao Hub
           </Button>
@@ -198,179 +151,93 @@ const CompanyRegistration = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="name">Nome do Cliente *</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => handleChange("name", e.target.value)}
-                      placeholder="Nome completo ou razão social"
-                      className={errors.name ? "border-destructive" : ""}
-                    />
-                    {errors.name && (
-                      <p className="text-xs text-destructive">{errors.name}</p>
-                    )}
+                    <Input id="name" value={formData.name} onChange={e => handleChange("name", e.target.value)} placeholder="Nome completo ou razão social" className={errors.name ? "border-destructive" : ""} />
+                    {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="fantasy_name">Nome Fantasia</Label>
-                    <Input
-                      id="fantasy_name"
-                      value={formData.fantasy_name}
-                      onChange={(e) => handleChange("fantasy_name", e.target.value)}
-                      placeholder="Como é conhecido no mercado"
-                    />
+                    <Input id="fantasy_name" value={formData.fantasy_name} onChange={e => handleChange("fantasy_name", e.target.value)} placeholder="Como é conhecido no mercado" />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="cnpj_cpf">CNPJ ou CPF *</Label>
-                    <Input
-                      id="cnpj_cpf"
-                      value={formData.cnpj_cpf}
-                      onChange={(e) => handleChange("cnpj_cpf", e.target.value)}
-                      placeholder="00.000.000/0000-00"
-                      className={errors.cnpj_cpf ? "border-destructive" : ""}
-                    />
-                    {errors.cnpj_cpf && (
-                      <p className="text-xs text-destructive">{errors.cnpj_cpf}</p>
-                    )}
+                    <Input id="cnpj_cpf" value={formData.cnpj_cpf} onChange={e => handleChange("cnpj_cpf", e.target.value)} placeholder="00.000.000/0000-00" className={errors.cnpj_cpf ? "border-destructive" : ""} />
+                    {errors.cnpj_cpf && <p className="text-xs text-destructive">{errors.cnpj_cpf}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="email">E-mail de Contato *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleChange("email", e.target.value)}
-                      placeholder="contato@cliente.com.br"
-                      className={errors.email ? "border-destructive" : ""}
-                    />
-                    {errors.email && (
-                      <p className="text-xs text-destructive">{errors.email}</p>
-                    )}
+                    <Input id="email" type="email" value={formData.email} onChange={e => handleChange("email", e.target.value)} placeholder="contato@cliente.com.br" className={errors.email ? "border-destructive" : ""} />
+                    {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="phone">Telefone *</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => handleChange("phone", e.target.value)}
-                      placeholder="(00) 00000-0000"
-                      className={errors.phone ? "border-destructive" : ""}
-                    />
-                    {errors.phone && (
-                      <p className="text-xs text-destructive">{errors.phone}</p>
-                    )}
+                    <Input id="phone" type="tel" value={formData.phone} onChange={e => handleChange("phone", e.target.value)} placeholder="(00) 00000-0000" className={errors.phone ? "border-destructive" : ""} />
+                    {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="sector">Setor de Atuação *</Label>
-                    <Select
-                      value={formData.sector}
-                      onValueChange={(value) => handleChange("sector", value)}
-                    >
+                    <Select value={formData.sector} onValueChange={value => handleChange("sector", value)}>
                       <SelectTrigger className={errors.sector ? "border-destructive" : ""}>
                         <SelectValue placeholder="Selecione o setor" />
                       </SelectTrigger>
                       <SelectContent>
-                        {sectors.map((sector) => (
-                          <SelectItem key={sector} value={sector}>
+                        {sectors.map(sector => <SelectItem key={sector} value={sector}>
                             {sector}
-                          </SelectItem>
-                        ))}
+                          </SelectItem>)}
                       </SelectContent>
                     </Select>
-                    {errors.sector && (
-                      <p className="text-xs text-destructive">{errors.sector}</p>
-                    )}
+                    {errors.sector && <p className="text-xs text-destructive">{errors.sector}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="size">Tamanho da Empresa *</Label>
-                    <Select
-                      value={formData.size}
-                      onValueChange={(value) => handleChange("size", value)}
-                    >
+                    <Select value={formData.size} onValueChange={value => handleChange("size", value)}>
                       <SelectTrigger className={errors.size ? "border-destructive" : ""}>
                         <SelectValue placeholder="Selecione o tamanho" />
                       </SelectTrigger>
                       <SelectContent>
-                        {sizes.map((size) => (
-                          <SelectItem key={size} value={size}>
+                        {sizes.map(size => <SelectItem key={size} value={size}>
                             {size}
-                          </SelectItem>
-                        ))}
+                          </SelectItem>)}
                       </SelectContent>
                     </Select>
-                    {errors.size && (
-                      <p className="text-xs text-destructive">{errors.size}</p>
-                    )}
+                    {errors.size && <p className="text-xs text-destructive">{errors.size}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="selected_month">Mês do Cronograma *</Label>
-                    <Select
-                      value={formData.selected_month}
-                      onValueChange={(value) => handleChange("selected_month", value)}
-                    >
+                    <Select value={formData.selected_month} onValueChange={value => handleChange("selected_month", value)}>
                       <SelectTrigger className={errors.selected_month ? "border-destructive" : ""}>
                         <SelectValue placeholder="Selecione o mês" />
                       </SelectTrigger>
                       <SelectContent>
-                        {months.map((month) => (
-                          <SelectItem key={month} value={month}>
+                        {months.map(month => <SelectItem key={month} value={month}>
                             {month}
-                          </SelectItem>
-                        ))}
+                          </SelectItem>)}
                       </SelectContent>
                     </Select>
-                    {errors.selected_month && (
-                      <p className="text-xs text-destructive">{errors.selected_month}</p>
-                    )}
+                    {errors.selected_month && <p className="text-xs text-destructive">{errors.selected_month}</p>}
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="products_services">Produtos ou Serviços Oferecidos *</Label>
-                    <Textarea
-                      id="products_services"
-                      value={formData.products_services}
-                      onChange={(e) => handleChange("products_services", e.target.value)}
-                      placeholder="Descreva detalhadamente os produtos ou serviços que o cliente oferece..."
-                      className={`min-h-[120px] resize-none ${errors.products_services ? "border-destructive" : ""}`}
-                    />
-                    {errors.products_services && (
-                      <p className="text-xs text-destructive">{errors.products_services}</p>
-                    )}
+                    <Textarea id="products_services" value={formData.products_services} onChange={e => handleChange("products_services", e.target.value)} placeholder="Descreva detalhadamente os produtos ou serviços que o cliente oferece..." className={`min-h-[120px] resize-none ${errors.products_services ? "border-destructive" : ""}`} />
+                    {errors.products_services && <p className="text-xs text-destructive">{errors.products_services}</p>}
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="address">Endereço</Label>
-                    <Input
-                      id="address"
-                      value={formData.address}
-                      onChange={(e) => handleChange("address", e.target.value)}
-                      placeholder="Endereço completo (opcional)"
-                    />
+                    <Input id="address" value={formData.address} onChange={e => handleChange("address", e.target.value)} placeholder="Endereço completo (opcional)" />
                   </div>
 
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="contracted_services">Serviços Contratados</Label>
-                    <Textarea
-                      id="contracted_services"
-                      value={formData.contracted_services}
-                      onChange={(e) => handleChange("contracted_services", e.target.value)}
-                      placeholder="Descreva os serviços que o cliente contratou (opcional)"
-                      className="min-h-[80px] resize-none"
-                    />
-                  </div>
+                  
                 </div>
 
-                <Button
-                  type="submit"
-                  disabled={!isFormValid()}
-                  className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-opacity"
-                >
+                <Button type="submit" disabled={!isFormValid()} className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-opacity">
                   Cadastrar Cliente
                 </Button>
               </form>
@@ -379,16 +246,7 @@ const CompanyRegistration = () => {
         </div>
       </div>
       
-      <ConfirmationModal
-        open={showConfirmModal}
-        onOpenChange={setShowConfirmModal}
-        title="Confirmar Cadastro"
-        description="Deseja confirmar o cadastro deste cliente?"
-        onConfirm={confirmSubmit}
-        loading={loading}
-      />
-    </div>
-  );
+      <ConfirmationModal open={showConfirmModal} onOpenChange={setShowConfirmModal} title="Confirmar Cadastro" description="Deseja confirmar o cadastro deste cliente?" onConfirm={confirmSubmit} loading={loading} />
+    </div>;
 };
-
 export default CompanyRegistration;
