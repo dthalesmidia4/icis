@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, ArrowLeft, Sparkles } from 'lucide-react';
+import { Building2, ArrowLeft, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClientSelectionModal } from '@/components/ClientSelectionModal';
 import { useTenant } from '@/contexts/TenantContext';
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 interface Client {
   id: string;
   name: string;
@@ -126,15 +127,46 @@ export default function GenerateQuestions() {
               </div>
             </div>
 
-            {loadingSession ? <div className="text-center py-8 text-muted-foreground">
-                Carregando perguntas e respostas...
-              </div> : !questionSession ? <Card className="p-8 text-center border-dashed">
-                <p className="text-muted-foreground mb-4">
-                  Nenhuma pergunta encontrada para este cliente.
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  As perguntas são geradas automaticamente ao criar uma estratégia.
-                </p>
+            {loadingSession ? <div className="space-y-8">
+                {/* Loading Header */}
+                <div className="flex items-center justify-center gap-3 py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  <div className="text-center">
+                    <p className="text-lg font-semibold">Carregando perguntas...</p>
+                    <p className="text-sm text-muted-foreground">Por favor, aguarde um momento</p>
+                  </div>
+                </div>
+
+                {/* Loading Skeletons */}
+                <div className="space-y-6">
+                  {[1, 2, 3].map((i) => (
+                    <Card key={i} className="p-6">
+                      <div className="flex items-start gap-3">
+                        <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
+                        <div className="flex-1 space-y-3">
+                          <Skeleton className="h-5 w-3/4" />
+                          <Skeleton className="h-24 w-full" />
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div> : !questionSession ? <Card className="p-12 text-center border-dashed border-2">
+                <div className="max-w-md mx-auto space-y-4">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
+                    <Sparkles className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-xl font-semibold">Nenhuma pergunta encontrada</h3>
+                  <p className="text-muted-foreground">
+                    As perguntas guias são geradas automaticamente ao criar uma estratégia para este cliente.
+                  </p>
+                  <Button 
+                    onClick={() => navigate('/strategy')}
+                    className="mt-4"
+                  >
+                    Criar Estratégia
+                  </Button>
+                </div>
               </Card> : <div className="space-y-8">
                 {/* Header */}
                 <div className="flex items-center justify-between">
