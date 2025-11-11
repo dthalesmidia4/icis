@@ -537,6 +537,7 @@ const CompanyRegistration = () => {
                         value={formData.cep}
                         onChange={e => handleChange("cep", e.target.value)}
                         maskChar={null}
+                        disabled={loadingCep}
                       >
                         {(inputProps: any) => (
                           <Input
@@ -544,7 +545,6 @@ const CompanyRegistration = () => {
                             id="cep"
                             placeholder="00000-000"
                             className={errors.cep ? "border-destructive" : ""}
-                            disabled={loadingCep}
                           />
                         )}
                       </InputMask>
