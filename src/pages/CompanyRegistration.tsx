@@ -156,7 +156,7 @@ const CompanyRegistration = () => {
       toast.success("✅ Cliente cadastrado com sucesso!");
       
       setTimeout(() => {
-        navigate(`/strategy?companyId=${data.id}`);
+        navigate('/');
       }, 1000);
     } catch (error) {
       console.error("Error saving company:", error);
