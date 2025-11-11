@@ -39,21 +39,17 @@ export default function StrategyCreation() {
   const handleClientSelected = async (client: Client) => {
     setSelectedClient(client);
     setShowModal(false);
-    
+
     // Carregar estratégia existente
     setIsLoadingStrategy(true);
     try {
-      const { data, error } = await supabase
-        .from('strategies')
-        .select('*')
-        .eq('company_id', client.id)
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
+      const {
+        data,
+        error
+      } = await supabase.from('strategies').select('*').eq('company_id', client.id).eq('tenant_id', tenantId).order('created_at', {
+        ascending: false
+      }).limit(1).maybeSingle();
       if (error) throw error;
-      
       if (data) {
         setExistingStrategy(data);
         setStrategyText(data.strategy_text);
@@ -78,62 +74,51 @@ export default function StrategyCreation() {
       toast.error('Informações do cliente ou tenant não encontradas');
       return;
     }
-    
     setIsSaving(true);
-    
     try {
       toast.info('Salvando estratégia...');
-      
       let strategyData;
-      
       if (existingStrategy) {
         // Atualizar estratégia existente
-        const { data, error: updateError } = await supabase
-          .from('strategies')
-          .update({
-            strategy_text: strategyText,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingStrategy.id)
-          .select()
-          .single();
-        
+        const {
+          data,
+          error: updateError
+        } = await supabase.from('strategies').update({
+          strategy_text: strategyText,
+          updated_at: new Date().toISOString()
+        }).eq('id', existingStrategy.id).select().single();
         if (updateError) throw updateError;
         strategyData = data;
       } else {
         // Criar nova estratégia
-        const { data, error: insertError } = await supabase
-          .from('strategies')
-          .insert({
-            company_id: selectedClient.id,
-            tenant_id: tenantId,
-            strategy_text: strategyText,
-            status: 'Em elaboração'
-          })
-          .select()
-          .single();
-        
+        const {
+          data,
+          error: insertError
+        } = await supabase.from('strategies').insert({
+          company_id: selectedClient.id,
+          tenant_id: tenantId,
+          strategy_text: strategyText,
+          status: 'Em elaboração'
+        }).select().single();
         if (insertError) throw insertError;
         strategyData = data;
       }
-      
       toast.success('✅ Estratégia salva com sucesso!');
-      
+
       // Gerar perguntas automaticamente em background
       toast.info('🤖 Gerando perguntas guias com base na estratégia. Isso pode levar alguns segundos…', {
-        duration: 5000,
+        duration: 5000
       });
-      
-      supabase.functions.invoke(
-        'generate-questions',
-        {
-          body: {
-            companyId: selectedClient.id,
-            strategyId: strategyData.id,
-            tenantId: tenantId
-          }
+      supabase.functions.invoke('generate-questions', {
+        body: {
+          companyId: selectedClient.id,
+          strategyId: strategyData.id,
+          tenantId: tenantId
         }
-      ).then(({ data: questionData, error: questionError }) => {
+      }).then(({
+        data: questionData,
+        error: questionError
+      }) => {
         if (questionError || questionData?.error) {
           console.error('Erro ao gerar perguntas:', questionError || questionData.error);
           toast.error('⚠️ Não foi possível gerar as perguntas guias. Tente novamente mais tarde.');
@@ -141,7 +126,6 @@ export default function StrategyCreation() {
           toast.success('✅ Perguntas guias geradas com sucesso!');
         }
       });
-      
       navigate('/questions', {
         state: {
           companyId: selectedClient.id,
@@ -150,7 +134,6 @@ export default function StrategyCreation() {
           companyCnpjCpf: selectedClient.cnpj_cpf
         }
       });
-      
     } catch (error) {
       console.error('Erro ao salvar estratégia:', error);
       toast.error('Erro ao salvar estratégia. Tente novamente.');
@@ -159,7 +142,6 @@ export default function StrategyCreation() {
       setShowConfirmModal(false);
     }
   };
-  
   const handleSaveClick = () => {
     if (existingStrategy) {
       setShowConfirmModal(true);
@@ -172,7 +154,6 @@ export default function StrategyCreation() {
     setStrategyText(existingStrategy.strategy_text);
     setShowCancelEditModal(false);
   };
-
   const handleBack = () => {
     if (isEditMode && existingStrategy) {
       setShowCancelEditModal(true);
@@ -188,23 +169,9 @@ export default function StrategyCreation() {
   return <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
       <ClientSelectionModal open={showModal} onOpenChange={setShowModal} onClientSelected={handleClientSelected} />
       
-      <ConfirmationModal
-        open={showConfirmModal}
-        onOpenChange={setShowConfirmModal}
-        title="Substituir estratégia existente?"
-        description="A estratégia anterior será substituída pela nova versão. Esta ação não pode ser desfeita. Deseja continuar?"
-        onConfirm={handleSave}
-        loading={isSaving}
-      />
+      <ConfirmationModal open={showConfirmModal} onOpenChange={setShowConfirmModal} title="Substituir estratégia existente?" description="A estratégia anterior será substituída pela nova versão. Esta ação não pode ser desfeita. Deseja continuar?" onConfirm={handleSave} loading={isSaving} />
 
-      <ConfirmationModal
-        open={showCancelEditModal}
-        onOpenChange={setShowCancelEditModal}
-        title="Descartar alterações?"
-        description="As alterações que você fez na estratégia não serão salvas. Deseja realmente cancelar a edição?"
-        onConfirm={handleCancelEdit}
-        loading={false}
-      />
+      <ConfirmationModal open={showCancelEditModal} onOpenChange={setShowCancelEditModal} title="Descartar alterações?" description="As alterações que você fez na estratégia não serão salvas. Deseja realmente cancelar a edição?" onConfirm={handleCancelEdit} loading={false} />
 
       {selectedClient && <div className="container max-w-4xl mx-auto py-8 px-4">
           <Button variant="ghost" onClick={handleBack} className="mb-6">
@@ -224,9 +191,7 @@ export default function StrategyCreation() {
                   <Building2 className="h-6 w-6 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-muted-foreground mb-1">
-                    Cliente Selecionado
-                  </p>
+                  
                   <h3 className="text-xl font-semibold mb-1">
                     {selectedClient.name}
                   </h3>
@@ -242,45 +207,26 @@ export default function StrategyCreation() {
                 <Label htmlFor="strategy" className="text-base font-semibold">
                   {existingStrategy ? 'Estratégia do Cliente' : 'Descreva a estratégia principal deste cliente *'}
                 </Label>
-                {existingStrategy && !isEditMode && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsEditMode(true)}
-                    className="gap-2"
-                  >
+                {existingStrategy && !isEditMode && <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)} className="gap-2">
                     <Edit2 className="h-4 w-4" />
                     Editar
-                  </Button>
-                )}
+                  </Button>}
               </div>
               
-              {isLoadingStrategy ? (
-                <Card>
+              {isLoadingStrategy ? <Card>
                   <CardContent className="py-12">
                     <div className="flex flex-col items-center justify-center gap-4">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                       <p className="text-sm text-muted-foreground">Carregando estratégia...</p>
                     </div>
                   </CardContent>
-                </Card>
-              ) : existingStrategy && !isEditMode ? (
-                <Card>
+                </Card> : existingStrategy && !isEditMode ? <Card>
                   <CardContent className="py-6">
                     <p className="text-foreground whitespace-pre-wrap leading-relaxed">
                       {strategyText}
                     </p>
                   </CardContent>
-                </Card>
-              ) : (
-                <Textarea 
-                  id="strategy" 
-                  placeholder="Exemplo: Aumentar presença digital através de conteúdo educativo nas redes sociais, focando em LinkedIn e Instagram. Público-alvo: profissionais de 25-45 anos interessados em tecnologia..." 
-                  value={strategyText} 
-                  onChange={e => setStrategyText(e.target.value)} 
-                  className="min-h-[300px] resize-y" 
-                />
-              )}
+                </Card> : <Textarea id="strategy" placeholder="Exemplo: Aumentar presença digital através de conteúdo educativo nas redes sociais, focando em LinkedIn e Instagram. Público-alvo: profissionais de 25-45 anos interessados em tecnologia..." value={strategyText} onChange={e => setStrategyText(e.target.value)} className="min-h-[300px] resize-y" />}
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
@@ -288,32 +234,21 @@ export default function StrategyCreation() {
                 {isEditMode && existingStrategy ? 'Cancelar Edição' : 'Cancelar'}
               </Button>
               
-              {existingStrategy && !isEditMode && (
-                <Button 
-                  variant="secondary" 
-                  onClick={() => navigate('/generate-questions', {
-                    state: {
-                      companyId: selectedClient.id,
-                      strategyId: existingStrategy.id,
-                      companyName: selectedClient.name,
-                      companyCnpjCpf: selectedClient.cnpj_cpf
-                    }
-                  })}
-                >
+              {existingStrategy && !isEditMode && <Button variant="secondary" onClick={() => navigate('/generate-questions', {
+            state: {
+              companyId: selectedClient.id,
+              strategyId: existingStrategy.id,
+              companyName: selectedClient.name,
+              companyCnpjCpf: selectedClient.cnpj_cpf
+            }
+          })}>
                   Ver Perguntas Guias
-                </Button>
-              )}
+                </Button>}
               
-              {isEditMode && (
-                <Button 
-                  onClick={handleSaveClick} 
-                  disabled={isSaving || !strategyText.trim()} 
-                  className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
-                >
+              {isEditMode && <Button onClick={handleSaveClick} disabled={isSaving || !strategyText.trim()} className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
                   <Save className="h-4 w-4 mr-2" />
                   {isSaving ? 'Salvando...' : 'Salvar Estratégia'}
-                </Button>
-              )}
+                </Button>}
             </div>
           </div>
         </div>}
