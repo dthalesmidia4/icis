@@ -288,6 +288,22 @@ export default function StrategyCreation() {
                 {isEditMode && existingStrategy ? 'Cancelar Edição' : 'Cancelar'}
               </Button>
               
+              {existingStrategy && !isEditMode && (
+                <Button 
+                  variant="secondary" 
+                  onClick={() => navigate('/generate-questions', {
+                    state: {
+                      companyId: selectedClient.id,
+                      strategyId: existingStrategy.id,
+                      companyName: selectedClient.name,
+                      companyCnpjCpf: selectedClient.cnpj_cpf
+                    }
+                  })}
+                >
+                  Ver Perguntas Guias
+                </Button>
+              )}
+              
               {isEditMode && (
                 <Button 
                   onClick={handleSaveClick} 
