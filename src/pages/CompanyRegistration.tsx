@@ -502,67 +502,99 @@ const CompanyRegistration = () => {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="cep">CEP</Label>
-                      <InputMask
-                        mask="99999-999"
-                        value={formData.cep}
-                        onChange={e => handleChange("cep", e.target.value)}
-                        maskChar={null}
-                        disabled={loadingCep}
-                      >
-                        {(inputProps: any) => (
-                          <Input
-                            {...inputProps}
-                            id="cep"
-                            placeholder="00000-000"
-                            className={errors.cep ? "border-destructive" : ""}
-                          />
-                        )}
-                      </InputMask>
-                      {loadingCep && <p className="text-xs text-muted-foreground">Buscando endereço...</p>}
-                      {errors.cep && <p className="text-xs text-destructive">{errors.cep}</p>}
-                    </div>
+                    <div className="grid grid-cols-12 gap-4 md:col-span-2">
+                      <div className="col-span-12 md:col-span-3 space-y-2">
+                        <Label htmlFor="cep">CEP</Label>
+                        <InputMask
+                          mask="99999-999"
+                          value={formData.cep}
+                          onChange={e => handleChange("cep", e.target.value)}
+                          maskChar={null}
+                          disabled={loadingCep}
+                        >
+                          {(inputProps: any) => (
+                            <Input
+                              {...inputProps}
+                              id="cep"
+                              placeholder="00000-000"
+                              className={errors.cep ? "border-destructive" : ""}
+                            />
+                          )}
+                        </InputMask>
+                        {loadingCep && <p className="text-xs text-muted-foreground">Buscando...</p>}
+                        {errors.cep && <p className="text-xs text-destructive">{errors.cep}</p>}
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="city">Cidade</Label>
-                      <Input 
-                        id="city" 
-                        value={formData.city} 
-                        onChange={e => handleChange("city", e.target.value)} 
-                        placeholder="Ex: São Paulo" 
-                      />
-                    </div>
+                      <div className="col-span-12 md:col-span-7 space-y-2">
+                        <Label htmlFor="street">Endereço</Label>
+                        <Input 
+                          id="street" 
+                          value={formData.street} 
+                          onChange={e => handleChange("street", e.target.value)} 
+                          placeholder="Rua, Avenida, etc." 
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="state">Estado</Label>
-                      <Input 
-                        id="state" 
-                        value={formData.state} 
-                        onChange={e => handleChange("state", e.target.value)} 
-                        placeholder="Ex: SP" 
-                        maxLength={2}
-                      />
-                    </div>
+                      <div className="col-span-12 md:col-span-2 space-y-2">
+                        <Label htmlFor="number">Número</Label>
+                        <Input 
+                          id="number" 
+                          value={formData.number} 
+                          onChange={e => handleChange("number", e.target.value)} 
+                          placeholder="123" 
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="street">Endereço (Rua / Avenida)</Label>
-                      <Input 
-                        id="street" 
-                        value={formData.street} 
-                        onChange={e => handleChange("street", e.target.value)} 
-                        placeholder="Ex: Rua das Flores" 
-                      />
-                    </div>
+                      <div className="col-span-12 md:col-span-6 space-y-2">
+                        <Label htmlFor="city">Cidade</Label>
+                        <Input 
+                          id="city" 
+                          value={formData.city} 
+                          onChange={e => handleChange("city", e.target.value)} 
+                          placeholder="São Paulo" 
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="number">Número</Label>
-                      <Input 
-                        id="number" 
-                        value={formData.number} 
-                        onChange={e => handleChange("number", e.target.value)} 
-                        placeholder="Ex: 123" 
-                      />
+                      <div className="col-span-12 md:col-span-6 space-y-2">
+                        <Label htmlFor="state">Estado</Label>
+                        <Select 
+                          value={formData.state} 
+                          onValueChange={value => handleChange("state", value)}
+                        >
+                          <SelectTrigger id="state">
+                            <SelectValue placeholder="Selecione o estado" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="AC">Acre</SelectItem>
+                            <SelectItem value="AL">Alagoas</SelectItem>
+                            <SelectItem value="AP">Amapá</SelectItem>
+                            <SelectItem value="AM">Amazonas</SelectItem>
+                            <SelectItem value="BA">Bahia</SelectItem>
+                            <SelectItem value="CE">Ceará</SelectItem>
+                            <SelectItem value="DF">Distrito Federal</SelectItem>
+                            <SelectItem value="ES">Espírito Santo</SelectItem>
+                            <SelectItem value="GO">Goiás</SelectItem>
+                            <SelectItem value="MA">Maranhão</SelectItem>
+                            <SelectItem value="MT">Mato Grosso</SelectItem>
+                            <SelectItem value="MS">Mato Grosso do Sul</SelectItem>
+                            <SelectItem value="MG">Minas Gerais</SelectItem>
+                            <SelectItem value="PA">Pará</SelectItem>
+                            <SelectItem value="PB">Paraíba</SelectItem>
+                            <SelectItem value="PR">Paraná</SelectItem>
+                            <SelectItem value="PE">Pernambuco</SelectItem>
+                            <SelectItem value="PI">Piauí</SelectItem>
+                            <SelectItem value="RJ">Rio de Janeiro</SelectItem>
+                            <SelectItem value="RN">Rio Grande do Norte</SelectItem>
+                            <SelectItem value="RS">Rio Grande do Sul</SelectItem>
+                            <SelectItem value="RO">Rondônia</SelectItem>
+                            <SelectItem value="RR">Roraima</SelectItem>
+                            <SelectItem value="SC">Santa Catarina</SelectItem>
+                            <SelectItem value="SP">São Paulo</SelectItem>
+                            <SelectItem value="SE">Sergipe</SelectItem>
+                            <SelectItem value="TO">Tocantins</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
                 </div>
