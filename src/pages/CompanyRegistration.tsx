@@ -305,56 +305,41 @@ const CompanyRegistration = () => {
                           {errors.other_sector && <p className="text-xs text-destructive">{errors.other_sector}</p>}
                         </div>}
                     </div>
-                  </div>
-                </div>
 
-                {/* Seção 2: Estrutura e Porte */}
-                <div className="space-y-6 pt-2">
-                  <div className="flex items-center gap-2 pb-2 border-b border-border">
-                    <Building2 className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-semibold">Estrutura e Porte</h3>
-                  </div>
-                  
-                  <div className="space-y-6">
                     <div className="space-y-2">
                       <Label htmlFor="size">Tamanho da Empresa *</Label>
-                      <div className="flex flex-col md:flex-row md:items-center gap-3">
-                        <div className="md:w-3/5">
-                          <Select value={formData.size} onValueChange={value => handleChange("size", value)}>
-                            <SelectTrigger className={errors.size ? "border-destructive" : ""}>
-                              <SelectValue placeholder="Selecione o tamanho" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Micro">
-                                <div className="flex items-center justify-between w-full gap-4">
-                                  <span>Micro</span>
-                                  <span className="text-xs text-muted-foreground">(1-10 funcionários)</span>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="Pequena">
-                                <div className="flex items-center justify-between w-full gap-4">
-                                  <span>Pequena</span>
-                                  <span className="text-xs text-muted-foreground">(10-20)</span>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="Média">
-                                <div className="flex items-center justify-between w-full gap-4">
-                                  <span>Média</span>
-                                  <span className="text-xs text-muted-foreground">(21-100)</span>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="Grande">
-                                <div className="flex items-center justify-between w-full gap-4">
-                                  <span>Grande</span>
-                                  <span className="text-xs text-muted-foreground">(100+)</span>
-                                </div>
-                              </SelectItem>
-                              <SelectItem value="Franquia">Franquia</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                      </div>
+                      <Select value={formData.size} onValueChange={value => handleChange("size", value)}>
+                        <SelectTrigger className={errors.size ? "border-destructive" : ""}>
+                          <SelectValue placeholder="Selecione o tamanho" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Micro">
+                            <div className="flex items-center justify-between w-full gap-4">
+                              <span>Micro</span>
+                              <span className="text-xs text-muted-foreground">(1-10 funcionários)</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="Pequena">
+                            <div className="flex items-center justify-between w-full gap-4">
+                              <span>Pequena</span>
+                              <span className="text-xs text-muted-foreground">(10-20 funcionários)</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="Média">
+                            <div className="flex items-center justify-between w-full gap-4">
+                              <span>Média</span>
+                              <span className="text-xs text-muted-foreground">(21-100 funcionários)</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="Grande">
+                            <div className="flex items-center justify-between w-full gap-4">
+                              <span>Grande</span>
+                              <span className="text-xs text-muted-foreground">(+100 funcionários)</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="Franquia">Franquia</SelectItem>
+                        </SelectContent>
+                      </Select>
                       {errors.size && <p className="text-xs text-destructive">{errors.size}</p>}
                     </div>
 
@@ -381,13 +366,12 @@ const CompanyRegistration = () => {
                     <div className="space-y-2">
                       <Label htmlFor="products_services">Produtos ou Serviços Oferecidos *</Label>
                       <Textarea id="products_services" value={formData.products_services} onChange={e => handleChange("products_services", e.target.value)} placeholder="Descreva detalhadamente os produtos ou serviços oferecidos pela empresa." className={`min-h-[100px] resize-none ${errors.products_services ? "border-destructive" : ""}`} />
-                      
                       {errors.products_services && <p className="text-xs text-destructive">{errors.products_services}</p>}
                     </div>
                   </div>
                 </div>
 
-                {/* Seção 3: Contato e Comunicação */}
+                {/* Seção 2: Contato e Comunicação */}
                 <div className="space-y-6 pt-2">
                   <div className="flex items-center gap-2 pb-2 border-b border-border">
                     <Phone className="h-5 w-5 text-primary" />
@@ -436,7 +420,7 @@ const CompanyRegistration = () => {
                   </div>
                 </div>
 
-                {/* Seção 4: Localização */}
+                {/* Seção 3: Localização */}
                 <div className="space-y-6 pt-2">
                   <div className="flex items-center gap-2 pb-2 border-b border-border">
                     <MapPin className="h-5 w-5 text-primary" />
