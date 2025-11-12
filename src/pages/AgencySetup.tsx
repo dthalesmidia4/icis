@@ -61,7 +61,6 @@ export default function AgencySetup() {
         .single();
 
       if (profile?.tenant_id) {
-        toast.info('Você já possui um tenant associado.');
         navigate('/');
       }
     };
@@ -100,7 +99,6 @@ export default function AgencySetup() {
       console.log('🔍 Existing roles:', existingRoles);
 
       if (existingRoles && existingRoles.length > 0) {
-        toast.error('Você já possui um tenant associado. Não é possível criar outro.');
         navigate('/');
         return;
       }
