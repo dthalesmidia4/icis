@@ -18,7 +18,6 @@ const CompanyRegistration = () => {
   const [formData, setFormData] = useState({
     name: "",
     fantasy_name: "",
-    document_type: "cnpj" as "cnpj" | "cpf",
     cnpj: "",
     cpf: "",
     sector: "",
@@ -42,17 +41,17 @@ const CompanyRegistration = () => {
   const sectors = ["Alimentação", "Saúde", "Educação", "Tecnologia", "Serviços", "Comércio", "Indústria", "Construção", "Moda", "Beleza", "Outros"];
   const sizes = ["Micro", "Pequena", "Média", "Grande", "Franquia"];
   const validateField = (field: string, value: string) => {
-    const requiredFields = ["name", "sector", "size", "products_services", "email", "phone"];
+    const requiredFields = ["name", "cnpj", "sector", "size", "products_services", "email", "phone"];
     
-    // Add document validation based on type
-    if (formData.document_type === "cnpj" && field === "cnpj") {
+    // CNPJ validation
+    if (field === "cnpj") {
       if (!value.trim()) return "CNPJ é obrigatório";
       const cleanValue = value.replace(/\D/g, "");
       if (cleanValue.length !== 14) return "CNPJ inválido";
     }
     
-    if (formData.document_type === "cpf" && field === "cpf") {
-      if (!value.trim()) return "CPF é obrigatório";
+    // CPF validation (optional)
+    if (field === "cpf" && value.trim()) {
       const cleanValue = value.replace(/\D/g, "");
       if (cleanValue.length !== 11) return "CPF inválido";
     }
@@ -140,16 +139,9 @@ const CompanyRegistration = () => {
     }));
   };
   const isFormValid = () => {
-    const baseFields = ["name", "sector", "size", "products_services", "email", "phone"];
+    const baseFields = ["name", "cnpj", "sector", "size", "products_services", "email", "phone"];
     
-    // Check document
-    const documentField = formData.document_type === "cnpj" ? "cnpj" : "cpf";
-    const documentValue = formData[documentField];
-    if (!documentValue.trim() || validateField(documentField, documentValue)) {
-      return false;
-    }
-    
-    // Check base fields
+    // Check base fields including CNPJ
     for (const field of baseFields) {
       const value = formData[field as keyof typeof formData];
       if (!value.trim() || validateField(field, value)) {
@@ -213,9 +205,6 @@ const CompanyRegistration = () => {
       ].filter(Boolean);
       const fullAddress = addressParts.join(", ");
       
-      // Get document value
-      const documentValue = formData.document_type === "cnpj" ? formData.cnpj : formData.cpf;
-      
       // Build sector value
       const sectorValue = formData.sector === "Outros" ? formData.other_sector : formData.sector;
       
@@ -230,7 +219,7 @@ const CompanyRegistration = () => {
         error
       } = await supabase.from("tenant_companies").insert([{
         name: formData.name,
-        cnpj_cpf: documentValue,
+        cnpj_cpf: formData.cnpj,
         sector: sectorValue,
         size: sizeValue,
         products_services: formData.products_services,
@@ -314,62 +303,24 @@ const CompanyRegistration = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Tipo de Documento *</Label>
-                      <Select 
-                        value={formData.document_type} 
-                        onValueChange={(value: "cnpj" | "cpf") => handleChange("document_type", value)}
+                      <Label htmlFor="cnpj">CNPJ *</Label>
+                      <InputMask
+                        mask="99.999.999/9999-99"
+                        value={formData.cnpj}
+                        onChange={e => handleChange("cnpj", e.target.value)}
+                        maskChar={null}
                       >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cnpj">CNPJ</SelectItem>
-                          <SelectItem value="cpf">CPF</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        {(inputProps: any) => (
+                          <Input
+                            {...inputProps}
+                            id="cnpj"
+                            placeholder="00.000.000/0000-00"
+                            className={errors.cnpj ? "border-destructive" : ""}
+                          />
+                        )}
+                      </InputMask>
+                      {errors.cnpj && <p className="text-xs text-destructive">{errors.cnpj}</p>}
                     </div>
-
-                    {formData.document_type === "cnpj" ? (
-                      <div className="space-y-2">
-                        <Label htmlFor="cnpj">CNPJ *</Label>
-                        <InputMask
-                          mask="99.999.999/9999-99"
-                          value={formData.cnpj}
-                          onChange={e => handleChange("cnpj", e.target.value)}
-                          maskChar={null}
-                        >
-                          {(inputProps: any) => (
-                            <Input
-                              {...inputProps}
-                              id="cnpj"
-                              placeholder="00.000.000/0000-00"
-                              className={errors.cnpj ? "border-destructive" : ""}
-                            />
-                          )}
-                        </InputMask>
-                        {errors.cnpj && <p className="text-xs text-destructive">{errors.cnpj}</p>}
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <Label htmlFor="cpf">CPF *</Label>
-                        <InputMask
-                          mask="999.999.999-99"
-                          value={formData.cpf}
-                          onChange={e => handleChange("cpf", e.target.value)}
-                          maskChar={null}
-                        >
-                          {(inputProps: any) => (
-                            <Input
-                              {...inputProps}
-                              id="cpf"
-                              placeholder="000.000.000-00"
-                              className={errors.cpf ? "border-destructive" : ""}
-                            />
-                          )}
-                        </InputMask>
-                        {errors.cpf && <p className="text-xs text-destructive">{errors.cpf}</p>}
-                      </div>
-                    )}
 
                     <div className="space-y-2">
                       <Label htmlFor="sector">Setor de Atuação *</Label>
@@ -521,6 +472,27 @@ const CompanyRegistration = () => {
                         )}
                       </InputMask>
                       {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="cpf">CPF</Label>
+                      <InputMask
+                        mask="999.999.999-99"
+                        value={formData.cpf}
+                        onChange={e => handleChange("cpf", e.target.value)}
+                        maskChar={null}
+                      >
+                        {(inputProps: any) => (
+                          <Input
+                            {...inputProps}
+                            id="cpf"
+                            placeholder="000.000.000-00"
+                            className={errors.cpf ? "border-destructive" : ""}
+                          />
+                        )}
+                      </InputMask>
+                      <p className="text-xs text-muted-foreground">Opcional - CPF do responsável</p>
+                      {errors.cpf && <p className="text-xs text-destructive">{errors.cpf}</p>}
                     </div>
 
                     <div className="space-y-2 md:col-span-2">
