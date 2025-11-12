@@ -168,22 +168,17 @@ export default function StrategyCreation() {
       navigate('/');
     }
   };
-
   const handleDeleteStrategy = async () => {
     if (!existingStrategy) return;
-
     setIsDeleting(true);
     try {
       // Deletar a estratégia
-      const { error } = await supabase
-        .from('strategies')
-        .delete()
-        .eq('id', existingStrategy.id);
-
+      const {
+        error
+      } = await supabase.from('strategies').delete().eq('id', existingStrategy.id);
       if (error) throw error;
-
       toast.success('✅ Estratégia removida com sucesso!');
-      
+
       // Redirecionar para o hub
       navigate('/');
     } catch (error) {
@@ -211,7 +206,7 @@ export default function StrategyCreation() {
 
           <div className="bg-card rounded-lg shadow-lg p-8 space-y-8">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Criar Estratégia</h1>
+              <h1 className="text-3xl font-bold mb-2">Estratégia</h1>
               
             </div>
 
@@ -261,17 +256,10 @@ export default function StrategyCreation() {
 
             <div className="flex justify-between items-center gap-3 pt-4">
               <div>
-                {existingStrategy && !isEditMode && (
-                  <Button 
-                    variant="destructive" 
-                    onClick={() => setShowDeleteModal(true)}
-                    disabled={isDeleting}
-                    className="gap-2"
-                  >
+                {existingStrategy && !isEditMode && <Button variant="destructive" onClick={() => setShowDeleteModal(true)} disabled={isDeleting} className="gap-2">
                     <Trash2 className="h-4 w-4" />
                     Remover Estratégia
-                  </Button>
-                )}
+                  </Button>}
               </div>
 
               <div className="flex gap-3">
