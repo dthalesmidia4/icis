@@ -27,6 +27,7 @@ const CompanyRegistration = () => {
     franchise_city: "",
     franchise_brand: "",
     products_services: "",
+    commercial_phone: "",
     email: "",
     phone: "",
     cep: "",
@@ -426,6 +427,26 @@ const CompanyRegistration = () => {
                       />
                       {errors.products_services && <p className="text-xs text-destructive">{errors.products_services}</p>}
                     </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="commercial_phone">Telefone Comercial</Label>
+                      <InputMask
+                        mask={formData.commercial_phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"}
+                        value={formData.commercial_phone}
+                        onChange={e => handleChange("commercial_phone", e.target.value)}
+                        maskChar={null}
+                      >
+                        {(inputProps: any) => (
+                          <Input
+                            {...inputProps}
+                            id="commercial_phone"
+                            type="tel"
+                            placeholder="(00) 00000-0000"
+                          />
+                        )}
+                      </InputMask>
+                      <p className="text-xs text-muted-foreground">Número fixo da empresa para contato geral.</p>
+                    </div>
                   </div>
                 </div>
 
@@ -436,7 +457,7 @@ const CompanyRegistration = () => {
                     <h3 className="text-lg font-semibold">Contato / Informações adicionais</h3>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="email">E-mail de Contato *</Label>
                       <div className="relative">
@@ -451,27 +472,6 @@ const CompanyRegistration = () => {
                         />
                       </div>
                       {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Telefone *</Label>
-                      <InputMask
-                        mask={formData.phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"}
-                        value={formData.phone}
-                        onChange={e => handleChange("phone", e.target.value)}
-                        maskChar={null}
-                      >
-                        {(inputProps: any) => (
-                          <Input
-                            {...inputProps}
-                            id="phone"
-                            type="tel"
-                            placeholder="(00) 00000-0000"
-                            className={errors.phone ? "border-destructive" : ""}
-                          />
-                        )}
-                      </InputMask>
-                      {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
                     </div>
 
                     <div className="space-y-2">
@@ -493,6 +493,28 @@ const CompanyRegistration = () => {
                       </InputMask>
                       <p className="text-xs text-muted-foreground">Opcional - CPF do responsável</p>
                       {errors.cpf && <p className="text-xs text-destructive">{errors.cpf}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Telefone de Contato / WhatsApp *</Label>
+                      <InputMask
+                        mask={formData.phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"}
+                        value={formData.phone}
+                        onChange={e => handleChange("phone", e.target.value)}
+                        maskChar={null}
+                      >
+                        {(inputProps: any) => (
+                          <Input
+                            {...inputProps}
+                            id="phone"
+                            type="tel"
+                            placeholder="(00) 00000-0000"
+                            className={errors.phone ? "border-destructive" : ""}
+                          />
+                        )}
+                      </InputMask>
+                      <p className="text-xs text-muted-foreground">Número pessoal ou WhatsApp do responsável.</p>
+                      {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
                     </div>
 
                     <div className="space-y-2 md:col-span-2">
