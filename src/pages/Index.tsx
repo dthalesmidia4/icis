@@ -9,7 +9,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
-import { toast } from "sonner";
 const Index = () => {
   const navigate = useNavigate();
   const {
@@ -26,8 +25,7 @@ const Index = () => {
   // Redirecionar para setup se não tiver tenant configurado
   useEffect(() => {
     if (!tenantLoading && user && !tenantId) {
-      toast.info("Complete o cadastro da sua agência primeiro");
-      navigate('/agency-setup');
+      navigate('/agency-setup', { replace: true });
     }
   }, [tenantLoading, user, tenantId, navigate]);
 
