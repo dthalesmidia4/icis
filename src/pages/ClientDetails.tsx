@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Mail, Phone, Building2, Briefcase, Calendar, Edit, Trash2, BarChart3, Users } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Building2, Briefcase, Calendar, Trash2, BarChart3, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
@@ -112,14 +112,6 @@ const ClientDetails = () => {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => navigate(`/strategy?companyId=${client.id}`)}
-                    title="Editar cliente"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
                   <Button
                     variant="outline"
                     size="icon"

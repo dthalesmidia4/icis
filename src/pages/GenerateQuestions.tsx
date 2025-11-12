@@ -161,7 +161,7 @@ export default function GenerateQuestions() {
                     As perguntas guias são geradas automaticamente ao criar uma estratégia para este cliente.
                   </p>
                   <Button 
-                    onClick={() => navigate('/strategy')}
+                    onClick={() => navigate('/strategies')}
                     className="mt-4"
                   >
                     Criar Estratégia

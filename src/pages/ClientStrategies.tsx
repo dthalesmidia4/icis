@@ -198,7 +198,7 @@ const ClientStrategies = () => {
                   </div>
                 </div>
                 <Button
-                  onClick={() => navigate(`/strategy?companyId=${id}`)}
+                  onClick={() => navigate(`/strategies?companyId=${id}`)}
                   className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -250,7 +250,7 @@ const ClientStrategies = () => {
                         </p>
                         {!searchTerm && statusFilter === 'all' && (
                           <Button
-                            onClick={() => navigate(`/strategy?companyId=${id}`)}
+                            onClick={() => navigate(`/strategies?companyId=${id}`)}
                             variant="outline"
                           >
                             <Plus className="h-4 w-4 mr-2" />
@@ -387,7 +387,7 @@ const ClientStrategies = () => {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => navigate(`/strategy?companyId=${id}&strategyId=${strategy.id}`)}
+                                    onClick={() => navigate(`/strategies?companyId=${id}&strategyId=${strategy.id}`)}
                                   >
                                     <Edit className="h-3 w-3 mr-1" />
                                     Editar Estratégia

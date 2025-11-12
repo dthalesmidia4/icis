@@ -9,7 +9,6 @@ import { RequireTenant } from "./components/RequireTenant";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import CompanyRegistration from "./pages/CompanyRegistration";
-import Strategy from "./pages/Strategy";
 import Plan from "./pages/Plan";
 import Cards from "./pages/Cards";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -55,13 +54,6 @@ const App = () => (
               <ProtectedRoute>
                 <RequireTenant>
                   <CompanyRegistration />
-                </RequireTenant>
-              </ProtectedRoute>
-            } />
-            <Route path="/strategy" element={
-              <ProtectedRoute>
-                <RequireTenant>
-                  <Strategy />
                 </RequireTenant>
               </ProtectedRoute>
             } />
