@@ -354,7 +354,7 @@ const CompanyRegistration = () => {
                               value="não"
                               checked={formData.hasFranchise === "não"}
                               onChange={(e) => handleChange("hasFranchise", e.target.value)}
-                              className="w-4 h-4 text-primary border-input focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                              className="w-4 h-4 accent-primary border-input focus:ring-2 focus:ring-primary focus:ring-offset-2"
                             />
                             <span className="text-sm">Não</span>
                           </label>
@@ -365,7 +365,7 @@ const CompanyRegistration = () => {
                               value="sim"
                               checked={formData.hasFranchise === "sim"}
                               onChange={(e) => handleChange("hasFranchise", e.target.value)}
-                              className="w-4 h-4 text-primary border-input focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                              className="w-4 h-4 accent-primary border-input focus:ring-2 focus:ring-primary focus:ring-offset-2"
                             />
                             <span className="text-sm">Sim</span>
                           </label>
