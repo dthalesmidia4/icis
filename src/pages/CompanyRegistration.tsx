@@ -310,10 +310,7 @@ const CompanyRegistration = () => {
 
                 {/* Seção 2: Estrutura e Porte */}
                 <div className="space-y-6 pt-2">
-                  <div className="flex items-center gap-2 pb-2 border-b border-border">
-                    <Building2 className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-semibold">Estrutura e Porte</h3>
-                  </div>
+                  
                   
                   <div className="space-y-6">
                     <div className="space-y-2">
