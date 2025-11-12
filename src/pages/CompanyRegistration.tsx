@@ -369,7 +369,7 @@ const CompanyRegistration = () => {
                 <div className="space-y-6 pt-2">
                   <div className="flex items-center gap-2 pb-2 border-b border-border">
                     <Phone className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-semibold">Contato e Comunicação</h3>
+                    <h3 className="text-lg font-semibold">Contato</h3>
                   </div>
                   
                   <div className="space-y-6">
