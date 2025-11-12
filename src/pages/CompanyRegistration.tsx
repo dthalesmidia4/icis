@@ -34,7 +34,8 @@ const CompanyRegistration = () => {
     city: "",
     state: "",
     street: "",
-    number: ""
+    number: "",
+    complement: ""
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loadingCep, setLoadingCep] = useState(false);
@@ -253,14 +254,14 @@ const CompanyRegistration = () => {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-8">
-                {/* Seção 1: Empresa */}
-                <div className="space-y-6">
+                {/* Seção 1: Identificação da Empresa */}
+                <div className="space-y-6 pt-2">
                   <div className="flex items-center gap-2 pb-2 border-b border-border">
                     <Building2 className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-semibold">Empresa</h3>
+                    <h3 className="text-lg font-semibold">Identificação da Empresa</h3>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-6">
                     <div className="space-y-2">
                       <Label htmlFor="name">Razão Social *</Label>
                       <Input id="name" value={formData.name} onChange={e => handleChange("name", e.target.value)} placeholder="Digite a razão social da empresa" className={errors.name ? "border-destructive" : ""} />
@@ -272,35 +273,47 @@ const CompanyRegistration = () => {
                       <Input id="fantasy_name" value={formData.fantasy_name} onChange={e => handleChange("fantasy_name", e.target.value)} placeholder="Como é conhecido no mercado" />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="cnpj">CNPJ *</Label>
-                      <InputMask mask="99.999.999/9999-99" value={formData.cnpj} onChange={e => handleChange("cnpj", e.target.value)} maskChar={null}>
-                        {(inputProps: any) => <Input {...inputProps} id="cnpj" placeholder="00.000.000/0000-00" className={errors.cnpj ? "border-destructive" : ""} />}
-                      </InputMask>
-                      {errors.cnpj && <p className="text-xs text-destructive">{errors.cnpj}</p>}
-                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="cnpj">CNPJ *</Label>
+                        <InputMask mask="99.999.999/9999-99" value={formData.cnpj} onChange={e => handleChange("cnpj", e.target.value)} maskChar={null}>
+                          {(inputProps: any) => <Input {...inputProps} id="cnpj" placeholder="00.000.000/0000-00" className={errors.cnpj ? "border-destructive" : ""} />}
+                        </InputMask>
+                        {errors.cnpj && <p className="text-xs text-destructive">{errors.cnpj}</p>}
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="sector">Setor de Atuação *</Label>
-                      <Select value={formData.sector} onValueChange={value => handleChange("sector", value)}>
-                        <SelectTrigger className={errors.sector ? "border-destructive" : ""}>
-                          <SelectValue placeholder="Selecione o setor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {sectors.map(sector => <SelectItem key={sector} value={sector}>
-                              {sector}
-                            </SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      {errors.sector && <p className="text-xs text-destructive">{errors.sector}</p>}
+                      <div className="space-y-2">
+                        <Label htmlFor="sector">Setor de Atuação *</Label>
+                        <Select value={formData.sector} onValueChange={value => handleChange("sector", value)}>
+                          <SelectTrigger className={errors.sector ? "border-destructive" : ""}>
+                            <SelectValue placeholder="Selecione o setor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {sectors.map(sector => <SelectItem key={sector} value={sector}>
+                                {sector}
+                              </SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        {errors.sector && <p className="text-xs text-destructive">{errors.sector}</p>}
+                      </div>
                     </div>
 
                     {formData.sector === "Outros" && <div className="space-y-2">
-                        <Label htmlFor="other_sector">Qual o setor? *</Label>
-                        <Input id="other_sector" value={formData.other_sector} onChange={e => handleChange("other_sector", e.target.value)} placeholder="Informe o setor de atuação" className={errors.other_sector ? "border-destructive" : ""} />
+                        <Label htmlFor="other_sector">Informe o setor de atuação *</Label>
+                        <Input id="other_sector" value={formData.other_sector} onChange={e => handleChange("other_sector", e.target.value)} placeholder="Digite o setor específico da empresa" className={errors.other_sector ? "border-destructive" : ""} />
                         {errors.other_sector && <p className="text-xs text-destructive">{errors.other_sector}</p>}
                       </div>}
+                  </div>
+                </div>
 
+                {/* Seção 2: Estrutura e Porte */}
+                <div className="space-y-6 pt-2">
+                  <div className="flex items-center gap-2 pb-2 border-b border-border">
+                    <Building2 className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-semibold">Estrutura e Porte</h3>
+                  </div>
+                  
+                  <div className="space-y-6">
                     <div className="space-y-2">
                       <Label htmlFor="size">Tamanho da Empresa *</Label>
                       <div className="flex flex-col md:flex-row md:items-center gap-3">
@@ -323,8 +336,8 @@ const CompanyRegistration = () => {
                       {errors.size && <p className="text-xs text-destructive">{errors.size}</p>}
                     </div>
 
-                    {formData.size === "Franquia" && <>
-                        <div className="space-y-2">
+                    {formData.size === "Franquia" && <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 rounded-lg bg-muted/50">
+                        <div className="space-y-2 md:col-span-2">
                           <Label htmlFor="franchise_brand">Nome da Marca Franqueadora *</Label>
                           <Input id="franchise_brand" value={formData.franchise_brand} onChange={e => handleChange("franchise_brand", e.target.value)} placeholder="Ex: McDonald's, O Boticário" className={errors.franchise_brand ? "border-destructive" : ""} />
                           {errors.franchise_brand && <p className="text-xs text-destructive">{errors.franchise_brand}</p>}
@@ -341,98 +354,97 @@ const CompanyRegistration = () => {
                           <Input id="franchise_city" value={formData.franchise_city} onChange={e => handleChange("franchise_city", e.target.value)} placeholder="Ex: São Paulo, Rio de Janeiro" className={errors.franchise_city ? "border-destructive" : ""} />
                           {errors.franchise_city && <p className="text-xs text-destructive">{errors.franchise_city}</p>}
                         </div>
-                      </>}
-
-                    <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="products_services">Produtos ou Serviços Oferecidos *</Label>
-                      <Textarea id="products_services" value={formData.products_services} onChange={e => handleChange("products_services", e.target.value)} placeholder="Descreva detalhadamente os produtos ou serviços oferecidos pela empresa..." className={`min-h-[100px] resize-none ${errors.products_services ? "border-destructive" : ""}`} />
-                      {errors.products_services && <p className="text-xs text-destructive">{errors.products_services}</p>}
-                    </div>
+                      </div>}
 
                     <div className="space-y-2">
-                      <Label htmlFor="commercial_phone">Telefone Comercial</Label>
-                      <InputMask mask={formData.commercial_phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"} value={formData.commercial_phone} onChange={e => handleChange("commercial_phone", e.target.value)} maskChar={null}>
-                        {(inputProps: any) => <Input {...inputProps} id="commercial_phone" type="tel" placeholder="(00) 00000-0000" />}
-                      </InputMask>
-                      <p className="text-xs text-muted-foreground">Número fixo da empresa para contato geral.</p>
+                      <Label htmlFor="products_services">Produtos ou Serviços Oferecidos *</Label>
+                      <Textarea id="products_services" value={formData.products_services} onChange={e => handleChange("products_services", e.target.value)} placeholder="Descreva detalhadamente os produtos ou serviços oferecidos pela empresa." className={`min-h-[100px] resize-none ${errors.products_services ? "border-destructive" : ""}`} />
+                      <p className="text-xs text-muted-foreground">Seja específico para melhor planejamento de estratégias.</p>
+                      {errors.products_services && <p className="text-xs text-destructive">{errors.products_services}</p>}
                     </div>
                   </div>
                 </div>
 
-                {/* Seção 2: Contato / Informações adicionais */}
-                <div className="space-y-6">
+                {/* Seção 3: Contato e Comunicação */}
+                <div className="space-y-6 pt-2">
                   <div className="flex items-center gap-2 pb-2 border-b border-border">
                     <Phone className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-semibold">Contato / Informações adicionais</h3>
+                    <h3 className="text-lg font-semibold">Contato e Comunicação</h3>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="email">E-mail de Contato *</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input id="email" type="email" value={formData.email} onChange={e => handleChange("email", e.target.value)} placeholder="contato@empresa.com.br" className={`pl-9 ${errors.email ? "border-destructive" : ""}`} />
-                      </div>
-                      {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="cpf">CPF</Label>
-                      <InputMask mask="999.999.999-99" value={formData.cpf} onChange={e => handleChange("cpf", e.target.value)} maskChar={null}>
-                        {(inputProps: any) => <Input {...inputProps} id="cpf" placeholder="000.000.000-00" className={errors.cpf ? "border-destructive" : ""} />}
-                      </InputMask>
-                      
-                      {errors.cpf && <p className="text-xs text-destructive">{errors.cpf}</p>}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Telefone de Contato / WhatsApp *</Label>
-                      <InputMask mask={formData.phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"} value={formData.phone} onChange={e => handleChange("phone", e.target.value)} maskChar={null}>
-                        {(inputProps: any) => <Input {...inputProps} id="phone" type="tel" placeholder="(00) 00000-0000" className={errors.phone ? "border-destructive" : ""} />}
-                      </InputMask>
-                      
-                      {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
-                    </div>
-
-                    <div className="space-y-2 md:col-span-2">
-                      <div className="flex items-center gap-2 mb-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <Label className="text-muted-foreground">Endereço (opcional)</Label>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-12 gap-4 md:col-span-2">
-                      <div className="col-span-12 md:col-span-3 space-y-2">
-                        <Label htmlFor="cep">CEP</Label>
-                        <InputMask mask="99999-999" value={formData.cep} onChange={e => handleChange("cep", e.target.value)} maskChar={null} disabled={loadingCep}>
-                          {(inputProps: any) => <Input {...inputProps} id="cep" placeholder="00000-000" className={errors.cep ? "border-destructive" : ""} />}
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="commercial_phone">Telefone Comercial</Label>
+                        <InputMask mask={formData.commercial_phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"} value={formData.commercial_phone} onChange={e => handleChange("commercial_phone", e.target.value)} maskChar={null}>
+                          {(inputProps: any) => <Input {...inputProps} id="commercial_phone" type="tel" placeholder="(00) 00000-0000" />}
                         </InputMask>
-                        {loadingCep && <p className="text-xs text-muted-foreground">Buscando...</p>}
-                        {errors.cep && <p className="text-xs text-destructive">{errors.cep}</p>}
+                        <p className="text-xs text-muted-foreground">Número fixo da empresa para contato geral.</p>
                       </div>
 
-                      <div className="col-span-12 md:col-span-7 space-y-2">
-                        <Label htmlFor="street">Endereço</Label>
-                        <Input id="street" value={formData.street} onChange={e => handleChange("street", e.target.value)} placeholder="Rua, Avenida, etc." />
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">Telefone de Contato / WhatsApp *</Label>
+                        <InputMask mask={formData.phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"} value={formData.phone} onChange={e => handleChange("phone", e.target.value)} maskChar={null}>
+                          {(inputProps: any) => <Input {...inputProps} id="phone" type="tel" placeholder="(00) 00000-0000" className={errors.phone ? "border-destructive" : ""} />}
+                        </InputMask>
+                        <p className="text-xs text-muted-foreground">Número pessoal ou WhatsApp do responsável.</p>
+                        {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="email">E-mail de Contato *</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input id="email" type="email" value={formData.email} onChange={e => handleChange("email", e.target.value)} placeholder="contato@empresa.com.br" className={`pl-9 ${errors.email ? "border-destructive" : ""}`} />
+                        </div>
+                        {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
                       </div>
 
-                      <div className="col-span-12 md:col-span-2 space-y-2">
-                        <Label htmlFor="number">Número</Label>
-                        <Input id="number" value={formData.number} onChange={e => handleChange("number", e.target.value)} placeholder="123" />
+                      <div className="space-y-2">
+                        <Label htmlFor="cpf">CPF</Label>
+                        <InputMask mask="999.999.999-99" value={formData.cpf} onChange={e => handleChange("cpf", e.target.value)} maskChar={null}>
+                          {(inputProps: any) => <Input {...inputProps} id="cpf" placeholder="000.000.000-00" className={errors.cpf ? "border-destructive" : ""} />}
+                        </InputMask>
+                        <p className="text-xs text-muted-foreground">CPF do responsável (opcional).</p>
+                        {errors.cpf && <p className="text-xs text-destructive">{errors.cpf}</p>}
                       </div>
+                    </div>
+                  </div>
+                </div>
 
-                      <div className="col-span-12 md:col-span-6 space-y-2">
+                {/* Seção 4: Localização */}
+                <div className="space-y-6 pt-2">
+                  <div className="flex items-center gap-2 pb-2 border-b border-border">
+                    <MapPin className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-semibold">Localização</h3>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="cep">CEP</Label>
+                      <InputMask mask="99999-999" value={formData.cep} onChange={e => handleChange("cep", e.target.value)} maskChar={null} disabled={loadingCep}>
+                        {(inputProps: any) => <Input {...inputProps} id="cep" placeholder="00000-000" className={`md:w-1/3 ${errors.cep ? "border-destructive" : ""}`} />}
+                      </InputMask>
+                      {loadingCep && <p className="text-xs text-muted-foreground">Buscando endereço...</p>}
+                      <p className="text-xs text-muted-foreground">Preencha o CEP para auto-completar cidade e estado.</p>
+                      {errors.cep && <p className="text-xs text-destructive">{errors.cep}</p>}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
                         <Label htmlFor="city">Cidade</Label>
                         <Input id="city" value={formData.city} onChange={e => handleChange("city", e.target.value)} placeholder="São Paulo" />
                       </div>
 
-                      <div className="col-span-12 md:col-span-6 space-y-2">
+                      <div className="space-y-2">
                         <Label htmlFor="state">Estado</Label>
                         <Select value={formData.state} onValueChange={value => handleChange("state", value)}>
                           <SelectTrigger id="state">
                             <SelectValue placeholder="Selecione o estado" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-background">
                             <SelectItem value="AC">Acre</SelectItem>
                             <SelectItem value="AL">Alagoas</SelectItem>
                             <SelectItem value="AP">Amapá</SelectItem>
@@ -463,6 +475,24 @@ const CompanyRegistration = () => {
                           </SelectContent>
                         </Select>
                       </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="street">Endereço (Rua/Avenida)</Label>
+                        <Input id="street" value={formData.street} onChange={e => handleChange("street", e.target.value)} placeholder="Rua, Avenida, etc." />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="number">Número</Label>
+                        <Input id="number" value={formData.number} onChange={e => handleChange("number", e.target.value)} placeholder="123" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="complement">Complemento</Label>
+                      <Input id="complement" value={formData.complement} onChange={e => handleChange("complement", e.target.value)} placeholder="Sala, Andar, Bloco (opcional)" />
+                      <p className="text-xs text-muted-foreground">Informação adicional sobre o endereço.</p>
                     </div>
                   </div>
                 </div>
