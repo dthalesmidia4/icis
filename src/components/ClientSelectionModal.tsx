@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Search, Building2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenant } from '@/contexts/TenantContext';
-import { toast } from 'sonner';
 interface Client {
   id: string;
   name: string;
@@ -27,12 +25,10 @@ export const ClientSelectionModal = ({
     tenantId
   } = useTenant();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   
   // Limpar o estado quando o modal fechar
   useEffect(() => {
     if (!open) {
-      setSelectedClient(null);
       setSearchTerm('');
     }
   }, [open]);
@@ -56,14 +52,6 @@ export const ClientSelectionModal = ({
     },
     enabled: !!tenantId && open
   });
-  const handleContinue = () => {
-    if (!selectedClient) {
-      toast.error('Selecione um cliente para continuar');
-      return;
-    }
-    onClientSelected(selectedClient);
-    // Não limpar imediatamente - deixar o componente pai gerenciar
-  };
   return <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
@@ -84,7 +72,7 @@ export const ClientSelectionModal = ({
             </div> : !clients || clients.length === 0 ? <div className="text-center py-8 text-muted-foreground">
               Nenhum cliente encontrado
             </div> : <div className="max-h-[300px] overflow-y-auto space-y-2">
-              {clients.map(client => <div key={client.id} onClick={() => setSelectedClient(client)} className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${selectedClient?.id === client.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-accent/50'}`}>
+              {clients.map(client => <div key={client.id} onClick={() => onClientSelected(client)} className="p-4 rounded-lg border-2 cursor-pointer transition-all border-border hover:border-primary/50 hover:bg-accent/50">
                   <div className="flex items-start gap-3">
                     <div className="mt-1">
                       <Building2 className="h-5 w-5 text-primary" />
@@ -98,15 +86,6 @@ export const ClientSelectionModal = ({
                   </div>
                 </div>)}
             </div>}
-        </div>
-
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleContinue} disabled={!selectedClient} className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
-            Continuar
-          </Button>
         </div>
       </DialogContent>
     </Dialog>;
