@@ -303,19 +303,23 @@ const CompanyRegistration = () => {
 
                     <div className="space-y-2">
                       <Label htmlFor="size">Tamanho da Empresa *</Label>
-                      <Select value={formData.size} onValueChange={value => handleChange("size", value)}>
-                        <SelectTrigger className={errors.size ? "border-destructive" : ""}>
-                          <SelectValue placeholder="Selecione o tamanho" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {sizes.map(size => <SelectItem key={size} value={size}>
-                              {size}
-                            </SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        Micro (1-10 funcionários) · Pequena (10-20) · Média (21-100) · Grande (100+)
-                      </p>
+                      <div className="flex flex-col md:flex-row md:items-center gap-3">
+                        <div className="md:w-3/5">
+                          <Select value={formData.size} onValueChange={value => handleChange("size", value)}>
+                            <SelectTrigger className={errors.size ? "border-destructive" : ""}>
+                              <SelectValue placeholder="Selecione o tamanho" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {sizes.map(size => <SelectItem key={size} value={size}>
+                                  {size}
+                                </SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <p className="text-xs text-muted-foreground md:flex-1">
+                          Micro (1-10 funcionários) · Pequena (10-20) · Média (21-100) · Grande (100+)
+                        </p>
+                      </div>
                       {errors.size && <p className="text-xs text-destructive">{errors.size}</p>}
                     </div>
 
