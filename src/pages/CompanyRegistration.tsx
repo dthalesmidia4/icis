@@ -23,6 +23,7 @@ const CompanyRegistration = () => {
     sector: "",
     other_sector: "",
     size: "",
+    hasFranchise: "não",
     franchise_units: "",
     franchise_city: "",
     franchise_brand: "",
@@ -40,7 +41,7 @@ const CompanyRegistration = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loadingCep, setLoadingCep] = useState(false);
   const sectors = ["Alimentação", "Saúde", "Educação", "Tecnologia", "Serviços", "Comércio", "Indústria", "Construção", "Moda", "Beleza", "Outros"];
-  const sizes = ["Micro", "Pequena", "Média", "Grande", "Franquia"];
+  const sizes = ["Micro", "Pequena", "Média", "Grande"];
   const validateField = (field: string, value: string) => {
     const requiredFields = ["name", "cnpj", "sector", "size", "products_services", "email", "phone"];
 
@@ -63,7 +64,7 @@ const CompanyRegistration = () => {
     }
 
     // Franchise fields validation
-    if (formData.size === "Franquia") {
+    if (formData.hasFranchise === "sim") {
       if (field === "franchise_units" && !value.trim()) return "Campo obrigatório";
       if (field === "franchise_city" && !value.trim()) return "Campo obrigatório";
       if (field === "franchise_brand" && !value.trim()) return "Campo obrigatório";
@@ -145,7 +146,7 @@ const CompanyRegistration = () => {
     }
 
     // Check franchise fields
-    if (formData.size === "Franquia") {
+    if (formData.hasFranchise === "sim") {
       const franchiseFields = ["franchise_units", "franchise_city", "franchise_brand"];
       for (const field of franchiseFields) {
         const value = formData[field as keyof typeof formData];
@@ -193,8 +194,8 @@ const CompanyRegistration = () => {
 
       // Build size value with franchise info
       let sizeValue = formData.size;
-      if (formData.size === "Franquia") {
-        sizeValue = `Franquia - ${formData.franchise_brand} (${formData.franchise_units} unidades, ${formData.franchise_city})`;
+      if (formData.hasFranchise === "sim") {
+        sizeValue = `${formData.size} - Franquia: ${formData.franchise_brand} (${formData.franchise_units} unidades, ${formData.franchise_city})`;
       }
       const {
         data,
@@ -337,13 +338,41 @@ const CompanyRegistration = () => {
                               <span className="text-xs text-muted-foreground">(+100 funcionários)</span>
                             </div>
                           </SelectItem>
-                          <SelectItem value="Franquia">Franquia</SelectItem>
                         </SelectContent>
                       </Select>
                       {errors.size && <p className="text-xs text-destructive">{errors.size}</p>}
                     </div>
 
-                    {formData.size === "Franquia" && <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 rounded-lg bg-muted/50">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Possui Franquia *</Label>
+                        <div className="flex gap-6">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="hasFranchise"
+                              value="sim"
+                              checked={formData.hasFranchise === "sim"}
+                              onChange={(e) => handleChange("hasFranchise", e.target.value)}
+                              className="w-4 h-4 text-primary border-input focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                            />
+                            <span className="text-sm">Sim</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="hasFranchise"
+                              value="não"
+                              checked={formData.hasFranchise === "não"}
+                              onChange={(e) => handleChange("hasFranchise", e.target.value)}
+                              className="w-4 h-4 text-primary border-input focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                            />
+                            <span className="text-sm">Não</span>
+                          </label>
+                        </div>
+                      </div>
+
+                      {formData.hasFranchise === "sim" && <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 rounded-lg bg-muted/50">
                         <div className="space-y-2 md:col-span-2">
                           <Label htmlFor="franchise_brand">Nome da Marca Franqueadora *</Label>
                           <Input id="franchise_brand" value={formData.franchise_brand} onChange={e => handleChange("franchise_brand", e.target.value)} placeholder="Ex: McDonald's, O Boticário" className={errors.franchise_brand ? "border-destructive" : ""} />
@@ -362,6 +391,7 @@ const CompanyRegistration = () => {
                           {errors.franchise_city && <p className="text-xs text-destructive">{errors.franchise_city}</p>}
                         </div>
                       </div>}
+                    </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="products_services">Produtos ou Serviços Oferecidos *</Label>
