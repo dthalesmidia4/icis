@@ -451,7 +451,7 @@ const CompanyRegistration = () => {
                           {(inputProps: any) => <Input {...inputProps} id="cep" placeholder="00000-000" className={errors.cep ? "border-destructive" : ""} />}
                         </InputMask>
                         {loadingCep && <p className="text-xs text-muted-foreground">Buscando endereço...</p>}
-                        {!loadingCep && <p className="text-xs text-muted-foreground">Auto-preenche cidade e estado.</p>}
+                        {!loadingCep}
                         {errors.cep && <p className="text-xs text-destructive">{errors.cep}</p>}
                       </div>
 
