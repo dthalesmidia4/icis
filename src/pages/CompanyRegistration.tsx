@@ -351,23 +351,23 @@ const CompanyRegistration = () => {
                             <input
                               type="radio"
                               name="hasFranchise"
-                              value="sim"
-                              checked={formData.hasFranchise === "sim"}
-                              onChange={(e) => handleChange("hasFranchise", e.target.value)}
-                              className="w-4 h-4 text-primary border-input focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                            />
-                            <span className="text-sm">Sim</span>
-                          </label>
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="hasFranchise"
                               value="não"
                               checked={formData.hasFranchise === "não"}
                               onChange={(e) => handleChange("hasFranchise", e.target.value)}
                               className="w-4 h-4 text-primary border-input focus:ring-2 focus:ring-ring focus:ring-offset-2"
                             />
                             <span className="text-sm">Não</span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="hasFranchise"
+                              value="sim"
+                              checked={formData.hasFranchise === "sim"}
+                              onChange={(e) => handleChange("hasFranchise", e.target.value)}
+                              className="w-4 h-4 text-primary border-input focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                            />
+                            <span className="text-sm">Sim</span>
                           </label>
                         </div>
                       </div>
