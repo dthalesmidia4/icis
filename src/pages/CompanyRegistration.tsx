@@ -359,7 +359,7 @@ const CompanyRegistration = () => {
                     <div className="space-y-2">
                       <Label htmlFor="products_services">Produtos ou Serviços Oferecidos *</Label>
                       <Textarea id="products_services" value={formData.products_services} onChange={e => handleChange("products_services", e.target.value)} placeholder="Descreva detalhadamente os produtos ou serviços oferecidos pela empresa." className={`min-h-[100px] resize-none ${errors.products_services ? "border-destructive" : ""}`} />
-                      <p className="text-xs text-muted-foreground">Seja específico para melhor planejamento de estratégias.</p>
+                      
                       {errors.products_services && <p className="text-xs text-destructive">{errors.products_services}</p>}
                     </div>
                   </div>
