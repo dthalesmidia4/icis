@@ -353,9 +353,7 @@ const CompanyRegistration = () => {
                             </SelectContent>
                           </Select>
                         </div>
-                        <p className="text-xs text-muted-foreground md:flex-1">
-                          Micro (1-10 funcionários) · Pequena (10-20) · Média (21-100) · Grande (100+)
-                        </p>
+                        
                       </div>
                       {errors.size && <p className="text-xs text-destructive">{errors.size}</p>}
                     </div>
