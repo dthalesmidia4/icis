@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, CheckCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,6 +33,7 @@ export default function Questions() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     if (!state?.strategyId || !state?.companyId) {
@@ -47,6 +48,7 @@ export default function Questions() {
   const loadQuestions = async () => {
     try {
       setIsLoading(true);
+      setHasError(false);
 
       // Buscar a sessão de perguntas mais recente para esta estratégia
       const { data: session, error } = await supabase
@@ -61,7 +63,7 @@ export default function Questions() {
 
       if (error) {
         console.error('Erro ao buscar perguntas:', error);
-        toast.error('Erro ao carregar perguntas');
+        setHasError(true);
         return;
       }
 
@@ -90,7 +92,7 @@ export default function Questions() {
 
     } catch (error) {
       console.error('Erro ao carregar perguntas:', error);
-      toast.error('Erro ao carregar perguntas');
+      setHasError(true);
     } finally {
       setIsLoading(false);
     }
@@ -168,7 +170,7 @@ export default function Questions() {
 
   const handleRetryGeneration = async () => {
     setIsLoading(true);
-    toast.info('Gerando novas perguntas...');
+    setHasError(false);
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-questions', {
@@ -187,6 +189,7 @@ export default function Questions() {
       await loadQuestions();
     } catch (error) {
       console.error('Erro ao gerar perguntas:', error);
+      setHasError(true);
       toast.error('Não foi possível gerar as perguntas. Tente novamente.');
     } finally {
       setIsLoading(false);
@@ -197,12 +200,54 @@ export default function Questions() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
         <div className="container max-w-4xl mx-auto py-8 px-4">
+          <div className="flex items-center justify-center min-h-[500px]">
+            <div className="text-center space-y-6 animate-fade-in">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-secondary/20 to-primary/20 blur-3xl animate-pulse"></div>
+                <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto relative z-10" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-lg font-medium text-foreground">
+                  Gerando perguntas personalizadas para seu cronograma...
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Isso pode levar alguns instantes
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
+        <div className="container max-w-4xl mx-auto py-8 px-4">
+          <Button variant="ghost" onClick={() => navigate('/')} className="mb-6">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Button>
+          
           <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center space-y-4">
-              <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-              <p className="text-muted-foreground">
-                Carregando perguntas guias...
-              </p>
+            <div className="text-center space-y-6 max-w-md animate-fade-in">
+              <div className="flex justify-center">
+                <div className="p-4 bg-destructive/10 rounded-full">
+                  <AlertCircle className="h-12 w-12 text-destructive" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-foreground">
+                  Não foi possível carregar as perguntas
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Verifique sua conexão e tente novamente.
+                </p>
+              </div>
+              <Button onClick={handleRetryGeneration} className="mt-4">
+                Gerar Perguntas Novamente
+              </Button>
             </div>
           </div>
         </div>
@@ -232,20 +277,30 @@ export default function Questions() {
           </div>
 
           {questions.length === 0 ? (
-            <div className="text-center py-12 space-y-4">
-              <p className="text-muted-foreground">
-                Nenhuma pergunta encontrada para esta estratégia.
-              </p>
+            <div className="text-center py-12 space-y-6 animate-fade-in">
+              <div className="flex justify-center">
+                <div className="p-4 bg-muted rounded-full">
+                  <AlertCircle className="h-10 w-10 text-muted-foreground" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-lg font-medium text-foreground">
+                  Nenhuma pergunta encontrada
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Gere perguntas para esta estratégia
+                </p>
+              </div>
               <Button onClick={handleRetryGeneration}>
                 Gerar Perguntas Novamente
               </Button>
             </div>
           ) : (
             <>
-              <div className="space-y-6">
+              <div className="space-y-5 animate-fade-in">
                 {questions.map((question, index) => (
-                  <div key={question.id} className="space-y-2">
-                    <Label htmlFor={question.id} className="text-base font-medium">
+                  <div key={question.id} className="space-y-3 p-5 bg-accent/5 rounded-lg border border-border/50">
+                    <Label htmlFor={question.id} className="text-base font-medium leading-relaxed">
                       {index + 1}. {question.question}
                     </Label>
                     {question.type === 'short' ? (
@@ -262,14 +317,15 @@ export default function Questions() {
                         value={answers[question.id] || ''}
                         onChange={(e) => handleAnswerChange(question.id, e.target.value)}
                         placeholder="Digite sua resposta..."
-                        className="min-h-[120px] resize-y"
+                        className="min-h-[100px] resize-y"
+                        rows={2}
                       />
                     )}
                   </div>
                 ))}
               </div>
 
-              <div className="flex justify-end gap-3 pt-6 border-t">
+              <div className="flex justify-end gap-3 pt-8 border-t">
                 <Button
                   variant="outline"
                   onClick={handleSaveAnswers}
@@ -281,10 +337,10 @@ export default function Questions() {
                 <Button
                   onClick={handleCompleteAndAdvance}
                   disabled={isSaving}
-                  className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+                  className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-opacity"
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
-                  {isSaving ? 'Salvando...' : 'Concluir e Avançar'}
+                  {isSaving ? 'Salvando...' : 'Salvar Respostas e Gerar Cronograma'}
                 </Button>
               </div>
             </>
