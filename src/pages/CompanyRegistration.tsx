@@ -489,11 +489,7 @@ const CompanyRegistration = () => {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="complement">Complemento</Label>
-                      <Input id="complement" value={formData.complement} onChange={e => handleChange("complement", e.target.value)} placeholder="Sala, Andar, Bloco (opcional)" />
-                      <p className="text-xs text-muted-foreground">Informação adicional sobre o endereço.</p>
-                    </div>
+                    
                   </div>
                 </div>
 
