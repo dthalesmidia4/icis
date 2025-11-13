@@ -309,56 +309,56 @@ const Plan = () => {
           {planItems.length > 0 && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Cronograma Detalhado</h3>
-            {planItems.map((item, index) => (
-              <Card 
-                key={index} 
-                className="shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-elevated)] transition-all"
-              >
-                <CardContent className="p-6">
-                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                    <div className="space-y-3 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="bg-accent">
-                          {item.week}
-                        </Badge>
-                        <Badge variant="outline">{item.day}</Badge>
-                        <Badge className="bg-primary">{item.contentType}</Badge>
-                        <Badge className="bg-secondary">{item.channel}</Badge>
+              {planItems.map((item, index) => (
+                <Card
+                  key={index} 
+                  className="shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-elevated)] transition-all"
+                >
+                  <CardContent className="p-6">
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                      <div className="space-y-3 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="bg-accent">
+                            {item.week}
+                          </Badge>
+                          <Badge variant="outline">{item.day}</Badge>
+                          <Badge className="bg-primary">{item.contentType}</Badge>
+                          <Badge className="bg-secondary">{item.channel}</Badge>
+                        </div>
+                        <p className="text-foreground font-medium leading-relaxed">{item.description}</p>
                       </div>
-                      <p className="text-foreground font-medium leading-relaxed">{item.description}</p>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="shrink-0"
+                        onClick={() => handleEditClick(index)}
+                      >
+                        <Edit2 className="h-4 w-4 mr-2" />
+                        Editar
+                      </Button>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="shrink-0"
-                      onClick={() => handleEditClick(index)}
-                    >
-                      <Edit2 className="h-4 w-4 mr-2" />
-                      Editar
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
 
           {planContent && (
             <div className="flex gap-4 justify-end flex-wrap">
-            <Button variant="outline" size="lg">
-              <RotateCcw className="h-5 w-5 mr-2" />
-              Gerar Novas Sugestões
-            </Button>
-            <Button
-              onClick={() => setShowApproveModal(true)}
-              size="lg"
-              className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-opacity"
-            >
-              <CheckCircle className="h-5 w-5 mr-2" />
-              Aprovar Plano
-            </Button>
-          </div>
-        )}
+              <Button variant="outline" size="lg">
+                <RotateCcw className="h-5 w-5 mr-2" />
+                Gerar Novas Sugestões
+              </Button>
+              <Button
+                onClick={() => setShowApproveModal(true)}
+                size="lg"
+                className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-opacity"
+              >
+                <CheckCircle className="h-5 w-5 mr-2" />
+                Aprovar Plano
+              </Button>
+            </div>
+          )}
         </div>
       </div>
       
