@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTenant } from "@/contexts/TenantContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,10 +14,11 @@ const DevPrompts = () => {
   const navigate = useNavigate();
   const { tenantId } = useTenant();
   const queryClient = useQueryClient();
-  const [promptContent, setPromptContent] = useState("");
+  const [questionsPromptContent, setQuestionsPromptContent] = useState("");
+  const [planPromptContent, setPlanPromptContent] = useState("");
 
   // Buscar o prompt de geração de perguntas
-  const { data: promptData, isLoading } = useQuery({
+  const { data: questionsPromptData, isLoading: isLoadingQuestions } = useQuery({
     queryKey: ["system-prompt", "generate_questions_prompt", tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
@@ -33,15 +35,39 @@ const DevPrompts = () => {
     enabled: !!tenantId,
   });
 
+  // Buscar o prompt de geração de plano
+  const { data: planPromptData, isLoading: isLoadingPlan } = useQuery({
+    queryKey: ["system-prompt", "generate_plan_prompt", tenantId],
+    queryFn: async () => {
+      if (!tenantId) return null;
+      const { data, error } = await supabase
+        .from("system_prompts")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("prompt_key", "generate_plan_prompt")
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!tenantId,
+  });
+
   // Atualizar o estado quando os dados forem carregados
   useEffect(() => {
-    if (promptData) {
-      setPromptContent(promptData.prompt_content);
+    if (questionsPromptData) {
+      setQuestionsPromptContent(questionsPromptData.prompt_content);
     }
-  }, [promptData]);
+  }, [questionsPromptData]);
 
-  // Mutation para salvar o prompt
-  const savePromptMutation = useMutation({
+  useEffect(() => {
+    if (planPromptData) {
+      setPlanPromptContent(planPromptData.prompt_content);
+    }
+  }, [planPromptData]);
+
+  // Mutation para salvar o prompt de perguntas
+  const saveQuestionsPromptMutation = useMutation({
     mutationFn: async (content: string) => {
       if (!tenantId) throw new Error("Tenant ID não encontrado");
 
@@ -55,7 +81,7 @@ const DevPrompts = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["system-prompt"] });
-      toast.success("Prompt salvo com sucesso!");
+      toast.success("Prompt de perguntas salvo com sucesso!");
     },
     onError: (error) => {
       console.error("Erro ao salvar prompt:", error);
@@ -63,8 +89,35 @@ const DevPrompts = () => {
     },
   });
 
-  const handleSave = () => {
-    savePromptMutation.mutate(promptContent);
+  // Mutation para salvar o prompt de plano
+  const savePlanPromptMutation = useMutation({
+    mutationFn: async (content: string) => {
+      if (!tenantId) throw new Error("Tenant ID não encontrado");
+
+      const { error } = await supabase
+        .from("system_prompts")
+        .update({ prompt_content: content })
+        .eq("tenant_id", tenantId)
+        .eq("prompt_key", "generate_plan_prompt");
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["system-prompt"] });
+      toast.success("Prompt de plano salvo com sucesso!");
+    },
+    onError: (error) => {
+      console.error("Erro ao salvar prompt:", error);
+      toast.error("Erro ao salvar o prompt");
+    },
+  });
+
+  const handleSaveQuestions = () => {
+    saveQuestionsPromptMutation.mutate(questionsPromptContent);
+  };
+
+  const handleSavePlan = () => {
+    savePlanPromptMutation.mutate(planPromptContent);
   };
 
   return (
@@ -86,37 +139,78 @@ const DevPrompts = () => {
       {/* Área Principal */}
       <main className="p-6 lg:p-12">
         <div className="max-w-4xl mx-auto">
-          {/* Card do Prompt */}
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {promptData?.prompt_title || "Prompt de geração de perguntas para o cronograma"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {isLoading ? (
-                <div className="text-muted-foreground">Carregando...</div>
-              ) : (
-                <>
-                  <Textarea
-                    value={promptContent}
-                    onChange={(e) => setPromptContent(e.target.value)}
-                    placeholder="Digite o prompt aqui..."
-                    className="min-h-[300px] font-mono text-sm"
-                  />
-                  <div className="flex justify-end">
-                    <Button
-                      onClick={handleSave}
-                      disabled={savePromptMutation.isPending}
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {savePromptMutation.isPending ? "Salvando..." : "Salvar"}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+          <Tabs defaultValue="questions" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="questions">Prompt de Perguntas</TabsTrigger>
+              <TabsTrigger value="plan">Prompt de Plano</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="questions">
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {questionsPromptData?.prompt_title || "Prompt de geração de perguntas"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {isLoadingQuestions ? (
+                    <div className="text-muted-foreground">Carregando...</div>
+                  ) : (
+                    <>
+                      <Textarea
+                        value={questionsPromptContent}
+                        onChange={(e) => setQuestionsPromptContent(e.target.value)}
+                        placeholder="Digite o prompt aqui..."
+                        className="min-h-[300px] font-mono text-sm"
+                      />
+                      <div className="flex justify-end">
+                        <Button
+                          onClick={handleSaveQuestions}
+                          disabled={saveQuestionsPromptMutation.isPending}
+                        >
+                          <Save className="h-4 w-4 mr-2" />
+                          {saveQuestionsPromptMutation.isPending ? "Salvando..." : "Salvar"}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="plan">
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {planPromptData?.prompt_title || "Prompt de geração de plano"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {isLoadingPlan ? (
+                    <div className="text-muted-foreground">Carregando...</div>
+                  ) : (
+                    <>
+                      <Textarea
+                        value={planPromptContent}
+                        onChange={(e) => setPlanPromptContent(e.target.value)}
+                        placeholder="Digite o prompt aqui..."
+                        className="min-h-[300px] font-mono text-sm"
+                      />
+                      <div className="flex justify-end">
+                        <Button
+                          onClick={handleSavePlan}
+                          disabled={savePlanPromptMutation.isPending}
+                        >
+                          <Save className="h-4 w-4 mr-2" />
+                          {savePlanPromptMutation.isPending ? "Salvando..." : "Salvar"}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
     </div>
