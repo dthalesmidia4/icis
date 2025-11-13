@@ -138,12 +138,7 @@ export default function GenerateQuestions() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-xl font-semibold">Perguntas Guias</h3>
-                    
                   </div>
-                  {isSaving && <span className="text-xs text-muted-foreground flex items-center gap-2">
-                      <span className="inline-block w-2 h-2 bg-primary rounded-full animate-pulse" />
-                      Salvando...
-                    </span>}
                 </div>
 
                 {/* Perguntas e Respostas */}
@@ -151,9 +146,8 @@ export default function GenerateQuestions() {
                   {Array.isArray(questionSession.questions) && questionSession.questions.length > 0 ? questionSession.questions.map((q: any, index: number) => {
               const questionId = q.id || `q_${index}`;
               const questionText = q.question || q.text || q;
-              const questionType = q.type || 'long';
               const currentAnswer = answers[questionId] || '';
-              const isEditing = editingQuestionId === questionId;
+              
               return <Card key={questionId} className="p-6 hover:shadow-md transition-shadow">
                           <div className="space-y-4">
                             <div className="flex items-start gap-3">
@@ -161,31 +155,13 @@ export default function GenerateQuestions() {
                                 {index + 1}
                               </div>
                               <div className="flex-1 space-y-3">
-                                <div className="flex items-start justify-between gap-3">
-                                  <Label className="text-base font-semibold">
-                                    {questionText}
-                                  </Label>
-                                  {!isEditing && <Button variant="ghost" size="sm" onClick={() => handleEditStart(questionId)} className="flex-shrink-0">
-                                      <Pencil className="h-4 w-4 mr-1" />
-                                      Editar
-                                    </Button>}
-                                </div>
+                                <Label className="text-base font-semibold">
+                                  {questionText}
+                                </Label>
                                 
-                                {isEditing ? <div className="space-y-3">
-                                    {questionType === 'short' ? <Input id={questionId} value={editingValue} onChange={e => setEditingValue(e.target.value)} placeholder="Digite sua resposta..." className="w-full" /> : <Textarea id={questionId} value={editingValue} onChange={e => setEditingValue(e.target.value)} placeholder="Digite sua resposta..." className="w-full min-h-[120px] resize-y" />}
-                                    <div className="flex gap-2">
-                                      <Button variant="ghost" size="sm" onClick={handleEditCancel} disabled={isSaving}>
-                                        <X className="h-4 w-4 mr-1" />
-                                        Cancelar
-                                      </Button>
-                                      <Button variant="default" size="sm" onClick={() => handleEditSave(questionId)} disabled={isSaving}>
-                                        <Check className="h-4 w-4 mr-1" />
-                                        Salvar
-                                      </Button>
-                                    </div>
-                                  </div> : <div className="text-foreground/90">
-                                    {currentAnswer ? <p className="whitespace-pre-wrap">{currentAnswer}</p> : <p className="text-muted-foreground italic">Sem resposta</p>}
-                                  </div>}
+                                <div className="text-foreground/90">
+                                  {currentAnswer ? <p className="whitespace-pre-wrap">{currentAnswer}</p> : <p className="text-muted-foreground italic">Sem resposta</p>}
+                                </div>
                               </div>
                             </div>
                           </div>
