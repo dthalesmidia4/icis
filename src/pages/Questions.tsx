@@ -64,11 +64,13 @@ export default function Questions() {
       if (error) {
         console.error('Erro ao buscar perguntas:', error);
         setHasError(true);
+        setIsLoading(false);
         return;
       }
 
       if (!session) {
         // Aguardar um pouco e tentar novamente (perguntas podem estar sendo geradas)
+        // Mantém isLoading = true durante o retry
         setTimeout(loadQuestions, 2000);
         return;
       }
@@ -90,10 +92,11 @@ export default function Questions() {
         setAnswers(session.answers as Record<string, string>);
       }
 
+      setIsLoading(false);
+
     } catch (error) {
       console.error('Erro ao carregar perguntas:', error);
       setHasError(true);
-    } finally {
       setIsLoading(false);
     }
   };
