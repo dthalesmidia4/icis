@@ -70,11 +70,6 @@ export default function GenerateQuestions() {
     }} onClientSelected={handleClientSelected} />
 
       {selectedClient && <div className="container max-w-4xl mx-auto py-8 px-4">
-          <Button variant="ghost" onClick={handleBack} className="mb-6">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
-
           <div className="bg-card rounded-lg shadow-lg p-8 space-y-8">
             <div>
               <h1 className="text-3xl font-bold mb-2">Perguntas Guias</h1>
