@@ -58,7 +58,6 @@ export default function GenerateQuestions() {
   const handleBack = () => {
     navigate('/');
   };
-
   const handleViewStrategy = () => {
     navigate('/strategies');
   };
@@ -111,8 +110,7 @@ export default function GenerateQuestions() {
 
                 {/* Loading Skeletons */}
                 <div className="space-y-6">
-                  {[1, 2, 3].map((i) => (
-                    <Card key={i} className="p-6">
+                  {[1, 2, 3].map(i => <Card key={i} className="p-6">
                       <div className="flex items-start gap-3">
                         <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
                         <div className="flex-1 space-y-3">
@@ -120,8 +118,7 @@ export default function GenerateQuestions() {
                           <Skeleton className="h-24 w-full" />
                         </div>
                       </div>
-                    </Card>
-                  ))}
+                    </Card>)}
                 </div>
               </div> : !questionSession ? <Card className="p-12 text-center border-dashed border-2">
                 <div className="max-w-md mx-auto space-y-4">
@@ -132,10 +129,7 @@ export default function GenerateQuestions() {
                   <p className="text-muted-foreground">
                     As perguntas guias são geradas automaticamente ao criar uma estratégia para este cliente.
                   </p>
-                  <Button 
-                    onClick={() => navigate('/strategies')}
-                    className="mt-4"
-                  >
+                  <Button onClick={() => navigate('/strategies')} className="mt-4">
                     Criar Estratégia
                   </Button>
                 </div>
@@ -144,10 +138,12 @@ export default function GenerateQuestions() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-xl font-semibold">Perguntas Guias</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Respostas do questionário
-                    </p>
+                    
                   </div>
+                  {isSaving && <span className="text-xs text-muted-foreground flex items-center gap-2">
+                      <span className="inline-block w-2 h-2 bg-primary rounded-full animate-pulse" />
+                      Salvando...
+                    </span>}
                 </div>
 
                 {/* Perguntas e Respostas */}
@@ -155,8 +151,9 @@ export default function GenerateQuestions() {
                   {Array.isArray(questionSession.questions) && questionSession.questions.length > 0 ? questionSession.questions.map((q: any, index: number) => {
               const questionId = q.id || `q_${index}`;
               const questionText = q.question || q.text || q;
+              const questionType = q.type || 'long';
               const currentAnswer = answers[questionId] || '';
-              
+              const isEditing = editingQuestionId === questionId;
               return <Card key={questionId} className="p-6 hover:shadow-md transition-shadow">
                           <div className="space-y-4">
                             <div className="flex items-start gap-3">
@@ -164,17 +161,31 @@ export default function GenerateQuestions() {
                                 {index + 1}
                               </div>
                               <div className="flex-1 space-y-3">
-                                <Label className="text-base font-semibold">
-                                  {questionText}
-                                </Label>
-                                
-                                <div className="text-foreground/90">
-                                  {currentAnswer ? (
-                                    <p className="whitespace-pre-wrap">{currentAnswer}</p>
-                                  ) : (
-                                    <p className="text-muted-foreground italic">Sem resposta</p>
-                                  )}
+                                <div className="flex items-start justify-between gap-3">
+                                  <Label className="text-base font-semibold">
+                                    {questionText}
+                                  </Label>
+                                  {!isEditing && <Button variant="ghost" size="sm" onClick={() => handleEditStart(questionId)} className="flex-shrink-0">
+                                      <Pencil className="h-4 w-4 mr-1" />
+                                      Editar
+                                    </Button>}
                                 </div>
+                                
+                                {isEditing ? <div className="space-y-3">
+                                    {questionType === 'short' ? <Input id={questionId} value={editingValue} onChange={e => setEditingValue(e.target.value)} placeholder="Digite sua resposta..." className="w-full" /> : <Textarea id={questionId} value={editingValue} onChange={e => setEditingValue(e.target.value)} placeholder="Digite sua resposta..." className="w-full min-h-[120px] resize-y" />}
+                                    <div className="flex gap-2">
+                                      <Button variant="ghost" size="sm" onClick={handleEditCancel} disabled={isSaving}>
+                                        <X className="h-4 w-4 mr-1" />
+                                        Cancelar
+                                      </Button>
+                                      <Button variant="default" size="sm" onClick={() => handleEditSave(questionId)} disabled={isSaving}>
+                                        <Check className="h-4 w-4 mr-1" />
+                                        Salvar
+                                      </Button>
+                                    </div>
+                                  </div> : <div className="text-foreground/90">
+                                    {currentAnswer ? <p className="whitespace-pre-wrap">{currentAnswer}</p> : <p className="text-muted-foreground italic">Sem resposta</p>}
+                                  </div>}
                               </div>
                             </div>
                           </div>
