@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, ArrowLeft, Sparkles, Loader2 } from 'lucide-react';
+import { Building2, ArrowLeft, Sparkles, Loader2, Pencil, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClientSelectionModal } from '@/components/ClientSelectionModal';
 import { useTenant } from '@/contexts/TenantContext';
@@ -30,6 +30,8 @@ export default function GenerateQuestions() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState<string>('');
   const {
     data: questionSession,
     isLoading: loadingSession
@@ -61,14 +63,24 @@ export default function GenerateQuestions() {
   const handleBack = () => {
     navigate('/');
   };
-  const handleAnswerChange = async (questionId: string, value: string) => {
+  const handleEditStart = (questionId: string) => {
+    setEditingQuestionId(questionId);
+    setEditingValue(answers[questionId] || '');
+  };
+
+  const handleEditCancel = () => {
+    setEditingQuestionId(null);
+    setEditingValue('');
+  };
+
+  const handleEditSave = async (questionId: string) => {
     const updatedAnswers = {
       ...answers,
-      [questionId]: value
+      [questionId]: editingValue
     };
     setAnswers(updatedAnswers);
 
-    // Auto-save
+    // Save to database
     if (questionSession?.id) {
       setIsSaving(true);
       try {
@@ -78,15 +90,21 @@ export default function GenerateQuestions() {
           answers: updatedAnswers
         }).eq('id', questionSession.id);
         if (error) throw error;
+        toast({
+          title: "Resposta salva",
+          description: "Sua resposta foi salva com sucesso.",
+        });
       } catch (error) {
         console.error('Error saving answer:', error);
         toast({
           title: "Erro ao salvar",
-          description: "Não foi possível salvar a resposta automaticamente.",
+          description: "Não foi possível salvar a resposta.",
           variant: "destructive"
         });
       } finally {
         setIsSaving(false);
+        setEditingQuestionId(null);
+        setEditingValue('');
       }
     }
   };
@@ -189,6 +207,8 @@ export default function GenerateQuestions() {
               const questionText = q.question || q.text || q;
               const questionType = q.type || 'long';
               const currentAnswer = answers[questionId] || '';
+              const isEditing = editingQuestionId === questionId;
+              
               return <Card key={questionId} className="p-6 hover:shadow-md transition-shadow">
                           <div className="space-y-4">
                             <div className="flex items-start gap-3">
@@ -196,10 +216,72 @@ export default function GenerateQuestions() {
                                 {index + 1}
                               </div>
                               <div className="flex-1 space-y-3">
-                                <Label htmlFor={questionId} className="text-base font-semibold">
-                                  {questionText}
-                                </Label>
-                                {questionType === 'short' ? <Input id={questionId} value={currentAnswer} onChange={e => handleAnswerChange(questionId, e.target.value)} placeholder="Digite sua resposta..." className="w-full" /> : <Textarea id={questionId} value={currentAnswer} onChange={e => handleAnswerChange(questionId, e.target.value)} placeholder="Digite sua resposta..." className="w-full min-h-[120px] resize-y" />}
+                                <div className="flex items-start justify-between gap-3">
+                                  <Label className="text-base font-semibold">
+                                    {questionText}
+                                  </Label>
+                                  {!isEditing && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleEditStart(questionId)}
+                                      className="flex-shrink-0"
+                                    >
+                                      <Pencil className="h-4 w-4 mr-1" />
+                                      Editar
+                                    </Button>
+                                  )}
+                                </div>
+                                
+                                {isEditing ? (
+                                  <div className="space-y-3">
+                                    {questionType === 'short' ? (
+                                      <Input 
+                                        id={questionId} 
+                                        value={editingValue} 
+                                        onChange={e => setEditingValue(e.target.value)} 
+                                        placeholder="Digite sua resposta..." 
+                                        className="w-full" 
+                                      />
+                                    ) : (
+                                      <Textarea 
+                                        id={questionId} 
+                                        value={editingValue} 
+                                        onChange={e => setEditingValue(e.target.value)} 
+                                        placeholder="Digite sua resposta..." 
+                                        className="w-full min-h-[120px] resize-y" 
+                                      />
+                                    )}
+                                    <div className="flex gap-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleEditCancel}
+                                        disabled={isSaving}
+                                      >
+                                        <X className="h-4 w-4 mr-1" />
+                                        Cancelar
+                                      </Button>
+                                      <Button
+                                        variant="default"
+                                        size="sm"
+                                        onClick={() => handleEditSave(questionId)}
+                                        disabled={isSaving}
+                                      >
+                                        <Check className="h-4 w-4 mr-1" />
+                                        Salvar
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="text-foreground/90">
+                                    {currentAnswer ? (
+                                      <p className="whitespace-pre-wrap">{currentAnswer}</p>
+                                    ) : (
+                                      <p className="text-muted-foreground italic">não respondido</p>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
