@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, ArrowLeft, Sparkles, Loader2, Pencil, X, Check } from 'lucide-react';
+import { Building2, ArrowLeft, FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClientSelectionModal } from '@/components/ClientSelectionModal';
 import { useTenant } from '@/contexts/TenantContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,9 +27,6 @@ export default function GenerateQuestions() {
   const [showModal, setShowModal] = useState(true);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [isSaving, setIsSaving] = useState(false);
-  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
-  const [editingValue, setEditingValue] = useState<string>('');
   const {
     data: questionSession,
     isLoading: loadingSession
@@ -63,50 +58,9 @@ export default function GenerateQuestions() {
   const handleBack = () => {
     navigate('/');
   };
-  const handleEditStart = (questionId: string) => {
-    setEditingQuestionId(questionId);
-    setEditingValue(answers[questionId] || '');
-  };
 
-  const handleEditCancel = () => {
-    setEditingQuestionId(null);
-    setEditingValue('');
-  };
-
-  const handleEditSave = async (questionId: string) => {
-    const updatedAnswers = {
-      ...answers,
-      [questionId]: editingValue
-    };
-    setAnswers(updatedAnswers);
-
-    // Save to database
-    if (questionSession?.id) {
-      setIsSaving(true);
-      try {
-        const {
-          error
-        } = await supabase.from('question_sessions').update({
-          answers: updatedAnswers
-        }).eq('id', questionSession.id);
-        if (error) throw error;
-        toast({
-          title: "Resposta salva",
-          description: "Sua resposta foi salva com sucesso.",
-        });
-      } catch (error) {
-        console.error('Error saving answer:', error);
-        toast({
-          title: "Erro ao salvar",
-          description: "Não foi possível salvar a resposta.",
-          variant: "destructive"
-        });
-      } finally {
-        setIsSaving(false);
-        setEditingQuestionId(null);
-        setEditingValue('');
-      }
-    }
+  const handleViewStrategy = () => {
+    navigate('/strategies');
   };
   return <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
       <ClientSelectionModal open={showModal} onOpenChange={open => {
@@ -172,7 +126,7 @@ export default function GenerateQuestions() {
               </div> : !questionSession ? <Card className="p-12 text-center border-dashed border-2">
                 <div className="max-w-md mx-auto space-y-4">
                   <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
-                    <Sparkles className="h-8 w-8 text-muted-foreground" />
+                    <FileText className="h-8 w-8 text-muted-foreground" />
                   </div>
                   <h3 className="text-xl font-semibold">Nenhuma pergunta encontrada</h3>
                   <p className="text-muted-foreground">
@@ -191,13 +145,9 @@ export default function GenerateQuestions() {
                   <div>
                     <h3 className="text-xl font-semibold">Perguntas Guias</h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Preencha as respostas para gerar um plano personalizado
+                      Respostas do questionário
                     </p>
                   </div>
-                  {isSaving && <span className="text-xs text-muted-foreground flex items-center gap-2">
-                      <span className="inline-block w-2 h-2 bg-primary rounded-full animate-pulse" />
-                      Salvando...
-                    </span>}
                 </div>
 
                 {/* Perguntas e Respostas */}
@@ -205,9 +155,7 @@ export default function GenerateQuestions() {
                   {Array.isArray(questionSession.questions) && questionSession.questions.length > 0 ? questionSession.questions.map((q: any, index: number) => {
               const questionId = q.id || `q_${index}`;
               const questionText = q.question || q.text || q;
-              const questionType = q.type || 'long';
               const currentAnswer = answers[questionId] || '';
-              const isEditing = editingQuestionId === questionId;
               
               return <Card key={questionId} className="p-6 hover:shadow-md transition-shadow">
                           <div className="space-y-4">
@@ -216,72 +164,17 @@ export default function GenerateQuestions() {
                                 {index + 1}
                               </div>
                               <div className="flex-1 space-y-3">
-                                <div className="flex items-start justify-between gap-3">
-                                  <Label className="text-base font-semibold">
-                                    {questionText}
-                                  </Label>
-                                  {!isEditing && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleEditStart(questionId)}
-                                      className="flex-shrink-0"
-                                    >
-                                      <Pencil className="h-4 w-4 mr-1" />
-                                      Editar
-                                    </Button>
+                                <Label className="text-base font-semibold">
+                                  {questionText}
+                                </Label>
+                                
+                                <div className="text-foreground/90">
+                                  {currentAnswer ? (
+                                    <p className="whitespace-pre-wrap">{currentAnswer}</p>
+                                  ) : (
+                                    <p className="text-muted-foreground italic">Sem resposta</p>
                                   )}
                                 </div>
-                                
-                                {isEditing ? (
-                                  <div className="space-y-3">
-                                    {questionType === 'short' ? (
-                                      <Input 
-                                        id={questionId} 
-                                        value={editingValue} 
-                                        onChange={e => setEditingValue(e.target.value)} 
-                                        placeholder="Digite sua resposta..." 
-                                        className="w-full" 
-                                      />
-                                    ) : (
-                                      <Textarea 
-                                        id={questionId} 
-                                        value={editingValue} 
-                                        onChange={e => setEditingValue(e.target.value)} 
-                                        placeholder="Digite sua resposta..." 
-                                        className="w-full min-h-[120px] resize-y" 
-                                      />
-                                    )}
-                                    <div className="flex gap-2">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={handleEditCancel}
-                                        disabled={isSaving}
-                                      >
-                                        <X className="h-4 w-4 mr-1" />
-                                        Cancelar
-                                      </Button>
-                                      <Button
-                                        variant="default"
-                                        size="sm"
-                                        onClick={() => handleEditSave(questionId)}
-                                        disabled={isSaving}
-                                      >
-                                        <Check className="h-4 w-4 mr-1" />
-                                        Salvar
-                                      </Button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="text-foreground/90">
-                                    {currentAnswer ? (
-                                      <p className="whitespace-pre-wrap">{currentAnswer}</p>
-                                    ) : (
-                                      <p className="text-muted-foreground italic">Sem resposta</p>
-                                    )}
-                                  </div>
-                                )}
                               </div>
                             </div>
                           </div>
@@ -293,11 +186,11 @@ export default function GenerateQuestions() {
                     </Card>}
                 </div>
 
-                {/* Botão Gerar Plano */}
+                {/* Botão Ver Estratégia */}
                 {Array.isArray(questionSession.questions) && questionSession.questions.length > 0 && <div className="flex justify-end pt-6 border-t">
-                    <Button size="lg" className="gap-2">
-                      <Sparkles className="h-5 w-5" />
-                      Gerar Plano
+                    <Button size="lg" className="gap-2" onClick={handleViewStrategy}>
+                      <FileText className="h-5 w-5" />
+                      Ver Estratégia
                     </Button>
                   </div>}
 
