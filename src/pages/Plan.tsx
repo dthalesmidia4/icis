@@ -340,7 +340,6 @@ const Plan = () => {
                 </CardContent>
               </Card>
             ))}
-              </div>
             </div>
           )}
 
