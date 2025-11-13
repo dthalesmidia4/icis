@@ -95,10 +95,16 @@ export default function GenerateQuestions() {
                   </p>
                 </div>
                 {questionSession && Array.isArray(questionSession.questions) && questionSession.questions.length > 0 && (
-                  <Button size="lg" className="gap-2" onClick={handleViewStrategy}>
-                    <FileText className="h-5 w-5" />
-                    Ver Estratégia
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="lg" className="gap-2" onClick={handleViewStrategy}>
+                      <FileText className="h-5 w-5" />
+                      Ver Estratégia
+                    </Button>
+                    <Button size="lg" className="gap-2" onClick={() => navigate('/plans')}>
+                      <FileText className="h-5 w-5" />
+                      Ver Plano do Cronograma
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
