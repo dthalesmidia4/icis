@@ -87,7 +87,6 @@ export default function GenerateQuestions() {
                   <Building2 className="h-6 w-6 text-primary" />
                 </div>
                 <div className="flex-1">
-                  
                   <h3 className="text-xl font-semibold mb-1">
                     {selectedClient.name}
                   </h3>
@@ -95,6 +94,12 @@ export default function GenerateQuestions() {
                     CNPJ/CPF: {selectedClient.cnpj_cpf}
                   </p>
                 </div>
+                {questionSession && Array.isArray(questionSession.questions) && questionSession.questions.length > 0 && (
+                  <Button size="lg" className="gap-2" onClick={handleViewStrategy}>
+                    <FileText className="h-5 w-5" />
+                    Ver Estratégia
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -134,13 +139,6 @@ export default function GenerateQuestions() {
                   </Button>
                 </div>
               </Card> : <div className="space-y-8">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-xl font-semibold">Perguntas Guias</h3>
-                  </div>
-                </div>
-
                 {/* Perguntas e Respostas */}
                 <div className="space-y-6">
                   {Array.isArray(questionSession.questions) && questionSession.questions.length > 0 ? questionSession.questions.map((q: any, index: number) => {
@@ -172,14 +170,6 @@ export default function GenerateQuestions() {
                       </p>
                     </Card>}
                 </div>
-
-                {/* Botão Ver Estratégia */}
-                {Array.isArray(questionSession.questions) && questionSession.questions.length > 0 && <div className="flex justify-end pt-6 border-t">
-                    <Button size="lg" className="gap-2" onClick={handleViewStrategy}>
-                      <FileText className="h-5 w-5" />
-                      Ver Estratégia
-                    </Button>
-                  </div>}
 
                 {/* Status */}
                 <div className="flex items-center justify-between pt-4 border-t text-xs text-muted-foreground">
