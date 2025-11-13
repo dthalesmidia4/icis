@@ -28,7 +28,6 @@ export default function StrategyCreation() {
   const [existingStrategy, setExistingStrategy] = useState<any>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [showCancelEditModal, setShowCancelEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isLoadingStrategy, setIsLoadingStrategy] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -154,16 +153,14 @@ export default function StrategyCreation() {
   const handleCancelEdit = () => {
     setIsEditMode(false);
     setStrategyText(existingStrategy.strategy_text);
-    setShowCancelEditModal(false);
   };
   const handleBack = () => {
-    if (isEditMode && existingStrategy) {
-      setShowCancelEditModal(true);
-    } else if (selectedClient) {
+    if (selectedClient) {
       setSelectedClient(null);
       setStrategyText('');
       setExistingStrategy(null);
       setIsEditMode(false);
+      setShowModal(true);
     } else {
       navigate('/');
     }
@@ -179,8 +176,12 @@ export default function StrategyCreation() {
       if (error) throw error;
       toast.success('✅ Estratégia removida com sucesso!');
 
-      // Redirecionar para o hub
-      navigate('/');
+      // Resetar estado e voltar para seleção de cliente
+      setSelectedClient(null);
+      setStrategyText('');
+      setExistingStrategy(null);
+      setIsEditMode(false);
+      setShowModal(true);
     } catch (error) {
       console.error('Erro ao remover estratégia:', error);
       toast.error('Erro ao remover estratégia. Tente novamente.');
@@ -194,7 +195,7 @@ export default function StrategyCreation() {
       
       <ConfirmationModal open={showConfirmModal} onOpenChange={setShowConfirmModal} title="Substituir estratégia existente?" description="A estratégia anterior será substituída pela nova versão. Esta ação não pode ser desfeita. Deseja continuar?" onConfirm={handleSave} loading={isSaving} />
 
-      <ConfirmationModal open={showCancelEditModal} onOpenChange={setShowCancelEditModal} title="Descartar alterações?" description="As alterações que você fez na estratégia não serão salvas. Deseja realmente cancelar a edição?" onConfirm={handleCancelEdit} loading={false} />
+      
 
       <ConfirmationModal open={showDeleteModal} onOpenChange={setShowDeleteModal} title="Remover estratégia?" description="Esta ação não pode ser desfeita. A estratégia e todas as perguntas guias relacionadas serão removidas permanentemente. Deseja continuar?" onConfirm={handleDeleteStrategy} loading={isDeleting} />
 
@@ -285,6 +286,10 @@ export default function StrategyCreation() {
                 {existingStrategy && !isEditMode && <Button variant="secondary" onClick={() => navigate('/plans')}>
                     <CalendarDays className="h-4 w-4 mr-2" />
                     Ver Plano
+                  </Button>}
+                
+                {isEditMode && existingStrategy && <Button variant="outline" onClick={handleCancelEdit}>
+                    Cancelar Edição
                   </Button>}
                 
                 {isEditMode && <Button onClick={handleSaveClick} disabled={isSaving || !strategyText.trim()} className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
