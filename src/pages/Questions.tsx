@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Save, CheckCircle, Loader2, AlertCircle, Pencil, X, Check } from 'lucide-react';
+import { ArrowLeft, Save, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,8 +34,6 @@ export default function Questions() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
-  const [tempAnswer, setTempAnswer] = useState<string>('');
 
   useEffect(() => {
     if (!state?.strategyId || !state?.companyId) {
@@ -103,46 +101,11 @@ export default function Questions() {
     }
   };
 
-  const handleStartEdit = (questionId: string) => {
-    setEditingQuestionId(questionId);
-    setTempAnswer(answers[questionId] || '');
-  };
-
-  const handleCancelEdit = () => {
-    setEditingQuestionId(null);
-    setTempAnswer('');
-  };
-
-  const handleSaveEdit = async (questionId: string) => {
-    if (!sessionId) {
-      toast.error('Sessão não encontrada');
-      return;
-    }
-
-    const updatedAnswers = {
-      ...answers,
-      [questionId]: tempAnswer
-    };
-
-    try {
-      const { error } = await supabase
-        .from('question_sessions')
-        .update({
-          answers: updatedAnswers,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', sessionId);
-
-      if (error) throw error;
-
-      setAnswers(updatedAnswers);
-      setEditingQuestionId(null);
-      setTempAnswer('');
-      toast.success('Resposta salva com sucesso');
-    } catch (error) {
-      console.error('Erro ao salvar resposta:', error);
-      toast.error('Erro ao salvar resposta. Tente novamente.');
-    }
+  const handleAnswerChange = (questionId: string, value: string) => {
+    setAnswers(prev => ({
+      ...prev,
+      [questionId]: value
+    }));
   };
 
   const handleSaveAnswers = async () => {
@@ -340,71 +303,26 @@ export default function Questions() {
               <div className="space-y-5 animate-fade-in">
                 {questions.map((question, index) => (
                   <div key={question.id} className="space-y-3 p-5 bg-accent/5 rounded-lg border border-border/50">
-                    <div className="flex items-start justify-between gap-3">
-                      <Label htmlFor={question.id} className="text-base font-medium leading-relaxed flex-1">
-                        {index + 1}. {question.question}
-                      </Label>
-                      {editingQuestionId !== question.id && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleStartEdit(question.id)}
-                          className="h-8 px-3"
-                        >
-                          <Pencil className="h-4 w-4 mr-2" />
-                          Editar
-                        </Button>
-                      )}
-                    </div>
-                    
-                    {editingQuestionId === question.id ? (
-                      <>
-                        {question.type === 'short' ? (
-                          <Input
-                            id={question.id}
-                            value={tempAnswer}
-                            onChange={(e) => setTempAnswer(e.target.value)}
-                            placeholder="Digite sua resposta..."
-                            className="w-full"
-                          />
-                        ) : (
-                          <Textarea
-                            id={question.id}
-                            value={tempAnswer}
-                            onChange={(e) => setTempAnswer(e.target.value)}
-                            placeholder="Digite sua resposta..."
-                            className="min-h-[100px] resize-y"
-                            rows={2}
-                          />
-                        )}
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleCancelEdit}
-                            className="h-8"
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            Cancelar
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => handleSaveEdit(question.id)}
-                            className="h-8"
-                          >
-                            <Check className="h-4 w-4 mr-1" />
-                            Salvar
-                          </Button>
-                        </div>
-                      </>
+                    <Label htmlFor={question.id} className="text-base font-medium leading-relaxed">
+                      {index + 1}. {question.question}
+                    </Label>
+                    {question.type === 'short' ? (
+                      <Input
+                        id={question.id}
+                        value={answers[question.id] || ''}
+                        onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                        placeholder="Digite sua resposta..."
+                        className="w-full"
+                      />
                     ) : (
-                      <div className="text-sm text-muted-foreground">
-                        {answers[question.id] ? (
-                          <p className="whitespace-pre-wrap">{answers[question.id]}</p>
-                        ) : (
-                          <p className="italic">Não respondido</p>
-                        )}
-                      </div>
+                      <Textarea
+                        id={question.id}
+                        value={answers[question.id] || ''}
+                        onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                        placeholder="Digite sua resposta..."
+                        className="min-h-[100px] resize-y"
+                        rows={2}
+                      />
                     )}
                   </div>
                 ))}
