@@ -174,8 +174,7 @@ ${systemPrompt.prompt_content}
         strategy_id: strategyId,
         tenant_id: tenantId,
         plan_content: generatedPlan,
-        status: 'draft',
-        month: company.selected_month
+        plan_data: { metadata: { month: company.selected_month } }
       })
       .select()
       .single();
