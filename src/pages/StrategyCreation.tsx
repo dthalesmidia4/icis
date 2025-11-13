@@ -155,15 +155,7 @@ export default function StrategyCreation() {
     setStrategyText(existingStrategy.strategy_text);
   };
   const handleBack = () => {
-    if (selectedClient) {
-      setSelectedClient(null);
-      setStrategyText('');
-      setExistingStrategy(null);
-      setIsEditMode(false);
-      setShowModal(true);
-    } else {
-      navigate('/');
-    }
+    navigate('/');
   };
   const handleDeleteStrategy = async () => {
     if (!existingStrategy) return;
@@ -176,12 +168,8 @@ export default function StrategyCreation() {
       if (error) throw error;
       toast.success('✅ Estratégia removida com sucesso!');
 
-      // Resetar estado e voltar para seleção de cliente
-      setSelectedClient(null);
-      setStrategyText('');
-      setExistingStrategy(null);
-      setIsEditMode(false);
-      setShowModal(true);
+      // Voltar para a hub de controle
+      navigate('/');
     } catch (error) {
       console.error('Erro ao remover estratégia:', error);
       toast.error('Erro ao remover estratégia. Tente novamente.');
