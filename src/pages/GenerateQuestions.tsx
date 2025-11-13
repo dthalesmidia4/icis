@@ -278,7 +278,7 @@ export default function GenerateQuestions() {
                                     {currentAnswer ? (
                                       <p className="whitespace-pre-wrap">{currentAnswer}</p>
                                     ) : (
-                                      <p className="text-muted-foreground italic">não respondido</p>
+                                      <p className="text-muted-foreground italic">Sem resposta.</p>
                                     )}
                                   </div>
                                 )}
