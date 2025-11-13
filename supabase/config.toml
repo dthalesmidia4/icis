@@ -2,3 +2,6 @@ project_id = "neriayolipcupycirwhf"
 
 [functions.generate-questions]
 verify_jwt = true
+
+[functions.generate-plan]
+verify_jwt = true

@@ -23,109 +23,136 @@ interface PlanItem {
 const Plan = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const planId = searchParams.get("planId");
   const companyId = searchParams.get("companyId");
   const [loading, setLoading] = useState(true);
   const [approving, setApproving] = useState(false);
   const [companyData, setCompanyData] = useState<any>(null);
+  const [planContent, setPlanContent] = useState<string>("");
   const [planItems, setPlanItems] = useState<PlanItem[]>([]);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<PlanItem | null>(null);
 
   useEffect(() => {
-    if (!companyId) {
-      toast.error("ID da empresa não encontrado");
+    if (!planId && !companyId) {
+      toast.error("Informações do plano não encontradas");
       navigate("/");
       return;
     }
 
     const fetchData = async () => {
       try {
-        const { data: company, error: companyError } = await supabase
-          .from("tenant_companies")
-          .select("*")
-          .eq("id", companyId)
-          .maybeSingle();
+        let plan = null;
+        let company = null;
 
-        if (companyError) throw companyError;
+        // Buscar plano por ID se disponível
+        if (planId) {
+          const { data: planData, error: planError } = await supabase
+            .from("marketing_plans")
+            .select("*")
+            .eq("id", planId)
+            .maybeSingle();
 
-        const { data: strategy, error: strategyError } = await supabase
-          .from("strategies")
-          .select("*")
-          .eq("company_id", companyId)
-          .maybeSingle();
+          if (planError) throw planError;
+          plan = planData;
 
-        if (strategyError) throw strategyError;
+          if (plan) {
+            // Buscar dados da empresa do plano
+            const { data: companyData, error: companyError } = await supabase
+              .from("tenant_companies")
+              .select("*")
+              .eq("id", plan.company_id)
+              .maybeSingle();
 
-        if (company && strategy) {
-          setCompanyData({ ...company, strategy: strategy.strategy_text });
+            if (companyError) throw companyError;
+            company = companyData;
+          }
+        } else if (companyId) {
+          // Buscar empresa e plano mais recente
+          const { data: companyData, error: companyError } = await supabase
+            .from("tenant_companies")
+            .select("*")
+            .eq("id", companyId)
+            .maybeSingle();
+
+          if (companyError) throw companyError;
+          company = companyData;
+
+          if (company) {
+            const { data: planData, error: planError } = await supabase
+              .from("marketing_plans")
+              .select("*")
+              .eq("company_id", companyId)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (planError && planError.code !== 'PGRST116') throw planError;
+            plan = planData;
+          }
         }
 
-        // Generate mock plan (will be replaced with AI generation later)
-        const mockPlan: PlanItem[] = [
-          {
-            week: "Semana 1",
-            day: "Segunda-feira",
-            contentType: "Post",
-            channel: "Instagram",
-            description: "Apresentação da empresa e sua proposta de valor",
-          },
-          {
-            week: "Semana 1",
-            day: "Quarta-feira",
-            contentType: "Vídeo",
-            channel: "YouTube",
-            description: "Tutorial sobre o principal produto/serviço",
-          },
-          {
-            week: "Semana 2",
-            day: "Segunda-feira",
-            contentType: "E-mail",
-            channel: "Newsletter",
-            description: "Compartilhar cases de sucesso e depoimentos",
-          },
-          {
-            week: "Semana 2",
-            day: "Sexta-feira",
-            contentType: "Post",
-            channel: "LinkedIn",
-            description: "Conteúdo educativo sobre tendências do setor",
-          },
-          {
-            week: "Semana 3",
-            day: "Terça-feira",
-            contentType: "Anúncio",
-            channel: "Facebook Ads",
-            description: "Campanha de captação de leads com oferta especial",
-          },
-          {
-            week: "Semana 3",
-            day: "Quinta-feira",
-            contentType: "Post",
-            channel: "Instagram",
-            description: "Bastidores da empresa e cultura organizacional",
-          },
-          {
-            week: "Semana 4",
-            day: "Segunda-feira",
-            contentType: "Blog",
-            channel: "Site",
-            description: "Artigo completo sobre solução de um problema comum",
-          },
-        ];
+        if (!company) {
+          toast.error("Dados da empresa não encontrados");
+          navigate("/");
+          return;
+        }
 
-        setPlanItems(mockPlan);
+        setCompanyData(company);
+
+        if (plan && plan.plan_content) {
+          setPlanContent(plan.plan_content);
+          
+          // Tentar extrair itens estruturados do conteúdo (se aplicável)
+          // Por enquanto, usar dados mockados para demonstração
+          const mockPlan: PlanItem[] = [
+            {
+              week: "Semana 1",
+              day: "Segunda-feira",
+              contentType: "Post",
+              channel: "Instagram",
+              description: "Apresentação da empresa e sua proposta de valor",
+            },
+            {
+              week: "Semana 1",
+              day: "Quarta-feira",
+              contentType: "Vídeo",
+              channel: "YouTube",
+              description: "Tutorial sobre o principal produto/serviço",
+            },
+            {
+              week: "Semana 2",
+              day: "Segunda-feira",
+              contentType: "E-mail",
+              channel: "Newsletter",
+              description: "Compartilhar cases de sucesso e depoimentos",
+            },
+            {
+              week: "Semana 2",
+              day: "Sexta-feira",
+              contentType: "Post",
+              channel: "LinkedIn",
+              description: "Conteúdo educativo sobre tendências do setor",
+            },
+          ];
+          setPlanItems(mockPlan);
+        } else {
+          // Nenhum plano gerado ainda - mostrar estado vazio
+          setPlanContent("");
+          setPlanItems([]);
+        }
+
+        setLoading(false);
       } catch (error) {
-        console.error("Error fetching data:", error);
-        toast.error("Erro ao carregar dados");
-        navigate("/");
-      } finally {
+        console.error("Erro ao carregar dados:", error);
+        toast.error("Erro ao carregar dados do plano");
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [companyId, navigate]);
+  }, [planId, companyId, navigate]);
 
   const handleEditClick = (index: number) => {
     setEditingIndex(index);
@@ -228,23 +255,60 @@ const Plan = () => {
                   <Calendar className="h-6 w-6 text-primary-foreground" />
                 </div>
                 <div className="flex-1">
-                  <CardTitle className="text-2xl">Plano Mensal Gerado</CardTitle>
+                  <CardTitle className="text-2xl">Plano de Marketing</CardTitle>
                   <CardDescription>
-                    Plano criado com base na sua estratégia de {companyData?.selected_month}
+                    {companyData?.name && `Plano para ${companyData.name}`}
+                    {companyData?.selected_month && ` - ${companyData.selected_month}`}
                   </CardDescription>
                 </div>
               </div>
               
-              <div className="flex items-start gap-2 p-4 bg-primary/5 rounded-lg border border-primary/20">
-                <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                <p className="text-sm text-muted-foreground">
-                  Revise o cronograma gerado automaticamente. Você pode editar qualquer item antes de aprovar.
-                </p>
-              </div>
+              {planContent && (
+                <div className="flex items-start gap-2 p-4 bg-primary/5 rounded-lg border border-primary/20">
+                  <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                  <p className="text-sm text-muted-foreground">
+                    Plano gerado automaticamente com base na sua estratégia e respostas. Revise e edite conforme necessário.
+                  </p>
+                </div>
+              )}
             </CardHeader>
+            
+            {planContent && (
+              <CardContent>
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <div className="whitespace-pre-wrap bg-accent/30 p-6 rounded-lg border">
+                    {planContent}
+                  </div>
+                </div>
+              </CardContent>
+            )}
           </Card>
 
-          <div className="grid gap-4">
+          {!planContent && planItems.length === 0 && (
+            <Card className="shadow-[var(--shadow-card)]">
+              <CardContent className="py-16">
+                <div className="flex flex-col items-center gap-4 text-center">
+                  <div className="p-4 bg-muted rounded-full">
+                    <Calendar className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-semibold">Nenhum plano gerado ainda</h3>
+                    <p className="text-muted-foreground max-w-md">
+                      Responda as perguntas guias para gerar um plano de marketing personalizado.
+                    </p>
+                  </div>
+                  <Button onClick={() => navigate('/generate-questions')} className="gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Ir para Perguntas Guias
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {planItems.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Cronograma Detalhado</h3>
             {planItems.map((item, index) => (
               <Card 
                 key={index} 
@@ -276,9 +340,12 @@ const Plan = () => {
                 </CardContent>
               </Card>
             ))}
-          </div>
+              </div>
+            </div>
+          )}
 
-          <div className="flex gap-4 justify-end flex-wrap">
+          {planContent && (
+            <div className="flex gap-4 justify-end flex-wrap">
             <Button variant="outline" size="lg">
               <RotateCcw className="h-5 w-5 mr-2" />
               Gerar Novas Sugestões
@@ -292,6 +359,7 @@ const Plan = () => {
               Aprovar Plano
             </Button>
           </div>
+        )}
         </div>
       </div>
       
