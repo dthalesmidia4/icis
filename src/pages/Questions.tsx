@@ -145,7 +145,8 @@ export default function Questions() {
     setIsSaving(true);
 
     try {
-      const { error } = await supabase
+      // Salvar respostas
+      const { error: updateError } = await supabase
         .from('question_sessions')
         .update({
           answers: answers,
@@ -154,18 +155,37 @@ export default function Questions() {
         })
         .eq('id', sessionId);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
-      toast.success('Respostas salvas com sucesso! Avançando...');
+      toast.success('Respostas salvas! Gerando plano...');
+
+      // Gerar plano
+      const { data: planData, error: planError } = await supabase.functions.invoke('generate-plan', {
+        body: {
+          companyId: state.companyId,
+          strategyId: state.strategyId,
+          tenantId: tenantId
+        }
+      });
+
+      if (planError || planData?.error) {
+        throw planError || new Error(planData.error);
+      }
+
+      toast.success('Plano gerado com sucesso!');
       
-      // Navegar para a próxima etapa (ajustar conforme necessário)
-      setTimeout(() => {
-        navigate('/');
-      }, 1500);
+      // Navegar para a página de planos
+      navigate('/plans', {
+        state: {
+          planId: planData.planId,
+          companyId: state.companyId,
+          strategyId: state.strategyId
+        }
+      });
 
     } catch (error) {
-      console.error('Erro ao concluir:', error);
-      toast.error('Erro ao salvar respostas. Tente novamente.');
+      console.error('Erro ao gerar plano:', error);
+      toast.error('Erro ao gerar plano. Tente novamente.');
     } finally {
       setIsSaving(false);
     }
@@ -343,7 +363,7 @@ export default function Questions() {
                   className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-opacity"
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
-                  {isSaving ? 'Salvando...' : 'Salvar Respostas e Gerar Cronograma'}
+                  {isSaving ? 'Gerando plano...' : 'Salvar Respostas e Gerar Plano'}
                 </Button>
               </div>
             </>
