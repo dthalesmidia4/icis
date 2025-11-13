@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, ArrowLeft, Save, Edit2, Trash2 } from 'lucide-react';
+import { Building2, ArrowLeft, Save, Edit2, Trash2, FileQuestion, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -216,10 +216,29 @@ export default function StrategyCreation() {
                   <Building2 className="h-6 w-6 text-primary" />
                 </div>
                 <div className="flex-1">
-                  
-                  <h3 className="text-xl font-semibold mb-1">
-                    {selectedClient.name}
-                  </h3>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-xl font-semibold mb-1">
+                      {selectedClient.name}
+                    </h3>
+                    {existingStrategy && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate('/generate-questions', {
+                          state: {
+                            companyId: selectedClient.id,
+                            strategyId: existingStrategy.id,
+                            companyName: selectedClient.name,
+                            companyCnpjCpf: selectedClient.cnpj_cpf
+                          }
+                        })}
+                        className="gap-2"
+                      >
+                        <FileQuestion className="h-4 w-4" />
+                        Perguntas Guias
+                      </Button>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">
                     CNPJ/CPF: {selectedClient.cnpj_cpf}
                   </p>
@@ -256,26 +275,16 @@ export default function StrategyCreation() {
 
             <div className="flex justify-between items-center gap-3 pt-4">
               <div>
-                {existingStrategy && !isEditMode && <Button variant="destructive" onClick={() => setShowDeleteModal(true)} disabled={isDeleting} className="gap-2">
+                {isEditMode && existingStrategy && <Button variant="destructive" onClick={() => setShowDeleteModal(true)} disabled={isDeleting} className="gap-2">
                     <Trash2 className="h-4 w-4" />
                     Remover Estratégia
                   </Button>}
               </div>
 
               <div className="flex gap-3">
-                <Button variant="outline" onClick={handleBack} disabled={isSaving}>
-                  {isEditMode && existingStrategy ? 'Cancelar Edição' : 'Cancelar'}
-                </Button>
-                
-                {existingStrategy && !isEditMode && <Button variant="secondary" onClick={() => navigate('/generate-questions', {
-              state: {
-                companyId: selectedClient.id,
-                strategyId: existingStrategy.id,
-                companyName: selectedClient.name,
-                companyCnpjCpf: selectedClient.cnpj_cpf
-              }
-            })}>
-                    Ver Perguntas Guias
+                {existingStrategy && !isEditMode && <Button variant="secondary" onClick={() => navigate('/plans')}>
+                    <CalendarDays className="h-4 w-4 mr-2" />
+                    Ver Plano
                   </Button>}
                 
                 {isEditMode && <Button onClick={handleSaveClick} disabled={isSaving || !strategyText.trim()} className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
