@@ -1,24 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Calendar, Edit2, CheckCircle, Loader2, ArrowLeft, Sparkles, RotateCcw } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Calendar, CheckCircle, Loader2, ArrowLeft, Sparkles, RotateCcw } from "lucide-react";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-
-interface PlanItem {
-  week: string;
-  day: string;
-  contentType: string;
-  channel: string;
-  description: string;
-}
 
 const Plan = () => {
   const navigate = useNavigate();
@@ -29,10 +16,7 @@ const Plan = () => {
   const [approving, setApproving] = useState(false);
   const [companyData, setCompanyData] = useState<any>(null);
   const [planContent, setPlanContent] = useState<string>("");
-  const [planItems, setPlanItems] = useState<PlanItem[]>([]);
   const [showApproveModal, setShowApproveModal] = useState(false);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<PlanItem | null>(null);
 
   useEffect(() => {
     if (!planId && !companyId) {
@@ -103,44 +87,9 @@ const Plan = () => {
 
         if (plan && plan.plan_content) {
           setPlanContent(plan.plan_content);
-          
-          // Tentar extrair itens estruturados do conteúdo (se aplicável)
-          // Por enquanto, usar dados mockados para demonstração
-          const mockPlan: PlanItem[] = [
-            {
-              week: "Semana 1",
-              day: "Segunda-feira",
-              contentType: "Post",
-              channel: "Instagram",
-              description: "Apresentação da empresa e sua proposta de valor",
-            },
-            {
-              week: "Semana 1",
-              day: "Quarta-feira",
-              contentType: "Vídeo",
-              channel: "YouTube",
-              description: "Tutorial sobre o principal produto/serviço",
-            },
-            {
-              week: "Semana 2",
-              day: "Segunda-feira",
-              contentType: "E-mail",
-              channel: "Newsletter",
-              description: "Compartilhar cases de sucesso e depoimentos",
-            },
-            {
-              week: "Semana 2",
-              day: "Sexta-feira",
-              contentType: "Post",
-              channel: "LinkedIn",
-              description: "Conteúdo educativo sobre tendências do setor",
-            },
-          ];
-          setPlanItems(mockPlan);
         } else {
           // Nenhum plano gerado ainda - mostrar estado vazio
           setPlanContent("");
-          setPlanItems([]);
         }
 
         setLoading(false);
@@ -154,56 +103,23 @@ const Plan = () => {
     fetchData();
   }, [planId, companyId, navigate]);
 
-  const handleEditClick = (index: number) => {
-    setEditingIndex(index);
-    setEditForm({ ...planItems[index] });
-  };
-
-  const handleEditSave = () => {
-    if (editingIndex !== null && editForm) {
-      const newPlanItems = [...planItems];
-      newPlanItems[editingIndex] = editForm;
-      setPlanItems(newPlanItems);
-      setEditingIndex(null);
-      setEditForm(null);
-      toast.success("Item atualizado com sucesso!");
-    }
-  };
-
   const handleApprovePlan = async () => {
+    if (!planId) {
+      toast.error("ID do plano não encontrado");
+      return;
+    }
+
     setApproving(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error("Usuário não autenticado");
-        return;
-      }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (!profile?.tenant_id) {
-        toast.error("Tenant não encontrado");
-        return;
-      }
-
-      const { data, error } = await supabase
+      // Atualizar o plano existente para marcá-lo como aprovado
+      const { error } = await supabase
         .from("marketing_plans")
-        .insert([
-          {
-            company_id: companyId,
-            plan_data: { items: planItems } as any,
-            approved: true,
-            approved_at: new Date().toISOString(),
-            tenant_id: profile.tenant_id
-          },
-        ])
-        .select()
-        .single();
+        .update({
+          approved: true,
+          approved_at: new Date().toISOString(),
+        })
+        .eq('id', planId);
 
       if (error) throw error;
 
@@ -211,7 +127,7 @@ const Plan = () => {
       toast.success("✅ Plano aprovado com sucesso! Você pode agora gerenciar as tarefas no quadro Kanban.");
       
       setTimeout(() => {
-        navigate(`/cards?planId=${data.id}`);
+        navigate(`/cards?planId=${planId}`);
       }, 1500);
     } catch (error) {
       console.error("Error approving plan:", error);
@@ -284,7 +200,7 @@ const Plan = () => {
             )}
           </Card>
 
-          {!planContent && planItems.length === 0 && (
+          {!planContent && (
             <Card className="shadow-[var(--shadow-card)]">
               <CardContent className="py-16">
                 <div className="flex flex-col items-center gap-4 text-center">
@@ -304,43 +220,6 @@ const Plan = () => {
                 </div>
               </CardContent>
             </Card>
-          )}
-
-          {planItems.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Cronograma Detalhado</h3>
-              {planItems.map((item, index) => (
-                <Card
-                  key={index} 
-                  className="shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-elevated)] transition-all"
-                >
-                  <CardContent className="p-6">
-                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                      <div className="space-y-3 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="outline" className="bg-accent">
-                            {item.week}
-                          </Badge>
-                          <Badge variant="outline">{item.day}</Badge>
-                          <Badge className="bg-primary">{item.contentType}</Badge>
-                          <Badge className="bg-secondary">{item.channel}</Badge>
-                        </div>
-                        <p className="text-foreground font-medium leading-relaxed">{item.description}</p>
-                      </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="shrink-0"
-                        onClick={() => handleEditClick(index)}
-                      >
-                        <Edit2 className="h-4 w-4 mr-2" />
-                        Editar
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
           )}
 
           {planContent && (
@@ -370,73 +249,6 @@ const Plan = () => {
         onConfirm={handleApprovePlan}
         loading={approving}
       />
-
-      <Dialog open={editingIndex !== null} onOpenChange={() => { setEditingIndex(null); setEditForm(null); }}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Editar Item do Plano</DialogTitle>
-            <DialogDescription>
-              Faça as alterações necessárias neste item do cronograma
-            </DialogDescription>
-          </DialogHeader>
-          
-          {editForm && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Semana</Label>
-                  <Input
-                    value={editForm.week}
-                    onChange={(e) => setEditForm({ ...editForm, week: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Dia</Label>
-                  <Input
-                    value={editForm.day}
-                    onChange={(e) => setEditForm({ ...editForm, day: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Tipo de Conteúdo</Label>
-                  <Input
-                    value={editForm.contentType}
-                    onChange={(e) => setEditForm({ ...editForm, contentType: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Canal</Label>
-                  <Input
-                    value={editForm.channel}
-                    onChange={(e) => setEditForm({ ...editForm, channel: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Descrição</Label>
-                <Textarea
-                  value={editForm.description}
-                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                  className="min-h-[100px]"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => { setEditingIndex(null); setEditForm(null); }}>
-                  Cancelar
-                </Button>
-                <Button onClick={handleEditSave} className="bg-gradient-to-r from-primary to-secondary">
-                  Salvar Alterações
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
