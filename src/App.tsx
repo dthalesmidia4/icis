@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import CompanyRegistration from "./pages/CompanyRegistration";
 import Plan from "./pages/Plan";
+import Plans from "./pages/Plans";
 import Cards from "./pages/Cards";
 import AdminDashboard from "./pages/AdminDashboard";
 import AgencySetup from "./pages/AgencySetup";
@@ -61,6 +62,13 @@ const App = () => (
               <ProtectedRoute>
                 <RequireTenant>
                   <Plan />
+                </RequireTenant>
+              </ProtectedRoute>
+            } />
+            <Route path="/plans" element={
+              <ProtectedRoute>
+                <RequireTenant>
+                  <Plans />
                 </RequireTenant>
               </ProtectedRoute>
             } />
