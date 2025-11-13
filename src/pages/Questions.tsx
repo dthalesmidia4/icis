@@ -335,7 +335,7 @@ export default function Questions() {
                   disabled={isSaving}
                 >
                   <Save className="h-4 w-4 mr-2" />
-                  Salvar Respostas
+                  Salvar Rascunho
                 </Button>
                 <Button
                   onClick={handleCompleteAndAdvance}
