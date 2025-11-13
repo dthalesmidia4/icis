@@ -263,7 +263,9 @@ export default function StrategyCreation() {
               </div>
 
               <div className="flex gap-3">
-                
+                <Button variant="outline" onClick={handleBack} disabled={isSaving}>
+                  {isEditMode && existingStrategy ? 'Cancelar Edição' : 'Cancelar'}
+                </Button>
                 
                 {existingStrategy && !isEditMode && <Button variant="secondary" onClick={() => navigate('/generate-questions', {
               state: {
