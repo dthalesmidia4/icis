@@ -40,6 +40,7 @@ export default function Plans() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [planToDelete, setPlanToDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [generatingCards, setGeneratingCards] = useState(false);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
   const planId = searchParams.get("planId");
   useEffect(() => {
@@ -152,22 +153,49 @@ export default function Plans() {
   const handleApprove = async () => {
     if (!plan) return;
     setSaving(true);
+    setGeneratingCards(true);
+    
     try {
+      // Aprovar o plano
       const {
-        error
+        error: approveError
       } = await supabase.from("marketing_plans").update({
         approved: true,
         approved_at: new Date().toISOString()
       }).eq("id", plan.id);
-      if (error) throw error;
+      
+      if (approveError) throw approveError;
+      
       setPlan({
         ...plan,
         approved: true
       });
+      
       toast({
         title: "Plano aprovado!",
-        description: "O plano estratégico foi aprovado com sucesso."
+        description: "Gerando tarefas automaticamente...",
       });
+
+      // Gerar cards automaticamente
+      const { data: cardsData, error: cardsError } = await supabase.functions.invoke(
+        'generate-kanban-tasks',
+        { body: { planId: plan.id } }
+      );
+
+      if (cardsError) {
+        console.error('Error generating cards:', cardsError);
+        toast({
+          title: "Plano aprovado, mas...",
+          description: "Erro ao gerar tarefas automaticamente. Você pode tentar novamente.",
+          variant: "destructive"
+        });
+      } else if (cardsData?.success) {
+        toast({
+          title: "Sucesso!",
+          description: `Plano aprovado e ${cardsData.cardsCreated} tarefas geradas!`,
+        });
+      }
+
     } catch (error) {
       console.error("Error approving plan:", error);
       toast({
@@ -177,6 +205,7 @@ export default function Plans() {
       });
     } finally {
       setSaving(false);
+      setGeneratingCards(false);
     }
   };
   const handleDeletePlan = async () => {
@@ -478,7 +507,7 @@ export default function Plans() {
                       {p.approved && (
                         <Button variant="outline" size="sm" onClick={e => {
                           e.stopPropagation();
-                          navigate("/schedule");
+                          navigate(`/schedule?planId=${p.id}`);
                         }} className="gap-2">
                           <Calendar className="w-4 h-4" />
                           Ver Cronograma
@@ -575,10 +604,13 @@ export default function Plans() {
                     </span>
                   </Button>
                   
-                  {!plan.approved && <Button size="sm" onClick={handleApprove} disabled={saving} className="gap-2">
+                  {!plan.approved && <Button size="sm" onClick={handleApprove} disabled={saving || generatingCards} className="gap-2">
                       <CheckCircle className="w-4 h-4" />
                       <span className="hidden sm:inline">
-                        {saving ? "Aprovando..." : "Aprovar"}
+                        {generatingCards ? "Gerando tarefas..." : saving ? "Aprovando..." : "Aprovar e Gerar Tarefas"}
+                      </span>
+                      <span className="sm:hidden">
+                        {generatingCards || saving ? "..." : "Aprovar"}
                       </span>
                     </Button>}
                 </div> : <div className="flex items-center gap-2 flex-shrink-0">

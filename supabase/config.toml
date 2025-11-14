@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.generate-plan]
 verify_jwt = true
+
+[functions.generate-kanban-tasks]
+verify_jwt = true
