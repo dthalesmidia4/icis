@@ -183,13 +183,14 @@ export default function Plans() {
   };
 
   const formatContent = (content: string) => {
-    // Split content by lines
     const lines = content.split('\n');
     let formattedHtml = '';
     let inList = false;
     let listType = '';
+    let inSection = false;
+    let sectionCount = 0;
 
-    lines.forEach((line) => {
+    lines.forEach((line, index) => {
       const trimmedLine = line.trim();
       
       if (!trimmedLine) {
@@ -200,51 +201,78 @@ export default function Plans() {
         return;
       }
 
-      // Headers
+      // Main Headers (# ) - Create new section
       if (trimmedLine.startsWith('# ')) {
+        // Close previous section
+        if (inSection) {
+          formattedHtml += '</div>';
+        }
         if (inList) {
           formattedHtml += listType === 'ul' ? '</ul>' : '</ol>';
           inList = false;
         }
-        formattedHtml += `<h2>${trimmedLine.substring(2)}</h2>`;
-      } else if (trimmedLine.startsWith('## ')) {
+        
+        sectionCount++;
+        const sectionId = `section-${sectionCount}`;
+        formattedHtml += `
+          <div id="${sectionId}" class="section-container mb-8 p-6 rounded-lg bg-muted/30 border-l-4 border-primary">
+            <h2 class="text-2xl font-bold text-primary mb-4 flex items-center gap-2">
+              <span class="text-primary/60">${sectionCount}.</span>
+              ${trimmedLine.substring(2)}
+            </h2>
+        `;
+        inSection = true;
+      } 
+      // Sub Headers (## )
+      else if (trimmedLine.startsWith('## ')) {
         if (inList) {
           formattedHtml += listType === 'ul' ? '</ul>' : '</ol>';
           inList = false;
         }
-        formattedHtml += `<h3>${trimmedLine.substring(3)}</h3>`;
+        formattedHtml += `
+          <h3 class="text-xl font-semibold text-foreground mt-6 mb-3 pl-4 border-l-2 border-primary/50">
+            ${trimmedLine.substring(3)}
+          </h3>
+        `;
       }
       // Unordered list
       else if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
         if (!inList) {
-          formattedHtml += '<ul>';
+          formattedHtml += '<ul class="space-y-2 ml-6 my-4">';
           inList = true;
           listType = 'ul';
         } else if (listType !== 'ul') {
-          formattedHtml += '</ol><ul>';
+          formattedHtml += '</ol><ul class="space-y-2 ml-6 my-4">';
           listType = 'ul';
         }
-        formattedHtml += `<li>${trimmedLine.substring(2)}</li>`;
+        const listContent = trimmedLine.substring(2).replace(/\*\*(.*?)\*\*/g, '<strong class="text-primary font-semibold">$1</strong>');
+        formattedHtml += `
+          <li class="flex items-start gap-2">
+            <span class="text-primary mt-1">•</span>
+            <span class="flex-1">${listContent}</span>
+          </li>
+        `;
       }
       // Ordered list
       else if (/^\d+\.\s/.test(trimmedLine)) {
         if (!inList) {
-          formattedHtml += '<ol>';
+          formattedHtml += '<ol class="space-y-2 ml-6 my-4 list-decimal">';
           inList = true;
           listType = 'ol';
         } else if (listType !== 'ol') {
-          formattedHtml += '</ul><ol>';
+          formattedHtml += '</ul><ol class="space-y-2 ml-6 my-4 list-decimal">';
           listType = 'ol';
         }
-        formattedHtml += `<li>${trimmedLine.replace(/^\d+\.\s/, '')}</li>`;
+        const listContent = trimmedLine.replace(/^\d+\.\s/, '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-primary font-semibold">$1</strong>');
+        formattedHtml += `<li class="ml-4">${listContent}</li>`;
       }
-      // Bold text
+      // Bold text standalone
       else if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) {
         if (inList) {
           formattedHtml += listType === 'ul' ? '</ul>' : '</ol>';
           inList = false;
         }
-        formattedHtml += `<p><strong>${trimmedLine.slice(2, -2)}</strong></p>`;
+        formattedHtml += `<p class="font-semibold text-primary my-3">${trimmedLine.slice(2, -2)}</p>`;
       }
       // Regular paragraph
       else {
@@ -252,14 +280,17 @@ export default function Plans() {
           formattedHtml += listType === 'ul' ? '</ul>' : '</ol>';
           inList = false;
         }
-        // Handle inline bold
-        const processedLine = trimmedLine.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        formattedHtml += `<p>${processedLine}</p>`;
+        const processedLine = trimmedLine.replace(/\*\*(.*?)\*\*/g, '<strong class="text-primary font-semibold">$1</strong>');
+        formattedHtml += `<p class="my-3 leading-relaxed text-foreground">${processedLine}</p>`;
       }
     });
 
+    // Close any open tags
     if (inList) {
       formattedHtml += listType === 'ul' ? '</ul>' : '</ol>';
+    }
+    if (inSection) {
+      formattedHtml += '</div>';
     }
 
     return formattedHtml;
@@ -388,16 +419,7 @@ export default function Plans() {
 
           {/* Card Content */}
           <div 
-            className="p-6 sm:p-8 lg:p-10 prose prose-slate max-w-none
-              prose-headings:text-foreground 
-              prose-h2:text-2xl prose-h2:font-bold prose-h2:mt-8 prose-h2:mb-4 prose-h2:text-primary prose-h2:border-b prose-h2:border-border prose-h2:pb-2
-              prose-h3:text-xl prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-3 prose-h3:text-primary/80
-              prose-p:text-foreground prose-p:mb-4 prose-p:leading-relaxed prose-p:text-base
-              prose-ul:my-4 prose-ul:space-y-2 prose-ul:list-disc prose-ul:pl-6
-              prose-ol:my-4 prose-ol:space-y-2 prose-ol:list-decimal prose-ol:pl-6
-              prose-li:text-foreground prose-li:leading-relaxed prose-li:marker:text-primary
-              prose-strong:text-primary prose-strong:font-semibold
-              prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
+            className="p-6 sm:p-8 lg:p-10"
             dangerouslySetInnerHTML={{ __html: formatContent(plan.plan_content) }}
           />
         </Card>
