@@ -23,6 +23,7 @@ import Questions from "./pages/Questions";
 import DevHub from "./pages/DevHub";
 import DevPrompts from "./pages/DevPrompts";
 import DevApis from "./pages/DevApis";
+import Schedule from "./pages/Schedule";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -72,13 +73,20 @@ const App = () => (
                 </RequireTenant>
               </ProtectedRoute>
             } />
-            <Route path="/cards" element={
-              <ProtectedRoute>
-                <RequireTenant>
-                  <Cards />
-                </RequireTenant>
-              </ProtectedRoute>
-            } />
+          <Route path="/cards" element={
+            <ProtectedRoute>
+              <RequireTenant>
+                <Cards />
+              </RequireTenant>
+            </ProtectedRoute>
+          } />
+          <Route path="/schedule" element={
+            <ProtectedRoute>
+              <RequireTenant>
+                <Schedule />
+              </RequireTenant>
+            </ProtectedRoute>
+          } />
             <Route path="/clientes" element={
               <ProtectedRoute>
                 <RequireTenant>
