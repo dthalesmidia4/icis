@@ -6,51 +6,69 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Save, Download, FileText, Pencil, CheckCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTenant } from "@/contexts/TenantContext";
+
 interface MarketingPlan {
   id: string;
   plan_content: string | null;
   company_id: string;
   strategy_id: string;
+  created_at: string;
+  approved: boolean;
+  tenant_companies?: {
+    name: string;
+  };
 }
 export default function Plans() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
+  const { tenantId } = useTenant();
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState<MarketingPlan | null>(null);
+  const [plans, setPlans] = useState<MarketingPlan[]>([]);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const planId = searchParams.get("planId");
   useEffect(() => {
-    if (!planId) {
-      setLoading(false);
-      return;
-    }
-    const fetchPlan = async () => {
+    const fetchData = async () => {
       try {
-        const {
-          data,
-          error
-        } = await supabase.from("marketing_plans").select("*").eq("id", planId).maybeSingle();
-        if (error) throw error;
-        setPlan(data);
+        if (planId) {
+          // Fetch specific plan
+          const { data, error } = await supabase
+            .from("marketing_plans")
+            .select("*, tenant_companies(name)")
+            .eq("id", planId)
+            .maybeSingle();
+          
+          if (error) throw error;
+          setPlan(data);
+        } else if (tenantId) {
+          // Fetch all plans for the tenant
+          const { data, error } = await supabase
+            .from("marketing_plans")
+            .select("*, tenant_companies(name)")
+            .eq("tenant_id", tenantId)
+            .order("created_at", { ascending: false });
+          
+          if (error) throw error;
+          setPlans(data || []);
+        }
       } catch (error) {
-        console.error("Error fetching plan:", error);
+        console.error("Error fetching plans:", error);
         toast({
-          title: "Erro ao carregar plano",
-          description: "Não foi possível carregar o plano estratégico.",
+          title: "Erro ao carregar planos",
+          description: "Não foi possível carregar os planos.",
           variant: "destructive"
         });
       } finally {
-        // Simulate a small delay for smooth transition
         setTimeout(() => setLoading(false), 300);
       }
     };
-    fetchPlan();
-  }, [planId, toast]);
+    
+    fetchData();
+  }, [planId, tenantId, toast]);
   const handleSave = async () => {
     if (!plan) return;
     setSaving(true);
@@ -300,25 +318,92 @@ export default function Plans() {
         </div>
       </div>;
   }
+  // If no planId, show list of all plans
+  if (!planId) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              Planos Estratégicos
+            </h1>
+            <p className="text-muted-foreground">
+              Todos os planos gerados estão salvos aqui
+            </p>
+          </div>
+
+          {plans.length === 0 ? (
+            <Card className="p-12 text-center">
+              <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
+                <FileText className="w-12 h-12 text-muted-foreground" />
+              </div>
+              <h2 className="text-2xl font-semibold text-foreground mb-2">
+                Nenhum plano encontrado
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                Gere um plano na etapa anterior para visualizá-lo aqui.
+              </p>
+              <Button size="lg" onClick={() => navigate("/client-list")} className="gap-2">
+                Ir para Clientes
+              </Button>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {plans.map((p) => (
+                <Card
+                  key={p.id}
+                  className="p-6 hover:shadow-lg transition-shadow cursor-pointer"
+                  onClick={() => navigate(`/plans?planId=${p.id}`)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-xl font-semibold text-foreground">
+                          {p.tenant_companies?.name || "Cliente"}
+                        </h3>
+                        {p.approved && (
+                          <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
+                            Aprovado
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Criado em {new Date(p.created_at).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                    <FileText className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // If planId exists but plan not found or no content
   if (!plan || !plan.plan_content) {
-    return <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center space-y-6 max-w-md">
           <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto">
             <FileText className="w-12 h-12 text-muted-foreground" />
           </div>
           <div className="space-y-2">
             <h2 className="text-2xl font-semibold text-foreground">
-              Nenhum plano encontrado
+              Plano não encontrado
             </h2>
             <p className="text-muted-foreground">
-              Gere um plano na etapa anterior para visualizá-lo aqui.
+              Este plano não existe ou foi removido.
             </p>
           </div>
-          <Button size="lg" onClick={() => navigate("/generate-questions")} className="gap-2">
-            Gerar Plano
+          <Button size="lg" onClick={() => navigate("/plans")} className="gap-2">
+            Ver Todos os Planos
           </Button>
         </div>
-      </div>;
+      </div>
+    );
   }
   return <div className="min-h-screen bg-background">
       {/* Main Content */}
