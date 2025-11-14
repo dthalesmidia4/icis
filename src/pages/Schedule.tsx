@@ -51,17 +51,39 @@ export default function Schedule() {
   const planId = searchParams.get("planId");
 
   useEffect(() => {
-    if (!planId) {
-      toast({
-        title: "Erro",
-        description: "ID do plano não fornecido",
-        variant: "destructive",
-      });
-      navigate("/plans");
-      return;
-    }
+    const initializeSchedule = async () => {
+      if (!planId && tenantId) {
+        // Fetch the most recent approved plan
+        const { data: approvedPlan, error } = await supabase
+          .from("marketing_plans")
+          .select("id")
+          .eq("tenant_id", tenantId)
+          .eq("approved", true)
+          .order("approved_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-    fetchCards();
+        if (error) {
+          console.error("Error fetching approved plan:", error);
+          navigate("/plans");
+          return;
+        }
+
+        if (approvedPlan) {
+          navigate(`/schedule?planId=${approvedPlan.id}`, { replace: true });
+          return;
+        } else {
+          navigate("/plans");
+          return;
+        }
+      }
+
+      if (planId) {
+        fetchCards();
+      }
+    };
+
+    initializeSchedule();
   }, [planId, tenantId]);
 
   const fetchCards = async () => {
