@@ -205,13 +205,13 @@ export default function Schedule() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F5F7FA] p-6">
+      <div className="min-h-screen bg-[#F5F7FA] p-3 sm:p-6">
         <div className="max-w-7xl mx-auto">
-          <Skeleton className="h-12 w-64 mb-8" />
-          <div className="flex gap-6 overflow-x-auto pb-4">
+          <Skeleton className="h-10 sm:h-12 w-48 sm:w-64 mb-6 sm:mb-8" />
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 sm:overflow-x-auto pb-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="min-w-[324px]">
-                <Skeleton className="h-[500px]" />
+              <div key={i} className="w-full sm:min-w-[324px] sm:max-w-[324px]">
+                <Skeleton className="h-[400px] sm:h-[500px]" />
               </div>
             ))}
           </div>
@@ -222,36 +222,36 @@ export default function Schedule() {
 
   return (
     <div className="min-h-screen bg-[#F5F7FA]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate("/plans")}
-            className="hover:bg-white/80 transition-colors"
+            className="hover:bg-white/80 transition-colors h-8 w-8 sm:h-10 sm:w-10"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-[#111827]">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#111827]">
               Cronograma de Tarefas
             </h1>
-            <p className="text-[#6B7280] mt-1 text-sm">
+            <p className="text-[#6B7280] mt-0.5 sm:mt-1 text-xs sm:text-sm">
               Organize e acompanhe suas tarefas no formato Kanban
             </p>
           </div>
         </div>
 
         {cards.length === 0 ? (
-          <Card className="p-12 text-center bg-white shadow-sm">
-            <div className="w-24 h-24 bg-[#F5F7FA] rounded-full flex items-center justify-center mx-auto mb-6">
-              <FileText className="w-12 h-12 text-[#6B7280]" />
+          <Card className="p-8 sm:p-12 text-center bg-white shadow-sm">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-[#F5F7FA] rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+              <FileText className="w-10 h-10 sm:w-12 sm:h-12 text-[#6B7280]" />
             </div>
-            <h2 className="text-2xl font-semibold text-[#111827] mb-2">
+            <h2 className="text-xl sm:text-2xl font-semibold text-[#111827] mb-2">
               Nenhuma tarefa encontrada
             </h2>
-            <p className="text-[#6B7280] mb-6">
+            <p className="text-[#6B7280] mb-4 sm:mb-6 text-sm sm:text-base">
               As tarefas são geradas automaticamente ao aprovar o plano.
             </p>
             <Button onClick={() => navigate("/plans")} className="bg-[#2563EB] hover:bg-[#1d4ed8]">
@@ -260,15 +260,15 @@ export default function Schedule() {
           </Card>
         ) : (
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="flex gap-6 overflow-x-auto pb-4">
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 sm:overflow-x-auto pb-4">
               {COLUMNS.map((column) => (
-                <div key={column.id} className="min-w-[324px] max-w-[324px] flex-shrink-0">
+                <div key={column.id} className="w-full sm:min-w-[300px] sm:max-w-[324px] md:min-w-[324px] flex-shrink-0">
                   {/* Column Header */}
-                  <div className="bg-white rounded-lg shadow-sm mb-4 border border-[#E5E7EB]">
-                    <div className="h-12 px-4 flex items-center justify-between border-b border-[#E5E7EB]">
+                  <div className="bg-white rounded-lg shadow-sm mb-3 sm:mb-4 border border-[#E5E7EB]">
+                    <div className="h-11 sm:h-12 px-3 sm:px-4 flex items-center justify-between border-b border-[#E5E7EB]">
                       <div className="flex items-center gap-2">
-                        <div className={`w-1 h-5 rounded ${column.color}`} />
-                        <h3 className="font-semibold text-sm text-[#111827]">
+                        <div className={`w-1 h-4 sm:h-5 rounded ${column.color}`} />
+                        <h3 className="font-semibold text-xs sm:text-sm text-[#111827] line-clamp-1">
                           {column.title}
                         </h3>
                       </div>
@@ -284,12 +284,12 @@ export default function Schedule() {
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className={`space-y-4 p-3 rounded-lg transition-all duration-200 ${
+                        className={`space-y-3 sm:space-y-4 p-2 sm:p-3 rounded-lg transition-all duration-200 ${
                           snapshot.isDraggingOver 
                             ? "bg-[#2563EB]/5 border-2 border-[#2563EB] border-dashed" 
                             : "bg-transparent"
                         }`}
-                        style={{ minHeight: "400px" }}
+                        style={{ minHeight: "300px" }}
                       >
                         {getCardsByColumn(column.id).map((card, index) => (
                           <Draggable
@@ -304,7 +304,7 @@ export default function Schedule() {
                                     ref={provided.innerRef}
                                     {...provided.draggableProps}
                                     {...provided.dragHandleProps}
-                                    className={`cursor-pointer bg-white border border-[#E5E7EB] p-4 rounded-lg transition-all duration-200 max-w-[324px] max-h-[160px] overflow-hidden ${
+                                    className={`cursor-pointer bg-white border border-[#E5E7EB] p-3 sm:p-4 rounded-lg transition-all duration-200 w-full max-h-[160px] overflow-hidden ${
                                       snapshot.isDragging 
                                         ? "shadow-xl rotate-2 scale-105" 
                                         : "shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md"
@@ -315,14 +315,14 @@ export default function Schedule() {
                                     }}
                                   >
                                     {/* Card Title */}
-                                    <h4 className="text-[14px] font-semibold text-[#111827] mb-2 leading-tight line-clamp-2">
+                                    <h4 className="text-[13px] sm:text-[14px] font-semibold text-[#111827] mb-2 leading-tight line-clamp-2">
                                       {card.title}
                                     </h4>
                                     
                                     {/* Card Metadata */}
-                                    <div className="space-y-1.5">
-                                      <div className="flex items-center gap-2 text-[#6B7280] text-[11px]">
-                                        <Calendar className="w-3 h-3 flex-shrink-0" />
+                                    <div className="space-y-1 sm:space-y-1.5">
+                                      <div className="flex items-center gap-1.5 sm:gap-2 text-[#6B7280] text-[10px] sm:text-[11px]">
+                                        <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
                                         <span className="font-medium">
                                           {new Date(card.publication_date).toLocaleDateString("pt-BR", {
                                             day: "2-digit",
@@ -332,8 +332,8 @@ export default function Schedule() {
                                       </div>
                                       
                                       {card.file_location && (
-                                        <div className="flex items-center gap-2 text-[11px]">
-                                          <LinkIcon className="w-3 h-3 flex-shrink-0 text-[#2563EB]" />
+                                        <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px]">
+                                          <LinkIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0 text-[#2563EB]" />
                                           <span className="truncate text-[#2563EB]">
                                             {card.file_location}
                                           </span>
@@ -341,15 +341,15 @@ export default function Schedule() {
                                       )}
                                       
                                       {!card.file_location && (
-                                        <div className="flex items-center gap-2 text-[#9CA3AF] text-[11px]">
-                                          <FileText className="w-3 h-3 flex-shrink-0" />
+                                        <div className="flex items-center gap-1.5 sm:gap-2 text-[#9CA3AF] text-[10px] sm:text-[11px]">
+                                          <FileText className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
                                           <span>Sem arquivo</span>
                                         </div>
                                       )}
                                       
                                       {card.responsible_name && (
-                                        <div className="flex items-center gap-2 text-[#6B7280] text-[11px]">
-                                          <User className="w-3 h-3 flex-shrink-0" />
+                                        <div className="flex items-center gap-1.5 sm:gap-2 text-[#6B7280] text-[10px] sm:text-[11px]">
+                                          <User className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
                                           <span className="truncate">{card.responsible_name}</span>
                                         </div>
                                       )}
@@ -357,22 +357,23 @@ export default function Schedule() {
                                     
                                     {/* Card Description */}
                                     {card.description && (
-                                      <p className="text-[11px] text-[#4B5563] mt-2 leading-relaxed line-clamp-2">
+                                      <p className="text-[10px] sm:text-[11px] text-[#4B5563] mt-1.5 sm:mt-2 leading-relaxed line-clamp-2">
                                         {card.description}
                                       </p>
                                     )}
                                   </Card>
                                 </DialogTrigger>
 
-                                <DialogContent className="max-w-[700px] max-h-[90vh] overflow-y-auto bg-white">
-                                  <DialogHeader className="border-b pb-4">
-                                    <DialogTitle className="text-2xl font-bold text-[#111827]">
+                                {/* Modal */}
+                                <DialogContent className="max-w-[95vw] sm:max-w-[600px] md:max-w-[700px] max-h-[90vh] overflow-y-auto bg-white">
+                                  <DialogHeader className="border-b pb-3 sm:pb-4">
+                                    <DialogTitle className="text-xl sm:text-2xl font-bold text-[#111827]">
                                       {editMode ? "Editar Tarefa" : "Detalhes da Tarefa"}
                                     </DialogTitle>
                                   </DialogHeader>
 
                                   {selectedCard && (
-                                    <div className="space-y-5 pt-2">
+                                    <div className="space-y-4 sm:space-y-5 pt-2">
                                       {/* Title */}
                                       <div>
                                         <Label className="text-sm font-semibold text-[#111827]">Título</Label>
