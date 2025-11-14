@@ -8,17 +8,7 @@ import { ArrowLeft, Save, Download, FileText, Pencil, CheckCircle, X, Trash2 } f
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTenant } from "@/contexts/TenantContext";
 import { RichTextEditor } from "@/components/RichTextEditor";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 interface MarketingPlan {
   id: string;
   plan_content: string | null;
@@ -33,8 +23,12 @@ interface MarketingPlan {
 export default function Plans() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const { tenantId } = useTenant();
+  const {
+    toast
+  } = useToast();
+  const {
+    tenantId
+  } = useTenant();
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState<MarketingPlan | null>(null);
   const [plans, setPlans] = useState<MarketingPlan[]>([]);
@@ -53,12 +47,10 @@ export default function Plans() {
       try {
         if (planId) {
           // Fetch specific plan
-          const { data, error } = await supabase
-            .from("marketing_plans")
-            .select("*, tenant_companies(name)")
-            .eq("id", planId)
-            .maybeSingle();
-          
+          const {
+            data,
+            error
+          } = await supabase.from("marketing_plans").select("*, tenant_companies(name)").eq("id", planId).maybeSingle();
           if (error) throw error;
           setPlan(data);
           if (data?.plan_content) {
@@ -66,12 +58,12 @@ export default function Plans() {
           }
         } else if (tenantId) {
           // Fetch all plans for the tenant
-          const { data, error } = await supabase
-            .from("marketing_plans")
-            .select("*, tenant_companies(name)")
-            .eq("tenant_id", tenantId)
-            .order("created_at", { ascending: false });
-          
+          const {
+            data,
+            error
+          } = await supabase.from("marketing_plans").select("*, tenant_companies(name)").eq("tenant_id", tenantId).order("created_at", {
+            ascending: false
+          });
           if (error) throw error;
           setPlans(data || []);
         }
@@ -86,21 +78,19 @@ export default function Plans() {
         setTimeout(() => setLoading(false), 300);
       }
     };
-    
     fetchData();
   }, [planId, tenantId, toast]);
 
   // Auto-save effect
   const performAutoSave = useCallback(async (content: string) => {
     if (!plan?.id || !content) return;
-    
     setAutoSaving(true);
     try {
-      const { error } = await supabase
-        .from("marketing_plans")
-        .update({ plan_content: content })
-        .eq("id", plan.id);
-      
+      const {
+        error
+      } = await supabase.from("marketing_plans").update({
+        plan_content: content
+      }).eq("id", plan.id);
       if (error) throw error;
       setLastSaved(new Date());
     } catch (error) {
@@ -109,7 +99,6 @@ export default function Plans() {
       setAutoSaving(false);
     }
   }, [plan?.id]);
-
   useEffect(() => {
     if (!isEditing || !editedContent || editedContent === plan?.plan_content) return;
 
@@ -133,17 +122,18 @@ export default function Plans() {
     if (!plan || !editedContent) return;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("marketing_plans")
-        .update({ plan_content: editedContent })
-        .eq("id", plan.id);
-      
+      const {
+        error
+      } = await supabase.from("marketing_plans").update({
+        plan_content: editedContent
+      }).eq("id", plan.id);
       if (error) throw error;
-      
-      setPlan({ ...plan, plan_content: editedContent });
+      setPlan({
+        ...plan,
+        plan_content: editedContent
+      });
       setIsEditing(false);
       setLastSaved(new Date());
-      
       toast({
         title: "Alterações salvas!",
         description: "O plano foi atualizado com sucesso."
@@ -159,23 +149,21 @@ export default function Plans() {
       setSaving(false);
     }
   };
-
   const handleApprove = async () => {
     if (!plan) return;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("marketing_plans")
-        .update({
-          approved: true,
-          approved_at: new Date().toISOString()
-        })
-        .eq("id", plan.id);
-      
+      const {
+        error
+      } = await supabase.from("marketing_plans").update({
+        approved: true,
+        approved_at: new Date().toISOString()
+      }).eq("id", plan.id);
       if (error) throw error;
-      
-      setPlan({ ...plan, approved: true });
-      
+      setPlan({
+        ...plan,
+        approved: true
+      });
       toast({
         title: "Plano aprovado!",
         description: "O plano estratégico foi aprovado com sucesso."
@@ -191,24 +179,19 @@ export default function Plans() {
       setSaving(false);
     }
   };
-
   const handleDeletePlan = async () => {
     if (!planToDelete) return;
-    
     setDeleting(true);
     try {
-      const { error } = await supabase
-        .from("marketing_plans")
-        .delete()
-        .eq("id", planToDelete);
-      
+      const {
+        error
+      } = await supabase.from("marketing_plans").delete().eq("id", planToDelete);
       if (error) throw error;
-      
       toast({
         title: "Plano excluído!",
         description: "O plano foi removido com sucesso."
       });
-      
+
       // Update the plans list
       setPlans(plans.filter(p => p.id !== planToDelete));
       setPlanToDelete(null);
@@ -448,8 +431,7 @@ export default function Plans() {
   }
   // If no planId, show list of all plans
   if (!planId) {
-    return (
-      <div className="min-h-screen bg-background">
+    return <div className="min-h-screen bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-foreground mb-2">
@@ -460,8 +442,7 @@ export default function Plans() {
             </p>
           </div>
 
-          {plans.length === 0 ? (
-            <Card className="p-12 text-center">
+          {plans.length === 0 ? <Card className="p-12 text-center">
               <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
                 <FileText className="w-12 h-12 text-muted-foreground" />
               </div>
@@ -474,53 +455,40 @@ export default function Plans() {
               <Button size="lg" onClick={() => navigate("/client-list")} className="gap-2">
                 Ir para Clientes
               </Button>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {plans.map((p) => (
-                <Card
-                  key={p.id}
-                  className="p-6 hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => navigate(`/plans?planId=${p.id}`)}
-                >
+            </Card> : <div className="grid gap-4">
+              {plans.map(p => <Card key={p.id} className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/plans?planId=${p.id}`)}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-xl font-semibold text-foreground">
-                          {p.tenant_companies?.name || "Cliente"} - {new Date(p.created_at).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                          {p.tenant_companies?.name || "Cliente"} - {new Date(p.created_at).toLocaleDateString('pt-BR', {
+                      month: 'long',
+                      year: 'numeric'
+                    })}
                         </h3>
-                        {p.approved && (
-                          <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
+                        {p.approved && <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
                             Aprovado
-                          </span>
-                        )}
+                          </span>}
                       </div>
                       <p className="text-sm text-muted-foreground">
                         Criado em {new Date(p.created_at).toLocaleDateString('pt-BR')}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <FileText className="w-8 h-8 text-muted-foreground" />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPlanToDelete(p.id);
-                        }}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
+                      
+                      <Button variant="ghost" size="icon" onClick={e => {
+                  e.stopPropagation();
+                  setPlanToDelete(p.id);
+                }} className="text-destructive hover:text-destructive hover:bg-destructive/10">
                         <Trash2 className="w-5 h-5" />
                       </Button>
                     </div>
                   </div>
-                </Card>
-              ))}
-            </div>
-          )}
+                </Card>)}
+            </div>}
           
           {/* Delete Confirmation Dialog */}
-          <AlertDialog open={!!planToDelete} onOpenChange={(open) => !open && setPlanToDelete(null)}>
+          <AlertDialog open={!!planToDelete} onOpenChange={open => !open && setPlanToDelete(null)}>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
@@ -530,25 +498,19 @@ export default function Plans() {
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDeletePlan}
-                  disabled={deleting}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
+                <AlertDialogAction onClick={handleDeletePlan} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                   {deleting ? "Excluindo..." : "Excluir"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
         </div>
-      </div>
-    );
+      </div>;
   }
 
   // If planId exists but plan not found or no content
   if (!plan || !plan.plan_content) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    return <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center space-y-6 max-w-md">
           <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto">
             <FileText className="w-12 h-12 text-muted-foreground" />
@@ -565,8 +527,7 @@ export default function Plans() {
             Ver Todos os Planos
           </Button>
         </div>
-      </div>
-    );
+      </div>;
   }
   return <div className="min-h-screen bg-background">
       {/* Main Content */}
@@ -586,119 +547,77 @@ export default function Plans() {
                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
                   Plano Estratégico de Marketing
                 </h1>
-                {plan.approved && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
+                {plan.approved && <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
                     <CheckCircle className="w-4 h-4" />
                     Aprovado
-                  </span>
-                )}
+                  </span>}
               </div>
               
               {/* Action Buttons - Horizontal Layout */}
-              {!isEditing ? (
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setIsEditing(true)} 
-                    className="gap-2 hover:bg-muted"
-                  >
+              {!isEditing ? <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="gap-2 hover:bg-muted">
                     <Pencil className="w-4 h-4" />
                     <span className="hidden sm:inline">Editar</span>
                   </Button>
                   
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleExportPDF} 
-                    disabled={exporting} 
-                    className="gap-2 hover:bg-muted"
-                  >
+                  <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={exporting} className="gap-2 hover:bg-muted">
                     <Download className="w-4 h-4" />
                     <span className="hidden sm:inline">
                       {exporting ? "Exportando..." : "Exportar"}
                     </span>
                   </Button>
                   
-                  {!plan.approved && (
-                    <Button 
-                      size="sm" 
-                      onClick={handleApprove} 
-                      disabled={saving} 
-                      className="gap-2"
-                    >
+                  {!plan.approved && <Button size="sm" onClick={handleApprove} disabled={saving} className="gap-2">
                       <CheckCircle className="w-4 h-4" />
                       <span className="hidden sm:inline">
                         {saving ? "Aprovando..." : "Aprovar"}
                       </span>
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => {
-                      setIsEditing(false);
-                      setEditedContent(plan.plan_content || "");
-                    }} 
-                    className="gap-2 hover:bg-muted"
-                  >
+                    </Button>}
+                </div> : <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button variant="outline" size="sm" onClick={() => {
+                setIsEditing(false);
+                setEditedContent(plan.plan_content || "");
+              }} className="gap-2 hover:bg-muted">
                     <X className="w-4 h-4" />
                     <span className="hidden sm:inline">Cancelar</span>
                   </Button>
                   
-                  <Button 
-                    size="sm" 
-                    onClick={handleSaveEdit} 
-                    disabled={saving} 
-                    className="gap-2"
-                  >
+                  <Button size="sm" onClick={handleSaveEdit} disabled={saving} className="gap-2">
                     <Save className="w-4 h-4" />
                     <span className="hidden sm:inline">
                       {saving ? "Salvando..." : "Salvar Edição"}
                     </span>
                   </Button>
-                </div>
-              )}
+                </div>}
             </div>
           </div>
 
           {/* Card Content */}
-          {isEditing ? (
-            <div className="p-6 sm:p-8 lg:p-10">
+          {isEditing ? <div className="p-6 sm:p-8 lg:p-10">
               <div className="max-w-[1000px] mx-auto space-y-6">
                 <div className="text-center space-y-2 mb-8">
                   <p className="text-muted-foreground">
                     Você pode ajustar o plano abaixo antes de aprová-lo definitivamente.
                   </p>
                   <div className="flex items-center justify-center gap-2 text-sm">
-                    {autoSaving ? (
-                      <span className="text-muted-foreground flex items-center gap-2">
+                    {autoSaving ? <span className="text-muted-foreground flex items-center gap-2">
                         <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
                         Salvando...
-                      </span>
-                    ) : lastSaved ? (
-                      <span className="text-muted-foreground flex items-center gap-2">
+                      </span> : lastSaved ? <span className="text-muted-foreground flex items-center gap-2">
                         <CheckCircle className="w-3 h-3 text-primary" />
-                        Salvo às {lastSaved.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    ) : null}
+                        Salvo às {lastSaved.toLocaleTimeString('pt-BR', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                      </span> : null}
                   </div>
                 </div>
                 
-                <RichTextEditor
-                  content={editedContent}
-                  onChange={setEditedContent}
-                />
+                <RichTextEditor content={editedContent} onChange={setEditedContent} />
               </div>
-            </div>
-          ) : (
-            <div className="p-6 sm:p-8 lg:p-10" dangerouslySetInnerHTML={{
-              __html: formatContent(plan.plan_content)
-            }} />
-          )}
+            </div> : <div className="p-6 sm:p-8 lg:p-10" dangerouslySetInnerHTML={{
+          __html: formatContent(plan.plan_content)
+        }} />}
         </Card>
       </div>
     </div>;
