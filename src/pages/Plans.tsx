@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, Download, FileText, Pencil, CheckCircle } from "lucide-react";
+import { ArrowLeft, Save, Download, FileText, Pencil, CheckCircle, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTenant } from "@/contexts/TenantContext";
+import { RichTextEditor } from "@/components/RichTextEditor";
 
 interface MarketingPlan {
   id: string;
@@ -30,6 +31,10 @@ export default function Plans() {
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState("");
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
   const planId = searchParams.get("planId");
   useEffect(() => {
     const fetchData = async () => {
@@ -44,6 +49,9 @@ export default function Plans() {
           
           if (error) throw error;
           setPlan(data);
+          if (data?.plan_content) {
+            setEditedContent(data.plan_content);
+          }
         } else if (tenantId) {
           // Fetch all plans for the tenant
           const { data, error } = await supabase
@@ -69,26 +77,102 @@ export default function Plans() {
     
     fetchData();
   }, [planId, tenantId, toast]);
-  const handleSave = async () => {
+
+  // Auto-save effect
+  const performAutoSave = useCallback(async (content: string) => {
+    if (!plan?.id || !content) return;
+    
+    setAutoSaving(true);
+    try {
+      const { error } = await supabase
+        .from("marketing_plans")
+        .update({ plan_content: content })
+        .eq("id", plan.id);
+      
+      if (error) throw error;
+      setLastSaved(new Date());
+    } catch (error) {
+      console.error("Error auto-saving:", error);
+    } finally {
+      setAutoSaving(false);
+    }
+  }, [plan?.id]);
+
+  useEffect(() => {
+    if (!isEditing || !editedContent || editedContent === plan?.plan_content) return;
+
+    // Clear existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    // Set new timeout for auto-save
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      performAutoSave(editedContent);
+    }, 10000); // 10 seconds
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [editedContent, isEditing, plan?.plan_content, performAutoSave]);
+  const handleSaveEdit = async () => {
+    if (!plan || !editedContent) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("marketing_plans")
+        .update({ plan_content: editedContent })
+        .eq("id", plan.id);
+      
+      if (error) throw error;
+      
+      setPlan({ ...plan, plan_content: editedContent });
+      setIsEditing(false);
+      setLastSaved(new Date());
+      
+      toast({
+        title: "Alterações salvas!",
+        description: "O plano foi atualizado com sucesso."
+      });
+    } catch (error) {
+      console.error("Error saving edit:", error);
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível salvar as alterações.",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleApprove = async () => {
     if (!plan) return;
     setSaving(true);
     try {
-      const {
-        error
-      } = await supabase.from("marketing_plans").update({
-        approved: true,
-        approved_at: new Date().toISOString()
-      }).eq("id", plan.id);
+      const { error } = await supabase
+        .from("marketing_plans")
+        .update({
+          approved: true,
+          approved_at: new Date().toISOString()
+        })
+        .eq("id", plan.id);
+      
       if (error) throw error;
+      
+      setPlan({ ...plan, approved: true });
+      
       toast({
-        title: "Plano salvo com sucesso!",
-        description: "O plano estratégico foi salvo na plataforma."
+        title: "Plano aprovado!",
+        description: "O plano estratégico foi aprovado com sucesso."
       });
     } catch (error) {
-      console.error("Error saving plan:", error);
+      console.error("Error approving plan:", error);
       toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível salvar o plano.",
+        title: "Erro ao aprovar",
+        description: "Não foi possível aprovar o plano.",
         variant: "destructive"
       });
     } finally {
@@ -423,37 +507,119 @@ export default function Plans() {
                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
                   Plano Estratégico de Marketing
                 </h1>
-                
+                {plan.approved && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
+                    <CheckCircle className="w-4 h-4" />
+                    Aprovado
+                  </span>
+                )}
               </div>
               
               {/* Action Buttons - Horizontal Layout */}
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)} className="gap-2 hover:bg-muted">
-                  <Pencil className="w-4 h-4" />
-                  <span className="hidden sm:inline">Editar</span>
-                </Button>
-                
-                <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={exporting} className="gap-2 hover:bg-muted">
-                  <Download className="w-4 h-4" />
-                  <span className="hidden sm:inline">
-                    {exporting ? "Exportando..." : "Exportar"}
-                  </span>
-                </Button>
-                
-                <Button size="sm" onClick={handleSave} disabled={saving} className="gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  <span className="hidden sm:inline">
-                    {saving ? "Aprovando..." : "Aprovar"}
-                  </span>
-                </Button>
-              </div>
+              {!isEditing ? (
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setIsEditing(true)} 
+                    className="gap-2 hover:bg-muted"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    <span className="hidden sm:inline">Editar</span>
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleExportPDF} 
+                    disabled={exporting} 
+                    className="gap-2 hover:bg-muted"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline">
+                      {exporting ? "Exportando..." : "Exportar"}
+                    </span>
+                  </Button>
+                  
+                  {!plan.approved && (
+                    <Button 
+                      size="sm" 
+                      onClick={handleApprove} 
+                      disabled={saving} 
+                      className="gap-2"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      <span className="hidden sm:inline">
+                        {saving ? "Aprovando..." : "Aprovar"}
+                      </span>
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditedContent(plan.plan_content || "");
+                    }} 
+                    className="gap-2 hover:bg-muted"
+                  >
+                    <X className="w-4 h-4" />
+                    <span className="hidden sm:inline">Cancelar</span>
+                  </Button>
+                  
+                  <Button 
+                    size="sm" 
+                    onClick={handleSaveEdit} 
+                    disabled={saving} 
+                    className="gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span className="hidden sm:inline">
+                      {saving ? "Salvando..." : "Salvar Edição"}
+                    </span>
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Card Content */}
-          <div className="p-6 sm:p-8 lg:p-10" dangerouslySetInnerHTML={{
-          __html: formatContent(plan.plan_content)
-        }} />
+          {isEditing ? (
+            <div className="p-6 sm:p-8 lg:p-10">
+              <div className="max-w-[1000px] mx-auto space-y-6">
+                <div className="text-center space-y-2 mb-8">
+                  <p className="text-muted-foreground">
+                    Você pode ajustar o plano abaixo antes de aprová-lo definitivamente.
+                  </p>
+                  <div className="flex items-center justify-center gap-2 text-sm">
+                    {autoSaving ? (
+                      <span className="text-muted-foreground flex items-center gap-2">
+                        <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                        Salvando...
+                      </span>
+                    ) : lastSaved ? (
+                      <span className="text-muted-foreground flex items-center gap-2">
+                        <CheckCircle className="w-3 h-3 text-primary" />
+                        Salvo às {lastSaved.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                
+                <RichTextEditor
+                  content={editedContent}
+                  onChange={setEditedContent}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="p-6 sm:p-8 lg:p-10" dangerouslySetInnerHTML={{
+              __html: formatContent(plan.plan_content)
+            }} />
+          )}
         </Card>
       </div>
     </div>;
