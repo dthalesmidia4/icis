@@ -82,6 +82,12 @@ const Index = () => {
     color: "from-pink-500 to-pink-600",
     route: "/plans",
     emoji: "📅"
+  }, {
+    title: "Cronograma",
+    icon: Calendar,
+    color: "from-teal-500 to-teal-600",
+    route: "/schedule",
+    emoji: "🗂️"
   }];
   return <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
       {/* Navbar - Informações da Empresa */}
