@@ -443,7 +443,7 @@ export default function Plans() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-xl font-semibold text-foreground">
-                          {p.tenant_companies?.name || "Cliente"}
+                          {p.tenant_companies?.name || "Cliente"} - {new Date(p.created_at).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
                         </h3>
                         {p.approved && (
                           <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
