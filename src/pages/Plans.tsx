@@ -6,93 +6,79 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Save, Download, FileText, Pencil, CheckCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-
 interface MarketingPlan {
   id: string;
   plan_content: string | null;
   company_id: string;
   strategy_id: string;
 }
-
 export default function Plans() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState<MarketingPlan | null>(null);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-
   const planId = searchParams.get("planId");
-
   useEffect(() => {
     if (!planId) {
       setLoading(false);
       return;
     }
-
     const fetchPlan = async () => {
       try {
-        const { data, error } = await supabase
-          .from("marketing_plans")
-          .select("*")
-          .eq("id", planId)
-          .maybeSingle();
-
+        const {
+          data,
+          error
+        } = await supabase.from("marketing_plans").select("*").eq("id", planId).maybeSingle();
         if (error) throw error;
-        
         setPlan(data);
       } catch (error) {
         console.error("Error fetching plan:", error);
         toast({
           title: "Erro ao carregar plano",
           description: "Não foi possível carregar o plano estratégico.",
-          variant: "destructive",
+          variant: "destructive"
         });
       } finally {
         // Simulate a small delay for smooth transition
         setTimeout(() => setLoading(false), 300);
       }
     };
-
     fetchPlan();
   }, [planId, toast]);
-
   const handleSave = async () => {
     if (!plan) return;
-    
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("marketing_plans")
-        .update({ 
-          approved: true,
-          approved_at: new Date().toISOString() 
-        })
-        .eq("id", plan.id);
-
+      const {
+        error
+      } = await supabase.from("marketing_plans").update({
+        approved: true,
+        approved_at: new Date().toISOString()
+      }).eq("id", plan.id);
       if (error) throw error;
-
       toast({
         title: "Plano salvo com sucesso!",
-        description: "O plano estratégico foi salvo na plataforma.",
+        description: "O plano estratégico foi salvo na plataforma."
       });
     } catch (error) {
       console.error("Error saving plan:", error);
       toast({
         title: "Erro ao salvar",
         description: "Não foi possível salvar o plano.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setSaving(false);
     }
   };
-
   const handleExportPDF = async () => {
     if (!plan) return;
-    
     setExporting(true);
     try {
       // Create a simple HTML string with the plan content
@@ -156,7 +142,9 @@ export default function Plans() {
       `;
 
       // Create a blob and download
-      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const blob = new Blob([htmlContent], {
+        type: 'text/html'
+      });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -165,23 +153,21 @@ export default function Plans() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-
       toast({
         title: "Plano exportado!",
-        description: "O arquivo HTML foi baixado. Você pode abri-lo e imprimir como PDF.",
+        description: "O arquivo HTML foi baixado. Você pode abri-lo e imprimir como PDF."
       });
     } catch (error) {
       console.error("Error exporting plan:", error);
       toast({
         title: "Erro ao exportar",
         description: "Não foi possível exportar o plano.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setExporting(false);
     }
   };
-
   const formatContent = (content: string) => {
     const lines = content.split('\n');
     let formattedHtml = '';
@@ -189,10 +175,8 @@ export default function Plans() {
     let listType = '';
     let inSection = false;
     let sectionCount = 0;
-
     lines.forEach((line, index) => {
       const trimmedLine = line.trim();
-      
       if (!trimmedLine) {
         if (inList) {
           formattedHtml += listType === 'ul' ? '</ul>' : '</ol>';
@@ -211,7 +195,6 @@ export default function Plans() {
           formattedHtml += listType === 'ul' ? '</ul>' : '</ol>';
           inList = false;
         }
-        
         sectionCount++;
         const sectionId = `section-${sectionCount}`;
         formattedHtml += `
@@ -222,7 +205,7 @@ export default function Plans() {
             </h2>
         `;
         inSection = true;
-      } 
+      }
       // Sub Headers (## )
       else if (trimmedLine.startsWith('## ')) {
         if (inList) {
@@ -292,13 +275,10 @@ export default function Plans() {
     if (inSection) {
       formattedHtml += '</div>';
     }
-
     return formattedHtml;
   };
-
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
+    return <div className="min-h-screen bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           <div className="space-y-6">
             <Skeleton className="h-12 w-64" />
@@ -318,13 +298,10 @@ export default function Plans() {
             <p className="text-muted-foreground font-medium">Carregando plano...</p>
           </div>
         </div>
-      </div>
-    );
+      </div>;
   }
-
   if (!plan || !plan.plan_content) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    return <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center space-y-6 max-w-md">
           <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto">
             <FileText className="w-12 h-12 text-muted-foreground" />
@@ -337,28 +314,17 @@ export default function Plans() {
               Gere um plano na etapa anterior para visualizá-lo aqui.
             </p>
           </div>
-          <Button
-            size="lg"
-            onClick={() => navigate("/generate-questions")}
-            className="gap-2"
-          >
+          <Button size="lg" onClick={() => navigate("/generate-questions")} className="gap-2">
             Gerar Plano
           </Button>
         </div>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Back Button */}
-        <Button
-          variant="ghost"
-          onClick={() => navigate(-1)}
-          className="gap-2 mb-6 hover:bg-muted"
-        >
+        <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2 mb-6 hover:bg-muted">
           <ArrowLeft className="w-4 h-4" />
           Voltar
         </Button>
@@ -372,42 +338,24 @@ export default function Plans() {
                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
                   Plano Estratégico de Marketing
                 </h1>
-                <p className="text-sm text-muted-foreground">
-                  Plano personalizado gerado com base nos dados fornecidos
-                </p>
+                
               </div>
               
               {/* Action Buttons - Horizontal Layout */}
               <div className="flex items-center gap-2 flex-shrink-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditing(!isEditing)}
-                  className="gap-2 hover:bg-muted"
-                >
+                <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)} className="gap-2 hover:bg-muted">
                   <Pencil className="w-4 h-4" />
                   <span className="hidden sm:inline">Editar</span>
                 </Button>
                 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExportPDF}
-                  disabled={exporting}
-                  className="gap-2 hover:bg-muted"
-                >
+                <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={exporting} className="gap-2 hover:bg-muted">
                   <Download className="w-4 h-4" />
                   <span className="hidden sm:inline">
                     {exporting ? "Exportando..." : "Exportar"}
                   </span>
                 </Button>
                 
-                <Button
-                  size="sm"
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="gap-2"
-                >
+                <Button size="sm" onClick={handleSave} disabled={saving} className="gap-2">
                   <CheckCircle className="w-4 h-4" />
                   <span className="hidden sm:inline">
                     {saving ? "Aprovando..." : "Aprovar"}
@@ -418,12 +366,10 @@ export default function Plans() {
           </div>
 
           {/* Card Content */}
-          <div 
-            className="p-6 sm:p-8 lg:p-10"
-            dangerouslySetInnerHTML={{ __html: formatContent(plan.plan_content) }}
-          />
+          <div className="p-6 sm:p-8 lg:p-10" dangerouslySetInnerHTML={{
+          __html: formatContent(plan.plan_content)
+        }} />
         </Card>
       </div>
-    </div>
-  );
+    </div>;
 }
