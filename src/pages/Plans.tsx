@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, Download, FileText, Pencil, CheckCircle, X, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Download, FileText, Pencil, CheckCircle, X, Trash2, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTenant } from "@/contexts/TenantContext";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -475,7 +475,15 @@ export default function Plans() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      
+                      {p.approved && (
+                        <Button variant="outline" size="sm" onClick={e => {
+                          e.stopPropagation();
+                          navigate("/schedule");
+                        }} className="gap-2">
+                          <Calendar className="w-4 h-4" />
+                          Ver Cronograma
+                        </Button>
+                      )}
                       <Button variant="ghost" size="icon" onClick={e => {
                   e.stopPropagation();
                   setPlanToDelete(p.id);
