@@ -11,8 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
-import { ArrowLeft, Calendar, FileText, User, Link as LinkIcon } from "lucide-react";
+import { ArrowLeft, Calendar, FileText, User, Link as LinkIcon, Edit2, Save } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 
 interface KanbanCard {
   id: string;
@@ -31,9 +32,10 @@ interface KanbanCard {
 }
 
 const COLUMNS = [
-  { id: "A Fazer", title: "A Fazer", color: "border-blue-500" },
-  { id: "Em Andamento", title: "Em Andamento", color: "border-yellow-500" },
-  { id: "Concluído", title: "Concluído", color: "border-green-500" },
+  { id: "Planejamento Automatizado", title: "Planejamento Automatizado", color: "bg-purple-500" },
+  { id: "A Fazer", title: "A Fazer", color: "bg-blue-500" },
+  { id: "Em Andamento", title: "Em Andamento", color: "bg-amber-500" },
+  { id: "Concluído", title: "Concluído", color: "bg-emerald-500" },
 ];
 
 export default function Schedule() {
@@ -198,17 +200,19 @@ export default function Schedule() {
   };
 
   const getCardsByColumn = (columnId: string) => {
-    return cards.filter((card) => (card.column_name || "A Fazer") === columnId);
+    return cards.filter((card) => (card.column_name || "Planejamento Automatizado") === columnId);
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background p-6">
+      <div className="min-h-screen bg-[#F5F7FA] p-6">
         <div className="max-w-7xl mx-auto">
-          <Skeleton className="h-10 w-64 mb-8" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-96" />
+          <Skeleton className="h-12 w-64 mb-8" />
+          <div className="flex gap-6 overflow-x-auto pb-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="min-w-[340px]">
+                <Skeleton className="h-[500px]" />
+              </div>
             ))}
           </div>
         </div>
@@ -217,62 +221,73 @@ export default function Schedule() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#F5F7FA]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate("/plans")}
+            className="hover:bg-white/80 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">
+            <h1 className="text-3xl font-bold text-[#111827]">
               Cronograma de Tarefas
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-[#6B7280] mt-1 text-sm">
               Organize e acompanhe suas tarefas no formato Kanban
             </p>
           </div>
         </div>
 
         {cards.length === 0 ? (
-          <Card className="p-12 text-center">
-            <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
-              <FileText className="w-12 h-12 text-muted-foreground" />
+          <Card className="p-12 text-center bg-white shadow-sm">
+            <div className="w-24 h-24 bg-[#F5F7FA] rounded-full flex items-center justify-center mx-auto mb-6">
+              <FileText className="w-12 h-12 text-[#6B7280]" />
             </div>
-            <h2 className="text-2xl font-semibold text-foreground mb-2">
+            <h2 className="text-2xl font-semibold text-[#111827] mb-2">
               Nenhuma tarefa encontrada
             </h2>
-            <p className="text-muted-foreground mb-6">
+            <p className="text-[#6B7280] mb-6">
               As tarefas são geradas automaticamente ao aprovar o plano.
             </p>
-            <Button onClick={() => navigate("/plans")}>
+            <Button onClick={() => navigate("/plans")} className="bg-[#2563EB] hover:bg-[#1d4ed8]">
               Voltar para Planos
             </Button>
           </Card>
         ) : (
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="flex gap-6 overflow-x-auto pb-4">
               {COLUMNS.map((column) => (
-                <div key={column.id} className="flex flex-col">
-                  <div className={`border-t-4 ${column.color} bg-card rounded-lg p-4 shadow-sm mb-4`}>
-                    <h3 className="font-semibold text-lg text-foreground flex items-center justify-between">
-                      {column.title}
-                      <span className="text-sm text-muted-foreground">
+                <div key={column.id} className="min-w-[340px] flex-shrink-0">
+                  {/* Column Header */}
+                  <div className="bg-white rounded-lg shadow-sm mb-4 border border-[#E5E7EB]">
+                    <div className="h-14 px-5 flex items-center justify-between border-b border-[#E5E7EB]">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-1 h-6 rounded ${column.color}`} />
+                        <h3 className="font-semibold text-base text-[#111827]">
+                          {column.title}
+                        </h3>
+                      </div>
+                      <Badge variant="secondary" className="bg-[#E5E7EB] text-[#111827] text-xs px-2.5 py-0.5 rounded-full">
                         {getCardsByColumn(column.id).length}
-                      </span>
-                    </h3>
+                      </Badge>
+                    </div>
                   </div>
                   
+                  {/* Droppable Area */}
                   <Droppable droppableId={column.id}>
                     {(provided, snapshot) => (
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className={`flex-1 space-y-3 p-4 rounded-lg transition-colors ${
-                          snapshot.isDraggingOver ? "bg-muted/50" : "bg-muted/20"
+                        className={`space-y-4 p-3 rounded-lg transition-all duration-200 ${
+                          snapshot.isDraggingOver 
+                            ? "bg-[#2563EB]/5 border-2 border-[#2563EB] border-dashed" 
+                            : "bg-transparent"
                         }`}
                         style={{ minHeight: "400px" }}
                       >
@@ -289,62 +304,78 @@ export default function Schedule() {
                                     ref={provided.innerRef}
                                     {...provided.draggableProps}
                                     {...provided.dragHandleProps}
-                                    className={`cursor-pointer hover:shadow-lg transition-shadow ${
-                                      snapshot.isDragging ? "shadow-xl" : ""
+                                    className={`cursor-pointer bg-white border border-[#E5E7EB] p-5 rounded-lg transition-all duration-200 ${
+                                      snapshot.isDragging 
+                                        ? "shadow-xl rotate-2 scale-105" 
+                                        : "shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md"
                                     }`}
                                     onClick={() => {
                                       setSelectedCard(card);
                                       setEditMode(false);
                                     }}
                                   >
-                                    <CardHeader className="p-4 pb-2">
-                                      <CardTitle className="text-sm font-semibold">
-                                        {card.title}
-                                      </CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="p-4 pt-0">
-                                      <div className="space-y-2 text-xs text-muted-foreground">
-                                        <div className="flex items-center gap-2">
-                                          <Calendar className="w-3 h-3" />
-                                          <span>
-                                            {new Date(card.publication_date).toLocaleDateString("pt-BR")}
+                                    {/* Card Title */}
+                                    <h4 className="text-[15px] font-semibold text-[#111827] mb-3 leading-tight line-clamp-2">
+                                      {card.title}
+                                    </h4>
+                                    
+                                    {/* Card Metadata */}
+                                    <div className="space-y-2">
+                                      <div className="flex items-center gap-2 text-[#6B7280] text-xs">
+                                        <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                                        <span className="font-medium">
+                                          {new Date(card.publication_date).toLocaleDateString("pt-BR", {
+                                            day: "2-digit",
+                                            month: "2-digit",
+                                          })}
+                                        </span>
+                                      </div>
+                                      
+                                      {card.file_location && (
+                                        <div className="flex items-center gap-2 text-xs">
+                                          <LinkIcon className="w-3.5 h-3.5 flex-shrink-0 text-[#2563EB]" />
+                                          <span className="truncate text-[#2563EB]">
+                                            {card.file_location}
                                           </span>
                                         </div>
-                                        {card.file_location && (
-                                          <div className="flex items-center gap-2">
-                                            <LinkIcon className="w-3 h-3" />
-                                            <span className="truncate">
-                                              {card.file_location}
-                                            </span>
-                                          </div>
-                                        )}
-                                        {card.responsible_name && (
-                                          <div className="flex items-center gap-2">
-                                            <User className="w-3 h-3" />
-                                            <span>{card.responsible_name}</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                      {card.description && (
-                                        <p className="text-xs text-muted-foreground mt-3 line-clamp-2">
-                                          {card.description}
-                                        </p>
                                       )}
-                                    </CardContent>
+                                      
+                                      {!card.file_location && (
+                                        <div className="flex items-center gap-2 text-[#9CA3AF] text-xs">
+                                          <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+                                          <span>Sem arquivo</span>
+                                        </div>
+                                      )}
+                                      
+                                      {card.responsible_name && (
+                                        <div className="flex items-center gap-2 text-[#6B7280] text-xs">
+                                          <User className="w-3.5 h-3.5 flex-shrink-0" />
+                                          <span className="truncate">{card.responsible_name}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    {/* Card Description */}
+                                    {card.description && (
+                                      <p className="text-xs text-[#4B5563] mt-3 leading-relaxed line-clamp-2">
+                                        {card.description}
+                                      </p>
+                                    )}
                                   </Card>
                                 </DialogTrigger>
 
-                                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                                  <DialogHeader>
-                                    <DialogTitle>
+                                <DialogContent className="max-w-[700px] max-h-[90vh] overflow-y-auto bg-white">
+                                  <DialogHeader className="border-b pb-4">
+                                    <DialogTitle className="text-2xl font-bold text-[#111827]">
                                       {editMode ? "Editar Tarefa" : "Detalhes da Tarefa"}
                                     </DialogTitle>
                                   </DialogHeader>
 
                                   {selectedCard && (
-                                    <div className="space-y-4">
+                                    <div className="space-y-5 pt-2">
+                                      {/* Title */}
                                       <div>
-                                        <Label>Título</Label>
+                                        <Label className="text-sm font-semibold text-[#111827]">Título</Label>
                                         {editMode ? (
                                           <Input
                                             value={selectedCard.title}
@@ -354,14 +385,16 @@ export default function Schedule() {
                                                 title: e.target.value,
                                               })
                                             }
+                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
                                           />
                                         ) : (
-                                          <p className="text-sm mt-1">{selectedCard.title}</p>
+                                          <p className="text-[15px] mt-2 text-[#111827]">{selectedCard.title}</p>
                                         )}
                                       </div>
 
+                                      {/* Status */}
                                       <div>
-                                        <Label>Status</Label>
+                                        <Label className="text-sm font-semibold text-[#111827]">Status</Label>
                                         {editMode ? (
                                           <Select
                                             value={selectedCard.status}
@@ -372,7 +405,7 @@ export default function Schedule() {
                                               })
                                             }
                                           >
-                                            <SelectTrigger>
+                                            <SelectTrigger className="mt-2 border-[#E5E7EB]">
                                               <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -382,15 +415,16 @@ export default function Schedule() {
                                             </SelectContent>
                                           </Select>
                                         ) : (
-                                          <p className="text-sm mt-1">
+                                          <p className="text-sm mt-2 text-[#6B7280]">
                                             {selectedCard.status === "completed" ? "Concluído" :
                                              selectedCard.status === "in_progress" ? "Em Andamento" : "A Fazer"}
                                           </p>
                                         )}
                                       </div>
 
+                                       {/* Publication Date */}
                                       <div>
-                                        <Label>Data de Publicação</Label>
+                                        <Label className="text-sm font-semibold text-[#111827]">Data de Publicação</Label>
                                         {editMode ? (
                                           <Input
                                             type="date"
@@ -401,16 +435,18 @@ export default function Schedule() {
                                                 publication_date: e.target.value,
                                               })
                                             }
+                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
                                           />
                                         ) : (
-                                          <p className="text-sm mt-1">
+                                          <p className="text-sm mt-2 text-[#6B7280]">
                                             {new Date(selectedCard.publication_date).toLocaleDateString("pt-BR")}
                                           </p>
                                         )}
                                       </div>
 
+                                      {/* Responsible */}
                                       <div>
-                                        <Label>Responsável</Label>
+                                        <Label className="text-sm font-semibold text-[#111827]">Responsável</Label>
                                         {editMode ? (
                                           <Input
                                             value={selectedCard.responsible_name || ""}
@@ -421,16 +457,18 @@ export default function Schedule() {
                                               })
                                             }
                                             placeholder="Nome do responsável"
+                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
                                           />
                                         ) : (
-                                          <p className="text-sm mt-1">
+                                          <p className="text-sm mt-2 text-[#6B7280]">
                                             {selectedCard.responsible_name || "Não atribuído"}
                                           </p>
                                         )}
                                       </div>
 
+                                      {/* File Location */}
                                       <div>
-                                        <Label>Local do Arquivo</Label>
+                                        <Label className="text-sm font-semibold text-[#111827]">Local do Arquivo</Label>
                                         {editMode ? (
                                           <Input
                                             value={selectedCard.file_location || ""}
@@ -441,16 +479,18 @@ export default function Schedule() {
                                               })
                                             }
                                             placeholder="Link, upload ou anotação"
+                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
                                           />
                                         ) : (
-                                          <p className="text-sm mt-1">
+                                          <p className="text-sm mt-2 text-[#6B7280]">
                                             {selectedCard.file_location || "Não especificado"}
                                           </p>
                                         )}
                                       </div>
 
+                                      {/* Description */}
                                       <div>
-                                        <Label>Descrição</Label>
+                                        <Label className="text-sm font-semibold text-[#111827]">Descrição</Label>
                                         {editMode ? (
                                           <Textarea
                                             value={selectedCard.description || ""}
@@ -462,16 +502,18 @@ export default function Schedule() {
                                             }
                                             rows={4}
                                             placeholder="Explicação do que deve ser feito"
+                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
                                           />
                                         ) : (
-                                          <p className="text-sm mt-1 whitespace-pre-wrap">
+                                          <p className="text-sm mt-2 text-[#4B5563] whitespace-pre-wrap leading-relaxed">
                                             {selectedCard.description || "Sem descrição"}
                                           </p>
                                         )}
                                       </div>
 
+                                      {/* Observations */}
                                       <div>
-                                        <Label>Observações</Label>
+                                        <Label className="text-sm font-semibold text-[#111827]">Observações</Label>
                                         {editMode ? (
                                           <Textarea
                                             value={selectedCard.observations || ""}
@@ -483,15 +525,17 @@ export default function Schedule() {
                                             }
                                             rows={3}
                                             placeholder="Detalhes adicionais"
+                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
                                           />
                                         ) : (
-                                          <p className="text-sm mt-1 whitespace-pre-wrap">
+                                          <p className="text-sm mt-2 text-[#4B5563] whitespace-pre-wrap leading-relaxed">
                                             {selectedCard.observations || "Sem observações"}
                                           </p>
                                         )}
                                       </div>
 
-                                      <div className="flex justify-end gap-2 pt-4">
+                                      {/* Action Buttons */}
+                                      <div className="flex justify-end gap-3 pt-4 border-t">
                                         {editMode ? (
                                           <>
                                             <Button
@@ -501,22 +545,28 @@ export default function Schedule() {
                                                 setSelectedCard(card);
                                               }}
                                               disabled={saving}
+                                              className="border-[#E5E7EB] hover:bg-[#F5F7FA]"
                                             >
                                               Cancelar
                                             </Button>
                                             <Button
                                               onClick={handleSaveCard}
                                               disabled={saving}
+                                              className="bg-[#2563EB] hover:bg-[#1d4ed8] gap-2"
                                             >
+                                              <Save className="w-4 h-4" />
                                               {saving ? "Salvando..." : "Salvar Alterações"}
                                             </Button>
                                           </>
                                         ) : (
-                                          <Button onClick={() => setEditMode(true)}>
+                                          <Button 
+                                            onClick={() => setEditMode(true)}
+                                            className="bg-[#2563EB] hover:bg-[#1d4ed8] gap-2"
+                                          >
+                                            <Edit2 className="w-4 h-4" />
                                             Editar
                                           </Button>
                                         )}
-                                      </div>
                                     </div>
                                   )}
                                 </DialogContent>
