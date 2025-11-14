@@ -29,7 +29,11 @@ export default function GenerateQuestions() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
-  const { saveState, clearState, savedState } = useLocalPlanState();
+  const {
+    saveState,
+    clearState,
+    savedState
+  } = useLocalPlanState();
   const {
     data: questionSession,
     isLoading: loadingSession
@@ -64,7 +68,6 @@ export default function GenerateQuestions() {
   const handleViewStrategy = () => {
     navigate('/strategies');
   };
-
   const handleGeneratePlan = async () => {
     if (!selectedClient || !questionSession || !tenantId) {
       toast({
@@ -81,7 +84,6 @@ export default function GenerateQuestions() {
       const qId = q.id || `q_${index}`;
       return answers[qId] && answers[qId].trim().length > 0;
     });
-
     if (!allAnswered) {
       toast({
         title: "Atenção",
@@ -90,44 +92,39 @@ export default function GenerateQuestions() {
       });
       return;
     }
-
     setIsGeneratingPlan(true);
 
     // Salvar estado localmente
     saveState(selectedClient.id, questionSession.strategy_id, tenantId);
-
     try {
       // Chamar edge function para gerar plano
-      const { data, error } = await supabase.functions.invoke('generate-plan', {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('generate-plan', {
         body: {
           companyId: selectedClient.id,
           strategyId: questionSession.strategy_id,
           tenantId: tenantId
         }
       });
-
       if (error) throw error;
-
       if (!data?.success) {
         throw new Error(data?.error || 'Erro ao gerar plano');
       }
 
       // Limpar estado salvo após sucesso
       clearState();
-
       toast({
         title: "Sucesso!",
-        description: "Plano gerado com sucesso",
+        description: "Plano gerado com sucesso"
       });
 
       // Redirecionar para a página de planos
       navigate(`/plans?planId=${data.planId}`);
-
     } catch (error: any) {
       console.error('Erro ao gerar plano:', error);
-      
       let errorMessage = 'Não foi possível gerar o plano. ';
-      
       if (error.message?.includes('Limite de requisições')) {
         errorMessage += 'Limite de requisições excedido. Aguarde alguns instantes.';
       } else if (error.message?.includes('Créditos insuficientes')) {
@@ -137,7 +134,6 @@ export default function GenerateQuestions() {
       } else {
         errorMessage += 'Verifique sua conexão e tente novamente.';
       }
-
       toast({
         title: "Erro ao gerar plano",
         description: errorMessage,
@@ -153,7 +149,7 @@ export default function GenerateQuestions() {
     if (savedState?.inProgress && selectedClient) {
       toast({
         title: "Geração em andamento",
-        description: "Detectamos uma geração de plano interrompida. Os dados foram restaurados.",
+        description: "Detectamos uma geração de plano interrompida. Os dados foram restaurados."
       });
     }
   }, [savedState, selectedClient]);
@@ -190,41 +186,26 @@ export default function GenerateQuestions() {
                     CNPJ/CPF: {selectedClient.cnpj_cpf}
                   </p>
                 </div>
-                {questionSession && Array.isArray(questionSession.questions) && questionSession.questions.length > 0 && (
-                  <div className="flex gap-2">
+                {questionSession && Array.isArray(questionSession.questions) && questionSession.questions.length > 0 && <div className="flex gap-2">
                     <Button size="lg" className="gap-2" onClick={handleViewStrategy}>
                       <FileText className="h-5 w-5" />
                       Ver Estratégia
                     </Button>
-                    <Button 
-                      size="lg" 
-                      className="gap-2" 
-                      onClick={handleGeneratePlan}
-                      disabled={isGeneratingPlan}
-                    >
-                      {isGeneratingPlan ? (
-                        <>
+                    <Button size="lg" className="gap-2" onClick={handleGeneratePlan} disabled={isGeneratingPlan}>
+                      {isGeneratingPlan ? <>
                           <Loader2 className="h-5 w-5 animate-spin" />
                           Gerando Plano...
-                        </>
-                      ) : (
-                        <>
+                        </> : <>
                           <Sparkles className="h-5 w-5" />
                           Gerar Plano
-                        </>
-                      )}
+                        </>}
                     </Button>
-                    <Button size="lg" variant="outline" className="gap-2" onClick={() => navigate('/plans')}>
-                      <Calendar className="h-5 w-5" />
-                      Ver Plano do Cronograma
-                    </Button>
-                  </div>
-                )}
+                    
+                  </div>}
               </div>
             </div>
 
-            {isGeneratingPlan ? (
-              <div className="flex flex-col items-center justify-center py-16 space-y-6">
+            {isGeneratingPlan ? <div className="flex flex-col items-center justify-center py-16 space-y-6">
                 <div className="relative">
                   <div className="h-20 w-20 rounded-full border-4 border-primary/20 flex items-center justify-center">
                     <Loader2 className="h-10 w-10 text-primary animate-spin" />
@@ -237,8 +218,7 @@ export default function GenerateQuestions() {
                     Isso pode levar alguns segundos. Estamos consolidando seus dados e criando um cronograma sob medida...
                   </p>
                 </div>
-              </div>
-            ) : loadingSession ? <div className="space-y-8">
+              </div> : loadingSession ? <div className="space-y-8">
                 {/* Loading Header */}
                 <div className="flex items-center justify-center gap-3 py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -280,7 +260,6 @@ export default function GenerateQuestions() {
               const questionId = q.id || `q_${index}`;
               const questionText = q.question || q.text || q;
               const currentAnswer = answers[questionId] || '';
-              
               return <Card key={questionId} className="p-6 hover:shadow-md transition-shadow">
                           <div className="space-y-4">
                             <div className="flex items-start gap-3">
