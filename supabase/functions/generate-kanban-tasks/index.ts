@@ -178,7 +178,7 @@ Crie tarefas específicas, práticas e organizadas cronologicamente.`;
     const cardsToInsert = tasks.map((task) => ({
       title: task.titulo,
       status: 'unassigned',
-      column_name: 'A Fazer',
+      column_name: 'Planejamento Automatizado',
       publication_date: task.data_publicacao,
       file_location: task.local_arquivo || 'Aguardando material',
       description: task.descricao,
