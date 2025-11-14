@@ -479,8 +479,8 @@ export default function Plans() {
               <p className="text-muted-foreground mb-6">
                 Gere um plano na etapa anterior para visualizá-lo aqui.
               </p>
-              <Button size="lg" onClick={() => navigate("/client-list")} className="gap-2">
-                Ir para Clientes
+              <Button size="lg" onClick={() => navigate("/generate-questions")} className="gap-2">
+                Gerar Plano
               </Button>
             </Card> : <div className="grid gap-4">
               {plans.map(p => <Card key={p.id} className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate(`/plans?planId=${p.id}`)}>
