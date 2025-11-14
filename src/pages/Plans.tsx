@@ -154,7 +154,6 @@ export default function Plans() {
     if (!plan) return;
     setSaving(true);
     setGeneratingCards(true);
-    
     try {
       // Aprovar o plano
       const {
@@ -163,25 +162,25 @@ export default function Plans() {
         approved: true,
         approved_at: new Date().toISOString()
       }).eq("id", plan.id);
-      
       if (approveError) throw approveError;
-      
       setPlan({
         ...plan,
         approved: true
       });
-      
       toast({
         title: "Plano aprovado!",
-        description: "Gerando tarefas automaticamente...",
+        description: "Gerando tarefas automaticamente..."
       });
 
       // Gerar cards automaticamente
-      const { data: cardsData, error: cardsError } = await supabase.functions.invoke(
-        'generate-kanban-tasks',
-        { body: { planId: plan.id } }
-      );
-
+      const {
+        data: cardsData,
+        error: cardsError
+      } = await supabase.functions.invoke('generate-kanban-tasks', {
+        body: {
+          planId: plan.id
+        }
+      });
       if (cardsError) {
         console.error('Error generating cards:', cardsError);
         toast({
@@ -192,10 +191,9 @@ export default function Plans() {
       } else if (cardsData?.success) {
         toast({
           title: "Sucesso!",
-          description: `Plano aprovado e ${cardsData.cardsCreated} tarefas geradas!`,
+          description: `Plano aprovado e ${cardsData.cardsCreated} tarefas geradas!`
         });
       }
-
     } catch (error) {
       console.error("Error approving plan:", error);
       toast({
@@ -504,15 +502,13 @@ export default function Plans() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {p.approved && (
-                        <Button variant="outline" size="sm" onClick={e => {
-                          e.stopPropagation();
-                          navigate(`/schedule?planId=${p.id}`);
-                        }} className="gap-2">
+                      {p.approved && <Button variant="outline" size="sm" onClick={e => {
+                  e.stopPropagation();
+                  navigate(`/schedule?planId=${p.id}`);
+                }} className="gap-2">
                           <Calendar className="w-4 h-4" />
                           Ver Cronograma
-                        </Button>
-                      )}
+                        </Button>}
                       <Button variant="ghost" size="icon" onClick={e => {
                   e.stopPropagation();
                   setPlanToDelete(p.id);
@@ -560,9 +556,7 @@ export default function Plans() {
               Este plano não existe ou foi removido.
             </p>
           </div>
-          <Button size="lg" onClick={() => navigate("/generate-questions")} className="gap-2">
-            Ver Todos os Planos
-          </Button>
+          <Button size="lg" onClick={() => navigate("/generate-questions")} className="gap-2">Ver Perguntas Guias</Button>
         </div>
       </div>;
   }
