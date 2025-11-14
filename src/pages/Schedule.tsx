@@ -566,7 +566,7 @@ export default function Schedule() {
                                             <Edit2 className="w-4 h-4" />
                                             Editar
                                           </Button>
-                                         )}
+                                        )}
                                       </div>
                                     </div>
                                   )}
