@@ -560,7 +560,7 @@ export default function Plans() {
               Este plano não existe ou foi removido.
             </p>
           </div>
-          <Button size="lg" onClick={() => navigate("/plans")} className="gap-2">
+          <Button size="lg" onClick={() => navigate("/generate-questions")} className="gap-2">
             Ver Todos os Planos
           </Button>
         </div>
