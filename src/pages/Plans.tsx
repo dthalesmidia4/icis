@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, Download, FileText } from "lucide-react";
+import { ArrowLeft, Save, Download, FileText, Pencil, CheckCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface MarketingPlan {
@@ -22,6 +22,7 @@ export default function Plans() {
   const [plan, setPlan] = useState<MarketingPlan | null>(null);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const planId = searchParams.get("planId");
 
@@ -319,66 +320,87 @@ export default function Plans() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-card">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
-          <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
-            Plano Gerado
-          </h1>
-          <p className="text-base sm:text-lg text-muted-foreground max-w-3xl">
-            Plano estratégico personalizado gerado com base nos dados do cliente, 
-            estratégia e respostas fornecidas.
-          </p>
-        </div>
-      </div>
-
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        <Card className="bg-card border-border shadow-card">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Back Button */}
+        <Button
+          variant="ghost"
+          onClick={() => navigate(-1)}
+          className="gap-2 mb-6 hover:bg-muted"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Voltar
+        </Button>
+
+        {/* Plan Card */}
+        <Card className="bg-card border-border shadow-lg overflow-hidden">
+          {/* Card Header with Title and Actions */}
+          <div className="border-b bg-muted/30 px-6 py-5">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="flex-1">
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
+                  Plano Estratégico de Marketing
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Plano personalizado gerado com base nos dados fornecidos
+                </p>
+              </div>
+              
+              {/* Action Buttons - Horizontal Layout */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditing(!isEditing)}
+                  className="gap-2 hover:bg-muted"
+                >
+                  <Pencil className="w-4 h-4" />
+                  <span className="hidden sm:inline">Editar</span>
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportPDF}
+                  disabled={exporting}
+                  className="gap-2 hover:bg-muted"
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">
+                    {exporting ? "Exportando..." : "Exportar"}
+                  </span>
+                </Button>
+                
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="gap-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="hidden sm:inline">
+                    {saving ? "Aprovando..." : "Aprovar"}
+                  </span>
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Card Content */}
           <div 
-            className="p-6 sm:p-8 lg:p-12 prose prose-slate max-w-none
+            className="p-6 sm:p-8 lg:p-10 prose prose-slate max-w-none
               prose-headings:text-foreground 
-              prose-h2:text-2xl prose-h2:font-semibold prose-h2:mt-8 prose-h2:mb-4 prose-h2:text-primary
-              prose-h3:text-xl prose-h3:font-medium prose-h3:mt-6 prose-h3:mb-3 prose-h3:text-secondary
-              prose-p:text-foreground prose-p:mb-5 prose-p:leading-relaxed
-              prose-ul:my-6 prose-ul:space-y-2
-              prose-ol:my-6 prose-ol:space-y-2
-              prose-li:text-foreground prose-li:leading-relaxed
-              prose-strong:text-primary prose-strong:font-semibold"
+              prose-h2:text-2xl prose-h2:font-bold prose-h2:mt-8 prose-h2:mb-4 prose-h2:text-primary prose-h2:border-b prose-h2:border-border prose-h2:pb-2
+              prose-h3:text-xl prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-3 prose-h3:text-primary/80
+              prose-p:text-foreground prose-p:mb-4 prose-p:leading-relaxed prose-p:text-base
+              prose-ul:my-4 prose-ul:space-y-2 prose-ul:list-disc prose-ul:pl-6
+              prose-ol:my-4 prose-ol:space-y-2 prose-ol:list-decimal prose-ol:pl-6
+              prose-li:text-foreground prose-li:leading-relaxed prose-li:marker:text-primary
+              prose-strong:text-primary prose-strong:font-semibold
+              prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
             dangerouslySetInnerHTML={{ __html: formatContent(plan.plan_content) }}
           />
         </Card>
-
-        {/* Action Buttons */}
-        <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4 sm:justify-end">
-          <Button
-            variant="outline"
-            onClick={() => navigate(-1)}
-            className="gap-2 order-3 sm:order-1"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Voltar
-          </Button>
-          
-          <Button
-            variant="outline"
-            onClick={handleExportPDF}
-            disabled={exporting}
-            className="gap-2 order-2 sm:order-2"
-          >
-            <Download className="w-4 h-4" />
-            {exporting ? "Exportando..." : "Exportar PDF"}
-          </Button>
-          
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-            className="gap-2 order-1 sm:order-3"
-          >
-            <Save className="w-4 h-4" />
-            {saving ? "Salvando..." : "Salvar Plano"}
-          </Button>
-        </div>
       </div>
     </div>
   );
