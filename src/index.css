@@ -119,3 +119,69 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Tiptap Editor Styles */
+.ProseMirror {
+  outline: none;
+}
+
+.ProseMirror h1 {
+  @apply text-3xl font-bold text-foreground mb-4 mt-6;
+}
+
+.ProseMirror h2 {
+  @apply text-2xl font-semibold text-foreground mb-3 mt-5;
+}
+
+.ProseMirror h3 {
+  @apply text-xl font-medium text-foreground mb-2 mt-4;
+}
+
+.ProseMirror p {
+  @apply text-foreground mb-4 leading-relaxed;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  @apply mb-4 pl-6;
+}
+
+.ProseMirror ul {
+  @apply list-disc;
+}
+
+.ProseMirror ol {
+  @apply list-decimal;
+}
+
+.ProseMirror li {
+  @apply mb-2 text-foreground;
+}
+
+.ProseMirror strong {
+  @apply font-semibold text-primary;
+}
+
+.ProseMirror em {
+  @apply italic;
+}
+
+.ProseMirror blockquote {
+  @apply border-l-4 border-primary pl-4 italic my-4;
+}
+
+.ProseMirror hr {
+  @apply border-border my-6;
+}
+
+.ProseMirror code {
+  @apply bg-muted px-1.5 py-0.5 rounded text-sm font-mono;
+}
+
+.ProseMirror pre {
+  @apply bg-muted p-4 rounded-lg overflow-x-auto my-4;
+}
+
+.ProseMirror pre code {
+  @apply bg-transparent p-0;
+}
