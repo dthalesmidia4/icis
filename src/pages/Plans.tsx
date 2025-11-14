@@ -493,7 +493,7 @@ export default function Plans() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Back Button */}
-        <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2 mb-6 hover:bg-muted">
+        <Button variant="ghost" onClick={() => navigate("/plans")} className="gap-2 mb-6 hover:bg-muted">
           <ArrowLeft className="w-4 h-4" />
           Voltar
         </Button>
