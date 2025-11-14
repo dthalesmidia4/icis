@@ -11,21 +11,8 @@ export const useAuth = () => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('Auth state changed:', event);
-        
-        if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-          setSession(session);
-          setUser(session?.user ?? null);
-        } else if (event === 'SIGNED_IN') {
-          setSession(session);
-          setUser(session?.user ?? null);
-        }
-        
-        // Redirect to auth if session expired
-        if (!session && event === 'SIGNED_OUT' && window.location.pathname !== '/auth') {
-          window.location.href = '/auth';
-        }
-        
+        setSession(session);
+        setUser(session?.user ?? null);
         setIsLoading(false);
       }
     );
