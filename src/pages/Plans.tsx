@@ -4,10 +4,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, Download, FileText, Pencil, CheckCircle, X } from "lucide-react";
+import { ArrowLeft, Save, Download, FileText, Pencil, CheckCircle, X, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTenant } from "@/contexts/TenantContext";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface MarketingPlan {
   id: string;
@@ -34,6 +44,8 @@ export default function Plans() {
   const [editedContent, setEditedContent] = useState("");
   const [autoSaving, setAutoSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [planToDelete, setPlanToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
   const planId = searchParams.get("planId");
   useEffect(() => {
@@ -177,6 +189,38 @@ export default function Plans() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeletePlan = async () => {
+    if (!planToDelete) return;
+    
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("marketing_plans")
+        .delete()
+        .eq("id", planToDelete);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Plano excluído!",
+        description: "O plano foi removido com sucesso."
+      });
+      
+      // Update the plans list
+      setPlans(plans.filter(p => p.id !== planToDelete));
+      setPlanToDelete(null);
+    } catch (error) {
+      console.error("Error deleting plan:", error);
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível excluir o plano.",
+        variant: "destructive"
+      });
+    } finally {
+      setDeleting(false);
     }
   };
   const handleExportPDF = async () => {
@@ -439,7 +483,7 @@ export default function Plans() {
                   className="p-6 hover:shadow-lg transition-shadow cursor-pointer"
                   onClick={() => navigate(`/plans?planId=${p.id}`)}
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-xl font-semibold text-foreground">
@@ -455,12 +499,47 @@ export default function Plans() {
                         Criado em {new Date(p.created_at).toLocaleDateString('pt-BR')}
                       </p>
                     </div>
-                    <FileText className="w-8 h-8 text-muted-foreground" />
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-8 h-8 text-muted-foreground" />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPlanToDelete(p.id);
+                        }}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               ))}
             </div>
           )}
+          
+          {/* Delete Confirmation Dialog */}
+          <AlertDialog open={!!planToDelete} onOpenChange={(open) => !open && setPlanToDelete(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Tem certeza que deseja excluir este plano? Esta ação não pode ser desfeita.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeletePlan}
+                  disabled={deleting}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {deleting ? "Excluindo..." : "Excluir"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
     );
