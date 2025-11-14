@@ -210,7 +210,7 @@ export default function Schedule() {
           <Skeleton className="h-12 w-64 mb-8" />
           <div className="flex gap-6 overflow-x-auto pb-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="min-w-[340px]">
+              <div key={i} className="min-w-[324px]">
                 <Skeleton className="h-[500px]" />
               </div>
             ))}
@@ -262,17 +262,17 @@ export default function Schedule() {
           <DragDropContext onDragEnd={handleDragEnd}>
             <div className="flex gap-6 overflow-x-auto pb-4">
               {COLUMNS.map((column) => (
-                <div key={column.id} className="min-w-[340px] flex-shrink-0">
+                <div key={column.id} className="min-w-[324px] max-w-[324px] flex-shrink-0">
                   {/* Column Header */}
                   <div className="bg-white rounded-lg shadow-sm mb-4 border border-[#E5E7EB]">
-                    <div className="h-14 px-5 flex items-center justify-between border-b border-[#E5E7EB]">
+                    <div className="h-12 px-4 flex items-center justify-between border-b border-[#E5E7EB]">
                       <div className="flex items-center gap-2">
-                        <div className={`w-1 h-6 rounded ${column.color}`} />
-                        <h3 className="font-semibold text-base text-[#111827]">
+                        <div className={`w-1 h-5 rounded ${column.color}`} />
+                        <h3 className="font-semibold text-sm text-[#111827]">
                           {column.title}
                         </h3>
                       </div>
-                      <Badge variant="secondary" className="bg-[#E5E7EB] text-[#111827] text-xs px-2.5 py-0.5 rounded-full">
+                      <Badge variant="secondary" className="bg-[#E5E7EB] text-[#111827] text-xs px-2 py-0.5 rounded-full">
                         {getCardsByColumn(column.id).length}
                       </Badge>
                     </div>
@@ -304,7 +304,7 @@ export default function Schedule() {
                                     ref={provided.innerRef}
                                     {...provided.draggableProps}
                                     {...provided.dragHandleProps}
-                                    className={`cursor-pointer bg-white border border-[#E5E7EB] p-5 rounded-lg transition-all duration-200 ${
+                                    className={`cursor-pointer bg-white border border-[#E5E7EB] p-4 rounded-lg transition-all duration-200 max-w-[324px] max-h-[160px] overflow-hidden ${
                                       snapshot.isDragging 
                                         ? "shadow-xl rotate-2 scale-105" 
                                         : "shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md"
@@ -315,14 +315,14 @@ export default function Schedule() {
                                     }}
                                   >
                                     {/* Card Title */}
-                                    <h4 className="text-[15px] font-semibold text-[#111827] mb-3 leading-tight line-clamp-2">
+                                    <h4 className="text-[14px] font-semibold text-[#111827] mb-2 leading-tight line-clamp-2">
                                       {card.title}
                                     </h4>
                                     
                                     {/* Card Metadata */}
-                                    <div className="space-y-2">
-                                      <div className="flex items-center gap-2 text-[#6B7280] text-xs">
-                                        <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                                    <div className="space-y-1.5">
+                                      <div className="flex items-center gap-2 text-[#6B7280] text-[11px]">
+                                        <Calendar className="w-3 h-3 flex-shrink-0" />
                                         <span className="font-medium">
                                           {new Date(card.publication_date).toLocaleDateString("pt-BR", {
                                             day: "2-digit",
@@ -332,8 +332,8 @@ export default function Schedule() {
                                       </div>
                                       
                                       {card.file_location && (
-                                        <div className="flex items-center gap-2 text-xs">
-                                          <LinkIcon className="w-3.5 h-3.5 flex-shrink-0 text-[#2563EB]" />
+                                        <div className="flex items-center gap-2 text-[11px]">
+                                          <LinkIcon className="w-3 h-3 flex-shrink-0 text-[#2563EB]" />
                                           <span className="truncate text-[#2563EB]">
                                             {card.file_location}
                                           </span>
@@ -341,15 +341,15 @@ export default function Schedule() {
                                       )}
                                       
                                       {!card.file_location && (
-                                        <div className="flex items-center gap-2 text-[#9CA3AF] text-xs">
-                                          <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+                                        <div className="flex items-center gap-2 text-[#9CA3AF] text-[11px]">
+                                          <FileText className="w-3 h-3 flex-shrink-0" />
                                           <span>Sem arquivo</span>
                                         </div>
                                       )}
                                       
                                       {card.responsible_name && (
-                                        <div className="flex items-center gap-2 text-[#6B7280] text-xs">
-                                          <User className="w-3.5 h-3.5 flex-shrink-0" />
+                                        <div className="flex items-center gap-2 text-[#6B7280] text-[11px]">
+                                          <User className="w-3 h-3 flex-shrink-0" />
                                           <span className="truncate">{card.responsible_name}</span>
                                         </div>
                                       )}
@@ -357,7 +357,7 @@ export default function Schedule() {
                                     
                                     {/* Card Description */}
                                     {card.description && (
-                                      <p className="text-xs text-[#4B5563] mt-3 leading-relaxed line-clamp-2">
+                                      <p className="text-[11px] text-[#4B5563] mt-2 leading-relaxed line-clamp-2">
                                         {card.description}
                                       </p>
                                     )}
