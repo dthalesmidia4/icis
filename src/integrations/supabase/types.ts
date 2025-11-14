@@ -150,6 +150,7 @@ export type Database = {
           company_id: string
           created_at: string
           id: string
+          plan_content: string | null
           plan_data: Json
           strategy_id: string | null
           tenant_id: string
@@ -161,6 +162,7 @@ export type Database = {
           company_id: string
           created_at?: string
           id?: string
+          plan_content?: string | null
           plan_data: Json
           strategy_id?: string | null
           tenant_id: string
@@ -172,6 +174,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           id?: string
+          plan_content?: string | null
           plan_data?: Json
           strategy_id?: string | null
           tenant_id?: string
@@ -182,7 +185,7 @@ export type Database = {
             foreignKeyName: "marketing_plans_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "companies"
+            referencedRelation: "tenant_companies"
             referencedColumns: ["id"]
           },
           {

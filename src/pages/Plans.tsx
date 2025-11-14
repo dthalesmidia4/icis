@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface MarketingPlan {
   id: string;
-  plan_data: any;
+  plan_content: string | null;
   company_id: string;
   strategy_id: string;
 }
@@ -149,7 +149,7 @@ export default function Plans() {
           </head>
           <body>
             <h1>Plano Estratégico</h1>
-            ${formatContent(typeof plan.plan_data === 'string' ? plan.plan_data : (plan.plan_data?.content || ''))}
+            ${formatContent(plan.plan_content || '')}
           </body>
         </html>
       `;
@@ -290,11 +290,7 @@ export default function Plans() {
     );
   }
 
-  const planContent = typeof plan?.plan_data === 'string' 
-    ? plan.plan_data 
-    : plan?.plan_data?.content;
-
-  if (!plan || !planContent) {
+  if (!plan || !plan.plan_content) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center space-y-6 max-w-md">
@@ -349,7 +345,7 @@ export default function Plans() {
               prose-ol:my-6 prose-ol:space-y-2
               prose-li:text-foreground prose-li:leading-relaxed
               prose-strong:text-primary prose-strong:font-semibold"
-            dangerouslySetInnerHTML={{ __html: formatContent(planContent) }}
+            dangerouslySetInnerHTML={{ __html: formatContent(plan.plan_content) }}
           />
         </Card>
 
