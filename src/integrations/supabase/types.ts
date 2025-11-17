@@ -149,6 +149,7 @@ export type Database = {
           id: string
           plan_content: string | null
           plan_data: Json
+          selected_month: string | null
           strategy_id: string | null
           tenant_id: string
           updated_at: string
@@ -161,6 +162,7 @@ export type Database = {
           id?: string
           plan_content?: string | null
           plan_data: Json
+          selected_month?: string | null
           strategy_id?: string | null
           tenant_id: string
           updated_at?: string
@@ -173,6 +175,7 @@ export type Database = {
           id?: string
           plan_content?: string | null
           plan_data?: Json
+          selected_month?: string | null
           strategy_id?: string | null
           tenant_id?: string
           updated_at?: string

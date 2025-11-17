@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, ArrowLeft, FileText, Loader2, Calendar, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClientSelectionModal } from '@/components/ClientSelectionModal';
+import { MonthSelectionModal } from '@/components/MonthSelectionModal';
 import { useTenant } from '@/contexts/TenantContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -29,6 +30,7 @@ export default function GenerateQuestions() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [showMonthModal, setShowMonthModal] = useState(false);
   const {
     saveState,
     clearState,
@@ -68,7 +70,7 @@ export default function GenerateQuestions() {
   const handleViewStrategy = () => {
     navigate('/strategies');
   };
-  const handleGeneratePlan = async () => {
+  const handleOpenMonthModal = () => {
     if (!selectedClient || !questionSession || !tenantId) {
       toast({
         title: "Erro",
@@ -92,10 +94,16 @@ export default function GenerateQuestions() {
       });
       return;
     }
+    
+    setShowMonthModal(true);
+  };
+
+  const handleGeneratePlan = async (selectedMonth: string) => {
+    setShowMonthModal(false);
     setIsGeneratingPlan(true);
 
     // Salvar estado localmente
-    saveState(selectedClient.id, questionSession.strategy_id, tenantId);
+    saveState(selectedClient!.id, questionSession!.strategy_id, tenantId!);
     try {
       // Chamar edge function para gerar plano
       const {
@@ -103,9 +111,10 @@ export default function GenerateQuestions() {
         error
       } = await supabase.functions.invoke('generate-plan', {
         body: {
-          companyId: selectedClient.id,
-          strategyId: questionSession.strategy_id,
-          tenantId: tenantId
+          companyId: selectedClient!.id,
+          strategyId: questionSession!.strategy_id,
+          tenantId: tenantId!,
+          selectedMonth: selectedMonth
         }
       });
       if (error) throw error;
@@ -191,7 +200,7 @@ export default function GenerateQuestions() {
                       <FileText className="h-5 w-5" />
                       Ver Estratégia
                     </Button>
-                    <Button size="lg" className="gap-2" onClick={handleGeneratePlan} disabled={isGeneratingPlan}>
+                    <Button size="lg" className="gap-2" onClick={handleOpenMonthModal} disabled={isGeneratingPlan}>
                       {isGeneratingPlan ? <>
                           <Loader2 className="h-5 w-5 animate-spin" />
                           Gerando Plano...
@@ -297,5 +306,13 @@ export default function GenerateQuestions() {
               </div>}
           </div>
         </div>}
+        
+      {/* Month Selection Modal */}
+      <MonthSelectionModal
+        open={showMonthModal}
+        onClose={() => setShowMonthModal(false)}
+        onConfirm={handleGeneratePlan}
+        isGenerating={isGeneratingPlan}
+      />
     </div>;
 }
