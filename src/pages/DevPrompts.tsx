@@ -10,39 +10,45 @@ import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
-const DEFAULT_PLAN_PROMPT = `REGRA FUNDAMENTAL - MÊS DE REFERÊNCIA:
+const DEFAULT_PLAN_PROMPT = `ATENÇÃO - DATA E MÊS DE REFERÊNCIA:
 
-Existe uma variável chamada "MÊS SELECIONADO PARA O CRONOGRAMA" no contexto.
-- Se essa variável estiver preenchida: use EXATAMENTE esse valor como mês de referência do cronograma.
-- Se estiver vazia, "Não especificado" ou "Não informado": use o MÊS ATUAL (baseado na data de hoje) como mês de referência.
+O contexto acima contém:
+- DATA ATUAL (ex: 17 de novembro de 2025)
+- ANO ATUAL (ex: 2025)
+- MÊS ATUAL (ex: novembro de 2025)
+- MÊS DE REFERÊNCIA PARA O CRONOGRAMA (pode ser o mês atual ou um mês específico escolhido pelo cliente)
 
-IMPORTANTE: 
-- NUNCA escreva frases como "mês não foi especificado", "mês genérico", "sugere-se definir o mês" ou qualquer justificativa sobre ausência de mês.
-- Sempre informe diretamente no formato: "Mês de Referência: [Nome do Mês] de [Ano]"
-- Use o mês definido para estruturar o cronograma em 4 semanas.
+REGRA FUNDAMENTAL:
+- Você DEVE usar o "MÊS DE REFERÊNCIA PARA O CRONOGRAMA" informado acima como base para todo o planejamento.
+- Sempre inicie a seção de cronograma com: "Mês de Referência: [MÊS DE REFERÊNCIA exato do contexto]"
+- Todas as datas e semanas devem ser deste mês/ano especificado
+- NUNCA use datas antigas ou de anos passados
+- Se o ano atual é 2025, TODAS as datas devem ser de 2025
 
 ---
 
 Com base nos dados fornecidos acima, crie um plano de marketing detalhado e estruturado. O plano deve incluir:
 
 1. RESUMO EXECUTIVO
-- Visão geral do plano de marketing
-- Principais objetivos e metas
+   - Visão geral do negócio
+   - Principais objetivos de marketing
+   - Público-alvo identificado
+   - Proposta de valor
 
-2. ANÁLISE DE SITUAÇÃO
-- Contexto do negócio
-- Público-alvo principal
-- Oportunidades identificadas
+2. ANÁLISE DE MERCADO
+   - Contexto do setor
+   - Perfil do cliente ideal
+   - Canais prioritários
 
-3. ESTRATÉGIA DE MARKETING
-- Pilares estratégicos baseados nas informações fornecidas
-- Posicionamento de marca
-- Mensagens-chave
+3. ESTRATÉGIA DE CONTEÚDO
+   - Pilares estratégicos baseados nas informações fornecidas
+   - Posicionamento de marca
+   - Mensagens-chave
 
 4. CRONOGRAMA DE AÇÕES (DETALHADO POR SEMANA)
 
-IMPORTANTE: Sempre inicie esta seção com:
-"Mês de Referência: [Nome do Mês] de [Ano]"
+OBRIGATÓRIO: Sempre inicie esta seção com:
+"Mês de Referência: [MÊS E ANO DO CONTEXTO ACIMA]"
 
 Para cada semana do mês, especifique:
 - Semana 1 (DD/MM - DD/MM)
@@ -51,30 +57,21 @@ Para cada semana do mês, especifique:
   * Sexta-feira: [Tipo de conteúdo] no [Canal] - Descrição da ação
 
 - Semana 2 (DD/MM - DD/MM)
-  * Segunda-feira: [Tipo de conteúdo] no [Canal] - Descrição da ação
-  * Quarta-feira: [Tipo de conteúdo] no [Canal] - Descrição da ação
-  * Sexta-feira: [Tipo de conteúdo] no [Canal] - Descrição da ação
+  * Segunda-feira: [...]
+  * Quarta-feira: [...]
+  * Sexta-feira: [...]
 
-- Semana 3 (DD/MM - DD/MM)
-  * Segunda-feira: [Tipo de conteúdo] no [Canal] - Descrição da ação
-  * Quarta-feira: [Tipo de conteúdo] no [Canal] - Descrição da ação
-  * Sexta-feira: [Tipo de conteúdo] no [Canal] - Descrição da ação
-
-- Semana 4 (DD/MM - DD/MM)
-  * Segunda-feira: [Tipo de conteúdo] no [Canal] - Descrição da ação
-  * Quarta-feira: [Tipo de conteúdo] no [Canal] - Descrição da ação
-  * Sexta-feira: [Tipo de conteúdo] no [Canal] - Descrição da ação
-
-Tipos de conteúdo sugeridos: Post, Vídeo, Story, Reels, E-mail, Blog, Anúncio
-Canais sugeridos: Instagram, Facebook, LinkedIn, YouTube, E-mail, WhatsApp, Site
+(Continue para todas as 4 semanas do mês)
 
 5. MÉTRICAS E KPIs
-- Principais indicadores de desempenho a serem acompanhados
-- Metas quantitativas quando aplicável
+   - Indicadores de sucesso
+   - Ferramentas de monitoramento sugeridas
+   - Frequência de análise
 
-6. RECOMENDAÇÕES FINAIS
-- Dicas práticas de implementação
-- Pontos de atenção
+6. RECURSOS NECESSÁRIOS
+   - Ferramentas recomendadas
+   - Orçamento sugerido (se aplicável)
+   - Equipe necessária
 
 INSTRUÇÕES IMPORTANTES:
 - Seja específico e prático nas recomendações
@@ -82,7 +79,8 @@ INSTRUÇÕES IMPORTANTES:
 - Priorize qualidade sobre quantidade
 - Adapte a linguagem ao público-alvo identificado
 - Seja realista quanto aos recursos necessários
-- SEMPRE defina e informe o mês de referência conforme a regra fundamental no início deste prompt
+- Use SEMPRE o mês e ano de referência informados no contexto
+- NUNCA use datas do passado - todas as datas devem ser do ano atual informado
 
 Formate o plano de forma clara e organizada, usando títulos, subtítulos e bullets para facilitar a leitura.`;
 
