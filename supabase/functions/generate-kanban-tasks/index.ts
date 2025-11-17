@@ -115,19 +115,40 @@ serve(async (req) => {
         });
       }
     }
+    // Buscar o plano do banco de dados para obter o selected_month
+    const { data: planData } = await supabase
+      .from('marketing_plans')
+      .select('selected_month')
+      .eq('id', planId)
+      .single();
     
-    // Determinar o mês de referência (sempre o mês atual)
+    const selectedMonth = planData?.selected_month || plan.plan_data?.metadata?.month;
+    
+    if (!selectedMonth) {
+      throw new Error('Mês de referência não encontrado no plano');
+    }
+    
+    // Parse do mês selecionado (formato YYYY-MM)
+    const [selectedYear, selectedMonthNum] = selectedMonth.split('-').map(Number);
+    const selectedDate = new Date(selectedYear, selectedMonthNum - 1, 1);
+    const selectedMonthName = selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    
+    // Determinar o contexto temporal baseado no mês selecionado
     const hoje = new Date();
-    const diaAtual = hoje.getDate();
-    const mesAtual = hoje.getMonth();
-    const anoAtual = hoje.getFullYear();
-    const mesReferencia = hoje.toISOString().slice(0, 7); // YYYY-MM formato
-    const mesReferenciaFormatado = hoje.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    const isCurrentMonth = selectedYear === hoje.getFullYear() && selectedMonthNum === (hoje.getMonth() + 1);
+    const diaAtual = isCurrentMonth ? hoje.getDate() : 1;
+    const mesAtual = selectedMonthNum - 1;
+    const anoAtual = selectedYear;
+    const mesReferencia = selectedMonth; // YYYY-MM formato
+    const mesReferenciaFormatado = selectedMonthName;
     
-    // Calcular primeiro e último dia válidos do mês
-    const primeiroDiaValido = hoje.toISOString().split('T')[0]; // Data atual (nunca antes)
-    const ultimoDiaMes = new Date(anoAtual, mesAtual + 1, 0).getDate();
-    const ultimoDiaValido = `${mesReferencia}-${String(ultimoDiaMes).padStart(2, '0')}`;
+    // Calcular primeiro e último dia válidos do mês selecionado
+    const primeiroDiaValido = isCurrentMonth 
+      ? hoje.toISOString().split('T')[0]
+      : `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-01`;
+    const ultimoDiaMes = new Date(selectedYear, selectedMonthNum, 0).getDate();
+    const ultimoDiaValido = `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-${String(ultimoDiaMes).padStart(2, '0')}`;
+    const diasRestantes = ultimoDiaMes - diaAtual + 1;
 
     // Prompt para o ChatGPT
     const systemPrompt = `Você é um planner de marketing profissional especializado em criar cronogramas de conteúdo executáveis, contextuais e altamente específicos.
@@ -141,25 +162,24 @@ O sistema NUNCA, EM HIPÓTESE ALGUMA, pode gerar tarefas com datas passadas.
 Esta regra é OBRIGATÓRIA e INVIOLÁVEL.
 
 📅 CONTEXTO TEMPORAL OBRIGATÓRIO:
-- Data atual REAL: ${hoje.toISOString().split('T')[0]} (dia ${diaAtual} do mês)
+- Data atual REAL: ${hoje.toISOString().split('T')[0]}${isCurrentMonth ? ` (dia ${diaAtual} do mês)` : ''}
 - Mês de referência: ${mesReferenciaFormatado}
 - Primeiro dia VÁLIDO para tarefas: ${primeiroDiaValido}
 - Último dia VÁLIDO para tarefas: ${ultimoDiaValido}
+- Dias disponíveis: ${diasRestantes} dias
 
 🎯 REGRAS DE DISTRIBUIÇÃO DE DATAS:
 
-1️⃣ SE O MÊS DE REFERÊNCIA FOR O MÊS ATUAL:
-   ✅ OBRIGATÓRIO: Começar as tarefas a partir de HOJE (${primeiroDiaValido})
+1️⃣ ${isCurrentMonth ? 'MÊS ATUAL - Começar a partir de HOJE:' : 'MÊS FUTURO - Pode usar o mês completo:'}
+   ✅ OBRIGATÓRIO: Começar as tarefas a partir de ${primeiroDiaValido}
    ❌ PROIBIDO: Usar qualquer data anterior a ${primeiroDiaValido}
-   ❌ PROIBIDO: Gerar tarefas nos dias ${diaAtual > 1 ? `01 a ${String(diaAtual - 1).padStart(2, '0')}` : 'anteriores'}
+   ${isCurrentMonth ? `❌ PROIBIDO: Gerar tarefas nos dias ${diaAtual > 1 ? `01 a ${String(diaAtual - 1).padStart(2, '0')}` : 'anteriores'}` : '✅ PERMITIDO: Usar todo o mês desde o dia 01'}
    
-2️⃣ RECALCULAR SEMANAS COM BASE NO DIA ATUAL:
-   ❌ ERRADO: Semana 1 começando no dia 01 (se dia 01 já passou)
+2️⃣ RECALCULAR SEMANAS COM BASE NO DIA INICIAL VÁLIDO:
+   ${isCurrentMonth ? `❌ ERRADO: Semana 1 começando no dia 01 (se dia 01 já passou)` : '✅ Semana 1 pode começar no dia 01'}
    ✅ CORRETO: Semana 1 começando no primeiro dia VÁLIDO (${primeiroDiaValido})
    
-   Exemplo:
-   - Se hoje é dia ${diaAtual}, a Semana 1 vai de ${primeiroDiaValido} até ${diaAtual + 6 <= ultimoDiaMes ? new Date(anoAtual, mesAtual, diaAtual + 6).toISOString().split('T')[0] : ultimoDiaValido}
-   - Nunca use datas que já passaram para definir o início da semana
+   ${isCurrentMonth ? `Exemplo: Se hoje é dia ${diaAtual}, a Semana 1 vai de ${primeiroDiaValido} até ${diaAtual + 6 <= ultimoDiaMes ? new Date(anoAtual, mesAtual, diaAtual + 6).toISOString().split('T')[0] : ultimoDiaValido}` : `Exemplo: A Semana 1 vai de ${primeiroDiaValido} até ${Math.min(7, ultimoDiaMes) <= ultimoDiaMes ? `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-${String(Math.min(7, ultimoDiaMes)).padStart(2, '0')}` : ultimoDiaValido}`}
 
 3️⃣ DISTRIBUIÇÃO INTELIGENTE:
    - Analise quantos dias ÚTEIS restam no mês (de hoje até o fim)

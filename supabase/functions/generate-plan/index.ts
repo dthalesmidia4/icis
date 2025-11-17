@@ -14,8 +14,8 @@ serve(async (req) => {
   }
 
   try {
-    const { companyId, strategyId, tenantId } = await req.json();
-    console.log('Generating plan for:', { companyId, strategyId, tenantId });
+    const { companyId, strategyId, tenantId, selectedMonth } = await req.json();
+    console.log('Generating plan for:', { companyId, strategyId, tenantId, selectedMonth });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -85,20 +85,26 @@ serve(async (req) => {
       };
     });
 
-    // Obter data atual e calcular período válido
+    // Obter data atual
     const now = new Date();
-    const diaAtual = now.getDate();
-    const mesAtual = now.getMonth();
-    const anoAtual = now.getFullYear();
-    const currentMonth = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-    const currentYear = now.getFullYear();
     
-    // Mês de referência é sempre o mês atual
-    const referenceMonth = currentMonth;
+    // Parse do mês selecionado (formato YYYY-MM)
+    const [selectedYear, selectedMonthNum] = selectedMonth.split('-').map(Number);
+    const selectedDate = new Date(selectedYear, selectedMonthNum - 1, 1);
+    const selectedMonthName = selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
     
-    // Calcular primeiro e último dia válidos
-    const primeiroDiaValido = now.toISOString().split('T')[0];
-    const ultimoDiaMes = new Date(anoAtual, mesAtual + 1, 0).getDate();
+    // Determinar o contexto temporal baseado no mês selecionado
+    const isCurrentMonth = selectedYear === now.getFullYear() && selectedMonthNum === (now.getMonth() + 1);
+    const diaAtual = isCurrentMonth ? now.getDate() : 1;
+    const mesAtual = selectedMonthNum - 1;
+    const anoAtual = selectedYear;
+    
+    // Calcular primeiro e último dia válidos do mês selecionado
+    const primeiroDiaValido = isCurrentMonth 
+      ? now.toISOString().split('T')[0]
+      : `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-01`;
+    const ultimoDiaMes = new Date(selectedYear, selectedMonthNum, 0).getDate();
+    const ultimoDiaValido = `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-${String(ultimoDiaMes).padStart(2, '0')}`;
     const diasRestantes = ultimoDiaMes - diaAtual + 1;
 
     // Preparar contexto completo para a IA
@@ -108,17 +114,18 @@ serve(async (req) => {
 ╚════════════════════════════════════════════════════════════════════════════╝
 
 📅 CONTEXTO TEMPORAL CRÍTICO:
-- DATA ATUAL: ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} (dia ${diaAtual})
-- ANO ATUAL: ${currentYear}
-- MÊS ATUAL: ${currentMonth}
+- DATA ATUAL: ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+- MÊS SELECIONADO: ${selectedMonthName}
+- ANO: ${anoAtual}
 - PRIMEIRO DIA VÁLIDO: ${primeiroDiaValido}
-- DIAS RESTANTES NO MÊS: ${diasRestantes} dias
+- ÚLTIMO DIA VÁLIDO: ${ultimoDiaValido}
+- DIAS DISPONÍVEIS: ${diasRestantes} dias
 
 🚨 REGRAS OBRIGATÓRIAS PARA O PLANO:
-1. NUNCA mencione ou sugira ações para datas que já passaram
-2. Todas as recomendações devem considerar que só há ${diasRestantes} dias disponíveis
-3. Ao sugerir cronogramas ou distribuição de tarefas, comece SEMPRE a partir de HOJE (${primeiroDiaValido})
-4. Se mencionar semanas, recalcule-as a partir do dia ${diaAtual}, não do dia 01
+1. NUNCA mencione ou sugira ações para datas anteriores a ${primeiroDiaValido}
+2. Todas as recomendações devem considerar que há ${diasRestantes} dias disponíveis
+3. Ao sugerir cronogramas ou distribuição de tarefas, comece SEMPRE a partir de ${primeiroDiaValido}
+4. ${isCurrentMonth ? `Hoje é dia ${diaAtual}. Se mencionar semanas, recalcule a partir de hoje, não do dia 01` : 'Este é um mês futuro, pode usar o mês completo para planejamento'}
 5. Seja realista quanto ao tempo disponível para execução
 
 DADOS CADASTRAIS DO CLIENTE:
@@ -138,15 +145,14 @@ ${strategy.strategy_text}
 PERGUNTAS E RESPOSTAS:
 ${questionsAndAnswers.map((qa: { question: string; answer: string }, idx: number) => `${idx + 1}. ${qa.question}\n   Resposta: ${qa.answer}`).join('\n\n')}
 
-MÊS DE REFERÊNCIA PARA O CRONOGRAMA: ${referenceMonth}
+MÊS DE REFERÊNCIA PARA O CRONOGRAMA: ${selectedMonthName}
 
 🎯 DIRETRIZES FINAIS PARA O PLANO:
-- Use EXATAMENTE o mês de referência "${referenceMonth}" para criar o cronograma
-- Todas as datas devem ser baseadas neste mês de ${currentYear}
-- Comece SEMPRE a partir do dia ${diaAtual} (HOJE), nunca antes
-- Você tem ${diasRestantes} dias disponíveis neste mês para planejar
+- Use EXATAMENTE o mês de referência "${selectedMonthName}" para criar o cronograma
+- Período válido: de ${primeiroDiaValido} até ${ultimoDiaValido}
+- Você tem ${diasRestantes} dias disponíveis para planejar
 - Seja específico e realista considerando o tempo real disponível
-- Distribua as ações de forma equilibrada nos dias que ainda virão
+- Distribua as ações de forma equilibrada nos dias válidos
 `;
 
     const userPrompt = `
@@ -189,14 +195,14 @@ ${systemPrompt.prompt_content}
 - NUNCA use expressões como "Na primeira semana do mês" se essa semana já passou
 
 ✅ CORRETO:
-- "A partir de hoje, nos próximos ${diasRestantes} dias..."
-- "Na semana atual (a partir do dia ${diaAtual})..."
-- "Nas próximas X semanas restantes do mês..."
+- "A partir ${isCurrentMonth ? 'de hoje' : 'do início do mês'}, nos próximos ${diasRestantes} dias..."
+- ${isCurrentMonth ? `"Na semana atual (a partir do dia ${diaAtual})..."` : '"Na primeira semana do mês..."'}
+- "Nas próximas X semanas ${isCurrentMonth ? 'restantes' : ''} do mês..."
 
 ❌ ERRADO:
-- "Na primeira semana do mês..." (se essa semana já passou)
-- "No início do mês..." (se já estamos no meio do mês)
-- Qualquer menção a datas ou períodos anteriores ao dia ${diaAtual}
+- ${isCurrentMonth ? `"Na primeira semana do mês..." (se essa semana já passou)` : '"Em datas anteriores ao início do mês"'}
+- ${isCurrentMonth ? `"No início do mês..." (se já estamos no meio do mês)` : '"Qualquer menção a períodos inválidos"'}
+- Qualquer menção a datas ou períodos anteriores a ${primeiroDiaValido}
 
 Gere planos realistas, executáveis e que respeitem o tempo REALMENTE disponível.`
           },
@@ -263,7 +269,9 @@ Gere planos realistas, executáveis e que respeitem o tempo REALMENTE disponíve
         strategy_id: strategyId,
         tenant_id: tenantId,
         plan_content: styledHtml,
-        plan_data: { metadata: { month: referenceMonth } }
+        plan_data: { metadata: { month: selectedMonth } },
+        selected_month: selectedMonth,
+        approved: false
       })
       .select()
       .single();
