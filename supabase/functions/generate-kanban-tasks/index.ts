@@ -43,7 +43,6 @@ serve(async (req) => {
           sector, 
           products_services, 
           size, 
-          selected_month,
           cnpj_cpf,
           email,
           phone
@@ -117,20 +116,10 @@ serve(async (req) => {
       }
     }
     
-    // Determinar o mês de referência
+    // Determinar o mês de referência (sempre o mês atual)
     const hoje = new Date();
-    const selectedMonth = companyData.selected_month;
-    let mesReferencia = hoje.toISOString().slice(0, 7); // YYYY-MM formato
-    
-    if (selectedMonth) {
-      // Se o mês selecionado está no formato "Janeiro", "Fevereiro", etc.
-      const meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-      const mesIndex = meses.findIndex(m => m.toLowerCase() === selectedMonth.toLowerCase());
-      if (mesIndex !== -1) {
-        const ano = hoje.getFullYear();
-        mesReferencia = `${ano}-${String(mesIndex + 1).padStart(2, '0')}`;
-      }
-    }
+    const mesReferencia = hoje.toISOString().slice(0, 7); // YYYY-MM formato
+    const mesReferenciaFormatado = hoje.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
     // Prompt para o ChatGPT
     const systemPrompt = `Você é um planner de marketing profissional especializado em criar cronogramas de conteúdo executáveis, contextuais e altamente específicos.
@@ -204,7 +193,7 @@ IMPORTANTE: Retorne APENAS o JSON válido, sem texto adicional antes ou depois.`
 - Setor: ${companyData.sector || 'Não informado'}
 - Produtos/Serviços: ${companyData.products_services || 'Não informado'}
 - Tamanho: ${companyData.size || 'Não informado'}
-- Mês de Referência: ${companyData.selected_month || mesReferencia}
+- Mês de Referência: ${mesReferenciaFormatado}
 
 ## ESTRATÉGIA DEFINIDA:
 ${strategyText || 'Estratégia não definida'}
