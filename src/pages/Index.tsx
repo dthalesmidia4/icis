@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { LogOut, CheckCircle2, UserPlus, Users, BarChart3, FileQuestion, Calendar } from "lucide-react";
+import { LogOut, CheckCircle2, UserPlus, Users, BarChart3, FileQuestion, Calendar, ClipboardList } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -77,8 +77,8 @@ const Index = () => {
     route: "/generate-questions",
     emoji: "❓"
   }, {
-    title: "Ver Plano do Cronograma",
-    icon: Calendar,
+    title: "Planejamento",
+    icon: ClipboardList,
     color: "from-pink-500 to-pink-600",
     route: "/plans",
     emoji: "📅"
