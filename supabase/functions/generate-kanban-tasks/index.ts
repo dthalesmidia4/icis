@@ -33,10 +33,22 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Buscar o plano aprovado
+    // Buscar o plano aprovado com todos os dados necessários
     const { data: plan, error: planError } = await supabase
       .from('marketing_plans')
-      .select('*, tenant_companies(name)')
+      .select(`
+        *, 
+        tenant_companies(
+          name, 
+          sector, 
+          products_services, 
+          size, 
+          selected_month,
+          cnpj_cpf,
+          email,
+          phone
+        )
+      `)
       .eq('id', planId)
       .single();
 
@@ -68,41 +80,144 @@ serve(async (req) => {
     }
 
     const planContent = plan.plan_content || '';
+    const companyData = plan.tenant_companies || {};
+    
+    // Buscar estratégia associada se houver
+    let strategyText = '';
+    if (plan.strategy_id) {
+      const { data: strategy } = await supabase
+        .from('strategies')
+        .select('strategy_text, name, period_start, period_end')
+        .eq('id', plan.strategy_id)
+        .single();
+      
+      if (strategy) {
+        strategyText = strategy.strategy_text || '';
+      }
+    }
+    
+    // Buscar respostas das perguntas guias se houver
+    let answersText = '';
+    if (plan.strategy_id) {
+      const { data: questionSession } = await supabase
+        .from('question_sessions')
+        .select('questions, answers')
+        .eq('strategy_id', plan.strategy_id)
+        .single();
+      
+      if (questionSession && questionSession.questions && questionSession.answers) {
+        const questions = questionSession.questions as any[];
+        const answers = questionSession.answers as Record<string, any>;
+        
+        answersText = '\n\n## PERGUNTAS E RESPOSTAS DO CLIENTE:\n';
+        questions.forEach((q: any, index: number) => {
+          const answer = answers[`question_${index}`] || 'Sem resposta';
+          answersText += `\nPergunta: ${q.question}\nResposta: ${answer}\n`;
+        });
+      }
+    }
+    
+    // Determinar o mês de referência
+    const hoje = new Date();
+    const selectedMonth = companyData.selected_month;
+    let mesReferencia = hoje.toISOString().slice(0, 7); // YYYY-MM formato
+    
+    if (selectedMonth) {
+      // Se o mês selecionado está no formato "Janeiro", "Fevereiro", etc.
+      const meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+      const mesIndex = meses.findIndex(m => m.toLowerCase() === selectedMonth.toLowerCase());
+      if (mesIndex !== -1) {
+        const ano = hoje.getFullYear();
+        mesReferencia = `${ano}-${String(mesIndex + 1).padStart(2, '0')}`;
+      }
+    }
 
     // Prompt para o ChatGPT
-    const systemPrompt = `Você é um especialista em transformar planos estratégicos de marketing em tarefas operacionais executáveis. 
-Sua função é analisar o plano e criar uma lista estruturada de tarefas práticas que precisam ser executadas.
+    const systemPrompt = `Você é um planner de marketing profissional especializado em criar cronogramas de conteúdo executáveis, contextuais e altamente específicos.
 
-IMPORTANTE: Retorne APENAS um JSON válido, sem texto adicional antes ou depois. O formato deve ser:
+CONTEXTO TEMPORAL OBRIGATÓRIO:
+- Data atual: ${hoje.toISOString().split('T')[0]}
+- Mês de referência para o cronograma: ${mesReferencia}
+- NUNCA gere tarefas com data anterior à data atual
+- Distribua as tarefas ao longo do mês de referência de forma realista
+- Considere dias úteis e espaçamento adequado entre tarefas
+
+REGRAS CRÍTICAS PARA GERAÇÃO DE TAREFAS:
+
+1. ESPECIFICIDADE OBRIGATÓRIA:
+   ❌ PROIBIDO: Tarefas genéricas como "fazer stories", "postar no Instagram", "criar conteúdo", "publicar reels"
+   ✅ OBRIGATÓRIO: Tarefas específicas e contextuais como:
+   - "Criar stories destacando a nova bebida de pistache com foco no público de 20 a 40 anos"
+   - "Publicar vídeo demonstrando o preparo da bebida X"
+   - "Criar carrossel sobre os benefícios do produto Y para o público Z"
+   - "Produzir foto para campanha gourmet destacando ingrediente premium"
+
+2. USO OBRIGATÓRIO DE TODO O CONTEXTO:
+   Você DEVE utilizar TODAS as seguintes informações para criar cada tarefa:
+   - Dados cadastrais da empresa (setor, produtos/serviços, tamanho)
+   - Estratégia definida
+   - Perguntas e respostas fornecidas pelo cliente
+   - Público-alvo específico
+   - Produto prioritário
+   - Objetivos do mês
+   - Canais escolhidos
+   - Estilo de conteúdo desejado
+
+3. ESTRUTURA DE CADA TAREFA:
+   - titulo: Curto e objetivo (máximo 60 caracteres)
+   - descricao: Clara, direcionada ao conteúdo específico (2-3 frases)
+   - data_publicacao: Data válida no formato YYYY-MM-DD (dentro do mês de referência, após a data atual)
+   - local_arquivo: Formato recomendado (story, reel, post, vídeo, foto, carrossel, campanha) + plataforma
+   - observacoes: Detalhes técnicos, hashtags sugeridas, call-to-action, horário ideal
+   - status: Sempre "a fazer"
+
+4. INTELIGÊNCIA TEMPORAL:
+   - Analise o tempo restante no mês
+   - Distribua tarefas em dias úteis
+   - Considere sequência lógica (pesquisa → criação → revisão → publicação)
+   - Espaçamento adequado entre posts similares
+
+5. QUANTIDADE:
+   - Gere entre 10 a 20 tarefas dependendo da complexidade do plano
+   - Priorize qualidade e especificidade sobre quantidade
+
+FORMATO DE SAÍDA (JSON):
 {
   "tarefas": [
     {
-      "titulo": "Nome claro e curto da tarefa",
+      "titulo": "Título específico e objetivo",
       "status": "a fazer",
       "data_publicacao": "YYYY-MM-DD",
-      "local_arquivo": "descrição do arquivo ou link necessário",
-      "descricao": "Explicação breve do que deve ser feito",
-      "observacoes": "Detalhes adicionais ou contexto"
+      "local_arquivo": "Formato + Plataforma (ex: Story Instagram, Reel TikTok)",
+      "descricao": "Descrição detalhada do que será feito, incluindo tema específico",
+      "observacoes": "Detalhes técnicos, hashtags, horário sugerido, call-to-action"
     }
   ]
 }
 
-Regras:
-1. Cada tarefa deve ser prática e executável
-2. O status sempre começa como "a fazer"
-3. Estime datas realistas baseadas na lógica do plano
-4. Seja específico nas descrições
-5. Inclua detalhes importantes nas observações
-6. Crie entre 8 a 15 tarefas dependendo da complexidade do plano
-7. Organize as tarefas em ordem cronológica lógica`;
+IMPORTANTE: Retorne APENAS o JSON válido, sem texto adicional antes ou depois.`;
 
-    const userPrompt = `Transforme o seguinte plano estratégico em tarefas executáveis:
+    const userPrompt = `Com base em TODOS os dados abaixo, crie um cronograma de tarefas ALTAMENTE CONTEXTUAL e ESPECÍFICO:
 
+## DADOS CADASTRAIS DA EMPRESA:
+- Nome: ${companyData.name || 'Não informado'}
+- Setor: ${companyData.sector || 'Não informado'}
+- Produtos/Serviços: ${companyData.products_services || 'Não informado'}
+- Tamanho: ${companyData.size || 'Não informado'}
+- Mês de Referência: ${companyData.selected_month || mesReferencia}
+
+## ESTRATÉGIA DEFINIDA:
+${strategyText || 'Estratégia não definida'}
+
+## PLANO DETALHADO:
 ${planContent}
+${answersText}
 
-Empresa: ${plan.tenant_companies?.name || 'Cliente'}
-
-Crie tarefas específicas, práticas e organizadas cronologicamente.`;
+IMPORTANTE: 
+- Use TODOS esses dados para criar tarefas específicas
+- Cada tarefa deve refletir o contexto real do negócio
+- Nenhuma tarefa pode ser genérica
+- Todas as datas devem estar no mês de referência (${mesReferencia}) e após ${hoje.toISOString().split('T')[0]}`;
 
     // Chamar Lovable AI
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
