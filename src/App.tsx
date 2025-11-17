@@ -11,7 +11,6 @@ import Auth from "./pages/Auth";
 import CompanyRegistration from "./pages/CompanyRegistration";
 import Plan from "./pages/Plan";
 import Plans from "./pages/Plans";
-import Cards from "./pages/Cards";
 import AdminDashboard from "./pages/AdminDashboard";
 import AgencySetup from "./pages/AgencySetup";
 import ClientList from "./pages/ClientList";
@@ -73,13 +72,6 @@ const App = () => (
                 </RequireTenant>
               </ProtectedRoute>
             } />
-          <Route path="/cards" element={
-            <ProtectedRoute>
-              <RequireTenant>
-                <Cards />
-              </RequireTenant>
-            </ProtectedRoute>
-          } />
           <Route path="/schedule" element={
             <ProtectedRoute>
               <RequireTenant>

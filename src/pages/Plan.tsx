@@ -127,7 +127,7 @@ const Plan = () => {
       toast.success("✅ Plano aprovado com sucesso! Você pode agora gerenciar as tarefas no quadro Kanban.");
       
       setTimeout(() => {
-        navigate(`/cards?planId=${planId}`);
+        navigate(`/schedule?planId=${planId}`);
       }, 1500);
     } catch (error) {
       console.error("Error approving plan:", error);
