@@ -89,12 +89,9 @@ serve(async (req) => {
     const now = new Date();
     const currentMonth = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
     const currentYear = now.getFullYear();
-    const currentMonthNumber = now.getMonth() + 1; // 1-12
     
-    // Determinar mês de referência
-    const referenceMonth = company.selected_month && company.selected_month.trim() !== '' 
-      ? company.selected_month 
-      : currentMonth;
+    // Mês de referência é sempre o mês atual
+    const referenceMonth = currentMonth;
 
     // Preparar contexto completo para a IA
     const context = `
@@ -214,7 +211,7 @@ ${systemPrompt.prompt_content}
         strategy_id: strategyId,
         tenant_id: tenantId,
         plan_content: styledHtml,
-        plan_data: { metadata: { month: company.selected_month } }
+        plan_data: { metadata: { month: referenceMonth } }
       })
       .select()
       .single();

@@ -174,7 +174,6 @@ const Plan = () => {
                   <CardTitle className="text-2xl">Plano de Marketing</CardTitle>
                   <CardDescription>
                     {companyData?.name && `Plano para ${companyData.name}`}
-                    {companyData?.selected_month && ` - ${companyData.selected_month}`}
                   </CardDescription>
                 </div>
               </div>

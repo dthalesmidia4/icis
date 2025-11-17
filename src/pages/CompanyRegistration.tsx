@@ -208,7 +208,6 @@ const CompanyRegistration = () => {
         products_services: formData.products_services,
         email: formData.email,
         phone: formData.phone,
-        selected_month: "",
         tenant_id: profile.tenant_id
       }]).select().single();
       if (error) {

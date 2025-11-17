@@ -66,7 +66,6 @@ DADOS DO CLIENTE:
 - Setor: ${company.sector}
 - Produtos/Serviços: ${company.products_services}
 - Tamanho da empresa: ${company.size}
-- Mês do cronograma: ${company.selected_month}
 - Email: ${company.email}
 - Telefone: ${company.phone}
 

@@ -111,7 +111,6 @@ export type Database = {
           phone: string
           products_services: string
           sector: string
-          selected_month: string
           size: string
           updated_at: string
         }
@@ -124,7 +123,6 @@ export type Database = {
           phone: string
           products_services: string
           sector: string
-          selected_month: string
           size: string
           updated_at?: string
         }
@@ -137,7 +135,6 @@ export type Database = {
           phone?: string
           products_services?: string
           sector?: string
-          selected_month?: string
           size?: string
           updated_at?: string
         }
@@ -372,7 +369,6 @@ export type Database = {
           phone: string
           products_services: string
           sector: string
-          selected_month: string
           size: string
           tenant_id: string
           updated_at: string | null
@@ -386,7 +382,6 @@ export type Database = {
           phone: string
           products_services: string
           sector: string
-          selected_month: string
           size: string
           tenant_id: string
           updated_at?: string | null
@@ -400,7 +395,6 @@ export type Database = {
           phone?: string
           products_services?: string
           sector?: string
-          selected_month?: string
           size?: string
           tenant_id?: string
           updated_at?: string | null

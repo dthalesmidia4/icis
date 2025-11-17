@@ -199,16 +199,6 @@ const ClientDetails = () => {
 
               <Separator />
 
-              <div className="flex items-center gap-3">
-                <Calendar className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Mês do Cronograma</p>
-                  <Badge>{client.selected_month}</Badge>
-                </div>
-              </div>
-
-              <Separator />
-
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Data de Cadastro</p>
                 <p className="text-sm">
