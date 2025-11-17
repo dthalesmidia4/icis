@@ -460,6 +460,15 @@ export default function Plans() {
   if (!planId) {
     return <div className="min-h-screen bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/")}
+            className="mb-6 -ml-2"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Button>
+
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-foreground mb-2">
               Planos Estratégicos
@@ -564,7 +573,7 @@ export default function Plans() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Back Button */}
-        <Button variant="ghost" onClick={() => navigate("/plans")} className="gap-2 mb-6 hover:bg-muted">
+        <Button variant="ghost" onClick={() => navigate("/")} className="gap-2 mb-6 hover:bg-muted -ml-2">
           <ArrowLeft className="w-4 h-4" />
           Voltar
         </Button>
