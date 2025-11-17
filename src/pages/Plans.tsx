@@ -55,6 +55,7 @@ export default function Plans() {
           if (error) throw error;
           setPlan(data);
           if (data?.plan_content) {
+            // O conteúdo já vem em HTML do banco
             setEditedContent(data.plan_content);
           }
         } else if (tenantId) {
@@ -325,113 +326,8 @@ export default function Plans() {
     }
   };
   const formatContent = (content: string) => {
-    const lines = content.split('\n');
-    let formattedHtml = '';
-    let inList = false;
-    let listType = '';
-    let inSection = false;
-    let sectionCount = 0;
-    lines.forEach((line, index) => {
-      const trimmedLine = line.trim();
-      if (!trimmedLine) {
-        if (inList) {
-          formattedHtml += listType === 'ul' ? '</ul>' : '</ol>';
-          inList = false;
-        }
-        return;
-      }
-
-      // Main Headers (# ) - Create new section
-      if (trimmedLine.startsWith('# ')) {
-        // Close previous section
-        if (inSection) {
-          formattedHtml += '</div>';
-        }
-        if (inList) {
-          formattedHtml += listType === 'ul' ? '</ul>' : '</ol>';
-          inList = false;
-        }
-        sectionCount++;
-        const sectionId = `section-${sectionCount}`;
-        formattedHtml += `
-          <div id="${sectionId}" class="section-container mb-8 p-6 rounded-lg bg-muted/30 border-l-4 border-primary">
-            <h2 class="text-2xl font-bold text-primary mb-4 flex items-center gap-2">
-              <span class="text-primary/60">${sectionCount}.</span>
-              ${trimmedLine.substring(2)}
-            </h2>
-        `;
-        inSection = true;
-      }
-      // Sub Headers (## )
-      else if (trimmedLine.startsWith('## ')) {
-        if (inList) {
-          formattedHtml += listType === 'ul' ? '</ul>' : '</ol>';
-          inList = false;
-        }
-        formattedHtml += `
-          <h3 class="text-xl font-semibold text-foreground mt-6 mb-3 pl-4 border-l-2 border-primary/50">
-            ${trimmedLine.substring(3)}
-          </h3>
-        `;
-      }
-      // Unordered list
-      else if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
-        if (!inList) {
-          formattedHtml += '<ul class="space-y-2 ml-6 my-4">';
-          inList = true;
-          listType = 'ul';
-        } else if (listType !== 'ul') {
-          formattedHtml += '</ol><ul class="space-y-2 ml-6 my-4">';
-          listType = 'ul';
-        }
-        const listContent = trimmedLine.substring(2).replace(/\*\*(.*?)\*\*/g, '<strong class="text-primary font-semibold">$1</strong>');
-        formattedHtml += `
-          <li class="flex items-start gap-2">
-            <span class="text-primary mt-1">•</span>
-            <span class="flex-1">${listContent}</span>
-          </li>
-        `;
-      }
-      // Ordered list
-      else if (/^\d+\.\s/.test(trimmedLine)) {
-        if (!inList) {
-          formattedHtml += '<ol class="space-y-2 ml-6 my-4 list-decimal">';
-          inList = true;
-          listType = 'ol';
-        } else if (listType !== 'ol') {
-          formattedHtml += '</ul><ol class="space-y-2 ml-6 my-4 list-decimal">';
-          listType = 'ol';
-        }
-        const listContent = trimmedLine.replace(/^\d+\.\s/, '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-primary font-semibold">$1</strong>');
-        formattedHtml += `<li class="ml-4">${listContent}</li>`;
-      }
-      // Bold text standalone
-      else if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) {
-        if (inList) {
-          formattedHtml += listType === 'ul' ? '</ul>' : '</ol>';
-          inList = false;
-        }
-        formattedHtml += `<p class="font-semibold text-primary my-3">${trimmedLine.slice(2, -2)}</p>`;
-      }
-      // Regular paragraph
-      else {
-        if (inList) {
-          formattedHtml += listType === 'ul' ? '</ul>' : '</ol>';
-          inList = false;
-        }
-        const processedLine = trimmedLine.replace(/\*\*(.*?)\*\*/g, '<strong class="text-primary font-semibold">$1</strong>');
-        formattedHtml += `<p class="my-3 leading-relaxed text-foreground">${processedLine}</p>`;
-      }
-    });
-
-    // Close any open tags
-    if (inList) {
-      formattedHtml += listType === 'ul' ? '</ul>' : '</ol>';
-    }
-    if (inSection) {
-      formattedHtml += '</div>';
-    }
-    return formattedHtml;
+    // O conteúdo já vem formatado em HTML do banco
+    return content || '';
   };
   if (loading) {
     return <div className="min-h-screen bg-background">

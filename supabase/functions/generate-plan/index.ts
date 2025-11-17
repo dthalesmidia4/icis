@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { marked } from "https://esm.sh/marked@11.1.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -166,14 +167,37 @@ ${systemPrompt.prompt_content}
 
     console.log('Plan generated successfully');
 
-    // Salvar o plano gerado no banco de dados
+    // Converter Markdown para HTML
+    marked.setOptions({
+      breaks: true,
+      gfm: true,
+    });
+
+    const htmlContent = marked.parse(generatedPlan) as string;
+    
+    // Adicionar classes do Tailwind ao HTML
+    const styledHtml = htmlContent
+      .replace(/<p>\s*<\/p>/g, '')
+      .replace(/<h1>/g, '<h1 class="text-3xl font-bold mb-4 mt-6">')
+      .replace(/<h2>/g, '<h2 class="text-2xl font-bold mb-3 mt-5">')
+      .replace(/<h3>/g, '<h3 class="text-xl font-semibold mb-2 mt-4">')
+      .replace(/<p>/g, '<p class="mb-3 leading-relaxed">')
+      .replace(/<ul>/g, '<ul class="list-disc ml-6 mb-3 space-y-1">')
+      .replace(/<ol>/g, '<ol class="list-decimal ml-6 mb-3 space-y-1">')
+      .replace(/<li>/g, '<li class="mb-1">')
+      .replace(/<strong>/g, '<strong class="font-semibold">')
+      .replace(/<em>/g, '<em class="italic">')
+      .replace(/<blockquote>/g, '<blockquote class="border-l-4 border-primary pl-4 italic my-3">')
+      .replace(/<hr>/g, '<hr class="my-6 border-t border-border">');
+
+    // Salvar o plano gerado no banco de dados (já em HTML)
     const { data: savedPlan, error: savePlanError } = await supabase
       .from('marketing_plans')
       .insert({
         company_id: companyId,
         strategy_id: strategyId,
         tenant_id: tenantId,
-        plan_content: generatedPlan,
+        plan_content: styledHtml,
         plan_data: { metadata: { month: company.selected_month } }
       })
       .select()
@@ -188,7 +212,7 @@ ${systemPrompt.prompt_content}
       JSON.stringify({ 
         success: true, 
         planId: savedPlan.id,
-        planContent: generatedPlan 
+        planContent: styledHtml 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
