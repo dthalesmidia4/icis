@@ -85,8 +85,23 @@ serve(async (req) => {
       };
     });
 
+    // Obter data atual
+    const now = new Date();
+    const currentMonth = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    const currentYear = now.getFullYear();
+    const currentMonthNumber = now.getMonth() + 1; // 1-12
+    
+    // Determinar mês de referência
+    const referenceMonth = company.selected_month && company.selected_month.trim() !== '' 
+      ? company.selected_month 
+      : currentMonth;
+
     // Preparar contexto completo para a IA
     const context = `
+DATA ATUAL: ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+ANO ATUAL: ${currentYear}
+MÊS ATUAL: ${currentMonth}
+
 DADOS CADASTRAIS DO CLIENTE:
 - Razão Social: ${company.name}
 - Nome Fantasia: ${company.name}
@@ -104,8 +119,9 @@ ${strategy.strategy_text}
 PERGUNTAS E RESPOSTAS:
 ${questionsAndAnswers.map((qa: { question: string; answer: string }, idx: number) => `${idx + 1}. ${qa.question}\n   Resposta: ${qa.answer}`).join('\n\n')}
 
-MÊS SELECIONADO PARA O CRONOGRAMA:
-${company.selected_month || 'Não especificado'}
+MÊS DE REFERÊNCIA PARA O CRONOGRAMA: ${referenceMonth}
+
+IMPORTANTE: Use EXATAMENTE o mês de referência "${referenceMonth}" para criar o cronograma. Todas as datas devem ser baseadas neste mês de ${currentYear}.
 `;
 
     const userPrompt = `
