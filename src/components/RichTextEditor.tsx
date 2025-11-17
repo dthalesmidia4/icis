@@ -4,6 +4,15 @@ import { Bold, Italic, List, ListOrdered, Heading1, Heading2, Heading3 } from 'l
 import { Button } from './ui/button';
 import { useEffect } from 'react';
 
+// Helper function to clean HTML and preserve semantic structure
+const cleanHtmlContent = (html: string): string => {
+  // Remove Tailwind classes but keep the HTML structure
+  return html
+    .replace(/class="[^"]*"/g, '')
+    .replace(/<p>\s*<\/p>/g, '')
+    .trim();
+};
+
 interface RichTextEditorProps {
   content: string;
   onChange: (content: string) => void;
@@ -16,13 +25,56 @@ export function RichTextEditor({ content, onChange, onSave }: RichTextEditorProp
       StarterKit.configure({
         heading: {
           levels: [1, 2, 3],
+          HTMLAttributes: {
+            class: '',
+          },
+        },
+        paragraph: {
+          HTMLAttributes: {
+            class: '',
+          },
+        },
+        bulletList: {
+          HTMLAttributes: {
+            class: '',
+          },
+        },
+        orderedList: {
+          HTMLAttributes: {
+            class: '',
+          },
+        },
+        listItem: {
+          HTMLAttributes: {
+            class: '',
+          },
+        },
+        bold: {
+          HTMLAttributes: {
+            class: '',
+          },
+        },
+        italic: {
+          HTMLAttributes: {
+            class: '',
+          },
+        },
+        blockquote: {
+          HTMLAttributes: {
+            class: '',
+          },
+        },
+        horizontalRule: {
+          HTMLAttributes: {
+            class: '',
+          },
         },
       }),
     ],
-    content: content,
+    content: cleanHtmlContent(content || ''),
     editorProps: {
       attributes: {
-        class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none focus:outline-none min-h-[500px] p-6 [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:mt-6 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:mt-5 [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:mt-4 [&_p]:mb-3 [&_p]:leading-relaxed [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:mb-3 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:mb-3 [&_ol]:space-y-1 [&_li]:mb-1 [&_strong]:font-semibold [&_em]:italic [&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3 [&_hr]:my-6 [&_hr]:border-t [&_hr]:border-border',
+        class: 'prose prose-base max-w-none focus:outline-none min-h-[500px] p-6 prose-headings:font-bold prose-h1:text-3xl prose-h1:mb-4 prose-h1:mt-6 prose-h2:text-2xl prose-h2:mb-3 prose-h2:mt-5 prose-h3:text-xl prose-h3:mb-2 prose-h3:mt-4 prose-p:mb-3 prose-p:leading-relaxed prose-ul:list-disc prose-ul:ml-6 prose-ul:mb-3 prose-ul:space-y-1 prose-ol:list-decimal prose-ol:ml-6 prose-ol:mb-3 prose-ol:space-y-1 prose-li:mb-1 prose-strong:font-semibold prose-em:italic prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:my-3 prose-hr:my-6 prose-hr:border-t prose-hr:border-border',
       },
     },
     onUpdate: ({ editor }) => {
@@ -31,8 +83,14 @@ export function RichTextEditor({ content, onChange, onSave }: RichTextEditorProp
   });
 
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content);
+    if (editor && content) {
+      const cleanedContent = cleanHtmlContent(content);
+      const currentContent = editor.getHTML();
+      
+      // Only update if content is actually different (to avoid infinite loops)
+      if (cleanedContent !== currentContent) {
+        editor.commands.setContent(cleanedContent);
+      }
     }
   }, [content, editor]);
 
