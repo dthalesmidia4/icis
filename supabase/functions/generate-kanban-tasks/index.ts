@@ -118,18 +118,70 @@ serve(async (req) => {
     
     // Determinar o mês de referência (sempre o mês atual)
     const hoje = new Date();
+    const diaAtual = hoje.getDate();
+    const mesAtual = hoje.getMonth();
+    const anoAtual = hoje.getFullYear();
     const mesReferencia = hoje.toISOString().slice(0, 7); // YYYY-MM formato
     const mesReferenciaFormatado = hoje.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    
+    // Calcular primeiro e último dia válidos do mês
+    const primeiroDiaValido = hoje.toISOString().split('T')[0]; // Data atual (nunca antes)
+    const ultimoDiaMes = new Date(anoAtual, mesAtual + 1, 0).getDate();
+    const ultimoDiaValido = `${mesReferencia}-${String(ultimoDiaMes).padStart(2, '0')}`;
 
     // Prompt para o ChatGPT
     const systemPrompt = `Você é um planner de marketing profissional especializado em criar cronogramas de conteúdo executáveis, contextuais e altamente específicos.
 
-CONTEXTO TEMPORAL OBRIGATÓRIO:
-- Data atual: ${hoje.toISOString().split('T')[0]}
-- Mês de referência para o cronograma: ${mesReferencia}
-- NUNCA gere tarefas com data anterior à data atual
-- Distribua as tarefas ao longo do mês de referência de forma realista
-- Considere dias úteis e espaçamento adequado entre tarefas
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    ⚠️  REGRAS DE DATAS (NÃO NEGOCIÁVEL) ⚠️                  ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+🚨 REGRA PRINCIPAL ABSOLUTA:
+O sistema NUNCA, EM HIPÓTESE ALGUMA, pode gerar tarefas com datas passadas.
+Esta regra é OBRIGATÓRIA e INVIOLÁVEL.
+
+📅 CONTEXTO TEMPORAL OBRIGATÓRIO:
+- Data atual REAL: ${hoje.toISOString().split('T')[0]} (dia ${diaAtual} do mês)
+- Mês de referência: ${mesReferenciaFormatado}
+- Primeiro dia VÁLIDO para tarefas: ${primeiroDiaValido}
+- Último dia VÁLIDO para tarefas: ${ultimoDiaValido}
+
+🎯 REGRAS DE DISTRIBUIÇÃO DE DATAS:
+
+1️⃣ SE O MÊS DE REFERÊNCIA FOR O MÊS ATUAL:
+   ✅ OBRIGATÓRIO: Começar as tarefas a partir de HOJE (${primeiroDiaValido})
+   ❌ PROIBIDO: Usar qualquer data anterior a ${primeiroDiaValido}
+   ❌ PROIBIDO: Gerar tarefas nos dias ${diaAtual > 1 ? `01 a ${String(diaAtual - 1).padStart(2, '0')}` : 'anteriores'}
+   
+2️⃣ RECALCULAR SEMANAS COM BASE NO DIA ATUAL:
+   ❌ ERRADO: Semana 1 começando no dia 01 (se dia 01 já passou)
+   ✅ CORRETO: Semana 1 começando no primeiro dia VÁLIDO (${primeiroDiaValido})
+   
+   Exemplo:
+   - Se hoje é dia ${diaAtual}, a Semana 1 vai de ${primeiroDiaValido} até ${diaAtual + 6 <= ultimoDiaMes ? new Date(anoAtual, mesAtual, diaAtual + 6).toISOString().split('T')[0] : ultimoDiaValido}
+   - Nunca use datas que já passaram para definir o início da semana
+
+3️⃣ DISTRIBUIÇÃO INTELIGENTE:
+   - Analise quantos dias ÚTEIS restam no mês (de hoje até o fim)
+   - Distribua as tarefas apenas nesses dias válidos
+   - Considere dias úteis (segunda a sexta) preferencialmente
+   - Evite sobrecarga: máximo 2-3 tarefas por dia
+   - Respeite sequência lógica: pesquisa → criação → revisão → publicação
+
+4️⃣ VALIDAÇÃO OBRIGATÓRIA DE CADA DATA:
+   Antes de atribuir uma data a uma tarefa, verifique:
+   ✓ A data está entre ${primeiroDiaValido} e ${ultimoDiaValido}?
+   ✓ A data não é anterior ao dia atual (${primeiroDiaValido})?
+   ✓ A data está em dia útil ou faz sentido para o tipo de tarefa?
+   
+   Se qualquer resposta for NÃO, ajuste a data para o próximo dia válido.
+
+5️⃣ PROIBIÇÕES ABSOLUTAS:
+   ❌ NUNCA use templates com datas fixas sem validação
+   ❌ NUNCA reconstrua cronogramas históricos
+   ❌ NUNCA gere tarefas em datas impossíveis
+   ❌ NUNCA ignore a data atual ao calcular semanas
+   ❌ NUNCA comece cronogramas no dia 01 se esse dia já passou
 
 REGRAS CRÍTICAS PARA GERAÇÃO DE TAREFAS:
 
@@ -202,11 +254,19 @@ ${strategyText || 'Estratégia não definida'}
 ${planContent}
 ${answersText}
 
+🚨 ATENÇÃO CRÍTICA SOBRE DATAS:
+- Hoje é ${primeiroDiaValido} - NENHUMA tarefa pode ter data anterior a esta
+- Mês de referência: ${mesReferenciaFormatado}
+- Período VÁLIDO para tarefas: de ${primeiroDiaValido} até ${ultimoDiaValido}
+- Dias já passados (NÃO USAR): ${diaAtual > 1 ? `01/${mesAtual + 1} até ${String(diaAtual - 1).padStart(2, '0')}/${mesAtual + 1}` : 'Nenhum'}
+- Dias disponíveis: ${ultimoDiaMes - diaAtual + 1} dias
+
 IMPORTANTE: 
 - Use TODOS esses dados para criar tarefas específicas
 - Cada tarefa deve refletir o contexto real do negócio
 - Nenhuma tarefa pode ser genérica
-- Todas as datas devem estar no mês de referência (${mesReferencia}) e após ${hoje.toISOString().split('T')[0]}`;
+- TODAS as datas DEVEM estar entre ${primeiroDiaValido} e ${ultimoDiaValido}
+- Distribua as tarefas nos ${ultimoDiaMes - diaAtual + 1} dias disponíveis do mês`;
 
     // Chamar Lovable AI
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');

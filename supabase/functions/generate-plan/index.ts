@@ -85,19 +85,41 @@ serve(async (req) => {
       };
     });
 
-    // Obter data atual
+    // Obter data atual e calcular período válido
     const now = new Date();
+    const diaAtual = now.getDate();
+    const mesAtual = now.getMonth();
+    const anoAtual = now.getFullYear();
     const currentMonth = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
     const currentYear = now.getFullYear();
     
     // Mês de referência é sempre o mês atual
     const referenceMonth = currentMonth;
+    
+    // Calcular primeiro e último dia válidos
+    const primeiroDiaValido = now.toISOString().split('T')[0];
+    const ultimoDiaMes = new Date(anoAtual, mesAtual + 1, 0).getDate();
+    const diasRestantes = ultimoDiaMes - diaAtual + 1;
 
     // Preparar contexto completo para a IA
     const context = `
-DATA ATUAL: ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-ANO ATUAL: ${currentYear}
-MÊS ATUAL: ${currentMonth}
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    ⚠️  ATENÇÃO: REGRAS DE DATAS ⚠️                         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+📅 CONTEXTO TEMPORAL CRÍTICO:
+- DATA ATUAL: ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} (dia ${diaAtual})
+- ANO ATUAL: ${currentYear}
+- MÊS ATUAL: ${currentMonth}
+- PRIMEIRO DIA VÁLIDO: ${primeiroDiaValido}
+- DIAS RESTANTES NO MÊS: ${diasRestantes} dias
+
+🚨 REGRAS OBRIGATÓRIAS PARA O PLANO:
+1. NUNCA mencione ou sugira ações para datas que já passaram
+2. Todas as recomendações devem considerar que só há ${diasRestantes} dias disponíveis
+3. Ao sugerir cronogramas ou distribuição de tarefas, comece SEMPRE a partir de HOJE (${primeiroDiaValido})
+4. Se mencionar semanas, recalcule-as a partir do dia ${diaAtual}, não do dia 01
+5. Seja realista quanto ao tempo disponível para execução
 
 DADOS CADASTRAIS DO CLIENTE:
 - Razão Social: ${company.name}
@@ -118,7 +140,13 @@ ${questionsAndAnswers.map((qa: { question: string; answer: string }, idx: number
 
 MÊS DE REFERÊNCIA PARA O CRONOGRAMA: ${referenceMonth}
 
-IMPORTANTE: Use EXATAMENTE o mês de referência "${referenceMonth}" para criar o cronograma. Todas as datas devem ser baseadas neste mês de ${currentYear}.
+🎯 DIRETRIZES FINAIS PARA O PLANO:
+- Use EXATAMENTE o mês de referência "${referenceMonth}" para criar o cronograma
+- Todas as datas devem ser baseadas neste mês de ${currentYear}
+- Comece SEMPRE a partir do dia ${diaAtual} (HOJE), nunca antes
+- Você tem ${diasRestantes} dias disponíveis neste mês para planejar
+- Seja específico e realista considerando o tempo real disponível
+- Distribua as ações de forma equilibrada nos dias que ainda virão
 `;
 
     const userPrompt = `
@@ -146,7 +174,31 @@ ${systemPrompt.prompt_content}
         messages: [
           {
             role: 'system',
-            content: 'Você é um especialista em marketing estratégico. Gere planos de marketing detalhados e personalizados baseados nos dados fornecidos.'
+            content: `Você é um especialista em marketing estratégico que cria planos de marketing detalhados e personalizados.
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║              ⚠️  REGRAS CRÍTICAS DE DATAS (OBRIGATÓRIO) ⚠️                 ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+🚨 NUNCA mencione, sugira ou planeje ações para datas que já passaram.
+
+📅 CONTEXTO TEMPORAL:
+- Se hoje é dia ${diaAtual} do mês, você tem apenas ${diasRestantes} dias úteis disponíveis
+- TODAS as recomendações, cronogramas e sugestões devem começar a partir de HOJE
+- Se mencionar semanas, recalcule considerando que estamos no dia ${diaAtual}
+- NUNCA use expressões como "Na primeira semana do mês" se essa semana já passou
+
+✅ CORRETO:
+- "A partir de hoje, nos próximos ${diasRestantes} dias..."
+- "Na semana atual (a partir do dia ${diaAtual})..."
+- "Nas próximas X semanas restantes do mês..."
+
+❌ ERRADO:
+- "Na primeira semana do mês..." (se essa semana já passou)
+- "No início do mês..." (se já estamos no meio do mês)
+- Qualquer menção a datas ou períodos anteriores ao dia ${diaAtual}
+
+Gere planos realistas, executáveis e que respeitem o tempo REALMENTE disponível.`
           },
           {
             role: 'user',
