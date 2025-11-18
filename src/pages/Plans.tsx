@@ -326,7 +326,7 @@ export default function Plans() {
             </style>
           </head>
           <body>
-            <h1>Plano Estratégico</h1>
+            <h1>Plano Estratégico: ${plan.tenant_companies?.name || 'Cliente'}</h1>
             ${formatContent(plan.plan_content || '')}
           </body>
         </html>
@@ -339,7 +339,9 @@ export default function Plans() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `plano-estrategico-${new Date().toISOString().split('T')[0]}.html`;
+      const clientName = plan.tenant_companies?.name || 'Cliente';
+      const sanitizedName = clientName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      link.download = `plano-estrategico-${sanitizedName}-${new Date().toISOString().split('T')[0]}.html`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
