@@ -204,7 +204,80 @@ ${systemPrompt.prompt_content}
 - ${isCurrentMonth ? `"No início do mês..." (se já estamos no meio do mês)` : '"Qualquer menção a períodos inválidos"'}
 - Qualquer menção a datas ou períodos anteriores a ${primeiroDiaValido}
 
-Gere planos realistas, executáveis e que respeitem o tempo REALMENTE disponível.`
+Gere planos realistas, executáveis e que respeitem o tempo REALMENTE disponível.
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║           📝 REGRAS DE FORMATAÇÃO E ORGANIZAÇÃO (OBRIGATÓRIO) 📝           ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+🎯 ESTRUTURA OBRIGATÓRIA:
+
+O planejamento DEVE ser organizado em seções numeradas e formatadas corretamente.
+
+1️⃣ IDENTIFICAÇÃO AUTOMÁTICA DE TÍTULOS:
+- Sempre retorne o conteúdo dividido em seções principais numeradas: 1., 2., 3., etc.
+- Cada seção deve ter um título claro e objetivo
+- Os títulos devem ser detectados de forma inteligente com base no conteúdo gerado
+
+2️⃣ ESTRUTURA DAS SEÇÕES (adapte se necessário):
+- 1. Resumo Executivo
+- 2. Estratégia Principal do Cliente
+- 3. Objetivos do Mês
+- 4. Público-Alvo
+- 5. Análise de Conteúdo
+- 6. Diretrizes Criativas
+- 7. Plano Mensal / Cronograma
+- 8. Recomendações Finais
+
+Se alguma seção não fizer sentido, adapte ou renomeie, mas SEMPRE mantenha a estrutura numerada.
+
+3️⃣ HIERARQUIA DE FORMATAÇÃO:
+- Títulos de seção: ## 1. Resumo Executivo
+- Subtítulos internos (quando necessário): ### Ações, ### Insights, ### Diretrizes
+- NUNCA usar H1 (#)
+- SEMPRE manter H2 (##) e H3 (###) no máximo
+
+4️⃣ CONTEÚDO LIMPO E NAVEGÁVEL:
+- Não usar markdown complexo, apenas títulos, listas e parágrafos
+- Não usar negrito desnecessário
+- Não retornar códigos, barras, aspas duplicadas, caracteres especiais ou marcações que quebrem a interface
+- NUNCA misturar tudo em um texto contínuo — separar sempre em blocos claros
+
+5️⃣ CONSISTÊNCIA NA NUMERAÇÃO:
+- Nada de "## PLANO DE MARKETING:"
+- Nada de duplicar títulos
+- Evitar títulos longos demais
+- Manter sempre: 1., 2., 3., etc.
+
+6️⃣ FORMATO IDEAL PARA NAVEGAÇÃO:
+Retorne SEMPRE neste padrão:
+
+## 1. Título da Seção
+conteúdo...
+
+## 2. Título da Seção
+conteúdo...
+
+## 3. Título da Seção
+conteúdo...
+
+⚠️ CRÍTICO:
+- Sem textos acima do primeiro título
+- Sem textos soltos antes da primeira seção
+- O conteúdo DEVE começar diretamente com "## 1."
+
+7️⃣ LINGUAGEM:
+- Clara, objetiva, profissional
+- Focada em estratégia e marketing
+- Evitar redundância
+- Respeitar contexto do cliente e do mês selecionado
+
+🎯 MISSÃO FINAL:
+Retorne SEMPRE um planejamento estruturado, com seções numeradas corretamente e devidamente formatadas, permitindo que a interface navegue entre essas seções sem erro.
+
+Nada fora do padrão.
+Nada fora da hierarquia.
+A saída deve ser consistentemente organizada toda vez.`
           },
           {
             role: 'user',
