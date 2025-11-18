@@ -692,19 +692,19 @@ export default function Plans() {
                       </div>
 
                       {/* Footer with Approve and Export buttons */}
-                      {!plan.approved && (
-                        <div className="mt-6 flex justify-between items-center">
-                          <Button 
-                            variant="outline" 
-                            size="lg" 
-                            onClick={handleExportPDF} 
-                            disabled={exporting} 
-                            className="gap-2"
-                          >
-                            <Download className="w-4 h-4" />
-                            {exporting ? "Exportando..." : "Exportar"}
-                          </Button>
-                          
+                      <div className="mt-6 flex justify-between items-center">
+                        <Button 
+                          variant="outline" 
+                          size="lg" 
+                          onClick={handleExportPDF} 
+                          disabled={exporting} 
+                          className="gap-2"
+                        >
+                          <Download className="w-4 h-4" />
+                          {exporting ? "Exportando..." : "Exportar"}
+                        </Button>
+                        
+                        {!plan.approved && (
                           <Button 
                             size="lg" 
                             onClick={handleApprove} 
@@ -714,8 +714,8 @@ export default function Plans() {
                             <CheckCircle className="w-4 h-4" />
                             {generatingCards ? "Gerando tarefas..." : saving ? "Aprovando..." : "Aprovar Plano"}
                           </Button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </>
                   )}
                 </section>
