@@ -352,23 +352,41 @@ export default function Plans() {
     return content || "";
   };
   const parsePlanSections = (content: string): PlanSection[] => {
-    const sectionRegex = /(\d+\.\s+[^\n]+)/g;
-    const matches = content.match(sectionRegex);
-    if (!matches) return [];
+    // Create a temporary DOM element to parse HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = content;
+    
+    // Find all H2 elements (section titles)
+    const h2Elements = tempDiv.querySelectorAll('h2');
+    if (h2Elements.length === 0) return [];
+    
     const sections: PlanSection[] = [];
-    matches.forEach((match, index) => {
-      const sectionTitle = match.trim();
+    
+    h2Elements.forEach((h2, index) => {
+      const sectionTitle = h2.textContent?.trim() || '';
       const sectionId = `section-${index}`;
-      const currentIndex = content.indexOf(match);
-      const nextMatch = matches[index + 1];
-      const nextIndex = nextMatch ? content.indexOf(nextMatch) : content.length;
-      const sectionContent = content.substring(currentIndex, nextIndex).trim();
+      
+      // Get content between this H2 and the next H2
+      let sectionContent = '';
+      let currentNode = h2.nextSibling;
+      const nextH2 = h2Elements[index + 1];
+      
+      while (currentNode && currentNode !== nextH2) {
+        if (currentNode.nodeType === Node.ELEMENT_NODE) {
+          sectionContent += (currentNode as Element).outerHTML;
+        } else if (currentNode.nodeType === Node.TEXT_NODE) {
+          sectionContent += currentNode.textContent;
+        }
+        currentNode = currentNode.nextSibling;
+      }
+      
       sections.push({
         id: sectionId,
         title: sectionTitle,
-        content: sectionContent
+        content: `<h2>${sectionTitle}</h2>${sectionContent.trim()}`
       });
     });
+    
     return sections;
   };
   const formatMonth = (month?: string | null) => {
