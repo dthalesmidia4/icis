@@ -559,7 +559,9 @@ export default function Plans() {
           <div className="border-b bg-muted/30 px-6 py-5">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="flex-1">
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Planejamento Estratégico</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
+                  Plano Estratégico: {plan.tenant_companies?.name || 'Cliente'}
+                </h1>
                 {plan.approved && <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
                     <CheckCircle className="w-4 h-4" />
                     Aprovado
