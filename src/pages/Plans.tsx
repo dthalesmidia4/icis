@@ -45,6 +45,7 @@ export default function Plans() {
   const [exporting, setExporting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState("");
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [autoSaving, setAutoSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [planToDelete, setPlanToDelete] = useState<string | null>(null);
@@ -143,24 +144,35 @@ export default function Plans() {
     };
   }, [editedContent, isEditing, plan?.plan_content, performAutoSave]);
   const handleSaveEdit = async () => {
-    if (!plan || !editedContent) return;
+    if (!plan || !editedContent || !editingSectionId) return;
     setSaving(true);
     try {
+      // Update the specific section in the full plan content
+      const updatedSections = sections.map(section => 
+        section.id === editingSectionId 
+          ? { ...section, content: editedContent }
+          : section
+      );
+      
+      // Reconstruct the full plan content
+      const updatedPlanContent = updatedSections.map(s => s.content).join('\n\n');
+      
       const {
         error
       } = await supabase.from("marketing_plans").update({
-        plan_content: editedContent
+        plan_content: updatedPlanContent
       }).eq("id", plan.id);
       if (error) throw error;
       setPlan({
         ...plan,
-        plan_content: editedContent
+        plan_content: updatedPlanContent
       });
       setIsEditing(false);
+      setEditingSectionId(null);
       setLastSaved(new Date());
       toast({
         title: "Alterações salvas!",
-        description: "O plano foi atualizado com sucesso."
+        description: "A seção foi atualizada com sucesso."
       });
     } catch (error) {
       console.error("Error saving edit:", error);
@@ -548,66 +560,12 @@ export default function Plans() {
                     Aprovado
                   </span>}
               </div>
-
-              {/* Action Buttons - Horizontal Layout */}
-              {!isEditing ? <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="gap-2 hover:bg-muted">
-                    <Pencil className="w-4 h-4" />
-                    <span className="hidden sm:inline">Editar</span>
-                  </Button>
-
-                  <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={exporting} className="gap-2 hover:bg-muted">
-                    <Download className="w-4 h-4" />
-                    <span className="hidden sm:inline">
-                      {exporting ? "Exportando..." : "Exportar"}
-                    </span>
-                  </Button>
-                </div> : <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button variant="outline" size="sm" onClick={() => {
-                setIsEditing(false);
-                setEditedContent(plan.plan_content || "");
-              }} className="gap-2 hover:bg-muted">
-                    <X className="w-4 h-4" />
-                    <span className="hidden sm:inline">Cancelar</span>
-                  </Button>
-
-                  <Button size="sm" onClick={handleSaveEdit} disabled={saving} className="gap-2">
-                    <Save className="w-4 h-4" />
-                    <span className="hidden sm:inline">
-                      {saving ? "Salvando..." : "Salvar Edição"}
-                    </span>
-                  </Button>
-                </div>}
             </div>
           </div>
 
           {/* Card Content */}
-          {isEditing ? <div className="p-6 sm:p-8 lg:p-10">
-              <div className="max-w-[1000px] mx-auto space-y-6">
-                <div className="text-center space-y-2 mb-8">
-                  <p className="text-muted-foreground">
-                    Você pode ajustar o plano abaixo antes de aprová-lo definitivamente.
-                  </p>
-                  <div className="flex items-center justify-center gap-2 text-sm">
-                    {autoSaving ? <span className="text-muted-foreground flex items-center gap-2">
-                        <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                        Salvando...
-                      </span> : lastSaved ? <span className="text-muted-foreground flex items-center gap-2">
-                        <CheckCircle className="w-3 h-3 text-primary" />
-                        Salvo às
-                        {" "}
-                        {lastSaved.toLocaleTimeString("pt-BR", {
-                    hour: "2-digit",
-                    minute: "2-digit"
-                  })}
-                      </span> : null}
-                  </div>
-                </div>
-
-                <RichTextEditor content={editedContent} onChange={setEditedContent} />
-              </div>
-            </div> : <div className="p-6 sm:p-8 lg:p-10">
-              <div className="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
+          <div className="p-6 sm:p-8 lg:p-10">
+            <div className="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
                 {/* Left Column - Navigation */}
                 <aside className="space-y-4">
                   <div>
@@ -636,33 +594,129 @@ export default function Plans() {
                       </h2>
                     </div>
 
-                    {plan.selected_month && <Badge variant="outline" className="text-xs px-3 py-1 rounded-full">
-                        Mês de Referência: {formatMonth(plan.selected_month)}
-                      </Badge>}
+                    <div className="flex items-center gap-2">
+                      {plan.selected_month && <Badge variant="outline" className="text-xs px-3 py-1 rounded-full">
+                          Mês de Referência: {formatMonth(plan.selected_month)}
+                        </Badge>}
+                      
+                      {!isEditing ? (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => {
+                            const currentSection = sections.find(s => s.id === selectedSectionId);
+                            if (currentSection) {
+                              setEditedContent(currentSection.content);
+                              setEditingSectionId(currentSection.id);
+                              setIsEditing(true);
+                            }
+                          }} 
+                          className="gap-2 hover:bg-muted"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          <span className="hidden sm:inline">Editar Seção</span>
+                        </Button>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              setIsEditing(false);
+                              setEditingSectionId(null);
+                              setEditedContent("");
+                            }} 
+                            className="gap-2 hover:bg-muted"
+                          >
+                            <X className="w-4 h-4" />
+                            <span className="hidden sm:inline">Cancelar</span>
+                          </Button>
+
+                          <Button 
+                            size="sm" 
+                            onClick={handleSaveEdit} 
+                            disabled={saving} 
+                            className="gap-2"
+                          >
+                            <Save className="w-4 h-4" />
+                            <span className="hidden sm:inline">
+                              {saving ? "Salvando..." : "Salvar"}
+                            </span>
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </header>
 
                   {/* Content Container */}
-                  <div className="flex-1 border border-border rounded-lg bg-background overflow-hidden">
-                    <ScrollArea className="h-[420px]">
-                      <div className="p-6 sm:p-8">
-                        <div className="prose prose-sm sm:prose max-w-none text-foreground" dangerouslySetInnerHTML={{
-                      __html: formatContent((sections.find(s => s.id === selectedSectionId)?.content || sections[0]?.content || plan.plan_content || "") as string)
-                    }} />
+                  {isEditing ? (
+                    <div className="flex-1">
+                      <div className="space-y-4">
+                        <div className="text-center space-y-2">
+                          <p className="text-sm text-muted-foreground">
+                            Editando: {sections.find(s => s.id === editingSectionId)?.title}
+                          </p>
+                          <div className="flex items-center justify-center gap-2 text-sm">
+                            {autoSaving ? (
+                              <span className="text-muted-foreground flex items-center gap-2">
+                                <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                                Salvando...
+                              </span>
+                            ) : lastSaved ? (
+                              <span className="text-muted-foreground flex items-center gap-2">
+                                <CheckCircle className="w-3 h-3 text-primary" />
+                                Salvo às {lastSaved.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                        
+                        <RichTextEditor content={editedContent} onChange={setEditedContent} />
                       </div>
-                    </ScrollArea>
-                  </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex-1 border border-border rounded-lg bg-background overflow-hidden">
+                        <ScrollArea className="h-[420px]">
+                          <div className="p-6 sm:p-8">
+                            <div className="prose prose-sm sm:prose max-w-none text-foreground" dangerouslySetInnerHTML={{
+                          __html: formatContent((sections.find(s => s.id === selectedSectionId)?.content || sections[0]?.content || plan.plan_content || "") as string)
+                        }} />
+                          </div>
+                        </ScrollArea>
+                      </div>
 
-                  {/* Approve Button */}
-                  {!plan.approved && <div className="mt-6 flex justify-end">
-                      <Button size="lg" onClick={handleApprove} disabled={saving || generatingCards} className="gap-2">
-                        <CheckCircle className="w-4 h-4" />
-                        {generatingCards ? "Gerando tarefas..." : saving ? "Aprovando..." : "Aprovar Plano"}
-                      </Button>
-                    </div>}
+                      {/* Footer with Approve and Export buttons */}
+                      {!plan.approved && (
+                        <div className="mt-6 flex justify-between items-center">
+                          <Button 
+                            variant="outline" 
+                            size="lg" 
+                            onClick={handleExportPDF} 
+                            disabled={exporting} 
+                            className="gap-2"
+                          >
+                            <Download className="w-4 h-4" />
+                            {exporting ? "Exportando..." : "Exportar"}
+                          </Button>
+                          
+                          <Button 
+                            size="lg" 
+                            onClick={handleApprove} 
+                            disabled={saving || generatingCards} 
+                            className="gap-2"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            {generatingCards ? "Gerando tarefas..." : saving ? "Aprovando..." : "Aprovar Plano"}
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </section>
               </div>
-            </div>}
-        </Card>
+            </div>
+          </Card>
       </div>
     </div>;
 }
