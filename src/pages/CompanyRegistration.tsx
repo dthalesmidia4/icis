@@ -29,6 +29,7 @@ const CompanyRegistration = () => {
     franchise_brand: "",
     products_services: "",
     commercial_phone: "",
+    corporate_email: "",
     email: "",
     phone: "",
     cep: "",
@@ -43,7 +44,7 @@ const CompanyRegistration = () => {
   const sectors = ["Alimentação", "Saúde", "Educação", "Tecnologia", "Serviços", "Comércio", "Indústria", "Construção", "Moda", "Beleza", "Outros"];
   const sizes = ["Micro", "Pequena", "Média", "Grande"];
   const validateField = (field: string, value: string) => {
-    const requiredFields = ["name", "cnpj", "sector", "size", "products_services", "email", "phone"];
+    const requiredFields = ["name", "cnpj", "sector", "size", "products_services", "commercial_phone", "corporate_email", "email", "phone"];
 
     // CNPJ validation
     if (field === "cnpj") {
@@ -72,10 +73,10 @@ const CompanyRegistration = () => {
     if (requiredFields.includes(field) && !value.trim()) {
       return "Este campo é obrigatório";
     }
-    if (field === "email" && value && !/\S+@\S+\.\S+/.test(value)) {
+    if ((field === "email" || field === "corporate_email") && value && !/\S+@\S+\.\S+/.test(value)) {
       return "E-mail inválido";
     }
-    if (field === "phone" && value) {
+    if ((field === "phone" || field === "commercial_phone") && value) {
       const cleanValue = value.replace(/\D/g, "");
       if (cleanValue.length < 10 || cleanValue.length > 11) {
         return "Telefone inválido";
@@ -306,40 +307,51 @@ const CompanyRegistration = () => {
                         </div>}
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="size">Tamanho da Empresa *</Label>
-                      <Select value={formData.size} onValueChange={value => handleChange("size", value)}>
-                        <SelectTrigger className={errors.size ? "border-destructive" : ""}>
-                          <SelectValue placeholder="Selecione o tamanho" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Micro">
-                            <div className="flex items-center justify-between w-full gap-4">
-                              <span>Micro</span>
-                              <span className="text-xs text-muted-foreground">(1-10 funcionários)</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="Pequena">
-                            <div className="flex items-center justify-between w-full gap-4">
-                              <span>Pequena</span>
-                              <span className="text-xs text-muted-foreground">(10-20 funcionários)</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="Média">
-                            <div className="flex items-center justify-between w-full gap-4">
-                              <span>Média</span>
-                              <span className="text-xs text-muted-foreground">(21-100 funcionários)</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="Grande">
-                            <div className="flex items-center justify-between w-full gap-4">
-                              <span>Grande</span>
-                              <span className="text-xs text-muted-foreground">(+100 funcionários)</span>
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {errors.size && <p className="text-xs text-destructive">{errors.size}</p>}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="size">Tamanho da Empresa *</Label>
+                        <Select value={formData.size} onValueChange={value => handleChange("size", value)}>
+                          <SelectTrigger className={errors.size ? "border-destructive" : ""}>
+                            <SelectValue placeholder="Selecione o tamanho" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Micro">
+                              <div className="flex items-center justify-between w-full gap-4">
+                                <span>Micro</span>
+                                <span className="text-xs text-muted-foreground">(1-10 funcionários)</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="Pequena">
+                              <div className="flex items-center justify-between w-full gap-4">
+                                <span>Pequena</span>
+                                <span className="text-xs text-muted-foreground">(10-20 funcionários)</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="Média">
+                              <div className="flex items-center justify-between w-full gap-4">
+                                <span>Média</span>
+                                <span className="text-xs text-muted-foreground">(21-100 funcionários)</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="Grande">
+                              <div className="flex items-center justify-between w-full gap-4">
+                                <span>Grande</span>
+                                <span className="text-xs text-muted-foreground">(+100 funcionários)</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {errors.size && <p className="text-xs text-destructive">{errors.size}</p>}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="commercial_phone">Telefone Comercial *</Label>
+                        <InputMask mask={formData.commercial_phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"} value={formData.commercial_phone} onChange={e => handleChange("commercial_phone", e.target.value)} maskChar={null}>
+                          {(inputProps: any) => <Input {...inputProps} id="commercial_phone" type="tel" placeholder="(00) 00000-0000" className={errors.commercial_phone ? "border-destructive" : ""} />}
+                        </InputMask>
+                        <p className="text-xs text-muted-foreground">Número fixo da empresa para contato geral.</p>
+                        {errors.commercial_phone && <p className="text-xs text-destructive">{errors.commercial_phone}</p>}
+                      </div>
                     </div>
 
                     <div className="space-y-4">
@@ -410,11 +422,13 @@ const CompanyRegistration = () => {
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="commercial_phone">Telefone Comercial</Label>
-                        <InputMask mask={formData.commercial_phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"} value={formData.commercial_phone} onChange={e => handleChange("commercial_phone", e.target.value)} maskChar={null}>
-                          {(inputProps: any) => <Input {...inputProps} id="commercial_phone" type="tel" placeholder="(00) 00000-0000" />}
-                        </InputMask>
-                        <p className="text-xs text-muted-foreground">Número fixo da empresa para contato geral.</p>
+                        <Label htmlFor="corporate_email">E-mail Corporativo *</Label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input id="corporate_email" type="email" value={formData.corporate_email} onChange={e => handleChange("corporate_email", e.target.value)} placeholder="contato@empresa.com.br" className={`pl-9 ${errors.corporate_email ? "border-destructive" : ""}`} />
+                        </div>
+                        <p className="text-xs text-muted-foreground">E-mail principal da empresa.</p>
+                        {errors.corporate_email && <p className="text-xs text-destructive">{errors.corporate_email}</p>}
                       </div>
 
                       <div className="space-y-2">
