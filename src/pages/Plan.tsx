@@ -1,11 +1,20 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Calendar, CheckCircle, Loader2, ArrowLeft, Sparkles, RotateCcw } from "lucide-react";
+import { CheckCircle, Loader2, ArrowLeft } from "lucide-react";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
+
+interface PlanSection {
+  title: string;
+  content: string;
+  id: string;
+}
 
 const Plan = () => {
   const navigate = useNavigate();
@@ -16,6 +25,9 @@ const Plan = () => {
   const [approving, setApproving] = useState(false);
   const [companyData, setCompanyData] = useState<any>(null);
   const [planContent, setPlanContent] = useState<string>("");
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [sections, setSections] = useState<PlanSection[]>([]);
+  const [selectedSection, setSelectedSection] = useState<string>("");
   const [showApproveModal, setShowApproveModal] = useState(false);
 
   useEffect(() => {
@@ -87,6 +99,14 @@ const Plan = () => {
 
         if (plan && plan.plan_content) {
           setPlanContent(plan.plan_content);
+          setSelectedMonth(plan.selected_month || "");
+          
+          // Parse sections from plan content
+          const parsedSections = parsePlanSections(plan.plan_content);
+          setSections(parsedSections);
+          if (parsedSections.length > 0) {
+            setSelectedSection(parsedSections[0].id);
+          }
         } else {
           // Nenhum plano gerado ainda - mostrar estado vazio
           setPlanContent("");
@@ -102,6 +122,48 @@ const Plan = () => {
 
     fetchData();
   }, [planId, companyId, navigate]);
+
+  const parsePlanSections = (content: string): PlanSection[] => {
+    // Split content by numbered sections (e.g., "1.", "2.", "3.")
+    const sectionRegex = /(\d+\.\s+[^\n]+)/g;
+    const matches = content.match(sectionRegex);
+    
+    if (!matches) return [];
+
+    const sections: PlanSection[] = [];
+    
+    matches.forEach((match, index) => {
+      const sectionTitle = match.trim();
+      const sectionId = `section-${index}`;
+      
+      // Find content between this section and the next
+      const currentIndex = content.indexOf(match);
+      const nextMatch = matches[index + 1];
+      const nextIndex = nextMatch ? content.indexOf(nextMatch) : content.length;
+      
+      const sectionContent = content.substring(currentIndex, nextIndex).trim();
+      
+      sections.push({
+        title: sectionTitle,
+        content: sectionContent,
+        id: sectionId
+      });
+    });
+    
+    return sections;
+  };
+
+  const formatMonth = (month: string) => {
+    if (!month) return "";
+    
+    const [year, monthNum] = month.split("-");
+    const monthNames = [
+      "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+      "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+    ];
+    
+    return `${monthNames[parseInt(monthNum) - 1]}/${year}`;
+  };
 
   const handleApprovePlan = async () => {
     if (!planId) {
@@ -151,60 +213,25 @@ const Plan = () => {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="p-4 md:p-8">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/")}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar ao Hub
-          </Button>
+  if (!planContent) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="p-4 md:p-8">
+          <div className="max-w-6xl mx-auto space-y-6">
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/")}
+              className="mb-4"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar ao Hub
+            </Button>
 
-          <Card className="shadow-[var(--shadow-elevated)]">
-            <CardHeader className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-secondary">
-                  <Calendar className="h-6 w-6 text-primary-foreground" />
-                </div>
-                <div className="flex-1">
-                  <CardTitle className="text-2xl">Plano de Marketing</CardTitle>
-                  <CardDescription>
-                    {companyData?.name && `Plano para ${companyData.name}`}
-                  </CardDescription>
-                </div>
-              </div>
-              
-              {planContent && (
-                <div className="flex items-start gap-2 p-4 bg-primary/5 rounded-lg border border-primary/20">
-                  <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                  <p className="text-sm text-muted-foreground">
-                    Plano gerado automaticamente com base na sua estratégia e respostas. Revise e edite conforme necessário.
-                  </p>
-                </div>
-              )}
-            </CardHeader>
-            
-            {planContent && (
-              <CardContent>
-                <div className="prose prose-sm max-w-none dark:prose-invert">
-                  <div className="whitespace-pre-wrap bg-accent/30 p-6 rounded-lg border">
-                    {planContent}
-                  </div>
-                </div>
-              </CardContent>
-            )}
-          </Card>
-
-          {!planContent && (
             <Card className="shadow-[var(--shadow-card)]">
               <CardContent className="py-16">
                 <div className="flex flex-col items-center gap-4 text-center">
                   <div className="p-4 bg-muted rounded-full">
-                    <Calendar className="h-8 w-8 text-muted-foreground" />
+                    <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
                   </div>
                   <div className="space-y-2">
                     <h3 className="text-lg font-semibold">Nenhum plano gerado ainda</h3>
@@ -213,30 +240,104 @@ const Plan = () => {
                     </p>
                   </div>
                   <Button onClick={() => navigate('/generate-questions')} className="gap-2">
-                    <Sparkles className="h-4 w-4" />
                     Ir para Perguntas Guias
                   </Button>
                 </div>
               </CardContent>
             </Card>
-          )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-          {planContent && (
-            <div className="flex gap-4 justify-end flex-wrap">
-              <Button variant="outline" size="lg">
-                <RotateCcw className="h-5 w-5 mr-2" />
-                Gerar Novas Sugestões
-              </Button>
-              <Button
-                onClick={() => setShowApproveModal(true)}
-                size="lg"
-                className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-opacity"
-              >
-                <CheckCircle className="h-5 w-5 mr-2" />
-                Aprovar Plano
-              </Button>
+  const selectedSectionData = sections.find(s => s.id === selectedSection);
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="p-4 md:p-8">
+        <div className="max-w-7xl mx-auto">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/")}
+            className="mb-6"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar ao Hub
+          </Button>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+            {/* Left Column - Navigation */}
+            <div className="lg:sticky lg:top-6 lg:self-start">
+              <Card className="shadow-[var(--shadow-card)]">
+                <div className="p-4 border-b">
+                  <h2 className="font-semibold text-lg">Planejamento</h2>
+                </div>
+                <ScrollArea className="h-[calc(100vh-12rem)]">
+                  <div className="p-2">
+                    {sections.map((section) => (
+                      <button
+                        key={section.id}
+                        onClick={() => setSelectedSection(section.id)}
+                        className={cn(
+                          "w-full text-left px-3 py-2.5 rounded-md text-sm transition-colors mb-1",
+                          selectedSection === section.id
+                            ? "bg-primary text-primary-foreground font-medium"
+                            : "hover:bg-accent text-foreground"
+                        )}
+                      >
+                        {section.title}
+                      </button>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </Card>
             </div>
-          )}
+
+            {/* Right Column - Content */}
+            <div className="space-y-6">
+              <Card className="shadow-[var(--shadow-card)]">
+                {/* Header */}
+                <div className="p-6 border-b">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h1 className="text-2xl font-bold">{companyData?.name}</h1>
+                    {selectedMonth && (
+                      <Badge variant="secondary" className="text-xs">
+                        Mês de Referência: {formatMonth(selectedMonth)}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Content Area */}
+                <CardContent className="p-0">
+                  <ScrollArea className="h-[calc(100vh-16rem)]">
+                    <div className="p-8">
+                      <div className="prose prose-sm max-w-none dark:prose-invert">
+                        <div className="whitespace-pre-wrap">
+                          {selectedSectionData?.content}
+                        </div>
+                      </div>
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+
+                {/* Footer with Approve Button */}
+                <div className="p-6 border-t bg-muted/30">
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={() => setShowApproveModal(true)}
+                      size="lg"
+                      className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-opacity"
+                    >
+                      <CheckCircle className="h-5 w-5 mr-2" />
+                      Aprovar Plano
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
       
