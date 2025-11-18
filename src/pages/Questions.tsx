@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useTenant } from '@/contexts/TenantContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { MonthSelectionModal } from '@/components/MonthSelectionModal';
 
 interface Question {
   id: string;
@@ -34,6 +35,7 @@ export default function Questions() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [showMonthModal, setShowMonthModal] = useState(false);
 
   useEffect(() => {
     if (!state?.strategyId || !state?.companyId) {
@@ -136,13 +138,19 @@ export default function Questions() {
     }
   };
 
-  const handleCompleteAndAdvance = async () => {
+  const handleCompleteAndAdvance = async (selectedMonth: string) => {
     if (!sessionId) {
       toast.error('Sessão não encontrada');
       return;
     }
 
+    if (!selectedMonth) {
+      toast.error('Por favor, selecione o mês de referência');
+      return;
+    }
+
     setIsSaving(true);
+    setShowMonthModal(false);
 
     try {
       // Salvar respostas
@@ -164,7 +172,8 @@ export default function Questions() {
         body: {
           companyId: state.companyId,
           strategyId: state.strategyId,
-          tenantId: tenantId
+          tenantId: tenantId,
+          selectedMonth: selectedMonth
         }
       });
 
@@ -189,6 +198,10 @@ export default function Questions() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleOpenMonthModal = () => {
+    setShowMonthModal(true);
   };
 
   const handleRetryGeneration = async () => {
@@ -358,7 +371,7 @@ export default function Questions() {
                   Salvar Rascunho
                 </Button>
                 <Button
-                  onClick={handleCompleteAndAdvance}
+                  onClick={handleOpenMonthModal}
                   disabled={isSaving}
                   className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-opacity"
                 >
@@ -369,6 +382,13 @@ export default function Questions() {
             </>
           )}
         </div>
+
+        <MonthSelectionModal
+          open={showMonthModal}
+          onClose={() => setShowMonthModal(false)}
+          onConfirm={handleCompleteAndAdvance}
+          isGenerating={isSaving}
+        />
       </div>
     </div>
   );

@@ -17,6 +17,11 @@ serve(async (req) => {
     const { companyId, strategyId, tenantId, selectedMonth } = await req.json();
     console.log('Generating plan for:', { companyId, strategyId, tenantId, selectedMonth });
 
+    // Validar parâmetros obrigatórios
+    if (!selectedMonth) {
+      throw new Error('O mês de referência é obrigatório para gerar o plano');
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
