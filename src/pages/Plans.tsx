@@ -594,9 +594,7 @@ export default function Plans() {
                 <aside className="space-y-4">
                   <div>
                     
-                    <p className="text-sm text-muted-foreground">
-                      Navegue pelas seções do plano estratégico.
-                    </p>
+                    
                   </div>
 
                   <nav className="space-y-1">
