@@ -593,9 +593,7 @@ export default function Plans() {
                 {/* Left Column - Navigation */}
                 <aside className="space-y-4">
                   <div>
-                    <h2 className="text-lg font-semibold text-foreground mb-2">
-                      Planejamento
-                    </h2>
+                    
                     <p className="text-sm text-muted-foreground">
                       Navegue pelas seções do plano estratégico.
                     </p>
