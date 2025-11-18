@@ -3,12 +3,16 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Save, Download, FileText, Pencil, CheckCircle, X, Trash2, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useTenant } from "@/contexts/TenantContext";
-import { RichTextEditor } from "@/components/RichTextEditor";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import { useToast } from "@/hooks/use-toast";
+import { useTenant } from "@/contexts/TenantContext";
+import { cn } from "@/lib/utils";
+import { ArrowLeft, Save, Download, FileText, Pencil, CheckCircle, X, Trash2, Calendar } from "lucide-react";
+
 interface MarketingPlan {
   id: string;
   plan_content: string | null;
@@ -16,10 +20,18 @@ interface MarketingPlan {
   strategy_id: string;
   created_at: string;
   approved: boolean;
+  selected_month?: string | null;
   tenant_companies?: {
     name: string;
   };
 }
+
+interface PlanSection {
+  id: string;
+  title: string;
+  content: string;
+}
+
 export default function Plans() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -41,6 +53,8 @@ export default function Plans() {
   const [planToDelete, setPlanToDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [generatingCards, setGeneratingCards] = useState(false);
+  const [sections, setSections] = useState<PlanSection[]>([]);
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
   const planId = searchParams.get("planId");
   useEffect(() => {
@@ -48,24 +62,23 @@ export default function Plans() {
       try {
         if (planId) {
           // Fetch specific plan
-          const {
-            data,
-            error
-          } = await supabase.from("marketing_plans").select("*, tenant_companies(name)").eq("id", planId).maybeSingle();
+          const { data, error } = await supabase
+            .from("marketing_plans")
+            .select("*, tenant_companies(name)")
+            .eq("id", planId)
+            .maybeSingle();
           if (error) throw error;
           setPlan(data);
           if (data?.plan_content) {
-            // O conteúdo já vem em HTML do banco
             setEditedContent(data.plan_content);
           }
         } else if (tenantId) {
           // Fetch all plans for the tenant
-          const {
-            data,
-            error
-          } = await supabase.from("marketing_plans").select("*, tenant_companies(name)").eq("tenant_id", tenantId).order("created_at", {
-            ascending: false
-          });
+          const { data, error } = await supabase
+            .from("marketing_plans")
+            .select("*, tenant_companies(name)")
+            .eq("tenant_id", tenantId)
+            .order("created_at", { ascending: false });
           if (error) throw error;
           setPlans(data || []);
         }
@@ -74,7 +87,7 @@ export default function Plans() {
         toast({
           title: "Erro ao carregar planos",
           description: "Não foi possível carregar os planos.",
-          variant: "destructive"
+          variant: "destructive",
         });
       } finally {
         setTimeout(() => setLoading(false), 300);
@@ -82,6 +95,20 @@ export default function Plans() {
     };
     fetchData();
   }, [planId, tenantId, toast]);
+
+  useEffect(() => {
+    if (!plan?.plan_content) {
+      setSections([]);
+      setSelectedSectionId(null);
+      return;
+    }
+
+    const parsed = parsePlanSections(plan.plan_content);
+    setSections(parsed);
+    if (parsed.length > 0) {
+      setSelectedSectionId(parsed[0].id);
+    }
+  }, [plan?.plan_content]);
 
   // Auto-save effect
   const performAutoSave = useCallback(async (content: string) => {
@@ -327,7 +354,57 @@ export default function Plans() {
   };
   const formatContent = (content: string) => {
     // O conteúdo já vem formatado em HTML do banco
-    return content || '';
+    return content || "";
+  };
+
+  const parsePlanSections = (content: string): PlanSection[] => {
+    const sectionRegex = /(\d+\.\s+[^\n]+)/g;
+    const matches = content.match(sectionRegex);
+
+    if (!matches) return [];
+
+    const sections: PlanSection[] = [];
+
+    matches.forEach((match, index) => {
+      const sectionTitle = match.trim();
+      const sectionId = `section-${index}`;
+
+      const currentIndex = content.indexOf(match);
+      const nextMatch = matches[index + 1];
+      const nextIndex = nextMatch ? content.indexOf(nextMatch) : content.length;
+
+      const sectionContent = content.substring(currentIndex, nextIndex).trim();
+
+      sections.push({
+        id: sectionId,
+        title: sectionTitle,
+        content: sectionContent,
+      });
+    });
+
+    return sections;
+  };
+
+  const formatMonth = (month?: string | null) => {
+    if (!month) return "";
+
+    const [year, monthNum] = month.split("-");
+    const monthNames = [
+      "Janeiro",
+      "Fevereiro",
+      "Março",
+      "Abril",
+      "Maio",
+      "Junho",
+      "Julho",
+      "Agosto",
+      "Setembro",
+      "Outubro",
+      "Novembro",
+      "Dezembro",
+    ];
+
+    return `${monthNames[parseInt(monthNum) - 1]}/${year}`;
   };
   if (loading) {
     return <div className="min-h-screen bg-background">
@@ -483,80 +560,193 @@ export default function Plans() {
                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
                   Plano Estratégico de Marketing
                 </h1>
-                {plan.approved && <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
+                {plan.approved && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
                     <CheckCircle className="w-4 h-4" />
                     Aprovado
-                  </span>}
+                  </span>
+                )}
               </div>
-              
+
               {/* Action Buttons - Horizontal Layout */}
-              {!isEditing ? <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="gap-2 hover:bg-muted">
+              {!isEditing ? (
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                    className="gap-2 hover:bg-muted"
+                  >
                     <Pencil className="w-4 h-4" />
                     <span className="hidden sm:inline">Editar</span>
                   </Button>
-                  
-                  <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={exporting} className="gap-2 hover:bg-muted">
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportPDF}
+                    disabled={exporting}
+                    className="gap-2 hover:bg-muted"
+                  >
                     <Download className="w-4 h-4" />
                     <span className="hidden sm:inline">
                       {exporting ? "Exportando..." : "Exportar"}
                     </span>
                   </Button>
-                  
-                  {!plan.approved && <Button size="sm" onClick={handleApprove} disabled={saving || generatingCards} className="gap-2">
-                      <CheckCircle className="w-4 h-4" />
-                      <span className="hidden sm:inline">
-                        {generatingCards ? "Gerando tarefas..." : saving ? "Aprovando..." : "Aprovar e Gerar Tarefas"}
-                      </span>
-                      <span className="sm:hidden">
-                        {generatingCards || saving ? "..." : "Aprovar"}
-                      </span>
-                    </Button>}
-                </div> : <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button variant="outline" size="sm" onClick={() => {
-                setIsEditing(false);
-                setEditedContent(plan.plan_content || "");
-              }} className="gap-2 hover:bg-muted">
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditedContent(plan.plan_content || "");
+                    }}
+                    className="gap-2 hover:bg-muted"
+                  >
                     <X className="w-4 h-4" />
                     <span className="hidden sm:inline">Cancelar</span>
                   </Button>
-                  
+
                   <Button size="sm" onClick={handleSaveEdit} disabled={saving} className="gap-2">
                     <Save className="w-4 h-4" />
                     <span className="hidden sm:inline">
                       {saving ? "Salvando..." : "Salvar Edição"}
                     </span>
                   </Button>
-                </div>}
+                </div>
+              )}
             </div>
           </div>
 
           {/* Card Content */}
-          {isEditing ? <div className="p-6 sm:p-8 lg:p-10">
+          {isEditing ? (
+            <div className="p-6 sm:p-8 lg:p-10">
               <div className="max-w-[1000px] mx-auto space-y-6">
                 <div className="text-center space-y-2 mb-8">
                   <p className="text-muted-foreground">
                     Você pode ajustar o plano abaixo antes de aprová-lo definitivamente.
                   </p>
                   <div className="flex items-center justify-center gap-2 text-sm">
-                    {autoSaving ? <span className="text-muted-foreground flex items-center gap-2">
+                    {autoSaving ? (
+                      <span className="text-muted-foreground flex items-center gap-2">
                         <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
                         Salvando...
-                      </span> : lastSaved ? <span className="text-muted-foreground flex items-center gap-2">
+                      </span>
+                    ) : lastSaved ? (
+                      <span className="text-muted-foreground flex items-center gap-2">
                         <CheckCircle className="w-3 h-3 text-primary" />
-                        Salvo às {lastSaved.toLocaleTimeString('pt-BR', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                      </span> : null}
+                        Salvo às
+                        {" "}
+                        {lastSaved.toLocaleTimeString("pt-BR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
-                
+
                 <RichTextEditor content={editedContent} onChange={setEditedContent} />
               </div>
-            </div> : <div className="p-6 sm:p-8 lg:p-10" dangerouslySetInnerHTML={{
-          __html: formatContent(plan.plan_content)
-        }} />}
+            </div>
+          ) : (
+            <div className="p-6 sm:p-8 lg:p-10">
+              <div className="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
+                {/* Left Column - Navigation */}
+                <aside className="space-y-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground mb-2">
+                      Planejamento
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Navegue pelas seções do plano estratégico.
+                    </p>
+                  </div>
+
+                  <nav className="space-y-1">
+                    {(sections.length ? sections : [
+                      {
+                        id: "full-content",
+                        title: "Conteúdo completo do plano",
+                        content: plan.plan_content || "",
+                      },
+                    ]).map((section) => (
+                      <button
+                        key={section.id}
+                        type="button"
+                        onClick={() => setSelectedSectionId(section.id)}
+                        className={cn(
+                          "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                          selectedSectionId === section.id || (!selectedSectionId && sections[0]?.id === section.id)
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        )}
+                      >
+                        {section.title}
+                      </button>
+                    ))}
+                  </nav>
+                </aside>
+
+                {/* Right Column - Content */}
+                <section className="flex flex-col min-h-[420px]">
+                  {/* Header with client name and month badge */}
+                  <header className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-xl font-semibold text-foreground">
+                        {plan.tenant_companies?.name || "Cliente"}
+                      </h2>
+                    </div>
+
+                    {plan.selected_month && (
+                      <Badge variant="outline" className="text-xs px-3 py-1 rounded-full">
+                        Mês de Referência: {formatMonth(plan.selected_month)}
+                      </Badge>
+                    )}
+                  </header>
+
+                  {/* Content Container */}
+                  <div className="flex-1 border border-border rounded-lg bg-background overflow-hidden">
+                    <ScrollArea className="h-[420px]">
+                      <div className="p-6 sm:p-8">
+                        <div
+                          className="prose prose-sm sm:prose max-w-none text-foreground"
+                          dangerouslySetInnerHTML={{
+                            __html: formatContent(
+                              (sections.find((s) => s.id === selectedSectionId)?.content ||
+                                sections[0]?.content ||
+                                plan.plan_content || "") as string,
+                            ),
+                          }}
+                        />
+                      </div>
+                    </ScrollArea>
+                  </div>
+
+                  {/* Approve Button */}
+                  {!plan.approved && (
+                    <div className="mt-6 flex justify-end">
+                      <Button
+                        size="lg"
+                        onClick={handleApprove}
+                        disabled={saving || generatingCards}
+                        className="gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        {generatingCards
+                          ? "Gerando tarefas..."
+                          : saving
+                            ? "Aprovando..."
+                            : "Aprovar Plano"}
+                      </Button>
+                    </div>
+                  )}
+                </section>
+              </div>
+            </div>
+          )}
         </Card>
       </div>
     </div>;
