@@ -476,9 +476,14 @@ export default function Plans() {
                             Aprovado
                           </span>}
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Criado em {new Date(p.created_at).toLocaleDateString('pt-BR')}
-                      </p>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        {p.selected_month && (
+                          <Badge variant="outline" className="text-xs px-3 py-1 rounded-full">
+                            {formatMonth(p.selected_month)}
+                          </Badge>
+                        )}
+                        <span>Criado em {new Date(p.created_at).toLocaleDateString('pt-BR')}</span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {p.approved && <Button variant="outline" size="sm" onClick={e => {
