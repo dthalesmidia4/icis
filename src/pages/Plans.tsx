@@ -693,9 +693,23 @@ export default function Plans() {
                       <div className="flex-1 border border-border rounded-lg bg-background overflow-hidden">
                         <ScrollArea className="h-[420px]">
                           <div className="p-6 sm:p-8">
-                            <div className="prose prose-sm sm:prose max-w-none text-foreground" dangerouslySetInnerHTML={{
-                          __html: formatContent((sections.find(s => s.id === selectedSectionId)?.content || sections[0]?.content || plan.plan_content || "") as string)
-                        }} />
+                            <div 
+                              className="
+                                [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:mt-5 [&_h2]:text-foreground
+                                [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:text-foreground
+                                [&_p]:mb-3 [&_p]:leading-relaxed [&_p]:text-foreground
+                                [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:mb-3 [&_ul]:space-y-1
+                                [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:mb-3 [&_ol]:space-y-1
+                                [&_li]:mb-1 [&_li]:text-foreground
+                                [&_strong]:font-semibold
+                                [&_em]:italic
+                                [&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3
+                                [&_hr]:my-6 [&_hr]:border-t [&_hr]:border-border
+                              " 
+                              dangerouslySetInnerHTML={{
+                                __html: formatContent((sections.find(s => s.id === selectedSectionId)?.content || sections[0]?.content || plan.plan_content || "") as string)
+                              }} 
+                            />
                           </div>
                         </ScrollArea>
                       </div>

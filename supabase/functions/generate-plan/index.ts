@@ -317,7 +317,7 @@ A saída deve ser consistentemente organizada toda vez.`
 
     console.log('Plan generated successfully');
 
-    // Converter Markdown para HTML
+    // Converter Markdown para HTML (sem classes CSS)
     marked.setOptions({
       breaks: true,
       gfm: true,
@@ -325,29 +325,19 @@ A saída deve ser consistentemente organizada toda vez.`
 
     const htmlContent = marked.parse(generatedPlan) as string;
     
-    // Adicionar classes do Tailwind ao HTML
-    const styledHtml = htmlContent
+    // Remover parágrafos vazios e limpar o HTML
+    const cleanHtml = htmlContent
       .replace(/<p>\s*<\/p>/g, '')
-      .replace(/<h1>/g, '<h1 class="text-3xl font-bold mb-4 mt-6">')
-      .replace(/<h2>/g, '<h2 class="text-2xl font-bold mb-3 mt-5">')
-      .replace(/<h3>/g, '<h3 class="text-xl font-semibold mb-2 mt-4">')
-      .replace(/<p>/g, '<p class="mb-3 leading-relaxed">')
-      .replace(/<ul>/g, '<ul class="list-disc ml-6 mb-3 space-y-1">')
-      .replace(/<ol>/g, '<ol class="list-decimal ml-6 mb-3 space-y-1">')
-      .replace(/<li>/g, '<li class="mb-1">')
-      .replace(/<strong>/g, '<strong class="font-semibold">')
-      .replace(/<em>/g, '<em class="italic">')
-      .replace(/<blockquote>/g, '<blockquote class="border-l-4 border-primary pl-4 italic my-3">')
-      .replace(/<hr>/g, '<hr class="my-6 border-t border-border">');
+      .trim();
 
-    // Salvar o plano gerado no banco de dados (já em HTML)
+    // Salvar o plano gerado no banco de dados (HTML limpo sem classes CSS)
     const { data: savedPlan, error: savePlanError } = await supabase
       .from('marketing_plans')
       .insert({
         company_id: companyId,
         strategy_id: strategyId,
         tenant_id: tenantId,
-        plan_content: styledHtml,
+        plan_content: cleanHtml,
         plan_data: { metadata: { month: selectedMonth } },
         selected_month: selectedMonth,
         approved: false
@@ -364,7 +354,7 @@ A saída deve ser consistentemente organizada toda vez.`
       JSON.stringify({ 
         success: true, 
         planId: savedPlan.id,
-        planContent: styledHtml 
+        planContent: cleanHtml 
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
