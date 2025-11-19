@@ -186,11 +186,25 @@ const Plan = () => {
       if (error) throw error;
 
       setShowApproveModal(false);
-      toast.success("✅ Plano aprovado com sucesso! Você pode agora gerenciar as tarefas no quadro Kanban.");
+      toast.success("✅ Plano aprovado! Gerando tarefas do cronograma...");
+
+      // Gerar tarefas do Kanban
+      const { data: generateData, error: generateError } = await supabase.functions.invoke(
+        "generate-kanban-tasks",
+        { body: { planId } }
+      );
+
+      if (generateError) {
+        console.error("Error generating tasks:", generateError);
+        toast.error("Erro ao gerar tarefas do cronograma. Tente novamente.");
+        return;
+      }
+
+      toast.success("Tarefas geradas com sucesso!");
       
       setTimeout(() => {
         navigate(`/schedule?planId=${planId}`);
-      }, 1500);
+      }, 1000);
     } catch (error) {
       console.error("Error approving plan:", error);
       toast.error("Erro ao aprovar plano. Tente novamente.");
