@@ -24,6 +24,7 @@ export default function StrategyCreation() {
   const [showModal, setShowModal] = useState(true);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [strategyText, setStrategyText] = useState('');
+  const [observations, setObservations] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [existingStrategy, setExistingStrategy] = useState<any>(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -54,6 +55,7 @@ export default function StrategyCreation() {
       if (data) {
         setExistingStrategy(data);
         setStrategyText(data.strategy_text);
+        setObservations(data.observations || '');
         setIsEditMode(false);
       } else {
         setIsEditMode(true);
@@ -86,6 +88,7 @@ export default function StrategyCreation() {
           error: updateError
         } = await supabase.from('strategies').update({
           strategy_text: strategyText,
+          observations: observations,
           updated_at: new Date().toISOString()
         }).eq('id', existingStrategy.id).select().single();
         if (updateError) throw updateError;
@@ -99,6 +102,7 @@ export default function StrategyCreation() {
           company_id: selectedClient.id,
           tenant_id: tenantId,
           strategy_text: strategyText,
+          observations: observations,
           status: 'Em elaboração'
         }).select().single();
         if (insertError) throw insertError;
@@ -153,6 +157,7 @@ export default function StrategyCreation() {
   const handleCancelEdit = () => {
     setIsEditMode(false);
     setStrategyText(existingStrategy.strategy_text);
+    setObservations(existingStrategy.observations || '');
   };
   const handleBack = () => {
     if (selectedClient) {
@@ -272,6 +277,25 @@ export default function StrategyCreation() {
                     </p>
                   </CardContent>
                 </Card> : <Textarea id="strategy" placeholder="Exemplo: Aumentar presença digital através de conteúdo educativo nas redes sociais, focando em LinkedIn e Instagram. Público-alvo: profissionais de 25-45 anos interessados em tecnologia..." value={strategyText} onChange={e => setStrategyText(e.target.value)} className="min-h-[300px] resize-y" />}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="observations" className="text-base font-semibold">
+                Observações e Restrições
+              </Label>
+              {isLoadingStrategy ? <Card>
+                  <CardContent className="py-8">
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    </div>
+                  </CardContent>
+                </Card> : existingStrategy && !isEditMode ? observations ? <Card>
+                  <CardContent className="py-4">
+                    <p className="text-foreground whitespace-pre-wrap leading-relaxed text-sm">
+                      {observations}
+                    </p>
+                  </CardContent>
+                </Card> : <p className="text-sm text-muted-foreground italic">Nenhuma observação registrada</p> : <Textarea id="observations" placeholder="Adicione restrições específicas do cliente (ex: não publicar aos domingos, evitar temas polêmicos, priorizar tom formal, etc.)" value={observations} onChange={e => setObservations(e.target.value)} className="min-h-[120px] resize-y" />}
             </div>
 
             <div className="flex justify-between items-center gap-3 pt-4">

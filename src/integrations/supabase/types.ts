@@ -284,6 +284,7 @@ export type Database = {
           created_at: string
           id: string
           name: string | null
+          observations: string | null
           period_end: string | null
           period_start: string | null
           status: string | null
@@ -296,6 +297,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string | null
+          observations?: string | null
           period_end?: string | null
           period_start?: string | null
           status?: string | null
@@ -308,6 +310,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string | null
+          observations?: string | null
           period_end?: string | null
           period_start?: string | null
           status?: string | null

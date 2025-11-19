@@ -72,6 +72,14 @@ DADOS DO CLIENTE:
 ESTRATÉGIA GLOBAL DEFINIDA:
 ${strategy.strategy_text}
 
+${strategy.observations ? `OBSERVAÇÕES E RESTRIÇÕES DO CLIENTE:
+⚠️ O cliente possui restrições específicas que devem ser consideradas ao formular as perguntas:
+
+${strategy.observations}
+
+As perguntas devem ajudar a refinar o cronograma respeitando essas restrições.
+` : ''}
+
 OBJETIVO:
 Gere exatamente 8 perguntas estratégicas e personalizadas que ajudarão a refinar o cronograma de marketing deste cliente.
 As perguntas devem ser contextuais ao setor, aos produtos/serviços e à estratégia definida.
