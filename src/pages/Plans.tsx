@@ -723,7 +723,16 @@ export default function Plans() {
                           {exporting ? "Exportando..." : "Exportar"}
                         </Button>
                         
-                        {!plan.approved && (
+                        {plan.approved ? (
+                          <Button 
+                            size="lg" 
+                            onClick={() => navigate(`/schedule?planId=${plan.id}`)} 
+                            className="gap-2"
+                          >
+                            <Calendar className="w-4 h-4" />
+                            Ver Cronograma
+                          </Button>
+                        ) : (
                           <Button 
                             size="lg" 
                             onClick={handleApprove} 
