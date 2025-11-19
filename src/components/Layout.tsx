@@ -5,27 +5,27 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
-
 interface LayoutProps {
   children: ReactNode;
 }
-
-export const Layout = ({ children }: LayoutProps) => {
+export const Layout = ({
+  children
+}: LayoutProps) => {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
-  const { tenantName } = useTenant();
-
+  const {
+    signOut
+  } = useAuth();
+  const {
+    tenantName
+  } = useTenant();
   const handleSignOut = async () => {
     await signOut();
     navigate("/auth");
   };
-
   const getInitials = (name: string) => {
     return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
   };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
+  return <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
       {/* Navbar - Informações da Empresa */}
       <nav className="w-full bg-card border-b border-border sticky top-0 z-50">
         <div className="container max-w-7xl mx-auto px-6 py-4">
@@ -44,9 +44,7 @@ export const Layout = ({ children }: LayoutProps) => {
 
             {/* Menu de Navegação */}
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
-                Hub
-              </Button>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/')}>Hub de Controle</Button>
               <Button variant="ghost" size="sm" onClick={() => navigate('/dev-hub')}>
                 Dev
               </Button>
@@ -61,6 +59,5 @@ export const Layout = ({ children }: LayoutProps) => {
 
       {/* Conteúdo da Página */}
       {children}
-    </div>
-  );
+    </div>;
 };
