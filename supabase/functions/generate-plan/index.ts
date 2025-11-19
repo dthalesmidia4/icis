@@ -307,9 +307,12 @@ A saída deve ser consistentemente organizada toda vez.`
     }
 
     const aiResult = await aiResponse.json();
+    console.log('AI API Response:', JSON.stringify(aiResult, null, 2));
+    
     const generatedPlan = aiResult.choices?.[0]?.message?.content;
 
     if (!generatedPlan) {
+      console.error('No content in AI response. Full response:', aiResult);
       throw new Error('Nenhum plano foi gerado pela IA');
     }
 
