@@ -289,7 +289,7 @@ A saída deve ser consistentemente organizada toda vez.`
             content: userPrompt
           }
         ],
-        max_completion_tokens: 4000
+        max_completion_tokens: 16000
       }),
     });
 
