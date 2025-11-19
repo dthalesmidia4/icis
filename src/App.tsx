@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { TenantProvider } from "./contexts/TenantContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { RequireTenant } from "./components/RequireTenant";
+import { Layout } from "./components/Layout";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import CompanyRegistration from "./pages/CompanyRegistration";
@@ -48,104 +49,134 @@ const App = () => (
             } />
             <Route path="/" element={
               <ProtectedRoute>
-                <Index />
+                <Layout>
+                  <Index />
+                </Layout>
               </ProtectedRoute>
             } />
             <Route path="/registration" element={
               <ProtectedRoute>
                 <RequireTenant>
-                  <CompanyRegistration />
+                  <Layout>
+                    <CompanyRegistration />
+                  </Layout>
                 </RequireTenant>
               </ProtectedRoute>
             } />
             <Route path="/plan" element={
               <ProtectedRoute>
                 <RequireTenant>
-                  <Plan />
+                  <Layout>
+                    <Plan />
+                  </Layout>
                 </RequireTenant>
               </ProtectedRoute>
             } />
             <Route path="/plans" element={
               <ProtectedRoute>
                 <RequireTenant>
-                  <Plans />
+                  <Layout>
+                    <Plans />
+                  </Layout>
                 </RequireTenant>
               </ProtectedRoute>
             } />
           <Route path="/schedule" element={
             <ProtectedRoute>
               <RequireTenant>
-                <Schedule />
+                <Layout>
+                  <Schedule />
+                </Layout>
               </RequireTenant>
             </ProtectedRoute>
           } />
             <Route path="/clientes" element={
               <ProtectedRoute>
                 <RequireTenant>
-                  <ClientList />
+                  <Layout>
+                    <ClientList />
+                  </Layout>
                 </RequireTenant>
               </ProtectedRoute>
             } />
             <Route path="/clientes/:id" element={
               <ProtectedRoute>
                 <RequireTenant>
-                  <ClientDetails />
+                  <Layout>
+                    <ClientDetails />
+                  </Layout>
                 </RequireTenant>
               </ProtectedRoute>
             } />
           <Route path="/clientes/:id/planejamentos" element={
             <ProtectedRoute>
               <RequireTenant>
-                <ClientStrategies />
+                <Layout>
+                  <ClientStrategies />
+                </Layout>
               </RequireTenant>
             </ProtectedRoute>
           } />
           <Route path="/strategies" element={
             <ProtectedRoute>
               <RequireTenant>
-                <StrategyCreation />
+                <Layout>
+                  <StrategyCreation />
+                </Layout>
               </RequireTenant>
             </ProtectedRoute>
           } />
           <Route path="/generate-questions" element={
             <ProtectedRoute>
               <RequireTenant>
-                <GenerateQuestions />
+                <Layout>
+                  <GenerateQuestions />
+                </Layout>
               </RequireTenant>
             </ProtectedRoute>
           } />
           <Route path="/questions" element={
             <ProtectedRoute>
               <RequireTenant>
-                <Questions />
+                <Layout>
+                  <Questions />
+                </Layout>
               </RequireTenant>
             </ProtectedRoute>
           } />
           <Route path="/dev-hub" element={
             <ProtectedRoute>
               <RequireTenant>
-                <DevHub />
+                <Layout>
+                  <DevHub />
+                </Layout>
               </RequireTenant>
             </ProtectedRoute>
           } />
           <Route path="/dev/prompts" element={
             <ProtectedRoute>
               <RequireTenant>
-                <DevPrompts />
+                <Layout>
+                  <DevPrompts />
+                </Layout>
               </RequireTenant>
             </ProtectedRoute>
           } />
           <Route path="/dev/apis" element={
             <ProtectedRoute>
               <RequireTenant>
-                <DevApis />
+                <Layout>
+                  <DevApis />
+                </Layout>
               </RequireTenant>
             </ProtectedRoute>
           } />
           <Route path="/plans" element={
             <ProtectedRoute>
               <RequireTenant>
-                <Plan />
+                <Layout>
+                  <Plan />
+                </Layout>
               </RequireTenant>
             </ProtectedRoute>
           } />
