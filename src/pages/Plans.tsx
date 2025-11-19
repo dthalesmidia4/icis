@@ -600,14 +600,8 @@ export default function Plans() {
 
                 {/* Right Column - Content */}
                 <section className="flex flex-col min-h-[420px]">
-                  {/* Header with client name and month badge */}
+                  {/* Header with month badge */}
                   <header className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h2 className="text-xl font-semibold text-foreground">
-                        {(plan.tenant_companies as any)?.fantasy_name || plan.tenant_companies?.name || "Cliente"}
-                      </h2>
-                    </div>
-
                     <div className="flex items-center gap-2">
                       {plan.selected_month && <Badge variant="outline" className="text-xs px-3 py-1 rounded-full">
                           Mês de Referência: {formatMonth(plan.selected_month)}
