@@ -15,29 +15,34 @@ export function ButtonColorful({
 }: ButtonColorfulProps) {
   return (
     <Button
+      size="lg"
       className={cn(
-        "relative h-11 px-8 overflow-hidden",
-        "bg-zinc-900 dark:bg-zinc-100",
-        "transition-all duration-200",
-        "group",
+        "relative overflow-hidden",
+        "bg-gradient-to-r from-primary via-purple-600 to-pink-600",
+        "hover:from-primary/90 hover:via-purple-600/90 hover:to-pink-600/90",
+        "text-white",
+        "transition-all duration-300 ease-in-out",
+        "hover:scale-105 hover:shadow-lg",
+        "gap-2",
         className
       )}
       {...props}
     >
-      {/* Gradient background effect */}
+      {/* Animated shine effect */}
       <div
         className={cn(
           "absolute inset-0",
-          "bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500",
-          "opacity-40 group-hover:opacity-80",
-          "blur transition-opacity duration-500"
+          "bg-gradient-to-r from-transparent via-white/20 to-transparent",
+          "-translate-x-full",
+          "group-hover:translate-x-full",
+          "transition-transform duration-700 ease-in-out"
         )}
       />
 
       {/* Content */}
       <div className="relative flex items-center justify-center gap-2">
-        {Icon && <Icon className="w-4 h-4 text-white dark:text-zinc-900" />}
-        <span className="text-white dark:text-zinc-900">{label}</span>
+        {Icon && <Icon className="w-4 h-4" />}
+        <span>{label}</span>
       </div>
     </Button>
   );
