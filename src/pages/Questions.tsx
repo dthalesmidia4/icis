@@ -200,8 +200,33 @@ export default function Questions() {
     }
   };
 
-  const handleOpenMonthModal = () => {
-    setShowMonthModal(true);
+  const handleOpenMonthModal = async () => {
+    if (!sessionId) {
+      toast.error('Sessão não encontrada');
+      return;
+    }
+
+    // Salvar respostas imediatamente antes de abrir o modal
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('question_sessions')
+        .update({
+          answers: answers,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', sessionId);
+
+      if (error) throw error;
+
+      toast.success('Respostas salvas!');
+      setShowMonthModal(true);
+    } catch (error) {
+      console.error('Erro ao salvar respostas:', error);
+      toast.error('Erro ao salvar respostas. Tente novamente.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleRetryGeneration = async () => {
