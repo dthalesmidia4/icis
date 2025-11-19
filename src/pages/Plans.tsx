@@ -606,7 +606,9 @@ export default function Plans() {
                       {plan.selected_month && <Badge variant="outline" className="text-xs px-3 py-1 rounded-full">
                           Mês de Referência: {formatMonth(plan.selected_month)}
                         </Badge>}
+                    </div>
                       
+                    <div className="flex items-center gap-2">
                       {!isEditing ? (
                         <Button 
                           variant="outline" 
