@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Save, Download, FileText, Pencil, CheckCircle, X, Trash2, Calendar } from "lucide-react";
+import { ButtonColorful } from "@/components/ui/button-colorful";
 interface MarketingPlan {
   id: string;
   plan_content: string | null;
@@ -724,14 +725,11 @@ export default function Plans() {
                         </Button>
                         
                         {plan.approved ? (
-                          <Button 
-                            size="lg" 
-                            onClick={() => navigate(`/schedule?planId=${plan.id}`)} 
-                            className="gap-2"
-                          >
-                            <Calendar className="w-4 h-4" />
-                            Ver Cronograma
-                          </Button>
+                          <ButtonColorful 
+                            label="Ver Cronograma"
+                            icon={Calendar}
+                            onClick={() => navigate(`/schedule?planId=${plan.id}`)}
+                          />
                         ) : (
                           <Button 
                             size="lg" 
