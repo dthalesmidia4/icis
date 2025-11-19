@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, FileCode, Wifi } from "lucide-react";
+import { FileCode, Wifi } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 const DevHub = () => {
@@ -22,36 +22,19 @@ const DevHub = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
-      {/* Navbar */}
-      <nav className="w-full bg-card border-b border-border sticky top-0 z-50">
-        <div className="container max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
-            </Button>
-            <h2 className="text-lg font-semibold">Dev Hub</h2>
-            <div className="w-20"></div> {/* Spacer para centralizar */}
-          </div>
-        </div>
-      </nav>
+    <div className="container max-w-6xl mx-auto px-6 py-8">
+      {/* Header */}
+      <div className="mb-12 text-center">
+        <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
+          Hub de Desenvolvedor
+        </h1>
+        <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+          Gerencie prompts e APIs do sistema
+        </p>
+      </div>
 
-      {/* Área Principal */}
-      <main className="p-6 lg:p-12">
-        <div className="max-w-5xl mx-auto">
-          {/* Header */}
-          <div className="mb-16 text-center">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
-              Hub de Desenvolvedor
-            </h1>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Gerencie prompts e APIs do sistema
-            </p>
-          </div>
-
-          {/* Cards de Desenvolvimento */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+      {/* Cards de Desenvolvimento */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
             {devCards.map((card, index) => {
               const Icon = card.icon;
               return (
@@ -74,9 +57,7 @@ const DevHub = () => {
                 </Card>
               );
             })}
-          </div>
         </div>
-      </main>
     </div>
   );
 };
