@@ -203,6 +203,7 @@ const CompanyRegistration = () => {
         error
       } = await supabase.from("tenant_companies").insert([{
         name: formData.name,
+        fantasy_name: formData.fantasy_name,
         cnpj_cpf: formData.cnpj,
         sector: sectorValue,
         size: sizeValue,

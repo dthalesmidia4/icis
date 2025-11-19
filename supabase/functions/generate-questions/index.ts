@@ -61,7 +61,7 @@ serve(async (req) => {
     // Preparar contexto para a IA
     const context = `
 DADOS DO CLIENTE:
-- Nome: ${company.name}
+- Nome: ${company.fantasy_name || company.name}
 - CNPJ/CPF: ${company.cnpj_cpf}
 - Setor: ${company.sector}
 - Produtos/Serviços: ${company.products_services}

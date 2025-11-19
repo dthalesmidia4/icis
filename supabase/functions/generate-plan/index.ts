@@ -134,7 +134,7 @@ serve(async (req) => {
 5. Seja realista quanto ao tempo disponível para execução
 
 DADOS CADASTRAIS DO CLIENTE:
-- Nome da Empresa: ${company.name}
+- Nome da Empresa: ${company.fantasy_name || company.name}
 - CNPJ: ${company.cnpj_cpf}
 - Setor de Atuação: ${company.sector}
 - Produtos/Serviços Oferecidos: ${company.products_services}
