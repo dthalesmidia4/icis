@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
+import { Save, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,10 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 const DevApis = () => {
-  const navigate = useNavigate();
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -79,26 +75,16 @@ const DevApis = () => {
       setIsSaving(false);
     }
   };
-  return <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
-      {/* Navbar */}
-      <nav className="w-full bg-card border-b border-border sticky top-0 z-50">
-        <div className="container max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate('/dev-hub')} className="hover:bg-accent">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">APIs do Sistema</h1>
-                <p className="text-sm text-muted-foreground">Configure as chaves de API externas</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
+  return (
+    <div className="container max-w-5xl mx-auto px-6 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">APIs do Sistema</h1>
+        <p className="text-muted-foreground">
+          Configure as chaves de API externas utilizadas pelo sistema.
+        </p>
+      </div>
 
-      {/* Content */}
-      <div className="container max-w-4xl mx-auto px-6 py-12">
+      <div className="space-y-6">
         <Card>
           <CardHeader>
             <div className="flex items-start justify-between">
@@ -151,6 +137,7 @@ const DevApis = () => {
           </CardContent>
         </Card>
       </div>
-    </div>;
+    </div>
+  );
 };
 export default DevApis;

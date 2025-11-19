@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, RotateCcw } from "lucide-react";
+import { Save, RotateCcw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -85,7 +84,6 @@ INSTRUÇÕES IMPORTANTES:
 Formate o plano de forma clara e organizada, usando títulos, subtítulos e bullets para facilitar a leitura.`;
 
 const DevPrompts = () => {
-  const navigate = useNavigate();
   const { tenantId } = useTenant();
   const queryClient = useQueryClient();
   const [questionsPromptContent, setQuestionsPromptContent] = useState("");
@@ -200,24 +198,15 @@ const DevPrompts = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
-      {/* Navbar */}
-      <nav className="w-full bg-card border-b border-border sticky top-0 z-50">
-        <div className="container max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/dev-hub")}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
-            </Button>
-            <h2 className="text-lg font-semibold">Prompts do Sistema</h2>
-            <div className="w-20"></div>
-          </div>
-        </div>
-      </nav>
+    <div className="container max-w-5xl mx-auto px-6 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">Gerenciamento de Prompts</h1>
+        <p className="text-muted-foreground">
+          Configure os prompts utilizados pelo sistema para geração de perguntas e planos estratégicos.
+        </p>
+      </div>
 
-      {/* Área Principal */}
-      <main className="p-6 lg:p-12">
-        <div className="max-w-4xl mx-auto">
+      <div className="space-y-6">
           <Tabs defaultValue="questions" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="questions">Prompt de Perguntas</TabsTrigger>
@@ -297,8 +286,7 @@ const DevPrompts = () => {
               </Card>
             </TabsContent>
           </Tabs>
-        </div>
-      </main>
+      </div>
     </div>
   );
 };
