@@ -223,12 +223,17 @@ export default function Plans() {
           description: "Erro ao gerar tarefas automaticamente. Você pode tentar novamente.",
           variant: "destructive"
         });
-      } else if (cardsData?.success) {
-        toast({
-          title: "Sucesso!",
-          description: `Plano aprovado e ${cardsData.cardsCreated} tarefas geradas!`
-        });
-      }
+    } else if (cardsData?.success) {
+      toast({
+        title: "Sucesso!",
+        description: `Plano aprovado e ${cardsData.cardsCreated} tarefas geradas!`
+      });
+      
+      // Redirecionar para o cronograma
+      setTimeout(() => {
+        navigate(`/schedule?planId=${plan.id}`);
+      }, 1500);
+    }
     } catch (error) {
       console.error("Error approving plan:", error);
       toast({
@@ -716,7 +721,7 @@ export default function Plans() {
                             className="gap-2"
                           >
                             <CheckCircle className="w-4 h-4" />
-                            {generatingCards ? "Gerando tarefas..." : saving ? "Aprovando..." : "Aprovar Plano"}
+                            {generatingCards ? "Gerando cronograma..." : saving ? "Aprovando..." : "Aprovar Plano"}
                           </Button>
                         )}
                       </div>
