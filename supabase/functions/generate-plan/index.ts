@@ -146,6 +146,18 @@ DADOS CADASTRAIS DO CLIENTE:
 ESTRATÉGIA DO CLIENTE:
 ${strategy.strategy_text}
 
+${strategy.observations ? `
+╔════════════════════════════════════════════════════════════════════════════╗
+║          ⚠️  ATENÇÃO: OBSERVAÇÕES E RESTRIÇÕES DO CLIENTE ⚠️              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+🚨 AS RESTRIÇÕES ABAIXO SÃO OBRIGATÓRIAS E DEVEM SER RESPEITADAS:
+
+${strategy.observations}
+
+IMPORTANTE: Todas as tarefas, recomendações e ações do plano DEVEM estar em conformidade com estas restrições. Qualquer sugestão que conflite com elas deve ser evitada.
+` : ''}
+
 PERGUNTAS E RESPOSTAS:
 ${questionsAndAnswers.map((qa: { question: string; answer: string }, idx: number) => `${idx + 1}. ${qa.question}\n   Resposta: ${qa.answer}`).join('\n\n')}
 
