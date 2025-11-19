@@ -44,6 +44,9 @@ export const Layout = ({ children }: LayoutProps) => {
 
             {/* Menu de Navegação */}
             <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+                Hub
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => navigate('/dev-hub')}>
                 Dev
               </Button>
