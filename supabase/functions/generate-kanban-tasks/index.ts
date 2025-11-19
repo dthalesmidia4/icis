@@ -39,7 +39,8 @@ serve(async (req) => {
       .select(`
         *, 
         tenant_companies(
-          name, 
+          name,
+          fantasy_name,
           sector, 
           products_services, 
           size, 
@@ -261,7 +262,7 @@ IMPORTANTE: Retorne APENAS o JSON válido, sem texto adicional antes ou depois.`
     const userPrompt = `Com base em TODOS os dados abaixo, crie um cronograma de tarefas ALTAMENTE CONTEXTUAL e ESPECÍFICO:
 
 ## DADOS CADASTRAIS DA EMPRESA:
-- Nome: ${companyData.name || 'Não informado'}
+- Nome: ${companyData.fantasy_name || companyData.name || 'Não informado'}
 - Setor: ${companyData.sector || 'Não informado'}
 - Produtos/Serviços: ${companyData.products_services || 'Não informado'}
 - Tamanho: ${companyData.size || 'Não informado'}

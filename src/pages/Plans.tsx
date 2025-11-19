@@ -326,7 +326,7 @@ export default function Plans() {
             </style>
           </head>
           <body>
-            <h1>Plano Estratégico: ${plan.tenant_companies?.name || 'Cliente'}</h1>
+            <h1>Plano Estratégico: ${(plan.tenant_companies as any)?.fantasy_name || plan.tenant_companies?.name || 'Cliente'}</h1>
             ${formatContent(plan.plan_content || '')}
           </body>
         </html>
@@ -339,7 +339,7 @@ export default function Plans() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      const clientName = plan.tenant_companies?.name || 'Cliente';
+      const clientName = (plan.tenant_companies as any)?.fantasy_name || plan.tenant_companies?.name || 'Cliente';
       const sanitizedName = clientName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       link.download = `plano-estrategico-${sanitizedName}-${new Date().toISOString().split('T')[0]}.html`;
       document.body.appendChild(link);
@@ -469,7 +469,7 @@ export default function Plans() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-xl font-semibold text-foreground">
-                          {p.tenant_companies?.name || "Cliente"} - {new Date(p.created_at).toLocaleDateString('pt-BR', {
+                          {(p.tenant_companies as any)?.fantasy_name || p.tenant_companies?.name || "Cliente"} - {new Date(p.created_at).toLocaleDateString('pt-BR', {
                       month: 'long',
                       year: 'numeric'
                     })}
@@ -562,7 +562,7 @@ export default function Plans() {
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="flex-1">
                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
-                  Plano Estratégico: {plan.tenant_companies?.name || 'Cliente'}
+                  Plano Estratégico: {(plan.tenant_companies as any)?.fantasy_name || plan.tenant_companies?.name || 'Cliente'}
                 </h1>
                 {plan.approved && <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
                     <CheckCircle className="w-4 h-4" />
@@ -599,7 +599,7 @@ export default function Plans() {
                   <header className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h2 className="text-xl font-semibold text-foreground">
-                        {plan.tenant_companies?.name || "Cliente"}
+                        {(plan.tenant_companies as any)?.fantasy_name || plan.tenant_companies?.name || "Cliente"}
                       </h2>
                     </div>
 
