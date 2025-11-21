@@ -158,15 +158,30 @@ export default function GenerateQuestions() {
   if (!selectedClient) return null;
 
   return <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
-      <div className="container max-w-4xl mx-auto py-8 px-4">
-          <Button variant="ghost" onClick={handleBack} className="mb-6">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
+      <div className="container max-w-4xl mx-auto px-4 py-6 sm:py-8">
+          <div className="mb-6 sm:mb-8">
+            <div className="flex items-center gap-3 sm:gap-4 mb-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleBack}
+                className="hover:bg-muted/80 transition-colors h-8 w-8 sm:h-10 sm:w-10"
+              >
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+              </Button>
+              <div>
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
+                  Perguntas Guias
+                </h1>
+                <p className="text-muted-foreground mt-0.5 sm:mt-1 text-xs sm:text-sm">
+                  Responda as perguntas para gerar um plano personalizado
+                </p>
+              </div>
+            </div>
+          </div>
 
           <div className="bg-card rounded-lg shadow-lg p-8 space-y-8">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Perguntas Guias</h1>
               
             </div>
 

@@ -465,18 +465,25 @@ export default function Plans() {
   if (!planId) {
     return <div className="min-h-screen bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          <Button variant="ghost" onClick={() => navigate("/client-hub")} className="mb-6 -ml-2">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
-
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              Planos Estratégicos
-            </h1>
-            <p className="text-muted-foreground">
-              Todos os planos gerados estão salvos aqui
-            </p>
+          <div className="mb-6 sm:mb-8">
+            <div className="flex items-center gap-3 sm:gap-4 mb-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/client-hub")}
+                className="hover:bg-muted/80 transition-colors h-8 w-8 sm:h-10 sm:w-10"
+              >
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+              </Button>
+              <div>
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
+                  Planos Estratégicos
+                </h1>
+                <p className="text-muted-foreground mt-0.5 sm:mt-1 text-xs sm:text-sm">
+                  Todos os planos gerados estão salvos aqui
+                </p>
+              </div>
+            </div>
           </div>
 
           {plans.length === 0 ? <Card className="p-12 text-center">
@@ -579,7 +586,7 @@ export default function Plans() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Back Button */}
-        <Button variant="ghost" onClick={() => navigate("/")} className="gap-2 mb-6 hover:bg-muted -ml-2">
+        <Button variant="ghost" onClick={() => navigate("/client-hub")} className="gap-2 mb-6 hover:bg-muted -ml-2">
           <ArrowLeft className="w-4 h-4" />
           Voltar
         </Button>
