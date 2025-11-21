@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useTenant } from '@/contexts/TenantContext';
+import { useSelectedClient } from '@/contexts/SelectedClientContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { MonthSelectionModal } from '@/components/MonthSelectionModal';
@@ -27,6 +28,7 @@ export default function Questions() {
   const navigate = useNavigate();
   const location = useLocation();
   const { tenantId } = useTenant();
+  const { selectedClient } = useSelectedClient();
   const state = location.state as LocationState;
 
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -37,15 +39,29 @@ export default function Questions() {
   const [hasError, setHasError] = useState(false);
   const [showMonthModal, setShowMonthModal] = useState(false);
 
+  // Verificar se há cliente selecionado
   useEffect(() => {
+    if (!selectedClient) {
+      toast.error('Nenhum cliente selecionado');
+      navigate('/home');
+      return;
+    }
+
     if (!state?.strategyId || !state?.companyId) {
       toast.error('Informações da estratégia não encontradas');
-      navigate('/');
+      navigate('/client-hub');
+      return;
+    }
+
+    // Verificar se o state é do cliente selecionado
+    if (state.companyId !== selectedClient.id) {
+      toast.error('Cliente não corresponde ao selecionado');
+      navigate('/client-hub');
       return;
     }
 
     loadQuestions();
-  }, [state, navigate]);
+  }, [state, navigate, selectedClient]);
 
   const loadQuestions = async () => {
     try {

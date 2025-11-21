@@ -11,9 +11,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
+import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { ArrowLeft, Calendar, FileText, User, Link as LinkIcon, Edit2, Save, Search, Filter } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { toast as sonnerToast } from "sonner";
 
 interface KanbanCard {
   id: string;
@@ -43,6 +45,7 @@ export default function Schedule() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { tenantId } = useTenant();
+  const { selectedClient } = useSelectedClient();
   
   const [loading, setLoading] = useState(true);
   const [cards, setCards] = useState<KanbanCard[]>([]);
@@ -54,13 +57,24 @@ export default function Schedule() {
 
   const planId = searchParams.get("planId");
 
+  // Verificar se há cliente selecionado
+  useEffect(() => {
+    if (!selectedClient) {
+      sonnerToast.error('Nenhum cliente selecionado');
+      navigate('/home');
+    }
+  }, [selectedClient, navigate]);
+
   useEffect(() => {
     const initializeSchedule = async () => {
-      if (!planId && tenantId) {
-        // Fetch the most recent approved plan
+      if (!selectedClient || !tenantId) return;
+
+      if (!planId) {
+        // Fetch the most recent approved plan for the selected client
         const { data: approvedPlan, error } = await supabase
           .from("marketing_plans")
           .select("id")
+          .eq("company_id", selectedClient.id)
           .eq("tenant_id", tenantId)
           .eq("approved", true)
           .order("approved_at", { ascending: false })
@@ -69,7 +83,7 @@ export default function Schedule() {
 
         if (error) {
           console.error("Error fetching approved plan:", error);
-          navigate("/plans");
+          navigate("/client-hub");
           return;
         }
 
@@ -77,7 +91,8 @@ export default function Schedule() {
           navigate(`/schedule?planId=${approvedPlan.id}`, { replace: true });
           return;
         } else {
-          navigate("/plans");
+          sonnerToast.error("Nenhum plano aprovado encontrado para este cliente");
+          navigate("/client-hub");
           return;
         }
       }
@@ -88,7 +103,7 @@ export default function Schedule() {
     };
 
     initializeSchedule();
-  }, [planId, tenantId]);
+  }, [planId, tenantId, selectedClient, navigate]);
 
   const fetchCards = async () => {
     try {
