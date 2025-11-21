@@ -28,7 +28,7 @@ const ClientHub = () => {
     title: "Perguntas Guias",
     icon: FileText,
     gradient: "from-blue-400 to-cyan-500",
-    route: "/questions",
+    route: "/generate-questions",
     emoji: "❓"
   }, {
     title: "Planejamento",
