@@ -12,10 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { ArrowLeft, Calendar, FileText, User, Link as LinkIcon, Edit2, Save, Search, Filter } from "lucide-react";
+import { ArrowLeft, Calendar, FileText, User, Link as LinkIcon, Edit2, Save, Search, Filter, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
 
 interface KanbanCard {
   id: string;
@@ -56,6 +57,8 @@ export default function Schedule() {
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [referenceMonth, setReferenceMonth] = useState<string>("");
   const [regenerating, setRegenerating] = useState(false);
+  const [cardToDelete, setCardToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const planId = searchParams.get("planId");
 
@@ -178,6 +181,32 @@ export default function Schedule() {
       sonnerToast.error("Erro ao regenerar cronograma. Tente novamente.");
     } finally {
       setRegenerating(false);
+    }
+  };
+
+  const handleDeleteCard = async () => {
+    if (!cardToDelete) return;
+
+    try {
+      setIsDeleting(true);
+
+      const { error } = await supabase
+        .from("cards")
+        .delete()
+        .eq("id", cardToDelete);
+
+      if (error) throw error;
+
+      sonnerToast.success("Card excluído com sucesso!");
+      setCardToDelete(null);
+      
+      // Recarregar os cards
+      await fetchCards();
+    } catch (error) {
+      console.error("Error deleting card:", error);
+      sonnerToast.error("Erro ao excluir card");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -490,24 +519,37 @@ export default function Schedule() {
                             {(provided, snapshot) => (
                               <Dialog>
                                 <DialogTrigger asChild>
-                                  <Card
-                                    ref={provided.innerRef}
-                                    {...provided.draggableProps}
-                                    {...provided.dragHandleProps}
-                                    className={`cursor-pointer bg-white border border-[#E5E7EB] p-3 sm:p-4 rounded-lg transition-all duration-200 w-full max-h-[160px] overflow-hidden ${
-                                      snapshot.isDragging 
-                                        ? "shadow-xl rotate-2 scale-105" 
-                                        : "shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md"
-                                    }`}
-                                    onClick={() => {
-                                      setSelectedCard(card);
-                                      setEditMode(false);
-                                    }}
-                                  >
-                                    {/* Card Title */}
-                                    <h4 className="text-[13px] sm:text-[14px] font-semibold text-[#111827] mb-2 leading-tight line-clamp-2">
-                                      {card.title}
-                                    </h4>
+                                   <Card
+                                     ref={provided.innerRef}
+                                     {...provided.draggableProps}
+                                     {...provided.dragHandleProps}
+                                     className={`cursor-pointer bg-white border border-[#E5E7EB] p-3 sm:p-4 rounded-lg transition-all duration-200 w-full max-h-[160px] overflow-hidden ${
+                                       snapshot.isDragging 
+                                         ? "shadow-xl rotate-2 scale-105" 
+                                         : "shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md"
+                                     }`}
+                                     onClick={() => {
+                                       setSelectedCard(card);
+                                       setEditMode(false);
+                                     }}
+                                   >
+                                     {/* Card Header with Delete Button */}
+                                     <div className="flex items-start justify-between mb-2 gap-2">
+                                       <h4 className="text-[13px] sm:text-[14px] font-semibold text-[#111827] leading-tight line-clamp-2 flex-1">
+                                         {card.title}
+                                       </h4>
+                                       <Button
+                                         variant="ghost"
+                                         size="icon"
+                                         className="h-6 w-6 flex-shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                         onClick={(e) => {
+                                           e.stopPropagation();
+                                           setCardToDelete(card.id);
+                                         }}
+                                       >
+                                         <Trash2 className="h-3.5 w-3.5" />
+                                       </Button>
+                                     </div>
                                     
                                     {/* Card Metadata */}
                                      <div className="space-y-1 sm:space-y-1.5">
@@ -781,6 +823,15 @@ export default function Schedule() {
           </DragDropContext>
         )}
       </div>
+
+      <ConfirmationModal
+        open={cardToDelete !== null}
+        onOpenChange={(open) => !open && setCardToDelete(null)}
+        title="Excluir Card"
+        description="Tem certeza que deseja excluir este card? Esta ação não pode ser desfeita."
+        onConfirm={handleDeleteCard}
+        loading={isDeleting}
+      />
     </div>
   );
 }
