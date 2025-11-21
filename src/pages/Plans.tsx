@@ -465,7 +465,7 @@ export default function Plans() {
   if (!planId) {
     return <div className="min-h-screen bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          <Button variant="ghost" onClick={() => navigate("/")} className="mb-6 -ml-2">
+          <Button variant="ghost" onClick={() => navigate("/client-hub")} className="mb-6 -ml-2">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar
           </Button>
