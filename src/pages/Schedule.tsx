@@ -292,7 +292,7 @@ export default function Schedule() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate("/plans")}
+              onClick={() => navigate("/client-hub")}
               className="hover:bg-white/80 transition-colors h-8 w-8 sm:h-10 sm:w-10"
             >
               <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
