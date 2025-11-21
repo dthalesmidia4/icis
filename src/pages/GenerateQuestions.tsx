@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, ArrowLeft, FileText, Loader2, Calendar, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ClientSelectionModal } from '@/components/ClientSelectionModal';
 import { MonthSelectionModal } from '@/components/MonthSelectionModal';
 import { useTenant } from '@/contexts/TenantContext';
+import { useSelectedClient } from '@/contexts/SelectedClientContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
@@ -12,61 +12,54 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLocalPlanState } from '@/hooks/useLocalPlanState';
-interface Client {
-  id: string;
-  name: string;
-  cnpj_cpf: string;
-  email: string;
-}
+import { toast as sonnerToast } from 'sonner';
+
 export default function GenerateQuestions() {
   const navigate = useNavigate();
-  const {
-    tenantId
-  } = useTenant();
-  const {
-    toast
-  } = useToast();
-  const [showModal, setShowModal] = useState(true);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const { tenantId } = useTenant();
+  const { selectedClient } = useSelectedClient();
+  const { toast } = useToast();
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [showMonthModal, setShowMonthModal] = useState(false);
-  const {
-    saveState,
-    clearState,
-    savedState
-  } = useLocalPlanState();
-  const {
-    data: questionSession,
-    isLoading: loadingSession
-  } = useQuery({
+  const { saveState, clearState, savedState } = useLocalPlanState();
+
+  useEffect(() => {
+    if (!selectedClient) {
+      sonnerToast.error('Nenhum cliente selecionado');
+      navigate('/home');
+    }
+  }, [selectedClient, navigate]);
+  const { data: questionSession, isLoading: loadingSession } = useQuery({
     queryKey: ['question-session', selectedClient?.id, tenantId],
     queryFn: async () => {
       if (!selectedClient || !tenantId) return null;
-      const {
-        data,
-        error
-      } = await supabase.from('question_sessions').select('*').eq('company_id', selectedClient.id).eq('tenant_id', tenantId).order('created_at', {
-        ascending: false
-      }).limit(1).maybeSingle();
+      
+      const { data, error } = await supabase
+        .from('question_sessions')
+        .select('*')
+        .eq('company_id', selectedClient.id)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     },
     enabled: !!selectedClient && !!tenantId
   });
-  // Load answers when session is loaded
+
   useEffect(() => {
     if (questionSession?.answers) {
       setAnswers(questionSession.answers as Record<string, string>);
     }
   }, [questionSession]);
-  const handleClientSelected = (client: Client) => {
-    setSelectedClient(client);
-    setShowModal(false);
-  };
+
   const handleBack = () => {
-    navigate('/');
+    navigate('/client-hub');
   };
+
   const handleViewStrategy = () => {
     navigate('/strategies');
   };
@@ -153,7 +146,6 @@ export default function GenerateQuestions() {
     }
   };
 
-  // Restaurar estado ao carregar, se houver
   useEffect(() => {
     if (savedState?.inProgress && selectedClient) {
       toast({
@@ -162,15 +154,11 @@ export default function GenerateQuestions() {
       });
     }
   }, [savedState, selectedClient]);
-  return <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
-      <ClientSelectionModal open={showModal} onOpenChange={open => {
-      setShowModal(open);
-      if (!open && !selectedClient) {
-        navigate('/');
-      }
-    }} onClientSelected={handleClientSelected} />
 
-      {selectedClient && <div className="container max-w-4xl mx-auto py-8 px-4">
+  if (!selectedClient) return null;
+
+  return <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
+      <div className="container max-w-4xl mx-auto py-8 px-4">
           <Button variant="ghost" onClick={handleBack} className="mb-6">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar
@@ -305,7 +293,7 @@ export default function GenerateQuestions() {
                 </div>
               </div>}
           </div>
-        </div>}
+        </div>
         
       {/* Month Selection Modal */}
       <MonthSelectionModal

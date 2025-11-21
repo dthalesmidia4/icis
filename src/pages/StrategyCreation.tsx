@@ -4,25 +4,17 @@ import { Building2, ArrowLeft, Save, Edit2, Trash2, FileQuestion, CalendarDays }
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ClientSelectionModal } from '@/components/ClientSelectionModal';
 import { ConfirmationModal } from '@/components/ConfirmationModal';
 import { useTenant } from '@/contexts/TenantContext';
+import { useSelectedClient } from '@/contexts/SelectedClientContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
-interface Client {
-  id: string;
-  name: string;
-  cnpj_cpf: string;
-  email: string;
-}
+
 export default function StrategyCreation() {
   const navigate = useNavigate();
-  const {
-    tenantId
-  } = useTenant();
-  const [showModal, setShowModal] = useState(true);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const { tenantId } = useTenant();
+  const { selectedClient } = useSelectedClient();
   const [strategyText, setStrategyText] = useState('');
   const [observations, setObservations] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -32,26 +24,36 @@ export default function StrategyCreation() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isLoadingStrategy, setIsLoadingStrategy] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
   useEffect(() => {
-    if (!selectedClient && !showModal) {
-      // Se o modal foi fechado sem selecionar um cliente, voltar ao hub
-      navigate('/');
+    if (!selectedClient) {
+      toast.error('Nenhum cliente selecionado');
+      navigate('/home');
     }
-  }, [showModal, selectedClient, navigate]);
-  const handleClientSelected = async (client: Client) => {
-    setSelectedClient(client);
-    setShowModal(false);
+  }, [selectedClient, navigate]);
 
-    // Carregar estratégia existente
+  useEffect(() => {
+    if (selectedClient && tenantId) {
+      loadExistingStrategy();
+    }
+  }, [selectedClient, tenantId]);
+
+  const loadExistingStrategy = async () => {
+    if (!selectedClient || !tenantId) return;
+    
     setIsLoadingStrategy(true);
     try {
-      const {
-        data,
-        error
-      } = await supabase.from('strategies').select('*').eq('company_id', client.id).eq('tenant_id', tenantId).order('created_at', {
-        ascending: false
-      }).limit(1).maybeSingle();
+      const { data, error } = await supabase
+        .from('strategies')
+        .select('*')
+        .eq('company_id', selectedClient.id)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
       if (error) throw error;
+
       if (data) {
         setExistingStrategy(data);
         setStrategyText(data.strategy_text);
@@ -160,33 +162,27 @@ export default function StrategyCreation() {
     setObservations(existingStrategy.observations || '');
   };
   const handleBack = () => {
-    if (selectedClient) {
-      setSelectedClient(null);
-      setStrategyText('');
-      setExistingStrategy(null);
-      setIsEditMode(false);
-      setShowModal(true);
-    } else {
-      navigate('/');
-    }
+    navigate('/client-hub');
   };
+
   const handleDeleteStrategy = async () => {
     if (!existingStrategy) return;
     setIsDeleting(true);
     try {
-      // Deletar a estratégia
-      const {
-        error
-      } = await supabase.from('strategies').delete().eq('id', existingStrategy.id);
-      if (error) throw error;
-      toast.success('✅ Estratégia removida com sucesso!');
+      const { error } = await supabase
+        .from('strategies')
+        .delete()
+        .eq('id', existingStrategy.id);
 
-      // Resetar estado e voltar para seleção de cliente
-      setSelectedClient(null);
+      if (error) throw error;
+
+      toast.success('✅ Estratégia removida com sucesso!');
+      
+      // Resetar estado e voltar para hub
       setStrategyText('');
       setExistingStrategy(null);
       setIsEditMode(false);
-      setShowModal(true);
+      navigate('/client-hub');
     } catch (error) {
       console.error('Erro ao remover estratégia:', error);
       toast.error('Erro ao remover estratégia. Tente novamente.');
@@ -195,16 +191,17 @@ export default function StrategyCreation() {
       setShowDeleteModal(false);
     }
   };
+
+  if (!selectedClient) return null;
+
   return <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
-      <ClientSelectionModal open={showModal} onOpenChange={setShowModal} onClientSelected={handleClientSelected} />
-      
       <ConfirmationModal open={showConfirmModal} onOpenChange={setShowConfirmModal} title="Substituir estratégia existente?" description="A estratégia anterior será substituída pela nova versão. Esta ação não pode ser desfeita. Deseja continuar?" onConfirm={handleSave} loading={isSaving} />
 
       
 
       <ConfirmationModal open={showDeleteModal} onOpenChange={setShowDeleteModal} title="Remover estratégia?" description="Esta ação não pode ser desfeita. A estratégia e todas as perguntas guias relacionadas serão removidas permanentemente. Deseja continuar?" onConfirm={handleDeleteStrategy} loading={isDeleting} />
 
-      {selectedClient && <div className="container max-w-4xl mx-auto py-8 px-4">
+      <div className="container max-w-4xl mx-auto py-8 px-4">
           <Button variant="ghost" onClick={handleBack} className="mb-6">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar
@@ -323,6 +320,6 @@ export default function StrategyCreation() {
               </div>
             </div>
           </div>
-        </div>}
+        </div>
     </div>;
 }
