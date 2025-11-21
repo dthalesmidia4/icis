@@ -12,10 +12,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { ArrowLeft, Calendar, FileText, User, Link as LinkIcon, Edit2, Save, Search, Filter } from "lucide-react";
+import { ArrowLeft, Calendar, FileText, User, Link as LinkIcon, Edit2, Save, Search, Filter, Trash2, CheckSquare, Square } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 interface KanbanCard {
   id: string;
   title: string;
@@ -69,6 +80,9 @@ export default function Schedule() {
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [referenceMonth, setReferenceMonth] = useState<string>("");
   const [regenerating, setRegenerating] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const planId = searchParams.get("planId");
 
   // Verificar se há cliente selecionado
@@ -172,6 +186,41 @@ export default function Schedule() {
       sonnerToast.error("Erro ao regenerar cronograma. Tente novamente.");
     } finally {
       setRegenerating(false);
+    }
+  };
+
+  const toggleSelectionMode = () => {
+    setSelectionMode(!selectionMode);
+    setSelectedCardIds([]);
+  };
+
+  const toggleCardSelection = (cardId: string) => {
+    setSelectedCardIds(prev =>
+      prev.includes(cardId)
+        ? prev.filter(id => id !== cardId)
+        : [...prev, cardId]
+    );
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedCardIds.length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from("cards")
+        .delete()
+        .in("id", selectedCardIds);
+
+      if (error) throw error;
+
+      sonnerToast.success(`${selectedCardIds.length} tarefa(s) excluída(s) com sucesso!`);
+      setSelectedCardIds([]);
+      setSelectionMode(false);
+      setShowDeleteDialog(false);
+      await fetchCards();
+    } catch (error) {
+      console.error("Error deleting cards:", error);
+      sonnerToast.error("Erro ao excluir tarefas. Tente novamente.");
     }
   };
   const handleDragEnd = async (result: any) => {
@@ -325,9 +374,31 @@ export default function Schedule() {
             {referenceMonth && <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-3 py-1.5 text-sm font-medium w-fit">
                 📅 Mês de Referência: {referenceMonth}
               </Badge>}
-            <Button variant="outline" size="sm" onClick={handleRegenerateCards} disabled={regenerating} className="w-fit">
-              {regenerating ? "Regenerando..." : "Regenerar Cronograma"}
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleRegenerateCards} disabled={regenerating} className="w-fit">
+                {regenerating ? "Regenerando..." : "Regenerar Cronograma"}
+              </Button>
+              <Button 
+                variant={selectionMode ? "default" : "outline"} 
+                size="sm" 
+                onClick={toggleSelectionMode}
+                className="w-fit"
+              >
+                {selectionMode ? <CheckSquare className="w-4 h-4 mr-2" /> : <Square className="w-4 h-4 mr-2" />}
+                {selectionMode ? "Cancelar Seleção" : "Selecionar"}
+              </Button>
+              {selectionMode && selectedCardIds.length > 0 && (
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="w-fit"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Excluir ({selectedCardIds.length})
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Filtros */}
@@ -408,15 +479,46 @@ export default function Schedule() {
                     {(provided, snapshot) => <div ref={provided.innerRef} {...provided.droppableProps} className={`space-y-3 sm:space-y-4 p-2 sm:p-3 rounded-lg transition-all duration-200 ${snapshot.isDraggingOver ? "bg-[#2563EB]/5 border-2 border-[#2563EB] border-dashed" : "bg-transparent"}`} style={{
                 minHeight: "300px"
               }}>
-                        {getCardsByColumn(column.id).map((card, index) => <Draggable key={card.id} draggableId={card.id} index={index}>
+                        {getCardsByColumn(column.id).map((card, index) => <Draggable key={card.id} draggableId={card.id} index={index} isDragDisabled={selectionMode}>
                             {(provided, snapshot) => <Dialog>
                                 <DialogTrigger asChild>
-                                  <Card ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={`cursor-pointer bg-white border border-[#E5E7EB] p-3 sm:p-4 rounded-lg transition-all duration-200 w-full max-h-[160px] overflow-hidden ${snapshot.isDragging ? "shadow-xl rotate-2 scale-105" : "shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md"}`} onClick={() => {
-                        setSelectedCard(card);
-                        setEditMode(false);
-                      }}>
+                                  <Card 
+                                    ref={provided.innerRef} 
+                                    {...provided.draggableProps} 
+                                    {...provided.dragHandleProps} 
+                                    className={`cursor-pointer bg-white border border-[#E5E7EB] p-3 sm:p-4 rounded-lg transition-all duration-200 w-full max-h-[160px] overflow-hidden ${
+                                      snapshot.isDragging 
+                                        ? "shadow-xl rotate-2 scale-105" 
+                                        : "shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md"
+                                    } ${
+                                      selectionMode && selectedCardIds.includes(card.id)
+                                        ? "ring-2 ring-primary"
+                                        : ""
+                                    }`} 
+                                    onClick={(e) => {
+                                      if (selectionMode) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        toggleCardSelection(card.id);
+                                      } else {
+                                        setSelectedCard(card);
+                                        setEditMode(false);
+                                      }
+                                    }}
+                                  >
+                                    {/* Checkbox for selection mode */}
+                                    {selectionMode && (
+                                      <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
+                                        <Checkbox
+                                          checked={selectedCardIds.includes(card.id)}
+                                          onCheckedChange={() => toggleCardSelection(card.id)}
+                                          className="h-5 w-5 border-2"
+                                        />
+                                      </div>
+                                    )}
+                                    
                                     {/* Card Title */}
-                                    <h4 className="text-[13px] sm:text-[14px] font-semibold text-[#111827] mb-2 leading-tight line-clamp-2">
+                                    <h4 className="text-[13px] sm:text-[14px] font-semibold text-[#111827] mb-2 leading-tight line-clamp-2 pr-8">
                                       {card.title}
                                     </h4>
                                     
@@ -579,6 +681,25 @@ export default function Schedule() {
                 </div>)}
             </div>
           </DragDropContext>}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir {selectedCardIds.length} tarefa(s) selecionada(s)? 
+                Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteSelected} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>;
 }
