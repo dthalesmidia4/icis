@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
-import { ArrowLeft, Calendar, FileText, User, Link as LinkIcon, Edit2, Save } from "lucide-react";
+import { ArrowLeft, Calendar, FileText, User, Link as LinkIcon, Edit2, Save, Search, Filter } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 
@@ -49,6 +49,8 @@ export default function Schedule() {
   const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [channelFilter, setChannelFilter] = useState<string>("all");
 
   const planId = searchParams.get("planId");
 
@@ -199,8 +201,54 @@ export default function Schedule() {
     }
   };
 
+  // Extrair canais únicos dos cards
+  const availableChannels = useMemo(() => {
+    const channels = new Set<string>();
+    cards.forEach(card => {
+      // Buscar por canal em file_location ou description
+      const text = `${card.file_location || ''} ${card.description || ''}`.toLowerCase();
+      
+      // Lista de canais comuns
+      const channelKeywords = [
+        'instagram', 'facebook', 'linkedin', 'youtube', 
+        'tiktok', 'twitter', 'whatsapp', 'email', 'e-mail',
+        'reels', 'story', 'stories', 'post', 'feed'
+      ];
+      
+      channelKeywords.forEach(keyword => {
+        if (text.includes(keyword)) {
+          // Normalizar nome do canal
+          const normalizedChannel = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+          channels.add(normalizedChannel);
+        }
+      });
+    });
+    return Array.from(channels).sort();
+  }, [cards]);
+
+  // Filtrar cards baseado na busca e filtro de canal
+  const filteredCards = useMemo(() => {
+    return cards.filter(card => {
+      // Filtro de busca
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = !searchQuery || 
+        card.title.toLowerCase().includes(searchLower) ||
+        card.description?.toLowerCase().includes(searchLower) ||
+        card.file_location?.toLowerCase().includes(searchLower) ||
+        new Date(card.publication_date).toLocaleDateString("pt-BR").includes(searchLower);
+
+      // Filtro de canal
+      const matchesChannel = channelFilter === "all" || (() => {
+        const text = `${card.file_location || ''} ${card.description || ''}`.toLowerCase();
+        return text.includes(channelFilter.toLowerCase());
+      })();
+
+      return matchesSearch && matchesChannel;
+    });
+  }, [cards, searchQuery, channelFilter]);
+
   const getCardsByColumn = (columnId: string) => {
-    return cards.filter((card) => (card.column_name || "Planejamento Automatizado") === columnId);
+    return filteredCards.filter((card) => (card.column_name || "Planejamento Automatizado") === columnId);
   };
 
   if (loading) {
@@ -224,23 +272,59 @@ export default function Schedule() {
     <div className="min-h-screen bg-[#F5F7FA]">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
         {/* Header */}
-        <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/plans")}
-            className="hover:bg-white/80 transition-colors h-8 w-8 sm:h-10 sm:w-10"
-          >
-            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-          </Button>
-          <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#111827]">
-              Cronograma de Tarefas
-            </h1>
-            <p className="text-[#6B7280] mt-0.5 sm:mt-1 text-xs sm:text-sm">
-              Organize e acompanhe suas tarefas no formato Kanban
-            </p>
+        <div className="mb-6 sm:mb-8">
+          <div className="flex items-center gap-3 sm:gap-4 mb-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/plans")}
+              className="hover:bg-white/80 transition-colors h-8 w-8 sm:h-10 sm:w-10"
+            >
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#111827]">
+                Cronograma de Tarefas
+              </h1>
+              <p className="text-[#6B7280] mt-0.5 sm:mt-1 text-xs sm:text-sm">
+                Organize e acompanhe suas tarefas no formato Kanban
+              </p>
+            </div>
           </div>
+
+          {/* Filtros */}
+          {cards.length > 0 && (
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              {/* Barra de busca */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar tarefas por título, descrição ou canal..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 bg-white border-input"
+                />
+              </div>
+
+              {/* Filtro por canal */}
+              <Select value={channelFilter} onValueChange={setChannelFilter}>
+                <SelectTrigger className="w-full sm:w-[220px] bg-white">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-muted-foreground" />
+                    <SelectValue placeholder="Filtrar por canal" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="bg-background">
+                  <SelectItem value="all">Todos os canais</SelectItem>
+                  {availableChannels.map((channel) => (
+                    <SelectItem key={channel} value={channel}>
+                      {channel}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         {cards.length === 0 ? (
@@ -256,6 +340,27 @@ export default function Schedule() {
             </p>
             <Button onClick={() => navigate("/plans")} className="bg-[#2563EB] hover:bg-[#1d4ed8]">
               Voltar para Planos
+            </Button>
+          </Card>
+        ) : filteredCards.length === 0 ? (
+          <Card className="p-8 sm:p-12 text-center bg-white shadow-sm">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-[#F5F7FA] rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+              <Search className="w-10 h-10 sm:w-12 sm:h-12 text-[#6B7280]" />
+            </div>
+            <h2 className="text-xl sm:text-2xl font-semibold text-[#111827] mb-2">
+              Nenhuma tarefa encontrada
+            </h2>
+            <p className="text-[#6B7280] mb-4 sm:mb-6 text-sm sm:text-base">
+              Tente ajustar os filtros de busca ou selecionar outro canal.
+            </p>
+            <Button 
+              onClick={() => {
+                setSearchQuery("");
+                setChannelFilter("all");
+              }} 
+              variant="outline"
+            >
+              Limpar Filtros
             </Button>
           </Card>
         ) : (
