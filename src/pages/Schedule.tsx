@@ -12,21 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { ArrowLeft, Calendar, FileText, User, Link as LinkIcon, Edit2, Save, Search, Filter, Trash2, CheckSquare, Square } from "lucide-react";
+import { ArrowLeft, Calendar, FileText, User, Link as LinkIcon, Edit2, Save, Search, Filter } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+
 interface KanbanCard {
   id: string;
   title: string;
@@ -42,35 +32,21 @@ interface KanbanCard {
   created_at: string;
   updated_at: string;
 }
-const COLUMNS = [{
-  id: "Planejamento Automatizado",
-  title: "Planejamento Automatizado",
-  color: "bg-purple-500"
-}, {
-  id: "A Fazer",
-  title: "A Fazer",
-  color: "bg-blue-500"
-}, {
-  id: "Em Andamento",
-  title: "Em Andamento",
-  color: "bg-amber-500"
-}, {
-  id: "Concluído",
-  title: "Concluído",
-  color: "bg-emerald-500"
-}];
+
+const COLUMNS = [
+  { id: "Planejamento Automatizado", title: "Planejamento Automatizado", color: "bg-purple-500" },
+  { id: "A Fazer", title: "A Fazer", color: "bg-blue-500" },
+  { id: "Em Andamento", title: "Em Andamento", color: "bg-amber-500" },
+  { id: "Concluído", title: "Concluído", color: "bg-emerald-500" },
+];
+
 export default function Schedule() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const {
-    toast
-  } = useToast();
-  const {
-    tenantId
-  } = useTenant();
-  const {
-    selectedClient
-  } = useSelectedClient();
+  const { toast } = useToast();
+  const { tenantId } = useTenant();
+  const { selectedClient } = useSelectedClient();
+  
   const [loading, setLoading] = useState(true);
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
@@ -80,9 +56,7 @@ export default function Schedule() {
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [referenceMonth, setReferenceMonth] = useState<string>("");
   const [regenerating, setRegenerating] = useState(false);
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedCardIds, setSelectedCardIds] = useState<string[]>([]);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
   const planId = searchParams.get("planId");
 
   // Verificar se há cliente selecionado
@@ -92,26 +66,31 @@ export default function Schedule() {
       navigate('/home');
     }
   }, [selectedClient, navigate]);
+
   useEffect(() => {
     const initializeSchedule = async () => {
       if (!selectedClient || !tenantId) return;
+
       if (!planId) {
         // Fetch the most recent approved plan for the selected client
-        const {
-          data: approvedPlan,
-          error
-        } = await supabase.from("marketing_plans").select("id").eq("company_id", selectedClient.id).eq("tenant_id", tenantId).eq("approved", true).order("approved_at", {
-          ascending: false
-        }).limit(1).maybeSingle();
+        const { data: approvedPlan, error } = await supabase
+          .from("marketing_plans")
+          .select("id")
+          .eq("company_id", selectedClient.id)
+          .eq("tenant_id", tenantId)
+          .eq("approved", true)
+          .order("approved_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
         if (error) {
           console.error("Error fetching approved plan:", error);
           navigate("/client-hub");
           return;
         }
+
         if (approvedPlan) {
-          navigate(`/schedule?planId=${approvedPlan.id}`, {
-            replace: true
-          });
+          navigate(`/schedule?planId=${approvedPlan.id}`, { replace: true });
           return;
         } else {
           sonnerToast.error("Nenhum plano aprovado encontrado para este cliente");
@@ -119,32 +98,43 @@ export default function Schedule() {
           return;
         }
       }
+
       if (planId) {
         fetchCards();
       }
     };
+
     initializeSchedule();
   }, [planId, tenantId, selectedClient, navigate]);
+
   const fetchCards = async () => {
     try {
       setLoading(true);
-
+      
       // Buscar cards e informações do plano
-      const [cardsResponse, planResponse] = await Promise.all([supabase.from("cards").select("*").eq("plan_id", planId).order("created_at", {
-        ascending: true
-      }), supabase.from("marketing_plans").select("selected_month").eq("id", planId).single()]);
+      const [cardsResponse, planResponse] = await Promise.all([
+        supabase
+          .from("cards")
+          .select("*")
+          .eq("plan_id", planId)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("marketing_plans")
+          .select("selected_month")
+          .eq("id", planId)
+          .single()
+      ]);
+
       if (cardsResponse.error) throw cardsResponse.error;
       if (planResponse.error) throw planResponse.error;
-      setCards(cardsResponse.data || []);
 
+      setCards(cardsResponse.data || []);
+      
       // Formatar o mês de referência
       if (planResponse.data?.selected_month) {
         const [year, month] = planResponse.data.selected_month.split('-');
         const date = new Date(parseInt(year), parseInt(month) - 1, 1);
-        const formattedMonth = date.toLocaleDateString('pt-BR', {
-          month: 'long',
-          year: 'numeric'
-        });
+        const formattedMonth = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
         setReferenceMonth(formattedMonth.charAt(0).toUpperCase() + formattedMonth.slice(1));
       }
     } catch (error) {
@@ -152,33 +142,35 @@ export default function Schedule() {
       toast({
         title: "Erro ao carregar tarefas",
         description: "Não foi possível carregar as tarefas do cronograma.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
+
   const handleRegenerateCards = async () => {
     if (!planId) return;
+    
     setRegenerating(true);
     try {
       // Primeiro, deletar os cards existentes
-      const {
-        error: deleteError
-      } = await supabase.from("cards").delete().eq("plan_id", planId);
+      const { error: deleteError } = await supabase
+        .from("cards")
+        .delete()
+        .eq("plan_id", planId);
+
       if (deleteError) throw deleteError;
 
       // Chamar a edge function para regenerar
-      const {
-        error: functionError
-      } = await supabase.functions.invoke('generate-kanban-tasks', {
-        body: {
-          planId
-        }
+      const { error: functionError } = await supabase.functions.invoke('generate-kanban-tasks', {
+        body: { planId }
       });
-      if (functionError) throw functionError;
-      sonnerToast.success("Cronograma regenerado com sucesso!");
 
+      if (functionError) throw functionError;
+
+      sonnerToast.success("Cronograma regenerado com sucesso!");
+      
       // Recarregar os cards
       await fetchCards();
     } catch (error) {
@@ -189,104 +181,79 @@ export default function Schedule() {
     }
   };
 
-  const toggleSelectionMode = () => {
-    setSelectionMode(!selectionMode);
-    setSelectedCardIds([]);
-  };
-
-  const toggleCardSelection = (cardId: string) => {
-    setSelectedCardIds(prev =>
-      prev.includes(cardId)
-        ? prev.filter(id => id !== cardId)
-        : [...prev, cardId]
-    );
-  };
-
-  const handleDeleteSelected = async () => {
-    if (selectedCardIds.length === 0) return;
-
-    try {
-      const { error } = await supabase
-        .from("cards")
-        .delete()
-        .in("id", selectedCardIds);
-
-      if (error) throw error;
-
-      sonnerToast.success(`${selectedCardIds.length} tarefa(s) excluída(s) com sucesso!`);
-      setSelectedCardIds([]);
-      setSelectionMode(false);
-      setShowDeleteDialog(false);
-      await fetchCards();
-    } catch (error) {
-      console.error("Error deleting cards:", error);
-      sonnerToast.error("Erro ao excluir tarefas. Tente novamente.");
-    }
-  };
   const handleDragEnd = async (result: any) => {
     if (!result.destination) return;
-    const {
-      source,
-      destination,
-      draggableId
-    } = result;
+
+    const { source, destination, draggableId } = result;
+
     if (source.droppableId === destination.droppableId) return;
-    const card = cards.find(c => c.id === draggableId);
+
+    const card = cards.find((c) => c.id === draggableId);
     if (!card) return;
+
     const newColumnName = destination.droppableId;
-    const newStatus = newColumnName === "Concluído" ? "completed" : newColumnName === "Em Andamento" ? "in_progress" : "unassigned";
+    const newStatus = newColumnName === "Concluído" ? "completed" : 
+                      newColumnName === "Em Andamento" ? "in_progress" : "unassigned";
 
     // Atualizar localmente
-    setCards(prev => prev.map(c => c.id === draggableId ? {
-      ...c,
-      column_name: newColumnName,
-      status: newStatus
-    } : c));
+    setCards((prev) =>
+      prev.map((c) =>
+        c.id === draggableId
+          ? { ...c, column_name: newColumnName, status: newStatus }
+          : c
+      )
+    );
 
     // Atualizar no banco
     try {
-      const {
-        error
-      } = await supabase.from("cards").update({
-        column_name: newColumnName,
-        status: newStatus
-      }).eq("id", draggableId);
+      const { error } = await supabase
+        .from("cards")
+        .update({ column_name: newColumnName, status: newStatus })
+        .eq("id", draggableId);
+
       if (error) throw error;
+
       toast({
         title: "Tarefa movida!",
-        description: `Movida para "${newColumnName}"`
+        description: `Movida para "${newColumnName}"`,
       });
     } catch (error) {
       console.error("Error updating card:", error);
       toast({
         title: "Erro ao mover tarefa",
         description: "Não foi possível atualizar a tarefa.",
-        variant: "destructive"
+        variant: "destructive",
       });
       // Reverter mudança local
       fetchCards();
     }
   };
+
   const handleSaveCard = async () => {
     if (!selectedCard) return;
+
     setSaving(true);
     try {
-      const {
-        error
-      } = await supabase.from("cards").update({
-        title: selectedCard.title,
-        description: selectedCard.description,
-        publication_date: selectedCard.publication_date,
-        file_location: selectedCard.file_location,
-        observations: selectedCard.observations,
-        responsible_name: selectedCard.responsible_name,
-        status: selectedCard.status
-      }).eq("id", selectedCard.id);
+      const { error } = await supabase
+        .from("cards")
+        .update({
+          title: selectedCard.title,
+          description: selectedCard.description,
+          publication_date: selectedCard.publication_date,
+          file_location: selectedCard.file_location,
+          observations: selectedCard.observations,
+          responsible_name: selectedCard.responsible_name,
+          status: selectedCard.status,
+        })
+        .eq("id", selectedCard.id);
+
       if (error) throw error;
+
       toast({
         title: "Tarefa atualizada!",
-        description: "As alterações foram salvas com sucesso."
+        description: "As alterações foram salvas com sucesso.",
       });
+
       setEditMode(false);
       fetchCards();
     } catch (error) {
@@ -294,7 +261,7 @@ export default function Schedule() {
       toast({
         title: "Erro ao salvar",
         description: "Não foi possível salvar as alterações.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setSaving(false);
@@ -307,9 +274,14 @@ export default function Schedule() {
     cards.forEach(card => {
       // Buscar por canal em file_location ou description
       const text = `${card.file_location || ''} ${card.description || ''}`.toLowerCase();
-
+      
       // Lista de canais comuns
-      const channelKeywords = ['instagram', 'facebook', 'linkedin', 'youtube', 'tiktok', 'twitter', 'whatsapp', 'email', 'e-mail', 'reels', 'story', 'stories', 'post', 'feed'];
+      const channelKeywords = [
+        'instagram', 'facebook', 'linkedin', 'youtube', 
+        'tiktok', 'twitter', 'whatsapp', 'email', 'e-mail',
+        'reels', 'story', 'stories', 'post', 'feed'
+      ];
+      
       channelKeywords.forEach(keyword => {
         if (text.includes(keyword)) {
           // Normalizar nome do canal
@@ -326,37 +298,55 @@ export default function Schedule() {
     return cards.filter(card => {
       // Filtro de busca
       const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = !searchQuery || card.title.toLowerCase().includes(searchLower) || card.description?.toLowerCase().includes(searchLower) || card.file_location?.toLowerCase().includes(searchLower) || new Date(card.publication_date).toLocaleDateString("pt-BR").includes(searchLower);
+      const matchesSearch = !searchQuery || 
+        card.title.toLowerCase().includes(searchLower) ||
+        card.description?.toLowerCase().includes(searchLower) ||
+        card.file_location?.toLowerCase().includes(searchLower) ||
+        new Date(card.publication_date).toLocaleDateString("pt-BR").includes(searchLower);
 
       // Filtro de canal
       const matchesChannel = channelFilter === "all" || (() => {
         const text = `${card.file_location || ''} ${card.description || ''}`.toLowerCase();
         return text.includes(channelFilter.toLowerCase());
       })();
+
       return matchesSearch && matchesChannel;
     });
   }, [cards, searchQuery, channelFilter]);
+
   const getCardsByColumn = (columnId: string) => {
-    return filteredCards.filter(card => (card.column_name || "Planejamento Automatizado") === columnId);
+    return filteredCards.filter((card) => (card.column_name || "Planejamento Automatizado") === columnId);
   };
+
   if (loading) {
-    return <div className="min-h-screen bg-[#F5F7FA] p-3 sm:p-6">
+    return (
+      <div className="min-h-screen bg-[#F5F7FA] p-3 sm:p-6">
         <div className="max-w-7xl mx-auto">
           <Skeleton className="h-10 sm:h-12 w-48 sm:w-64 mb-6 sm:mb-8" />
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 sm:overflow-x-auto pb-4">
-            {[1, 2, 3, 4].map(i => <div key={i} className="w-full sm:min-w-[324px] sm:max-w-[324px]">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="w-full sm:min-w-[324px] sm:max-w-[324px]">
                 <Skeleton className="h-[400px] sm:h-[500px]" />
-              </div>)}
+              </div>
+            ))}
           </div>
         </div>
-      </div>;
+      </div>
+    );
   }
-  return <div className="min-h-screen bg-[#F5F7FA]">
+
+  return (
+    <div className="min-h-screen bg-[#F5F7FA]">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div className="flex items-center gap-3 sm:gap-4 mb-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/client-hub")} className="hover:bg-white/80 transition-colors h-8 w-8 sm:h-10 sm:w-10">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/client-hub")}
+              className="hover:bg-white/80 transition-colors h-8 w-8 sm:h-10 sm:w-10"
+            >
               <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
             <div>
@@ -371,42 +361,34 @@ export default function Schedule() {
 
           {/* Mês de Referência e Ações */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4">
-            {referenceMonth && <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-3 py-1.5 text-sm font-medium w-fit">
+            {referenceMonth && (
+              <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-3 py-1.5 text-sm font-medium w-fit">
                 📅 Mês de Referência: {referenceMonth}
-              </Badge>}
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleRegenerateCards} disabled={regenerating} className="w-fit">
-                {regenerating ? "Regenerando..." : "Regenerar Cronograma"}
-              </Button>
-              <Button 
-                variant={selectionMode ? "default" : "outline"} 
-                size="sm" 
-                onClick={toggleSelectionMode}
-                className="w-fit"
-              >
-                {selectionMode ? <CheckSquare className="w-4 h-4 mr-2" /> : <Square className="w-4 h-4 mr-2" />}
-                {selectionMode ? "Cancelar Seleção" : "Selecionar"}
-              </Button>
-              {selectionMode && selectedCardIds.length > 0 && (
-                <Button 
-                  variant="destructive" 
-                  size="sm" 
-                  onClick={() => setShowDeleteDialog(true)}
-                  className="w-fit"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Excluir ({selectedCardIds.length})
-                </Button>
-              )}
-            </div>
+              </Badge>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRegenerateCards}
+              disabled={regenerating}
+              className="w-fit"
+            >
+              {regenerating ? "Regenerando..." : "Regenerar Cronograma"}
+            </Button>
           </div>
 
           {/* Filtros */}
-          {cards.length > 0 && <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          {cards.length > 0 && (
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               {/* Barra de busca */}
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Buscar tarefas por título, descrição ou canal..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 bg-white border-input" />
+                <Input
+                  placeholder="Buscar tarefas por título, descrição ou canal..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 bg-white border-input"
+                />
               </div>
 
               {/* Filtro por canal */}
@@ -419,15 +401,19 @@ export default function Schedule() {
                 </SelectTrigger>
                 <SelectContent className="bg-background">
                   <SelectItem value="all">Todos os canais</SelectItem>
-                  {availableChannels.map(channel => <SelectItem key={channel} value={channel}>
+                  {availableChannels.map((channel) => (
+                    <SelectItem key={channel} value={channel}>
                       {channel}
-                    </SelectItem>)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-            </div>}
+            </div>
+          )}
         </div>
 
-        {cards.length === 0 ? <Card className="p-8 sm:p-12 text-center bg-white shadow-sm">
+        {cards.length === 0 ? (
+          <Card className="p-8 sm:p-12 text-center bg-white shadow-sm">
             <div className="w-20 h-20 sm:w-24 sm:h-24 bg-[#F5F7FA] rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
               <FileText className="w-10 h-10 sm:w-12 sm:h-12 text-[#6B7280]" />
             </div>
@@ -440,7 +426,9 @@ export default function Schedule() {
             <Button onClick={() => navigate("/plans")} className="bg-[#2563EB] hover:bg-[#1d4ed8]">
               Voltar para Planos
             </Button>
-          </Card> : filteredCards.length === 0 ? <Card className="p-8 sm:p-12 text-center bg-white shadow-sm">
+          </Card>
+        ) : filteredCards.length === 0 ? (
+          <Card className="p-8 sm:p-12 text-center bg-white shadow-sm">
             <div className="w-20 h-20 sm:w-24 sm:h-24 bg-[#F5F7FA] rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
               <Search className="w-10 h-10 sm:w-12 sm:h-12 text-[#6B7280]" />
             </div>
@@ -450,15 +438,21 @@ export default function Schedule() {
             <p className="text-[#6B7280] mb-4 sm:mb-6 text-sm sm:text-base">
               Tente ajustar os filtros de busca ou selecionar outro canal.
             </p>
-            <Button onClick={() => {
-          setSearchQuery("");
-          setChannelFilter("all");
-        }} variant="outline">
+            <Button 
+              onClick={() => {
+                setSearchQuery("");
+                setChannelFilter("all");
+              }} 
+              variant="outline"
+            >
               Limpar Filtros
             </Button>
-          </Card> : <DragDropContext onDragEnd={handleDragEnd}>
+          </Card>
+        ) : (
+          <DragDropContext onDragEnd={handleDragEnd}>
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 sm:overflow-x-auto pb-4">
-              {COLUMNS.map(column => <div key={column.id} className="w-full sm:min-w-[300px] sm:max-w-[324px] md:min-w-[324px] flex-shrink-0">
+              {COLUMNS.map((column) => (
+                <div key={column.id} className="w-full sm:min-w-[300px] sm:max-w-[324px] md:min-w-[324px] flex-shrink-0">
                   {/* Column Header */}
                   <div className="bg-white rounded-lg shadow-sm mb-3 sm:mb-4 border border-[#E5E7EB]">
                     <div className="h-11 sm:h-12 px-3 sm:px-4 flex items-center justify-between border-b border-[#E5E7EB]">
@@ -476,87 +470,92 @@ export default function Schedule() {
                   
                   {/* Droppable Area */}
                   <Droppable droppableId={column.id}>
-                    {(provided, snapshot) => <div ref={provided.innerRef} {...provided.droppableProps} className={`space-y-3 sm:space-y-4 p-2 sm:p-3 rounded-lg transition-all duration-200 ${snapshot.isDraggingOver ? "bg-[#2563EB]/5 border-2 border-[#2563EB] border-dashed" : "bg-transparent"}`} style={{
-                minHeight: "300px"
-              }}>
-                        {getCardsByColumn(column.id).map((card, index) => <Draggable key={card.id} draggableId={card.id} index={index} isDragDisabled={selectionMode}>
-                            {(provided, snapshot) => <Dialog>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className={`space-y-3 sm:space-y-4 p-2 sm:p-3 rounded-lg transition-all duration-200 ${
+                          snapshot.isDraggingOver 
+                            ? "bg-[#2563EB]/5 border-2 border-[#2563EB] border-dashed" 
+                            : "bg-transparent"
+                        }`}
+                        style={{ minHeight: "300px" }}
+                      >
+                        {getCardsByColumn(column.id).map((card, index) => (
+                          <Draggable
+                            key={card.id}
+                            draggableId={card.id}
+                            index={index}
+                          >
+                            {(provided, snapshot) => (
+                              <Dialog>
                                 <DialogTrigger asChild>
-                                  <Card 
-                                    ref={provided.innerRef} 
-                                    {...provided.draggableProps} 
-                                    {...provided.dragHandleProps} 
+                                  <Card
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
                                     className={`cursor-pointer bg-white border border-[#E5E7EB] p-3 sm:p-4 rounded-lg transition-all duration-200 w-full max-h-[160px] overflow-hidden ${
                                       snapshot.isDragging 
                                         ? "shadow-xl rotate-2 scale-105" 
                                         : "shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md"
-                                    } ${
-                                      selectionMode && selectedCardIds.includes(card.id)
-                                        ? "ring-2 ring-primary"
-                                        : ""
-                                    }`} 
-                                    onClick={(e) => {
-                                      if (selectionMode) {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        toggleCardSelection(card.id);
-                                      } else {
-                                        setSelectedCard(card);
-                                        setEditMode(false);
-                                      }
+                                    }`}
+                                    onClick={() => {
+                                      setSelectedCard(card);
+                                      setEditMode(false);
                                     }}
                                   >
-                                    {/* Checkbox for selection mode */}
-                                    {selectionMode && (
-                                      <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
-                                        <Checkbox
-                                          checked={selectedCardIds.includes(card.id)}
-                                          onCheckedChange={() => toggleCardSelection(card.id)}
-                                          className="h-5 w-5 border-2"
-                                        />
-                                      </div>
-                                    )}
-                                    
                                     {/* Card Title */}
-                                    <h4 className="text-[13px] sm:text-[14px] font-semibold text-[#111827] mb-2 leading-tight line-clamp-2 pr-8">
+                                    <h4 className="text-[13px] sm:text-[14px] font-semibold text-[#111827] mb-2 leading-tight line-clamp-2">
                                       {card.title}
                                     </h4>
                                     
                                     {/* Card Metadata */}
                                      <div className="space-y-1 sm:space-y-1.5">
-                                      {referenceMonth}
+                                      {referenceMonth && (
+                                        <Badge variant="outline" className="text-[9px] sm:text-[10px] px-1.5 py-0.5 h-auto font-normal border-primary/30 text-primary">
+                                          {referenceMonth.split(' ')[0]}
+                                        </Badge>
+                                      )}
                                       <div className="flex items-center gap-1.5 sm:gap-2 text-[#6B7280] text-[10px] sm:text-[11px]">
                                         <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
                                         <span className="font-medium">
                                           {new Date(card.publication_date).toLocaleDateString("pt-BR", {
-                                day: "2-digit",
-                                month: "2-digit"
-                              })}
+                                            day: "2-digit",
+                                            month: "2-digit",
+                                          })}
                                         </span>
                                       </div>
                                       
-                                      {card.file_location && <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px]">
+                                      {card.file_location && (
+                                        <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px]">
                                           <LinkIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0 text-[#2563EB]" />
                                           <span className="truncate text-[#2563EB]">
                                             {card.file_location}
                                           </span>
-                                        </div>}
+                                        </div>
+                                      )}
                                       
-                                      {!card.file_location && <div className="flex items-center gap-1.5 sm:gap-2 text-[#9CA3AF] text-[10px] sm:text-[11px]">
+                                      {!card.file_location && (
+                                        <div className="flex items-center gap-1.5 sm:gap-2 text-[#9CA3AF] text-[10px] sm:text-[11px]">
                                           <FileText className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
                                           <span>Sem arquivo</span>
-                                        </div>}
+                                        </div>
+                                      )}
                                       
-                                      {card.responsible_name && <div className="flex items-center gap-1.5 sm:gap-2 text-[#6B7280] text-[10px] sm:text-[11px]">
+                                      {card.responsible_name && (
+                                        <div className="flex items-center gap-1.5 sm:gap-2 text-[#6B7280] text-[10px] sm:text-[11px]">
                                           <User className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
                                           <span className="truncate">{card.responsible_name}</span>
-                                        </div>}
+                                        </div>
+                                      )}
                                     </div>
                                     
                                     {/* Card Description */}
-                                    {card.description && <p className="text-[10px] sm:text-[11px] text-[#4B5563] mt-1.5 sm:mt-2 leading-relaxed line-clamp-2">
+                                    {card.description && (
+                                      <p className="text-[10px] sm:text-[11px] text-[#4B5563] mt-1.5 sm:mt-2 leading-relaxed line-clamp-2">
                                         {card.description}
-                                      </p>}
+                                      </p>
+                                    )}
                                   </Card>
                                 </DialogTrigger>
 
@@ -568,23 +567,40 @@ export default function Schedule() {
                                     </DialogTitle>
                                   </DialogHeader>
 
-                                  {selectedCard && <div className="space-y-4 sm:space-y-5 pt-2">
+                                  {selectedCard && (
+                                    <div className="space-y-4 sm:space-y-5 pt-2">
                                       {/* Title */}
                                       <div>
                                         <Label className="text-sm font-semibold text-[#111827]">Título</Label>
-                                        {editMode ? <Input value={selectedCard.title} onChange={e => setSelectedCard({
-                            ...selectedCard,
-                            title: e.target.value
-                          })} className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]" /> : <p className="text-[15px] mt-2 text-[#111827]">{selectedCard.title}</p>}
+                                        {editMode ? (
+                                          <Input
+                                            value={selectedCard.title}
+                                            onChange={(e) =>
+                                              setSelectedCard({
+                                                ...selectedCard,
+                                                title: e.target.value,
+                                              })
+                                            }
+                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
+                                          />
+                                        ) : (
+                                          <p className="text-[15px] mt-2 text-[#111827]">{selectedCard.title}</p>
+                                        )}
                                       </div>
 
                                       {/* Status */}
                                       <div>
                                         <Label className="text-sm font-semibold text-[#111827]">Status</Label>
-                                        {editMode ? <Select value={selectedCard.status} onValueChange={value => setSelectedCard({
-                            ...selectedCard,
-                            status: value
-                          })}>
+                                        {editMode ? (
+                                          <Select
+                                            value={selectedCard.status}
+                                            onValueChange={(value) =>
+                                              setSelectedCard({
+                                                ...selectedCard,
+                                                status: value,
+                                              })
+                                            }
+                                          >
                                             <SelectTrigger className="mt-2 border-[#E5E7EB]">
                                               <SelectValue />
                                             </SelectTrigger>
@@ -593,113 +609,178 @@ export default function Schedule() {
                                               <SelectItem value="in_progress">Em Andamento</SelectItem>
                                               <SelectItem value="completed">Concluído</SelectItem>
                                             </SelectContent>
-                                          </Select> : <p className="text-sm mt-2 text-[#6B7280]">
-                                            {selectedCard.status === "completed" ? "Concluído" : selectedCard.status === "in_progress" ? "Em Andamento" : "A Fazer"}
-                                          </p>}
+                                          </Select>
+                                        ) : (
+                                          <p className="text-sm mt-2 text-[#6B7280]">
+                                            {selectedCard.status === "completed" ? "Concluído" :
+                                             selectedCard.status === "in_progress" ? "Em Andamento" : "A Fazer"}
+                                          </p>
+                                        )}
                                       </div>
 
                                        {/* Publication Date */}
                                       <div>
                                         <Label className="text-sm font-semibold text-[#111827]">Data de Publicação</Label>
-                                        {editMode ? <Input type="date" value={selectedCard.publication_date} onChange={e => setSelectedCard({
-                            ...selectedCard,
-                            publication_date: e.target.value
-                          })} className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]" /> : <p className="text-sm mt-2 text-[#6B7280]">
+                                        {editMode ? (
+                                          <Input
+                                            type="date"
+                                            value={selectedCard.publication_date}
+                                            onChange={(e) =>
+                                              setSelectedCard({
+                                                ...selectedCard,
+                                                publication_date: e.target.value,
+                                              })
+                                            }
+                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
+                                          />
+                                        ) : (
+                                          <p className="text-sm mt-2 text-[#6B7280]">
                                             {new Date(selectedCard.publication_date).toLocaleDateString("pt-BR")}
-                                          </p>}
+                                          </p>
+                                        )}
                                       </div>
 
                                       {/* Responsible */}
                                       <div>
                                         <Label className="text-sm font-semibold text-[#111827]">Responsável</Label>
-                                        {editMode ? <Input value={selectedCard.responsible_name || ""} onChange={e => setSelectedCard({
-                            ...selectedCard,
-                            responsible_name: e.target.value
-                          })} placeholder="Nome do responsável" className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]" /> : <p className="text-sm mt-2 text-[#6B7280]">
+                                        {editMode ? (
+                                          <Input
+                                            value={selectedCard.responsible_name || ""}
+                                            onChange={(e) =>
+                                              setSelectedCard({
+                                                ...selectedCard,
+                                                responsible_name: e.target.value,
+                                              })
+                                            }
+                                            placeholder="Nome do responsável"
+                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
+                                          />
+                                        ) : (
+                                          <p className="text-sm mt-2 text-[#6B7280]">
                                             {selectedCard.responsible_name || "Não atribuído"}
-                                          </p>}
+                                          </p>
+                                        )}
                                       </div>
 
                                       {/* File Location */}
                                       <div>
                                         <Label className="text-sm font-semibold text-[#111827]">Local do Arquivo</Label>
-                                        {editMode ? <Input value={selectedCard.file_location || ""} onChange={e => setSelectedCard({
-                            ...selectedCard,
-                            file_location: e.target.value
-                          })} placeholder="Link, upload ou anotação" className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]" /> : <p className="text-sm mt-2 text-[#6B7280]">
+                                        {editMode ? (
+                                          <Input
+                                            value={selectedCard.file_location || ""}
+                                            onChange={(e) =>
+                                              setSelectedCard({
+                                                ...selectedCard,
+                                                file_location: e.target.value,
+                                              })
+                                            }
+                                            placeholder="Link, upload ou anotação"
+                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
+                                          />
+                                        ) : (
+                                          <p className="text-sm mt-2 text-[#6B7280]">
                                             {selectedCard.file_location || "Não especificado"}
-                                          </p>}
+                                          </p>
+                                        )}
                                       </div>
 
                                       {/* Description */}
                                       <div>
                                         <Label className="text-sm font-semibold text-[#111827]">Descrição</Label>
-                                        {editMode ? <Textarea value={selectedCard.description || ""} onChange={e => setSelectedCard({
-                            ...selectedCard,
-                            description: e.target.value
-                          })} rows={4} placeholder="Explicação do que deve ser feito" className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]" /> : <p className="text-sm mt-2 text-[#4B5563] whitespace-pre-wrap leading-relaxed">
+                                        {editMode ? (
+                                          <Textarea
+                                            value={selectedCard.description || ""}
+                                            onChange={(e) =>
+                                              setSelectedCard({
+                                                ...selectedCard,
+                                                description: e.target.value,
+                                              })
+                                            }
+                                            rows={4}
+                                            placeholder="Explicação do que deve ser feito"
+                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
+                                          />
+                                        ) : (
+                                          <p className="text-sm mt-2 text-[#4B5563] whitespace-pre-wrap leading-relaxed">
                                             {selectedCard.description || "Sem descrição"}
-                                          </p>}
+                                          </p>
+                                        )}
                                       </div>
 
                                       {/* Observations */}
                                       <div>
                                         <Label className="text-sm font-semibold text-[#111827]">Observações</Label>
-                                        {editMode ? <Textarea value={selectedCard.observations || ""} onChange={e => setSelectedCard({
-                            ...selectedCard,
-                            observations: e.target.value
-                          })} rows={3} placeholder="Detalhes adicionais" className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]" /> : <p className="text-sm mt-2 text-[#4B5563] whitespace-pre-wrap leading-relaxed">
+                                        {editMode ? (
+                                          <Textarea
+                                            value={selectedCard.observations || ""}
+                                            onChange={(e) =>
+                                              setSelectedCard({
+                                                ...selectedCard,
+                                                observations: e.target.value,
+                                              })
+                                            }
+                                            rows={3}
+                                            placeholder="Detalhes adicionais"
+                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
+                                          />
+                                        ) : (
+                                          <p className="text-sm mt-2 text-[#4B5563] whitespace-pre-wrap leading-relaxed">
                                             {selectedCard.observations || "Sem observações"}
-                                          </p>}
+                                          </p>
+                                        )}
                                       </div>
 
                                       {/* Action Buttons */}
                                       <div className="flex justify-end gap-3 pt-4 border-t">
-                                        {editMode ? <>
-                                            <Button variant="outline" onClick={() => {
-                              setEditMode(false);
-                              setSelectedCard(card);
-                            }} disabled={saving} className="border-[#E5E7EB] hover:bg-[#F5F7FA]">
+                                        {editMode ? (
+                                          <>
+                                            <Button
+                                              variant="outline"
+                                              onClick={() => {
+                                                setEditMode(false);
+                                                setSelectedCard(card);
+                                              }}
+                                              disabled={saving}
+                                              className="border-[#E5E7EB] hover:bg-[#F5F7FA]"
+                                            >
                                               Cancelar
                                             </Button>
-                                            <Button onClick={handleSaveCard} disabled={saving} className="bg-[#2563EB] hover:bg-[#1d4ed8] gap-2">
+                                            <Button
+                                              onClick={handleSaveCard}
+                                              disabled={saving}
+                                              className="bg-[#2563EB] hover:bg-[#1d4ed8] gap-2"
+                                            >
                                               <Save className="w-4 h-4" />
                                               {saving ? "Salvando..." : "Salvar Alterações"}
                                             </Button>
-                                          </> : <Button onClick={() => setEditMode(true)} className="bg-[#2563EB] hover:bg-[#1d4ed8] gap-2">
+                                          </>
+                                        ) : (
+                                          <Button 
+                                            onClick={() => setEditMode(true)}
+                                            className="bg-[#2563EB] hover:bg-[#1d4ed8] gap-2"
+                                          >
                                             <Edit2 className="w-4 h-4" />
                                             Editar
-                                          </Button>}
+                                          </Button>
+                                        )}
                                       </div>
-                                    </div>}
+                                    </div>
+                                  )}
                                 </DialogContent>
-                              </Dialog>}
-                          </Draggable>)}
+                              </Dialog>
+                            )}
+                          </Draggable>
+                        ))}
                         {provided.placeholder}
-                      </div>}
+                      </div>
+                    )}
                   </Droppable>
-                </div>)}
+                </div>
+              ))}
             </div>
-          </DragDropContext>}
-
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-              <AlertDialogDescription>
-                Tem certeza que deseja excluir {selectedCardIds.length} tarefa(s) selecionada(s)? 
-                Esta ação não pode ser desfeita.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteSelected} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                Excluir
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          </DragDropContext>
+        )}
       </div>
-    </div>;
+    </div>
+  );
 }
