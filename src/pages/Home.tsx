@@ -22,21 +22,21 @@ const Home = () => {
       title: "Gerenciar Clientes",
       icon: Building2,
       gradient: "from-blue-500 to-indigo-600",
-      route: "/client-list",
+      route: "/clientes",
       description: "Acesse a hub de controle de cada cliente"
     },
     {
       title: "Cadastrar Cliente",
       icon: UserPlus,
       gradient: "from-green-500 to-emerald-600",
-      route: "/company-registration",
+      route: "/registration",
       description: "Adicione um novo cliente à plataforma"
     },
     {
       title: "Lista de Clientes",
       icon: Users,
       gradient: "from-purple-500 to-pink-600",
-      route: "/client-list",
+      route: "/clientes",
       description: "Visualize todos os seus clientes cadastrados"
     }
   ];
