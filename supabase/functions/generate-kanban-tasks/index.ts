@@ -358,19 +358,66 @@ IMPORTANTE:
 
     console.log(`Gerando ${tasks.length} tarefas...`);
 
-    // Criar os cards no banco de dados
-    const cardsToInsert = tasks.map((task) => ({
-      title: task.titulo,
-      status: 'unassigned',
-      column_name: 'Planejamento Automatizado',
-      publication_date: task.data_publicacao,
-      file_location: task.local_arquivo || 'Aguardando material',
-      description: task.descricao,
-      observations: task.observacoes || '',
-      plan_id: planId,
-      tenant_id: plan.tenant_id,
-      responsible_name: null,
-    }));
+    // Validar e normalizar datas antes de inserir
+    const validateAndNormalizeDate = (dateStr: string): string => {
+      try {
+        const date = new Date(dateStr);
+        const dateISO = date.toISOString().split('T')[0];
+        
+        // Verificar se a data é válida
+        if (isNaN(date.getTime())) {
+          console.log(`Data inválida detectada: ${dateStr}, ajustando para ${primeiroDiaValido}`);
+          return primeiroDiaValido;
+        }
+        
+        // Verificar se a data está antes do primeiro dia válido
+        if (dateISO < primeiroDiaValido) {
+          console.log(`Data anterior ao permitido: ${dateISO} → ${primeiroDiaValido}`);
+          return primeiroDiaValido;
+        }
+        
+        // Verificar se a data está depois do último dia válido
+        if (dateISO > ultimoDiaValido) {
+          console.log(`Data posterior ao permitido: ${dateISO} → ${ultimoDiaValido}`);
+          return ultimoDiaValido;
+        }
+        
+        // Verificar se o mês/ano correspondem ao mês selecionado
+        const taskYear = date.getFullYear();
+        const taskMonth = date.getMonth() + 1;
+        
+        if (taskYear !== selectedYear || taskMonth !== selectedMonthNum) {
+          // Tentar manter o mesmo dia, mas no mês correto
+          const day = date.getDate();
+          const normalizedDate = `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-${String(Math.min(day, ultimoDiaMes)).padStart(2, '0')}`;
+          console.log(`Data fora do mês selecionado: ${dateISO} → ${normalizedDate}`);
+          return normalizedDate;
+        }
+        
+        return dateISO;
+      } catch (error) {
+        console.error(`Erro ao validar data ${dateStr}:`, error);
+        return primeiroDiaValido;
+      }
+    };
+
+    // Criar os cards no banco de dados com datas validadas
+    const cardsToInsert = tasks.map((task) => {
+      const normalizedDate = validateAndNormalizeDate(task.data_publicacao);
+      
+      return {
+        title: task.titulo,
+        status: 'unassigned',
+        column_name: 'Planejamento Automatizado',
+        publication_date: normalizedDate,
+        file_location: task.local_arquivo || 'Aguardando material',
+        description: task.descricao,
+        observations: task.observacoes || '',
+        plan_id: planId,
+        tenant_id: plan.tenant_id,
+        responsible_name: null,
+      };
+    });
 
     const { data: insertedCards, error: insertError } = await supabase
       .from('cards')
