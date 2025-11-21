@@ -4,10 +4,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { TenantProvider } from "./contexts/TenantContext";
+import { SelectedClientProvider } from "./contexts/SelectedClientContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { RequireTenant } from "./components/RequireTenant";
 import { Layout } from "./components/Layout";
-import Index from "./pages/Index";
+import Home from "./pages/Home";
+import ClientHub from "./pages/ClientHub";
 import Auth from "./pages/Auth";
 import CompanyRegistration from "./pages/CompanyRegistration";
 import Plan from "./pages/Plan";
@@ -35,7 +37,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <TenantProvider>
-          <Routes>
+          <SelectedClientProvider>
+            <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/agency-setup" element={
               <ProtectedRoute>
@@ -49,9 +52,25 @@ const App = () => (
             } />
             <Route path="/" element={
               <ProtectedRoute>
-                <Layout>
-                  <Index />
-                </Layout>
+                <RequireTenant>
+                  <Home />
+                </RequireTenant>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/home" element={
+              <ProtectedRoute>
+                <RequireTenant>
+                  <Home />
+                </RequireTenant>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/client-hub" element={
+              <ProtectedRoute>
+                <RequireTenant>
+                  <ClientHub />
+                </RequireTenant>
               </ProtectedRoute>
             } />
             <Route path="/registration" element={
@@ -183,6 +202,7 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </SelectedClientProvider>
         </TenantProvider>
       </BrowserRouter>
     </TooltipProvider>

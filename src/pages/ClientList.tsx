@@ -3,18 +3,20 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
+import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Search, Plus, Edit, Trash2, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, Search, Plus, Edit, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 
 const ClientList = () => {
   const navigate = useNavigate();
   const { tenantId } = useTenant();
+  const { setSelectedClient } = useSelectedClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -42,9 +44,21 @@ const ClientList = () => {
     enabled: !!tenantId
   });
 
+  const handleClientSelect = (client: any) => {
+    setSelectedClient({
+      id: client.id,
+      name: client.name,
+      fantasy_name: client.fantasy_name,
+      cnpj_cpf: client.cnpj_cpf,
+      email: client.email
+    });
+    toast.success(`Cliente ${client.fantasy_name || client.name} selecionado`);
+    navigate('/client-hub');
+  };
+
   const handleDelete = async () => {
-    if (!deleteId) return;
-    
+    if (!deleteId || !tenantId) return;
+
     setIsDeleting(true);
     try {
       const { error } = await supabase
@@ -55,14 +69,13 @@ const ClientList = () => {
 
       if (error) throw error;
 
-      toast.success("Cliente excluído com sucesso");
+      toast.success("Cliente removido com sucesso");
       refetch();
-      setDeleteId(null);
-    } catch (error) {
-      console.error('Error deleting client:', error);
-      toast.error("Erro ao excluir cliente");
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao remover cliente");
     } finally {
       setIsDeleting(false);
+      setDeleteId(null);
     }
   };
 
@@ -72,11 +85,11 @@ const ClientList = () => {
         <div className="max-w-7xl mx-auto space-y-6">
           <Button
             variant="ghost"
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/home")}
             className="mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar ao Hub
+            Voltar para Home
           </Button>
 
           <Card className="shadow-[var(--shadow-elevated)]">
@@ -145,10 +158,15 @@ const ClientList = () => {
                         {clients.map((client) => (
                           <TableRow 
                             key={client.id} 
-                            className="cursor-pointer hover:bg-muted/30"
-                            onClick={() => navigate(`/clientes/${client.id}`)}
+                            className="cursor-pointer hover:bg-accent/50 group"
+                            onClick={() => handleClientSelect(client)}
                           >
-                            <TableCell className="font-medium">{client.name}</TableCell>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                {client.fantasy_name || client.name}
+                                <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity text-primary" />
+                              </div>
+                            </TableCell>
                             <TableCell>
                               <Badge variant="outline">{client.sector}</Badge>
                             </TableCell>
