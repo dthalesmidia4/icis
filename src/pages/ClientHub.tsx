@@ -65,16 +65,19 @@ const ClientHub = () => {
             {actionCards.map((card, index) => <Card key={index} className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 border-2 hover:border-primary/50" onClick={() => navigate(card.route)}>
                 <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-5 group-hover:opacity-10 transition-opacity`} />
                 
-                <div className="relative p-8">
-                  
-                  
-                  <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">
-                    {card.title}
-                  </h3>
-                  
-                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${card.gradient} flex items-center justify-center mt-4 mx-auto group-hover:scale-110 transition-transform duration-300`}>
+                <div className="relative p-8 flex flex-col items-center justify-center text-center min-h-[200px]">
+                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${card.gradient} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
                     <card.icon className="w-8 h-8 text-white" />
                   </div>
+                  
+                  <h3 className={`text-xl font-bold transition-colors ${
+                    index === 0 ? 'text-orange-600 dark:text-orange-400' :
+                    index === 1 ? 'text-cyan-600 dark:text-cyan-400' :
+                    index === 2 ? 'text-pink-600 dark:text-pink-400' :
+                    'text-emerald-600 dark:text-emerald-400'
+                  }`}>
+                    {card.title}
+                  </h3>
                 </div>
               </Card>)}
           </div>
