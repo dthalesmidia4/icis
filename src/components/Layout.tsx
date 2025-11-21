@@ -2,9 +2,15 @@ import { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { LogOut } from "lucide-react";
+import { LogOut, ChevronDown, User, Palette } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 interface LayoutProps {
   children: ReactNode;
 }
@@ -37,8 +43,29 @@ export const Layout = ({
                   {tenantName ? getInitials(tenantName) : 'EM'}
                 </AvatarFallback>
               </Avatar>
-              <div>
+              <div className="flex items-center gap-2">
                 <h3 className="text-lg font-semibold">{tenantName || 'Carregando...'}</h3>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    <DropdownMenuItem>
+                      <User className="h-4 w-4 mr-2" />
+                      Perfil
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Palette className="h-4 w-4 mr-2" />
+                      Tema
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleSignOut}>
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sair
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 
@@ -47,10 +74,6 @@ export const Layout = ({
               <Button variant="ghost" size="sm" onClick={() => navigate('/')}>Hub de Controle</Button>
               <Button variant="ghost" size="sm" onClick={() => navigate('/dev-hub')}>
                 Dev
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleSignOut}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Sair
               </Button>
             </div>
           </div>
