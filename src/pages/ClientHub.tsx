@@ -5,55 +5,45 @@ import { Layout } from "@/components/Layout";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useEffect } from "react";
 import { toast } from "sonner";
-
 const ClientHub = () => {
   const navigate = useNavigate();
-  const { selectedClient } = useSelectedClient();
-
+  const {
+    selectedClient
+  } = useSelectedClient();
   useEffect(() => {
     if (!selectedClient) {
       toast.error("Nenhum cliente selecionado");
       navigate('/home');
     }
   }, [selectedClient, navigate]);
-
   if (!selectedClient) return null;
-
   const displayName = selectedClient.fantasy_name || selectedClient.name;
-
-  const actionCards = [
-    {
-      title: "Estratégias",
-      icon: Lightbulb,
-      gradient: "from-yellow-400 to-orange-500",
-      route: "/strategies",
-      emoji: "💡"
-    },
-    {
-      title: "Perguntas Guias",
-      icon: FileText,
-      gradient: "from-blue-400 to-cyan-500",
-      route: "/questions",
-      emoji: "❓"
-    },
-    {
-      title: "Planejamento",
-      icon: Calendar,
-      gradient: "from-purple-400 to-pink-500",
-      route: "/plans",
-      emoji: "📋"
-    },
-    {
-      title: "Cronograma",
-      icon: ListTodo,
-      gradient: "from-green-400 to-emerald-500",
-      route: "/schedule",
-      emoji: "📅"
-    }
-  ];
-
-  return (
-    <Layout>
+  const actionCards = [{
+    title: "Estratégias",
+    icon: Lightbulb,
+    gradient: "from-yellow-400 to-orange-500",
+    route: "/strategies",
+    emoji: "💡"
+  }, {
+    title: "Perguntas Guias",
+    icon: FileText,
+    gradient: "from-blue-400 to-cyan-500",
+    route: "/questions",
+    emoji: "❓"
+  }, {
+    title: "Planejamento",
+    icon: Calendar,
+    gradient: "from-purple-400 to-pink-500",
+    route: "/plans",
+    emoji: "📋"
+  }, {
+    title: "Cronograma",
+    icon: ListTodo,
+    gradient: "from-green-400 to-emerald-500",
+    route: "/schedule",
+    emoji: "📅"
+  }];
+  return <Layout>
       <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
         <div className="container max-w-6xl mx-auto px-6 py-12">
           {/* Header do Cliente */}
@@ -72,18 +62,11 @@ const ClientHub = () => {
 
           {/* Cards de Ação */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {actionCards.map((card, index) => (
-              <Card
-                key={index}
-                className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 border-2 hover:border-primary/50"
-                onClick={() => navigate(card.route)}
-              >
+            {actionCards.map((card, index) => <Card key={index} className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 border-2 hover:border-primary/50" onClick={() => navigate(card.route)}>
                 <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-5 group-hover:opacity-10 transition-opacity`} />
                 
                 <div className="relative p-8">
-                  <div className="text-5xl mb-6 group-hover:scale-110 transition-transform duration-300">
-                    {card.emoji}
-                  </div>
+                  
                   
                   <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">
                     {card.title}
@@ -93,8 +76,7 @@ const ClientHub = () => {
                     <card.icon className="w-8 h-8 text-white" />
                   </div>
                 </div>
-              </Card>
-            ))}
+              </Card>)}
           </div>
 
           {/* Footer Info */}
@@ -105,8 +87,6 @@ const ClientHub = () => {
           </div>
         </div>
       </div>
-    </Layout>
-  );
+    </Layout>;
 };
-
 export default ClientHub;
