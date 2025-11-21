@@ -54,6 +54,8 @@ export default function Schedule() {
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState<string>("all");
+  const [referenceMonth, setReferenceMonth] = useState<string>("");
+  const [regenerating, setRegenerating] = useState(false);
 
   const planId = searchParams.get("planId");
 
@@ -108,15 +110,33 @@ export default function Schedule() {
   const fetchCards = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("cards")
-        .select("*")
-        .eq("plan_id", planId)
-        .order("created_at", { ascending: true });
+      
+      // Buscar cards e informações do plano
+      const [cardsResponse, planResponse] = await Promise.all([
+        supabase
+          .from("cards")
+          .select("*")
+          .eq("plan_id", planId)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("marketing_plans")
+          .select("selected_month")
+          .eq("id", planId)
+          .single()
+      ]);
 
-      if (error) throw error;
+      if (cardsResponse.error) throw cardsResponse.error;
+      if (planResponse.error) throw planResponse.error;
 
-      setCards(data || []);
+      setCards(cardsResponse.data || []);
+      
+      // Formatar o mês de referência
+      if (planResponse.data?.selected_month) {
+        const [year, month] = planResponse.data.selected_month.split('-');
+        const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+        const formattedMonth = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        setReferenceMonth(formattedMonth.charAt(0).toUpperCase() + formattedMonth.slice(1));
+      }
     } catch (error) {
       console.error("Error fetching cards:", error);
       toast({
@@ -126,6 +146,38 @@ export default function Schedule() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRegenerateCards = async () => {
+    if (!planId) return;
+    
+    setRegenerating(true);
+    try {
+      // Primeiro, deletar os cards existentes
+      const { error: deleteError } = await supabase
+        .from("cards")
+        .delete()
+        .eq("plan_id", planId);
+
+      if (deleteError) throw deleteError;
+
+      // Chamar a edge function para regenerar
+      const { error: functionError } = await supabase.functions.invoke('generate-kanban-tasks', {
+        body: { planId }
+      });
+
+      if (functionError) throw functionError;
+
+      sonnerToast.success("Cronograma regenerado com sucesso!");
+      
+      // Recarregar os cards
+      await fetchCards();
+    } catch (error) {
+      console.error("Error regenerating cards:", error);
+      sonnerToast.error("Erro ao regenerar cronograma. Tente novamente.");
+    } finally {
+      setRegenerating(false);
     }
   };
 
@@ -307,6 +359,24 @@ export default function Schedule() {
             </div>
           </div>
 
+          {/* Mês de Referência e Ações */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4">
+            {referenceMonth && (
+              <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-3 py-1.5 text-sm font-medium w-fit">
+                📅 Mês de Referência: {referenceMonth}
+              </Badge>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRegenerateCards}
+              disabled={regenerating}
+              className="w-fit"
+            >
+              {regenerating ? "Regenerando..." : "Regenerar Cronograma"}
+            </Button>
+          </div>
+
           {/* Filtros */}
           {cards.length > 0 && (
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
@@ -440,7 +510,12 @@ export default function Schedule() {
                                     </h4>
                                     
                                     {/* Card Metadata */}
-                                    <div className="space-y-1 sm:space-y-1.5">
+                                     <div className="space-y-1 sm:space-y-1.5">
+                                      {referenceMonth && (
+                                        <Badge variant="outline" className="text-[9px] sm:text-[10px] px-1.5 py-0.5 h-auto font-normal border-primary/30 text-primary">
+                                          {referenceMonth.split(' ')[0]}
+                                        </Badge>
+                                      )}
                                       <div className="flex items-center gap-1.5 sm:gap-2 text-[#6B7280] text-[10px] sm:text-[11px]">
                                         <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
                                         <span className="font-medium">
