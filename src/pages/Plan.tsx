@@ -9,6 +9,8 @@ import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { useSelectedClient } from "@/contexts/SelectedClientContext";
+import { useTenant } from "@/contexts/TenantContext";
 
 interface PlanSection {
   title: string;
@@ -19,6 +21,8 @@ interface PlanSection {
 const Plan = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { selectedClient } = useSelectedClient();
+  const { tenantId } = useTenant();
   const planId = searchParams.get("planId");
   const companyId = searchParams.get("companyId");
   const [loading, setLoading] = useState(true);
@@ -30,10 +34,20 @@ const Plan = () => {
   const [selectedSection, setSelectedSection] = useState<string>("");
   const [showApproveModal, setShowApproveModal] = useState(false);
 
+  // Verificar se há cliente selecionado
   useEffect(() => {
+    if (!selectedClient) {
+      toast.error('Nenhum cliente selecionado');
+      navigate('/home');
+    }
+  }, [selectedClient, navigate]);
+
+  useEffect(() => {
+    if (!selectedClient || !tenantId) return;
+
     if (!planId && !companyId) {
       toast.error("Informações do plano não encontradas");
-      navigate("/");
+      navigate("/client-hub");
       return;
     }
 
@@ -48,9 +62,18 @@ const Plan = () => {
             .from("marketing_plans")
             .select("*")
             .eq("id", planId)
+            .eq("company_id", selectedClient.id)
+            .eq("tenant_id", tenantId)
             .maybeSingle();
 
           if (planError) throw planError;
+          
+          if (!planData) {
+            toast.error("Plano não encontrado para este cliente");
+            navigate("/client-hub");
+            return;
+          }
+
           plan = planData;
 
           if (plan) {
@@ -65,11 +88,19 @@ const Plan = () => {
             company = companyData;
           }
         } else if (companyId) {
+          // Verificar se o companyId corresponde ao cliente selecionado
+          if (companyId !== selectedClient.id) {
+            toast.error("Cliente não corresponde ao selecionado");
+            navigate("/client-hub");
+            return;
+          }
+
           // Buscar empresa e plano mais recente
           const { data: companyData, error: companyError } = await supabase
             .from("tenant_companies")
             .select("*")
             .eq("id", companyId)
+            .eq("tenant_id", tenantId)
             .maybeSingle();
 
           if (companyError) throw companyError;
@@ -80,6 +111,7 @@ const Plan = () => {
               .from("marketing_plans")
               .select("*")
               .eq("company_id", companyId)
+              .eq("tenant_id", tenantId)
               .order("created_at", { ascending: false })
               .limit(1)
               .maybeSingle();
@@ -91,7 +123,7 @@ const Plan = () => {
 
         if (!company) {
           toast.error("Dados da empresa não encontrados");
-          navigate("/");
+          navigate("/client-hub");
           return;
         }
 
@@ -121,7 +153,7 @@ const Plan = () => {
     };
 
     fetchData();
-  }, [planId, companyId, navigate]);
+  }, [planId, companyId, navigate, selectedClient, tenantId]);
 
   const parsePlanSections = (content: string): PlanSection[] => {
     // Split content by numbered sections (e.g., "1.", "2.", "3.")

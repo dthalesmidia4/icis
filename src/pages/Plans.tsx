@@ -10,9 +10,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
+import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Save, Download, FileText, Pencil, CheckCircle, X, Trash2, Calendar } from "lucide-react";
 import { ButtonColorful } from "@/components/ui/button-colorful";
+import { toast as sonnerToast } from "sonner";
 interface MarketingPlan {
   id: string;
   plan_content: string | null;
@@ -33,12 +35,9 @@ interface PlanSection {
 export default function Plans() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const {
-    toast
-  } = useToast();
-  const {
-    tenantId
-  } = useTenant();
+  const { toast } = useToast();
+  const { tenantId } = useTenant();
+  const { selectedClient } = useSelectedClient();
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState<MarketingPlan | null>(null);
   const [plans, setPlans] = useState<MarketingPlan[]>([]);
@@ -56,28 +55,51 @@ export default function Plans() {
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
   const planId = searchParams.get("planId");
+
+  // Verificar se há cliente selecionado
+  useEffect(() => {
+    if (!selectedClient) {
+      sonnerToast.error('Nenhum cliente selecionado');
+      navigate('/home');
+    }
+  }, [selectedClient, navigate]);
+
   useEffect(() => {
     const fetchData = async () => {
+      if (!selectedClient || !tenantId) return;
+
       try {
         if (planId) {
-          // Fetch specific plan
-          const {
-            data,
-            error
-          } = await supabase.from("marketing_plans").select("*, tenant_companies(name)").eq("id", planId).maybeSingle();
+          // Fetch specific plan - verificando se pertence ao cliente selecionado
+          const { data, error } = await supabase
+            .from("marketing_plans")
+            .select("*, tenant_companies(name)")
+            .eq("id", planId)
+            .eq("company_id", selectedClient.id)
+            .eq("tenant_id", tenantId)
+            .maybeSingle();
+
           if (error) throw error;
+          
+          if (!data) {
+            sonnerToast.error('Plano não encontrado para este cliente');
+            navigate('/client-hub');
+            return;
+          }
+
           setPlan(data);
           if (data?.plan_content) {
             setEditedContent(data.plan_content);
           }
-        } else if (tenantId) {
-          // Fetch all plans for the tenant
-          const {
-            data,
-            error
-          } = await supabase.from("marketing_plans").select("*, tenant_companies(name)").eq("tenant_id", tenantId).order("created_at", {
-            ascending: false
-          });
+        } else {
+          // Fetch all plans for the selected client only
+          const { data, error } = await supabase
+            .from("marketing_plans")
+            .select("*, tenant_companies(name)")
+            .eq("company_id", selectedClient.id)
+            .eq("tenant_id", tenantId)
+            .order("created_at", { ascending: false });
+
           if (error) throw error;
           setPlans(data || []);
         }
@@ -92,8 +114,9 @@ export default function Plans() {
         setTimeout(() => setLoading(false), 300);
       }
     };
+
     fetchData();
-  }, [planId, tenantId, toast]);
+  }, [planId, tenantId, selectedClient, toast, navigate]);
   useEffect(() => {
     if (!plan?.plan_content) {
       setSections([]);
