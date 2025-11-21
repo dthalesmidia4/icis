@@ -6,10 +6,9 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight, Search, Plus, Edit, Trash2, Users } from "lucide-react";
+import { ArrowLeft, Search, Plus, Edit, Trash2, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 
@@ -20,6 +19,7 @@ const ClientList = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editMode, setEditMode] = useState(false);
 
   const { data: clients, isLoading, refetch } = useQuery({
     queryKey: ['tenant-clients', tenantId, searchTerm],
@@ -80,130 +80,119 @@ const ClientList = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="p-4 md:p-8">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/home")}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar para Home
-          </Button>
+    <div className="min-h-screen bg-background p-4 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/home")}
+          className="mb-4"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Voltar para Home
+        </Button>
 
-          <Card className="shadow-[var(--shadow-elevated)]">
-            <CardHeader className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-secondary">
-                  <Users className="h-6 w-6 text-primary-foreground" />
-                </div>
-                <div className="flex-1">
-                  <CardTitle className="text-2xl">Lista de Clientes</CardTitle>
-                  <CardDescription>
-                    Visualize e gerencie os clientes cadastrados na sua empresa
-                  </CardDescription>
-                </div>
-                <Button
-                  onClick={() => navigate("/registration")}
-                  className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+        <div className="space-y-6">
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="text-3xl font-bold">Gerenciar Clientes</h1>
+            <Button
+              onClick={() => navigate("/registration")}
+              className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Cliente
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome, setor ou e-mail..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Button
+              variant={editMode ? "default" : "outline"}
+              onClick={() => setEditMode(!editMode)}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Modo Edição
+            </Button>
+          </div>
+
+          {isLoading ? (
+            <div className="text-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-4 text-muted-foreground">Carregando seus clientes...</p>
+            </div>
+          ) : !clients || clients.length === 0 ? (
+            <div className="text-center py-20">
+              <Building2 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <p className="text-lg font-medium mb-2">Nenhum cliente cadastrado ainda</p>
+              <p className="text-muted-foreground mb-4">
+                Comece adicionando seu primeiro cliente
+              </p>
+              <Button onClick={() => navigate("/registration")}>
+                <Plus className="h-4 w-4 mr-2" />
+                Cadastrar Primeiro Cliente
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {clients.map((client) => (
+                <Card 
+                  key={client.id}
+                  className="group relative cursor-pointer hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/50 overflow-hidden"
+                  onClick={() => !editMode && handleClientSelect(client)}
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Cliente
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar por nome, setor ou e-mail..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-
-                {isLoading ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                    <p className="mt-4 text-muted-foreground">Carregando seus clientes...</p>
-                  </div>
-                ) : !clients || clients.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-lg font-medium mb-2">Nenhum cliente cadastrado ainda</p>
-                    <p className="text-muted-foreground mb-4">
-                      Comece adicionando seu primeiro cliente
-                    </p>
-                    <Button onClick={() => navigate("/registration")}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Cadastrar Primeiro Cliente
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="rounded-lg border overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/50">
-                          <TableHead className="font-semibold">Nome do Cliente</TableHead>
-                          <TableHead className="font-semibold">Setor</TableHead>
-                          <TableHead className="font-semibold">Tamanho</TableHead>
-                          <TableHead className="font-semibold">E-mail</TableHead>
-                          <TableHead className="font-semibold text-right">Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {clients.map((client) => (
-                          <TableRow 
-                            key={client.id} 
-                            className="cursor-pointer hover:bg-accent/50 group"
-                            onClick={() => handleClientSelect(client)}
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-secondary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  
+                  <CardHeader className="relative space-y-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-secondary flex-shrink-0">
+                          <Building2 className="h-6 w-6 text-primary-foreground" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-lg truncate">
+                            {client.fantasy_name || client.name}
+                          </CardTitle>
+                          <Badge variant="outline" className="mt-2">
+                            {client.sector}
+                          </Badge>
+                        </div>
+                      </div>
+                      
+                      {editMode && (
+                        <div className="flex gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => navigate(`/clientes/${client.id}`)}
+                            title="Editar cliente"
+                            className="h-8 w-8"
                           >
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-2">
-                                {client.fantasy_name || client.name}
-                                <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity text-primary" />
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{client.sector}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">{client.size}</Badge>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">{client.email}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => navigate(`/clientes/${client.id}`)}
-                                  title="Ver detalhes"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => setDeleteId(client.id)}
-                                  title="Excluir cliente"
-                                  className="text-destructive hover:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteId(client.id)}
+                            title="Excluir cliente"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
