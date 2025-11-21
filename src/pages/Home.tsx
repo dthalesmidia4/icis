@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { UserPlus, Users, Building2 } from "lucide-react";
+import { UserPlus, Building2 } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
@@ -31,13 +31,6 @@ const Home = () => {
       gradient: "from-green-500 to-emerald-600",
       route: "/registration",
       description: "Adicione um novo cliente à plataforma"
-    },
-    {
-      title: "Lista de Clientes",
-      icon: Users,
-      gradient: "from-purple-500 to-pink-600",
-      route: "/clientes",
-      description: "Visualize todos os seus clientes cadastrados"
     }
   ];
 
@@ -56,7 +49,7 @@ const Home = () => {
           </div>
 
           {/* Cards de Ação */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
             {actionCards.map((card, index) => (
               <Card
                 key={index}
