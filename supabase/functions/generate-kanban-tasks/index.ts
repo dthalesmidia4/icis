@@ -116,38 +116,35 @@ serve(async (req) => {
         });
       }
     }
-    // Buscar o plano do banco de dados para obter o selected_month
+    // Buscar o plano do banco de dados para obter o período
     const { data: planData } = await supabase
       .from('marketing_plans')
-      .select('selected_month')
+      .select('periodo_titulo, periodo_data_inicio, periodo_data_fim')
       .eq('id', planId)
       .single();
     
-    const selectedMonth = planData?.selected_month || plan.plan_data?.metadata?.month;
+    const periodTitle = planData?.periodo_titulo;
+    const periodStartDate = planData?.periodo_data_inicio;
+    const periodEndDate = planData?.periodo_data_fim;
     
-    if (!selectedMonth) {
-      throw new Error('Mês de referência não encontrado no plano');
+    if (!periodTitle || !periodStartDate || !periodEndDate) {
+      throw new Error('Período de referência não encontrado no plano');
     }
     
-    // Parse do mês selecionado (formato YYYY-MM)
-    const [selectedYear, selectedMonthNum] = selectedMonth.split('-').map(Number);
-    const selectedDate = new Date(selectedYear, selectedMonthNum - 1, 1);
-    const selectedMonthName = selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    // Parse do período selecionado
+    const startDate = new Date(periodStartDate);
+    const endDate = new Date(periodEndDate);
     
-    // Determinar o contexto temporal baseado no mês selecionado
+    // Determinar o contexto temporal baseado no período selecionado
     const hoje = new Date();
-    const isCurrentMonth = selectedYear === hoje.getFullYear() && selectedMonthNum === (hoje.getMonth() + 1);
-    const diaAtual = isCurrentMonth ? hoje.getDate() : 1;
-    const mesAtual = selectedMonthNum - 1;
-    const anoAtual = selectedYear;
-    const mesReferencia = selectedMonth; // YYYY-MM formato
-    const mesReferenciaFormatado = selectedMonthName;
+    const isPeriodStarted = hoje >= startDate;
+    const diaAtual = isPeriodStarted ? hoje.getDate() : startDate.getDate();
     
-    // Calcular primeiro e último dia válidos do mês selecionado
-    const primeiroDiaValido = isCurrentMonth 
+    // Calcular primeiro e último dia válidos do período
+    const primeiroDiaValido = isPeriodStarted 
       ? hoje.toISOString().split('T')[0]
-      : `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-01`;
-    const ultimoDiaMes = new Date(selectedYear, selectedMonthNum, 0).getDate();
+      : periodStartDate;
+    const ultimoDiaValido = periodEndDate;
     const ultimoDiaValido = `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-${String(ultimoDiaMes).padStart(2, '0')}`;
     const diasRestantes = ultimoDiaMes - diaAtual + 1;
 
@@ -319,7 +316,9 @@ IMPORTANTE: Retorne APENAS o JSON válido, sem texto adicional antes ou depois.`
 - Setor: ${companyData.sector || 'Não informado'}
 - Produtos/Serviços: ${companyData.products_services || 'Não informado'}
 - Tamanho: ${companyData.size || 'Não informado'}
-- Mês de Referência: ${mesReferenciaFormatado}
+- Período de Referência: ${periodTitle}
+- Data de início: ${startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+- Data de fim: ${endDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
 
 ## ESTRATÉGIA DEFINIDA:
 ${strategyText || 'Estratégia não definida'}
@@ -330,10 +329,9 @@ ${answersText}
 
 🚨 ATENÇÃO CRÍTICA SOBRE DATAS:
 - Hoje é ${primeiroDiaValido} - NENHUMA tarefa pode ter data anterior a esta
-- Mês de referência: ${mesReferenciaFormatado}
+- Período de referência: ${periodTitle}
 - Período VÁLIDO para tarefas: de ${primeiroDiaValido} até ${ultimoDiaValido}
-- Dias já passados (NÃO USAR): ${diaAtual > 1 ? `01/${mesAtual + 1} até ${String(diaAtual - 1).padStart(2, '0')}/${mesAtual + 1}` : 'Nenhum'}
-- Dias disponíveis: ${ultimoDiaMes - diaAtual + 1} dias
+- Dias disponíveis: ${diasRestantes} dias
 
 ⚠️ REQUISITOS OBRIGATÓRIOS PARA CADA DEMANDA:
 - Use TODOS os dados fornecidos para criar demandas ultra-específicas
@@ -344,7 +342,7 @@ ${answersText}
 - SEMPRE indique o objetivo e resultado esperado
 - NENHUMA demanda pode ser genérica ou vaga
 - TODAS as datas DEVEM estar entre ${primeiroDiaValido} e ${ultimoDiaValido}
-- Distribua as demandas nos ${ultimoDiaMes - diaAtual + 1} dias disponíveis do mês
+- Distribua as demandas nos ${diasRestantes} dias disponíveis do período
 - Cada descrição deve ter informações suficientes para que o executor comece a trabalhar IMEDIATAMENTE`;
 
     // Chamar Lovable AI
@@ -440,17 +438,7 @@ ${answersText}
           return ultimoDiaValido;
         }
         
-        // Verificar se o mês/ano correspondem ao mês selecionado
-        const taskYear = date.getFullYear();
-        const taskMonth = date.getMonth() + 1;
-        
-        if (taskYear !== selectedYear || taskMonth !== selectedMonthNum) {
-          // Tentar manter o mesmo dia, mas no mês correto
-          const day = date.getDate();
-          const normalizedDate = `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-${String(Math.min(day, ultimoDiaMes)).padStart(2, '0')}`;
-          console.log(`Data fora do mês selecionado: ${dateISO} → ${normalizedDate}`);
-          return normalizedDate;
-        }
+        return dateISO;
         
         return dateISO;
       } catch (error) {

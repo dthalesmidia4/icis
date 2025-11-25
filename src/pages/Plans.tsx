@@ -22,7 +22,9 @@ interface MarketingPlan {
   strategy_id: string;
   created_at: string;
   approved: boolean;
-  selected_month?: string | null;
+  periodo_titulo?: string | null;
+  periodo_data_inicio?: string | null;
+  periodo_data_fim?: string | null;
   tenant_companies?: {
     name: string;
   };
@@ -432,11 +434,11 @@ export default function Plans() {
     
     return sections;
   };
-  const formatMonth = (month?: string | null) => {
-    if (!month) return "";
-    const [year, monthNum] = month.split("-");
-    const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-    return `${monthNames[parseInt(monthNum) - 1]}/${year}`;
+  const formatPeriod = (plan: MarketingPlan) => {
+    if (!plan.periodo_titulo) return "";
+    const startDate = plan.periodo_data_inicio ? new Date(plan.periodo_data_inicio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : "";
+    const endDate = plan.periodo_data_fim ? new Date(plan.periodo_data_fim).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : "";
+    return `${plan.periodo_titulo} (${startDate} - ${endDate})`;
   };
   if (loading) {
     return <div className="min-h-screen bg-background">
@@ -515,9 +517,9 @@ export default function Plans() {
                           </span>}
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        {p.selected_month && (
+                        {p.periodo_titulo && (
                           <Badge variant="outline" className="text-xs px-3 py-1 rounded-full">
-                            {formatMonth(p.selected_month)}
+                            {formatPeriod(p)}
                           </Badge>
                         )}
                         <span>Criado em {new Date(p.created_at).toLocaleDateString('pt-BR')}</span>
@@ -633,11 +635,13 @@ export default function Plans() {
                 <section className="flex flex-col min-h-[420px]">
                   {/* Header with month badge */}
                   <header className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-2">
-                      {plan.selected_month && <Badge variant="outline" className="text-xs px-3 py-1 rounded-full">
-                          Mês de Referência: {formatMonth(plan.selected_month)}
-                        </Badge>}
-                    </div>
+                  <div className="flex items-center gap-2">
+                    {plan.periodo_titulo && (
+                      <Badge variant="outline" className="text-xs px-3 py-1 rounded-full">
+                        Período: {formatPeriod(plan)}
+                      </Badge>
+                    )}
+                  </div>
                       
                     <div className="flex items-center gap-2">
                       {!isEditing ? (

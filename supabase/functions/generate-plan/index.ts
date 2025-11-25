@@ -14,12 +14,12 @@ serve(async (req) => {
   }
 
   try {
-    const { companyId, strategyId, tenantId, selectedMonth } = await req.json();
-    console.log('Generating plan for:', { companyId, strategyId, tenantId, selectedMonth });
+    const { companyId, strategyId, tenantId, periodData } = await req.json();
+    console.log('Generating plan for:', { companyId, strategyId, tenantId, periodData });
 
     // Validar parâmetros obrigatórios
-    if (!selectedMonth) {
-      throw new Error('O mês de referência é obrigatório para gerar o plano');
+    if (!periodData || !periodData.dataInicio || !periodData.dataFim || !periodData.titulo) {
+      throw new Error('Os dados do período são obrigatórios para gerar o plano');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -93,24 +93,24 @@ serve(async (req) => {
     // Obter data atual
     const now = new Date();
     
-    // Parse do mês selecionado (formato YYYY-MM)
-    const [selectedYear, selectedMonthNum] = selectedMonth.split('-').map(Number);
-    const selectedDate = new Date(selectedYear, selectedMonthNum - 1, 1);
-    const selectedMonthName = selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    // Parse do período selecionado
+    const startDate = new Date(periodData.dataInicio);
+    const endDate = new Date(periodData.dataFim);
+    const periodTitle = periodData.titulo;
     
-    // Determinar o contexto temporal baseado no mês selecionado
-    const isCurrentMonth = selectedYear === now.getFullYear() && selectedMonthNum === (now.getMonth() + 1);
-    const diaAtual = isCurrentMonth ? now.getDate() : 1;
-    const mesAtual = selectedMonthNum - 1;
-    const anoAtual = selectedYear;
+    // Determinar o contexto temporal baseado no período selecionado
+    const isPeriodStarted = now >= startDate;
+    const diaAtual = isPeriodStarted ? now.getDate() : startDate.getDate();
     
-    // Calcular primeiro e último dia válidos do mês selecionado
-    const primeiroDiaValido = isCurrentMonth 
+    // Calcular primeiro e último dia válidos do período
+    const primeiroDiaValido = isPeriodStarted 
       ? now.toISOString().split('T')[0]
-      : `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-01`;
-    const ultimoDiaMes = new Date(selectedYear, selectedMonthNum, 0).getDate();
-    const ultimoDiaValido = `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-${String(ultimoDiaMes).padStart(2, '0')}`;
-    const diasRestantes = ultimoDiaMes - diaAtual + 1;
+      : periodData.dataInicio;
+    const ultimoDiaValido = periodData.dataFim;
+    
+    // Calcular dias disponíveis
+    const firstValidDate = isPeriodStarted ? now : startDate;
+    const diasRestantes = Math.ceil((endDate.getTime() - firstValidDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
     // Preparar contexto completo para a IA
     const context = `
@@ -120,8 +120,9 @@ serve(async (req) => {
 
 📅 CONTEXTO TEMPORAL CRÍTICO:
 - DATA ATUAL: ${now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-- MÊS SELECIONADO: ${selectedMonthName}
-- ANO: ${anoAtual}
+- PERÍODO SELECIONADO: ${periodTitle}
+- DATA DE INÍCIO: ${startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+- DATA DE FIM: ${endDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
 - PRIMEIRO DIA VÁLIDO: ${primeiroDiaValido}
 - ÚLTIMO DIA VÁLIDO: ${ultimoDiaValido}
 - DIAS DISPONÍVEIS: ${diasRestantes} dias
@@ -130,7 +131,7 @@ serve(async (req) => {
 1. NUNCA mencione ou sugira ações para datas anteriores a ${primeiroDiaValido}
 2. Todas as recomendações devem considerar que há ${diasRestantes} dias disponíveis
 3. Ao sugerir cronogramas ou distribuição de tarefas, comece SEMPRE a partir de ${primeiroDiaValido}
-4. ${isCurrentMonth ? `Hoje é dia ${diaAtual}. Se mencionar semanas, recalcule a partir de hoje, não do dia 01` : 'Este é um mês futuro, pode usar o mês completo para planejamento'}
+4. ${isPeriodStarted ? `O período já começou. Hoje é ${now.toLocaleDateString('pt-BR')}. Recalcule considerando apenas os dias restantes` : 'Este é um período futuro, pode usar o período completo para planejamento'}
 5. Seja realista quanto ao tempo disponível para execução
 
 DADOS CADASTRAIS DO CLIENTE:
@@ -161,10 +162,13 @@ IMPORTANTE: Todas as tarefas, recomendações e ações do plano DEVEM estar em 
 PERGUNTAS E RESPOSTAS:
 ${questionsAndAnswers.map((qa: { question: string; answer: string }, idx: number) => `${idx + 1}. ${qa.question}\n   Resposta: ${qa.answer}`).join('\n\n')}
 
-MÊS DE REFERÊNCIA PARA O CRONOGRAMA: ${selectedMonthName}
+PERÍODO DE REFERÊNCIA PARA O CRONOGRAMA:
+- Título: ${periodTitle}
+- Data de Início: ${startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+- Data de Fim: ${endDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
 
 🎯 DIRETRIZES FINAIS PARA O PLANO:
-- Use EXATAMENTE o mês de referência "${selectedMonthName}" para criar o cronograma
+- Use EXATAMENTE o período "${periodTitle}" para criar o cronograma
 - Período válido: de ${primeiroDiaValido} até ${ultimoDiaValido}
 - Você tem ${diasRestantes} dias disponíveis para planejar
 - Seja específico e realista considerando o tempo real disponível
@@ -205,19 +209,19 @@ ${systemPrompt.prompt_content}
 🚨 NUNCA mencione, sugira ou planeje ações para datas que já passaram.
 
 📅 CONTEXTO TEMPORAL:
-- Se hoje é dia ${diaAtual} do mês, você tem apenas ${diasRestantes} dias úteis disponíveis
-- TODAS as recomendações, cronogramas e sugestões devem começar a partir de HOJE
-- Se mencionar semanas, recalcule considerando que estamos no dia ${diaAtual}
-- NUNCA use expressões como "Na primeira semana do mês" se essa semana já passou
+- Se o período já começou, você tem apenas ${diasRestantes} dias úteis disponíveis
+- TODAS as recomendações, cronogramas e sugestões devem começar a partir de ${isPeriodStarted ? 'HOJE' : 'a data de início do período'}
+- Se mencionar semanas, recalcule considerando a data atual
+- NUNCA use expressões que referenciem datas já passadas
 
 ✅ CORRETO:
-- "A partir ${isCurrentMonth ? 'de hoje' : 'do início do mês'}, nos próximos ${diasRestantes} dias..."
-- ${isCurrentMonth ? `"Na semana atual (a partir do dia ${diaAtual})..."` : '"Na primeira semana do mês..."'}
-- "Nas próximas X semanas ${isCurrentMonth ? 'restantes' : ''} do mês..."
+- "A partir ${isPeriodStarted ? 'de hoje' : 'do início do período'}, nos próximos ${diasRestantes} dias..."
+- ${isPeriodStarted ? `"A partir de agora, considerando os dias restantes do período..."` : '"Durante o período completo..."'}
+- "Nas próximas X semanas ${isPeriodStarted ? 'restantes' : ''} do período..."
 
 ❌ ERRADO:
-- ${isCurrentMonth ? `"Na primeira semana do mês..." (se essa semana já passou)` : '"Em datas anteriores ao início do mês"'}
-- ${isCurrentMonth ? `"No início do mês..." (se já estamos no meio do mês)` : '"Qualquer menção a períodos inválidos"'}
+- ${isPeriodStarted ? `"No início do período..." (se o período já começou)` : '"Em datas anteriores ao início do período"'}
+- ${isPeriodStarted ? `"Na primeira semana..." (se essa semana já passou)` : '"Qualquer menção a períodos inválidos"'}
 - Qualquer menção a datas ou períodos anteriores a ${primeiroDiaValido}
 
 Gere planos realistas, executáveis e que respeitem o tempo REALMENTE disponível.
@@ -350,8 +354,20 @@ A saída deve ser consistentemente organizada toda vez.`
         strategy_id: strategyId,
         tenant_id: tenantId,
         plan_content: cleanHtml,
-        plan_data: { metadata: { month: selectedMonth } },
-        selected_month: selectedMonth,
+        plan_data: { 
+          metadata: { 
+            period: {
+              titulo: periodTitle,
+              dataInicio: periodData.dataInicio,
+              dataFim: periodData.dataFim
+            }
+          } 
+        },
+        periodo_titulo: periodTitle,
+        periodo_data_inicio: periodData.dataInicio,
+        periodo_data_fim: periodData.dataFim,
+        periodo_status: 'ativo',
+        selected_month: null,
         approved: false
       })
       .select()
