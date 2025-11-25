@@ -550,51 +550,67 @@ export default function Schedule() {
                                          <Trash2 className="h-3.5 w-3.5" />
                                        </Button>
                                      </div>
-                                    
-                                     {/* Card Metadata */}
-                                      <div className="space-y-1 sm:space-y-1.5">
-                                      <div className="flex items-center gap-1.5 sm:gap-2 text-[#6B7280] text-[10px] sm:text-[11px]">
-                                        <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
-                                        <span className="font-medium">
-                                          {new Date(card.publication_date).toLocaleDateString("pt-BR", {
-                                            day: "2-digit",
-                                            month: "2-digit",
-                                          })}
-                                        </span>
+                                     
+                                      {/* Card Metadata */}
+                                       <div className="space-y-1.5 sm:space-y-2">
+                                        {/* Platform and Content Type */}
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                          {(() => {
+                                            const text = `${card.title} ${card.file_location || ''}`.toLowerCase();
+                                            let platform = '';
+                                            let contentType = '';
+                                            
+                                            // Extract platform
+                                            if (text.includes('instagram')) platform = 'Instagram';
+                                            else if (text.includes('linkedin')) platform = 'LinkedIn';
+                                            else if (text.includes('facebook')) platform = 'Facebook';
+                                            else if (text.includes('youtube')) platform = 'YouTube';
+                                            else if (text.includes('tiktok')) platform = 'TikTok';
+                                            else if (text.includes('twitter') || text.includes('x.com')) platform = 'Twitter/X';
+                                            else if (text.includes('whatsapp')) platform = 'WhatsApp';
+                                            else if (text.includes('e-mail') || text.includes('email')) platform = 'E-mail';
+                                            else if (text.includes('blog')) platform = 'Blog';
+                                            else if (text.includes('site') || text.includes('landing')) platform = 'Site';
+                                            
+                                            // Extract content type
+                                            if (text.includes('carrossel')) contentType = 'Carrossel';
+                                            else if (text.includes('reel')) contentType = 'Reel';
+                                            else if (text.includes('story') || text.includes('stories')) contentType = 'Story';
+                                            else if (text.includes('post')) contentType = 'Post';
+                                            else if (text.includes('vídeo') || text.includes('video')) contentType = 'Vídeo';
+                                            else if (text.includes('artigo')) contentType = 'Artigo';
+                                            else if (text.includes('newsletter')) contentType = 'Newsletter';
+                                            else if (text.includes('e-mail') || text.includes('email')) contentType = 'E-mail';
+                                            else if (text.includes('landing')) contentType = 'Landing Page';
+                                            else if (text.includes('relatório') || text.includes('relatorio')) contentType = 'Relatório';
+                                            else if (text.includes('broadcast')) contentType = 'Broadcast';
+                                            
+                                            return (
+                                              <>
+                                                {platform && (
+                                                  <Badge variant="secondary" className={`text-[10px] sm:text-[11px] px-2 py-0.5 h-auto font-medium ${column.color} text-white border-0`}>
+                                                    {platform}
+                                                  </Badge>
+                                                )}
+                                                {contentType && (
+                                                  <Badge variant="outline" className="text-[10px] sm:text-[11px] px-2 py-0.5 h-auto font-normal border-muted-foreground/30 text-muted-foreground">
+                                                    {contentType}
+                                                  </Badge>
+                                                )}
+                                              </>
+                                            );
+                                          })()}
+                                        </div>
+                                        
+                                        {/* Description Preview */}
+                                        {card.description && (
+                                          <p className="text-[10px] sm:text-[11px] text-[#6B7280] line-clamp-2 leading-relaxed">
+                                            {card.description}
+                                          </p>
+                                        )}
                                       </div>
-                                      
-                                      {card.file_location && (
-                                        <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px]">
-                                          <LinkIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0 text-[#2563EB]" />
-                                          <span className="truncate text-[#2563EB]">
-                                            {card.file_location}
-                                          </span>
-                                        </div>
-                                      )}
-                                      
-                                      {!card.file_location && (
-                                        <div className="flex items-center gap-1.5 sm:gap-2 text-[#9CA3AF] text-[10px] sm:text-[11px]">
-                                          <FileText className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
-                                          <span>Sem arquivo</span>
-                                        </div>
-                                      )}
-                                      
-                                      {card.responsible_name && (
-                                        <div className="flex items-center gap-1.5 sm:gap-2 text-[#6B7280] text-[10px] sm:text-[11px]">
-                                          <User className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
-                                          <span className="truncate">{card.responsible_name}</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                    
-                                    {/* Card Description */}
-                                    {card.description && (
-                                      <p className="text-[10px] sm:text-[11px] text-[#4B5563] mt-1.5 sm:mt-2 leading-relaxed line-clamp-2">
-                                        {card.description}
-                                      </p>
-                                    )}
-                                  </Card>
-                                </DialogTrigger>
+                                   </Card>
+                                 </DialogTrigger>
 
                                 {/* Modal */}
                                 <DialogContent className="max-w-[95vw] sm:max-w-[600px] md:max-w-[700px] max-h-[90vh] overflow-y-auto bg-white">

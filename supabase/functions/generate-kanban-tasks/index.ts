@@ -226,11 +226,11 @@ REGRAS CRÍTICAS PARA GERAÇÃO DE TAREFAS:
    - Estilo de conteúdo desejado
 
 3. ESTRUTURA DE CADA TAREFA:
-   - titulo: Curto e objetivo (máximo 60 caracteres)
-   - descricao: Clara, direcionada ao conteúdo específico (2-3 frases)
+   - titulo: Curto, objetivo e específico (máximo 50 caracteres). Deve incluir a plataforma e o tipo de conteúdo. Exemplo: "Instagram: Reel sobre produto X"
+   - descricao: Deve ser DIRETA e OBJETIVA (2-3 frases). DEVE conter a recomendação completa do conteúdo, como se fosse um briefing criativo. Inclua o que deve ser mostrado, o público-alvo, o objetivo, e elementos-chave. Exemplo: "Criar reel de 30s mostrando o processo de produção da bebida X com música animada. Foco no público jovem 20-35 anos. Destacar ingredientes premium e finalizar com CTA para experimentar."
    - data_publicacao: Data válida no formato YYYY-MM-DD (dentro do mês de referência, após a data atual)
-   - local_arquivo: Formato recomendado (story, reel, post, vídeo, foto, carrossel, campanha) + plataforma
-   - observacoes: Detalhes técnicos, hashtags sugeridas, call-to-action, horário ideal
+   - local_arquivo: Deve conter FORMATO + PLATAFORMA. Exemplos: "Reel Instagram", "Carrossel LinkedIn", "Post Facebook", "Story Instagram", "Vídeo YouTube", "E-mail Newsletter"
+   - observacoes: Detalhes técnicos adicionais, hashtags sugeridas, horário ideal de publicação, dimensões, duração
    - status: Sempre "a fazer"
 
 4. INTELIGÊNCIA TEMPORAL:
@@ -247,12 +247,12 @@ FORMATO DE SAÍDA (JSON):
 {
   "tarefas": [
     {
-      "titulo": "Título específico e objetivo",
+      "titulo": "Plataforma: Tipo de conteúdo sobre tema",
       "status": "a fazer",
       "data_publicacao": "YYYY-MM-DD",
-      "local_arquivo": "Formato + Plataforma (ex: Story Instagram, Reel TikTok)",
-      "descricao": "Descrição detalhada do que será feito, incluindo tema específico",
-      "observacoes": "Detalhes técnicos, hashtags, horário sugerido, call-to-action"
+      "local_arquivo": "Tipo Plataforma (ex: Reel Instagram, Carrossel LinkedIn, Post Facebook)",
+      "descricao": "Briefing completo e objetivo do conteúdo: o que mostrar, como abordar, público-alvo, objetivo, elementos principais. Deve ser uma recomendação prática e acionável.",
+      "observacoes": "Hashtags sugeridas, horário ideal, especificações técnicas (duração, formato, dimensões), CTA recomendado"
     }
   ]
 }
