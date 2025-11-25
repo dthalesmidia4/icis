@@ -138,8 +138,7 @@ export default function Questions() {
       const { error } = await supabase
         .from('question_sessions')
         .update({
-          answers: answers,
-          updated_at: new Date().toISOString()
+          answers: answers
         })
         .eq('id', sessionId);
 
@@ -174,8 +173,7 @@ export default function Questions() {
         .from('question_sessions')
         .update({
           answers: answers,
-          status: 'completed',
-          updated_at: new Date().toISOString()
+          status: 'completed'
         })
         .eq('id', sessionId);
 
@@ -228,8 +226,7 @@ export default function Questions() {
       const { error } = await supabase
         .from('question_sessions')
         .update({
-          answers: answers,
-          updated_at: new Date().toISOString()
+          answers: answers
         })
         .eq('id', sessionId);
 
