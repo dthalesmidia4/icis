@@ -145,8 +145,9 @@ serve(async (req) => {
       ? hoje.toISOString().split('T')[0]
       : periodStartDate;
     const ultimoDiaValido = periodEndDate;
-    const ultimoDiaValido = `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-${String(ultimoDiaMes).padStart(2, '0')}`;
-    const diasRestantes = ultimoDiaMes - diaAtual + 1;
+    
+    // Calcular dias restantes no período
+    const diasRestantes = Math.ceil((endDate.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
     // Prompt para o ChatGPT
     const systemPrompt = `Você é um planner de marketing profissional especializado em criar cronogramas de conteúdo executáveis, contextuais e altamente específicos.
@@ -160,24 +161,26 @@ O sistema NUNCA, EM HIPÓTESE ALGUMA, pode gerar tarefas com datas passadas.
 Esta regra é OBRIGATÓRIA e INVIOLÁVEL.
 
 📅 CONTEXTO TEMPORAL OBRIGATÓRIO:
-- Data atual REAL: ${hoje.toISOString().split('T')[0]}${isCurrentMonth ? ` (dia ${diaAtual} do mês)` : ''}
-- Mês de referência: ${mesReferenciaFormatado}
+- Data atual REAL: ${hoje.toISOString().split('T')[0]} (dia ${diaAtual})
+- Período de referência: ${periodTitle}
+- Data de início do período: ${periodStartDate}
+- Data de fim do período: ${periodEndDate}
 - Primeiro dia VÁLIDO para tarefas: ${primeiroDiaValido}
 - Último dia VÁLIDO para tarefas: ${ultimoDiaValido}
-- Dias disponíveis: ${diasRestantes} dias
+- Dias disponíveis no período: ${diasRestantes} dias
 
 🎯 REGRAS DE DISTRIBUIÇÃO DE DATAS:
 
-1️⃣ ${isCurrentMonth ? 'MÊS ATUAL - Começar a partir de HOJE:' : 'MÊS FUTURO - Pode usar o mês completo:'}
+1️⃣ ${isPeriodStarted ? 'PERÍODO JÁ INICIADO - Começar a partir de HOJE:' : 'PERÍODO FUTURO - Pode usar o período completo:'}
    ✅ OBRIGATÓRIO: Começar as tarefas a partir de ${primeiroDiaValido}
    ❌ PROIBIDO: Usar qualquer data anterior a ${primeiroDiaValido}
-   ${isCurrentMonth ? `❌ PROIBIDO: Gerar tarefas nos dias ${diaAtual > 1 ? `01 a ${String(diaAtual - 1).padStart(2, '0')}` : 'anteriores'}` : '✅ PERMITIDO: Usar todo o mês desde o dia 01'}
+   ${isPeriodStarted ? `❌ PROIBIDO: Gerar tarefas em datas já passadas` : '✅ PERMITIDO: Usar todo o período desde a data de início'}
    
 2️⃣ RECALCULAR SEMANAS COM BASE NO DIA INICIAL VÁLIDO:
-   ${isCurrentMonth ? `❌ ERRADO: Semana 1 começando no dia 01 (se dia 01 já passou)` : '✅ Semana 1 pode começar no dia 01'}
+   ${isPeriodStarted ? `❌ ERRADO: Começar contagem no início do período se essa data já passou` : '✅ Pode começar no início do período'}
    ✅ CORRETO: Semana 1 começando no primeiro dia VÁLIDO (${primeiroDiaValido})
    
-   ${isCurrentMonth ? `Exemplo: Se hoje é dia ${diaAtual}, a Semana 1 vai de ${primeiroDiaValido} até ${diaAtual + 6 <= ultimoDiaMes ? new Date(anoAtual, mesAtual, diaAtual + 6).toISOString().split('T')[0] : ultimoDiaValido}` : `Exemplo: A Semana 1 vai de ${primeiroDiaValido} até ${Math.min(7, ultimoDiaMes) <= ultimoDiaMes ? `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-${String(Math.min(7, ultimoDiaMes)).padStart(2, '0')}` : ultimoDiaValido}`}
+   Exemplo: A distribuição deve respeitar o intervalo de ${primeiroDiaValido} até ${ultimoDiaValido}
 
 3️⃣ DISTRIBUIÇÃO INTELIGENTE:
    - Analise quantos dias ÚTEIS restam no mês (de hoje até o fim)
