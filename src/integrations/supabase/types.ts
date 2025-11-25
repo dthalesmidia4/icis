@@ -147,6 +147,10 @@ export type Database = {
           company_id: string
           created_at: string
           id: string
+          periodo_data_fim: string | null
+          periodo_data_inicio: string | null
+          periodo_status: string | null
+          periodo_titulo: string | null
           plan_content: string | null
           plan_data: Json
           selected_month: string | null
@@ -160,6 +164,10 @@ export type Database = {
           company_id: string
           created_at?: string
           id?: string
+          periodo_data_fim?: string | null
+          periodo_data_inicio?: string | null
+          periodo_status?: string | null
+          periodo_titulo?: string | null
           plan_content?: string | null
           plan_data: Json
           selected_month?: string | null
@@ -173,6 +181,10 @@ export type Database = {
           company_id?: string
           created_at?: string
           id?: string
+          periodo_data_fim?: string | null
+          periodo_data_inicio?: string | null
+          periodo_status?: string | null
+          periodo_titulo?: string | null
           plan_content?: string | null
           plan_data?: Json
           selected_month?: string | null

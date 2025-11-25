@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, ArrowLeft, FileText, Loader2, Calendar, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { MonthSelectionModal } from '@/components/MonthSelectionModal';
+import { PeriodSelectionModal } from '@/components/PeriodSelectionModal';
 import { useTenant } from '@/contexts/TenantContext';
 import { useSelectedClient } from '@/contexts/SelectedClientContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,7 +21,7 @@ export default function GenerateQuestions() {
   const { toast } = useToast();
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
-  const [showMonthModal, setShowMonthModal] = useState(false);
+  const [showPeriodModal, setShowPeriodModal] = useState(false);
   const { saveState, clearState, savedState } = useLocalPlanState();
 
   useEffect(() => {
@@ -63,7 +63,7 @@ export default function GenerateQuestions() {
   const handleViewStrategy = () => {
     navigate('/strategies');
   };
-  const handleOpenMonthModal = () => {
+  const handleOpenPeriodModal = () => {
     if (!selectedClient || !questionSession || !tenantId) {
       toast({
         title: "Erro",
@@ -88,11 +88,11 @@ export default function GenerateQuestions() {
       return;
     }
     
-    setShowMonthModal(true);
+    setShowPeriodModal(true);
   };
 
-  const handleGeneratePlan = async (selectedMonth: string) => {
-    setShowMonthModal(false);
+  const handleGeneratePlan = async (periodData: { titulo: string; dataInicio: Date; dataFim: Date }) => {
+    setShowPeriodModal(false);
     setIsGeneratingPlan(true);
 
     // Salvar estado localmente
@@ -107,7 +107,11 @@ export default function GenerateQuestions() {
           companyId: selectedClient!.id,
           strategyId: questionSession!.strategy_id,
           tenantId: tenantId!,
-          selectedMonth: selectedMonth
+          periodData: {
+            titulo: periodData.titulo,
+            dataInicio: periodData.dataInicio.toISOString().split('T')[0],
+            dataFim: periodData.dataFim.toISOString().split('T')[0]
+          }
         }
       });
       if (error) throw error;
@@ -203,7 +207,7 @@ export default function GenerateQuestions() {
                       <FileText className="h-5 w-5" />
                       Ver Estratégia
                     </Button>
-                    <Button size="lg" className="gap-2" onClick={handleOpenMonthModal} disabled={isGeneratingPlan}>
+                    <Button size="lg" className="gap-2" onClick={handleOpenPeriodModal} disabled={isGeneratingPlan}>
                       {isGeneratingPlan ? <>
                           <Loader2 className="h-5 w-5 animate-spin" />
                           Gerando Plano...
@@ -310,10 +314,10 @@ export default function GenerateQuestions() {
           </div>
         </div>
         
-      {/* Month Selection Modal */}
-      <MonthSelectionModal
-        open={showMonthModal}
-        onClose={() => setShowMonthModal(false)}
+      {/* Period Selection Modal */}
+      <PeriodSelectionModal
+        open={showPeriodModal}
+        onClose={() => setShowPeriodModal(false)}
         onConfirm={handleGeneratePlan}
         isGenerating={isGeneratingPlan}
       />

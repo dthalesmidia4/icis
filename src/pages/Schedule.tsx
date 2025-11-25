@@ -55,7 +55,7 @@ export default function Schedule() {
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState<string>("all");
-  const [referenceMonth, setReferenceMonth] = useState<string>("");
+  const [referencePeriod, setReferencePeriod] = useState<{ titulo: string; dataInicio: string; dataFim: string } | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [cardToDelete, setCardToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -123,7 +123,7 @@ export default function Schedule() {
           .order("created_at", { ascending: true }),
         supabase
           .from("marketing_plans")
-          .select("selected_month")
+          .select("periodo_titulo, periodo_data_inicio, periodo_data_fim")
           .eq("id", planId)
           .single()
       ]);
@@ -133,12 +133,13 @@ export default function Schedule() {
 
       setCards(cardsResponse.data || []);
       
-      // Formatar o mês de referência
-      if (planResponse.data?.selected_month) {
-        const [year, month] = planResponse.data.selected_month.split('-');
-        const date = new Date(parseInt(year), parseInt(month) - 1, 1);
-        const formattedMonth = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-        setReferenceMonth(formattedMonth.charAt(0).toUpperCase() + formattedMonth.slice(1));
+      // Definir o período de referência
+      if (planResponse.data?.periodo_titulo) {
+        setReferencePeriod({
+          titulo: planResponse.data.periodo_titulo,
+          dataInicio: planResponse.data.periodo_data_inicio,
+          dataFim: planResponse.data.periodo_data_fim
+        });
       }
     } catch (error) {
       console.error("Error fetching cards:", error);
@@ -388,12 +389,17 @@ export default function Schedule() {
             </div>
           </div>
 
-          {/* Mês de Referência e Ações */}
+          {/* Período de Referência e Ações */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4">
-            {referenceMonth && (
-              <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-3 py-1.5 text-sm font-medium w-fit">
-                📅 Mês de Referência: {referenceMonth}
-              </Badge>
+            {referencePeriod && (
+              <div className="flex flex-col gap-1">
+                <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-3 py-1.5 text-sm font-medium w-fit">
+                  📅 Período: {referencePeriod.titulo}
+                </Badge>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(referencePeriod.dataInicio).toLocaleDateString('pt-BR')} até {new Date(referencePeriod.dataFim).toLocaleDateString('pt-BR')}
+                </p>
+              </div>
             )}
             <Button
               variant="outline"
