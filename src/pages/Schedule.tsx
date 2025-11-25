@@ -551,13 +551,8 @@ export default function Schedule() {
                                        </Button>
                                      </div>
                                     
-                                    {/* Card Metadata */}
-                                     <div className="space-y-1 sm:space-y-1.5">
-                                      {referenceMonth && (
-                                        <Badge variant="outline" className="text-[9px] sm:text-[10px] px-1.5 py-0.5 h-auto font-normal border-primary/30 text-primary">
-                                          {referenceMonth.split(' ')[0]}
-                                        </Badge>
-                                      )}
+                                     {/* Card Metadata */}
+                                      <div className="space-y-1 sm:space-y-1.5">
                                       <div className="flex items-center gap-1.5 sm:gap-2 text-[#6B7280] text-[10px] sm:text-[11px]">
                                         <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
                                         <span className="font-medium">
