@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
+import { PeriodSelectionModal } from "@/components/PeriodSelectionModal";
 
 interface KanbanCard {
   id: string;
@@ -59,6 +60,8 @@ export default function Schedule() {
   const [regenerating, setRegenerating] = useState(false);
   const [cardToDelete, setCardToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showPeriodModal, setShowPeriodModal] = useState(false);
+  const [needsPeriodSelection, setNeedsPeriodSelection] = useState(false);
 
   const planId = searchParams.get("planId");
 
@@ -140,6 +143,10 @@ export default function Schedule() {
           dataInicio: planResponse.data.periodo_data_inicio,
           dataFim: planResponse.data.periodo_data_fim
         });
+        setNeedsPeriodSelection(false);
+      } else {
+        // Plano antigo sem período definido
+        setNeedsPeriodSelection(true);
       }
     } catch (error) {
       console.error("Error fetching cards:", error);
@@ -155,6 +162,13 @@ export default function Schedule() {
 
   const handleRegenerateCards = async () => {
     if (!planId) return;
+    
+    // Verificar se o plano tem período definido
+    if (needsPeriodSelection) {
+      setShowPeriodModal(true);
+      sonnerToast.info("Por favor, selecione um período antes de regenerar o cronograma");
+      return;
+    }
     
     setRegenerating(true);
     try {
@@ -182,6 +196,41 @@ export default function Schedule() {
       sonnerToast.error("Erro ao regenerar cronograma. Tente novamente.");
     } finally {
       setRegenerating(false);
+    }
+  };
+
+  const handlePeriodSaved = async (periodData: { titulo: string; dataInicio: Date; dataFim: Date }) => {
+    if (!planId) return;
+    
+    try {
+      // Atualizar o plano com o período selecionado
+      const { error } = await supabase
+        .from('marketing_plans')
+        .update({
+          periodo_titulo: periodData.titulo,
+          periodo_data_inicio: periodData.dataInicio.toISOString().split('T')[0],
+          periodo_data_fim: periodData.dataFim.toISOString().split('T')[0],
+          periodo_status: 'ativo'
+        })
+        .eq('id', planId);
+
+      if (error) throw error;
+
+      setReferencePeriod({
+        titulo: periodData.titulo,
+        dataInicio: periodData.dataInicio.toISOString().split('T')[0],
+        dataFim: periodData.dataFim.toISOString().split('T')[0]
+      });
+      setNeedsPeriodSelection(false);
+      setShowPeriodModal(false);
+      
+      sonnerToast.success("Período atualizado com sucesso!");
+      
+      // Recarregar os cards
+      await fetchCards();
+    } catch (error) {
+      console.error("Error updating period:", error);
+      sonnerToast.error("Erro ao atualizar período");
     }
   };
 
@@ -391,7 +440,7 @@ export default function Schedule() {
 
           {/* Período de Referência e Ações */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4">
-            {referencePeriod && (
+            {referencePeriod ? (
               <div className="flex flex-col gap-1">
                 <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-3 py-1.5 text-sm font-medium w-fit">
                   📅 Período: {referencePeriod.titulo}
@@ -400,16 +449,32 @@ export default function Schedule() {
                   {new Date(referencePeriod.dataInicio).toLocaleDateString('pt-BR')} até {new Date(referencePeriod.dataFim).toLocaleDateString('pt-BR')}
                 </p>
               </div>
+            ) : needsPeriodSelection && (
+              <Badge variant="destructive" className="px-3 py-1.5 text-sm font-medium w-fit">
+                ⚠️ Período não definido
+              </Badge>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRegenerateCards}
-              disabled={regenerating}
-              className="w-fit"
-            >
-              {regenerating ? "Regenerando..." : "Regenerar Cronograma"}
-            </Button>
+            <div className="flex gap-2">
+              {needsPeriodSelection && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => setShowPeriodModal(true)}
+                  className="w-fit"
+                >
+                  Selecionar Período
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRegenerateCards}
+                disabled={regenerating || needsPeriodSelection}
+                className="w-fit"
+              >
+                {regenerating ? "Regenerando..." : "Regenerar Cronograma"}
+              </Button>
+            </div>
           </div>
 
           {/* Filtros */}
@@ -840,6 +905,13 @@ export default function Schedule() {
           </DragDropContext>
         )}
       </div>
+
+      <PeriodSelectionModal
+        open={showPeriodModal}
+        onClose={() => setShowPeriodModal(false)}
+        onConfirm={handlePeriodSaved}
+        isGenerating={false}
+      />
 
       <ConfirmationModal
         open={cardToDelete !== null}
