@@ -204,62 +204,115 @@ Esta regra é OBRIGATÓRIA e INVIOLÁVEL.
    ❌ NUNCA ignore a data atual ao calcular semanas
    ❌ NUNCA comece cronogramas no dia 01 se esse dia já passou
 
-REGRAS CRÍTICAS PARA GERAÇÃO DE TAREFAS:
+REGRAS CRÍTICAS PARA GERAÇÃO DE DEMANDAS:
 
-1. ESPECIFICIDADE OBRIGATÓRIA:
-   ❌ PROIBIDO: Tarefas genéricas como "fazer stories", "postar no Instagram", "criar conteúdo", "publicar reels"
-   ✅ OBRIGATÓRIO: Tarefas específicas e contextuais como:
-   - "Criar stories destacando a nova bebida de pistache com foco no público de 20 a 40 anos"
-   - "Publicar vídeo demonstrando o preparo da bebida X"
-   - "Criar carrossel sobre os benefícios do produto Y para o público Z"
-   - "Produzir foto para campanha gourmet destacando ingrediente premium"
+🎯 IMPORTANTE: A partir de agora, chamaremos essas tarefas de "DEMANDAS".
 
-2. USO OBRIGATÓRIO DE TODO O CONTEXTO:
-   Você DEVE utilizar TODAS as seguintes informações para criar cada tarefa:
-   - Dados cadastrais da empresa (setor, produtos/serviços, tamanho)
-   - Estratégia definida
-   - Perguntas e respostas fornecidas pelo cliente
-   - Público-alvo específico
-   - Produto prioritário
-   - Objetivos do mês
-   - Canais escolhidos
-   - Estilo de conteúdo desejado
+1. ESPECIFICIDADE E CONTEXTO OBRIGATÓRIOS:
+   ❌ PROIBIDO: Demandas genéricas como "fazer stories", "postar no Instagram", "criar conteúdo", "publicar reels"
+   ✅ OBRIGATÓRIO: Demandas ultra-específicas e contextuais que demonstrem conhecimento profundo do negócio:
+   - "Instagram Reel: Apresentar o novo sorvete de pistache com creme de avelã, focando em jovens adultos 20-35 anos que buscam experiências gourmet"
+   - "LinkedIn Post: Compartilhar case de sucesso da consultoria tributária para e-commerce, destacando redução de impostos para o nicho de moda"
+   - "Stories Instagram: Fazer tour pela cozinha mostrando processo artesanal de produção das bebidas premium da casa"
 
-3. ESTRUTURA DE CADA TAREFA:
-   - titulo: Curto, objetivo e específico (máximo 50 caracteres). Deve incluir a plataforma e o tipo de conteúdo. Exemplo: "Instagram: Reel sobre produto X"
-   - descricao: Deve ser DIRETA e OBJETIVA (2-3 frases). DEVE conter a recomendação completa do conteúdo, como se fosse um briefing criativo. Inclua o que deve ser mostrado, o público-alvo, o objetivo, e elementos-chave. Exemplo: "Criar reel de 30s mostrando o processo de produção da bebida X com música animada. Foco no público jovem 20-35 anos. Destacar ingredientes premium e finalizar com CTA para experimentar."
+2. DESCRIÇÃO = BRIEFING COMPLETO OBRIGATÓRIO:
+   A descrição DEVE ser um guia prático e acionável contendo:
+   
+   ✅ O QUE FAZER (conceito criativo específico):
+   - Tema exato baseado nos produtos/serviços do cliente
+   - Ângulo de abordagem considerando o público-alvo
+   - Mensagem principal alinhada aos objetivos
+   
+   ✅ COMO FAZER (orientações práticas):
+   - Elementos visuais sugeridos (cores, estilo, composição)
+   - Tom de voz e linguagem apropriados
+   - Estrutura do conteúdo (início, meio, fim / problema-solução)
+   
+   ✅ POR QUE FAZER (objetivo claro):
+   - Qual resultado esperado (engajamento, conversão, awareness)
+   - Como se conecta à estratégia maior
+   
+   ✅ SUGESTÕES CONCRETAS DE CONTEÚDO:
+   - Temas específicos extraídos das respostas das perguntas guias
+   - Produtos/serviços prioritários do cliente
+   - Diferenciais competitivos identificados
+   - Dores e desejos do público-alvo
+   
+   Exemplo de descrição COMPLETA:
+   "Criar Reel de 30s mostrando o processo artesanal de preparo da bebida 'Pistache Dream'. ABERTURA: Close no pistache sendo triturado com música suave. MEIO: Mostrar camadas sendo montadas no copo transparente. FINALIZAÇÃO: Cliente provando e sorrindo. MENSAGEM: 'Cada detalhe pensado para sua experiência'. OBJETIVO: Gerar desejo pelo produto premium e destacar qualidade artesanal para público 25-40 anos classe A/B que valoriza experiências diferenciadas. CTA: 'Vem experimentar'."
+
+3. USO OBRIGATÓRIO DE TODO O CONTEXTO DO CLIENTE:
+   Você DEVE incorporar TODAS estas informações em cada demanda:
+   - Nome e tipo do negócio
+   - Setor de atuação e concorrentes
+   - Produtos/serviços específicos (nome, características, diferenciais)
+   - Tamanho da empresa e estrutura
+   - Público-alvo detalhado (idade, classe, interesses, dores)
+   - Objetivos declarados nas respostas
+   - Produto prioritário mencionado
+   - Tom de voz e identidade desejados
+   - Canais preferidos
+   - Restrições ou observações especiais
+   - Temporada/sazonalidade relevante
+
+3. ESTRUTURA DE CADA DEMANDA:
+   - titulo: Curto, objetivo e específico (máximo 50 caracteres). Formato: "Plataforma: Tipo - Tema específico". Exemplo: "Instagram: Reel - Processo artesanal"
+   
+   - descricao: ⚠️ CAMPO MAIS IMPORTANTE - DEVE SER UM BRIEFING COMPLETO E ACIONÁVEL ⚠️
+     Mínimo 4-6 frases estruturadas:
+     
+     [CONCEITO] O que criar e por quê (baseado nas respostas do cliente)
+     [EXECUÇÃO] Como fazer - elementos visuais, estrutura, tom de voz
+     [CONTEÚDO] Sugestões concretas de temas usando produtos/serviços reais do cliente
+     [PÚBLICO] Para quem é direcionado (baseado nas respostas sobre público-alvo)
+     [OBJETIVO] Resultado esperado (engajamento, conversão, awareness)
+     [CTA] Call-to-action sugerido
+     
+     ✅ EXEMPLO CORRETO (observe a riqueza de detalhes e orientações):
+     "Criar Reel de 45s apresentando o novo sorvete artesanal de Pistache com Creme de Avelã. ABERTURA: Close em pistaches sendo triturados manualmente, com música suave instrumental. DESENVOLVIMENTO: Mostrar as camadas sendo montadas no pote transparente, destacando a textura cremosa e os pedaços crocantes. FINALIZAÇÃO: Cliente degustando com expressão de satisfação. MENSAGEM: 'Cada colher é uma experiência gourmet'. DIRECIONADO para adultos 25-40 anos, classe A/B, que buscam experiências gastronômicas diferenciadas e valorizam qualidade artesanal. OBJETIVO: Gerar desejo pelo produto premium e posicionar a marca como referência em sorvetes gourmet. CTA: 'Experimente hoje, disponível por tempo limitado'."
+     
+     ❌ EXEMPLO ERRADO (vago e sem orientações):
+     "Fazer reel sobre o novo sabor de sorvete. Mostrar o produto e colocar música."
+   
    - data_publicacao: Data válida no formato YYYY-MM-DD (dentro do mês de referência, após a data atual)
-   - local_arquivo: Deve conter FORMATO + PLATAFORMA. Exemplos: "Reel Instagram", "Carrossel LinkedIn", "Post Facebook", "Story Instagram", "Vídeo YouTube", "E-mail Newsletter"
-   - observacoes: Detalhes técnicos adicionais, hashtags sugeridas, horário ideal de publicação, dimensões, duração
+   
+   - local_arquivo: FORMATO + PLATAFORMA. Exemplos: "Reel Instagram", "Carrossel LinkedIn", "Post Facebook", "Story Instagram", "Vídeo YouTube", "E-mail Marketing"
+   
+   - observacoes: Detalhes técnicos complementares, hashtags estratégicas, melhor horário de publicação, dimensões recomendadas, duração exata, referências visuais
+   
    - status: Sempre "a fazer"
 
 4. INTELIGÊNCIA TEMPORAL:
    - Analise o tempo restante no mês
-   - Distribua tarefas em dias úteis
+   - Distribua demandas em dias úteis
    - Considere sequência lógica (pesquisa → criação → revisão → publicação)
    - Espaçamento adequado entre posts similares
+   - Considere sazonalidade e eventos relevantes do setor
 
-5. QUANTIDADE:
-   - Gere entre 10 a 20 tarefas dependendo da complexidade do plano
-   - Priorize qualidade e especificidade sobre quantidade
+5. QUANTIDADE E QUALIDADE:
+   - Gere entre 12 a 20 demandas dependendo da complexidade do plano
+   - Priorize QUALIDADE, ESPECIFICIDADE e ORIENTAÇÕES PRÁTICAS sobre quantidade
+   - Cada demanda deve ser tão completa que o executor possa começar a trabalhar imediatamente sem precisar de esclarecimentos adicionais
 
 FORMATO DE SAÍDA (JSON):
 {
   "tarefas": [
     {
-      "titulo": "Plataforma: Tipo de conteúdo sobre tema",
+      "titulo": "Plataforma: Tipo - Tema específico do cliente",
       "status": "a fazer",
       "data_publicacao": "YYYY-MM-DD",
       "local_arquivo": "Tipo Plataforma (ex: Reel Instagram, Carrossel LinkedIn, Post Facebook)",
-      "descricao": "Briefing completo e objetivo do conteúdo: o que mostrar, como abordar, público-alvo, objetivo, elementos principais. Deve ser uma recomendação prática e acionável.",
-      "observacoes": "Hashtags sugeridas, horário ideal, especificações técnicas (duração, formato, dimensões), CTA recomendado"
+      "descricao": "⚠️ BRIEFING COMPLETO OBRIGATÓRIO ⚠️ - Mínimo 4-6 frases detalhadas contendo: [CONCEITO] O que criar com base no negócio real do cliente + [EXECUÇÃO] Como fazer (estrutura, visual, tom) + [CONTEÚDO] Sugestões específicas usando produtos/serviços reais + [PÚBLICO] Para quem (baseado nas respostas) + [OBJETIVO] Resultado esperado + [CTA] Call-to-action sugerido. Deve ter informações suficientes para execução imediata sem necessidade de esclarecimentos.",
+      "observacoes": "Hashtags estratégicas sugeridas, melhor horário de publicação, especificações técnicas detalhadas (duração exata, formato, dimensões), referências visuais, tom de voz específico"
     }
   ]
 }
 
+⚠️ ATENÇÃO CRÍTICA: A descrição é o campo MAIS IMPORTANTE. Ela DEVE conter um briefing completo com orientações práticas e específicas que permitam execução imediata. Use TODO o contexto do cliente disponível.
+
 IMPORTANTE: Retorne APENAS o JSON válido, sem texto adicional antes ou depois.`;
 
-    const userPrompt = `Com base em TODOS os dados abaixo, crie um cronograma de tarefas ALTAMENTE CONTEXTUAL e ESPECÍFICO:
+    const userPrompt = `Com base em TODOS os dados abaixo, crie um cronograma de DEMANDAS (não tarefas) ALTAMENTE CONTEXTUAL, ESPECÍFICO e com ORIENTAÇÕES COMPLETAS para execução:
 
 ## DADOS CADASTRAIS DA EMPRESA:
 - Nome: ${companyData.fantasy_name || companyData.name || 'Não informado'}
@@ -282,12 +335,17 @@ ${answersText}
 - Dias já passados (NÃO USAR): ${diaAtual > 1 ? `01/${mesAtual + 1} até ${String(diaAtual - 1).padStart(2, '0')}/${mesAtual + 1}` : 'Nenhum'}
 - Dias disponíveis: ${ultimoDiaMes - diaAtual + 1} dias
 
-IMPORTANTE: 
-- Use TODOS esses dados para criar tarefas específicas
-- Cada tarefa deve refletir o contexto real do negócio
-- Nenhuma tarefa pode ser genérica
+⚠️ REQUISITOS OBRIGATÓRIOS PARA CADA DEMANDA:
+- Use TODOS os dados fornecidos para criar demandas ultra-específicas
+- Cada demanda DEVE refletir o contexto REAL do negócio do cliente
+- A DESCRIÇÃO é obrigatoriamente um BRIEFING COMPLETO com orientações de execução
+- SEMPRE inclua sugestões concretas de temas baseadas nos produtos/serviços reais
+- SEMPRE mencione o público-alvo específico das respostas
+- SEMPRE indique o objetivo e resultado esperado
+- NENHUMA demanda pode ser genérica ou vaga
 - TODAS as datas DEVEM estar entre ${primeiroDiaValido} e ${ultimoDiaValido}
-- Distribua as tarefas nos ${ultimoDiaMes - diaAtual + 1} dias disponíveis do mês`;
+- Distribua as demandas nos ${ultimoDiaMes - diaAtual + 1} dias disponíveis do mês
+- Cada descrição deve ter informações suficientes para que o executor comece a trabalhar IMEDIATAMENTE`;
 
     // Chamar Lovable AI
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
