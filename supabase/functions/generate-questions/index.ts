@@ -141,7 +141,7 @@ As perguntas devem cobrir aspectos como:
             content: userPrompt 
           }
         ],
-        max_completion_tokens: 2000,
+        max_completion_tokens: 4000,
       }),
     });
 
