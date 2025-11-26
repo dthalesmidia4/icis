@@ -88,6 +88,7 @@ const DevPrompts = () => {
   const queryClient = useQueryClient();
   const [questionsPromptContent, setQuestionsPromptContent] = useState("");
   const [planPromptContent, setPlanPromptContent] = useState("");
+  const [advancedPlanPromptContent, setAdvancedPlanPromptContent] = useState("");
 
   // Buscar o prompt de geração de perguntas
   const { data: questionsPromptData, isLoading: isLoadingQuestions } = useQuery({
@@ -125,6 +126,24 @@ const DevPrompts = () => {
     enabled: !!tenantId,
   });
 
+  // Buscar o prompt de planejamento avançado
+  const { data: advancedPlanPromptData, isLoading: isLoadingAdvanced } = useQuery({
+    queryKey: ["system-prompt", "advanced_planning_prompt", tenantId],
+    queryFn: async () => {
+      if (!tenantId) return null;
+      const { data, error } = await supabase
+        .from("system_prompts")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("prompt_key", "advanced_planning_prompt")
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!tenantId,
+  });
+
   // Atualizar o estado quando os dados forem carregados
   useEffect(() => {
     if (questionsPromptData) {
@@ -137,6 +156,12 @@ const DevPrompts = () => {
       setPlanPromptContent(planPromptData.prompt_content);
     }
   }, [planPromptData]);
+
+  useEffect(() => {
+    if (advancedPlanPromptData) {
+      setAdvancedPlanPromptContent(advancedPlanPromptData.prompt_content);
+    }
+  }, [advancedPlanPromptData]);
 
   // Mutation para salvar o prompt de perguntas
   const saveQuestionsPromptMutation = useMutation({
@@ -197,6 +222,56 @@ const DevPrompts = () => {
     toast.success("Prompt restaurado para a versão padrão com regras atualizadas!");
   };
 
+  // Mutation para salvar o prompt de planejamento avançado
+  const saveAdvancedPlanPromptMutation = useMutation({
+    mutationFn: async (content: string) => {
+      if (!tenantId) throw new Error("Tenant ID não encontrado");
+
+      // Verifica se já existe
+      const { data: existing } = await supabase
+        .from("system_prompts")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("prompt_key", "advanced_planning_prompt")
+        .maybeSingle();
+
+      if (existing) {
+        // Update
+        const { error } = await supabase
+          .from("system_prompts")
+          .update({ prompt_content: content })
+          .eq("tenant_id", tenantId)
+          .eq("prompt_key", "advanced_planning_prompt");
+
+        if (error) throw error;
+      } else {
+        // Insert
+        const { error } = await supabase
+          .from("system_prompts")
+          .insert({
+            tenant_id: tenantId,
+            prompt_key: "advanced_planning_prompt",
+            prompt_title: "Prompt de Planejamento Avançado",
+            prompt_content: content,
+          });
+
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["system-prompt"] });
+      toast.success("Prompt de planejamento avançado salvo com sucesso!");
+    },
+    onError: (error) => {
+      console.error("Erro ao salvar prompt:", error);
+      toast.error("Erro ao salvar o prompt");
+    },
+  });
+
+  const handleSaveAdvancedPlan = () => {
+    saveAdvancedPlanPromptMutation.mutate(advancedPlanPromptContent);
+  };
+
   return (
     <div className="container max-w-5xl mx-auto px-6 py-8">
       <div className="mb-8">
@@ -208,9 +283,10 @@ const DevPrompts = () => {
 
       <div className="space-y-6">
           <Tabs defaultValue="questions" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="questions">Prompt de Perguntas</TabsTrigger>
               <TabsTrigger value="plan">Prompt de Plano</TabsTrigger>
+              <TabsTrigger value="advanced">Planejamento Avançado</TabsTrigger>
             </TabsList>
             
             <TabsContent value="questions">
@@ -278,6 +354,39 @@ const DevPrompts = () => {
                         >
                           <Save className="h-4 w-4 mr-2" />
                           {savePlanPromptMutation.isPending ? "Salvando..." : "Salvar"}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="advanced">
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {advancedPlanPromptData?.prompt_title || "Prompt de Planejamento Avançado"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {isLoadingAdvanced ? (
+                    <div className="text-muted-foreground">Carregando...</div>
+                  ) : (
+                    <>
+                      <Textarea
+                        value={advancedPlanPromptContent}
+                        onChange={(e) => setAdvancedPlanPromptContent(e.target.value)}
+                        placeholder="Digite o prompt de planejamento avançado aqui..."
+                        className="min-h-[300px] font-mono text-sm"
+                      />
+                      <div className="flex justify-end">
+                        <Button
+                          onClick={handleSaveAdvancedPlan}
+                          disabled={saveAdvancedPlanPromptMutation.isPending}
+                        >
+                          <Save className="h-4 w-4 mr-2" />
+                          {saveAdvancedPlanPromptMutation.isPending ? "Salvando..." : "Salvar"}
                         </Button>
                       </div>
                     </>
