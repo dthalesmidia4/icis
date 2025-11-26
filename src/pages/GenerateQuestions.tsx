@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { Loader2, Save, Trash2, FileDown, Sparkles } from "lucide-react";
+import { Loader2, Save, Trash2, FileDown, Sparkles, ArrowLeft } from "lucide-react";
 import jsPDF from "jspdf";
 import { PeriodSelectionModal } from "@/components/PeriodSelectionModal";
 import { useQuery } from "@tanstack/react-query";
@@ -309,9 +309,19 @@ export default function GenerateQuestions() {
       <div className="sticky top-0 z-10 bg-background border-b">
         <div className="container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold text-foreground">
-              Perguntas Estratégicas da Empresa
-            </h1>
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/home")}
+                className="hover:bg-accent"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <h1 className="text-3xl font-bold text-foreground">
+                Perguntas Estratégicas da Empresa
+              </h1>
+            </div>
             <div className="flex gap-3">
               <Button onClick={handleSave} disabled={isSaving} variant="outline">
                 {isSaving ? (
