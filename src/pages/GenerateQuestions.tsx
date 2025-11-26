@@ -96,7 +96,7 @@ export default function GenerateQuestions() {
     setIsGeneratingPlan(true);
 
     // Salvar estado localmente
-    saveState(selectedClient!.id, questionSession!.strategy_id, tenantId!);
+    saveState(selectedClient!.id, null, tenantId!);
     try {
       // Chamar edge function para gerar plano
       const {
@@ -105,7 +105,6 @@ export default function GenerateQuestions() {
       } = await supabase.functions.invoke('generate-plan', {
         body: {
           companyId: selectedClient!.id,
-          strategyId: questionSession!.strategy_id,
           tenantId: tenantId!,
           periodData: {
             titulo: periodData.titulo,
@@ -263,11 +262,8 @@ export default function GenerateQuestions() {
                   </div>
                   <h3 className="text-xl font-semibold">Nenhuma pergunta encontrada</h3>
                   <p className="text-muted-foreground">
-                    As perguntas guias são geradas automaticamente ao criar uma estratégia para este cliente.
+                    As perguntas guias ainda não foram geradas para este cliente.
                   </p>
-                  <Button onClick={() => navigate('/strategies')} className="mt-4">
-                    Criar Estratégia
-                  </Button>
                 </div>
               </Card> : <div className="space-y-8">
                 {/* Perguntas e Respostas */}
