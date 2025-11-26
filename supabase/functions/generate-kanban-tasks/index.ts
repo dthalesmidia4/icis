@@ -464,7 +464,6 @@ ${answersText}
         observations: task.observacoes || '',
         plan_id: planId,
         tenant_id: plan.tenant_id,
-        responsible_name: null,
       };
     });
 
