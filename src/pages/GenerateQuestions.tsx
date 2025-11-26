@@ -7,7 +7,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { Loader2, Save, Trash2, FileDown, Sparkles, ArrowLeft } from "lucide-react";
+import { Loader2, Save, Trash2, FileDown, Sparkles, ArrowLeft, MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import jsPDF from "jspdf";
 import { PeriodSelectionModal } from "@/components/PeriodSelectionModal";
 import { useQuery } from "@tanstack/react-query";
@@ -350,22 +356,32 @@ export default function GenerateQuestions() {
               </h1>
             </div>
             <div className="flex gap-3">
-              <Button onClick={handleSave} disabled={isSaving} variant="outline">
-                {isSaving ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                Salvar Respostas
-              </Button>
-              <Button onClick={handleClear} variant="outline">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Limpar Tudo
-              </Button>
-              <Button onClick={handleExportPDF} variant="outline">
-                <FileDown className="w-4 h-4 mr-2" />
-                Exportar PDF
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-background z-50">
+                  <DropdownMenuItem onClick={handleSave} disabled={isSaving}>
+                    {isSaving ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-2" />
+                    )}
+                    Salvar Respostas
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleClear}>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Limpar Tudo
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportPDF}>
+                    <FileDown className="w-4 h-4 mr-2" />
+                    Exportar PDF
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
               <Button onClick={handleOpenPeriodModal} disabled={isGeneratingPlan}>
                 {isGeneratingPlan && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                 <Sparkles className="w-4 h-4 mr-2" />
