@@ -213,7 +213,7 @@ export default function StrategyCreation() {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <h1 className="text-3xl font-bold text-foreground">
-                Estratégia
+                Estratégia Geral
               </h1>
             </div>
             <div className="flex gap-3">
