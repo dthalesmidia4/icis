@@ -200,7 +200,7 @@ export default function StrategyCreation() {
       <ConfirmationModal open={showDeleteModal} onOpenChange={setShowDeleteModal} title="Remover estratégia?" description="Esta ação não pode ser desfeita. A estratégia e todas as perguntas guias relacionadas serão removidas permanentemente. Deseja continuar?" onConfirm={handleDeleteStrategy} loading={isDeleting} />
 
       {/* Header Fixo */}
-      <div className="fixed top-0 left-0 right-0 z-10 bg-background border-b">
+      <div className="sticky top-0 z-10 bg-background border-b">
         <div className="container max-w-4xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -242,8 +242,8 @@ export default function StrategyCreation() {
       </div>
 
       {/* Container Principal */}
-      <div className="container max-w-4xl mx-auto px-6 py-8 pt-32 h-screen overflow-y-auto">
-        <div className="bg-card rounded-lg border shadow-sm p-8">
+      <div className="container max-w-4xl mx-auto px-6 py-8">
+        <div className="bg-card rounded-lg border shadow-sm p-8 max-h-[calc(100vh-200px)] overflow-y-auto">
           <div className="space-y-8">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
