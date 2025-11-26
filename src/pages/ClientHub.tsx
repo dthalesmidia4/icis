@@ -25,7 +25,7 @@ const ClientHub = () => {
     route: "/client-guide",
     emoji: "❓"
   }, {
-    title: "Estratégias",
+    title: "Estratégia Geral",
     icon: Lightbulb,
     gradient: "from-yellow-400 to-orange-500",
     route: "/strategies",
