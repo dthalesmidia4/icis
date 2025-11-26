@@ -441,27 +441,53 @@ export default function Plans() {
     return `${plan.periodo_titulo} (${startDate} - ${endDate})`;
   };
   if (loading) {
-    return <div className="min-h-screen bg-background">
+    return (
+      <div className="min-h-screen bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-          <div className="space-y-6">
-            <Skeleton className="h-12 w-64" />
-            <Skeleton className="h-6 w-96" />
-            <Card className="p-8 sm:p-12 space-y-6">
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-5/6" />
+          {/* Header Skeleton */}
+          <div className="mb-6 sm:mb-8 space-y-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="h-8 w-8 sm:h-10 sm:w-10 bg-muted rounded-md animate-pulse" />
+              <div className="space-y-2">
+                <div className="h-8 w-64 bg-muted rounded animate-pulse" />
+                <div className="h-4 w-96 bg-muted rounded animate-pulse" />
+              </div>
+            </div>
+          </div>
+
+          {/* Content Skeleton */}
+          <div className="grid lg:grid-cols-[280px_1fr] gap-6">
+            {/* Left Navigation Skeleton */}
+            <div className="space-y-2">
+              <div className="h-6 w-32 bg-muted rounded animate-pulse mb-4" />
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-12 w-full bg-muted rounded-lg animate-pulse" />
+              ))}
+            </div>
+
+            {/* Right Content Skeleton */}
+            <Card className="p-8 space-y-6">
+              <div className="flex justify-between items-center mb-6">
+                <div className="h-6 w-48 bg-muted rounded animate-pulse" />
+                <div className="flex gap-3">
+                  <div className="h-10 w-28 bg-muted rounded-md animate-pulse" />
+                  <div className="h-10 w-32 bg-muted rounded-md animate-pulse" />
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="h-8 w-3/4 bg-muted rounded animate-pulse" />
+                <div className="h-4 w-full bg-muted rounded animate-pulse" />
+                <div className="h-4 w-full bg-muted rounded animate-pulse" />
+                <div className="h-4 w-5/6 bg-muted rounded animate-pulse" />
+                <div className="h-4 w-full bg-muted rounded animate-pulse" />
+                <div className="h-4 w-4/5 bg-muted rounded animate-pulse" />
+              </div>
             </Card>
           </div>
         </div>
-        <div className="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-muted-foreground font-medium">Carregando plano...</p>
-          </div>
-        </div>
-      </div>;
+      </div>
+    );
   }
   // If no planId, show list of all plans
   if (!planId) {

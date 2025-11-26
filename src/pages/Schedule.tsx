@@ -399,11 +399,50 @@ export default function Schedule() {
     return (
       <div className="min-h-screen bg-[#F5F7FA] p-3 sm:p-6">
         <div className="max-w-7xl mx-auto">
-          <Skeleton className="h-10 sm:h-12 w-48 sm:w-64 mb-6 sm:mb-8" />
+          {/* Header Skeleton */}
+          <div className="mb-6 sm:mb-8 space-y-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="h-8 w-8 sm:h-10 sm:w-10 bg-white rounded-md animate-pulse" />
+              <div className="space-y-2">
+                <div className="h-7 w-48 bg-white rounded animate-pulse" />
+                <div className="h-4 w-64 bg-white rounded animate-pulse" />
+              </div>
+            </div>
+            
+            {/* Period and Actions Skeleton */}
+            <div className="flex gap-3">
+              <div className="h-8 w-48 bg-white rounded-full animate-pulse" />
+              <div className="h-8 w-40 bg-white rounded-md animate-pulse" />
+            </div>
+            
+            {/* Filters Skeleton */}
+            <div className="flex gap-3">
+              <div className="h-10 flex-1 bg-white rounded-md animate-pulse" />
+              <div className="h-10 w-48 bg-white rounded-md animate-pulse" />
+            </div>
+          </div>
+          
+          {/* Kanban Columns Skeleton */}
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 sm:overflow-x-auto pb-4">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="w-full sm:min-w-[324px] sm:max-w-[324px]">
-                <Skeleton className="h-[400px] sm:h-[500px]" />
+                <div className="bg-white rounded-lg border p-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="h-6 w-6 rounded-full bg-muted animate-pulse" />
+                    <div className="h-5 w-32 bg-muted rounded animate-pulse" />
+                  </div>
+                  {Array.from({ length: 3 }).map((_, idx) => (
+                    <div key={idx} className="bg-muted/50 rounded-lg p-4 space-y-3 animate-pulse">
+                      <div className="h-4 w-3/4 bg-muted rounded" />
+                      <div className="h-3 w-full bg-muted rounded" />
+                      <div className="h-3 w-5/6 bg-muted rounded" />
+                      <div className="flex gap-2">
+                        <div className="h-6 w-16 bg-muted rounded-full" />
+                        <div className="h-6 w-20 bg-muted rounded-full" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
