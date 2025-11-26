@@ -19,21 +19,21 @@ interface StrategicAnswers {
 }
 
 const strategicQuestions = [
-  "Como você quer que sua marca seja percebida pelos clientes?",
-  "Quais são os 3 principais diferenciais da sua empresa frente à concorrência?",
-  "Quais produtos ou serviços são prioridade para comunicar neste período?",
-  "Quais objetivos principais você deseja alcançar nos próximos 30–90 dias?",
-  "Você possui metas numéricas claras?",
-  "Quem é o público-alvo prioritário?",
-  "Quais dores ou desejos esse público quer resolver?",
-  "Em quais canais sua empresa está ativa?",
-  "Quais canais você deseja priorizar agora?",
-  "Quais formatos de conteúdo são mais importantes para sua marca?",
-  "Qual estilo de comunicação você prefere?",
-  "Existem datas, eventos ou sazonalidades importantes?",
-  "Quais materiais você já possui?",
-  "Existem limitações que precisamos considerar?",
-  "Quem aprova os conteúdos e qual o prazo médio de aprovação?"
+  "O que você deseja alcançar com a sua comunicação e marketing neste momento? (Ex.: aumentar vendas, gerar leads, divulgar um produto específico, fortalecer a marca.)",
+  "Por qual motivo esse objetivo é tão importante para o seu negócio agora? (Desafios, oportunidades, concorrência, sazonalidade.)",
+  "Quem é o público que você precisa impactar? (Perfil, comportamento, faixa etária, região, dores e desejos.)",
+  "Em quais canais o seu público está mais presente e onde devemos concentrar esforços? (Instagram, TikTok, WhatsApp, YouTube, TV indoor, site, Google.)",
+  "Em qual prazo você espera começar a ver resultados dessas ações? (Ex.: nas próximas semanas, no próximo mês, alinhado a metas internas, campanhas em andamento.)",
+  "De que forma você prefere que a comunicação seja desenvolvida? (Tom direto, humanizado, premium, técnico; formatos como reels, carrosséis, vídeos comerciais.)",
+  "Como sua empresa atrai clientes hoje? (Fontes atuais de tráfego: indicações, redes sociais, anúncios, parcerias, Google.)",
+  "Quais diferenciais reais tornam sua empresa mais competitiva? (3 vantagens que devem orientar campanhas e criativos.)",
+  "Qual é o orçamento disponível para ações, anúncios ou impulsionamentos? (Valor mensal, porcentagem ou limite aproximado.)",
+  "Quais materiais você já possui que podem ajudar na produção dos conteúdos? (Fotos, vídeos, identidade visual, catálogo, cardápio, depoimentos, equipe para gravação.)",
+  "Existem datas, eventos ou ocasiões especiais que precisamos incluir no planejamento? (Feriados, semanas temáticas, lançamentos, campanhas internas.)",
+  "Quem será o responsável pela aprovação dos conteúdos e qual o tempo médio dessa aprovação?",
+  "Há alguma limitação que devemos considerar? (Orçamento, tempo, legislação, estoque, equipe, restrições internas.)",
+  "Qual é o maior desafio que impede sua marca de ter resultados melhores hoje? (Visibilidade, conversão, comunicação, público errado, falta de constância.)",
+  "Quais tipos de conteúdo são essenciais para o seu negócio? (Reels, carrosséis, stories, vídeos comerciais, TV indoor, posts estáticos, campanhas pagas.)"
 ];
 
 export default function GenerateQuestions() {
