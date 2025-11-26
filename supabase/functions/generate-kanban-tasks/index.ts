@@ -442,8 +442,6 @@ ${answersText}
         }
         
         return dateISO;
-        
-        return dateISO;
       } catch (error) {
         console.error(`Erro ao validar data ${dateStr}:`, error);
         return primeiroDiaValido;
