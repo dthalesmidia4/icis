@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { ArrowLeft, Calendar, FileText, User, Link as LinkIcon, Edit2, Save, Search, Filter, Trash2 } from "lucide-react";
+import { ArrowLeft, Calendar, FileText, Link as LinkIcon, Edit2, Save, Search, Filter, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
@@ -28,7 +28,6 @@ interface KanbanCard {
   file_location: string | null;
   description: string | null;
   observations: string | null;
-  responsible_name: string | null;
   plan_id: string;
   tenant_id: string;
   created_at: string;
@@ -321,7 +320,6 @@ export default function Schedule() {
           publication_date: selectedCard.publication_date,
           file_location: selectedCard.file_location,
           observations: selectedCard.observations,
-          responsible_name: selectedCard.responsible_name,
           status: selectedCard.status,
         })
         .eq("id", selectedCard.id);
@@ -760,28 +758,6 @@ export default function Schedule() {
                                         ) : (
                                           <p className="text-sm mt-2 text-[#6B7280]">
                                             {new Date(selectedCard.publication_date).toLocaleDateString("pt-BR")}
-                                          </p>
-                                        )}
-                                      </div>
-
-                                      {/* Responsible */}
-                                      <div>
-                                        <Label className="text-sm font-semibold text-[#111827]">Responsável</Label>
-                                        {editMode ? (
-                                          <Input
-                                            value={selectedCard.responsible_name || ""}
-                                            onChange={(e) =>
-                                              setSelectedCard({
-                                                ...selectedCard,
-                                                responsible_name: e.target.value,
-                                              })
-                                            }
-                                            placeholder="Nome do responsável"
-                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
-                                          />
-                                        ) : (
-                                          <p className="text-sm mt-2 text-[#6B7280]">
-                                            {selectedCard.responsible_name || "Não atribuído"}
                                           </p>
                                         )}
                                       </div>
