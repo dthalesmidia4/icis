@@ -21,6 +21,7 @@ import ClientDetails from "./pages/ClientDetails";
 import ClientStrategies from "./pages/ClientStrategies";
 import StrategyCreation from "./pages/StrategyCreation";
 import GenerateQuestions from "./pages/GenerateQuestions";
+import StrategicQuestions from "./pages/StrategicQuestions";
 import Questions from "./pages/Questions";
 import DevHub from "./pages/DevHub";
 import DevPrompts from "./pages/DevPrompts";
@@ -150,6 +151,15 @@ const App = () => (
               <RequireTenant>
                 <Layout>
                   <GenerateQuestions />
+                </Layout>
+              </RequireTenant>
+            </ProtectedRoute>
+          } />
+          <Route path="/strategic-questions" element={
+            <ProtectedRoute>
+              <RequireTenant>
+                <Layout>
+                  <StrategicQuestions />
                 </Layout>
               </RequireTenant>
             </ProtectedRoute>
