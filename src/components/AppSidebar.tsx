@@ -12,15 +12,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
-  SidebarFooter,
-  useSidebar,
 } from "@/components/ui/sidebar";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +28,6 @@ const menuItems = [
 export function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { open } = useSidebar();
   const { signOut } = useAuth();
   const { tenantName } = useTenant();
 
@@ -52,43 +43,30 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r">
+    <Sidebar collapsible="none" className="border-r">
       {/* Header com perfil do usuário */}
       <SidebarHeader className="border-b">
         <DropdownMenu>
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-3 w-full p-3 hover:bg-accent rounded-lg transition-all duration-200 hover:scale-[1.02]">
-                    <Avatar className="h-10 w-10 border-2 border-primary">
-                      <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-sm font-bold">
-                        {tenantName ? getInitials(tenantName) : 'EM'}
-                      </AvatarFallback>
-                    </Avatar>
-                    {open && (
-                      <div className="flex-1 flex items-center justify-between">
-                        <div className="text-left">
-                          <p className="text-sm font-semibold line-clamp-1">
-                            {tenantName || 'Carregando...'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Empresa
-                          </p>
-                        </div>
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    )}
-                  </button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              {!open && (
-                <TooltipContent side="right" className="animate-fade-in">
-                  <p>{tenantName || 'Empresa'}</p>
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-3 w-full p-3 hover:bg-accent rounded-lg transition-all duration-200 hover:scale-[1.02]">
+              <Avatar className="h-10 w-10 border-2 border-primary">
+                <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-sm font-bold">
+                  {tenantName ? getInitials(tenantName) : 'EM'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 flex items-center justify-between">
+                <div className="text-left">
+                  <p className="text-sm font-semibold line-clamp-1">
+                    {tenantName || 'Carregando...'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Empresa
+                  </p>
+                </div>
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </button>
+          </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
             <DropdownMenuItem onClick={() => navigate('/profile')}>
               <User className="h-4 w-4 mr-2" />
@@ -110,32 +88,21 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              <TooltipProvider delayDuration={0}>
-                {menuItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <SidebarMenuButton
-                            onClick={() => navigate(item.url)}
-                            isActive={isActive(item.url)}
-                            className="transition-all duration-200 hover:scale-105"
-                          >
-                            <Icon className="h-5 w-5" />
-                            {open && <span>{item.title}</span>}
-                          </SidebarMenuButton>
-                        </TooltipTrigger>
-                        {!open && (
-                          <TooltipContent side="right" className="animate-fade-in">
-                            <p>{item.title}</p>
-                          </TooltipContent>
-                        )}
-                      </Tooltip>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </TooltipProvider>
+              {menuItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      onClick={() => navigate(item.url)}
+                      isActive={isActive(item.url)}
+                      className="transition-all duration-200 hover:scale-105"
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
