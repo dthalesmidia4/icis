@@ -405,28 +405,28 @@ export default function Schedule() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F5F7FA] p-3 sm:p-6">
+      <div className="min-h-screen bg-background p-3 sm:p-6">
         <div className="max-w-7xl mx-auto">
           {/* Header Skeleton */}
           <div className="mb-6 sm:mb-8 space-y-4">
             <div className="flex items-center gap-3 sm:gap-4">
-              <div className="h-8 w-8 sm:h-10 sm:w-10 bg-white rounded-md animate-pulse" />
+              <div className="h-8 w-8 sm:h-10 sm:w-10 bg-card rounded-md animate-pulse" />
               <div className="space-y-2">
-                <div className="h-7 w-48 bg-white rounded animate-pulse" />
-                <div className="h-4 w-64 bg-white rounded animate-pulse" />
+                <div className="h-7 w-48 bg-card rounded animate-pulse" />
+                <div className="h-4 w-64 bg-card rounded animate-pulse" />
               </div>
             </div>
             
             {/* Period and Actions Skeleton */}
             <div className="flex gap-3">
-              <div className="h-8 w-48 bg-white rounded-full animate-pulse" />
-              <div className="h-8 w-40 bg-white rounded-md animate-pulse" />
+              <div className="h-8 w-48 bg-card rounded-full animate-pulse" />
+              <div className="h-8 w-40 bg-card rounded-md animate-pulse" />
             </div>
             
             {/* Filters Skeleton */}
             <div className="flex gap-3">
-              <div className="h-10 flex-1 bg-white rounded-md animate-pulse" />
-              <div className="h-10 w-48 bg-white rounded-md animate-pulse" />
+              <div className="h-10 flex-1 bg-card rounded-md animate-pulse" />
+              <div className="h-10 w-48 bg-card rounded-md animate-pulse" />
             </div>
           </div>
           
@@ -434,7 +434,7 @@ export default function Schedule() {
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 sm:overflow-x-auto pb-4">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="w-full sm:min-w-[324px] sm:max-w-[324px]">
-                <div className="bg-white rounded-lg border p-4 space-y-4">
+                <div className="bg-card rounded-lg border border-border p-4 space-y-4">
                   <div className="flex items-center gap-2">
                     <div className="h-6 w-6 rounded-full bg-muted animate-pulse" />
                     <div className="h-5 w-32 bg-muted rounded animate-pulse" />
@@ -460,7 +460,7 @@ export default function Schedule() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA]">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
@@ -469,15 +469,15 @@ export default function Schedule() {
               variant="ghost"
               size="icon"
               onClick={() => navigate("/client-hub")}
-              className="hover:bg-white/80 transition-colors h-8 w-8 sm:h-10 sm:w-10"
+              className="hover:bg-accent transition-colors h-8 w-8 sm:h-10 sm:w-10"
             >
               <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
             <div>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#111827]">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
                 Cronograma de Tarefas
               </h1>
-              <p className="text-[#6B7280] mt-0.5 sm:mt-1 text-xs sm:text-sm">
+              <p className="text-muted-foreground mt-0.5 sm:mt-1 text-xs sm:text-sm">
                 Organize e acompanhe suas tarefas no formato Kanban
               </p>
             </div>
@@ -532,19 +532,19 @@ export default function Schedule() {
                   placeholder="Buscar tarefas por título, descrição ou canal..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-white border-input"
+                  className="pl-9 bg-card border-input"
                 />
               </div>
 
               {/* Filtro por canal */}
               <Select value={channelFilter} onValueChange={setChannelFilter}>
-                <SelectTrigger className="w-full sm:w-[220px] bg-white">
+                <SelectTrigger className="w-full sm:w-[220px] bg-card">
                   <div className="flex items-center gap-2">
                     <Filter className="w-4 h-4 text-muted-foreground" />
                     <SelectValue placeholder="Filtrar por canal" />
                   </div>
                 </SelectTrigger>
-                <SelectContent className="bg-background">
+                <SelectContent>
                   <SelectItem value="all">Todos os canais</SelectItem>
                   {availableChannels.map((channel) => (
                     <SelectItem key={channel} value={channel}>
@@ -558,29 +558,29 @@ export default function Schedule() {
         </div>
 
         {cards.length === 0 ? (
-          <Card className="p-8 sm:p-12 text-center bg-white shadow-sm">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-[#F5F7FA] rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
-              <FileText className="w-10 h-10 sm:w-12 sm:h-12 text-[#6B7280]" />
+          <Card className="p-8 sm:p-12 text-center">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+              <FileText className="w-10 h-10 sm:w-12 sm:h-12 text-muted-foreground" />
             </div>
-            <h2 className="text-xl sm:text-2xl font-semibold text-[#111827] mb-2">
+            <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-2">
               Nenhuma tarefa encontrada
             </h2>
-            <p className="text-[#6B7280] mb-4 sm:mb-6 text-sm sm:text-base">
+            <p className="text-muted-foreground mb-4 sm:mb-6 text-sm sm:text-base">
               As tarefas são geradas automaticamente ao aprovar o plano.
             </p>
-            <Button onClick={() => navigate("/plans")} className="bg-[#2563EB] hover:bg-[#1d4ed8]">
+            <Button onClick={() => navigate("/plans")}>
               Voltar para Planos
             </Button>
           </Card>
         ) : filteredCards.length === 0 ? (
-          <Card className="p-8 sm:p-12 text-center bg-white shadow-sm">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-[#F5F7FA] rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
-              <Search className="w-10 h-10 sm:w-12 sm:h-12 text-[#6B7280]" />
+          <Card className="p-8 sm:p-12 text-center">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+              <Search className="w-10 h-10 sm:w-12 sm:h-12 text-muted-foreground" />
             </div>
-            <h2 className="text-xl sm:text-2xl font-semibold text-[#111827] mb-2">
+            <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-2">
               Nenhuma tarefa encontrada
             </h2>
-            <p className="text-[#6B7280] mb-4 sm:mb-6 text-sm sm:text-base">
+            <p className="text-muted-foreground mb-4 sm:mb-6 text-sm sm:text-base">
               Tente ajustar os filtros de busca ou selecionar outro canal.
             </p>
             <Button 
@@ -599,15 +599,15 @@ export default function Schedule() {
               {COLUMNS.map((column) => (
                 <div key={column.id} className="w-full sm:min-w-[300px] sm:max-w-[324px] md:min-w-[324px] flex-shrink-0">
                   {/* Column Header */}
-                  <div className="bg-white rounded-lg shadow-sm mb-3 sm:mb-4 border border-[#E5E7EB]">
-                    <div className="h-11 sm:h-12 px-3 sm:px-4 flex items-center justify-between border-b border-[#E5E7EB]">
+                  <div className="bg-card rounded-lg shadow-sm mb-3 sm:mb-4 border border-border">
+                    <div className="h-11 sm:h-12 px-3 sm:px-4 flex items-center justify-between border-b border-border">
                       <div className="flex items-center gap-2">
                         <div className={`w-1 h-4 sm:h-5 rounded ${column.color}`} />
-                        <h3 className="font-semibold text-xs sm:text-sm text-[#111827] line-clamp-1">
+                        <h3 className="font-semibold text-xs sm:text-sm text-foreground line-clamp-1">
                           {column.title}
                         </h3>
                       </div>
-                      <Badge variant="secondary" className="bg-[#E5E7EB] text-[#111827] text-xs px-2 py-0.5 rounded-full">
+                      <Badge variant="secondary" className="text-xs px-2 py-0.5 rounded-full">
                         {getCardsByColumn(column.id).length}
                       </Badge>
                     </div>
@@ -621,7 +621,7 @@ export default function Schedule() {
                         {...provided.droppableProps}
                         className={`space-y-3 sm:space-y-4 p-2 sm:p-3 rounded-lg transition-all duration-200 ${
                           snapshot.isDraggingOver 
-                            ? "bg-[#2563EB]/5 border-2 border-[#2563EB] border-dashed" 
+                            ? "bg-primary/5 border-2 border-primary border-dashed" 
                             : "bg-transparent"
                         }`}
                         style={{ minHeight: "300px" }}
@@ -639,10 +639,10 @@ export default function Schedule() {
                                      ref={provided.innerRef}
                                      {...provided.draggableProps}
                                      {...provided.dragHandleProps}
-                                     className={`cursor-pointer bg-white border border-[#E5E7EB] p-3 sm:p-4 rounded-lg transition-all duration-200 w-full max-h-[160px] overflow-hidden ${
+                                     className={`cursor-pointer bg-card border border-border p-3 sm:p-4 rounded-lg transition-all duration-200 w-full max-h-[160px] overflow-hidden ${
                                        snapshot.isDragging 
                                          ? "shadow-xl rotate-2 scale-105" 
-                                         : "shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md"
+                                         : "shadow-sm hover:shadow-md"
                                      }`}
                                      onClick={() => {
                                        setSelectedCard(card);
@@ -651,7 +651,7 @@ export default function Schedule() {
                                    >
                                      {/* Card Header with Delete Button */}
                                      <div className="flex items-start justify-between mb-2 gap-2">
-                                       <h4 className="text-[13px] sm:text-[14px] font-semibold text-[#111827] leading-tight line-clamp-2 flex-1">
+                                       <h4 className="text-[13px] sm:text-[14px] font-semibold text-foreground leading-tight line-clamp-2 flex-1">
                                          {card.title}
                                        </h4>
                                        <Button
@@ -720,7 +720,7 @@ export default function Schedule() {
                                         
                                         {/* Description Preview */}
                                         {card.description && (
-                                          <p className="text-[10px] sm:text-[11px] text-[#6B7280] line-clamp-2 leading-relaxed">
+                                          <p className="text-[10px] sm:text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
                                             {card.description}
                                           </p>
                                         )}
@@ -729,9 +729,9 @@ export default function Schedule() {
                                  </DialogTrigger>
 
                                 {/* Modal */}
-                                <DialogContent className="max-w-[95vw] sm:max-w-[600px] md:max-w-[700px] max-h-[90vh] overflow-y-auto bg-white">
+                                <DialogContent className="max-w-[95vw] sm:max-w-[600px] md:max-w-[700px] max-h-[90vh] overflow-y-auto">
                                   <DialogHeader className="border-b pb-3 sm:pb-4">
-                                    <DialogTitle className="text-xl sm:text-2xl font-bold text-[#111827]">
+                                    <DialogTitle className="text-xl sm:text-2xl font-bold">
                                       {editMode ? "Editar Tarefa" : "Detalhes da Tarefa"}
                                     </DialogTitle>
                                   </DialogHeader>
@@ -740,7 +740,7 @@ export default function Schedule() {
                                     <div className="space-y-4 sm:space-y-5 pt-2">
                                       {/* Title */}
                                       <div>
-                                        <Label className="text-sm font-semibold text-[#111827]">Título</Label>
+                                        <Label className="text-sm font-semibold">Título</Label>
                                         {editMode ? (
                                           <Input
                                             value={selectedCard.title}
@@ -750,16 +750,16 @@ export default function Schedule() {
                                                 title: e.target.value,
                                               })
                                             }
-                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
+                                            className="mt-2"
                                           />
                                         ) : (
-                                          <p className="text-[15px] mt-2 text-[#111827]">{selectedCard.title}</p>
+                                          <p className="text-[15px] mt-2 text-foreground">{selectedCard.title}</p>
                                         )}
                                       </div>
 
                                       {/* Status */}
                                       <div>
-                                        <Label className="text-sm font-semibold text-[#111827]">Status</Label>
+                                        <Label className="text-sm font-semibold">Status</Label>
                                         {editMode ? (
                                           <Select
                                             value={selectedCard.status}
@@ -770,7 +770,7 @@ export default function Schedule() {
                                               })
                                             }
                                           >
-                                            <SelectTrigger className="mt-2 border-[#E5E7EB]">
+                                            <SelectTrigger className="mt-2">
                                               <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -780,7 +780,7 @@ export default function Schedule() {
                                             </SelectContent>
                                           </Select>
                                         ) : (
-                                          <p className="text-sm mt-2 text-[#6B7280]">
+                                          <p className="text-sm mt-2 text-muted-foreground">
                                             {selectedCard.status === "completed" ? "Concluído" :
                                              selectedCard.status === "in_progress" ? "Em Andamento" : "A Fazer"}
                                           </p>
@@ -789,7 +789,7 @@ export default function Schedule() {
 
                                        {/* Publication Date */}
                                       <div>
-                                        <Label className="text-sm font-semibold text-[#111827]">Data de Publicação</Label>
+                                        <Label className="text-sm font-semibold">Data de Publicação</Label>
                                         {editMode ? (
                                           <Input
                                             type="date"
@@ -800,10 +800,10 @@ export default function Schedule() {
                                                 publication_date: e.target.value,
                                               })
                                             }
-                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
+                                            className="mt-2"
                                           />
                                         ) : (
-                                          <p className="text-sm mt-2 text-[#6B7280]">
+                                          <p className="text-sm mt-2 text-muted-foreground">
                                             {new Date(selectedCard.publication_date).toLocaleDateString("pt-BR")}
                                           </p>
                                         )}
@@ -811,7 +811,7 @@ export default function Schedule() {
 
                                       {/* File Location */}
                                       <div>
-                                        <Label className="text-sm font-semibold text-[#111827]">Local do Arquivo</Label>
+                                        <Label className="text-sm font-semibold">Local do Arquivo</Label>
                                         {editMode ? (
                                           <Input
                                             value={selectedCard.file_location || ""}
@@ -822,10 +822,10 @@ export default function Schedule() {
                                               })
                                             }
                                             placeholder="Link, upload ou anotação"
-                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
+                                            className="mt-2"
                                           />
                                         ) : (
-                                          <p className="text-sm mt-2 text-[#6B7280]">
+                                          <p className="text-sm mt-2 text-muted-foreground">
                                             {selectedCard.file_location || "Não especificado"}
                                           </p>
                                         )}
@@ -833,7 +833,7 @@ export default function Schedule() {
 
                                       {/* Description */}
                                       <div>
-                                        <Label className="text-sm font-semibold text-[#111827]">Descrição</Label>
+                                        <Label className="text-sm font-semibold">Descrição</Label>
                                         {editMode ? (
                                           <Textarea
                                             value={selectedCard.description || ""}
@@ -845,10 +845,10 @@ export default function Schedule() {
                                             }
                                             rows={4}
                                             placeholder="Explicação do que deve ser feito"
-                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
+                                            className="mt-2"
                                           />
                                         ) : (
-                                          <p className="text-sm mt-2 text-[#4B5563] whitespace-pre-wrap leading-relaxed">
+                                          <p className="text-sm mt-2 text-muted-foreground whitespace-pre-wrap leading-relaxed">
                                             {selectedCard.description || "Sem descrição"}
                                           </p>
                                         )}
@@ -856,7 +856,7 @@ export default function Schedule() {
 
                                       {/* Observations */}
                                       <div>
-                                        <Label className="text-sm font-semibold text-[#111827]">Observações</Label>
+                                        <Label className="text-sm font-semibold">Observações</Label>
                                         {editMode ? (
                                           <Textarea
                                             value={selectedCard.observations || ""}
@@ -868,10 +868,10 @@ export default function Schedule() {
                                             }
                                             rows={3}
                                             placeholder="Detalhes adicionais"
-                                            className="mt-2 border-[#E5E7EB] focus:border-[#2563EB] focus:ring-[#2563EB]"
+                                            className="mt-2"
                                           />
                                         ) : (
-                                          <p className="text-sm mt-2 text-[#4B5563] whitespace-pre-wrap leading-relaxed">
+                                          <p className="text-sm mt-2 text-muted-foreground whitespace-pre-wrap leading-relaxed">
                                             {selectedCard.observations || "Sem observações"}
                                           </p>
                                         )}
@@ -888,14 +888,13 @@ export default function Schedule() {
                                                 setSelectedCard(card);
                                               }}
                                               disabled={saving}
-                                              className="border-[#E5E7EB] hover:bg-[#F5F7FA]"
                                             >
                                               Cancelar
                                             </Button>
                                             <Button
                                               onClick={handleSaveCard}
                                               disabled={saving}
-                                              className="bg-[#2563EB] hover:bg-[#1d4ed8] gap-2"
+                                              className="gap-2"
                                             >
                                               <Save className="w-4 h-4" />
                                               {saving ? "Salvando..." : "Salvar Alterações"}
@@ -904,7 +903,7 @@ export default function Schedule() {
                                         ) : (
                                           <Button 
                                             onClick={() => setEditMode(true)}
-                                            className="bg-[#2563EB] hover:bg-[#1d4ed8] gap-2"
+                                            className="gap-2"
                                           >
                                             <Edit2 className="w-4 h-4" />
                                             Editar
