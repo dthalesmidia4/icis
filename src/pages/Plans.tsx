@@ -498,7 +498,7 @@ export default function Plans() {
               <p className="text-muted-foreground mb-6">
                 Gere um plano na etapa anterior para visualizá-lo aqui.
               </p>
-              <Button size="lg" onClick={() => navigate("/generate-questions")} className="gap-2">
+              <Button size="lg" onClick={() => navigate("/client-guide")} className="gap-2">
                 Gerar Plano
               </Button>
             </Card> : <div className="grid gap-4">
@@ -580,7 +580,7 @@ export default function Plans() {
               Este plano não existe ou foi removido.
             </p>
           </div>
-          <Button size="lg" onClick={() => navigate("/generate-questions")} className="gap-2">Ver Perguntas Guias</Button>
+          <Button size="lg" onClick={() => navigate("/client-guide")} className="gap-2">Ver Perguntas Guias</Button>
         </div>
       </div>;
   }

@@ -242,7 +242,7 @@ export default function StrategyCreation() {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => navigate('/generate-questions', {
+                        onClick={() => navigate('/client-guide', {
                           state: {
                             companyId: selectedClient.id,
                             strategyId: existingStrategy.id,
