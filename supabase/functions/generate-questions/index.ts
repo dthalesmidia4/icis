@@ -13,8 +13,8 @@ serve(async (req) => {
   }
 
   try {
-    const { companyId, strategyId, tenantId } = await req.json();
-    console.log('Generating questions for:', { companyId, strategyId, tenantId });
+    const { companyId, tenantId } = await req.json();
+    console.log('Generating questions for:', { companyId, tenantId });
 
     // Criar cliente Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -33,17 +33,6 @@ serve(async (req) => {
       throw new Error('Erro ao buscar dados do cliente');
     }
 
-    // Buscar estratégia
-    const { data: strategy, error: strategyError } = await supabase
-      .from('strategies')
-      .select('*')
-      .eq('id', strategyId)
-      .single();
-
-    if (strategyError) {
-      console.error('Error fetching strategy:', strategyError);
-      throw new Error('Erro ao buscar estratégia');
-    }
 
     // Buscar prompt do sistema
     const { data: systemPrompt, error: promptError } = await supabase
@@ -69,20 +58,9 @@ DADOS DO CLIENTE:
 - Email: ${company.email}
 - Telefone: ${company.phone}
 
-ESTRATÉGIA GLOBAL DEFINIDA:
-${strategy.strategy_text}
-
-${strategy.observations ? `OBSERVAÇÕES E RESTRIÇÕES DO CLIENTE:
-⚠️ O cliente possui restrições específicas que devem ser consideradas ao formular as perguntas:
-
-${strategy.observations}
-
-As perguntas devem ajudar a refinar o cronograma respeitando essas restrições.
-` : ''}
-
 OBJETIVO:
-Gere exatamente 8 perguntas estratégicas e personalizadas que ajudarão a refinar o cronograma de marketing deste cliente.
-As perguntas devem ser contextuais ao setor, aos produtos/serviços e à estratégia definida.
+Gere exatamente 8 perguntas estratégicas e personalizadas que ajudarão a criar um cronograma de marketing eficaz para este cliente.
+As perguntas devem ser contextuais ao setor, aos produtos/serviços e ao perfil da empresa.
 `;
 
     const userPrompt = `
@@ -189,7 +167,6 @@ As perguntas devem cobrir aspectos como:
       .insert({
         tenant_id: tenantId,
         company_id: companyId,
-        strategy_id: strategyId,
         questions: questions,
         answers: {},
         status: 'in_progress'

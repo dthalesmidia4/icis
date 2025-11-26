@@ -14,8 +14,8 @@ serve(async (req) => {
   }
 
   try {
-    const { companyId, strategyId, tenantId, periodData } = await req.json();
-    console.log('Generating plan for:', { companyId, strategyId, tenantId, periodData });
+    const { companyId, tenantId, periodData } = await req.json();
+    console.log('Generating plan for:', { companyId, tenantId, periodData });
 
     // Validar parâmetros obrigatórios
     if (!periodData || !periodData.dataInicio || !periodData.dataFim || !periodData.titulo) {
@@ -38,24 +38,22 @@ serve(async (req) => {
       throw new Error('Erro ao buscar dados do cliente');
     }
 
-    // Buscar estratégia
-    const { data: strategy, error: strategyError } = await supabase
+    // Buscar estratégia mais recente (opcional)
+    const { data: strategy } = await supabase
       .from('strategies')
       .select('*')
-      .eq('id', strategyId)
-      .single();
-
-    if (strategyError) {
-      console.error('Error fetching strategy:', strategyError);
-      throw new Error('Erro ao buscar estratégia');
-    }
+      .eq('company_id', companyId)
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     // Buscar sessão de perguntas e respostas
     const { data: questionSession, error: sessionError } = await supabase
       .from('question_sessions')
       .select('*')
       .eq('company_id', companyId)
-      .eq('strategy_id', strategyId)
+      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -144,10 +142,10 @@ DADOS CADASTRAIS DO CLIENTE:
 - Telefone: ${company.phone}
 - Endereço: ${company.address || 'Não informado'}
 
-ESTRATÉGIA DO CLIENTE:
-${strategy.strategy_text}
+${strategy ? `ESTRATÉGIA DO CLIENTE:
+${strategy.strategy_text}` : ''}
 
-${strategy.observations ? `
+${strategy?.observations ? `
 ╔════════════════════════════════════════════════════════════════════════════╗
 ║          ⚠️  ATENÇÃO: OBSERVAÇÕES E RESTRIÇÕES DO CLIENTE ⚠️              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
@@ -351,7 +349,7 @@ A saída deve ser consistentemente organizada toda vez.`
       .from('marketing_plans')
       .insert({
         company_id: companyId,
-        strategy_id: strategyId,
+        strategy_id: strategy?.id || null,
         tenant_id: tenantId,
         plan_content: cleanHtml,
         plan_data: { 
