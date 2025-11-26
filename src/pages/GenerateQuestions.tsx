@@ -319,7 +319,7 @@ export default function GenerateQuestions() {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <h1 className="text-3xl font-bold text-foreground">
-                Perguntas Estratégicas da Empresa
+                Perguntas Guias
               </h1>
             </div>
             <div className="flex gap-3">
