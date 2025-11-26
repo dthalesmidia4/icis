@@ -22,7 +22,7 @@ const ClientHub = () => {
     title: "Perguntas Guias",
     icon: FileText,
     gradient: "from-blue-400 to-cyan-500",
-    route: "/generate-questions",
+    route: "/client-guide",
     emoji: "❓"
   }, {
     title: "Estratégias",

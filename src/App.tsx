@@ -21,7 +21,6 @@ import ClientDetails from "./pages/ClientDetails";
 import ClientStrategies from "./pages/ClientStrategies";
 import StrategyCreation from "./pages/StrategyCreation";
 import GenerateQuestions from "./pages/GenerateQuestions";
-import StrategicQuestions from "./pages/StrategicQuestions";
 import Questions from "./pages/Questions";
 import DevHub from "./pages/DevHub";
 import DevPrompts from "./pages/DevPrompts";
@@ -146,7 +145,7 @@ const App = () => (
               </RequireTenant>
             </ProtectedRoute>
           } />
-          <Route path="/generate-questions" element={
+          <Route path="/client-guide" element={
             <ProtectedRoute>
               <RequireTenant>
                 <Layout>
@@ -155,11 +154,12 @@ const App = () => (
               </RequireTenant>
             </ProtectedRoute>
           } />
-          <Route path="/strategic-questions" element={
+          {/* Redirect antigo para compatibilidade */}
+          <Route path="/generate-questions" element={
             <ProtectedRoute>
               <RequireTenant>
                 <Layout>
-                  <StrategicQuestions />
+                  <GenerateQuestions />
                 </Layout>
               </RequireTenant>
             </ProtectedRoute>

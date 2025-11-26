@@ -285,7 +285,7 @@ const Plan = () => {
                       Responda as perguntas guias para gerar um plano de marketing personalizado.
                     </p>
                   </div>
-                  <Button onClick={() => navigate('/generate-questions')} className="gap-2">
+                  <Button onClick={() => navigate('/client-guide')} className="gap-2">
                     Ir para Perguntas Guias
                   </Button>
                 </div>
