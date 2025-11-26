@@ -19,81 +19,21 @@ interface StrategicAnswers {
 }
 
 const strategicQuestions = [
-  {
-    category: "1. Identidade e posicionamento",
-    questions: [
-      "Qual é o posicionamento atual da sua marca e como você quer que ela seja percebida pelos clientes?",
-      "O que diferencia sua empresa da concorrência (3 vantagens reais)?",
-      "Quais produtos/serviços são mais importantes para o seu faturamento hoje?"
-    ]
-  },
-  {
-    category: "2. Objetivos comerciais e de marketing",
-    questions: [
-      "Quais são os 3 principais objetivos para os próximos 30–90 dias? (ex.: gerar leads, aumentar vendas, atrair clientes presenciais, lançar produto, fortalecer presença digital)",
-      "Existe alguma meta numérica ou expectativa clara? (ex.: +20% em vendas, +50 leads/mês, +10% em visitas, +X seguidores)"
-    ]
-  },
-  {
-    category: "3. Público-alvo e comportamento",
-    questions: [
-      "Quem são seus públicos prioritários? (idade, região, perfil de consumo, necessidades)",
-      "Quais dores, desejos ou problemas esse público quer resolver?",
-      "Como seus clientes normalmente descobrem sua empresa hoje?"
-    ]
-  },
-  {
-    category: "4. Produtos, serviços e prioridades",
-    questions: [
-      "Quais produtos/serviços devemos priorizar nas campanhas deste período?",
-      "Existem ofertas fixas, combos, lançamentos ou sazonalidades que devemos comunicar?"
-    ]
-  },
-  {
-    category: "5. Canais e presença digital",
-    questions: [
-      "Em quais canais sua empresa já está ativa? (Instagram, TikTok, Facebook, WhatsApp, Site, TV Indoor, Google etc.)",
-      "Quais canais você quer priorizar?",
-      "Existe algum tipo de conteúdo que você NÃO quer usar? (ex.: humor, polêmica, voz, avatar etc.)"
-    ]
-  },
-  {
-    category: "6. Conteúdos e formatos",
-    questions: [
-      "Quais formatos você considera mais importantes? (Reels, carrosséis, posts estáticos, stories, vídeos comerciais, identidade visual, TV indoor)",
-      "Existe algum estilo de comunicação que você prefere? (ex.: direto, premium, humanizado, técnico, divertido, minimalista)"
-    ]
-  },
-  {
-    category: "7. Campanhas, calendário e sazonalidades",
-    questions: [
-      "Há datas, eventos, ações internas ou sazonalidades que devemos incluir no planejamento?",
-      "Você tem lançamentos previstos para os próximos meses?"
-    ]
-  },
-  {
-    category: "8. Estrutura interna, materiais e limitações",
-    questions: [
-      "Quais materiais você já possui? (fotos profissionais, vídeos, banco de imagens, logotipo, identidade visual, cardápio, catálogo, depoimentos)",
-      "Sua empresa tem equipe disponível para gravações? Com que frequência?",
-      "Quais limitações devemos saber? (tempo, orçamento, legislação, área de atuação, estoque, prazos)"
-    ]
-  },
-  {
-    category: "9. Aprovação e operação",
-    questions: [
-      "Quem aprova os conteúdos e com qual prazo médio?",
-      "Pode descrever como funciona hoje seu fluxo de vendas (do primeiro contato ao fechamento)?",
-      "Qual é a maior dificuldade atual na comunicação da empresa?"
-    ]
-  },
-  {
-    category: "10. Expectativas sobre a agência",
-    questions: [
-      "O que você espera que a agência resolva para você nos próximos meses?",
-      "Se pudéssemos entregar apenas três resultados que realmente fariam diferença, quais seriam?"
-    ]
-  }
+  "Como você quer que sua marca seja percebida pelos clientes?",
+  "Quais são os 3 principais diferenciais da sua empresa frente à concorrência?",
+  "Quais produtos ou serviços são prioridade para comunicar neste período?",
+  "Quais objetivos principais você deseja alcançar nos próximos 30–90 dias?",
+  "Você possui metas numéricas claras?",
+  "Quem é o público-alvo prioritário?",
+  "Quais dores ou desejos esse público quer resolver?",
+  "Em quais canais sua empresa está ativa?",
+  "Quais canais você deseja priorizar agora?",
+  "Quais formatos de conteúdo são mais importantes para sua marca?",
+  "Qual estilo de comunicação você prefere?",
+  "Existem datas, eventos ou sazonalidades importantes?",
+  "Quais materiais você já possui?",
+  "Existem limitações que precisamos considerar?",
+  "Quem aprova os conteúdos e qual o prazo médio de aprovação?"
 ];
 
 export default function GenerateQuestions() {
@@ -202,47 +142,31 @@ export default function GenerateQuestions() {
 
     doc.setFontSize(10);
 
-    strategicQuestions.forEach((section) => {
-      if (yPosition > 270) {
+    strategicQuestions.forEach((question, idx) => {
+      const key = `question_${idx}`;
+      const answer = answers[key] || "Sem resposta";
+
+      if (yPosition > 260) {
         doc.addPage();
         yPosition = 20;
       }
 
       doc.setFont("helvetica", "bold");
-      doc.text(section.category, 20, yPosition);
+      doc.text(`${idx + 1}. ${question}`, 20, yPosition);
       yPosition += 7;
 
-      section.questions.forEach((question, qIdx) => {
-        const key = `${section.category}_${qIdx}`;
-        const answer = answers[key] || "Sem resposta";
-
-        if (yPosition > 260) {
+      doc.setFont("helvetica", "italic");
+      const answerLines = doc.splitTextToSize(answer, 170);
+      answerLines.forEach((line: string) => {
+        if (yPosition > 270) {
           doc.addPage();
           yPosition = 20;
         }
-
-        doc.setFont("helvetica", "normal");
-        const questionLines = doc.splitTextToSize(question, 170);
-        questionLines.forEach((line: string) => {
-          doc.text(line, 20, yPosition);
-          yPosition += 5;
-        });
-
-        doc.setFont("helvetica", "italic");
-        const answerLines = doc.splitTextToSize(answer, 170);
-        answerLines.forEach((line: string) => {
-          if (yPosition > 270) {
-            doc.addPage();
-            yPosition = 20;
-          }
-          doc.text(line, 20, yPosition);
-          yPosition += 5;
-        });
-
+        doc.text(line, 20, yPosition);
         yPosition += 5;
       });
 
-      yPosition += 5;
+      yPosition += 8;
     });
 
     doc.save(
@@ -266,12 +190,10 @@ export default function GenerateQuestions() {
     }
 
     // Verificar se todas as perguntas foram respondidas
-    const allAnswered = strategicQuestions.every((section) =>
-      section.questions.every((_, qIdx) => {
-        const key = `${section.category}_${qIdx}`;
-        return answers[key] && answers[key].trim().length > 0;
-      })
-    );
+    const allAnswered = strategicQuestions.every((_, idx) => {
+      const key = `question_${idx}`;
+      return answers[key] && answers[key].trim().length > 0;
+    });
 
     if (!allAnswered) {
       toast({
@@ -419,37 +341,34 @@ export default function GenerateQuestions() {
 
       {/* Container Principal */}
       <div className="container mx-auto px-6 py-8">
-        <div className="bg-card rounded-lg border shadow-sm p-6 max-h-[calc(100vh-200px)] overflow-y-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {strategicQuestions.map((section) => (
-              <div key={section.category} className="space-y-6">
-                <h2 className="text-xl font-semibold text-foreground border-b pb-2">
-                  {section.category}
-                </h2>
-                {section.questions.map((question, qIdx) => {
-                  const key = `${section.category}_${qIdx}`;
-                  return (
-                    <div key={key} className="space-y-2">
-                      <Label htmlFor={key} className="text-sm font-medium text-foreground">
-                        {question}
-                      </Label>
-                      <Textarea
-                        id={key}
-                        value={answers[key] || ""}
-                        onChange={(e) =>
-                          setAnswers((prev) => ({
-                            ...prev,
-                            [key]: e.target.value,
-                          }))
-                        }
-                        placeholder="Digite sua resposta aqui..."
-                        className="min-h-[100px] resize-y"
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+        <div className="bg-card rounded-lg border shadow-sm p-8 max-h-[calc(100vh-200px)] overflow-y-auto">
+          <div className="max-w-[900px] mx-auto space-y-6">
+            {strategicQuestions.map((question, idx) => {
+              const key = `question_${idx}`;
+              return (
+                <div key={key} className="space-y-3">
+                  <Label 
+                    htmlFor={key} 
+                    className="text-base font-semibold text-foreground leading-relaxed block"
+                  >
+                    {idx + 1}. {question}
+                  </Label>
+                  <Textarea
+                    id={key}
+                    value={answers[key] || ""}
+                    onChange={(e) =>
+                      setAnswers((prev) => ({
+                        ...prev,
+                        [key]: e.target.value,
+                      }))
+                    }
+                    placeholder="Digite sua resposta aqui..."
+                    className="min-h-[120px] resize-y focus:ring-2 focus:ring-primary/20 transition-all"
+                    rows={4}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
