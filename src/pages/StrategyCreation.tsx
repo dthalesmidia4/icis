@@ -224,46 +224,6 @@ export default function StrategyCreation() {
           </div>
 
           <div className="bg-card rounded-lg shadow-lg p-8 space-y-8">
-            <div>
-              
-            </div>
-
-            <div className="p-6 bg-accent/50 rounded-lg border">
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-primary/10 rounded-lg">
-                  <Building2 className="h-6 w-6 text-primary" />
-                </div>
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-xl font-semibold">
-                      {selectedClient.name}
-                    </h3>
-                    {existingStrategy && (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => navigate('/client-guide', {
-                          state: {
-                            companyId: selectedClient.id,
-                            strategyId: existingStrategy.id,
-                            companyName: selectedClient.name,
-                            companyCnpjCpf: selectedClient.cnpj_cpf
-                          }
-                        })}
-                        className="gap-2"
-                      >
-                        <FileQuestion className="h-4 w-4" />
-                        Perguntas Guias
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    CNPJ/CPF: {selectedClient.cnpj_cpf}
-                  </p>
-                </div>
-              </div>
-            </div>
-
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label htmlFor="strategy" className="text-base font-semibold">
