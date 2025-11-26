@@ -356,9 +356,10 @@ export default function GenerateQuestions() {
               </h1>
             </div>
             <div className="flex gap-3">
+              {/* Dropdown para Mobile */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon">
+                  <Button variant="outline" size="icon" className="md:hidden">
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -381,7 +382,26 @@ export default function GenerateQuestions() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              {/* Botões individuais para Desktop */}
+              <Button onClick={handleSave} disabled={isSaving} variant="outline" className="hidden md:flex">
+                {isSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Save className="w-4 h-4 mr-2" />
+                )}
+                Salvar Respostas
+              </Button>
+              <Button onClick={handleClear} variant="outline" className="hidden md:flex">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Limpar Tudo
+              </Button>
+              <Button onClick={handleExportPDF} variant="outline" className="hidden md:flex">
+                <FileDown className="w-4 h-4 mr-2" />
+                Exportar PDF
+              </Button>
               
+              {/* Botão principal sempre visível */}
               <Button onClick={handleOpenPeriodModal} disabled={isGeneratingPlan}>
                 {isGeneratingPlan && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                 <Sparkles className="w-4 h-4 mr-2" />
