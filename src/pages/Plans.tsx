@@ -664,8 +664,7 @@ export default function Plans() {
 
       {/* Main Content */}
       <div className="container mx-auto px-6 py-8">
-        <div className="bg-card rounded-lg border shadow-sm p-8 max-h-[calc(100vh-200px)] overflow-y-auto">
-          <div className="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <div className="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
                 {/* Left Column - Navigation */}
                 <aside className="space-y-4">
                   <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
@@ -776,10 +775,10 @@ export default function Plans() {
                         <RichTextEditor content={editedContent} onChange={setEditedContent} />
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex-1 border border-border rounded-lg bg-background overflow-hidden">
-                      <ScrollArea className="h-[420px]">
-                        <div className="p-6 sm:p-8">
+                   ) : (
+                    <div className="flex-1 overflow-hidden">
+                      <ScrollArea className="h-[calc(100vh-280px)]">
+                        <div className="pr-4">
                           <div 
                             className="
                               [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:mt-5 [&_h2]:text-foreground [&_h2]:scroll-mt-4
@@ -802,7 +801,6 @@ export default function Plans() {
                     </div>
                   )}
                 </section>
-          </div>
         </div>
       </div>
     </div>;
