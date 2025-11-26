@@ -194,13 +194,13 @@ export default function StrategyCreation() {
 
   if (!selectedClient) return null;
 
-  return <div className="min-h-screen bg-background">
+  return <div className="flex flex-col h-screen bg-background">
       <ConfirmationModal open={showConfirmModal} onOpenChange={setShowConfirmModal} title="Substituir estratégia existente?" description="A estratégia anterior será substituída pela nova versão. Esta ação não pode ser desfeita. Deseja continuar?" onConfirm={handleSave} loading={isSaving} />
 
       <ConfirmationModal open={showDeleteModal} onOpenChange={setShowDeleteModal} title="Remover estratégia?" description="Esta ação não pode ser desfeita. A estratégia e todas as perguntas guias relacionadas serão removidas permanentemente. Deseja continuar?" onConfirm={handleDeleteStrategy} loading={isDeleting} />
 
       {/* Header Fixo */}
-      <div className="sticky top-0 z-10 bg-background border-b">
+      <div className="sticky top-0 z-10 bg-background border-b shrink-0">
         <div className="container max-w-4xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -242,7 +242,8 @@ export default function StrategyCreation() {
       </div>
 
       {/* Container Principal */}
-      <div className="container max-w-4xl mx-auto px-6 py-8">
+      <div className="flex-1 overflow-y-auto">
+        <div className="container max-w-4xl mx-auto px-6 py-8">
         <div className="bg-card rounded-lg border shadow-sm p-8 max-h-[calc(100vh-200px)] overflow-y-auto">
           <div className="space-y-8">
             <div className="space-y-4">
@@ -302,5 +303,6 @@ export default function StrategyCreation() {
           </div>
         </div>
       </div>
-    </div>;
+    </div>
+  </div>;
 }
