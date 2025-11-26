@@ -37,6 +37,12 @@ const ClientHub = () => {
     route: "/plans",
     emoji: "📋"
   }, {
+    title: "Planejamento Avançado",
+    icon: Calendar,
+    gradient: "from-indigo-400 to-purple-500",
+    route: "/advanced-plans",
+    emoji: "🚀"
+  }, {
     title: "Cronograma",
     icon: ListTodo,
     gradient: "from-green-400 to-emerald-500",
