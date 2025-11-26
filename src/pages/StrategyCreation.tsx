@@ -244,7 +244,7 @@ export default function StrategyCreation() {
       {/* Container Principal */}
       <div className="flex-1 overflow-y-auto">
         <div className="container max-w-4xl mx-auto px-6 py-8">
-        <div className="bg-card rounded-lg border shadow-sm p-8 max-h-[calc(100vh-200px)] overflow-y-auto">
+        <div className="bg-card rounded-lg border shadow-sm p-8">
           <div className="space-y-8">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
