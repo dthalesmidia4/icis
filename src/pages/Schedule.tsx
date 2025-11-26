@@ -180,13 +180,21 @@ export default function Schedule() {
       if (deleteError) throw deleteError;
 
       // Chamar a edge function para regenerar
-      const { error: functionError } = await supabase.functions.invoke('generate-kanban-tasks', {
+      const { data, error: functionError } = await supabase.functions.invoke('generate-kanban-tasks', {
         body: { planId }
       });
 
-      if (functionError) throw functionError;
+      if (functionError) {
+        console.error("Edge function error:", functionError);
+        throw new Error(functionError.message || "Erro ao regenerar cronograma");
+      }
 
-      sonnerToast.success("Cronograma regenerado com sucesso!");
+      if (!data?.success) {
+        console.error("Edge function failed:", data);
+        throw new Error(data?.error || "Erro ao gerar tarefas");
+      }
+
+      sonnerToast.success(`Cronograma regenerado! ${data.cardsCreated || 0} tarefas criadas.`);
       
       // Recarregar os cards
       await fetchCards();
