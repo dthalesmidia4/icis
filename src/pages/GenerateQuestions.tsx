@@ -313,7 +313,7 @@ export default function GenerateQuestions() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate("/home")}
+                onClick={() => navigate("/client-hub")}
                 className="hover:bg-accent"
               >
                 <ArrowLeft className="h-5 w-5" />
