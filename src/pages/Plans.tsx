@@ -173,32 +173,23 @@ export default function Plans() {
     if (!plan || !editedContent || !editingSectionId) return;
     setSaving(true);
     try {
-      // Update the specific section in the full plan content
-      const updatedSections = sections.map(section => 
-        section.id === editingSectionId 
-          ? { ...section, content: editedContent }
-          : section
-      );
-      
-      // Reconstruct the full plan content
-      const updatedPlanContent = updatedSections.map(s => s.content).join('\n\n');
-      
+      // Salvar diretamente o conteúdo editado
       const {
         error
       } = await supabase.from("marketing_plans").update({
-        plan_content: updatedPlanContent
+        plan_content: editedContent
       }).eq("id", plan.id);
       if (error) throw error;
       setPlan({
         ...plan,
-        plan_content: updatedPlanContent
+        plan_content: editedContent
       });
       setIsEditing(false);
       setEditingSectionId(null);
       setLastSaved(new Date());
       toast({
         title: "Alterações salvas!",
-        description: "A seção foi atualizada com sucesso."
+        description: "O conteúdo foi atualizado com sucesso."
       });
     } catch (error) {
       console.error("Error saving edit:", error);
@@ -396,6 +387,19 @@ export default function Plans() {
     // O conteúdo já vem formatado em HTML do banco
     return content || "";
   };
+
+  const addSectionIds = (content: string) => {
+    // Adiciona IDs nas tags H2 para permitir navegação por âncoras
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = content;
+    
+    const h2Elements = tempDiv.querySelectorAll('h2');
+    h2Elements.forEach((h2, index) => {
+      h2.id = `section-${index}`;
+    });
+    
+    return tempDiv.innerHTML;
+  };
   const parsePlanSections = (content: string): PlanSection[] => {
     // Create a temporary DOM element to parse HTML
     const tempDiv = document.createElement('div');
@@ -411,28 +415,22 @@ export default function Plans() {
       const sectionTitle = h2.textContent?.trim() || '';
       const sectionId = `section-${index}`;
       
-      // Get content between this H2 and the next H2
-      let sectionContent = '';
-      let currentNode = h2.nextSibling;
-      const nextH2 = h2Elements[index + 1];
-      
-      while (currentNode && currentNode !== nextH2) {
-        if (currentNode.nodeType === Node.ELEMENT_NODE) {
-          sectionContent += (currentNode as Element).outerHTML;
-        } else if (currentNode.nodeType === Node.TEXT_NODE) {
-          sectionContent += currentNode.textContent;
-        }
-        currentNode = currentNode.nextSibling;
-      }
-      
       sections.push({
         id: sectionId,
         title: sectionTitle,
-        content: `<h2>${sectionTitle}</h2>${sectionContent.trim()}`
+        content: '' // Não precisamos armazenar conteúdo individual
       });
     });
     
     return sections;
+  };
+
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setSelectedSectionId(sectionId);
+    }
   };
   const formatPeriod = (plan: MarketingPlan) => {
     if (!plan.periodo_titulo) return "";
@@ -674,15 +672,23 @@ export default function Plans() {
                     Navegação
                   </h2>
 
-                  <nav className="space-y-1">
-                    {(sections.length ? sections : [{
-                  id: "full-content",
-                  title: "Conteúdo completo do plano",
-                  content: plan.plan_content || ""
-                }]).map(section => <button key={section.id} type="button" onClick={() => setSelectedSectionId(section.id)} className={cn("w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors", selectedSectionId === section.id || !selectedSectionId && sections[0]?.id === section.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
-                        {section.title}
-                      </button>)}
-                  </nav>
+                   <nav className="space-y-1">
+                     {sections.map(section => (
+                       <button 
+                         key={section.id} 
+                         type="button" 
+                         onClick={() => scrollToSection(section.id)} 
+                         className={cn(
+                           "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                           selectedSectionId === section.id 
+                             ? "bg-primary text-primary-foreground" 
+                             : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                         )}
+                       >
+                         {section.title}
+                       </button>
+                     ))}
+                   </nav>
                 </aside>
 
                 {/* Right Column - Content */}
@@ -703,17 +709,14 @@ export default function Plans() {
                           variant="outline" 
                           size="sm" 
                           onClick={() => {
-                            const currentSection = sections.find(s => s.id === selectedSectionId);
-                            if (currentSection) {
-                              setEditedContent(currentSection.content);
-                              setEditingSectionId(currentSection.id);
-                              setIsEditing(true);
-                            }
+                            setEditedContent(plan.plan_content || "");
+                            setEditingSectionId("full-content");
+                            setIsEditing(true);
                           }} 
                           className="gap-2 hover:bg-muted"
                         >
                           <Pencil className="w-4 h-4" />
-                          <span className="hidden sm:inline">Editar Seção</span>
+                          <span className="hidden sm:inline">Editar</span>
                         </Button>
                       ) : (
                         <div className="flex items-center gap-2">
@@ -750,11 +753,11 @@ export default function Plans() {
                   {/* Content Container */}
                   {isEditing ? (
                     <div className="flex-1">
-                      <div className="space-y-4">
-                        <div className="text-center space-y-2">
-                          <p className="text-sm text-muted-foreground">
-                            Editando: {sections.find(s => s.id === editingSectionId)?.title}
-                          </p>
+                        <div className="space-y-4">
+                          <div className="text-center space-y-2">
+                            <p className="text-sm text-muted-foreground">
+                              Editando planejamento completo
+                            </p>
                           <div className="flex items-center justify-center gap-2 text-sm">
                             {autoSaving ? (
                               <span className="text-muted-foreground flex items-center gap-2">
@@ -779,7 +782,7 @@ export default function Plans() {
                         <div className="p-6 sm:p-8">
                           <div 
                             className="
-                              [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:mt-5 [&_h2]:text-foreground
+                              [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:mt-5 [&_h2]:text-foreground [&_h2]:scroll-mt-4
                               [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:text-foreground
                               [&_p]:mb-3 [&_p]:leading-relaxed [&_p]:text-foreground
                               [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:mb-3 [&_ul]:space-y-1
@@ -791,7 +794,7 @@ export default function Plans() {
                               [&_hr]:my-6 [&_hr]:border-t [&_hr]:border-border
                             " 
                             dangerouslySetInnerHTML={{
-                              __html: formatContent((sections.find(s => s.id === selectedSectionId)?.content || sections[0]?.content || plan.plan_content || "") as string)
+                              __html: formatContent(addSectionIds(plan.plan_content || ""))
                             }} 
                           />
                         </div>
