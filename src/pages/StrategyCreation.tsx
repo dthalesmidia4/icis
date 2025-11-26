@@ -233,9 +233,9 @@ export default function StrategyCreation() {
                 <div className="p-3 bg-primary/10 rounded-lg">
                   <Building2 className="h-6 w-6 text-primary" />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-3">
-                    <h3 className="text-xl font-semibold mb-1">
+                    <h3 className="text-xl font-semibold">
                       {selectedClient.name}
                     </h3>
                     {existingStrategy && (
