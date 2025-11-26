@@ -194,36 +194,57 @@ export default function StrategyCreation() {
 
   if (!selectedClient) return null;
 
-  return <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
+  return <div className="min-h-screen bg-background">
       <ConfirmationModal open={showConfirmModal} onOpenChange={setShowConfirmModal} title="Substituir estratégia existente?" description="A estratégia anterior será substituída pela nova versão. Esta ação não pode ser desfeita. Deseja continuar?" onConfirm={handleSave} loading={isSaving} />
-
-      
 
       <ConfirmationModal open={showDeleteModal} onOpenChange={setShowDeleteModal} title="Remover estratégia?" description="Esta ação não pode ser desfeita. A estratégia e todas as perguntas guias relacionadas serão removidas permanentemente. Deseja continuar?" onConfirm={handleDeleteStrategy} loading={isDeleting} />
 
-      <div className="container max-w-4xl mx-auto px-4 py-6 sm:py-8">
-          <div className="mb-6 sm:mb-8">
-            <div className="flex items-center gap-3 sm:gap-4 mb-4">
+      {/* Header Fixo */}
+      <div className="sticky top-0 z-10 bg-background border-b">
+        <div className="container max-w-4xl mx-auto px-6 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleBack}
-                className="hover:bg-muted/80 transition-colors h-8 w-8 sm:h-10 sm:w-10"
+                className="hover:bg-accent"
               >
-                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                <ArrowLeft className="h-5 w-5" />
               </Button>
-              <div>
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
-                  Estratégia
-                </h1>
-                <p className="text-muted-foreground mt-0.5 sm:mt-1 text-xs sm:text-sm">
-                  Defina a estratégia principal do cliente
-                </p>
-              </div>
+              <h1 className="text-3xl font-bold text-foreground">
+                Estratégia
+              </h1>
+            </div>
+            <div className="flex gap-3">
+              {existingStrategy && !isEditMode && (
+                <Button variant="secondary" onClick={() => navigate('/plans')}>
+                  <CalendarDays className="h-4 w-4 mr-2" />
+                  Ver Plano
+                </Button>
+              )}
+              
+              {isEditMode && existingStrategy && (
+                <Button variant="outline" onClick={handleCancelEdit}>
+                  Cancelar Edição
+                </Button>
+              )}
+              
+              {isEditMode && (
+                <Button onClick={handleSaveClick} disabled={isSaving || !strategyText.trim()} className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
+                  <Save className="h-4 w-4 mr-2" />
+                  {isSaving ? 'Salvando...' : 'Salvar Estratégia'}
+                </Button>
+              )}
             </div>
           </div>
+        </div>
+      </div>
 
-          <div className="bg-card rounded-lg shadow-lg p-8 space-y-8">
+      {/* Container Principal */}
+      <div className="container max-w-4xl mx-auto px-6 py-8">
+        <div className="bg-card rounded-lg border shadow-sm p-8 max-h-[calc(100vh-200px)] overflow-y-auto">
+          <div className="space-y-8">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label htmlFor="strategy" className="text-base font-semibold">
@@ -270,31 +291,16 @@ export default function StrategyCreation() {
                 </Card> : <p className="text-sm text-muted-foreground italic">Nenhuma observação registrada</p> : <Textarea id="observations" placeholder="Adicione restrições específicas do cliente (ex: não publicar aos domingos, evitar temas polêmicos, priorizar tom formal, etc.)" value={observations} onChange={e => setObservations(e.target.value)} className="min-h-[120px] resize-y" />}
             </div>
 
-            <div className="flex justify-between items-center gap-3 pt-4">
-              <div>
-                {isEditMode && existingStrategy && <Button variant="destructive" onClick={() => setShowDeleteModal(true)} disabled={isDeleting} className="gap-2">
-                    <Trash2 className="h-4 w-4" />
-                    Remover Estratégia
-                  </Button>}
+            {isEditMode && existingStrategy && (
+              <div className="pt-4">
+                <Button variant="destructive" onClick={() => setShowDeleteModal(true)} disabled={isDeleting} className="gap-2">
+                  <Trash2 className="h-4 w-4" />
+                  Remover Estratégia
+                </Button>
               </div>
-
-              <div className="flex gap-3">
-                {existingStrategy && !isEditMode && <Button variant="secondary" onClick={() => navigate('/plans')}>
-                    <CalendarDays className="h-4 w-4 mr-2" />
-                    Ver Plano
-                  </Button>}
-                
-                {isEditMode && existingStrategy && <Button variant="outline" onClick={handleCancelEdit}>
-                    Cancelar Edição
-                  </Button>}
-                
-                {isEditMode && <Button onClick={handleSaveClick} disabled={isSaving || !strategyText.trim()} className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
-                    <Save className="h-4 w-4 mr-2" />
-                    {isSaving ? 'Salvando...' : 'Salvar Estratégia'}
-                  </Button>}
-              </div>
-            </div>
+            )}
           </div>
         </div>
+      </div>
     </div>;
 }

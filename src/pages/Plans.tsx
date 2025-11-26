@@ -492,27 +492,29 @@ export default function Plans() {
   // If no planId, show list of all plans
   if (!planId) {
     return <div className="min-h-screen bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          <div className="mb-6 sm:mb-8">
-            <div className="flex items-center gap-3 sm:gap-4 mb-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate("/client-hub")}
-                className="hover:bg-muted/80 transition-colors h-8 w-8 sm:h-10 sm:w-10"
-              >
-                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-              </Button>
-              <div>
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
+        {/* Header Fixo */}
+        <div className="sticky top-0 z-10 bg-background border-b">
+          <div className="container mx-auto px-6 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate("/client-hub")}
+                  className="hover:bg-accent"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <h1 className="text-3xl font-bold text-foreground">
                   Planos Estratégicos
                 </h1>
-                <p className="text-muted-foreground mt-0.5 sm:mt-1 text-xs sm:text-sm">
-                  Todos os planos gerados estão salvos aqui
-                </p>
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Container Principal */}
+        <div className="container mx-auto px-6 py-8">
 
           {plans.length === 0 ? <Card className="p-12 text-center">
               <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
@@ -611,40 +613,66 @@ export default function Plans() {
       </div>;
   }
   return <div className="min-h-screen bg-background">
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Back Button */}
-        <Button variant="ghost" onClick={() => navigate("/client-hub")} className="gap-2 mb-6 hover:bg-muted -ml-2">
-          <ArrowLeft className="w-4 h-4" />
-          Voltar
-        </Button>
-
-        {/* Plan Card */}
-        <Card className="bg-card border-border shadow-lg overflow-hidden">
-          {/* Card Header with Title and Actions */}
-          <div className="border-b bg-muted/30 px-6 py-5">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div className="flex-1">
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
-                  Plano Estratégico: {(plan.tenant_companies as any)?.fantasy_name || plan.tenant_companies?.name || 'Cliente'}
-                </h1>
-                {plan.approved && <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
-                    <CheckCircle className="w-4 h-4" />
-                    Aprovado
-                  </span>}
-              </div>
+      {/* Header Fixo */}
+      <div className="sticky top-0 z-10 bg-background border-b">
+        <div className="container mx-auto px-6 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/client-hub")}
+                className="hover:bg-accent"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <h1 className="text-3xl font-bold text-foreground">
+                Planejamento
+              </h1>
+            </div>
+            <div className="flex gap-3">
+              {!isEditing && (
+                <>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleExportPDF} 
+                    disabled={exporting}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    {exporting ? "Exportando..." : "Exportar"}
+                  </Button>
+                  
+                  {plan.approved ? (
+                    <ButtonColorful 
+                      label="Ver Cronograma"
+                      icon={Calendar}
+                      onClick={() => navigate(`/schedule?planId=${plan.id}`)}
+                    />
+                  ) : (
+                    <Button 
+                      onClick={handleApprove} 
+                      disabled={saving || generatingCards}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      {generatingCards ? "Gerando cronograma..." : saving ? "Aprovando..." : "Aprovar Plano"}
+                    </Button>
+                  )}
+                </>
+              )}
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Card Content */}
-          <div className="p-6 sm:p-8 lg:p-10">
-            <div className="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
+      {/* Main Content */}
+      <div className="container mx-auto px-6 py-8">
+        <div className="bg-card rounded-lg border shadow-sm p-8 max-h-[calc(100vh-200px)] overflow-y-auto">
+          <div className="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
                 {/* Left Column - Navigation */}
                 <aside className="space-y-4">
-                  <div>
-                    
-                    
-                  </div>
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                    Navegação
+                  </h2>
 
                   <nav className="space-y-1">
                     {(sections.length ? sections : [{
@@ -659,15 +687,15 @@ export default function Plans() {
 
                 {/* Right Column - Content */}
                 <section className="flex flex-col min-h-[420px]">
-                  {/* Header with month badge */}
+                  {/* Header with period badge */}
                   <header className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-2">
-                    {plan.periodo_titulo && (
-                      <Badge variant="outline" className="text-xs px-3 py-1 rounded-full">
-                        Período: {formatPeriod(plan)}
-                      </Badge>
-                    )}
-                  </div>
+                    <div className="flex items-center gap-2">
+                      {plan.periodo_titulo && (
+                        <Badge variant="outline" className="text-xs px-3 py-1 rounded-full">
+                          Período: {formatPeriod(plan)}
+                        </Badge>
+                      )}
+                    </div>
                       
                     <div className="flex items-center gap-2">
                       {!isEditing ? (
@@ -746,68 +774,33 @@ export default function Plans() {
                       </div>
                     </div>
                   ) : (
-                    <>
-                      <div className="flex-1 border border-border rounded-lg bg-background overflow-hidden">
-                        <ScrollArea className="h-[420px]">
-                          <div className="p-6 sm:p-8">
-                            <div 
-                              className="
-                                [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:mt-5 [&_h2]:text-foreground
-                                [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:text-foreground
-                                [&_p]:mb-3 [&_p]:leading-relaxed [&_p]:text-foreground
-                                [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:mb-3 [&_ul]:space-y-1
-                                [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:mb-3 [&_ol]:space-y-1
-                                [&_li]:mb-1 [&_li]:text-foreground
-                                [&_strong]:font-semibold
-                                [&_em]:italic
-                                [&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3
-                                [&_hr]:my-6 [&_hr]:border-t [&_hr]:border-border
-                              " 
-                              dangerouslySetInnerHTML={{
-                                __html: formatContent((sections.find(s => s.id === selectedSectionId)?.content || sections[0]?.content || plan.plan_content || "") as string)
-                              }} 
-                            />
-                          </div>
-                        </ScrollArea>
-                      </div>
-
-                      {/* Footer with Approve and Export buttons */}
-                      <div className="mt-6 flex justify-between items-center">
-                        <Button 
-                          variant="outline" 
-                          size="lg" 
-                          onClick={handleExportPDF} 
-                          disabled={exporting} 
-                          className="gap-2"
-                        >
-                          <Download className="w-4 h-4" />
-                          {exporting ? "Exportando..." : "Exportar"}
-                        </Button>
-                        
-                        {plan.approved ? (
-                          <ButtonColorful 
-                            label="Ver Cronograma"
-                            icon={Calendar}
-                            onClick={() => navigate(`/schedule?planId=${plan.id}`)}
+                    <div className="flex-1 border border-border rounded-lg bg-background overflow-hidden">
+                      <ScrollArea className="h-[420px]">
+                        <div className="p-6 sm:p-8">
+                          <div 
+                            className="
+                              [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:mt-5 [&_h2]:text-foreground
+                              [&_h3]:text-xl [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:text-foreground
+                              [&_p]:mb-3 [&_p]:leading-relaxed [&_p]:text-foreground
+                              [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:mb-3 [&_ul]:space-y-1
+                              [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:mb-3 [&_ol]:space-y-1
+                              [&_li]:mb-1 [&_li]:text-foreground
+                              [&_strong]:font-semibold
+                              [&_em]:italic
+                              [&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3
+                              [&_hr]:my-6 [&_hr]:border-t [&_hr]:border-border
+                            " 
+                            dangerouslySetInnerHTML={{
+                              __html: formatContent((sections.find(s => s.id === selectedSectionId)?.content || sections[0]?.content || plan.plan_content || "") as string)
+                            }} 
                           />
-                        ) : (
-                          <Button 
-                            size="lg" 
-                            onClick={handleApprove} 
-                            disabled={saving || generatingCards} 
-                            className="gap-2"
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                            {generatingCards ? "Gerando cronograma..." : saving ? "Aprovando..." : "Aprovar Plano"}
-                          </Button>
-                        )}
-                      </div>
-                    </>
+                        </div>
+                      </ScrollArea>
+                    </div>
                   )}
                 </section>
-              </div>
-            </div>
-          </Card>
+          </div>
+        </div>
       </div>
     </div>;
 }
