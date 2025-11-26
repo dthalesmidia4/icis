@@ -55,6 +55,7 @@ export default function Plans() {
   const [generatingCards, setGeneratingCards] = useState(false);
   const [sections, setSections] = useState<PlanSection[]>([]);
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+  const [navigatingToSchedule, setNavigatingToSchedule] = useState(false);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
   const planId = searchParams.get("planId");
 
@@ -438,6 +439,22 @@ export default function Plans() {
     const endDate = plan.periodo_data_fim ? new Date(plan.periodo_data_fim).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }) : "";
     return `${plan.periodo_titulo} (${startDate} - ${endDate})`;
   };
+
+  const handleNavigateToSchedule = async () => {
+    if (!plan) return;
+    
+    setNavigatingToSchedule(true);
+    sonnerToast.loading('Carregando cronograma...', { 
+      id: 'loading-schedule',
+      duration: Infinity 
+    });
+    
+    // Pequeno delay para dar feedback visual
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    sonnerToast.dismiss('loading-schedule');
+    navigate(`/schedule?planId=${plan.id}`);
+  };
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -644,7 +661,8 @@ export default function Plans() {
                     <ButtonColorful 
                       label="Ver Cronograma"
                       icon={Calendar}
-                      onClick={() => navigate(`/schedule?planId=${plan.id}`)}
+                      onClick={handleNavigateToSchedule}
+                      disabled={navigatingToSchedule}
                     />
                   ) : (
                     <Button 
