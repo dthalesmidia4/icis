@@ -19,17 +19,17 @@ const ClientHub = () => {
   if (!selectedClient) return null;
   const displayName = selectedClient.fantasy_name || selectedClient.name;
   const actionCards = [{
-    title: "Estratégias",
-    icon: Lightbulb,
-    gradient: "from-yellow-400 to-orange-500",
-    route: "/strategies",
-    emoji: "💡"
-  }, {
     title: "Perguntas Guias",
     icon: FileText,
     gradient: "from-blue-400 to-cyan-500",
     route: "/generate-questions",
     emoji: "❓"
+  }, {
+    title: "Estratégias",
+    icon: Lightbulb,
+    gradient: "from-yellow-400 to-orange-500",
+    route: "/strategies",
+    emoji: "💡"
   }, {
     title: "Planejamento",
     icon: Calendar,
@@ -71,8 +71,8 @@ const ClientHub = () => {
                   </div>
                   
                   <h3 className={`text-xl font-bold transition-colors ${
-                    index === 0 ? 'text-orange-600 dark:text-orange-400' :
-                    index === 1 ? 'text-cyan-600 dark:text-cyan-400' :
+                    index === 0 ? 'text-cyan-600 dark:text-cyan-400' :
+                    index === 1 ? 'text-orange-600 dark:text-orange-400' :
                     index === 2 ? 'text-pink-600 dark:text-pink-400' :
                     'text-emerald-600 dark:text-emerald-400'
                   }`}>
