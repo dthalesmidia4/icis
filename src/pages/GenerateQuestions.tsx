@@ -277,8 +277,35 @@ export default function GenerateQuestions() {
 
   if (loadingSession) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-background">
+        <div className="sticky top-0 z-10 bg-background border-b">
+          <div className="container mx-auto px-6 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="h-10 w-10 bg-muted rounded-md animate-pulse" />
+                <div className="h-8 w-48 bg-muted rounded-md animate-pulse" />
+              </div>
+              <div className="flex gap-3">
+                <div className="h-10 w-32 bg-muted rounded-md animate-pulse" />
+                <div className="h-10 w-32 bg-muted rounded-md animate-pulse" />
+                <div className="h-10 w-32 bg-muted rounded-md animate-pulse" />
+                <div className="h-10 w-40 bg-muted rounded-md animate-pulse" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="container mx-auto px-6 py-8">
+          <div className="bg-card rounded-lg border shadow-sm p-8">
+            <div className="max-w-[900px] mx-auto space-y-6">
+              {Array.from({ length: 5 }).map((_, idx) => (
+                <div key={idx} className="space-y-3">
+                  <div className="h-5 w-3/4 bg-muted rounded animate-pulse" />
+                  <div className="h-32 w-full bg-muted rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

@@ -98,9 +98,22 @@ const ClientList = () => {
             </Button>
           </div>
 
-          {isLoading ? <div className="text-center py-20">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-              <p className="mt-4 text-muted-foreground">Carregando seus clientes...</p>
+          {isLoading ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Card key={i} className="group relative overflow-hidden">
+                  <CardHeader className="space-y-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className="h-12 w-12 rounded-xl bg-muted animate-pulse" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-5 w-32 bg-muted rounded animate-pulse" />
+                          <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                </Card>
+              ))}
             </div> : !clients || clients.length === 0 ? <div className="text-center py-20">
               <Building2 className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
               <p className="text-lg font-medium mb-2">Nenhum cliente cadastrado ainda</p>
