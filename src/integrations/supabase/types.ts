@@ -259,7 +259,7 @@ export type Database = {
           id: string
           questions: Json
           status: string
-          strategy_id: string
+          strategy_id: string | null
           tenant_id: string
           updated_at: string
         }
@@ -270,7 +270,7 @@ export type Database = {
           id?: string
           questions?: Json
           status?: string
-          strategy_id: string
+          strategy_id?: string | null
           tenant_id: string
           updated_at?: string
         }
@@ -281,7 +281,7 @@ export type Database = {
           id?: string
           questions?: Json
           status?: string
-          strategy_id?: string
+          strategy_id?: string | null
           tenant_id?: string
           updated_at?: string
         }
