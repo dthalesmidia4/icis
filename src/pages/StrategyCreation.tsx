@@ -220,7 +220,7 @@ export default function StrategyCreation() {
               {existingStrategy && !isEditMode && (
                 <Button variant="secondary" onClick={() => navigate('/plans')}>
                   <CalendarDays className="h-4 w-4 mr-2" />
-                  Ver Plano
+                  Planejamentos
                 </Button>
               )}
               
