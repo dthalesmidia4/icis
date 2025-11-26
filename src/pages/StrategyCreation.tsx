@@ -242,7 +242,7 @@ export default function StrategyCreation() {
       </div>
 
       {/* Container Principal */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1">
         <div className="container max-w-4xl mx-auto px-6 py-8">
         <div className="bg-card rounded-lg border shadow-sm p-8">
           <div className="space-y-8">
