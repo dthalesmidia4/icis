@@ -662,7 +662,8 @@ export default function Plans() {
                       label="Ver Cronograma"
                       icon={Calendar}
                       onClick={handleNavigateToSchedule}
-                      disabled={navigatingToSchedule}
+                      loading={navigatingToSchedule}
+                      loadingLabel="Carregando..."
                     />
                   ) : (
                     <Button 

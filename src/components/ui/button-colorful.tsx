@@ -1,21 +1,30 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LucideIcon } from "lucide-react";
+import { LucideIcon, Loader2 } from "lucide-react";
 
 interface ButtonColorfulProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   label?: string;
   icon?: LucideIcon;
+  loading?: boolean;
+  loadingLabel?: string;
 }
 
 export function ButtonColorful({
   className,
   label = "Explore Components",
   icon: Icon,
+  loading = false,
+  loadingLabel = "Carregando...",
+  disabled,
   ...props
 }: ButtonColorfulProps) {
+  const displayLabel = loading ? loadingLabel : label;
+  const DisplayIcon = loading ? Loader2 : Icon;
+  
   return (
     <Button
       size="lg"
+      disabled={loading || disabled}
       className={cn(
         "relative overflow-hidden",
         "bg-gradient-to-r from-primary via-purple-600 to-pink-600",
@@ -24,6 +33,7 @@ export function ButtonColorful({
         "transition-all duration-300 ease-in-out",
         "hover:scale-105 hover:shadow-lg",
         "gap-2",
+        loading && "opacity-80 cursor-not-allowed",
         className
       )}
       {...props}
@@ -41,8 +51,10 @@ export function ButtonColorful({
 
       {/* Content */}
       <div className="relative flex items-center justify-center gap-2">
-        {Icon && <Icon className="w-4 h-4" />}
-        <span>{label}</span>
+        {DisplayIcon && (
+          <DisplayIcon className={cn("w-4 h-4", loading && "animate-spin")} />
+        )}
+        <span>{displayLabel}</span>
       </div>
     </Button>
   );
