@@ -444,7 +444,7 @@ export default function Plans() {
     if (!plan) return;
     
     setNavigatingToSchedule(true);
-    sonnerToast.loading('Carregando cronograma...', { 
+    sonnerToast.loading('Carregando demandas...', { 
       id: 'loading-schedule',
       duration: Infinity 
     });
@@ -574,7 +574,7 @@ export default function Plans() {
                   navigate(`/schedule?planId=${p.id}`);
                 }} className="gap-2">
                           <Calendar className="w-4 h-4" />
-                          Ver Cronograma
+                          Ver Demandas
                         </Button>}
                       <Button variant="ghost" size="icon" onClick={e => {
                   e.stopPropagation();
@@ -659,7 +659,7 @@ export default function Plans() {
                   
                   {plan.approved ? (
                     <ButtonColorful 
-                      label="Ver Cronograma"
+                      label="Ver Demandas"
                       icon={Calendar}
                       onClick={handleNavigateToSchedule}
                       loading={navigatingToSchedule}

@@ -282,7 +282,7 @@ export default function Questions() {
               </div>
               <div className="space-y-2">
                 <p className="text-lg font-medium text-foreground">
-                  Gerando perguntas personalizadas para seu cronograma...
+                  Gerando perguntas personalizadas para suas demandas...
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Isso pode levar alguns instantes
@@ -339,7 +339,7 @@ export default function Questions() {
 
         <div className="bg-card rounded-lg shadow-lg p-8 space-y-8">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Perguntas Guias do Cronograma</h1>
+            <h1 className="text-3xl font-bold mb-2">Perguntas Guias das Demandas</h1>
             <div className="text-sm text-muted-foreground">
               {state?.companyName && (
                 <p>

@@ -15,11 +15,11 @@ O contexto acima contém:
 - DATA ATUAL (ex: 17 de novembro de 2025)
 - ANO ATUAL (ex: 2025)
 - MÊS ATUAL (ex: novembro de 2025)
-- MÊS DE REFERÊNCIA PARA O CRONOGRAMA (pode ser o mês atual ou um mês específico escolhido pelo cliente)
+- MÊS DE REFERÊNCIA PARA AS DEMANDAS (pode ser o mês atual ou um mês específico escolhido pelo cliente)
 
 REGRA FUNDAMENTAL:
-- Você DEVE usar o "MÊS DE REFERÊNCIA PARA O CRONOGRAMA" informado acima como base para todo o planejamento.
-- Sempre inicie a seção de cronograma com: "Mês de Referência: [MÊS DE REFERÊNCIA exato do contexto]"
+- Você DEVE usar o "MÊS DE REFERÊNCIA PARA AS DEMANDAS" informado acima como base para todo o planejamento.
+- Sempre inicie a seção de demandas com: "Mês de Referência: [MÊS DE REFERÊNCIA exato do contexto]"
 - Todas as datas e semanas devem ser deste mês/ano especificado
 - NUNCA use datas antigas ou de anos passados
 - Se o ano atual é 2025, TODAS as datas devem ser de 2025
@@ -44,7 +44,7 @@ Com base nos dados fornecidos acima, crie um plano de marketing detalhado e estr
    - Posicionamento de marca
    - Mensagens-chave
 
-4. CRONOGRAMA DE AÇÕES (DETALHADO POR SEMANA)
+4. PLANEJAMENTO DE AÇÕES (DETALHADO POR SEMANA)
 
 OBRIGATÓRIO: Sempre inicie esta seção com:
 "Mês de Referência: [MÊS E ANO DO CONTEXTO ACIMA]"

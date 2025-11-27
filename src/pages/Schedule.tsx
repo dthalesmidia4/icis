@@ -151,7 +151,7 @@ export default function Schedule() {
       console.error("Error fetching cards:", error);
       toast({
         title: "Erro ao carregar tarefas",
-        description: "Não foi possível carregar as tarefas do cronograma.",
+        description: "Não foi possível carregar as tarefas das demandas.",
         variant: "destructive",
       });
     } finally {
@@ -165,7 +165,7 @@ export default function Schedule() {
     // Verificar se o plano tem período definido
     if (needsPeriodSelection) {
       setShowPeriodModal(true);
-      sonnerToast.info("Por favor, selecione um período antes de regenerar o cronograma");
+      sonnerToast.info("Por favor, selecione um período antes de regenerar as demandas");
       return;
     }
     
@@ -186,7 +186,7 @@ export default function Schedule() {
 
       if (functionError) {
         console.error("Edge function error:", functionError);
-        throw new Error(functionError.message || "Erro ao regenerar cronograma");
+        throw new Error(functionError.message || "Erro ao regenerar demandas");
       }
 
       if (!data?.success) {
@@ -194,13 +194,13 @@ export default function Schedule() {
         throw new Error(data?.error || "Erro ao gerar tarefas");
       }
 
-      sonnerToast.success(`Cronograma regenerado! ${data.cardsCreated || 0} tarefas criadas.`);
+      sonnerToast.success(`Demandas regeneradas! ${data.cardsCreated || 0} tarefas criadas.`);
       
       // Recarregar os cards
       await fetchCards();
     } catch (error) {
       console.error("Error regenerating cards:", error);
-      sonnerToast.error("Erro ao regenerar cronograma. Tente novamente.");
+      sonnerToast.error("Erro ao regenerar demandas. Tente novamente.");
     } finally {
       setRegenerating(false);
     }
@@ -475,7 +475,7 @@ export default function Schedule() {
             </Button>
             <div>
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
-                Cronograma de Tarefas
+                Demandas
               </h1>
               <p className="text-muted-foreground mt-0.5 sm:mt-1 text-xs sm:text-sm">
                 Organize e acompanhe suas tarefas no formato Kanban
@@ -517,7 +517,7 @@ export default function Schedule() {
                 disabled={regenerating || needsPeriodSelection}
                 className="w-fit"
               >
-                {regenerating ? "Regenerando..." : "Regenerar Cronograma"}
+                {regenerating ? "Regenerando..." : "Regenerar Demandas"}
               </Button>
             </div>
           </div>

@@ -218,7 +218,7 @@ const Plan = () => {
       if (error) throw error;
 
       setShowApproveModal(false);
-      toast.success("✅ Plano aprovado! Gerando tarefas do cronograma...");
+      toast.success("✅ Plano aprovado! Gerando tarefas das demandas...");
 
       // Gerar tarefas do Kanban
       const { data: generateData, error: generateError } = await supabase.functions.invoke(
@@ -228,7 +228,7 @@ const Plan = () => {
 
       if (generateError) {
         console.error("Error generating tasks:", generateError);
-        toast.error("Erro ao gerar tarefas do cronograma. Tente novamente.");
+        toast.error("Erro ao gerar tarefas das demandas. Tente novamente.");
         return;
       }
 
@@ -252,7 +252,7 @@ const Plan = () => {
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
           <div className="text-center space-y-2">
             <p className="text-lg font-medium">Gerando seu plano personalizado...</p>
-            <p className="text-sm text-muted-foreground">A IA está analisando sua estratégia e criando um cronograma ideal</p>
+            <p className="text-sm text-muted-foreground">A IA está analisando sua estratégia e criando as demandas ideais</p>
           </div>
         </div>
       </div>

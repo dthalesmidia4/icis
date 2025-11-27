@@ -338,8 +338,8 @@ export default function GenerateQuestions() {
         <div className="text-center space-y-2">
           <h3 className="text-xl font-semibold">Gerando plano estratégico personalizado</h3>
           <p className="text-muted-foreground max-w-md">
-            Isso pode levar alguns segundos. Estamos consolidando seus dados e criando um
-            cronograma sob medida...
+            Isso pode levar alguns segundos. Estamos consolidando seus dados e criando as
+            demandas sob medida...
           </p>
         </div>
       </div>
