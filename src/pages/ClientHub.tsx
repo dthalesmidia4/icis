@@ -43,7 +43,7 @@ const ClientHub = () => {
     route: "/advanced-plans",
     emoji: "🚀"
   }, {
-    title: "Cronograma",
+    title: "Demandas",
     icon: ListTodo,
     gradient: "from-green-400 to-emerald-500",
     route: "/schedule",
