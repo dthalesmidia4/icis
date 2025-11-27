@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -52,6 +52,7 @@ export default function GenerateQuestions() {
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [showPeriodModal, setShowPeriodModal] = useState(false);
   const { saveState, clearState, savedState } = useLocalPlanState();
+  const hasShownRestoredToast = useRef(false);
 
   useEffect(() => {
     if (!selectedClient) {
@@ -87,13 +88,21 @@ export default function GenerateQuestions() {
   }, [questionSession]);
 
   useEffect(() => {
-    if (savedState?.inProgress && selectedClient) {
+    // Só mostrar toast se o estado pertencer ao cliente atual e não foi mostrado ainda
+    if (savedState?.inProgress && 
+        selectedClient && 
+        savedState.companyId === selectedClient.id &&
+        !hasShownRestoredToast.current) {
+      hasShownRestoredToast.current = true;
       toast({
         title: "Geração em andamento",
         description: "Detectamos uma geração de plano interrompida. Os dados foram restaurados.",
       });
+    } else if (savedState && selectedClient && savedState.companyId !== selectedClient.id) {
+      // Limpar estado de outro cliente automaticamente
+      clearState();
     }
-  }, [savedState, selectedClient]);
+  }, [savedState, selectedClient, clearState, toast]);
 
   const handleSave = async () => {
     if (!selectedClient || !tenantId) return;
@@ -246,8 +255,9 @@ export default function GenerateQuestions() {
         throw new Error(data?.error || "Erro ao gerar plano");
       }
 
-      // Limpar estado salvo após sucesso
+      // Limpar estado salvo ANTES da navegação
       clearState();
+      
       toast({
         title: "Sucesso!",
         description: "Plano gerado com sucesso",
