@@ -1116,14 +1116,18 @@ export default function Schedule() {
                                         </div>
                                       </div>
 
-                                      {/* Footer with Actions */}
+                                       {/* Footer with Actions */}
                                       {editMode && (
                                         <div className="border-t px-6 py-4 bg-muted/20 flex justify-end gap-3">
                                           <Button
                                             variant="outline"
                                             onClick={() => {
                                               setEditMode(false);
-                                              fetchCards();
+                                              // Restaurar o card original do estado
+                                              const originalCard = cards.find(c => c.id === selectedCard.id);
+                                              if (originalCard) {
+                                                setSelectedCard(originalCard);
+                                              }
                                             }}
                                           >
                                             Cancelar
