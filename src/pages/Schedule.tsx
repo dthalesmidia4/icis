@@ -791,7 +791,7 @@ export default function Schedule() {
                                                   placeholder="Descreva os detalhes da demanda..."
                                                 />
                                                ) : (
-                                                 <div className="bg-muted/30 rounded-lg p-5 space-y-4">
+                                                 <div className="bg-muted/30 rounded-lg p-5 space-y-4 max-h-[400px] overflow-y-auto">
                                                    {selectedCard.description ? (
                                                      (() => {
                                                        const desc = selectedCard.description;
@@ -931,12 +931,12 @@ export default function Schedule() {
                                                   className="resize-none"
                                                   placeholder="Adicione observações adicionais..."
                                                 />
-                                              ) : (
-                                                <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-4 min-h-[80px] whitespace-pre-wrap">
-                                                  {selectedCard.observations || "Nenhuma observação"}
-                                                </div>
-                                              )}
-                                            </div>
+                                               ) : (
+                                                 <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-4 max-h-[200px] overflow-y-auto min-h-[80px] whitespace-pre-wrap">
+                                                   {selectedCard.observations || "Nenhuma observação"}
+                                                 </div>
+                                               )}
+                                             </div>
                                           </div>
 
                                           {/* Metadata - Right Column */}
