@@ -50,6 +50,7 @@ export default function GenerateQuestions() {
   const [answers, setAnswers] = useState<StrategicAnswers>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
   const [showPeriodModal, setShowPeriodModal] = useState(false);
   const { saveState, clearState, savedState } = useLocalPlanState();
   const hasShownRestoredToast = useRef(false);
@@ -192,6 +193,51 @@ export default function GenerateQuestions() {
       title: "PDF exportado",
       description: "O arquivo foi baixado com sucesso.",
     });
+  };
+
+  const handleGenerateStrategy = async () => {
+    if (!selectedClient || !tenantId) {
+      toast({
+        title: "Erro",
+        description: "Dados insuficientes para gerar a estratégia",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verificar se todas as perguntas foram respondidas
+    const allAnswered = strategicQuestions.every((_, idx) => {
+      const key = `question_${idx}`;
+      return answers[key] && answers[key].trim().length > 0;
+    });
+
+    if (!allAnswered) {
+      toast({
+        title: "Atenção",
+        description: "Por favor, responda todas as perguntas antes de gerar a estratégia",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingStrategy(true);
+
+    try {
+      // Salvar respostas primeiro
+      await handleSave();
+
+      // Navegar para a página de estratégias
+      navigate("/strategies");
+    } catch (error) {
+      console.error("Erro ao processar:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível processar. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingStrategy(false);
+    }
   };
 
   const handleOpenPeriodModal = () => {
@@ -411,10 +457,14 @@ export default function GenerateQuestions() {
                 Exportar PDF
               </Button>
               
-              {/* Botão principal sempre visível */}
-              <Button onClick={handleOpenPeriodModal} disabled={isGeneratingPlan}>
-                {isGeneratingPlan && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {/* Botões principais sempre visíveis */}
+              <Button onClick={handleGenerateStrategy} disabled={isGeneratingStrategy}>
+                {isGeneratingStrategy && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                 <Sparkles className="w-4 h-4 mr-2" />
+                Gerar Estratégia
+              </Button>
+              <Button onClick={handleOpenPeriodModal} disabled={isGeneratingPlan} variant="outline">
+                {isGeneratingPlan && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                 Gerar Planejamento
               </Button>
             </div>
