@@ -728,188 +728,297 @@ export default function Schedule() {
                                    </Card>
                                  </DialogTrigger>
 
-                                {/* Modal */}
-                                <DialogContent className="max-w-[95vw] sm:max-w-[600px] md:max-w-[700px] max-h-[90vh] overflow-y-auto">
-                                  <DialogHeader className="border-b pb-3 sm:pb-4">
-                                    <DialogTitle className="text-xl sm:text-2xl font-bold">
-                                      {editMode ? "Editar Tarefa" : "Detalhes da Tarefa"}
-                                    </DialogTitle>
-                                  </DialogHeader>
-
+                                {/* Modal - Estilo ClickUp */}
+                                <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-hidden p-0">
                                   {selectedCard && (
-                                    <div className="space-y-4 sm:space-y-5 pt-2">
-                                      {/* Title */}
-                                      <div>
-                                        <Label className="text-sm font-semibold">Título</Label>
-                                        {editMode ? (
-                                          <Input
-                                            value={selectedCard.title}
-                                            onChange={(e) =>
-                                              setSelectedCard({
-                                                ...selectedCard,
-                                                title: e.target.value,
-                                              })
-                                            }
-                                            className="mt-2"
-                                          />
-                                        ) : (
-                                          <p className="text-[15px] mt-2 text-foreground">{selectedCard.title}</p>
-                                        )}
-                                      </div>
-
-                                      {/* Status */}
-                                      <div>
-                                        <Label className="text-sm font-semibold">Status</Label>
-                                        {editMode ? (
-                                          <Select
-                                            value={selectedCard.status}
-                                            onValueChange={(value) =>
-                                              setSelectedCard({
-                                                ...selectedCard,
-                                                status: value,
-                                              })
-                                            }
-                                          >
-                                            <SelectTrigger className="mt-2">
-                                              <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              <SelectItem value="unassigned">A Fazer</SelectItem>
-                                              <SelectItem value="in_progress">Em Andamento</SelectItem>
-                                              <SelectItem value="completed">Concluído</SelectItem>
-                                            </SelectContent>
-                                          </Select>
-                                        ) : (
-                                          <p className="text-sm mt-2 text-muted-foreground">
-                                            {selectedCard.status === "completed" ? "Concluído" :
-                                             selectedCard.status === "in_progress" ? "Em Andamento" : "A Fazer"}
-                                          </p>
-                                        )}
-                                      </div>
-
-                                       {/* Publication Date */}
-                                      <div>
-                                        <Label className="text-sm font-semibold">Data de Publicação</Label>
-                                        {editMode ? (
-                                          <Input
-                                            type="date"
-                                            value={selectedCard.publication_date}
-                                            onChange={(e) =>
-                                              setSelectedCard({
-                                                ...selectedCard,
-                                                publication_date: e.target.value,
-                                              })
-                                            }
-                                            className="mt-2"
-                                          />
-                                        ) : (
-                                          <p className="text-sm mt-2 text-muted-foreground">
-                                            {new Date(selectedCard.publication_date).toLocaleDateString("pt-BR")}
-                                          </p>
-                                        )}
-                                      </div>
-
-                                      {/* File Location */}
-                                      <div>
-                                        <Label className="text-sm font-semibold">Local do Arquivo</Label>
-                                        {editMode ? (
-                                          <Input
-                                            value={selectedCard.file_location || ""}
-                                            onChange={(e) =>
-                                              setSelectedCard({
-                                                ...selectedCard,
-                                                file_location: e.target.value,
-                                              })
-                                            }
-                                            placeholder="Link, upload ou anotação"
-                                            className="mt-2"
-                                          />
-                                        ) : (
-                                          <p className="text-sm mt-2 text-muted-foreground">
-                                            {selectedCard.file_location || "Não especificado"}
-                                          </p>
-                                        )}
-                                      </div>
-
-                                      {/* Description */}
-                                      <div>
-                                        <Label className="text-sm font-semibold">Descrição</Label>
-                                        {editMode ? (
-                                          <Textarea
-                                            value={selectedCard.description || ""}
-                                            onChange={(e) =>
-                                              setSelectedCard({
-                                                ...selectedCard,
-                                                description: e.target.value,
-                                              })
-                                            }
-                                            rows={4}
-                                            placeholder="Explicação do que deve ser feito"
-                                            className="mt-2"
-                                          />
-                                        ) : (
-                                          <p className="text-sm mt-2 text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                                            {selectedCard.description || "Sem descrição"}
-                                          </p>
-                                        )}
-                                      </div>
-
-                                      {/* Observations */}
-                                      <div>
-                                        <Label className="text-sm font-semibold">Observações</Label>
-                                        {editMode ? (
-                                          <Textarea
-                                            value={selectedCard.observations || ""}
-                                            onChange={(e) =>
-                                              setSelectedCard({
-                                                ...selectedCard,
-                                                observations: e.target.value,
-                                              })
-                                            }
-                                            rows={3}
-                                            placeholder="Detalhes adicionais"
-                                            className="mt-2"
-                                          />
-                                        ) : (
-                                          <p className="text-sm mt-2 text-muted-foreground whitespace-pre-wrap leading-relaxed">
-                                            {selectedCard.observations || "Sem observações"}
-                                          </p>
-                                        )}
-                                      </div>
-
-                                      {/* Action Buttons */}
-                                      <div className="flex justify-end gap-3 pt-4 border-t">
-                                        {editMode ? (
-                                          <>
-                                            <Button
-                                              variant="outline"
-                                              onClick={() => {
-                                                setEditMode(false);
-                                                setSelectedCard(card);
-                                              }}
-                                              disabled={saving}
-                                            >
-                                              Cancelar
-                                            </Button>
-                                            <Button
-                                              onClick={handleSaveCard}
-                                              disabled={saving}
-                                              className="gap-2"
-                                            >
-                                              <Save className="w-4 h-4" />
-                                              {saving ? "Salvando..." : "Salvar Alterações"}
-                                            </Button>
-                                          </>
-                                        ) : (
+                                    <div className="flex flex-col h-full">
+                                      {/* Header */}
+                                      <div className="border-b px-6 py-4 flex items-center justify-between bg-muted/20">
+                                        <div className="flex-1">
+                                          {editMode ? (
+                                            <Input
+                                              value={selectedCard.title}
+                                              onChange={(e) =>
+                                                setSelectedCard({
+                                                  ...selectedCard,
+                                                  title: e.target.value,
+                                                })
+                                              }
+                                              className="text-xl font-semibold border-0 px-0 focus-visible:ring-0 bg-transparent"
+                                              placeholder="Título da demanda"
+                                            />
+                                          ) : (
+                                            <h2 className="text-xl font-semibold text-foreground">
+                                              {selectedCard.title}
+                                            </h2>
+                                          )}
+                                        </div>
+                                        {!editMode && (
                                           <Button 
+                                            variant="ghost" 
+                                            size="sm"
                                             onClick={() => setEditMode(true)}
-                                            className="gap-2"
+                                            className="ml-4"
                                           >
-                                            <Edit2 className="w-4 h-4" />
+                                            <Edit2 className="w-4 h-4 mr-2" />
                                             Editar
                                           </Button>
                                         )}
                                       </div>
+
+                                      {/* Body - Two Column Layout */}
+                                      <div className="flex-1 overflow-y-auto">
+                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
+                                          {/* Main Content - Left Column */}
+                                          <div className="lg:col-span-2 space-y-6">
+                                            {/* Description */}
+                                            <div>
+                                              <Label className="flex items-center gap-2 text-sm font-semibold mb-3">
+                                                <FileText className="w-4 h-4" />
+                                                Descrição
+                                              </Label>
+                                              {editMode ? (
+                                                <Textarea
+                                                  value={selectedCard.description || ""}
+                                                  onChange={(e) =>
+                                                    setSelectedCard({
+                                                      ...selectedCard,
+                                                      description: e.target.value,
+                                                    })
+                                                  }
+                                                  rows={6}
+                                                  className="resize-none"
+                                                  placeholder="Descreva os detalhes da demanda..."
+                                                />
+                                              ) : (
+                                                <div className="text-sm text-foreground bg-muted/30 rounded-lg p-4 min-h-[120px] whitespace-pre-wrap">
+                                                  {selectedCard.description || "Nenhuma descrição fornecida"}
+                                                </div>
+                                              )}
+                                            </div>
+
+                                            {/* Observations */}
+                                            <div>
+                                              <Label className="flex items-center gap-2 text-sm font-semibold mb-3">
+                                                <FileText className="w-4 h-4" />
+                                                Observações
+                                              </Label>
+                                              {editMode ? (
+                                                <Textarea
+                                                  value={selectedCard.observations || ""}
+                                                  onChange={(e) =>
+                                                    setSelectedCard({
+                                                      ...selectedCard,
+                                                      observations: e.target.value,
+                                                    })
+                                                  }
+                                                  rows={4}
+                                                  className="resize-none"
+                                                  placeholder="Adicione observações adicionais..."
+                                                />
+                                              ) : (
+                                                <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-4 min-h-[80px] whitespace-pre-wrap">
+                                                  {selectedCard.observations || "Nenhuma observação"}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          {/* Metadata - Right Column */}
+                                          <div className="space-y-4">
+                                            {/* Status */}
+                                            <div className="bg-muted/30 rounded-lg p-4">
+                                              <Label className="flex items-center gap-2 text-xs font-semibold mb-2 text-muted-foreground">
+                                                <div className="w-2 h-2 rounded-full bg-primary" />
+                                                Status
+                                              </Label>
+                                              {editMode ? (
+                                                <Select
+                                                  value={selectedCard.status}
+                                                  onValueChange={(value) =>
+                                                    setSelectedCard({
+                                                      ...selectedCard,
+                                                      status: value,
+                                                    })
+                                                  }
+                                                >
+                                                  <SelectTrigger>
+                                                    <SelectValue />
+                                                  </SelectTrigger>
+                                                  <SelectContent>
+                                                    <SelectItem value="unassigned">
+                                                      <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0">
+                                                        A Fazer
+                                                      </Badge>
+                                                    </SelectItem>
+                                                    <SelectItem value="in_progress">
+                                                      <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0">
+                                                        Em Andamento
+                                                      </Badge>
+                                                    </SelectItem>
+                                                    <SelectItem value="completed">
+                                                      <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0">
+                                                        Concluído
+                                                      </Badge>
+                                                    </SelectItem>
+                                                  </SelectContent>
+                                                </Select>
+                                              ) : (
+                                                <Badge 
+                                                  variant="secondary" 
+                                                  className={`
+                                                    ${selectedCard.status === "completed" ? "bg-emerald-500/10 text-emerald-600 border-0" :
+                                                      selectedCard.status === "in_progress" ? "bg-amber-500/10 text-amber-600 border-0" : 
+                                                      "bg-blue-500/10 text-blue-600 border-0"}
+                                                  `}
+                                                >
+                                                  {selectedCard.status === "completed" ? "Concluído" :
+                                                   selectedCard.status === "in_progress" ? "Em Andamento" : "A Fazer"}
+                                                </Badge>
+                                              )}
+                                            </div>
+
+                                            {/* Publication Date */}
+                                            <div className="bg-muted/30 rounded-lg p-4">
+                                              <Label className="flex items-center gap-2 text-xs font-semibold mb-2 text-muted-foreground">
+                                                <Calendar className="w-3 h-3" />
+                                                Data de Publicação
+                                              </Label>
+                                              {editMode ? (
+                                                <Input
+                                                  type="date"
+                                                  value={selectedCard.publication_date}
+                                                  onChange={(e) =>
+                                                    setSelectedCard({
+                                                      ...selectedCard,
+                                                      publication_date: e.target.value,
+                                                    })
+                                                  }
+                                                />
+                                              ) : (
+                                                <p className="text-sm font-medium text-foreground">
+                                                  {new Date(selectedCard.publication_date).toLocaleDateString("pt-BR", {
+                                                    day: "2-digit",
+                                                    month: "long",
+                                                    year: "numeric"
+                                                  })}
+                                                </p>
+                                              )}
+                                            </div>
+
+                                            {/* Platform & Content Type */}
+                                            <div className="bg-muted/30 rounded-lg p-4">
+                                              <Label className="flex items-center gap-2 text-xs font-semibold mb-3 text-muted-foreground">
+                                                <LinkIcon className="w-3 h-3" />
+                                                Canal e Formato
+                                              </Label>
+                                              <div className="flex flex-wrap gap-2">
+                                                {(() => {
+                                                  const text = `${selectedCard.title} ${selectedCard.file_location || ''} ${selectedCard.description || ''}`.toLowerCase();
+                                                  let platform = '';
+                                                  let contentType = '';
+                                                  
+                                                  // Extract platform
+                                                  if (text.includes('instagram')) platform = 'Instagram';
+                                                  else if (text.includes('linkedin')) platform = 'LinkedIn';
+                                                  else if (text.includes('facebook')) platform = 'Facebook';
+                                                  else if (text.includes('youtube')) platform = 'YouTube';
+                                                  else if (text.includes('tiktok')) platform = 'TikTok';
+                                                  else if (text.includes('twitter') || text.includes('x.com')) platform = 'Twitter/X';
+                                                  else if (text.includes('whatsapp')) platform = 'WhatsApp';
+                                                  else if (text.includes('e-mail') || text.includes('email')) platform = 'E-mail';
+                                                  else if (text.includes('blog')) platform = 'Blog';
+                                                  else if (text.includes('site') || text.includes('landing')) platform = 'Site';
+                                                  
+                                                  // Extract content type
+                                                  if (text.includes('carrossel')) contentType = 'Carrossel';
+                                                  else if (text.includes('reel')) contentType = 'Reel';
+                                                  else if (text.includes('story') || text.includes('stories')) contentType = 'Story';
+                                                  else if (text.includes('post')) contentType = 'Post';
+                                                  else if (text.includes('vídeo') || text.includes('video')) contentType = 'Vídeo';
+                                                  else if (text.includes('artigo')) contentType = 'Artigo';
+                                                  else if (text.includes('newsletter')) contentType = 'Newsletter';
+                                                  else if (text.includes('e-mail') || text.includes('email')) contentType = 'E-mail';
+                                                  else if (text.includes('landing')) contentType = 'Landing Page';
+                                                  
+                                                  return (
+                                                    <>
+                                                      {platform && (
+                                                        <Badge variant="secondary" className="bg-primary/10 text-primary border-0">
+                                                          {platform}
+                                                        </Badge>
+                                                      )}
+                                                      {contentType && (
+                                                        <Badge variant="outline" className="border-muted-foreground/30">
+                                                          {contentType}
+                                                        </Badge>
+                                                      )}
+                                                      {!platform && !contentType && (
+                                                        <span className="text-xs text-muted-foreground">Não identificado</span>
+                                                      )}
+                                                    </>
+                                                  );
+                                                })()}
+                                              </div>
+                                            </div>
+
+                                            {/* File Location */}
+                                            <div className="bg-muted/30 rounded-lg p-4">
+                                              <Label className="flex items-center gap-2 text-xs font-semibold mb-2 text-muted-foreground">
+                                                <LinkIcon className="w-3 h-3" />
+                                                Localização do Arquivo
+                                              </Label>
+                                              {editMode ? (
+                                                <Input
+                                                  value={selectedCard.file_location || ""}
+                                                  onChange={(e) =>
+                                                    setSelectedCard({
+                                                      ...selectedCard,
+                                                      file_location: e.target.value,
+                                                    })
+                                                  }
+                                                  placeholder="URL ou caminho do arquivo"
+                                                />
+                                              ) : (
+                                                <p className="text-sm text-foreground break-all">
+                                                  {selectedCard.file_location || "Não especificado"}
+                                                </p>
+                                              )}
+                                            </div>
+
+                                            {/* Timestamps */}
+                                            <div className="bg-muted/30 rounded-lg p-4 text-xs text-muted-foreground space-y-1">
+                                              <div className="flex justify-between">
+                                                <span>Criado em:</span>
+                                                <span>{new Date(selectedCard.created_at).toLocaleDateString("pt-BR")}</span>
+                                              </div>
+                                              <div className="flex justify-between">
+                                                <span>Atualizado em:</span>
+                                                <span>{new Date(selectedCard.updated_at).toLocaleDateString("pt-BR")}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Footer with Actions */}
+                                      {editMode && (
+                                        <div className="border-t px-6 py-4 bg-muted/20 flex justify-end gap-3">
+                                          <Button
+                                            variant="outline"
+                                            onClick={() => {
+                                              setEditMode(false);
+                                              fetchCards();
+                                            }}
+                                          >
+                                            Cancelar
+                                          </Button>
+                                          <Button onClick={handleSaveCard} disabled={saving}>
+                                            <Save className="w-4 h-4 mr-2" />
+                                            {saving ? "Salvando..." : "Salvar Alterações"}
+                                          </Button>
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                 </DialogContent>
