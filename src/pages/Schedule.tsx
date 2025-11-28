@@ -790,67 +790,127 @@ export default function Schedule() {
                                                   className="resize-none font-mono text-sm"
                                                   placeholder="Descreva os detalhes da demanda..."
                                                 />
-                                              ) : (
-                                                <div className="bg-muted/30 rounded-lg p-5 space-y-4">
-                                                  {selectedCard.description ? (
-                                                    (() => {
-                                                      const desc = selectedCard.description;
-                                                      const lines = desc.split('\n').filter(line => line.trim());
-                                                      
-                                                      return lines.map((line, idx) => {
-                                                        const trimmedLine = line.trim();
-                                                        
-                                                        // Detectar títulos/seções (linhas com ":" ou palavras-chave em maiúscula)
-                                                        if (
-                                                          trimmedLine.match(/^(Tipo de conteúdo|Canal|Plataforma|Objetivo|Diretrizes|Orientações|Recomendações|Descrição|Formato|Tema|Abordagem|Público|Chamada):/i) ||
-                                                          trimmedLine.match(/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]+:/)
-                                                        ) {
-                                                          const [title, ...contentParts] = trimmedLine.split(':');
-                                                          const content = contentParts.join(':').trim();
-                                                          
-                                                          return (
-                                                            <div key={idx} className="space-y-1">
-                                                              <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-                                                                <span className="w-1 h-4 bg-primary rounded-full" />
-                                                                {title.trim()}
-                                                              </h4>
-                                                              {content && (
-                                                                <p className="text-sm text-foreground/90 leading-relaxed pl-4">
-                                                                  {content}
-                                                                </p>
-                                                              )}
-                                                            </div>
-                                                          );
-                                                        }
-                                                        
-                                                        // Detectar listas (linhas que começam com -, *, •, ou números)
-                                                        if (trimmedLine.match(/^[-*•]\s/) || trimmedLine.match(/^\d+\.\s/)) {
-                                                          return (
-                                                            <div key={idx} className="flex gap-2 items-start pl-4">
-                                                              <span className="text-primary mt-1.5 text-xs">•</span>
-                                                              <p className="text-sm text-foreground/90 leading-relaxed flex-1">
-                                                                {trimmedLine.replace(/^[-*•]\s/, '').replace(/^\d+\.\s/, '')}
-                                                              </p>
-                                                            </div>
-                                                          );
-                                                        }
-                                                        
-                                                        // Texto normal
-                                                        return (
-                                                          <p key={idx} className="text-sm text-foreground/90 leading-relaxed">
-                                                            {trimmedLine}
-                                                          </p>
-                                                        );
-                                                      });
-                                                    })()
-                                                  ) : (
-                                                    <p className="text-sm text-muted-foreground italic">
-                                                      Nenhuma descrição fornecida
-                                                    </p>
-                                                  )}
-                                                </div>
-                                              )}
-                                            </div>
+                                               ) : (
+                                                 <div className="bg-muted/30 rounded-lg p-5 space-y-4">
+                                                   {selectedCard.description ? (
+                                                     (() => {
+                                                       const desc = selectedCard.description;
+
+                                                       // Detect structured sections like [CONCEITO], [EXECUÇÃO], [CONTEÚDO] etc
+                                                       const sectionPattern = /\[(.+?)\]/g;
+                                                       const hasBracketSections = sectionPattern.test(desc);
+
+                                                       if (hasBracketSections) {
+                                                         // Reset regex state and parse sections
+                                                         sectionPattern.lastIndex = 0;
+                                                         const sections: { title: string; content: string }[] = [];
+
+                                                         let lastIndex = 0;
+                                                         let match: RegExpExecArray | null;
+
+                                                         while ((match = sectionPattern.exec(desc)) !== null) {
+                                                           const title = match[1].trim();
+
+                                                           // Content before this title belongs to previous section
+                                                           if (sections.length > 0) {
+                                                             sections[sections.length - 1].content += desc
+                                                               .slice(lastIndex, match.index)
+                                                               .trim();
+                                                           }
+
+                                                           sections.push({ title, content: "" });
+                                                           lastIndex = sectionPattern.lastIndex;
+                                                         }
+
+                                                         // Remainder after last match
+                                                         if (sections.length > 0) {
+                                                           sections[sections.length - 1].content += desc.slice(lastIndex).trim();
+                                                         }
+
+                                                         return sections.map((section, idx) => {
+                                                           if (!section.content) return null;
+
+                                                           // Break content into smaller readable chunks
+                                                           const paragraphs = section.content
+                                                             .split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ\[])/)
+                                                             .filter(p => p.trim());
+
+                                                           return (
+                                                             <div key={idx} className="space-y-1">
+                                                               <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                                                                 <span className="w-1 h-4 bg-primary rounded-full" />
+                                                                 {section.title}
+                                                               </h4>
+                                                               {paragraphs.map((p, pIdx) => (
+                                                                 <p
+                                                                   key={pIdx}
+                                                                   className="text-sm text-foreground/90 leading-relaxed pl-4"
+                                                                 >
+                                                                   {p}
+                                                                 </p>
+                                                               ))}
+                                                             </div>
+                                                           );
+                                                         });
+                                                       }
+
+                                                       // Fallback: line-based formatting for non-bracketed descriptions
+                                                       const lines = desc.split('\n').filter(line => line.trim());
+
+                                                       return lines.map((line, idx) => {
+                                                         const trimmedLine = line.trim();
+                                                         
+                                                         // Detect section titles (lines with ':' or all caps)
+                                                         if (
+                                                           trimmedLine.match(/^(Tipo de conteúdo|Canal|Plataforma|Objetivo|Diretrizes|Orientações|Recomendações|Descrição|Formato|Tema|Abordagem|Público|Chamada):/i) ||
+                                                           trimmedLine.match(/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]+:/)
+                                                         ) {
+                                                           const [title, ...contentParts] = trimmedLine.split(':');
+                                                           const content = contentParts.join(':').trim();
+                                                            
+                                                           return (
+                                                             <div key={idx} className="space-y-1">
+                                                               <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                                                                 <span className="w-1 h-4 bg-primary rounded-full" />
+                                                                 {title.trim()}
+                                                               </h4>
+                                                               {content && (
+                                                                 <p className="text-sm text-foreground/90 leading-relaxed pl-4">
+                                                                   {content}
+                                                                 </p>
+                                                               )}
+                                                             </div>
+                                                           );
+                                                         }
+                                                         
+                                                         // Detect lists (lines starting with -, *, •, or numbers)
+                                                         if (trimmedLine.match(/^[-*•]\s/) || trimmedLine.match(/^\d+\.\s/)) {
+                                                           return (
+                                                             <div key={idx} className="flex gap-2 items-start pl-4">
+                                                               <span className="text-primary mt-1.5 text-xs">•</span>
+                                                               <p className="text-sm text-foreground/90 leading-relaxed flex-1">
+                                                                 {trimmedLine.replace(/^[-*•]\s/, '').replace(/^\d+\.\s/, '')}
+                                                               </p>
+                                                             </div>
+                                                           );
+                                                         }
+                                                         
+                                                         // Normal text
+                                                         return (
+                                                           <p key={idx} className="text-sm text-foreground/90 leading-relaxed">
+                                                             {trimmedLine}
+                                                           </p>
+                                                         );
+                                                       });
+                                                     })()
+                                                   ) : (
+                                                     <p className="text-sm text-muted-foreground italic">
+                                                       Nenhuma descrição fornecida
+                                                     </p>
+                                                   )}
+                                                 </div>
+                                               )}
+                                             </div>
 
                                             {/* Observations */}
                                             <div>
