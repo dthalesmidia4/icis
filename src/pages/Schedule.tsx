@@ -775,7 +775,7 @@ export default function Schedule() {
                                             <div>
                                               <Label className="flex items-center gap-2 text-sm font-semibold mb-3">
                                                 <FileText className="w-4 h-4" />
-                                                Descrição
+                                                Descrição da Demanda
                                               </Label>
                                               {editMode ? (
                                                 <Textarea
@@ -786,13 +786,68 @@ export default function Schedule() {
                                                       description: e.target.value,
                                                     })
                                                   }
-                                                  rows={6}
-                                                  className="resize-none"
+                                                  rows={8}
+                                                  className="resize-none font-mono text-sm"
                                                   placeholder="Descreva os detalhes da demanda..."
                                                 />
                                               ) : (
-                                                <div className="text-sm text-foreground bg-muted/30 rounded-lg p-4 min-h-[120px] whitespace-pre-wrap">
-                                                  {selectedCard.description || "Nenhuma descrição fornecida"}
+                                                <div className="bg-muted/30 rounded-lg p-5 space-y-4">
+                                                  {selectedCard.description ? (
+                                                    (() => {
+                                                      const desc = selectedCard.description;
+                                                      const lines = desc.split('\n').filter(line => line.trim());
+                                                      
+                                                      return lines.map((line, idx) => {
+                                                        const trimmedLine = line.trim();
+                                                        
+                                                        // Detectar títulos/seções (linhas com ":" ou palavras-chave em maiúscula)
+                                                        if (
+                                                          trimmedLine.match(/^(Tipo de conteúdo|Canal|Plataforma|Objetivo|Diretrizes|Orientações|Recomendações|Descrição|Formato|Tema|Abordagem|Público|Chamada):/i) ||
+                                                          trimmedLine.match(/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]+:/)
+                                                        ) {
+                                                          const [title, ...contentParts] = trimmedLine.split(':');
+                                                          const content = contentParts.join(':').trim();
+                                                          
+                                                          return (
+                                                            <div key={idx} className="space-y-1">
+                                                              <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                                                                <span className="w-1 h-4 bg-primary rounded-full" />
+                                                                {title.trim()}
+                                                              </h4>
+                                                              {content && (
+                                                                <p className="text-sm text-foreground/90 leading-relaxed pl-4">
+                                                                  {content}
+                                                                </p>
+                                                              )}
+                                                            </div>
+                                                          );
+                                                        }
+                                                        
+                                                        // Detectar listas (linhas que começam com -, *, •, ou números)
+                                                        if (trimmedLine.match(/^[-*•]\s/) || trimmedLine.match(/^\d+\.\s/)) {
+                                                          return (
+                                                            <div key={idx} className="flex gap-2 items-start pl-4">
+                                                              <span className="text-primary mt-1.5 text-xs">•</span>
+                                                              <p className="text-sm text-foreground/90 leading-relaxed flex-1">
+                                                                {trimmedLine.replace(/^[-*•]\s/, '').replace(/^\d+\.\s/, '')}
+                                                              </p>
+                                                            </div>
+                                                          );
+                                                        }
+                                                        
+                                                        // Texto normal
+                                                        return (
+                                                          <p key={idx} className="text-sm text-foreground/90 leading-relaxed">
+                                                            {trimmedLine}
+                                                          </p>
+                                                        );
+                                                      });
+                                                    })()
+                                                  ) : (
+                                                    <p className="text-sm text-muted-foreground italic">
+                                                      Nenhuma descrição fornecida
+                                                    </p>
+                                                  )}
                                                 </div>
                                               )}
                                             </div>
