@@ -258,27 +258,24 @@ REGRAS CRÍTICAS PARA GERAÇÃO DE DEMANDAS:
 3. ESTRUTURA DE CADA DEMANDA:
    - titulo: Curto, objetivo e específico (máximo 50 caracteres). Formato: "Plataforma: Tipo - Tema específico". Exemplo: "Instagram: Reel - Processo artesanal"
    
-   - descricao: ⚠️ CAMPO MAIS IMPORTANTE - DEVE SER UM BRIEFING COMPLETO E ACIONÁVEL ⚠️
-     Mínimo 4-6 frases estruturadas:
+   - descricao: ⚠️ DESCRIÇÃO OBJETIVA E ACIONÁVEL (Máximo 150 palavras) ⚠️
+     Escreva 2-4 frases diretas e práticas contendo:
      
-     [CONCEITO] O que criar e por quê (baseado nas respostas do cliente)
-     [EXECUÇÃO] Como fazer - elementos visuais, estrutura, tom de voz
-     [CONTEÚDO] Sugestões concretas de temas usando produtos/serviços reais do cliente
-     [PÚBLICO] Para quem é direcionado (baseado nas respostas sobre público-alvo)
-     [OBJETIVO] Resultado esperado (engajamento, conversão, awareness)
-     [CTA] Call-to-action sugerido
+     1️⃣ O QUE CRIAR: Conceito específico do conteúdo baseado no negócio real do cliente
+     2️⃣ COMO EXECUTAR: Orientação prática única (estrutura, abordagem, elementos principais)
+     3️⃣ RESULTADO ESPERADO: Objetivo claro e acionável
      
-     ✅ EXEMPLO CORRETO (observe a riqueza de detalhes e orientações):
-     "Criar Reel de 45s apresentando o novo sorvete artesanal de Pistache com Creme de Avelã. ABERTURA: Close em pistaches sendo triturados manualmente, com música suave instrumental. DESENVOLVIMENTO: Mostrar as camadas sendo montadas no pote transparente, destacando a textura cremosa e os pedaços crocantes. FINALIZAÇÃO: Cliente degustando com expressão de satisfação. MENSAGEM: 'Cada colher é uma experiência gourmet'. DIRECIONADO para adultos 25-40 anos, classe A/B, que buscam experiências gastronômicas diferenciadas e valorizam qualidade artesanal. OBJETIVO: Gerar desejo pelo produto premium e posicionar a marca como referência em sorvetes gourmet. CTA: 'Experimente hoje, disponível por tempo limitado'."
+     ✅ EXEMPLO CORRETO (conciso e acionável):
+     "Carrossel de 4 slides apresentando o Checklist de Fechamento Fiscal 2025. Slide 1: imagem do checklist com promessa visual. Slides 2-3: detalhar 3 passos críticos (validar NF-e, conferir retenções, conciliações). Slide 4: CTA para baixar via link na bio. Usar avatar dos sócios no canto superior. Foco em donos de e-commerce e prestadores de serviços."
      
-     ❌ EXEMPLO ERRADO (vago e sem orientações):
-     "Fazer reel sobre o novo sabor de sorvete. Mostrar o produto e colocar música."
+     ❌ EXEMPLO ERRADO (extenso e redundante):
+     "[CONCEITO] Anunciar o checklist como lead magnet posicionando como antecipadora... [EXECUÇÃO] Carrossel 4 slides sendo slide1 promessa e imagem... [CONTEÚDO] Incluir exemplos práticos... [PÚBLICO] Direcionado a donos... [OBJETIVO] Gerar awareness... [CTA] Confira..."
    
    - data_publicacao: Data válida no formato YYYY-MM-DD (dentro do mês de referência, após a data atual)
    
    - local_arquivo: FORMATO + PLATAFORMA. Exemplos: "Reel Instagram", "Carrossel LinkedIn", "Post Facebook", "Story Instagram", "Vídeo YouTube", "E-mail Marketing"
    
-   - observacoes: Detalhes técnicos complementares, hashtags estratégicas, melhor horário de publicação, dimensões recomendadas, duração exata, referências visuais
+   - observacoes: Detalhes técnicos e orientações complementares: hashtags estratégicas, melhor horário de publicação, dimensões recomendadas, duração exata, referências visuais, tom de voz específico, CTA sugerido, público-alvo detalhado
    
    - status: Sempre "a fazer"
 
@@ -291,8 +288,9 @@ REGRAS CRÍTICAS PARA GERAÇÃO DE DEMANDAS:
 
 5. QUANTIDADE E QUALIDADE:
    - Gere entre 12 a 20 demandas dependendo da complexidade do plano
-   - Priorize QUALIDADE, ESPECIFICIDADE e ORIENTAÇÕES PRÁTICAS sobre quantidade
-   - Cada demanda deve ser tão completa que o executor possa começar a trabalhar imediatamente sem precisar de esclarecimentos adicionais
+   - Priorize CLAREZA, OBJETIVIDADE e AÇÃO IMEDIATA sobre descrições extensas
+   - Cada demanda deve ter descrição concisa (máximo 150 palavras) mas suficiente para começar a trabalhar
+   - Detalhes técnicos vão para o campo "observacoes"
 
 FORMATO DE SAÍDA (JSON):
 {
@@ -302,13 +300,13 @@ FORMATO DE SAÍDA (JSON):
       "status": "a fazer",
       "data_publicacao": "YYYY-MM-DD",
       "local_arquivo": "Tipo Plataforma (ex: Reel Instagram, Carrossel LinkedIn, Post Facebook)",
-      "descricao": "⚠️ BRIEFING COMPLETO OBRIGATÓRIO ⚠️ - Mínimo 4-6 frases detalhadas contendo: [CONCEITO] O que criar com base no negócio real do cliente + [EXECUÇÃO] Como fazer (estrutura, visual, tom) + [CONTEÚDO] Sugestões específicas usando produtos/serviços reais + [PÚBLICO] Para quem (baseado nas respostas) + [OBJETIVO] Resultado esperado + [CTA] Call-to-action sugerido. Deve ter informações suficientes para execução imediata sem necessidade de esclarecimentos.",
-      "observacoes": "Hashtags estratégicas sugeridas, melhor horário de publicação, especificações técnicas detalhadas (duração exata, formato, dimensões), referências visuais, tom de voz específico"
+      "descricao": "2-4 frases objetivas e acionáveis (máximo 150 palavras). O QUE criar baseado no negócio real + COMO executar com orientação prática + RESULTADO esperado. Seja direto, específico e focado em ação imediata.",
+      "observacoes": "Detalhes técnicos complementares: hashtags estratégicas (#exemplo #exemplo2), horário ideal (ex: 18h-20h), duração (ex: 30-45s), formato/dimensões, público-alvo detalhado, tom de voz, CTA sugerido, referências visuais"
     }
   ]
 }
 
-⚠️ ATENÇÃO CRÍTICA: A descrição é o campo MAIS IMPORTANTE. Ela DEVE conter um briefing completo com orientações práticas e específicas que permitam execução imediata. Use TODO o contexto do cliente disponível.
+⚠️ ATENÇÃO: Descrição deve ser CONCISA mas COMPLETA para ação imediata. Detalhes técnicos vão para "observacoes".
 
 IMPORTANTE: Retorne APENAS o JSON válido, sem texto adicional antes ou depois.`;
 
@@ -339,14 +337,13 @@ ${answersText}
 ⚠️ REQUISITOS OBRIGATÓRIOS PARA CADA DEMANDA:
 - Use TODOS os dados fornecidos para criar demandas ultra-específicas
 - Cada demanda DEVE refletir o contexto REAL do negócio do cliente
-- A DESCRIÇÃO é obrigatoriamente um BRIEFING COMPLETO com orientações de execução
+- A DESCRIÇÃO deve ser OBJETIVA e CONCISA (máximo 150 palavras, 2-4 frases diretas)
 - SEMPRE inclua sugestões concretas de temas baseadas nos produtos/serviços reais
-- SEMPRE mencione o público-alvo específico das respostas
-- SEMPRE indique o objetivo e resultado esperado
+- Mencione público-alvo e objetivo nas OBSERVAÇÕES, não na descrição
 - NENHUMA demanda pode ser genérica ou vaga
 - TODAS as datas DEVEM estar entre ${primeiroDiaValido} e ${ultimoDiaValido}
 - Distribua as demandas nos ${diasRestantes} dias disponíveis do período
-- Cada descrição deve ter informações suficientes para que o executor comece a trabalhar IMEDIATAMENTE`;
+- Descrição = O QUE + COMO + RESULTADO. Detalhes técnicos = Observações`;
 
     // Chamar Lovable AI
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
