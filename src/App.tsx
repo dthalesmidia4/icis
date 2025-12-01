@@ -26,6 +26,7 @@ import DevHub from "./pages/DevHub";
 import DevPrompts from "./pages/DevPrompts";
 import DevApis from "./pages/DevApis";
 import Schedule from "./pages/Schedule";
+import PlanPeriod from "./pages/PlanPeriod";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -109,6 +110,13 @@ const App = () => (
                 </RequireTenant>
               </ProtectedRoute>
             } />
+          <Route path="/plan-period" element={
+            <ProtectedRoute>
+              <RequireTenant>
+                <PlanPeriod />
+              </RequireTenant>
+            </ProtectedRoute>
+          } />
           <Route path="/schedule" element={
             <ProtectedRoute>
               <RequireTenant>
