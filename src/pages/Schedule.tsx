@@ -554,11 +554,6 @@ export default function Schedule() {
                   {regenerating ? "Regenerando..." : "Regenerar Demandas"}
                 </Button>
               )}
-              {isPeriodPlanView && (
-                <Badge variant="secondary" className="h-8 flex items-center">
-                  Período Planejado
-                </Badge>
-              )}
             </div>
           </div>
 
