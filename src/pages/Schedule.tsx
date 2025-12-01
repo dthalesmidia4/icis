@@ -16,7 +16,6 @@ import { ArrowLeft, Calendar, FileText, Link as LinkIcon, Edit2, Save, Search, F
 import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
-import { PeriodSelectionModal } from "@/components/PeriodSelectionModal";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
 interface KanbanCard {
@@ -28,7 +27,6 @@ interface KanbanCard {
   file_location: string | null;
   description: string | null;
   observations: string | null;
-  plan_id: string | null;
   period_plan_id: string | null;
   tenant_id: string;
   created_at: string;
@@ -57,14 +55,9 @@ export default function Schedule() {
   const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [referencePeriod, setReferencePeriod] = useState<{ titulo: string; dataInicio: string; dataFim: string } | null>(null);
-  const [regenerating, setRegenerating] = useState(false);
   const [cardToDelete, setCardToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showPeriodModal, setShowPeriodModal] = useState(false);
-  const [needsPeriodSelection, setNeedsPeriodSelection] = useState(false);
-  const [isPeriodPlanView, setIsPeriodPlanView] = useState(false);
 
-  const planId = searchParams.get("planId");
   const periodPlanId = searchParams.get("periodPlanId");
 
   // Verificar se há cliente selecionado
@@ -79,49 +72,18 @@ export default function Schedule() {
     const initializeSchedule = async () => {
       if (!selectedClient || !tenantId) return;
 
-      // If periodPlanId is provided, use that
       if (periodPlanId) {
-        setIsPeriodPlanView(true);
         fetchPeriodPlanCards();
         return;
       }
 
-      if (!planId) {
-        // Fetch the most recent approved plan for the selected client
-        const { data: approvedPlan, error } = await supabase
-          .from("marketing_plans")
-          .select("id")
-          .eq("company_id", selectedClient.id)
-          .eq("tenant_id", tenantId)
-          .eq("approved", true)
-          .order("approved_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (error) {
-          console.error("Error fetching approved plan:", error);
-          navigate("/client-hub");
-          return;
-        }
-
-        if (approvedPlan) {
-          navigate(`/schedule?planId=${approvedPlan.id}`, { replace: true });
-          return;
-        } else {
-          sonnerToast.error("Nenhum plano aprovado encontrado para este cliente");
-          navigate("/client-hub");
-          return;
-        }
-      }
-
-      if (planId) {
-        setIsPeriodPlanView(false);
-        fetchCards();
-      }
+      // Sem periodPlanId, redirecionar para plan-period
+      sonnerToast.info("Selecione um período para ver as demandas");
+      navigate("/plan-period");
     };
 
     initializeSchedule();
-  }, [planId, periodPlanId, tenantId, selectedClient, navigate]);
+  }, [periodPlanId, tenantId, selectedClient, navigate]);
 
   const fetchPeriodPlanCards = async () => {
     if (!periodPlanId) return;
@@ -154,7 +116,6 @@ export default function Schedule() {
           dataInicio: periodPlanResponse.data.period_start,
           dataFim: periodPlanResponse.data.period_end
         });
-        setNeedsPeriodSelection(false);
       }
     } catch (error) {
       console.error("Error fetching period plan cards:", error);
@@ -165,141 +126,6 @@ export default function Schedule() {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchCards = async () => {
-    try {
-      setLoading(true);
-      
-      // Buscar cards e informações do plano
-      const [cardsResponse, planResponse] = await Promise.all([
-        supabase
-          .from("cards")
-          .select("*")
-          .eq("plan_id", planId)
-          .order("created_at", { ascending: true }),
-        supabase
-          .from("marketing_plans")
-          .select("periodo_titulo, periodo_data_inicio, periodo_data_fim")
-          .eq("id", planId)
-          .single()
-      ]);
-
-      if (cardsResponse.error) throw cardsResponse.error;
-      if (planResponse.error) throw planResponse.error;
-
-      setCards(cardsResponse.data || []);
-      
-      // Definir o período de referência
-      if (planResponse.data?.periodo_titulo) {
-        setReferencePeriod({
-          titulo: planResponse.data.periodo_titulo,
-          dataInicio: planResponse.data.periodo_data_inicio,
-          dataFim: planResponse.data.periodo_data_fim
-        });
-        setNeedsPeriodSelection(false);
-      } else {
-        // Plano antigo sem período definido
-        setNeedsPeriodSelection(true);
-      }
-    } catch (error) {
-      console.error("Error fetching cards:", error);
-      toast({
-        title: "Erro ao carregar tarefas",
-        description: "Não foi possível carregar as tarefas das demandas.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRegenerateCards = async () => {
-    // Period plan cards don't support regeneration via edge function
-    if (isPeriodPlanView) {
-      sonnerToast.info("Para regenerar demandas de período, volte à página de Planejar Período");
-      return;
-    }
-    
-    if (!planId) return;
-    
-    // Verificar se o plano tem período definido
-    if (needsPeriodSelection) {
-      setShowPeriodModal(true);
-      sonnerToast.info("Por favor, selecione um período antes de regenerar as demandas");
-      return;
-    }
-    
-    setRegenerating(true);
-    try {
-      // Primeiro, deletar os cards existentes
-      const { error: deleteError } = await supabase
-        .from("cards")
-        .delete()
-        .eq("plan_id", planId);
-
-      if (deleteError) throw deleteError;
-
-      // Chamar a edge function para regenerar
-      const { data, error: functionError } = await supabase.functions.invoke('generate-kanban-tasks', {
-        body: { planId }
-      });
-
-      if (functionError) {
-        console.error("Edge function error:", functionError);
-        throw new Error(functionError.message || "Erro ao regenerar demandas");
-      }
-
-      if (!data?.success) {
-        console.error("Edge function failed:", data);
-        throw new Error(data?.error || "Erro ao gerar tarefas");
-      }
-
-      sonnerToast.success(`Demandas regeneradas! ${data.cardsCreated || 0} tarefas criadas.`);
-      
-      // Recarregar os cards
-      await fetchCards();
-    } catch (error) {
-      console.error("Error regenerating cards:", error);
-      sonnerToast.error("Erro ao regenerar demandas. Tente novamente.");
-    } finally {
-      setRegenerating(false);
-    }
-  };
-
-  const handlePeriodSaved = async (periodData: { titulo: string; dataInicio: Date; dataFim: Date }) => {
-    if (!planId) return;
-    
-    try {
-      // Atualizar o plano com o período selecionado
-      const { error } = await supabase
-        .from('marketing_plans')
-        .update({
-          periodo_titulo: periodData.titulo,
-          periodo_data_inicio: periodData.dataInicio.toISOString().split('T')[0],
-          periodo_data_fim: periodData.dataFim.toISOString().split('T')[0],
-          periodo_status: 'ativo'
-        })
-        .eq('id', planId);
-
-      if (error) throw error;
-
-      setReferencePeriod({
-        titulo: periodData.titulo,
-        dataInicio: periodData.dataInicio.toISOString().split('T')[0],
-        dataFim: periodData.dataFim.toISOString().split('T')[0]
-      });
-      setNeedsPeriodSelection(false);
-      setShowPeriodModal(false);
-      
-      sonnerToast.success("Período atualizado com sucesso!");
-      
-      // Recarregar os cards
-      await fetchCards();
-    } catch (error) {
-      console.error("Error updating period:", error);
-      sonnerToast.error("Erro ao atualizar período");
     }
   };
 
@@ -319,12 +145,7 @@ export default function Schedule() {
       sonnerToast.success("Card excluído com sucesso!");
       setCardToDelete(null);
       
-      // Recarregar os cards baseado no tipo de visualização
-      if (isPeriodPlanView) {
-        await fetchPeriodPlanCards();
-      } else {
-        await fetchCards();
-      }
+      await fetchPeriodPlanCards();
     } catch (error) {
       console.error("Error deleting card:", error);
       sonnerToast.error("Erro ao excluir card");
@@ -376,12 +197,7 @@ export default function Schedule() {
         description: "Não foi possível atualizar a tarefa.",
         variant: "destructive",
       });
-      // Reverter mudança local
-      if (isPeriodPlanView) {
-        fetchPeriodPlanCards();
-      } else {
-        fetchCards();
-      }
+      fetchPeriodPlanCards();
     }
   };
 
@@ -410,13 +226,7 @@ export default function Schedule() {
       });
 
       setEditMode(false);
-      
-      // Recarregar os cards baseado no tipo de visualização
-      if (isPeriodPlanView) {
-        fetchPeriodPlanCards();
-      } else {
-        fetchCards();
-      }
+      fetchPeriodPlanCards();
     } catch (error) {
       console.error("Error saving card:", error);
       toast({
@@ -433,10 +243,8 @@ export default function Schedule() {
   const availableChannels = useMemo(() => {
     const channels = new Set<string>();
     cards.forEach(card => {
-      // Buscar por canal em file_location ou description
       const text = `${card.file_location || ''} ${card.description || ''}`.toLowerCase();
       
-      // Lista de canais comuns
       const channelKeywords = [
         'instagram', 'facebook', 'linkedin', 'youtube', 
         'tiktok', 'twitter', 'whatsapp', 'email', 'e-mail',
@@ -445,7 +253,6 @@ export default function Schedule() {
       
       channelKeywords.forEach(keyword => {
         if (text.includes(keyword)) {
-          // Normalizar nome do canal
           const normalizedChannel = keyword.charAt(0).toUpperCase() + keyword.slice(1);
           channels.add(normalizedChannel);
         }
@@ -457,7 +264,6 @@ export default function Schedule() {
   // Filtrar cards baseado na busca e filtro de canal
   const filteredCards = useMemo(() => {
     return cards.filter(card => {
-      // Filtro de busca
       const searchLower = searchQuery.toLowerCase();
       const matchesSearch = !searchQuery || 
         card.title.toLowerCase().includes(searchLower) ||
@@ -465,7 +271,6 @@ export default function Schedule() {
         card.file_location?.toLowerCase().includes(searchLower) ||
         new Date(card.publication_date).toLocaleDateString("pt-BR").includes(searchLower);
 
-      // Filtro de canal
       const matchesChannel = channelFilter === "all" || (() => {
         const text = `${card.file_location || ''} ${card.description || ''}`.toLowerCase();
         return text.includes(channelFilter.toLowerCase());
@@ -479,14 +284,84 @@ export default function Schedule() {
     return filteredCards.filter((card) => (card.column_name || "Planejamento Automatizado") === columnId);
   };
 
-  if (loading || regenerating) {
+  // Format description with hierarchy
+  const formatDescription = (description: string | null) => {
+    if (!description) return null;
+    
+    const lines = description.split('\n');
+    
+    return lines.map((line, index) => {
+      const trimmedLine = line.trim();
+      
+      // Check if it's a section title (ends with : or starts with **)
+      if (trimmedLine.endsWith(':') || (trimmedLine.startsWith('**') && trimmedLine.endsWith('**'))) {
+        const cleanTitle = trimmedLine.replace(/\*\*/g, '').replace(/:$/, '');
+        return (
+          <div key={index} className="mt-3 first:mt-0">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-1 h-4 bg-primary rounded-full" />
+              <h4 className="font-semibold text-sm text-foreground">{cleanTitle}</h4>
+            </div>
+          </div>
+        );
+      }
+      
+      // Check if it's a bullet point
+      if (trimmedLine.startsWith('-') || trimmedLine.startsWith('•')) {
+        const bulletContent = trimmedLine.replace(/^[-•]\s*/, '');
+        return (
+          <div key={index} className="flex items-start gap-2 ml-4 py-0.5">
+            <span className="text-muted-foreground mt-1">•</span>
+            <span className="text-sm text-muted-foreground">{bulletContent}</span>
+          </div>
+        );
+      }
+      
+      // Regular text
+      if (trimmedLine) {
+        return (
+          <p key={index} className="text-sm text-muted-foreground ml-3 py-0.5">
+            {trimmedLine}
+          </p>
+        );
+      }
+      
+      return null;
+    });
+  };
+
+  // Extract platform and content type from description/file_location
+  const extractMetadata = (card: KanbanCard) => {
+    const text = `${card.file_location || ''} ${card.description || ''}`.toLowerCase();
+    
+    const platforms: string[] = [];
+    const contentTypes: string[] = [];
+    
+    // Platforms
+    if (text.includes('instagram')) platforms.push('Instagram');
+    if (text.includes('facebook')) platforms.push('Facebook');
+    if (text.includes('linkedin')) platforms.push('LinkedIn');
+    if (text.includes('youtube')) platforms.push('YouTube');
+    if (text.includes('tiktok')) platforms.push('TikTok');
+    if (text.includes('twitter') || text.includes('x.com')) platforms.push('Twitter/X');
+    if (text.includes('whatsapp')) platforms.push('WhatsApp');
+    
+    // Content types
+    if (text.includes('reels') || text.includes('reel')) contentTypes.push('Reels');
+    if (text.includes('story') || text.includes('stories')) contentTypes.push('Stories');
+    if (text.includes('carrossel') || text.includes('carousel')) contentTypes.push('Carrossel');
+    if (text.includes('post') || text.includes('feed')) contentTypes.push('Post');
+    if (text.includes('vídeo') || text.includes('video')) contentTypes.push('Vídeo');
+    if (text.includes('artigo') || text.includes('blog')) contentTypes.push('Artigo');
+    
+    return { platforms, contentTypes };
+  };
+
+  if (loading) {
     return (
       <LoadingScreen
-        title={regenerating ? "Regenerando demandas" : "Carregando demandas"}
-        description={regenerating 
-          ? "Estamos criando novas tarefas baseadas no seu planejamento..." 
-          : "Aguarde enquanto carregamos suas tarefas..."
-        }
+        title="Carregando demandas"
+        description="Aguarde enquanto carregamos suas tarefas..."
         icon={LayoutGrid}
       />
     );
@@ -502,709 +377,440 @@ export default function Schedule() {
               variant="ghost"
               size="icon"
               onClick={() => navigate("/client-hub")}
-              className="hover:bg-accent transition-colors h-8 w-8 sm:h-10 sm:w-10"
+              className="h-8 w-8 sm:h-10 sm:w-10"
             >
-              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
             <div>
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">
                 Demandas
               </h1>
-              <p className="text-muted-foreground mt-0.5 sm:mt-1 text-xs sm:text-sm">
-                Organize e acompanhe suas tarefas no formato Kanban
-              </p>
+              {selectedClient && (
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  {selectedClient.fantasy_name || selectedClient.name}
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Ações */}
-          <div className="flex gap-2 mb-4">
-            {needsPeriodSelection && !isPeriodPlanView && (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => setShowPeriodModal(true)}
-                className="w-fit"
-              >
-                Selecionar Período
-              </Button>
-            )}
-            {!isPeriodPlanView && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRegenerateCards}
-                disabled={regenerating || needsPeriodSelection}
-                className="w-fit"
-              >
-                {regenerating ? "Regenerando..." : "Regenerar Demandas"}
-              </Button>
-            )}
-            {needsPeriodSelection && !referencePeriod && (
-              <Badge variant="destructive" className="px-3 py-1.5 text-sm font-medium">
-                ⚠️ Período não definido
-              </Badge>
-            )}
-          </div>
-
-          {/* Filtros */}
-          {cards.length > 0 && (
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-              {/* Barra de busca */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar tarefas por título, descrição ou canal..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-card border-input"
-                />
-              </div>
-
-              {/* Filtro por canal */}
-              <Select value={channelFilter} onValueChange={setChannelFilter}>
-                <SelectTrigger className="w-full sm:w-[220px] bg-card">
-                  <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4 text-muted-foreground" />
-                    <SelectValue placeholder="Filtrar por canal" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os canais</SelectItem>
-                  {availableChannels.map((channel) => (
-                    <SelectItem key={channel} value={channel}>
-                      {channel}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Título do Período */}
+          {/* Período de Referência */}
           {referencePeriod && (
-            <div className="mt-6 mb-2">
-              <h2 className="text-xl font-semibold text-foreground">
-                {referencePeriod.titulo}
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                {new Date(referencePeriod.dataInicio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} — {new Date(referencePeriod.dataFim).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-              </p>
+            <div className="mb-4">
+              <Badge variant="secondary" className="text-xs sm:text-sm px-3 py-1">
+                Período: {referencePeriod.titulo} ({new Date(referencePeriod.dataInicio + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(referencePeriod.dataFim + 'T00:00:00').toLocaleDateString('pt-BR')})
+              </Badge>
             </div>
           )}
+
+          {/* Search and Filter */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar demandas..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            
+            <Select value={channelFilter} onValueChange={setChannelFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Canal" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os canais</SelectItem>
+                {availableChannels.map((channel) => (
+                  <SelectItem key={channel} value={channel}>
+                    {channel}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        {cards.length === 0 ? (
-          <Card className="p-8 sm:p-12 text-center">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
-              <FileText className="w-10 h-10 sm:w-12 sm:h-12 text-muted-foreground" />
-            </div>
-            <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-2">
-              Nenhuma tarefa encontrada
-            </h2>
-            <p className="text-muted-foreground mb-4 sm:mb-6 text-sm sm:text-base">
-              As tarefas são geradas automaticamente ao aprovar o plano.
-            </p>
-            <Button onClick={() => navigate("/plans")}>
-              Voltar para Planos
-            </Button>
-          </Card>
-        ) : filteredCards.length === 0 ? (
-          <Card className="p-8 sm:p-12 text-center">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
-              <Search className="w-10 h-10 sm:w-12 sm:h-12 text-muted-foreground" />
-            </div>
-            <h2 className="text-xl sm:text-2xl font-semibold text-foreground mb-2">
-              Nenhuma tarefa encontrada
-            </h2>
-            <p className="text-muted-foreground mb-4 sm:mb-6 text-sm sm:text-base">
-              Tente ajustar os filtros de busca ou selecionar outro canal.
-            </p>
-            <Button 
-              onClick={() => {
-                setSearchQuery("");
-                setChannelFilter("all");
-              }} 
-              variant="outline"
-            >
-              Limpar Filtros
-            </Button>
-          </Card>
-        ) : (
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 sm:overflow-x-auto pb-4">
-              {COLUMNS.map((column) => (
-                <div key={column.id} className="w-full sm:min-w-[300px] sm:max-w-[324px] md:min-w-[324px] flex-shrink-0">
-                  {/* Column Header */}
-                  <div className="bg-card rounded-lg shadow-sm mb-3 sm:mb-4 border border-border">
-                    <div className="h-11 sm:h-12 px-3 sm:px-4 flex items-center justify-between border-b border-border">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-1 h-4 sm:h-5 rounded ${column.color}`} />
-                        <h3 className="font-semibold text-xs sm:text-sm text-foreground line-clamp-1">
-                          {column.title}
-                        </h3>
-                      </div>
-                      <Badge variant="secondary" className="text-xs px-2 py-0.5 rounded-full">
-                        {getCardsByColumn(column.id).length}
-                      </Badge>
-                    </div>
-                  </div>
-                  
-                  {/* Droppable Area */}
-                  <Droppable droppableId={column.id}>
-                    {(provided, snapshot) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className={`space-y-3 sm:space-y-4 p-2 sm:p-3 rounded-lg transition-all duration-200 ${
-                          snapshot.isDraggingOver 
-                            ? "bg-primary/5 border-2 border-primary border-dashed" 
-                            : "bg-transparent"
-                        }`}
-                        style={{ minHeight: "300px" }}
-                      >
-                        {getCardsByColumn(column.id).map((card, index) => (
-                          <Draggable
-                            key={card.id}
-                            draggableId={card.id}
-                            index={index}
-                          >
-                            {(provided, snapshot) => (
+        {/* Kanban Board */}
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {COLUMNS.map((column) => (
+              <div key={column.id} className="flex flex-col">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className={`w-3 h-3 rounded-full ${column.color}`} />
+                  <h3 className="font-semibold text-sm text-foreground">
+                    {column.title}
+                  </h3>
+                  <Badge variant="secondary" className="ml-auto text-xs">
+                    {getCardsByColumn(column.id).length}
+                  </Badge>
+                </div>
+
+                <Droppable droppableId={column.id}>
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className={`flex-1 min-h-[200px] rounded-lg p-2 transition-colors ${
+                        snapshot.isDraggingOver
+                          ? "bg-accent/50"
+                          : "bg-muted/30"
+                      }`}
+                    >
+                      {getCardsByColumn(column.id).map((card, index) => (
+                        <Draggable
+                          key={card.id}
+                          draggableId={card.id}
+                          index={index}
+                        >
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                            >
                               <Dialog>
                                 <DialogTrigger asChild>
-                                   <Card
-                                     ref={provided.innerRef}
-                                     {...provided.draggableProps}
-                                     {...provided.dragHandleProps}
-                                     className={`cursor-pointer bg-card border border-border p-3 sm:p-4 rounded-lg transition-all duration-200 w-full max-h-[160px] overflow-hidden ${
-                                       snapshot.isDragging 
-                                         ? "shadow-xl rotate-2 scale-105" 
-                                         : "shadow-sm hover:shadow-md"
-                                     }`}
-                                     onClick={() => {
-                                       setSelectedCard(card);
-                                       setEditMode(false);
-                                     }}
-                                   >
-                                     {/* Card Header with Delete Button */}
-                                     <div className="flex items-start justify-between mb-2 gap-2">
-                                       <h4 className="text-[13px] sm:text-[14px] font-semibold text-foreground leading-tight line-clamp-2 flex-1">
-                                         {card.title}
-                                       </h4>
-                                       <Button
-                                         variant="ghost"
-                                         size="icon"
-                                         className="h-6 w-6 flex-shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                         onClick={(e) => {
-                                           e.stopPropagation();
-                                           setCardToDelete(card.id);
-                                         }}
-                                       >
-                                         <Trash2 className="h-3.5 w-3.5" />
-                                       </Button>
-                                     </div>
-                                     
-                                      {/* Card Metadata */}
-                                       <div className="space-y-1.5 sm:space-y-2">
-                                        {/* Platform and Content Type */}
-                                        <div className="flex flex-wrap items-center gap-1.5">
-                                          {(() => {
-                                            const text = `${card.title} ${card.file_location || ''}`.toLowerCase();
-                                            let platform = '';
-                                            let contentType = '';
-                                            
-                                            // Extract platform
-                                            if (text.includes('instagram')) platform = 'Instagram';
-                                            else if (text.includes('linkedin')) platform = 'LinkedIn';
-                                            else if (text.includes('facebook')) platform = 'Facebook';
-                                            else if (text.includes('youtube')) platform = 'YouTube';
-                                            else if (text.includes('tiktok')) platform = 'TikTok';
-                                            else if (text.includes('twitter') || text.includes('x.com')) platform = 'Twitter/X';
-                                            else if (text.includes('whatsapp')) platform = 'WhatsApp';
-                                            else if (text.includes('e-mail') || text.includes('email')) platform = 'E-mail';
-                                            else if (text.includes('blog')) platform = 'Blog';
-                                            else if (text.includes('site') || text.includes('landing')) platform = 'Site';
-                                            
-                                            // Extract content type
-                                            if (text.includes('carrossel')) contentType = 'Carrossel';
-                                            else if (text.includes('reel')) contentType = 'Reel';
-                                            else if (text.includes('story') || text.includes('stories')) contentType = 'Story';
-                                            else if (text.includes('post')) contentType = 'Post';
-                                            else if (text.includes('vídeo') || text.includes('video')) contentType = 'Vídeo';
-                                            else if (text.includes('artigo')) contentType = 'Artigo';
-                                            else if (text.includes('newsletter')) contentType = 'Newsletter';
-                                            else if (text.includes('e-mail') || text.includes('email')) contentType = 'E-mail';
-                                            else if (text.includes('landing')) contentType = 'Landing Page';
-                                            else if (text.includes('relatório') || text.includes('relatorio')) contentType = 'Relatório';
-                                            else if (text.includes('broadcast')) contentType = 'Broadcast';
-                                            
-                                            return (
-                                              <>
-                                                {platform && (
-                                                  <Badge variant="secondary" className={`text-[10px] sm:text-[11px] px-2 py-0.5 h-auto font-medium ${column.color} text-white border-0`}>
-                                                    {platform}
-                                                  </Badge>
-                                                )}
-                                                {contentType && (
-                                                  <Badge variant="outline" className="text-[10px] sm:text-[11px] px-2 py-0.5 h-auto font-normal border-muted-foreground/30 text-muted-foreground">
-                                                    {contentType}
-                                                  </Badge>
-                                                )}
-                                              </>
-                                            );
-                                          })()}
-                                        </div>
-                                        
-                                        {/* Description Preview */}
-                                        {card.description && (
-                                          <p className="text-[10px] sm:text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
-                                            {card.description}
-                                          </p>
-                                        )}
+                                  <Card
+                                    className={`mb-2 cursor-pointer hover:shadow-md transition-all ${
+                                      snapshot.isDragging ? "shadow-lg rotate-2" : ""
+                                    }`}
+                                    onClick={() => {
+                                      setSelectedCard(card);
+                                      setEditMode(false);
+                                    }}
+                                  >
+                                    <CardHeader className="p-3 pb-2">
+                                      <CardTitle className="text-sm font-medium line-clamp-2">
+                                        {card.title}
+                                      </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-3 pt-0">
+                                      <div className="flex flex-wrap gap-1 mb-2">
+                                        {extractMetadata(card).platforms.slice(0, 2).map((platform) => (
+                                          <Badge key={platform} variant="outline" className="text-[10px] px-1.5 py-0">
+                                            {platform}
+                                          </Badge>
+                                        ))}
+                                        {extractMetadata(card).contentTypes.slice(0, 1).map((type) => (
+                                          <Badge key={type} variant="secondary" className="text-[10px] px-1.5 py-0">
+                                            {type}
+                                          </Badge>
+                                        ))}
                                       </div>
-                                   </Card>
-                                 </DialogTrigger>
+                                      <div className="flex items-center text-xs text-muted-foreground">
+                                        <Calendar className="h-3 w-3 mr-1" />
+                                        {new Date(card.publication_date + 'T00:00:00').toLocaleDateString("pt-BR")}
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                </DialogTrigger>
 
-                                {/* Modal - Estilo ClickUp */}
-                                <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-hidden p-0">
-                                  {selectedCard && (
-                                    <div className="flex flex-col h-full">
-                                      {/* Header */}
-                                      <div className="border-b px-6 py-4 flex items-center justify-between bg-muted/20">
-                                        <div className="flex-1">
+                                {/* Card Detail Modal */}
+                                <DialogContent className="max-w-4xl p-0">
+                                  <div className="grid grid-cols-1 md:grid-cols-3">
+                                    {/* Left Column - Main Content */}
+                                    <div className="md:col-span-2 p-6 border-r border-border">
+                                      <DialogHeader className="mb-4">
+                                        <div className="flex items-start justify-between">
                                           {editMode ? (
                                             <Input
-                                              value={selectedCard.title}
+                                              value={selectedCard?.title || ""}
                                               onChange={(e) =>
-                                                setSelectedCard({
-                                                  ...selectedCard,
-                                                  title: e.target.value,
-                                                })
+                                                setSelectedCard((prev) =>
+                                                  prev ? { ...prev, title: e.target.value } : null
+                                                )
                                               }
-                                              className="text-xl font-semibold border-0 px-0 focus-visible:ring-0 bg-transparent"
-                                              placeholder="Título da demanda"
+                                              className="text-lg font-semibold"
                                             />
                                           ) : (
-                                            <h2 className="text-xl font-semibold text-foreground">
-                                              {selectedCard.title}
-                                            </h2>
+                                            <DialogTitle className="text-lg pr-8">
+                                              {selectedCard?.title}
+                                            </DialogTitle>
+                                          )}
+                                          {!editMode && (
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => setEditMode(true)}
+                                              className="shrink-0"
+                                            >
+                                              <Edit2 className="h-4 w-4 mr-1" />
+                                              Editar
+                                            </Button>
                                           )}
                                         </div>
-                                        {!editMode && (
-                                          <Button 
-                                            variant="ghost" 
-                                            size="sm"
-                                            onClick={() => setEditMode(true)}
-                                            className="ml-4"
-                                          >
-                                            <Edit2 className="w-4 h-4 mr-2" />
-                                            Editar
-                                          </Button>
-                                        )}
-                                      </div>
+                                      </DialogHeader>
 
-                                      {/* Body - Two Column Layout */}
-                                      <div className="flex-1 overflow-y-auto">
-                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
-                                          {/* Main Content - Left Column */}
-                                          <div className="lg:col-span-2 space-y-6">
-                                            {/* Description */}
-                                            <div>
-                                              <Label className="flex items-center gap-2 text-sm font-semibold mb-3">
-                                                <FileText className="w-4 h-4" />
-                                                Descrição da Demanda
-                                              </Label>
-                                              {editMode ? (
-                                                <Textarea
-                                                  value={selectedCard.description || ""}
-                                                  onChange={(e) =>
-                                                    setSelectedCard({
-                                                      ...selectedCard,
-                                                      description: e.target.value,
-                                                    })
-                                                  }
-                                                  rows={8}
-                                                  className="resize-none font-mono text-sm"
-                                                  placeholder="Descreva os detalhes da demanda..."
-                                                />
-                                               ) : (
-                                                 <div className="bg-muted/30 rounded-lg p-5 space-y-4 max-h-[400px] overflow-y-auto">
-                                                   {selectedCard.description ? (
-                                                     (() => {
-                                                       const desc = selectedCard.description;
-
-                                                       // Detect structured sections like [CONCEITO], [EXECUÇÃO], [CONTEÚDO] etc
-                                                       const sectionPattern = /\[(.+?)\]/g;
-                                                       const hasBracketSections = sectionPattern.test(desc);
-
-                                                       if (hasBracketSections) {
-                                                         // Reset regex state and parse sections
-                                                         sectionPattern.lastIndex = 0;
-                                                         const sections: { title: string; content: string }[] = [];
-
-                                                         let lastIndex = 0;
-                                                         let match: RegExpExecArray | null;
-
-                                                         while ((match = sectionPattern.exec(desc)) !== null) {
-                                                           const title = match[1].trim();
-
-                                                           // Content before this title belongs to previous section
-                                                           if (sections.length > 0) {
-                                                             sections[sections.length - 1].content += desc
-                                                               .slice(lastIndex, match.index)
-                                                               .trim();
-                                                           }
-
-                                                           sections.push({ title, content: "" });
-                                                           lastIndex = sectionPattern.lastIndex;
-                                                         }
-
-                                                         // Remainder after last match
-                                                         if (sections.length > 0) {
-                                                           sections[sections.length - 1].content += desc.slice(lastIndex).trim();
-                                                         }
-
-                                                         return sections.map((section, idx) => {
-                                                           if (!section.content) return null;
-
-                                                           // Break content into smaller readable chunks
-                                                           const paragraphs = section.content
-                                                             .split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ\[])/)
-                                                             .filter(p => p.trim());
-
-                                                           return (
-                                                             <div key={idx} className="space-y-1">
-                                                               <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-                                                                 <span className="w-1 h-4 bg-primary rounded-full" />
-                                                                 {section.title}
-                                                               </h4>
-                                                               {paragraphs.map((p, pIdx) => (
-                                                                 <p
-                                                                   key={pIdx}
-                                                                   className="text-sm text-foreground/90 leading-relaxed pl-4"
-                                                                 >
-                                                                   {p}
-                                                                 </p>
-                                                               ))}
-                                                             </div>
-                                                           );
-                                                         });
-                                                       }
-
-                                                       // Fallback: line-based formatting for non-bracketed descriptions
-                                                       const lines = desc.split('\n').filter(line => line.trim());
-
-                                                       return lines.map((line, idx) => {
-                                                         const trimmedLine = line.trim();
-                                                         
-                                                         // Detect section titles (lines with ':' or all caps)
-                                                         if (
-                                                           trimmedLine.match(/^(Tipo de conteúdo|Canal|Plataforma|Objetivo|Diretrizes|Orientações|Recomendações|Descrição|Formato|Tema|Abordagem|Público|Chamada):/i) ||
-                                                           trimmedLine.match(/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ\s]+:/)
-                                                         ) {
-                                                           const [title, ...contentParts] = trimmedLine.split(':');
-                                                           const content = contentParts.join(':').trim();
-                                                            
-                                                           return (
-                                                             <div key={idx} className="space-y-1">
-                                                               <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-                                                                 <span className="w-1 h-4 bg-primary rounded-full" />
-                                                                 {title.trim()}
-                                                               </h4>
-                                                               {content && (
-                                                                 <p className="text-sm text-foreground/90 leading-relaxed pl-4">
-                                                                   {content}
-                                                                 </p>
-                                                               )}
-                                                             </div>
-                                                           );
-                                                         }
-                                                         
-                                                         // Detect lists (lines starting with -, *, •, or numbers)
-                                                         if (trimmedLine.match(/^[-*•]\s/) || trimmedLine.match(/^\d+\.\s/)) {
-                                                           return (
-                                                             <div key={idx} className="flex gap-2 items-start pl-4">
-                                                               <span className="text-primary mt-1.5 text-xs">•</span>
-                                                               <p className="text-sm text-foreground/90 leading-relaxed flex-1">
-                                                                 {trimmedLine.replace(/^[-*•]\s/, '').replace(/^\d+\.\s/, '')}
-                                                               </p>
-                                                             </div>
-                                                           );
-                                                         }
-                                                         
-                                                         // Normal text
-                                                         return (
-                                                           <p key={idx} className="text-sm text-foreground/90 leading-relaxed">
-                                                             {trimmedLine}
-                                                           </p>
-                                                         );
-                                                       });
-                                                     })()
-                                                   ) : (
-                                                     <p className="text-sm text-muted-foreground italic">
-                                                       Nenhuma descrição fornecida
-                                                     </p>
-                                                   )}
-                                                 </div>
-                                               )}
-                                             </div>
-
-                                            {/* Observations */}
-                                            <div>
-                                              <Label className="flex items-center gap-2 text-sm font-semibold mb-3">
-                                                <FileText className="w-4 h-4" />
-                                                Observações
-                                              </Label>
-                                              {editMode ? (
-                                                <Textarea
-                                                  value={selectedCard.observations || ""}
-                                                  onChange={(e) =>
-                                                    setSelectedCard({
-                                                      ...selectedCard,
-                                                      observations: e.target.value,
-                                                    })
-                                                  }
-                                                  rows={4}
-                                                  className="resize-none"
-                                                  placeholder="Adicione observações adicionais..."
-                                                />
-                                               ) : (
-                                                 <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-4 max-h-[200px] overflow-y-auto min-h-[80px] whitespace-pre-wrap">
-                                                   {selectedCard.observations || "Nenhuma observação"}
-                                                 </div>
-                                               )}
-                                             </div>
+                                      {/* Description */}
+                                      <div className="space-y-4">
+                                        <div>
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <FileText className="h-4 w-4 text-muted-foreground" />
+                                            <Label className="text-sm font-medium">Descrição</Label>
                                           </div>
-
-                                          {/* Metadata - Right Column */}
-                                          <div className="space-y-4">
-                                            {/* Status */}
+                                          {editMode ? (
+                                            <Textarea
+                                              value={selectedCard?.description || ""}
+                                              onChange={(e) =>
+                                                setSelectedCard((prev) =>
+                                                  prev ? { ...prev, description: e.target.value } : null
+                                                )
+                                              }
+                                              className="min-h-[150px] font-mono text-sm"
+                                              rows={8}
+                                            />
+                                          ) : (
                                             <div className="bg-muted/30 rounded-lg p-4">
-                                              <Label className="flex items-center gap-2 text-xs font-semibold mb-2 text-muted-foreground">
-                                                <div className="w-2 h-2 rounded-full bg-primary" />
-                                                Status
-                                              </Label>
-                                              {editMode ? (
-                                                <Select
-                                                  value={selectedCard.status}
-                                                  onValueChange={(value) =>
-                                                    setSelectedCard({
-                                                      ...selectedCard,
-                                                      status: value,
-                                                    })
-                                                  }
-                                                >
-                                                  <SelectTrigger>
-                                                    <SelectValue />
-                                                  </SelectTrigger>
-                                                  <SelectContent>
-                                                    <SelectItem value="unassigned">
-                                                      <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-0">
-                                                        A Fazer
-                                                      </Badge>
-                                                    </SelectItem>
-                                                    <SelectItem value="in_progress">
-                                                      <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 border-0">
-                                                        Em Andamento
-                                                      </Badge>
-                                                    </SelectItem>
-                                                    <SelectItem value="completed">
-                                                      <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-0">
-                                                        Concluído
-                                                      </Badge>
-                                                    </SelectItem>
-                                                  </SelectContent>
-                                                </Select>
-                                              ) : (
-                                                <Badge 
-                                                  variant="secondary" 
-                                                  className={`
-                                                    ${selectedCard.status === "completed" ? "bg-emerald-500/10 text-emerald-600 border-0" :
-                                                      selectedCard.status === "in_progress" ? "bg-amber-500/10 text-amber-600 border-0" : 
-                                                      "bg-blue-500/10 text-blue-600 border-0"}
-                                                  `}
-                                                >
-                                                  {selectedCard.status === "completed" ? "Concluído" :
-                                                   selectedCard.status === "in_progress" ? "Em Andamento" : "A Fazer"}
-                                                </Badge>
-                                              )}
+                                              {formatDescription(selectedCard?.description)}
                                             </div>
+                                          )}
+                                        </div>
 
-                                            {/* Publication Date */}
-                                            <div className="bg-muted/30 rounded-lg p-4">
-                                              <Label className="flex items-center gap-2 text-xs font-semibold mb-2 text-muted-foreground">
-                                                <Calendar className="w-3 h-3" />
-                                                Data de Publicação
-                                              </Label>
-                                              {editMode ? (
-                                                <Input
-                                                  type="date"
-                                                  value={selectedCard.publication_date}
-                                                  onChange={(e) =>
-                                                    setSelectedCard({
-                                                      ...selectedCard,
-                                                      publication_date: e.target.value,
-                                                    })
-                                                  }
-                                                />
-                                              ) : (
-                                                <p className="text-sm font-medium text-foreground">
-                                                  {new Date(selectedCard.publication_date).toLocaleDateString("pt-BR", {
-                                                    day: "2-digit",
-                                                    month: "long",
-                                                    year: "numeric"
-                                                  })}
-                                                </p>
-                                              )}
-                                            </div>
-
-                                            {/* Platform & Content Type */}
-                                            <div className="bg-muted/30 rounded-lg p-4">
-                                              <Label className="flex items-center gap-2 text-xs font-semibold mb-3 text-muted-foreground">
-                                                <LinkIcon className="w-3 h-3" />
-                                                Canal e Formato
-                                              </Label>
-                                              <div className="flex flex-wrap gap-2">
-                                                {(() => {
-                                                  const text = `${selectedCard.title} ${selectedCard.file_location || ''} ${selectedCard.description || ''}`.toLowerCase();
-                                                  let platform = '';
-                                                  let contentType = '';
-                                                  
-                                                  // Extract platform
-                                                  if (text.includes('instagram')) platform = 'Instagram';
-                                                  else if (text.includes('linkedin')) platform = 'LinkedIn';
-                                                  else if (text.includes('facebook')) platform = 'Facebook';
-                                                  else if (text.includes('youtube')) platform = 'YouTube';
-                                                  else if (text.includes('tiktok')) platform = 'TikTok';
-                                                  else if (text.includes('twitter') || text.includes('x.com')) platform = 'Twitter/X';
-                                                  else if (text.includes('whatsapp')) platform = 'WhatsApp';
-                                                  else if (text.includes('e-mail') || text.includes('email')) platform = 'E-mail';
-                                                  else if (text.includes('blog')) platform = 'Blog';
-                                                  else if (text.includes('site') || text.includes('landing')) platform = 'Site';
-                                                  
-                                                  // Extract content type
-                                                  if (text.includes('carrossel')) contentType = 'Carrossel';
-                                                  else if (text.includes('reel')) contentType = 'Reel';
-                                                  else if (text.includes('story') || text.includes('stories')) contentType = 'Story';
-                                                  else if (text.includes('post')) contentType = 'Post';
-                                                  else if (text.includes('vídeo') || text.includes('video')) contentType = 'Vídeo';
-                                                  else if (text.includes('artigo')) contentType = 'Artigo';
-                                                  else if (text.includes('newsletter')) contentType = 'Newsletter';
-                                                  else if (text.includes('e-mail') || text.includes('email')) contentType = 'E-mail';
-                                                  else if (text.includes('landing')) contentType = 'Landing Page';
-                                                  
-                                                  return (
-                                                    <>
-                                                      {platform && (
-                                                        <Badge variant="secondary" className="bg-primary/10 text-primary border-0">
-                                                          {platform}
-                                                        </Badge>
-                                                      )}
-                                                      {contentType && (
-                                                        <Badge variant="outline" className="border-muted-foreground/30">
-                                                          {contentType}
-                                                        </Badge>
-                                                      )}
-                                                      {!platform && !contentType && (
-                                                        <span className="text-xs text-muted-foreground">Não identificado</span>
-                                                      )}
-                                                    </>
-                                                  );
-                                                })()}
-                                              </div>
-                                            </div>
-
-                                            {/* File Location */}
-                                            <div className="bg-muted/30 rounded-lg p-4">
-                                              <Label className="flex items-center gap-2 text-xs font-semibold mb-2 text-muted-foreground">
-                                                <LinkIcon className="w-3 h-3" />
-                                                Localização do Arquivo
-                                              </Label>
-                                              {editMode ? (
-                                                <Input
-                                                  value={selectedCard.file_location || ""}
-                                                  onChange={(e) =>
-                                                    setSelectedCard({
-                                                      ...selectedCard,
-                                                      file_location: e.target.value,
-                                                    })
-                                                  }
-                                                  placeholder="URL ou caminho do arquivo"
-                                                />
-                                              ) : (
-                                                <p className="text-sm text-foreground break-all">
-                                                  {selectedCard.file_location || "Não especificado"}
-                                                </p>
-                                              )}
-                                            </div>
-
-                                            {/* Timestamps */}
-                                            <div className="bg-muted/30 rounded-lg p-4 text-xs text-muted-foreground space-y-1">
-                                              <div className="flex justify-between">
-                                                <span>Criado em:</span>
-                                                <span>{new Date(selectedCard.created_at).toLocaleDateString("pt-BR")}</span>
-                                              </div>
-                                              <div className="flex justify-between">
-                                                <span>Atualizado em:</span>
-                                                <span>{new Date(selectedCard.updated_at).toLocaleDateString("pt-BR")}</span>
-                                              </div>
-                                            </div>
+                                        {/* Observations */}
+                                        <div>
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <FileText className="h-4 w-4 text-muted-foreground" />
+                                            <Label className="text-sm font-medium">Observações</Label>
                                           </div>
+                                          {editMode ? (
+                                            <Textarea
+                                              value={selectedCard?.observations || ""}
+                                              onChange={(e) =>
+                                                setSelectedCard((prev) =>
+                                                  prev ? { ...prev, observations: e.target.value } : null
+                                                )
+                                              }
+                                              className="min-h-[80px]"
+                                              rows={3}
+                                            />
+                                          ) : (
+                                            <div className="bg-muted/30 rounded-lg p-4">
+                                              {formatDescription(selectedCard?.observations) || (
+                                                <span className="text-muted-foreground text-sm">Sem observações</span>
+                                              )}
+                                            </div>
+                                          )}
                                         </div>
                                       </div>
 
-                                       {/* Footer with Actions */}
+                                      {/* Actions */}
                                       {editMode && (
-                                        <div className="border-t px-6 py-4 bg-muted/20 flex justify-end gap-3">
+                                        <div className="flex gap-2 mt-6 pt-4 border-t">
+                                          <Button
+                                            onClick={handleSaveCard}
+                                            disabled={saving}
+                                            className="flex-1"
+                                          >
+                                            <Save className="h-4 w-4 mr-2" />
+                                            {saving ? "Salvando..." : "Salvar"}
+                                          </Button>
                                           <Button
                                             variant="outline"
                                             onClick={() => {
                                               setEditMode(false);
-                                              // Restaurar o card original do estado
-                                              const originalCard = cards.find(c => c.id === selectedCard.id);
-                                              if (originalCard) {
-                                                setSelectedCard(originalCard);
-                                              }
+                                              // Restore original card data
+                                              const originalCard = cards.find(c => c.id === selectedCard?.id);
+                                              if (originalCard) setSelectedCard(originalCard);
                                             }}
                                           >
                                             Cancelar
                                           </Button>
-                                          <Button onClick={handleSaveCard} disabled={saving}>
-                                            <Save className="w-4 h-4 mr-2" />
-                                            {saving ? "Salvando..." : "Salvar Alterações"}
-                                          </Button>
                                         </div>
                                       )}
                                     </div>
-                                  )}
+
+                                    {/* Right Column - Metadata */}
+                                    <div className="p-6 bg-muted/20 space-y-4">
+                                      {/* Status */}
+                                      <div>
+                                        <Label className="text-xs text-muted-foreground mb-1 block">Status</Label>
+                                        {editMode ? (
+                                          <Select
+                                            value={selectedCard?.status || "unassigned"}
+                                            onValueChange={(value) =>
+                                              setSelectedCard((prev) =>
+                                                prev ? { ...prev, status: value } : null
+                                              )
+                                            }
+                                          >
+                                            <SelectTrigger>
+                                              <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="unassigned">A Fazer</SelectItem>
+                                              <SelectItem value="in_progress">Em Andamento</SelectItem>
+                                              <SelectItem value="completed">Concluído</SelectItem>
+                                            </SelectContent>
+                                          </Select>
+                                        ) : (
+                                          <Badge
+                                            variant={
+                                              selectedCard?.status === "completed"
+                                                ? "default"
+                                                : selectedCard?.status === "in_progress"
+                                                ? "secondary"
+                                                : "outline"
+                                            }
+                                            className={
+                                              selectedCard?.status === "completed"
+                                                ? "bg-emerald-500"
+                                                : selectedCard?.status === "in_progress"
+                                                ? "bg-amber-500"
+                                                : ""
+                                            }
+                                          >
+                                            {selectedCard?.status === "completed"
+                                              ? "Concluído"
+                                              : selectedCard?.status === "in_progress"
+                                              ? "Em Andamento"
+                                              : "A Fazer"}
+                                          </Badge>
+                                        )}
+                                      </div>
+
+                                      {/* Publication Date */}
+                                      <div>
+                                        <Label className="text-xs text-muted-foreground mb-1 block">Data de Publicação</Label>
+                                        {editMode ? (
+                                          <Input
+                                            type="date"
+                                            value={selectedCard?.publication_date || ""}
+                                            onChange={(e) =>
+                                              setSelectedCard((prev) =>
+                                                prev ? { ...prev, publication_date: e.target.value } : null
+                                              )
+                                            }
+                                          />
+                                        ) : (
+                                          <p className="text-sm font-medium">
+                                            {selectedCard?.publication_date
+                                              ? new Date(selectedCard.publication_date + 'T00:00:00').toLocaleDateString("pt-BR", {
+                                                  weekday: "long",
+                                                  day: "numeric",
+                                                  month: "long",
+                                                  year: "numeric",
+                                                })
+                                              : "-"}
+                                          </p>
+                                        )}
+                                      </div>
+
+                                      {/* Platform & Content Type */}
+                                      {selectedCard && (
+                                        <div>
+                                          <Label className="text-xs text-muted-foreground mb-1 block">Canal e Formato</Label>
+                                          <div className="flex flex-wrap gap-1">
+                                            {extractMetadata(selectedCard).platforms.map((platform) => (
+                                              <Badge key={platform} variant="outline" className="text-xs">
+                                                {platform}
+                                              </Badge>
+                                            ))}
+                                            {extractMetadata(selectedCard).contentTypes.map((type) => (
+                                              <Badge key={type} variant="secondary" className="text-xs">
+                                                {type}
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* File Location */}
+                                      <div>
+                                        <Label className="text-xs text-muted-foreground mb-1 block">Localização do Arquivo</Label>
+                                        {editMode ? (
+                                          <Input
+                                            value={selectedCard?.file_location || ""}
+                                            onChange={(e) =>
+                                              setSelectedCard((prev) =>
+                                                prev ? { ...prev, file_location: e.target.value } : null
+                                              )
+                                            }
+                                            placeholder="Ex: Google Drive, Notion..."
+                                          />
+                                        ) : (
+                                          <div className="flex items-center gap-1 text-sm">
+                                            <LinkIcon className="h-3 w-3 text-muted-foreground" />
+                                            <span className="text-muted-foreground">
+                                              {selectedCard?.file_location || "Não definido"}
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Timestamps */}
+                                      <div className="pt-4 border-t border-border space-y-2">
+                                        <div>
+                                          <Label className="text-xs text-muted-foreground">Criado em</Label>
+                                          <p className="text-xs">
+                                            {selectedCard?.created_at
+                                              ? new Date(selectedCard.created_at).toLocaleString("pt-BR")
+                                              : "-"}
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <Label className="text-xs text-muted-foreground">Atualizado em</Label>
+                                          <p className="text-xs">
+                                            {selectedCard?.updated_at
+                                              ? new Date(selectedCard.updated_at).toLocaleString("pt-BR")
+                                              : "-"}
+                                          </p>
+                                        </div>
+                                      </div>
+
+                                      {/* Delete Button */}
+                                      <div className="pt-4">
+                                        <Button
+                                          variant="destructive"
+                                          size="sm"
+                                          className="w-full"
+                                          onClick={() => setCardToDelete(selectedCard?.id || null)}
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-2" />
+                                          Excluir Demanda
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </div>
                                 </DialogContent>
                               </Dialog>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
-                </div>
-              ))}
-            </div>
-          </DragDropContext>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </div>
+            ))}
+          </div>
+        </DragDropContext>
+
+        {/* Empty State */}
+        {cards.length === 0 && (
+          <div className="text-center py-12">
+            <LayoutGrid className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">
+              Nenhuma demanda encontrada
+            </h3>
+            <p className="text-muted-foreground mb-4">
+              Gere um planejamento de período para criar suas demandas.
+            </p>
+            <Button onClick={() => navigate("/plan-period")}>
+              Ir para Planejamento de Período
+            </Button>
+          </div>
         )}
       </div>
 
-      <PeriodSelectionModal
-        open={showPeriodModal}
-        onClose={() => setShowPeriodModal(false)}
-        onConfirm={handlePeriodSaved}
-        isGenerating={false}
-      />
-
+      {/* Delete Confirmation Modal */}
       <ConfirmationModal
-        open={cardToDelete !== null}
+        open={!!cardToDelete}
         onOpenChange={(open) => !open && setCardToDelete(null)}
-        title="Excluir Card"
-        description="Tem certeza que deseja excluir este card? Esta ação não pode ser desfeita."
         onConfirm={handleDeleteCard}
+        title="Excluir Demanda"
+        description="Tem certeza que deseja excluir esta demanda? Esta ação não pode ser desfeita."
         loading={isDeleting}
       />
     </div>

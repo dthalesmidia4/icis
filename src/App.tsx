@@ -12,13 +12,10 @@ import Home from "./pages/Home";
 import ClientHub from "./pages/ClientHub";
 import Auth from "./pages/Auth";
 import CompanyRegistration from "./pages/CompanyRegistration";
-import Plan from "./pages/Plan";
-import Plans from "./pages/Plans";
 import AdminDashboard from "./pages/AdminDashboard";
 import AgencySetup from "./pages/AgencySetup";
 import ClientList from "./pages/ClientList";
 import ClientDetails from "./pages/ClientDetails";
-import ClientStrategies from "./pages/ClientStrategies";
 import StrategyCreation from "./pages/StrategyCreation";
 import GenerateQuestions from "./pages/GenerateQuestions";
 import DevHub from "./pages/DevHub";
@@ -82,24 +79,6 @@ const App = () => (
                 </RequireTenant>
               </ProtectedRoute>
             } />
-            <Route path="/plan" element={
-              <ProtectedRoute>
-                <RequireTenant>
-                  <Layout>
-                    <Plan />
-                  </Layout>
-                </RequireTenant>
-              </ProtectedRoute>
-            } />
-            <Route path="/plans" element={
-              <ProtectedRoute>
-                <RequireTenant>
-                  <Layout>
-                    <Plans />
-                  </Layout>
-                </RequireTenant>
-              </ProtectedRoute>
-            } />
           <Route path="/plan-period" element={
             <ProtectedRoute>
               <RequireTenant>
@@ -134,15 +113,6 @@ const App = () => (
                 </RequireTenant>
               </ProtectedRoute>
             } />
-          <Route path="/clientes/:id/planejamentos" element={
-            <ProtectedRoute>
-              <RequireTenant>
-                <Layout>
-                  <ClientStrategies />
-                </Layout>
-              </RequireTenant>
-            </ProtectedRoute>
-          } />
           <Route path="/strategies" element={
             <ProtectedRoute>
               <RequireTenant>
