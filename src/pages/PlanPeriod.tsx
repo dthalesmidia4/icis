@@ -5,7 +5,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar, Target, Eye } from "lucide-react";
+import { ArrowLeft, Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar, Target, Eye, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -494,41 +494,122 @@ const PlanPeriod = () => {
     </div>
   );
 
-  const renderCompleted = () => (
-    <div className="max-w-2xl mx-auto text-center">
-      <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center mb-6">
-        <Check className="w-12 h-12 text-white" />
-      </div>
-      <h2 className="text-3xl font-bold mb-4">Período Planejado com Sucesso!</h2>
-      <p className="text-muted-foreground mb-8">
-        Seu planejamento de período foi salvo e está pronto para ser executado.
-      </p>
+  const [integratingKanban, setIntegratingKanban] = useState(false);
+  const [kanbanIntegrated, setKanbanIntegrated] = useState(false);
 
-      <Card className="p-6 text-left mb-8">
-        <h3 className="font-semibold mb-4">Resumo do Planejamento:</h3>
-        <div className="space-y-2 text-sm">
-          <p><span className="text-muted-foreground">Período:</span> {periodTitle}</p>
-          <p><span className="text-muted-foreground">Modo Escolhido:</span> {selectedMode === 'normal' ? 'Normal' : 'Ultra'}</p>
-          <p>
-            <span className="text-muted-foreground">Total de Demandas:</span>{' '}
-            {(selectedMode === 'normal' ? defaultPlan.length : ultraPlan.length) + (optionalPackage.length > 0 ? optionalPackage.length : 0)}
-          </p>
-          {optionalPackage.length > 0 && (
-            <p><span className="text-muted-foreground">Pacote Extra:</span> Adicionado ({optionalPackage.length} demandas)</p>
-          )}
+  const handleIntegrateToKanban = async () => {
+    if (!periodPlanId || !tenantId) return;
+    
+    setIntegratingKanban(true);
+    try {
+      // Get the final plan from the current state
+      const primaryPlan = selectedMode === 'normal' ? defaultPlan : ultraPlan;
+      const finalPlanItems = kanbanIntegrated ? [] : (optionalPackage.length > 0 ? [...primaryPlan, ...optionalPackage] : primaryPlan);
+      
+      // Create cards from the final plan
+      const cardsToInsert = finalPlanItems.map((item) => ({
+        tenant_id: tenantId,
+        period_plan_id: periodPlanId,
+        title: item.titulo,
+        description: item.descricao,
+        publication_date: item.data_sugerida || new Date().toISOString().split('T')[0],
+        file_location: `${item.tipo_conteudo} - ${item.canal}`,
+        status: 'unassigned',
+        column_name: 'Planejamento Automatizado',
+        observations: null
+      }));
+
+      if (cardsToInsert.length > 0) {
+        const { error } = await supabase
+          .from('cards')
+          .insert(cardsToInsert);
+
+        if (error) throw error;
+      }
+
+      setKanbanIntegrated(true);
+      toast.success(`${cardsToInsert.length} demandas integradas ao Kanban!`);
+    } catch (error) {
+      console.error('Error integrating to Kanban:', error);
+      toast.error('Erro ao integrar demandas ao Kanban');
+    } finally {
+      setIntegratingKanban(false);
+    }
+  };
+
+  const renderCompleted = () => {
+    const totalDemands = (selectedMode === 'normal' ? defaultPlan.length : ultraPlan.length) + (optionalPackage.length > 0 ? optionalPackage.length : 0);
+    
+    return (
+      <div className="max-w-2xl mx-auto text-center">
+        <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center mb-6">
+          <Check className="w-12 h-12 text-white" />
         </div>
-      </Card>
+        <h2 className="text-3xl font-bold mb-4">Período Planejado com Sucesso!</h2>
+        <p className="text-muted-foreground mb-8">
+          Seu planejamento de período foi salvo e está pronto para ser executado.
+        </p>
 
-      <div className="flex gap-4 justify-center">
-        <Button variant="outline" onClick={() => navigate('/client-hub')}>
-          Voltar ao Hub
-        </Button>
-        <Button onClick={() => navigate('/schedule')}>
-          Ver Demandas
-        </Button>
+        <Card className="p-6 text-left mb-8">
+          <h3 className="font-semibold mb-4">Resumo do Planejamento:</h3>
+          <div className="space-y-2 text-sm">
+            <p><span className="text-muted-foreground">Período:</span> {periodTitle}</p>
+            <p><span className="text-muted-foreground">Modo Escolhido:</span> {selectedMode === 'normal' ? 'Normal' : 'Ultra'}</p>
+            <p>
+              <span className="text-muted-foreground">Total de Demandas:</span> {totalDemands}
+            </p>
+            {optionalPackage.length > 0 && (
+              <p><span className="text-muted-foreground">Pacote Extra:</span> Adicionado ({optionalPackage.length} demandas)</p>
+            )}
+          </div>
+        </Card>
+
+        {/* Kanban Integration */}
+        <Card className="p-6 mb-8 border-primary/20 bg-primary/5">
+          <div className="flex items-center gap-3 mb-3">
+            <LayoutGrid className="w-5 h-5 text-primary" />
+            <h3 className="font-semibold">Integrar ao Kanban</h3>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            Adicione as demandas geradas diretamente ao seu quadro Kanban para gerenciamento.
+          </p>
+          {kanbanIntegrated ? (
+            <div className="flex items-center gap-2 text-green-600">
+              <Check className="w-5 h-5" />
+              <span className="font-medium">Demandas integradas ao Kanban!</span>
+            </div>
+          ) : (
+            <Button 
+              onClick={handleIntegrateToKanban}
+              disabled={integratingKanban}
+              className="w-full"
+            >
+              {integratingKanban ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Integrando...
+                </>
+              ) : (
+                <>
+                  <LayoutGrid className="w-4 h-4 mr-2" />
+                  Adicionar {totalDemands} demandas ao Kanban
+                </>
+              )}
+            </Button>
+          )}
+        </Card>
+
+        <div className="flex gap-4 justify-center">
+          <Button variant="outline" onClick={() => navigate('/client-hub')}>
+            Voltar ao Hub
+          </Button>
+          <Button onClick={() => navigate(`/schedule?periodPlanId=${periodPlanId}`)}>
+            Ver Demandas
+          </Button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderHistory = () => (
     <div className="max-w-4xl mx-auto">

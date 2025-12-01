@@ -46,7 +46,8 @@ export type Database = {
           file_location: string | null
           id: string
           observations: string | null
-          plan_id: string
+          period_plan_id: string | null
+          plan_id: string | null
           publication_date: string
           status: string
           tenant_id: string
@@ -60,7 +61,8 @@ export type Database = {
           file_location?: string | null
           id?: string
           observations?: string | null
-          plan_id: string
+          period_plan_id?: string | null
+          plan_id?: string | null
           publication_date: string
           status?: string
           tenant_id: string
@@ -74,7 +76,8 @@ export type Database = {
           file_location?: string | null
           id?: string
           observations?: string | null
-          plan_id?: string
+          period_plan_id?: string | null
+          plan_id?: string | null
           publication_date?: string
           status?: string
           tenant_id?: string
@@ -82,6 +85,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "cards_period_plan_id_fkey"
+            columns: ["period_plan_id"]
+            isOneToOne: false
+            referencedRelation: "period_plans"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cards_plan_id_fkey"
             columns: ["plan_id"]

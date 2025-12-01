@@ -28,7 +28,8 @@ interface KanbanCard {
   file_location: string | null;
   description: string | null;
   observations: string | null;
-  plan_id: string;
+  plan_id: string | null;
+  period_plan_id: string | null;
   tenant_id: string;
   created_at: string;
   updated_at: string;
@@ -61,8 +62,10 @@ export default function Schedule() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showPeriodModal, setShowPeriodModal] = useState(false);
   const [needsPeriodSelection, setNeedsPeriodSelection] = useState(false);
+  const [isPeriodPlanView, setIsPeriodPlanView] = useState(false);
 
   const planId = searchParams.get("planId");
+  const periodPlanId = searchParams.get("periodPlanId");
 
   // Verificar se há cliente selecionado
   useEffect(() => {
@@ -75,6 +78,13 @@ export default function Schedule() {
   useEffect(() => {
     const initializeSchedule = async () => {
       if (!selectedClient || !tenantId) return;
+
+      // If periodPlanId is provided, use that
+      if (periodPlanId) {
+        setIsPeriodPlanView(true);
+        fetchPeriodPlanCards();
+        return;
+      }
 
       if (!planId) {
         // Fetch the most recent approved plan for the selected client
@@ -105,12 +115,58 @@ export default function Schedule() {
       }
 
       if (planId) {
+        setIsPeriodPlanView(false);
         fetchCards();
       }
     };
 
     initializeSchedule();
-  }, [planId, tenantId, selectedClient, navigate]);
+  }, [planId, periodPlanId, tenantId, selectedClient, navigate]);
+
+  const fetchPeriodPlanCards = async () => {
+    if (!periodPlanId) return;
+    
+    try {
+      setLoading(true);
+      
+      // Fetch cards and period plan info
+      const [cardsResponse, periodPlanResponse] = await Promise.all([
+        supabase
+          .from("cards")
+          .select("*")
+          .eq("period_plan_id", periodPlanId)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("period_plans")
+          .select("period_title, period_start, period_end")
+          .eq("id", periodPlanId)
+          .single()
+      ]);
+
+      if (cardsResponse.error) throw cardsResponse.error;
+      if (periodPlanResponse.error) throw periodPlanResponse.error;
+
+      setCards(cardsResponse.data || []);
+      
+      if (periodPlanResponse.data) {
+        setReferencePeriod({
+          titulo: periodPlanResponse.data.period_title,
+          dataInicio: periodPlanResponse.data.period_start,
+          dataFim: periodPlanResponse.data.period_end
+        });
+        setNeedsPeriodSelection(false);
+      }
+    } catch (error) {
+      console.error("Error fetching period plan cards:", error);
+      toast({
+        title: "Erro ao carregar demandas",
+        description: "Não foi possível carregar as demandas do período.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchCards = async () => {
     try {
@@ -160,6 +216,12 @@ export default function Schedule() {
   };
 
   const handleRegenerateCards = async () => {
+    // Period plan cards don't support regeneration via edge function
+    if (isPeriodPlanView) {
+      sonnerToast.info("Para regenerar demandas de período, volte à página de Planejar Período");
+      return;
+    }
+    
     if (!planId) return;
     
     // Verificar se o plano tem período definido
@@ -257,8 +319,12 @@ export default function Schedule() {
       sonnerToast.success("Card excluído com sucesso!");
       setCardToDelete(null);
       
-      // Recarregar os cards
-      await fetchCards();
+      // Recarregar os cards baseado no tipo de visualização
+      if (isPeriodPlanView) {
+        await fetchPeriodPlanCards();
+      } else {
+        await fetchCards();
+      }
     } catch (error) {
       console.error("Error deleting card:", error);
       sonnerToast.error("Erro ao excluir card");
@@ -311,7 +377,11 @@ export default function Schedule() {
         variant: "destructive",
       });
       // Reverter mudança local
-      fetchCards();
+      if (isPeriodPlanView) {
+        fetchPeriodPlanCards();
+      } else {
+        fetchCards();
+      }
     }
   };
 
@@ -340,7 +410,13 @@ export default function Schedule() {
       });
 
       setEditMode(false);
-      fetchCards();
+      
+      // Recarregar os cards baseado no tipo de visualização
+      if (isPeriodPlanView) {
+        fetchPeriodPlanCards();
+      } else {
+        fetchCards();
+      }
     } catch (error) {
       console.error("Error saving card:", error);
       toast({
@@ -457,7 +533,7 @@ export default function Schedule() {
               </Badge>
             )}
             <div className="flex gap-2">
-              {needsPeriodSelection && (
+              {needsPeriodSelection && !isPeriodPlanView && (
                 <Button
                   variant="default"
                   size="sm"
@@ -467,15 +543,22 @@ export default function Schedule() {
                   Selecionar Período
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRegenerateCards}
-                disabled={regenerating || needsPeriodSelection}
-                className="w-fit"
-              >
-                {regenerating ? "Regenerando..." : "Regenerar Demandas"}
-              </Button>
+              {!isPeriodPlanView && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRegenerateCards}
+                  disabled={regenerating || needsPeriodSelection}
+                  className="w-fit"
+                >
+                  {regenerating ? "Regenerando..." : "Regenerar Demandas"}
+                </Button>
+              )}
+              {isPeriodPlanView && (
+                <Badge variant="secondary" className="h-8 flex items-center">
+                  Período Planejado
+                </Badge>
+              )}
             </div>
           </div>
 
