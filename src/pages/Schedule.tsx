@@ -519,13 +519,18 @@ export default function Schedule() {
           {/* Período de Referência e Ações */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4">
             {referencePeriod ? (
-              <div className="flex flex-col gap-1">
-                <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 px-3 py-1.5 text-sm font-medium w-fit">
-                  📅 Período: {referencePeriod.titulo}
-                </Badge>
-                <p className="text-xs text-muted-foreground">
-                  {new Date(referencePeriod.dataInicio).toLocaleDateString('pt-BR')} até {new Date(referencePeriod.dataFim).toLocaleDateString('pt-BR')}
-                </p>
+              <div className="flex items-center gap-3 bg-muted/50 rounded-lg px-4 py-2.5 border border-border/50">
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary">
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-foreground">
+                    {referencePeriod.titulo}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(referencePeriod.dataInicio).toLocaleDateString('pt-BR')} — {new Date(referencePeriod.dataFim).toLocaleDateString('pt-BR')}
+                  </span>
+                </div>
               </div>
             ) : needsPeriodSelection && (
               <Badge variant="destructive" className="px-3 py-1.5 text-sm font-medium w-fit">
