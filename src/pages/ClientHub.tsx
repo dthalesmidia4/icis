@@ -44,12 +44,6 @@ const ClientHub = () => {
     emoji: "✨",
     isPremium: true
   }, {
-    title: "Planejamento Avançado",
-    icon: Calendar,
-    gradient: "from-indigo-400 to-purple-500",
-    route: "/advanced-plans",
-    emoji: "🚀"
-  }, {
     title: "Demandas",
     icon: ListTodo,
     gradient: "from-green-400 to-emerald-500",
@@ -94,7 +88,6 @@ const ClientHub = () => {
                     index === 1 ? 'text-orange-600 dark:text-orange-400' :
                     index === 2 ? 'text-pink-600 dark:text-pink-400' :
                     index === 3 ? 'text-fuchsia-600 dark:text-fuchsia-400' :
-                    index === 4 ? 'text-purple-600 dark:text-purple-400' :
                     'text-emerald-600 dark:text-emerald-400'
                   }`}>
                     {card.title}
