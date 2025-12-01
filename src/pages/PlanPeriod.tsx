@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -63,6 +64,7 @@ const PlanPeriod = () => {
   const [objective, setObjective] = useState("");
   const [priorityChannel, setPriorityChannel] = useState("");
   const [observations, setObservations] = useState("");
+  const [excludedFormats, setExcludedFormats] = useState<string[]>([]);
 
   // Process state
   const [currentStep, setCurrentStep] = useState<Step>('form');
@@ -331,15 +333,51 @@ const PlanPeriod = () => {
             Observações e Restrições
           </h3>
           
-          <div>
-            <Label htmlFor="observations">Observações Adicionais (opcional)</Label>
-            <Textarea
-              id="observations"
-              placeholder="Informe restrições, datas comemorativas importantes, produtos em foco, ou qualquer informação relevante..."
-              value={observations}
-              onChange={(e) => setObservations(e.target.value)}
-              rows={4}
-            />
+          <div className="space-y-6">
+            {/* Format Restrictions Checklist */}
+            <div>
+              <Label className="text-sm font-medium mb-3 block">Formatos que NÃO deseja usar:</Label>
+              <div className="space-y-3">
+                {[
+                  { id: 'videos', label: 'Vídeos gravados' },
+                  { id: 'reels', label: 'Reels' },
+                  { id: 'stories', label: 'Stories' },
+                  { id: 'fotos-proprias', label: 'Fotos próprias (somente banco de imagens)' },
+                  { id: 'carrosseis', label: 'Carrosséis' },
+                ].map((format) => (
+                  <div key={format.id} className="flex items-center space-x-3">
+                    <Checkbox
+                      id={format.id}
+                      checked={excludedFormats.includes(format.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setExcludedFormats([...excludedFormats, format.id]);
+                        } else {
+                          setExcludedFormats(excludedFormats.filter(f => f !== format.id));
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor={format.id}
+                      className="text-sm font-normal cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      {format.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="observations">Observações Adicionais (opcional)</Label>
+              <Textarea
+                id="observations"
+                placeholder="Informe restrições, datas comemorativas importantes, produtos em foco, ou qualquer informação relevante..."
+                value={observations}
+                onChange={(e) => setObservations(e.target.value)}
+                rows={4}
+              />
+            </div>
           </div>
         </Card>
 
