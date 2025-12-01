@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, ArrowLeft, Save, Edit2, Trash2, FileQuestion, CalendarDays } from 'lucide-react';
+import { Save, Edit2, Trash2, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,7 @@ import { useSelectedClient } from '@/contexts/SelectedClientContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
+import { PageHeader } from '@/components/PageHeader';
 
 export default function StrategyCreation() {
   const navigate = useNavigate();
@@ -173,47 +174,31 @@ export default function StrategyCreation() {
 
       <ConfirmationModal open={showDeleteModal} onOpenChange={setShowDeleteModal} title="Remover estratégia?" description="Esta ação não pode ser desfeita. A estratégia e todas as perguntas guias relacionadas serão removidas permanentemente. Deseja continuar?" onConfirm={handleDeleteStrategy} loading={isDeleting} />
 
-      {/* Header Fixo */}
-      <div className="sticky top-0 z-10 bg-background border-b shrink-0">
-        <div className="container max-w-4xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleBack}
-                className="hover:bg-accent"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <h1 className="text-3xl font-bold text-foreground">
-                Estratégia Geral
-              </h1>
-            </div>
-            <div className="flex gap-3">
-              {existingStrategy && !isEditMode && (
-                <Button variant="secondary" onClick={() => navigate('/plans')}>
-                  <CalendarDays className="h-4 w-4 mr-2" />
-                  Planejamentos
-                </Button>
-              )}
-              
-              {isEditMode && existingStrategy && (
-                <Button variant="outline" onClick={handleCancelEdit}>
-                  Cancelar Edição
-                </Button>
-              )}
-              
-              {isEditMode && (
-                <Button onClick={handleSaveClick} disabled={isSaving || !strategyText.trim()} className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
-                  <Save className="h-4 w-4 mr-2" />
-                  {isSaving ? 'Salvando...' : 'Salvar Estratégia'}
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Estratégia Geral"
+        onBack={handleBack}
+        actions={[
+          ...(existingStrategy && !isEditMode ? [{
+            label: 'Planejar Período',
+            onClick: () => navigate('/plan-period'),
+            icon: <CalendarDays className="h-4 w-4" />,
+            variant: 'secondary' as const,
+          }] : []),
+          ...(isEditMode && existingStrategy ? [{
+            label: 'Cancelar Edição',
+            onClick: handleCancelEdit,
+            variant: 'outline' as const,
+          }] : []),
+          ...(isEditMode ? [{
+            label: isSaving ? 'Salvando...' : 'Salvar Estratégia',
+            onClick: handleSaveClick,
+            icon: <Save className="h-4 w-4" />,
+            disabled: isSaving || !strategyText.trim(),
+            loading: isSaving,
+            className: 'bg-gradient-to-r from-primary to-secondary hover:opacity-90',
+          }] : []),
+        ]}
+      />
 
       {/* Container Principal */}
       <div className="flex-1">
