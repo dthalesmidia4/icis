@@ -1,55 +1,137 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { Calendar, FileText, Lightbulb, ListTodo, Sparkles } from "lucide-react";
+import { FileText, Lightbulb, ListTodo, Sparkles, Calendar, Loader2, Plus } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { useEffect } from "react";
+import { useTenant } from "@/contexts/TenantContext";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface PeriodPlan {
+  id: string;
+  period_title: string;
+  period_start: string;
+  period_end: string;
+  status: string;
+  created_at: string;
+}
+
 const ClientHub = () => {
   const navigate = useNavigate();
-  const {
-    selectedClient
-  } = useSelectedClient();
+  const { selectedClient } = useSelectedClient();
+  const { tenantId } = useTenant();
+  const [showPeriodModal, setShowPeriodModal] = useState(false);
+  const [periods, setPeriods] = useState<PeriodPlan[]>([]);
+  const [loadingPeriods, setLoadingPeriods] = useState(false);
+
   useEffect(() => {
     if (!selectedClient) {
       toast.error("Nenhum cliente selecionado");
       navigate('/home');
     }
   }, [selectedClient, navigate]);
+
+  const fetchPeriods = async () => {
+    if (!selectedClient || !tenantId) return;
+    
+    setLoadingPeriods(true);
+    try {
+      const { data, error } = await supabase
+        .from("period_plans")
+        .select("id, period_title, period_start, period_end, status, created_at")
+        .eq("company_id", selectedClient.id)
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setPeriods(data || []);
+    } catch (error) {
+      console.error("Error fetching periods:", error);
+      toast.error("Erro ao carregar períodos");
+    } finally {
+      setLoadingPeriods(false);
+    }
+  };
+
+  const handleDemandasClick = () => {
+    fetchPeriods();
+    setShowPeriodModal(true);
+  };
+
+  const handlePeriodSelect = (periodId: string) => {
+    setShowPeriodModal(false);
+    navigate(`/schedule?periodPlanId=${periodId}`);
+  };
+
+  const handleCreateNewPeriod = () => {
+    setShowPeriodModal(false);
+    navigate("/plan-period");
+  };
+
   if (!selectedClient) return null;
+
   const displayName = selectedClient.fantasy_name || selectedClient.name;
-  const actionCards = [{
-    title: "Perguntas Guias",
-    icon: FileText,
-    gradient: "from-blue-400 to-cyan-500",
-    route: "/client-guide",
-    emoji: "❓"
-  }, {
-    title: "Estratégia Geral",
-    icon: Lightbulb,
-    gradient: "from-yellow-400 to-orange-500",
-    route: "/strategies",
-    emoji: "💡"
-  }, {
-    title: "Planejamento",
-    icon: Calendar,
-    gradient: "from-purple-400 to-pink-500",
-    route: "/plans",
-    emoji: "📋"
-}, {
-    title: "Planejar Período",
-    icon: Sparkles,
-    gradient: "from-violet-400 to-fuchsia-500",
-    route: "/plan-period",
-    emoji: "✨"
-  }, {
-    title: "Demandas",
-    icon: ListTodo,
-    gradient: "from-green-400 to-emerald-500",
-    route: "/schedule",
-    emoji: "📅"
-  }];
-  return <Layout>
+
+  const actionCards = [
+    {
+      title: "Perguntas Guias",
+      icon: FileText,
+      gradient: "from-blue-400 to-cyan-500",
+      route: "/client-guide",
+      action: () => navigate("/client-guide"),
+    },
+    {
+      title: "Estratégia Geral",
+      icon: Lightbulb,
+      gradient: "from-yellow-400 to-orange-500",
+      route: "/strategies",
+      action: () => navigate("/strategies"),
+    },
+    {
+      title: "Planejar Período",
+      icon: Sparkles,
+      gradient: "from-violet-400 to-fuchsia-500",
+      route: "/plan-period",
+      action: () => navigate("/plan-period"),
+    },
+    {
+      title: "Demandas",
+      icon: ListTodo,
+      gradient: "from-green-400 to-emerald-500",
+      route: "/schedule",
+      action: handleDemandasClick,
+    },
+  ];
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "completed":
+        return <Badge variant="default" className="bg-emerald-500">Concluído</Badge>;
+      case "active":
+        return <Badge variant="default" className="bg-blue-500">Ativo</Badge>;
+      case "draft":
+        return <Badge variant="secondary">Rascunho</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString + 'T00:00:00').toLocaleDateString('pt-BR');
+  };
+
+  return (
+    <Layout>
       <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
         <div className="container max-w-6xl mx-auto px-6 py-12">
           {/* Header do Cliente */}
@@ -68,14 +150,13 @@ const ClientHub = () => {
 
           {/* Cards de Ação */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {actionCards.map((card, index) => <Card key={index} className={`group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 border-2 hover:border-primary/50 ${(card as any).isPremium ? 'ring-2 ring-fuchsia-500/30' : ''}`} onClick={() => navigate(card.route)}>
+            {actionCards.map((card, index) => (
+              <Card
+                key={index}
+                className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 border-2 hover:border-primary/50"
+                onClick={card.action}
+              >
                 <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-5 group-hover:opacity-10 transition-opacity`} />
-                
-                {(card as any).isPremium && (
-                  <div className="absolute top-2 right-2 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
-                    Premium
-                  </div>
-                )}
                 
                 <div className="relative p-8 flex flex-col items-center justify-center text-center min-h-[200px]">
                   <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${card.gradient} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
@@ -85,14 +166,14 @@ const ClientHub = () => {
                   <h3 className={`text-xl font-bold transition-colors ${
                     index === 0 ? 'text-cyan-600 dark:text-cyan-400' :
                     index === 1 ? 'text-orange-600 dark:text-orange-400' :
-                    index === 2 ? 'text-pink-600 dark:text-pink-400' :
-                    index === 3 ? 'text-fuchsia-600 dark:text-fuchsia-400' :
+                    index === 2 ? 'text-fuchsia-600 dark:text-fuchsia-400' :
                     'text-emerald-600 dark:text-emerald-400'
                   }`}>
                     {card.title}
                   </h3>
                 </div>
-              </Card>)}
+              </Card>
+            ))}
           </div>
 
           {/* Footer Info */}
@@ -103,6 +184,71 @@ const ClientHub = () => {
           </div>
         </div>
       </div>
-    </Layout>;
+
+      {/* Modal de Seleção de Período */}
+      <Dialog open={showPeriodModal} onOpenChange={setShowPeriodModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              Selecionar Período
+            </DialogTitle>
+          </DialogHeader>
+
+          {loadingPeriods ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : periods.length === 0 ? (
+            <div className="text-center py-8">
+              <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Nenhum período encontrado</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Crie um novo período para começar a planejar suas demandas.
+              </p>
+              <Button onClick={handleCreateNewPeriod}>
+                <Plus className="h-4 w-4 mr-2" />
+                Criar Novo Período
+              </Button>
+            </div>
+          ) : (
+            <>
+              <ScrollArea className="max-h-[400px] pr-4">
+                <div className="space-y-3">
+                  {periods.map((period) => (
+                    <Card
+                      key={period.id}
+                      className="p-4 cursor-pointer hover:bg-accent/50 transition-colors border-2 hover:border-primary/50"
+                      onClick={() => handlePeriodSelect(period.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-semibold text-foreground">
+                            {period.period_title}
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            {formatDate(period.period_start)} - {formatDate(period.period_end)}
+                          </p>
+                        </div>
+                        {getStatusBadge(period.status)}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+
+              <div className="pt-4 border-t">
+                <Button variant="outline" className="w-full" onClick={handleCreateNewPeriod}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Novo Período
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </Layout>
+  );
 };
+
 export default ClientHub;
