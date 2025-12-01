@@ -516,50 +516,34 @@ export default function Schedule() {
             </div>
           </div>
 
-          {/* Período de Referência e Ações */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4">
-            {referencePeriod ? (
-              <div className="flex items-center gap-3 bg-muted/50 rounded-lg px-4 py-2.5 border border-border/50">
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary">
-                  <Calendar className="w-4 h-4" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-foreground">
-                    {referencePeriod.titulo}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(referencePeriod.dataInicio).toLocaleDateString('pt-BR')} — {new Date(referencePeriod.dataFim).toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-              </div>
-            ) : needsPeriodSelection && (
-              <Badge variant="destructive" className="px-3 py-1.5 text-sm font-medium w-fit">
+          {/* Ações */}
+          <div className="flex gap-2 mb-4">
+            {needsPeriodSelection && !isPeriodPlanView && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setShowPeriodModal(true)}
+                className="w-fit"
+              >
+                Selecionar Período
+              </Button>
+            )}
+            {!isPeriodPlanView && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRegenerateCards}
+                disabled={regenerating || needsPeriodSelection}
+                className="w-fit"
+              >
+                {regenerating ? "Regenerando..." : "Regenerar Demandas"}
+              </Button>
+            )}
+            {needsPeriodSelection && !referencePeriod && (
+              <Badge variant="destructive" className="px-3 py-1.5 text-sm font-medium">
                 ⚠️ Período não definido
               </Badge>
             )}
-            <div className="flex gap-2">
-              {needsPeriodSelection && !isPeriodPlanView && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => setShowPeriodModal(true)}
-                  className="w-fit"
-                >
-                  Selecionar Período
-                </Button>
-              )}
-              {!isPeriodPlanView && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRegenerateCards}
-                  disabled={regenerating || needsPeriodSelection}
-                  className="w-fit"
-                >
-                  {regenerating ? "Regenerando..." : "Regenerar Demandas"}
-                </Button>
-              )}
-            </div>
           </div>
 
           {/* Filtros */}
@@ -593,6 +577,18 @@ export default function Schedule() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {/* Título do Período */}
+          {referencePeriod && (
+            <div className="mt-6 mb-2">
+              <h2 className="text-xl font-semibold text-foreground">
+                {referencePeriod.titulo}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {new Date(referencePeriod.dataInicio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} — {new Date(referencePeriod.dataFim).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+              </p>
             </div>
           )}
         </div>
