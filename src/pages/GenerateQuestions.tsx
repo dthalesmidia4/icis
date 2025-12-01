@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { Loader2, Trash2, FileDown, ArrowLeft, MoreVertical, Sparkles, Check, Cloud } from "lucide-react";
+import { Loader2, Trash2, FileDown, ArrowLeft, MoreVertical, Sparkles, Check, Cloud, Lightbulb } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +17,7 @@ import {
 import jsPDF from "jspdf";
 import { useQuery } from "@tanstack/react-query";
 import { toast as sonnerToast } from "sonner";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 interface StrategicAnswers {
   [key: string]: string;
@@ -47,6 +48,7 @@ export default function GenerateQuestions() {
   const { selectedClient } = useSelectedClient();
   const [answers, setAnswers] = useState<StrategicAnswers>({});
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
   
   // Auto-save states
   const [isAutoSaving, setIsAutoSaving] = useState(false);
@@ -214,31 +216,34 @@ export default function GenerateQuestions() {
       return;
     }
 
-    // Verificar se todas as perguntas foram respondidas
-    const allAnswered = strategicQuestions.every((_, idx) => {
+    // Verificar perguntas não respondidas e marcar erros
+    const unansweredKeys = new Set<string>();
+    strategicQuestions.forEach((_, idx) => {
       const key = `question_${idx}`;
-      return answers[key] && answers[key].trim().length > 0;
+      if (!answers[key] || answers[key].trim().length === 0) {
+        unansweredKeys.add(key);
+      }
     });
 
-    if (!allAnswered) {
-      toast({
-        title: "Atenção",
-        description: "Por favor, responda todas as perguntas antes de gerar a estratégia",
-        variant: "destructive",
-      });
+    if (unansweredKeys.size > 0) {
+      setValidationErrors(unansweredKeys);
+      // Scroll para a primeira pergunta não respondida
+      const firstErrorKey = Array.from(unansweredKeys)[0];
+      const element = document.getElementById(firstErrorKey);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        element.focus();
+      }
       return;
     }
 
+    // Limpar erros de validação
+    setValidationErrors(new Set());
     setIsGeneratingStrategy(true);
 
     try {
       // Salvar respostas antes de gerar
       await handleAutoSave();
-
-      toast({
-        title: "🤖 Gerando estratégia inteligente...",
-        description: "Isso pode levar alguns segundos",
-      });
 
       // Chamar edge function para gerar estratégia
       const { data, error } = await supabase.functions.invoke('generate-strategy', {
@@ -257,15 +262,8 @@ export default function GenerateQuestions() {
         throw new Error(data.error);
       }
 
-      toast({
-        title: "✅ Estratégia gerada com sucesso!",
-        description: "Você será redirecionado para visualizar a estratégia",
-      });
-
       // Navegar para a página de estratégias após sucesso
-      setTimeout(() => {
-        navigate("/strategies");
-      }, 1000);
+      navigate("/strategies");
 
     } catch (error: any) {
       console.error("Erro ao gerar estratégia:", error);
@@ -279,7 +277,31 @@ export default function GenerateQuestions() {
     }
   };
 
+  // Limpar erro de validação quando o usuário digita
+  const handleAnswerChange = (key: string, value: string) => {
+    setAnswers((prev) => ({ ...prev, [key]: value }));
+    if (validationErrors.has(key) && value.trim().length > 0) {
+      setValidationErrors((prev) => {
+        const newErrors = new Set(prev);
+        newErrors.delete(key);
+        return newErrors;
+      });
+    }
+  };
+
   if (!selectedClient) return null;
+
+  // LoadingScreen durante geração de estratégia
+  if (isGeneratingStrategy) {
+    return (
+      <LoadingScreen
+        title="Gerando sua estratégia personalizada"
+        description="Estamos analisando as respostas e criando uma estratégia de marketing sob medida para o seu negócio. Isso pode levar alguns segundos..."
+        icon={Lightbulb}
+        showSparkles={true}
+      />
+    );
+  }
 
   if (loadingSession) {
     return (
@@ -426,16 +448,20 @@ export default function GenerateQuestions() {
                   <Textarea
                     id={key}
                     value={answers[key] || ""}
-                    onChange={(e) =>
-                      setAnswers((prev) => ({
-                        ...prev,
-                        [key]: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => handleAnswerChange(key, e.target.value)}
                     placeholder="Digite sua resposta aqui..."
-                    className="min-h-[120px] resize-y focus:ring-2 focus:ring-primary/20 transition-all"
+                    className={`min-h-[120px] resize-y focus:ring-2 focus:ring-primary/20 transition-all ${
+                      validationErrors.has(key) 
+                        ? "border-destructive ring-2 ring-destructive/20" 
+                        : ""
+                    }`}
                     rows={4}
                   />
+                  {validationErrors.has(key) && (
+                    <p className="text-sm text-destructive mt-1">
+                      Esta pergunta é obrigatória
+                    </p>
+                  )}
                 </div>
               );
             })}
