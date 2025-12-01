@@ -213,6 +213,97 @@ export type Database = {
           },
         ]
       }
+      period_plans: {
+        Row: {
+          budget: string | null
+          company_id: string
+          created_at: string
+          default_plan: Json
+          final_plan: Json | null
+          id: string
+          objective: string
+          observations: string | null
+          optional_package: Json | null
+          package_accepted: boolean | null
+          period_end: string
+          period_start: string
+          period_title: string
+          primary_mode: string | null
+          priority_channel: string
+          status: string
+          strategy_id: string | null
+          tenant_id: string
+          ultra_plan: Json
+          updated_at: string
+        }
+        Insert: {
+          budget?: string | null
+          company_id: string
+          created_at?: string
+          default_plan?: Json
+          final_plan?: Json | null
+          id?: string
+          objective: string
+          observations?: string | null
+          optional_package?: Json | null
+          package_accepted?: boolean | null
+          period_end: string
+          period_start: string
+          period_title: string
+          primary_mode?: string | null
+          priority_channel: string
+          status?: string
+          strategy_id?: string | null
+          tenant_id: string
+          ultra_plan?: Json
+          updated_at?: string
+        }
+        Update: {
+          budget?: string | null
+          company_id?: string
+          created_at?: string
+          default_plan?: Json
+          final_plan?: Json | null
+          id?: string
+          objective?: string
+          observations?: string | null
+          optional_package?: Json | null
+          package_accepted?: boolean | null
+          period_end?: string
+          period_start?: string
+          period_title?: string
+          primary_mode?: string | null
+          priority_channel?: string
+          status?: string
+          strategy_id?: string | null
+          tenant_id?: string
+          ultra_plan?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "period_plans_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "period_plans_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "period_plans_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

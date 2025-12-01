@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { Calendar, FileText, Lightbulb, ListTodo } from "lucide-react";
+import { Calendar, FileText, Lightbulb, ListTodo, Sparkles } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useEffect } from "react";
@@ -37,6 +37,13 @@ const ClientHub = () => {
     route: "/plans",
     emoji: "📋"
   }, {
+    title: "Planejar Período",
+    icon: Sparkles,
+    gradient: "from-violet-400 to-fuchsia-500",
+    route: "/plan-period",
+    emoji: "✨",
+    isPremium: true
+  }, {
     title: "Planejamento Avançado",
     icon: Calendar,
     gradient: "from-indigo-400 to-purple-500",
@@ -68,8 +75,14 @@ const ClientHub = () => {
 
           {/* Cards de Ação */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {actionCards.map((card, index) => <Card key={index} className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 border-2 hover:border-primary/50" onClick={() => navigate(card.route)}>
+            {actionCards.map((card, index) => <Card key={index} className={`group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 border-2 hover:border-primary/50 ${(card as any).isPremium ? 'ring-2 ring-fuchsia-500/30' : ''}`} onClick={() => navigate(card.route)}>
                 <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-5 group-hover:opacity-10 transition-opacity`} />
+                
+                {(card as any).isPremium && (
+                  <div className="absolute top-2 right-2 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
+                    Premium
+                  </div>
+                )}
                 
                 <div className="relative p-8 flex flex-col items-center justify-center text-center min-h-[200px]">
                   <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${card.gradient} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
@@ -80,6 +93,8 @@ const ClientHub = () => {
                     index === 0 ? 'text-cyan-600 dark:text-cyan-400' :
                     index === 1 ? 'text-orange-600 dark:text-orange-400' :
                     index === 2 ? 'text-pink-600 dark:text-pink-400' :
+                    index === 3 ? 'text-fuchsia-600 dark:text-fuchsia-400' :
+                    index === 4 ? 'text-purple-600 dark:text-purple-400' :
                     'text-emerald-600 dark:text-emerald-400'
                   }`}>
                     {card.title}
