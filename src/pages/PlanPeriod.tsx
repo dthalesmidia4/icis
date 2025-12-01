@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
+import { PageHeader } from "@/components/PageHeader";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar, Target, Eye, LayoutGrid } from "lucide-react";
+import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar, Target, Eye, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -749,40 +750,28 @@ const PlanPeriod = () => {
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
         {/* Fixed Header */}
-        <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b">
-          <div className="container max-w-6xl mx-auto px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => navigate('/client-hub')}>
-                  <ArrowLeft className="w-5 h-5" />
-                </Button>
-                <div>
-                  <h1 className="text-xl font-bold">Planejar Período</h1>
-                  <p className="text-sm text-muted-foreground">{displayName}</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                {currentStep === 'form' && activeTab === 'new' && (
-                  <Button
-                    onClick={handleSubmit}
-                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-                  >
-                    <Rocket className="w-4 h-4 mr-2" />
-                    Gerar Demandas
-                  </Button>
-                )}
-                {currentStep !== 'form' && currentStep !== 'loading' && (
-                  <Badge variant="outline" className="text-xs">
-                    {currentStep === 'mode-selection' && 'Etapa 2/3: Escolha do Modo'}
-                    {currentStep === 'optional-package' && 'Etapa 3/3: Pacote Opcional'}
-                    {currentStep === 'completed' && 'Concluído'}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          title="Planejar Período"
+          subtitle={displayName}
+          backTo="/client-hub"
+          actions={currentStep === 'form' && activeTab === 'new' ? [
+            {
+              label: "Gerar Demandas",
+              onClick: handleSubmit,
+              icon: <Rocket className="w-4 h-4" />,
+              className: "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600",
+            }
+          ] : []}
+          rightContent={
+            currentStep !== 'form' && currentStep !== 'loading' ? (
+              <Badge variant="outline" className="text-xs">
+                {currentStep === 'mode-selection' && 'Etapa 2/3: Escolha do Modo'}
+                {currentStep === 'optional-package' && 'Etapa 3/3: Pacote Opcional'}
+                {currentStep === 'completed' && 'Concluído'}
+              </Badge>
+            ) : null
+          }
+        />
 
         {/* Content */}
         <div className="container max-w-6xl mx-auto px-6 py-8">
