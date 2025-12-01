@@ -36,13 +36,12 @@ const ClientHub = () => {
     gradient: "from-purple-400 to-pink-500",
     route: "/plans",
     emoji: "📋"
-  }, {
+}, {
     title: "Planejar Período",
     icon: Sparkles,
     gradient: "from-violet-400 to-fuchsia-500",
     route: "/plan-period",
-    emoji: "✨",
-    isPremium: true
+    emoji: "✨"
   }, {
     title: "Demandas",
     icon: ListTodo,
