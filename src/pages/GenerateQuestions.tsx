@@ -7,7 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { Loader2, Save, Trash2, FileDown, Sparkles, ArrowLeft, MoreVertical } from "lucide-react";
+import { Loader2, Save, Trash2, FileDown, ArrowLeft, MoreVertical, Sparkles } from "lucide-react";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -404,21 +405,10 @@ export default function GenerateQuestions() {
 
   if (isGeneratingPlan) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen space-y-6">
-        <div className="relative">
-          <div className="h-20 w-20 rounded-full border-4 border-primary/20 flex items-center justify-center">
-            <Loader2 className="h-10 w-10 text-primary animate-spin" />
-          </div>
-          <Sparkles className="h-6 w-6 text-primary absolute -top-2 -right-2 animate-pulse" />
-        </div>
-        <div className="text-center space-y-2">
-          <h3 className="text-xl font-semibold">Gerando plano estratégico personalizado</h3>
-          <p className="text-muted-foreground max-w-md">
-            Isso pode levar alguns segundos. Estamos consolidando seus dados e criando as
-            demandas sob medida...
-          </p>
-        </div>
-      </div>
+      <LoadingScreen
+        title="Gerando plano estratégico personalizado"
+        description="Isso pode levar alguns segundos. Estamos consolidando seus dados e criando as demandas sob medida..."
+      />
     );
   }
 
