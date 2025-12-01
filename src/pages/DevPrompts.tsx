@@ -127,28 +127,9 @@ Formate o plano de forma clara e organizada, usando títulos, subtítulos e bull
 const DevPrompts = () => {
   const { tenantId } = useTenant();
   const queryClient = useQueryClient();
-  const [questionsPromptContent, setQuestionsPromptContent] = useState("");
   const [planPromptContent, setPlanPromptContent] = useState("");
   const [advancedPlanPromptContent, setAdvancedPlanPromptContent] = useState("");
   const [strategyPromptContent, setStrategyPromptContent] = useState("");
-
-  // Buscar o prompt de geração de perguntas
-  const { data: questionsPromptData, isLoading: isLoadingQuestions } = useQuery({
-    queryKey: ["system-prompt", "generate_questions_prompt", tenantId],
-    queryFn: async () => {
-      if (!tenantId) return null;
-      const { data, error } = await supabase
-        .from("system_prompts")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("prompt_key", "generate_questions_prompt")
-        .maybeSingle();
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!tenantId,
-  });
 
   // Buscar o prompt de geração de plano
   const { data: planPromptData, isLoading: isLoadingPlan } = useQuery({
@@ -204,13 +185,6 @@ const DevPrompts = () => {
     enabled: !!tenantId,
   });
 
-  // Atualizar o estado quando os dados forem carregados
-  useEffect(() => {
-    if (questionsPromptData) {
-      setQuestionsPromptContent(questionsPromptData.prompt_content);
-    }
-  }, [questionsPromptData]);
-
   useEffect(() => {
     if (planPromptData) {
       setPlanPromptContent(planPromptData.prompt_content);
@@ -230,29 +204,6 @@ const DevPrompts = () => {
       setStrategyPromptContent(DEFAULT_STRATEGY_PROMPT);
     }
   }, [strategyPromptData]);
-
-  // Mutation para salvar o prompt de perguntas
-  const saveQuestionsPromptMutation = useMutation({
-    mutationFn: async (content: string) => {
-      if (!tenantId) throw new Error("Tenant ID não encontrado");
-
-      const { error } = await supabase
-        .from("system_prompts")
-        .update({ prompt_content: content })
-        .eq("tenant_id", tenantId)
-        .eq("prompt_key", "generate_questions_prompt");
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["system-prompt"] });
-      toast.success("Prompt de perguntas salvo com sucesso!");
-    },
-    onError: (error) => {
-      console.error("Erro ao salvar prompt:", error);
-      toast.error("Erro ao salvar o prompt");
-    },
-  });
 
   // Mutation para salvar o prompt de plano
   const savePlanPromptMutation = useMutation({
@@ -276,10 +227,6 @@ const DevPrompts = () => {
       toast.error("Erro ao salvar o prompt");
     },
   });
-
-  const handleSaveQuestions = () => {
-    saveQuestionsPromptMutation.mutate(questionsPromptContent);
-  };
 
   const handleSavePlan = () => {
     savePlanPromptMutation.mutate(planPromptContent);
@@ -400,15 +347,14 @@ const DevPrompts = () => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Gerenciamento de Prompts</h1>
         <p className="text-muted-foreground">
-          Configure os prompts utilizados pelo sistema para geração de perguntas e planos estratégicos.
+          Configure os prompts utilizados pelo sistema para geração de estratégias e planos.
         </p>
       </div>
 
       <div className="space-y-6">
           <Tabs defaultValue="strategy" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="strategy">Estratégia</TabsTrigger>
-              <TabsTrigger value="questions">Perguntas</TabsTrigger>
               <TabsTrigger value="plan">Plano</TabsTrigger>
               <TabsTrigger value="advanced">Avançado</TabsTrigger>
             </TabsList>
@@ -456,44 +402,11 @@ const DevPrompts = () => {
               </Card>
             </TabsContent>
             
-            <TabsContent value="questions">
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    {questionsPromptData?.prompt_title || "Prompt de geração de perguntas"}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {isLoadingQuestions ? (
-                    <div className="text-muted-foreground">Carregando...</div>
-                  ) : (
-                    <>
-                      <Textarea
-                        value={questionsPromptContent}
-                        onChange={(e) => setQuestionsPromptContent(e.target.value)}
-                        placeholder="Digite o prompt aqui..."
-                        className="min-h-[300px] font-mono text-sm"
-                      />
-                      <div className="flex justify-end">
-                        <Button
-                          onClick={handleSaveQuestions}
-                          disabled={saveQuestionsPromptMutation.isPending}
-                        >
-                          <Save className="h-4 w-4 mr-2" />
-                          {saveQuestionsPromptMutation.isPending ? "Salvando..." : "Salvar"}
-                        </Button>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
             <TabsContent value="plan">
               <Card>
                 <CardHeader>
                   <CardTitle>
-                    {planPromptData?.prompt_title || "Prompt de geração de plano"}
+                    {planPromptData?.prompt_title || "Prompt de Geração de Plano"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -501,11 +414,14 @@ const DevPrompts = () => {
                     <div className="text-muted-foreground">Carregando...</div>
                   ) : (
                     <>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Este prompt é usado para gerar o plano de marketing detalhado.
+                      </p>
                       <Textarea
                         value={planPromptContent}
                         onChange={(e) => setPlanPromptContent(e.target.value)}
-                        placeholder="Digite o prompt aqui..."
-                        className="min-h-[300px] font-mono text-sm"
+                        placeholder="Digite o prompt de geração de plano aqui..."
+                        className="min-h-[400px] font-mono text-sm"
                       />
                       <div className="flex justify-end gap-2">
                         <Button
@@ -541,11 +457,14 @@ const DevPrompts = () => {
                     <div className="text-muted-foreground">Carregando...</div>
                   ) : (
                     <>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Este prompt é usado para gerar o planejamento avançado com campanhas criativas e ideias diferenciadas.
+                      </p>
                       <Textarea
                         value={advancedPlanPromptContent}
                         onChange={(e) => setAdvancedPlanPromptContent(e.target.value)}
                         placeholder="Digite o prompt de planejamento avançado aqui..."
-                        className="min-h-[300px] font-mono text-sm"
+                        className="min-h-[400px] font-mono text-sm"
                       />
                       <div className="flex justify-end">
                         <Button
