@@ -1,16 +1,7 @@
 project_id = "neriayolipcupycirwhf"
 
-[functions.generate-plan]
-verify_jwt = true
-
-[functions.generate-kanban-tasks]
-verify_jwt = true
-
 [functions.generate-strategy]
 verify_jwt = false
-
-[functions.generate-advanced-plan]
-verify_jwt = true
 
 [functions.generate-period-plans]
 verify_jwt = true
