@@ -1,4 +1,4 @@
-import { Home, Code, ChevronDown, User, Palette, LogOut } from "lucide-react";
+import { Home, Code, User, Palette, LogOut } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
@@ -12,6 +12,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -19,6 +20,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const menuItems = [
   { title: "Home", url: "/home", icon: Home },
@@ -43,31 +49,27 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="none" className="border-r">
-      {/* Header com perfil do usuário */}
-      <SidebarHeader className="border-b">
+    <Sidebar collapsible="none" className="border-r w-16 min-w-16 max-w-16">
+      {/* Header com Avatar */}
+      <SidebarHeader className="border-b p-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-3 w-full p-3 hover:bg-accent rounded-lg transition-all duration-200 hover:scale-[1.02]">
-              <Avatar className="h-10 w-10 border-2 border-primary">
-                <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-sm font-bold">
-                  {tenantName ? getInitials(tenantName) : 'EM'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 flex items-center justify-between">
-                <div className="text-left">
-                  <p className="text-sm font-semibold line-clamp-1">
-                    {tenantName || 'Carregando...'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Empresa
-                  </p>
-                </div>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="flex items-center justify-center w-full p-1 hover:bg-accent rounded-lg transition-all duration-300 hover:scale-110 group">
+                  <Avatar className="h-10 w-10 border-2 border-primary transition-all duration-300 group-hover:border-primary/80 group-hover:shadow-lg group-hover:shadow-primary/20">
+                    <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-sm font-bold">
+                      {tenantName ? getInitials(tenantName) : 'EM'}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={10}>
+                <p className="font-semibold">{tenantName || 'Empresa'}</p>
+              </TooltipContent>
+            </Tooltip>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuContent align="start" side="right" className="w-56">
             <DropdownMenuItem onClick={() => navigate('/profile')}>
               <User className="h-4 w-4 mr-2" />
               Perfil
@@ -84,22 +86,37 @@ export function AppSidebar() {
         </DropdownMenu>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="py-4">
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-2 px-2">
               {menuItems.map((item) => {
                 const Icon = item.icon;
+                const active = isActive(item.url);
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      onClick={() => navigate(item.url)}
-                      isActive={isActive(item.url)}
-                      className="transition-all duration-200 hover:scale-105"
-                    >
-                      <Icon className="h-5 w-5" />
-                      <span>{item.title}</span>
-                    </SidebarMenuButton>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <SidebarMenuButton
+                          onClick={() => navigate(item.url)}
+                          isActive={active}
+                          className={`
+                            h-10 w-10 p-0 flex items-center justify-center mx-auto rounded-xl
+                            transition-all duration-300 ease-out
+                            hover:scale-110 hover:shadow-lg
+                            ${active 
+                              ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30' 
+                              : 'hover:bg-accent hover:shadow-accent/20'
+                            }
+                          `}
+                        >
+                          <Icon className={`h-5 w-5 transition-transform duration-300 ${active ? '' : 'group-hover:scale-110'}`} />
+                        </SidebarMenuButton>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" sideOffset={10}>
+                        <p>{item.title}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </SidebarMenuItem>
                 );
               })}
@@ -107,6 +124,23 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      {/* Footer com botão de logout */}
+      <SidebarFooter className="border-t p-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={handleSignOut}
+              className="flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all duration-300 hover:scale-110 hover:bg-destructive/10 hover:shadow-lg hover:shadow-destructive/20 text-muted-foreground hover:text-destructive"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right" sideOffset={10}>
+            <p>Sair</p>
+          </TooltipContent>
+        </Tooltip>
+      </SidebarFooter>
     </Sidebar>
   );
 }
