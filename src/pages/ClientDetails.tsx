@@ -191,9 +191,7 @@ const ClientDetails = () => {
           </Card>
 
           {/* Botão de Estratégias */}
-          <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
-            
-          </Card>
+          
         </div>
       </div>
 
