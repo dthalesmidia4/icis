@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { Loader2, Save, Trash2, FileDown, ArrowLeft, MoreVertical, Sparkles } from "lucide-react";
+import { Loader2, Trash2, FileDown, ArrowLeft, MoreVertical, Sparkles, Check, Cloud } from "lucide-react";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import {
   DropdownMenu,
@@ -49,12 +49,17 @@ export default function GenerateQuestions() {
   const { tenantId } = useTenant();
   const { selectedClient } = useSelectedClient();
   const [answers, setAnswers] = useState<StrategicAnswers>({});
-  const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
   const [showPeriodModal, setShowPeriodModal] = useState(false);
   const { saveState, clearState, savedState } = useLocalPlanState();
   const hasShownRestoredToast = useRef(false);
+  
+  // Auto-save states
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasLoadedInitialData = useRef(false);
 
   useEffect(() => {
     if (!selectedClient) {
@@ -106,10 +111,12 @@ export default function GenerateQuestions() {
     }
   }, [savedState, selectedClient, clearState, toast]);
 
-  const handleSave = async () => {
+  // Auto-save silencioso
+  const handleAutoSave = useCallback(async () => {
     if (!selectedClient || !tenantId) return;
+    if (Object.keys(answers).length === 0) return;
 
-    setIsSaving(true);
+    setIsAutoSaving(true);
     try {
       const { error } = await supabase.from("question_sessions").upsert({
         company_id: selectedClient.id,
@@ -120,22 +127,47 @@ export default function GenerateQuestions() {
       });
 
       if (error) throw error;
-
-      toast({
-        title: "Respostas salvas",
-        description: "Suas respostas foram salvas com sucesso.",
-      });
+      setLastSaved(new Date());
     } catch (error) {
-      console.error("Erro ao salvar:", error);
-      toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível salvar as respostas.",
-        variant: "destructive",
-      });
+      console.error("Erro no auto-save:", error);
     } finally {
-      setIsSaving(false);
+      setIsAutoSaving(false);
     }
-  };
+  }, [selectedClient, tenantId, answers]);
+
+  // Debounce auto-save: salvar 1.5s após parar de digitar
+  useEffect(() => {
+    // Não ativar auto-save no carregamento inicial
+    if (!hasLoadedInitialData.current) return;
+    if (!selectedClient || !tenantId) return;
+    if (Object.keys(answers).length === 0) return;
+
+    // Limpar timeout anterior
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    // Aguardar 1.5s de inatividade antes de salvar
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      handleAutoSave();
+    }, 1500);
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [answers, selectedClient, tenantId, handleAutoSave]);
+
+  // Marcar que os dados iniciais foram carregados
+  useEffect(() => {
+    if (questionSession) {
+      // Pequeno delay para evitar trigger do auto-save no load
+      setTimeout(() => {
+        hasLoadedInitialData.current = true;
+      }, 100);
+    }
+  }, [questionSession]);
 
   const handleClear = () => {
     setAnswers({});
@@ -224,8 +256,8 @@ export default function GenerateQuestions() {
     setIsGeneratingStrategy(true);
 
     try {
-      // Salvar respostas primeiro
-      await handleSave();
+      // Salvar respostas antes de gerar
+      await handleAutoSave();
 
       toast({
         title: "🤖 Gerando estratégia inteligente...",
@@ -307,8 +339,8 @@ export default function GenerateQuestions() {
     setShowPeriodModal(false);
     setIsGeneratingPlan(true);
 
-    // Salvar respostas primeiro
-    await handleSave();
+    // Salvar respostas antes de gerar
+    await handleAutoSave();
 
     // Salvar estado localmente
     saveState(selectedClient!.id, null, tenantId!);
@@ -440,14 +472,25 @@ export default function GenerateQuestions() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 bg-background z-50">
-                  <DropdownMenuItem onClick={handleSave} disabled={isSaving}>
-                    {isSaving ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  {/* Auto-save indicator for mobile */}
+                  <div className="px-2 py-1.5 text-sm text-muted-foreground flex items-center gap-2 border-b mb-1">
+                    {isAutoSaving ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span>Salvando...</span>
+                      </>
+                    ) : lastSaved ? (
+                      <>
+                        <Check className="h-3 w-3 text-green-500" />
+                        <span>Salvo automaticamente</span>
+                      </>
                     ) : (
-                      <Save className="w-4 h-4 mr-2" />
+                      <>
+                        <Cloud className="h-3 w-3" />
+                        <span>Auto-save ativo</span>
+                      </>
                     )}
-                    Salvar Respostas
-                  </DropdownMenuItem>
+                  </div>
                   <DropdownMenuItem onClick={handleClear}>
                     <Trash2 className="w-4 h-4 mr-2" />
                     Limpar Tudo
@@ -459,15 +502,22 @@ export default function GenerateQuestions() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              {/* Indicador de Auto-Save */}
+              <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground px-3">
+                {isAutoSaving ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Salvando...</span>
+                  </>
+                ) : lastSaved ? (
+                  <>
+                    <Check className="h-3 w-3 text-green-500" />
+                    <span>Salvo automaticamente</span>
+                  </>
+                ) : null}
+              </div>
+              
               {/* Botões individuais para Desktop */}
-              <Button onClick={handleSave} disabled={isSaving} variant="outline" className="hidden md:flex">
-                {isSaving ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                Salvar Respostas
-              </Button>
               <Button onClick={handleClear} variant="outline" className="hidden md:flex">
                 <Trash2 className="w-4 h-4 mr-2" />
                 Limpar Tudo
