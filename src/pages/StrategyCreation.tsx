@@ -176,6 +176,7 @@ export default function StrategyCreation() {
 
       <PageHeader
         title="Estratégia Geral"
+        subtitle={selectedClient.fantasy_name || selectedClient.name}
         onBack={handleBack}
         actions={[
           ...(existingStrategy && !isEditMode ? [{

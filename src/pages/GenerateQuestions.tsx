@@ -343,6 +343,7 @@ export default function GenerateQuestions() {
       {/* Header Fixo usando PageHeader */}
       <PageHeader
         title="Perguntas Guias"
+        subtitle={selectedClient.fantasy_name || selectedClient.name}
         backTo="/client-hub"
         rightContent={
           <div className="flex gap-3">
