@@ -111,36 +111,10 @@ export default function StrategyCreation() {
         strategyData = data;
       }
       toast.success('✅ Estratégia salva com sucesso!');
-
-      // Gerar perguntas automaticamente em background
-      toast.info('🤖 Gerando perguntas guias com base na estratégia. Isso pode levar alguns segundos…', {
-        duration: 5000
-      });
-      supabase.functions.invoke('generate-questions', {
-        body: {
-          companyId: selectedClient.id,
-          strategyId: strategyData.id,
-          tenantId: tenantId
-        }
-      }).then(({
-        data: questionData,
-        error: questionError
-      }) => {
-        if (questionError || questionData?.error) {
-          console.error('Erro ao gerar perguntas:', questionError || questionData.error);
-          toast.error('⚠️ Não foi possível gerar as perguntas guias. Tente novamente mais tarde.');
-        } else {
-          toast.success('✅ Perguntas guias geradas com sucesso!');
-        }
-      });
-      navigate('/questions', {
-        state: {
-          companyId: selectedClient.id,
-          strategyId: strategyData.id,
-          companyName: selectedClient.name,
-          companyCnpjCpf: selectedClient.cnpj_cpf
-        }
-      });
+      
+      // Recarregar estratégia e voltar para modo visualização
+      setExistingStrategy(strategyData);
+      setIsEditMode(false);
     } catch (error) {
       console.error('Erro ao salvar estratégia:', error);
       toast.error('Erro ao salvar estratégia. Tente novamente.');

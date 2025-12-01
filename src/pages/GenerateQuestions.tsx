@@ -226,13 +226,43 @@ export default function GenerateQuestions() {
       // Salvar respostas primeiro
       await handleSave();
 
-      // Navegar para a página de estratégias
-      navigate("/strategies");
-    } catch (error) {
-      console.error("Erro ao processar:", error);
+      toast({
+        title: "🤖 Gerando estratégia inteligente...",
+        description: "Isso pode levar alguns segundos",
+      });
+
+      // Chamar edge function para gerar estratégia
+      const { data, error } = await supabase.functions.invoke('generate-strategy', {
+        body: {
+          companyId: selectedClient.id,
+          tenantId: tenantId,
+          answers: answers
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      toast({
+        title: "✅ Estratégia gerada com sucesso!",
+        description: "Você será redirecionado para visualizar a estratégia",
+      });
+
+      // Navegar para a página de estratégias após sucesso
+      setTimeout(() => {
+        navigate("/strategies");
+      }, 1000);
+
+    } catch (error: any) {
+      console.error("Erro ao gerar estratégia:", error);
       toast({
         title: "Erro",
-        description: "Não foi possível processar. Tente novamente.",
+        description: error.message || "Não foi possível gerar a estratégia. Tente novamente.",
         variant: "destructive",
       });
     } finally {
