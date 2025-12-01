@@ -7,7 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { Loader2, Trash2, FileDown, ArrowLeft, MoreVertical, Sparkles, Check, Cloud, Lightbulb } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
+import { Loader2, Trash2, FileDown, MoreVertical, Sparkles, Check, Cloud, Lightbulb } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -339,97 +340,84 @@ export default function GenerateQuestions() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header Fixo */}
-      <div className="sticky top-0 z-10 bg-background border-b">
-        <div className="container mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate("/client-hub")}
-                className="hover:bg-accent"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <h1 className="text-3xl font-bold text-foreground">
-                Perguntas Guias
-              </h1>
-            </div>
-            <div className="flex gap-3">
-              {/* Dropdown para Mobile */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" className="md:hidden">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-background z-50">
-                  {/* Auto-save indicator for mobile */}
-                  <div className="px-2 py-1.5 text-sm text-muted-foreground flex items-center gap-2 border-b mb-1">
-                    {isAutoSaving ? (
-                      <>
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        <span>Salvando...</span>
-                      </>
-                    ) : lastSaved ? (
-                      <>
-                        <Check className="h-3 w-3 text-green-500" />
-                        <span>Salvo automaticamente</span>
-                      </>
-                    ) : (
-                      <>
-                        <Cloud className="h-3 w-3" />
-                        <span>Auto-save ativo</span>
-                      </>
-                    )}
-                  </div>
-                  <DropdownMenuItem onClick={handleClear}>
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Limpar Tudo
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleExportPDF}>
-                    <FileDown className="w-4 h-4 mr-2" />
-                    Exportar PDF
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+      {/* Header Fixo usando PageHeader */}
+      <PageHeader
+        title="Perguntas Guias"
+        backTo="/client-hub"
+        rightContent={
+          <div className="flex gap-3">
+            {/* Dropdown para Mobile */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="md:hidden">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 bg-background z-50">
+                {/* Auto-save indicator for mobile */}
+                <div className="px-2 py-1.5 text-sm text-muted-foreground flex items-center gap-2 border-b mb-1">
+                  {isAutoSaving ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : lastSaved ? (
+                    <>
+                      <Check className="h-3 w-3 text-green-500" />
+                      <span>Salvo automaticamente</span>
+                    </>
+                  ) : (
+                    <>
+                      <Cloud className="h-3 w-3" />
+                      <span>Auto-save ativo</span>
+                    </>
+                  )}
+                </div>
+                <DropdownMenuItem onClick={handleClear}>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Limpar Tudo
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportPDF}>
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Exportar PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-              {/* Indicador de Auto-Save */}
-              <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground px-3">
-                {isAutoSaving ? (
-                  <>
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Salvando...</span>
-                  </>
-                ) : lastSaved ? (
-                  <>
-                    <Check className="h-3 w-3 text-green-500" />
-                    <span>Salvo automaticamente</span>
-                  </>
-                ) : null}
-              </div>
-              
-              {/* Botões individuais para Desktop */}
-              <Button onClick={handleClear} variant="outline" className="hidden md:flex">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Limpar Tudo
-              </Button>
-              <Button onClick={handleExportPDF} variant="outline" className="hidden md:flex">
-                <FileDown className="w-4 h-4 mr-2" />
-                Exportar PDF
-              </Button>
-              
-              {/* Botão principal sempre visível */}
-              <Button onClick={handleGenerateStrategy} disabled={isGeneratingStrategy}>
-                {isGeneratingStrategy && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                <Sparkles className="w-4 h-4 mr-2" />
-                Gerar Estratégia
-              </Button>
+            {/* Indicador de Auto-Save */}
+            <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground px-3">
+              {isAutoSaving ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Salvando...</span>
+                </>
+              ) : lastSaved ? (
+                <>
+                  <Check className="h-3 w-3 text-green-500" />
+                  <span>Salvo automaticamente</span>
+                </>
+              ) : null}
             </div>
+            
+            {/* Botões individuais para Desktop */}
+            <Button onClick={handleClear} variant="outline" className="hidden md:flex">
+              <Trash2 className="w-4 h-4 mr-2" />
+              Limpar Tudo
+            </Button>
+            <Button onClick={handleExportPDF} variant="outline" className="hidden md:flex">
+              <FileDown className="w-4 h-4 mr-2" />
+              Exportar PDF
+            </Button>
+            
+            {/* Botão principal sempre visível */}
+            <Button onClick={handleGenerateStrategy} disabled={isGeneratingStrategy}>
+              {isGeneratingStrategy && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              <Sparkles className="w-4 h-4 mr-2" />
+              Gerar Estratégia
+            </Button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Container Principal */}
       <div className="container mx-auto px-6 py-8">
