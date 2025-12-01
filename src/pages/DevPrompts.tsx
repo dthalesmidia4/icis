@@ -9,6 +9,47 @@ import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
+const DEFAULT_STRATEGY_PROMPT = `Você é um estrategista de marketing sênior com mais de 15 anos de experiência em criar estratégias globais e atemporais para negócios de diversos setores.
+
+Sua tarefa é criar uma ESTRATÉGIA GLOBAL DE MARKETING baseada nas informações do cliente e nas respostas do questionário estratégico.
+
+A estratégia deve ser:
+- Clara, objetiva e direta
+- Acionável e prática
+- Alinhada aos objetivos declarados pelo cliente
+- Atemporal (não vinculada a um período específico)
+- Adaptável a diferentes momentos e campanhas
+
+Estruture a estratégia nos seguintes tópicos:
+
+## POSICIONAMENTO DE MARCA
+Defina como a marca deve se posicionar no mercado com base nos diferenciais e objetivos.
+
+## PÚBLICO-ALVO
+Detalhe o perfil do público a ser impactado, suas características e comportamentos.
+
+## CANAIS PRIORITÁRIOS
+Liste e justifique os canais de comunicação mais adequados para alcançar os objetivos.
+
+## PILARES DE COMUNICAÇÃO
+Defina os principais temas e mensagens-chave que devem guiar toda a comunicação.
+
+## TOM DE VOZ
+Especifique como a marca deve se comunicar (formal, descontraído, técnico, etc.).
+
+## TIPOS DE CONTEÚDO
+Recomende os formatos de conteúdo mais adequados para o negócio e público.
+
+## FREQUÊNCIA E CADÊNCIA
+Sugira uma frequência de publicações e ações considerando os recursos disponíveis.
+
+## MÉTRICAS DE SUCESSO
+Indique como medir o sucesso das ações de marketing.
+
+Escreva em português brasileiro, de forma profissional mas acessível.
+Seja específico e evite generalizações vazias.
+Baseie todas as recomendações nas informações fornecidas pelo cliente.`;
+
 const DEFAULT_PLAN_PROMPT = `ATENÇÃO - DATA E MÊS DE REFERÊNCIA:
 
 O contexto acima contém:
@@ -89,6 +130,7 @@ const DevPrompts = () => {
   const [questionsPromptContent, setQuestionsPromptContent] = useState("");
   const [planPromptContent, setPlanPromptContent] = useState("");
   const [advancedPlanPromptContent, setAdvancedPlanPromptContent] = useState("");
+  const [strategyPromptContent, setStrategyPromptContent] = useState("");
 
   // Buscar o prompt de geração de perguntas
   const { data: questionsPromptData, isLoading: isLoadingQuestions } = useQuery({
@@ -144,6 +186,24 @@ const DevPrompts = () => {
     enabled: !!tenantId,
   });
 
+  // Buscar o prompt de geração de estratégia
+  const { data: strategyPromptData, isLoading: isLoadingStrategy } = useQuery({
+    queryKey: ["system-prompt", "generate_strategy_prompt", tenantId],
+    queryFn: async () => {
+      if (!tenantId) return null;
+      const { data, error } = await supabase
+        .from("system_prompts")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("prompt_key", "generate_strategy_prompt")
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!tenantId,
+  });
+
   // Atualizar o estado quando os dados forem carregados
   useEffect(() => {
     if (questionsPromptData) {
@@ -162,6 +222,14 @@ const DevPrompts = () => {
       setAdvancedPlanPromptContent(advancedPlanPromptData.prompt_content);
     }
   }, [advancedPlanPromptData]);
+
+  useEffect(() => {
+    if (strategyPromptData) {
+      setStrategyPromptContent(strategyPromptData.prompt_content);
+    } else {
+      setStrategyPromptContent(DEFAULT_STRATEGY_PROMPT);
+    }
+  }, [strategyPromptData]);
 
   // Mutation para salvar o prompt de perguntas
   const saveQuestionsPromptMutation = useMutation({
@@ -272,6 +340,61 @@ const DevPrompts = () => {
     saveAdvancedPlanPromptMutation.mutate(advancedPlanPromptContent);
   };
 
+  // Mutation para salvar o prompt de estratégia
+  const saveStrategyPromptMutation = useMutation({
+    mutationFn: async (content: string) => {
+      if (!tenantId) throw new Error("Tenant ID não encontrado");
+
+      // Verifica se já existe
+      const { data: existing } = await supabase
+        .from("system_prompts")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("prompt_key", "generate_strategy_prompt")
+        .maybeSingle();
+
+      if (existing) {
+        // Update
+        const { error } = await supabase
+          .from("system_prompts")
+          .update({ prompt_content: content })
+          .eq("tenant_id", tenantId)
+          .eq("prompt_key", "generate_strategy_prompt");
+
+        if (error) throw error;
+      } else {
+        // Insert
+        const { error } = await supabase
+          .from("system_prompts")
+          .insert({
+            tenant_id: tenantId,
+            prompt_key: "generate_strategy_prompt",
+            prompt_title: "Prompt de Geração de Estratégia",
+            prompt_content: content,
+          });
+
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["system-prompt"] });
+      toast.success("Prompt de estratégia salvo com sucesso!");
+    },
+    onError: (error) => {
+      console.error("Erro ao salvar prompt:", error);
+      toast.error("Erro ao salvar o prompt");
+    },
+  });
+
+  const handleSaveStrategy = () => {
+    saveStrategyPromptMutation.mutate(strategyPromptContent);
+  };
+
+  const handleRestoreStrategyDefault = () => {
+    setStrategyPromptContent(DEFAULT_STRATEGY_PROMPT);
+    toast.success("Prompt de estratégia restaurado para a versão padrão!");
+  };
+
   return (
     <div className="container max-w-5xl mx-auto px-6 py-8">
       <div className="mb-8">
@@ -282,12 +405,56 @@ const DevPrompts = () => {
       </div>
 
       <div className="space-y-6">
-          <Tabs defaultValue="questions" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="questions">Prompt de Perguntas</TabsTrigger>
-              <TabsTrigger value="plan">Prompt de Plano</TabsTrigger>
-              <TabsTrigger value="advanced">Planejamento Avançado</TabsTrigger>
+          <Tabs defaultValue="strategy" className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="strategy">Estratégia</TabsTrigger>
+              <TabsTrigger value="questions">Perguntas</TabsTrigger>
+              <TabsTrigger value="plan">Plano</TabsTrigger>
+              <TabsTrigger value="advanced">Avançado</TabsTrigger>
             </TabsList>
+            
+            <TabsContent value="strategy">
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {strategyPromptData?.prompt_title || "Prompt de Geração de Estratégia"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {isLoadingStrategy ? (
+                    <div className="text-muted-foreground">Carregando...</div>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Este prompt é usado para gerar a estratégia global de marketing a partir das respostas das perguntas guias.
+                      </p>
+                      <Textarea
+                        value={strategyPromptContent}
+                        onChange={(e) => setStrategyPromptContent(e.target.value)}
+                        placeholder="Digite o prompt de geração de estratégia aqui..."
+                        className="min-h-[400px] font-mono text-sm"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={handleRestoreStrategyDefault}
+                        >
+                          <RotateCcw className="h-4 w-4 mr-2" />
+                          Restaurar Padrão
+                        </Button>
+                        <Button
+                          onClick={handleSaveStrategy}
+                          disabled={saveStrategyPromptMutation.isPending}
+                        >
+                          <Save className="h-4 w-4 mr-2" />
+                          {saveStrategyPromptMutation.isPending ? "Salvando..." : "Salvar"}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
             
             <TabsContent value="questions">
               <Card>
