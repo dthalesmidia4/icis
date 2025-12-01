@@ -8,7 +8,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Loader2, Trash2, FileDown, ArrowLeft, MoreVertical, Sparkles, Check, Cloud } from "lucide-react";
-import { LoadingScreen } from "@/components/LoadingScreen";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,9 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import jsPDF from "jspdf";
-import { PeriodSelectionModal } from "@/components/PeriodSelectionModal";
 import { useQuery } from "@tanstack/react-query";
-import { useLocalPlanState } from "@/hooks/useLocalPlanState";
 import { toast as sonnerToast } from "sonner";
 
 interface StrategicAnswers {
@@ -49,11 +46,7 @@ export default function GenerateQuestions() {
   const { tenantId } = useTenant();
   const { selectedClient } = useSelectedClient();
   const [answers, setAnswers] = useState<StrategicAnswers>({});
-  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
-  const [showPeriodModal, setShowPeriodModal] = useState(false);
-  const { saveState, clearState, savedState } = useLocalPlanState();
-  const hasShownRestoredToast = useRef(false);
   
   // Auto-save states
   const [isAutoSaving, setIsAutoSaving] = useState(false);
@@ -93,23 +86,6 @@ export default function GenerateQuestions() {
       setAnswers(questionSession.answers as StrategicAnswers);
     }
   }, [questionSession]);
-
-  useEffect(() => {
-    // Só mostrar toast se o estado pertencer ao cliente atual e não foi mostrado ainda
-    if (savedState?.inProgress && 
-        selectedClient && 
-        savedState.companyId === selectedClient.id &&
-        !hasShownRestoredToast.current) {
-      hasShownRestoredToast.current = true;
-      toast({
-        title: "Geração em andamento",
-        description: "Detectamos uma geração de plano interrompida. Os dados foram restaurados.",
-      });
-    } else if (savedState && selectedClient && savedState.companyId !== selectedClient.id) {
-      // Limpar estado de outro cliente automaticamente
-      clearState();
-    }
-  }, [savedState, selectedClient, clearState, toast]);
 
   // Auto-save silencioso
   const handleAutoSave = useCallback(async () => {
@@ -303,101 +279,6 @@ export default function GenerateQuestions() {
     }
   };
 
-  const handleOpenPeriodModal = () => {
-    if (!selectedClient || !tenantId) {
-      toast({
-        title: "Erro",
-        description: "Dados insuficientes para gerar o plano",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Verificar se todas as perguntas foram respondidas
-    const allAnswered = strategicQuestions.every((_, idx) => {
-      const key = `question_${idx}`;
-      return answers[key] && answers[key].trim().length > 0;
-    });
-
-    if (!allAnswered) {
-      toast({
-        title: "Atenção",
-        description: "Por favor, responda todas as perguntas antes de gerar o plano",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setShowPeriodModal(true);
-  };
-
-  const handleGeneratePlan = async (periodData: {
-    titulo: string;
-    dataInicio: Date;
-    dataFim: Date;
-  }) => {
-    setShowPeriodModal(false);
-    setIsGeneratingPlan(true);
-
-    // Salvar respostas antes de gerar
-    await handleAutoSave();
-
-    // Salvar estado localmente
-    saveState(selectedClient!.id, null, tenantId!);
-
-    try {
-      // Chamar edge function para gerar plano
-      const { data, error } = await supabase.functions.invoke("generate-plan", {
-        body: {
-          companyId: selectedClient!.id,
-          tenantId: tenantId!,
-          periodData: {
-            titulo: periodData.titulo,
-            dataInicio: periodData.dataInicio.toISOString().split("T")[0],
-            dataFim: periodData.dataFim.toISOString().split("T")[0],
-          },
-        },
-      });
-
-      if (error) throw error;
-      if (!data?.success) {
-        throw new Error(data?.error || "Erro ao gerar plano");
-      }
-
-      // Limpar estado salvo ANTES da navegação
-      clearState();
-      
-      toast({
-        title: "Sucesso!",
-        description: "Plano gerado com sucesso",
-      });
-
-      // Redirecionar para a página de planos
-      navigate(`/plans?planId=${data.planId}`);
-    } catch (error: any) {
-      console.error("Erro ao gerar plano:", error);
-      let errorMessage = "Não foi possível gerar o plano. ";
-      if (error.message?.includes("Limite de requisições")) {
-        errorMessage += "Limite de requisições excedido. Aguarde alguns instantes.";
-      } else if (error.message?.includes("Créditos insuficientes")) {
-        errorMessage +=
-          "Créditos insuficientes. Adicione créditos em Settings → Workspace → Usage.";
-      } else if (error.message?.includes("prompt do sistema")) {
-        errorMessage +=
-          "Configure o prompt de geração de plano em Dev → Prompts do Sistema.";
-      } else {
-        errorMessage += "Verifique sua conexão e tente novamente.";
-      }
-      toast({
-        title: "Erro ao gerar plano",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsGeneratingPlan(false);
-    }
-  };
-
   if (!selectedClient) return null;
 
   if (loadingSession) {
@@ -411,7 +292,6 @@ export default function GenerateQuestions() {
                 <div className="h-8 w-48 bg-muted rounded-md animate-pulse" />
               </div>
               <div className="flex gap-3">
-                <div className="h-10 w-32 bg-muted rounded-md animate-pulse" />
                 <div className="h-10 w-32 bg-muted rounded-md animate-pulse" />
                 <div className="h-10 w-32 bg-muted rounded-md animate-pulse" />
                 <div className="h-10 w-40 bg-muted rounded-md animate-pulse" />
@@ -432,15 +312,6 @@ export default function GenerateQuestions() {
           </div>
         </div>
       </div>
-    );
-  }
-
-  if (isGeneratingPlan) {
-    return (
-      <LoadingScreen
-        title="Gerando plano estratégico personalizado"
-        description="Isso pode levar alguns segundos. Estamos consolidando seus dados e criando as demandas sob medida..."
-      />
     );
   }
 
@@ -527,15 +398,11 @@ export default function GenerateQuestions() {
                 Exportar PDF
               </Button>
               
-              {/* Botões principais sempre visíveis */}
+              {/* Botão principal sempre visível */}
               <Button onClick={handleGenerateStrategy} disabled={isGeneratingStrategy}>
                 {isGeneratingStrategy && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                 <Sparkles className="w-4 h-4 mr-2" />
                 Gerar Estratégia
-              </Button>
-              <Button onClick={handleOpenPeriodModal} disabled={isGeneratingPlan} variant="outline">
-                {isGeneratingPlan && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                Gerar Planejamento
               </Button>
             </div>
           </div>
@@ -575,14 +442,6 @@ export default function GenerateQuestions() {
           </div>
         </div>
       </div>
-
-      {/* Period Selection Modal */}
-      <PeriodSelectionModal
-        open={showPeriodModal}
-        onClose={() => setShowPeriodModal(false)}
-        onConfirm={handleGeneratePlan}
-        isGenerating={isGeneratingPlan}
-      />
     </div>
   );
 }
