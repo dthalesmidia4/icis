@@ -33,18 +33,57 @@ serve(async (req) => {
       throw new Error('Erro ao buscar dados do cliente');
     }
 
-    // Buscar prompt do sistema
-    const { data: systemPrompt, error: promptError } = await supabase
+    // Buscar prompt do sistema (ou usar padrão)
+    const { data: systemPrompt } = await supabase
       .from('system_prompts')
       .select('*')
       .eq('tenant_id', tenantId)
       .eq('prompt_key', 'generate_strategy_prompt')
-      .single();
+      .maybeSingle();
 
-    if (promptError) {
-      console.error('Error fetching prompt:', promptError);
-      throw new Error('Prompt de geração de estratégia não configurado. Configure em Dev → Prompts');
-    }
+    // Prompt padrão caso não exista configuração
+    const defaultPrompt = `Você é um estrategista de marketing sênior com mais de 15 anos de experiência em criar estratégias globais e atemporais para negócios de diversos setores.
+
+Sua tarefa é criar uma ESTRATÉGIA GLOBAL DE MARKETING baseada nas informações do cliente e nas respostas do questionário estratégico.
+
+A estratégia deve ser:
+- Clara, objetiva e direta
+- Acionável e prática
+- Alinhada aos objetivos declarados pelo cliente
+- Atemporal (não vinculada a um período específico)
+- Adaptável a diferentes momentos e campanhas
+
+Estruture a estratégia nos seguintes tópicos:
+
+## POSICIONAMENTO DE MARCA
+Defina como a marca deve se posicionar no mercado com base nos diferenciais e objetivos.
+
+## PÚBLICO-ALVO
+Detalhe o perfil do público a ser impactado, suas características e comportamentos.
+
+## CANAIS PRIORITÁRIOS
+Liste e justifique os canais de comunicação mais adequados para alcançar os objetivos.
+
+## PILARES DE COMUNICAÇÃO
+Defina os principais temas e mensagens-chave que devem guiar toda a comunicação.
+
+## TOM DE VOZ
+Especifique como a marca deve se comunicar (formal, descontraído, técnico, etc.).
+
+## TIPOS DE CONTEÚDO
+Recomende os formatos de conteúdo mais adequados para o negócio e público.
+
+## FREQUÊNCIA E CADÊNCIA
+Sugira uma frequência de publicações e ações considerando os recursos disponíveis.
+
+## MÉTRICAS DE SUCESSO
+Indique como medir o sucesso das ações de marketing.
+
+Escreva em português brasileiro, de forma profissional mas acessível.
+Seja específico e evite generalizações vazias.
+Baseie todas as recomendações nas informações fornecidas pelo cliente.`;
+
+    const promptContent = systemPrompt?.prompt_content || defaultPrompt;
 
     // Preparar contexto com dados do cliente
     const clientContext = `
@@ -147,7 +186,7 @@ Seja direto, prático e aplicável à realidade do negócio.
         messages: [
           { 
             role: 'system', 
-            content: systemPrompt.prompt_content
+            content: promptContent
           },
           { 
             role: 'user', 
