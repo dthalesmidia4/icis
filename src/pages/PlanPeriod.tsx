@@ -5,7 +5,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Sparkles, Zap, Shield, Rocket, Check, X, Package } from "lucide-react";
+import { ArrowLeft, Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar, Target, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface PlanItem {
   titulo: string;
@@ -23,12 +26,33 @@ interface PlanItem {
   data_sugerida: string;
 }
 
+interface PeriodPlanHistory {
+  id: string;
+  period_title: string;
+  period_start: string;
+  period_end: string;
+  objective: string;
+  priority_channel: string;
+  primary_mode: string | null;
+  status: string;
+  created_at: string;
+  final_plan: PlanItem[] | null;
+}
+
 type Step = 'form' | 'loading' | 'mode-selection' | 'optional-package' | 'completed';
 
 const PlanPeriod = () => {
   const navigate = useNavigate();
   const { selectedClient } = useSelectedClient();
   const { tenantId } = useTenant();
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
+  
+  // History state
+  const [periodHistory, setPeriodHistory] = useState<PeriodPlanHistory[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [selectedHistoryPlan, setSelectedHistoryPlan] = useState<PeriodPlanHistory | null>(null);
 
   // Form state
   const [periodTitle, setPeriodTitle] = useState("");
@@ -48,6 +72,32 @@ const PlanPeriod = () => {
   const [ultraSummary, setUltraSummary] = useState("");
   const [selectedMode, setSelectedMode] = useState<'normal' | 'ultra' | null>(null);
   const [optionalPackage, setOptionalPackage] = useState<PlanItem[]>([]);
+
+  // Fetch period history
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!selectedClient || !tenantId) return;
+      
+      setLoadingHistory(true);
+      try {
+        const { data, error } = await supabase
+          .from('period_plans')
+          .select('id, period_title, period_start, period_end, objective, priority_channel, primary_mode, status, created_at, final_plan')
+          .eq('company_id', selectedClient.id)
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setPeriodHistory((data as unknown as PeriodPlanHistory[]) || []);
+      } catch (error) {
+        console.error('Error fetching period history:', error);
+      } finally {
+        setLoadingHistory(false);
+      }
+    };
+
+    fetchHistory();
+  }, [selectedClient, tenantId]);
 
   useEffect(() => {
     if (!selectedClient) {
@@ -480,6 +530,151 @@ const PlanPeriod = () => {
     </div>
   );
 
+  const renderHistory = () => (
+    <div className="max-w-4xl mx-auto">
+      {loadingHistory ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      ) : periodHistory.length === 0 ? (
+        <Card className="p-8 text-center">
+          <History className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Nenhum período planejado</h3>
+          <p className="text-muted-foreground mb-4">
+            Você ainda não criou nenhum planejamento de período para este cliente.
+          </p>
+          <Button onClick={() => setActiveTab('new')}>
+            <Plus className="w-4 h-4 mr-2" />
+            Criar Primeiro Período
+          </Button>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {periodHistory.map((period) => (
+            <Card 
+              key={period.id} 
+              className="p-5 hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => setSelectedHistoryPlan(period)}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="font-semibold text-lg">{period.period_title}</h3>
+                    <Badge 
+                      variant={period.status === 'completed' ? 'default' : 'secondary'}
+                      className={period.status === 'completed' ? 'bg-green-500' : ''}
+                    >
+                      {period.status === 'completed' ? 'Concluído' : 
+                       period.status === 'mode_selected' ? 'Em Progresso' : 
+                       period.status === 'generated' ? 'Gerado' : 'Rascunho'}
+                    </Badge>
+                    {period.primary_mode && (
+                      <Badge variant="outline" className={period.primary_mode === 'ultra' ? 'border-pink-500 text-pink-500' : ''}>
+                        Modo {period.primary_mode === 'ultra' ? 'Ultra' : 'Normal'}
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-4 h-4" />
+                      {format(new Date(period.period_start), "dd/MM/yyyy", { locale: ptBR })} - {format(new Date(period.period_end), "dd/MM/yyyy", { locale: ptBR })}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Target className="w-4 h-4" />
+                      {period.priority_channel}
+                    </span>
+                  </div>
+                  
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {period.objective}
+                  </p>
+                </div>
+                
+                <Button variant="ghost" size="icon" className="ml-4">
+                  <Eye className="w-5 h-5" />
+                </Button>
+              </div>
+              
+              {period.final_plan && period.final_plan.length > 0 && (
+                <div className="mt-3 pt-3 border-t">
+                  <span className="text-xs text-muted-foreground">
+                    {period.final_plan.length} demandas geradas
+                  </span>
+                </div>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {selectedHistoryPlan && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedHistoryPlan(null)}>
+          <Card className="max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold">{selectedHistoryPlan.period_title}</h2>
+                <p className="text-sm text-muted-foreground">
+                  Criado em {format(new Date(selectedHistoryPlan.created_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setSelectedHistoryPlan(null)}>
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Período</Label>
+                  <p className="font-medium">
+                    {format(new Date(selectedHistoryPlan.period_start), "dd/MM/yyyy")} - {format(new Date(selectedHistoryPlan.period_end), "dd/MM/yyyy")}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Canal Prioritário</Label>
+                  <p className="font-medium">{selectedHistoryPlan.priority_channel}</p>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-muted-foreground">Objetivo</Label>
+                <p className="font-medium">{selectedHistoryPlan.objective}</p>
+              </div>
+
+              {selectedHistoryPlan.primary_mode && (
+                <div>
+                  <Label className="text-muted-foreground">Modo Selecionado</Label>
+                  <Badge className={selectedHistoryPlan.primary_mode === 'ultra' ? 'bg-pink-500' : 'bg-blue-500'}>
+                    {selectedHistoryPlan.primary_mode === 'ultra' ? 'Ultra' : 'Normal'}
+                  </Badge>
+                </div>
+              )}
+
+              {selectedHistoryPlan.final_plan && selectedHistoryPlan.final_plan.length > 0 && (
+                <div>
+                  <Label className="text-muted-foreground mb-2 block">Demandas ({selectedHistoryPlan.final_plan.length})</Label>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {selectedHistoryPlan.final_plan.map((item, idx) => (
+                      <div key={idx} className="p-3 bg-muted/50 rounded-lg">
+                        <p className="font-medium text-sm">{item.titulo}</p>
+                        <div className="flex gap-2 mt-1">
+                          <Badge variant="outline" className="text-xs">{item.canal}</Badge>
+                          <Badge variant="outline" className="text-xs">{item.tipo_conteudo}</Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
@@ -510,10 +705,31 @@ const PlanPeriod = () => {
 
         {/* Content */}
         <div className="container max-w-6xl mx-auto px-6 py-8">
-          {currentStep === 'form' && renderForm()}
+          {currentStep === 'form' && (
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'new' | 'history')} className="w-full">
+              <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
+                <TabsTrigger value="new" className="flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Novo Período
+                </TabsTrigger>
+                <TabsTrigger value="history" className="flex items-center gap-2">
+                  <History className="w-4 h-4" />
+                  Histórico ({periodHistory.length})
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="new">
+                {renderForm()}
+              </TabsContent>
+              
+              <TabsContent value="history">
+                {renderHistory()}
+              </TabsContent>
+            </Tabs>
+          )}
           {currentStep === 'loading' && (
             <LoadingScreen
-              title="Gerando Planos de Demandas"
+              title="Gerando Demandas"
               description="A IA está criando duas linhas de demandas personalizadas: Normal e Ultra. Isso pode levar alguns segundos..."
               icon={Sparkles}
             />
