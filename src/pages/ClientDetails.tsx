@@ -12,26 +12,29 @@ import { useState } from "react";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
 const ClientDetails = () => {
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
-  const { tenantId } = useTenant();
+  const {
+    id
+  } = useParams<{
+    id: string;
+  }>();
+  const {
+    tenantId
+  } = useTenant();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  const { data: client, isLoading } = useQuery({
+  const {
+    data: client,
+    isLoading
+  } = useQuery({
     queryKey: ['client-details', id, tenantId],
     queryFn: async () => {
       if (!id || !tenantId) return null;
-
-      const { data, error } = await supabase
-        .from('tenant_companies')
-        .select('*')
-        .eq('id', id)
-        .eq('tenant_id', tenantId)
-        .single();
-
+      const {
+        data,
+        error
+      } = await supabase.from('tenant_companies').select('*').eq('id', id).eq('tenant_id', tenantId).single();
       if (error) {
         if (error.code === 'PGRST116') {
           toast.error("Cliente não encontrado");
@@ -40,25 +43,18 @@ const ClientDetails = () => {
         }
         throw error;
       }
-
       return data;
     },
     enabled: !!id && !!tenantId
   });
-
   const handleDelete = async () => {
     if (!id) return;
-
     setIsDeleting(true);
     try {
-      const { error } = await supabase
-        .from('tenant_companies')
-        .delete()
-        .eq('id', id)
-        .eq('tenant_id', tenantId);
-
+      const {
+        error
+      } = await supabase.from('tenant_companies').delete().eq('id', id).eq('tenant_id', tenantId);
       if (error) throw error;
-
       toast.success("Cliente excluído com sucesso");
       navigate('/clientes');
     } catch (error) {
@@ -69,29 +65,19 @@ const ClientDetails = () => {
       setShowDeleteModal(false);
     }
   };
-
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+    return <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Carregando informações do cliente...</p>
         </div>
-      </div>
-    );
+      </div>;
   }
-
   if (!client) return null;
-
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       <div className="p-4 md:p-8">
         <div className="max-w-5xl mx-auto space-y-6">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/clientes")}
-            className="mb-4"
-          >
+          <Button variant="ghost" onClick={() => navigate("/clientes")} className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar à Lista
           </Button>
@@ -112,13 +98,7 @@ const ClientDetails = () => {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setShowDeleteModal(true)}
-                    title="Excluir cliente"
-                    className="text-destructive hover:text-destructive"
-                  >
+                  <Button variant="outline" size="icon" onClick={() => setShowDeleteModal(true)} title="Excluir cliente" className="text-destructive hover:text-destructive">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -202,7 +182,9 @@ const ClientDetails = () => {
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Data de Cadastro</p>
                 <p className="text-sm">
-                  {client.created_at ? format(new Date(client.created_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : 'N/A'}
+                  {client.created_at ? format(new Date(client.created_at), "dd 'de' MMMM 'de' yyyy", {
+                  locale: ptBR
+                }) : 'N/A'}
                 </p>
               </div>
             </CardContent>
@@ -210,42 +192,12 @@ const ClientDetails = () => {
 
           {/* Botão de Estratégias */}
           <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-secondary">
-                    <BarChart3 className="h-6 w-6 text-primary-foreground" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold mb-1">Estratégias e Planejamentos</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Acompanhe e gerencie as estratégias de marketing e os planejamentos deste cliente
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  onClick={() => navigate(`/clientes/${client.id}/planejamentos`)}
-                  className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
-                >
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  Ver Estratégias e Planejamentos
-                </Button>
-              </div>
-            </CardContent>
+            
           </Card>
         </div>
       </div>
 
-      <ConfirmationModal
-        open={showDeleteModal}
-        onOpenChange={setShowDeleteModal}
-        title="Confirmar Exclusão"
-        description="Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita e todos os dados associados serão perdidos."
-        onConfirm={handleDelete}
-        loading={isDeleting}
-      />
-    </div>
-  );
+      <ConfirmationModal open={showDeleteModal} onOpenChange={setShowDeleteModal} title="Confirmar Exclusão" description="Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita e todos os dados associados serão perdidos." onConfirm={handleDelete} loading={isDeleting} />
+    </div>;
 };
-
 export default ClientDetails;
