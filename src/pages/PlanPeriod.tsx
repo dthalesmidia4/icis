@@ -6,7 +6,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, Eye, LayoutGrid } from "lucide-react";
+import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, Eye, LayoutGrid, Trash2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -58,6 +58,8 @@ const PlanPeriod = () => {
   const [periodHistory, setPeriodHistory] = useState<PeriodPlanHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [selectedHistoryPlan, setSelectedHistoryPlan] = useState<PeriodPlanHistory | null>(null);
+  const [periodToDelete, setPeriodToDelete] = useState<PeriodPlanHistory | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Form state
   const [periodTitle, setPeriodTitle] = useState("");
@@ -115,6 +117,36 @@ const PlanPeriod = () => {
   if (!selectedClient || !tenantId) return null;
 
   const displayName = selectedClient.fantasy_name || selectedClient.name;
+
+  const handleDeletePeriod = async () => {
+    if (!periodToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      // First, delete associated cards
+      await supabase
+        .from('cards')
+        .delete()
+        .eq('period_plan_id', periodToDelete.id);
+
+      // Then delete the period plan
+      const { error } = await supabase
+        .from('period_plans')
+        .delete()
+        .eq('id', periodToDelete.id);
+
+      if (error) throw error;
+
+      setPeriodHistory(prev => prev.filter(p => p.id !== periodToDelete.id));
+      toast.success("Período excluído com sucesso");
+      setPeriodToDelete(null);
+    } catch (error) {
+      console.error('Error deleting period:', error);
+      toast.error("Erro ao excluir período");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!periodTitle || !periodStart || !periodEnd) {
@@ -725,9 +757,29 @@ const PlanPeriod = () => {
                   </p>
                 </div>
                 
-                <Button variant="ghost" size="icon" className="ml-4">
-                  <Eye className="w-5 h-5" />
-                </Button>
+                <div className="flex items-center gap-2 ml-4">
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedHistoryPlan(period);
+                    }}
+                  >
+                    <Eye className="w-5 h-5" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPeriodToDelete(period);
+                    }}
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </Button>
+                </div>
               </div>
               
               {period.final_plan && period.final_plan.length > 0 && (
@@ -802,6 +854,64 @@ const PlanPeriod = () => {
                   </div>
                 </div>
               )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {periodToDelete && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => !isDeleting && setPeriodToDelete(null)}>
+          <Card className="max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-6 h-6 text-destructive" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold">Excluir Período</h2>
+                <p className="text-sm text-muted-foreground">Esta ação não pode ser desfeita</p>
+              </div>
+            </div>
+
+            <div className="mb-6 p-4 bg-muted/50 rounded-lg">
+              <p className="font-medium">{periodToDelete.period_title}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {format(new Date(periodToDelete.period_start), "dd/MM/yyyy", { locale: ptBR })} - {format(new Date(periodToDelete.period_end), "dd/MM/yyyy", { locale: ptBR })}
+              </p>
+              {periodToDelete.final_plan && periodToDelete.final_plan.length > 0 && (
+                <p className="text-sm text-destructive mt-2">
+                  ⚠️ {periodToDelete.final_plan.length} demandas associadas também serão excluídas
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => setPeriodToDelete(null)}
+                disabled={isDeleting}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                variant="destructive" 
+                className="flex-1"
+                onClick={handleDeletePeriod}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Excluindo...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Excluir Período
+                  </>
+                )}
+              </Button>
             </div>
           </Card>
         </div>
