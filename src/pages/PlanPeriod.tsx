@@ -66,6 +66,8 @@ const PlanPeriod = () => {
   const [budget, setBudget] = useState("");
   const [observations, setObservations] = useState("");
   const [excludedFormats, setExcludedFormats] = useState<string[]>([]);
+  const [startDateOpen, setStartDateOpen] = useState(false);
+  const [endDateOpen, setEndDateOpen] = useState(false);
 
   // Process state
   const [currentStep, setCurrentStep] = useState<Step>('form');
@@ -247,7 +249,7 @@ const PlanPeriod = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Data Início *</Label>
-                <Popover>
+                <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
@@ -264,7 +266,10 @@ const PlanPeriod = () => {
                     <Calendar
                       mode="single"
                       selected={periodStart}
-                      onSelect={setPeriodStart}
+                      onSelect={(date) => {
+                        setPeriodStart(date);
+                        setStartDateOpen(false);
+                      }}
                       locale={ptBR}
                       initialFocus
                       className={cn("p-3 pointer-events-auto")}
@@ -274,7 +279,7 @@ const PlanPeriod = () => {
               </div>
               <div className="space-y-2">
                 <Label>Data Fim *</Label>
-                <Popover>
+                <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
@@ -291,7 +296,10 @@ const PlanPeriod = () => {
                     <Calendar
                       mode="single"
                       selected={periodEnd}
-                      onSelect={setPeriodEnd}
+                      onSelect={(date) => {
+                        setPeriodEnd(date);
+                        setEndDateOpen(false);
+                      }}
                       locale={ptBR}
                       disabled={(date) => periodStart ? date < periodStart : false}
                       initialFocus
