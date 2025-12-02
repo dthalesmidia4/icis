@@ -322,34 +322,63 @@ const PlanPeriod = () => {
           </h3>
           
           <div className="space-y-6">
-            {/* Format Restrictions Checklist */}
+            {/* Restrictions Checklist */}
             <div>
-              <Label className="text-sm font-medium mb-3 block">Formatos que NÃO deseja usar:</Label>
-              <div className="space-y-3">
+              <Label className="text-sm font-medium mb-4 block">Restrições do Cliente</Label>
+              <div className="space-y-4">
                 {[
-                  { id: 'videos', label: 'Vídeos gravados' },
-                  { id: 'reels', label: 'Reels' },
-                  { id: 'stories', label: 'Stories' },
-                  { id: 'fotos-proprias', label: 'Fotos próprias (somente banco de imagens)' },
-                  { id: 'carrosseis', label: 'Carrosséis' },
-                ].map((format) => (
-                  <div key={format.id} className="flex items-center space-x-3">
+                  { 
+                    id: 'no-video-appearance', 
+                    category: 'Disponibilidade para aparecer',
+                    label: 'O cliente NÃO pode aparecer em vídeos.'
+                  },
+                  { 
+                    id: 'no-products-environment', 
+                    category: 'Ambiente e recursos visuais',
+                    label: 'O cliente NÃO pode disponibilizar produtos/ambiente para fotos/vídeos.'
+                  },
+                  { 
+                    id: 'no-clients-patients', 
+                    category: 'Limitações legais do segmento',
+                    label: 'O cliente NÃO pode mostrar clientes/pacientes.'
+                  },
+                  { 
+                    id: 'no-visual-materials', 
+                    category: 'Limitações operacionais',
+                    label: 'O cliente NÃO possui materiais visuais suficientes (fotos/vídeos).'
+                  },
+                  { 
+                    id: 'no-promotional-content', 
+                    category: 'Restrições de narrativa e posicionamento',
+                    label: 'O cliente NÃO quer conteúdos promocionais.'
+                  },
+                ].map((restriction) => (
+                  <div 
+                    key={restriction.id} 
+                    className="flex items-start space-x-3 p-3 rounded-lg border border-border/50 bg-muted/30 hover:bg-muted/50 transition-colors"
+                  >
                     <Checkbox
-                      id={format.id}
-                      checked={excludedFormats.includes(format.id)}
+                      id={restriction.id}
+                      checked={excludedFormats.includes(restriction.id)}
                       onCheckedChange={(checked) => {
                         if (checked) {
-                          setExcludedFormats([...excludedFormats, format.id]);
+                          setExcludedFormats([...excludedFormats, restriction.id]);
                         } else {
-                          setExcludedFormats(excludedFormats.filter(f => f !== format.id));
+                          setExcludedFormats(excludedFormats.filter(f => f !== restriction.id));
                         }
                       }}
+                      className="mt-0.5"
                     />
                     <label
-                      htmlFor={format.id}
-                      className="text-sm font-normal cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      htmlFor={restriction.id}
+                      className="cursor-pointer flex-1"
                     >
-                      {format.label}
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-1">
+                        {restriction.category}
+                      </span>
+                      <span className="text-sm leading-snug">
+                        {restriction.label}
+                      </span>
                     </label>
                   </div>
                 ))}
