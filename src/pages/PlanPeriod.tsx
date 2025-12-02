@@ -547,16 +547,22 @@ const PlanPeriod = () => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const anyItem = item as any;
             const title = item.titulo || anyItem.title || 'Sem título';
-            const description = item.descricao || anyItem.description || anyItem.objective || '';
-            const channel = item.canal || anyItem.channel || anyItem.type || '';
+            const tipo = anyItem.tipo || item.tipo_conteudo || '';
+            const objetivo = anyItem.objetivo || anyItem.objective || '';
+            const descricao = anyItem.descricao_da_tarefa || item.descricao || anyItem.description || '';
+            const channel = item.canal || anyItem.channel || '';
             return (
               <div key={idx} className="p-4 bg-muted/50 rounded-lg">
                 <div className="flex items-start justify-between">
-                  <div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      {tipo && <Badge variant="secondary" className="text-xs">{tipo}</Badge>}
+                      <Badge variant="outline">{channel}</Badge>
+                    </div>
                     <p className="font-medium">{title}</p>
-                    <p className="text-sm text-muted-foreground mt-1">{description.slice(0, 100)}{description.length > 100 ? '...' : ''}</p>
+                    {objetivo && <p className="text-xs text-primary mt-1">Objetivo: {objetivo}</p>}
+                    <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">{descricao.slice(0, 150)}{descricao.length > 150 ? '...' : ''}</p>
                   </div>
-                  <Badge variant="outline">{channel}</Badge>
                 </div>
               </div>
             );
@@ -598,26 +604,28 @@ const PlanPeriod = () => {
       const primaryPlan = selectedMode === 'normal' ? defaultPlan : ultraPlan;
       const finalPlanItems = kanbanIntegrated ? [] : (optionalPackage.length > 0 ? [...primaryPlan, ...optionalPackage] : primaryPlan);
       
-      // Create cards from the final plan - handle both Portuguese and English property names
+      // Create cards from the final plan - map new prompt format to card fields
       const cardsToInsert = finalPlanItems.map((item) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const anyItem = item as any;
+        // New format fields: tipo, titulo, objetivo, descricao_da_tarefa, canal, data_sugerida
         const title = item.titulo || anyItem.title || 'Sem título';
-        const description = item.descricao || anyItem.description || anyItem.objective || '';
-        const publicationDate = item.data_sugerida || anyItem.suggested_date || anyItem.date || new Date().toISOString().split('T')[0];
-        const contentType = item.tipo_conteudo || anyItem.type || anyItem.content_type || '';
+        const tipo = anyItem.tipo || item.tipo_conteudo || anyItem.type || '';
+        const objetivo = anyItem.objetivo || anyItem.objective || '';
+        const descricao = anyItem.descricao_da_tarefa || item.descricao || anyItem.description || '';
         const channel = item.canal || anyItem.channel || '';
+        const publicationDate = item.data_sugerida || anyItem.suggested_date || anyItem.date || new Date().toISOString().split('T')[0];
         
         return {
           tenant_id: tenantId,
           period_plan_id: periodPlanId,
           title,
-          description,
+          description: descricao,
           publication_date: publicationDate,
-          file_location: `${contentType} - ${channel}`.trim().replace(/^- | -$/g, ''),
+          file_location: tipo ? `${tipo} - ${channel}`.trim().replace(/^- | -$/g, '') : channel,
           status: 'unassigned',
           column_name: 'Planejamento Automatizado',
-          observations: null
+          observations: objetivo || null
         };
       });
 

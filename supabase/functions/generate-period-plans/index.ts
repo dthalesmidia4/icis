@@ -16,13 +16,31 @@ CONTEXTO DISPONÍVEL:
 - Período selecionado (título, datas, orçamento, objetivo, canal prioritário, observações/restrições)
 
 REGRAS OBRIGATÓRIAS:
-1. Cada demanda DEVE ter: titulo (curto e objetivo), descricao (2-4 frases: O QUE CRIAR, COMO EXECUTAR, RESULTADO ESPERADO), tipo_conteudo, canal, data_sugerida
-2. As datas DEVEM estar DENTRO do período especificado (entre data_inicio e data_fim)
-3. Gere entre 8 a 15 demandas para cada linha
-4. Considere o orçamento e restrições mencionadas nas observações
-5. Respeite os formatos que o cliente NÃO deseja usar (se mencionados)
-6. Distribua as demandas de forma equilibrada ao longo do período
-7. Seja específico e contextualizado - use as informações do cliente para criar demandas personalizadas
+1. As datas DEVEM estar DENTRO do período especificado (entre data_inicio e data_fim)
+2. Gere entre 8 a 15 demandas para cada linha
+3. Considere o orçamento e restrições mencionadas nas observações
+4. Respeite os formatos que o cliente NÃO deseja usar (se mencionados)
+5. Distribua as demandas de forma equilibrada ao longo do período
+6. Seja específico e contextualizado - use as informações do cliente para criar demandas personalizadas
+
+⚠️ EXEMPLO DE COMO VOCÊ DEVE ENTREGAR OS CARDS DAS DEMANDAS (MODELO OBRIGATÓRIO):
+
+{
+  "tipo": "Carrossel (3 slides)",
+  "titulo": "Erros na Conferência de Notas",
+  "objetivo": "Educar e reforçar autoridade",
+  "descricao_da_tarefa": "SLIDE 1 – Atenção!\\nErros na conferência de notas custam caro ⚠️\\n✔️ CFOP, NCM e valores precisam bater.\\n❌ NF em CPF sem recibo? Recuse na hora.\\n\\nSLIDE 2 – Transporte\\n📄 Exija o CTe completo.\\n🚛 Confira placa e CNPJ do prestador.\\nSem CTe = sem descarga.",
+  "canal": "Instagram",
+  "data_sugerida": "2025-01-15"
+}
+
+ESTRUTURA DE CADA DEMANDA:
+- tipo: Formato do conteúdo (ex: "Carrossel (3 slides)", "Reels (30s)", "Post estático", "Story sequência")
+- titulo: Nome curto e objetivo da demanda
+- objetivo: Propósito da peça (educar, vender, engajar, etc.)
+- descricao_da_tarefa: Conteúdo DETALHADO com roteiro, textos, CTAs, divisão de slides/cenas
+- canal: Plataforma onde será publicado
+- data_sugerida: Data no formato YYYY-MM-DD
 
 LINHA NORMAL (default_plan):
 - Demandas tradicionais, operacionais e seguras
@@ -40,9 +58,10 @@ FORMATO DE RESPOSTA (JSON válido):
 {
   "default_plan": [
     {
+      "tipo": "...",
       "titulo": "...",
-      "descricao": "...",
-      "tipo_conteudo": "...",
+      "objetivo": "...",
+      "descricao_da_tarefa": "...",
       "canal": "...",
       "data_sugerida": "YYYY-MM-DD"
     }
