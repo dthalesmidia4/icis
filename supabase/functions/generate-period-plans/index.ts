@@ -207,9 +207,12 @@ ${questionsContext || 'Nenhuma pergunta respondida.'}
       }),
     });
 
+    const responseText = await response.text();
+    console.log('OpenAI raw response status:', response.status);
+    console.log('OpenAI raw response:', responseText.substring(0, 500));
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenAI API error:', response.status, errorText);
+      console.error('OpenAI API error:', response.status, responseText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: 'Rate limit excedido. Tente novamente em alguns segundos.' }), {
@@ -223,14 +226,24 @@ ${questionsContext || 'Nenhuma pergunta respondida.'}
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      throw new Error(`OpenAI API error: ${response.status} - ${responseText}`);
     }
 
-    const aiResponse = await response.json();
+    let aiResponse;
+    try {
+      aiResponse = JSON.parse(responseText);
+    } catch (parseErr) {
+      console.error('Failed to parse OpenAI response:', parseErr);
+      throw new Error('Erro ao processar resposta da API OpenAI');
+    }
+
+    console.log('OpenAI parsed response choices:', JSON.stringify(aiResponse.choices?.[0]));
+    
     const content = aiResponse.choices?.[0]?.message?.content;
 
     if (!content) {
-      throw new Error('Resposta vazia da IA');
+      console.error('Empty content. Full response:', JSON.stringify(aiResponse));
+      throw new Error('Resposta vazia da IA. Verifique o modelo e prompt.');
     }
 
     // Parse JSON response
