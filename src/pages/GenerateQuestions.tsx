@@ -421,13 +421,23 @@ export default function GenerateQuestions() {
           <div className="max-w-[900px] mx-auto space-y-6">
             {strategicQuestions.map((question, idx) => {
               const key = `question_${idx}`;
+              // Separar pergunta principal da descrição em parênteses
+              const match = question.match(/^(.+?)(\s*\(.+\))$/);
+              const mainQuestion = match ? match[1] : question;
+              const description = match ? match[2] : null;
+              
               return (
                 <div key={key} className="space-y-3">
                   <Label 
                     htmlFor={key} 
                     className="text-base font-semibold text-foreground leading-relaxed block"
                   >
-                    {idx + 1}. {question}
+                    {idx + 1}. {mainQuestion}
+                    {description && (
+                      <span className="text-muted-foreground font-normal text-sm">
+                        {description}
+                      </span>
+                    )}
                   </Label>
                   <Textarea
                     id={key}
