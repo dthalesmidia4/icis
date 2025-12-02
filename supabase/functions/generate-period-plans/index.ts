@@ -210,12 +210,34 @@ ${questionsContext || 'Nenhuma pergunta respondida.'}
 
     console.log('Generating period plans for:', periodPlanId, 'using GPT-5 Mini');
 
-    // Append JSON instruction to ensure proper output format
+    // Append JSON instruction to ensure proper output format with DETAILED field requirements
     const jsonInstruction = `
 
-IMPORTANTE: Responda APENAS com JSON válido, sem texto adicional antes ou depois. O formato deve ser exatamente:
+⚠️ INSTRUÇÕES OBRIGATÓRIAS DE FORMATO (SEGUIR EXATAMENTE):
+
+Responda APENAS com JSON válido, sem texto adicional antes ou depois.
+
+ESTRUTURA DE CADA DEMANDA (campos obrigatórios):
 {
-  "default_plan": [...],
+  "tipo": "Carrossel (X slides) | Reels (Xs) | Post estático | Story | Vídeo Comercial | etc",
+  "titulo": "Nome curto e objetivo da peça",
+  "objetivo": "O que a peça quer alcançar (educar, vender, engajar, autoridade, etc)",
+  "texto_da_peca": "CONTEÚDO DETALHADO E COMPLETO:\\nSLIDE 1 — [texto completo]\\nSLIDE 2 — [texto completo]\\n...ou ROTEIRO COMPLETO para vídeos com cada cena/fala descrita",
+  "instrucoes_de_producao": "Instruções específicas: cores, ícones, fotos, ângulos, cortes, CTAs visuais, tom",
+  "cta_recomendado": "Chamada para ação específica da peça",
+  "canal": "Instagram | LinkedIn | TikTok | YouTube | etc",
+  "data_sugerida": "YYYY-MM-DD (dentro do período especificado)"
+}
+
+IMPORTANTE: O campo "texto_da_peca" DEVE conter o conteúdo COMPLETO E PRONTO PARA USO:
+- Para carrosséis: todos os slides com texto exato de cada um
+- Para reels/vídeos: roteiro completo cena por cena
+- Para posts: texto completo da legenda
+- Para stories: sequência completa de frames
+
+FORMATO DE RESPOSTA FINAL:
+{
+  "default_plan": [{ "tipo": "...", "titulo": "...", "objetivo": "...", "texto_da_peca": "...", "instrucoes_de_producao": "...", "cta_recomendado": "...", "canal": "...", "data_sugerida": "YYYY-MM-DD" }],
   "ultra_plan": [...],
   "normal_summary": "...",
   "ultra_summary": "..."
