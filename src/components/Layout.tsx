@@ -11,9 +11,11 @@ export const Layout = ({
 }: LayoutProps) => {
   return <SidebarProvider>
       <div className="min-h-screen w-full flex">
-        <AppSidebar />
+        <div className="sticky top-0 h-screen">
+          <AppSidebar />
+        </div>
         
-        <div className="flex-1 min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
+        <div className="flex-1 min-h-screen overflow-auto bg-gradient-to-br from-background via-muted/30 to-background">
           {children}
         </div>
       </div>
