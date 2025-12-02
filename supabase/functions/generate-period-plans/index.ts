@@ -191,6 +191,17 @@ ${questionsContext || 'Nenhuma pergunta respondida.'}
 
     console.log('Generating period plans for:', periodPlanId, 'using GPT-5 Mini');
 
+    // Append JSON instruction to ensure proper output format
+    const jsonInstruction = `
+
+IMPORTANTE: Responda APENAS com JSON válido, sem texto adicional antes ou depois. O formato deve ser exatamente:
+{
+  "default_plan": [...],
+  "ultra_plan": [...],
+  "normal_summary": "...",
+  "ultra_summary": "..."
+}`;
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -200,7 +211,7 @@ ${questionsContext || 'Nenhuma pergunta respondida.'}
       body: JSON.stringify({
         model: 'gpt-5-mini',
         messages: [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: systemPrompt + jsonInstruction },
           { role: 'user', content: context }
         ],
         max_completion_tokens: 16000,
@@ -209,7 +220,7 @@ ${questionsContext || 'Nenhuma pergunta respondida.'}
 
     const responseText = await response.text();
     console.log('OpenAI raw response status:', response.status);
-    console.log('OpenAI raw response:', responseText.substring(0, 500));
+    console.log('OpenAI raw response preview:', responseText.substring(0, 300));
 
     if (!response.ok) {
       console.error('OpenAI API error:', response.status, responseText);
@@ -237,8 +248,6 @@ ${questionsContext || 'Nenhuma pergunta respondida.'}
       throw new Error('Erro ao processar resposta da API OpenAI');
     }
 
-    console.log('OpenAI parsed response choices:', JSON.stringify(aiResponse.choices?.[0]));
-    
     const content = aiResponse.choices?.[0]?.message?.content;
 
     if (!content) {
@@ -246,15 +255,25 @@ ${questionsContext || 'Nenhuma pergunta respondida.'}
       throw new Error('Resposta vazia da IA. Verifique o modelo e prompt.');
     }
 
-    // Parse JSON response
+    console.log('AI content preview:', content.substring(0, 200));
+
+    // Parse JSON response - try multiple extraction methods
     let plans;
     try {
-      // Remove markdown code blocks if present
-      const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      // Method 1: Try direct parse after cleaning markdown
+      let cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      
+      // Method 2: Try to find JSON object in the response
+      const jsonMatch = cleanContent.match(/\{[\s\S]*"default_plan"[\s\S]*"ultra_plan"[\s\S]*\}/);
+      if (jsonMatch) {
+        cleanContent = jsonMatch[0];
+      }
+      
       plans = JSON.parse(cleanContent);
     } catch (parseError) {
-      console.error('JSON parse error:', parseError, 'Content:', content);
-      throw new Error('Erro ao processar resposta da IA');
+      console.error('JSON parse error:', parseError);
+      console.error('Raw content:', content.substring(0, 500));
+      throw new Error('Erro ao processar resposta da IA. A resposta não está em formato JSON válido.');
     }
 
     // Update period plan with generated plans
