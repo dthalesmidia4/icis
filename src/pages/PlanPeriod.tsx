@@ -543,17 +543,24 @@ const PlanPeriod = () => {
       <Card className="p-6 mb-6">
         <h3 className="font-semibold mb-4">Ideias Selecionadas:</h3>
         <div className="space-y-3">
-          {optionalPackage.map((item, idx) => (
-            <div key={idx} className="p-4 bg-muted/50 rounded-lg">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-medium">{item.titulo}</p>
-                  <p className="text-sm text-muted-foreground mt-1">{item.descricao.slice(0, 100)}...</p>
+          {optionalPackage.map((item, idx) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const anyItem = item as any;
+            const title = item.titulo || anyItem.title || 'Sem título';
+            const description = item.descricao || anyItem.description || anyItem.objective || '';
+            const channel = item.canal || anyItem.channel || anyItem.type || '';
+            return (
+              <div key={idx} className="p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium">{title}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{description.slice(0, 100)}{description.length > 100 ? '...' : ''}</p>
+                  </div>
+                  <Badge variant="outline">{channel}</Badge>
                 </div>
-                <Badge variant="outline">{item.canal}</Badge>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </Card>
 
