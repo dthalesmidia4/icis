@@ -6,7 +6,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar, Target, Eye, LayoutGrid } from "lucide-react";
+import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, Eye, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,8 +17,11 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface PlanItem {
   titulo: string;
@@ -58,8 +61,8 @@ const PlanPeriod = () => {
 
   // Form state
   const [periodTitle, setPeriodTitle] = useState("");
-  const [periodStart, setPeriodStart] = useState("");
-  const [periodEnd, setPeriodEnd] = useState("");
+  const [periodStart, setPeriodStart] = useState<Date | undefined>(undefined);
+  const [periodEnd, setPeriodEnd] = useState<Date | undefined>(undefined);
   const [budget, setBudget] = useState("");
   const [observations, setObservations] = useState("");
   const [excludedFormats, setExcludedFormats] = useState<string[]>([]);
@@ -117,7 +120,7 @@ const PlanPeriod = () => {
       return;
     }
 
-    if (new Date(periodEnd) < new Date(periodStart)) {
+    if (periodEnd < periodStart) {
       toast.error("A data final deve ser posterior à data inicial");
       return;
     }
@@ -132,8 +135,8 @@ const PlanPeriod = () => {
           tenant_id: tenantId,
           company_id: selectedClient.id,
           period_title: periodTitle,
-          period_start: periodStart,
-          period_end: periodEnd,
+          period_start: format(periodStart, 'yyyy-MM-dd'),
+          period_end: format(periodEnd, 'yyyy-MM-dd'),
           budget: budget || null,
           objective: 'Gerado automaticamente',
           priority_channel: 'Multi-canal',
@@ -242,23 +245,60 @@ const PlanPeriod = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="periodStart">Data Início *</Label>
-                <Input
-                  id="periodStart"
-                  type="date"
-                  value={periodStart}
-                  onChange={(e) => setPeriodStart(e.target.value)}
-                />
+              <div className="space-y-2">
+                <Label>Data Início *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !periodStart && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {periodStart ? format(periodStart, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione a data</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={periodStart}
+                      onSelect={setPeriodStart}
+                      locale={ptBR}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
-              <div>
-                <Label htmlFor="periodEnd">Data Fim *</Label>
-                <Input
-                  id="periodEnd"
-                  type="date"
-                  value={periodEnd}
-                  onChange={(e) => setPeriodEnd(e.target.value)}
-                />
+              <div className="space-y-2">
+                <Label>Data Fim *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !periodEnd && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {periodEnd ? format(periodEnd, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione a data</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={periodEnd}
+                      onSelect={setPeriodEnd}
+                      locale={ptBR}
+                      disabled={(date) => periodStart ? date < periodStart : false}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
 
