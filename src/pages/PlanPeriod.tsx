@@ -260,7 +260,7 @@ const PlanPeriod = () => {
                       {periodStart ? format(periodStart, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione a data</span>}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
+                  <PopoverContent className="w-auto p-0 z-50 bg-background border shadow-lg" align="start">
                     <Calendar
                       mode="single"
                       selected={periodStart}
@@ -287,7 +287,7 @@ const PlanPeriod = () => {
                       {periodEnd ? format(periodEnd, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione a data</span>}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
+                  <PopoverContent className="w-auto p-0 z-50 bg-background border shadow-lg" align="start">
                     <Calendar
                       mode="single"
                       selected={periodEnd}
