@@ -7,6 +7,51 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const DEFAULT_DEMANDAS_PROMPT = `Você é um estrategista de marketing digital premium. Sua tarefa é gerar DUAS linhas de demandas para um período de campanha.
+
+CONTEXTO DISPONÍVEL:
+- Dados cadastrais da empresa (razão social, nome fantasia, setor, tamanho, produtos/serviços)
+- Estratégia global de marketing previamente definida
+- Respostas das perguntas guias estratégicas
+- Período selecionado (título, datas, orçamento, objetivo, canal prioritário, observações/restrições)
+
+REGRAS OBRIGATÓRIAS:
+1. Cada demanda DEVE ter: titulo (curto e objetivo), descricao (2-4 frases: O QUE CRIAR, COMO EXECUTAR, RESULTADO ESPERADO), tipo_conteudo, canal, data_sugerida
+2. As datas DEVEM estar DENTRO do período especificado (entre data_inicio e data_fim)
+3. Gere entre 8 a 15 demandas para cada linha
+4. Considere o orçamento e restrições mencionadas nas observações
+5. Respeite os formatos que o cliente NÃO deseja usar (se mencionados)
+6. Distribua as demandas de forma equilibrada ao longo do período
+7. Seja específico e contextualizado - use as informações do cliente para criar demandas personalizadas
+
+LINHA NORMAL (default_plan):
+- Demandas tradicionais, operacionais e seguras
+- Conteúdos comprovados que funcionam no mercado
+- Abordagem conservadora e consistente
+- Foco em resultados previsíveis e mensuráveis
+
+LINHA ULTRA (ultra_plan):
+- Demandas ousadas, criativas e fora da caixa
+- Ideias inovadoras com potencial viral
+- Campanhas disruptivas e diferenciadas
+- Abordagem de alto risco/alto impacto
+
+FORMATO DE RESPOSTA (JSON válido):
+{
+  "default_plan": [
+    {
+      "titulo": "...",
+      "descricao": "...",
+      "tipo_conteudo": "...",
+      "canal": "...",
+      "data_sugerida": "YYYY-MM-DD"
+    }
+  ],
+  "ultra_plan": [...],
+  "normal_summary": "Descrição breve do tom e abordagem do plano normal",
+  "ultra_summary": "Descrição breve do tom e abordagem do plano ultra"
+}`;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -94,9 +139,27 @@ serve(async (req) => {
       }).join('\n\n');
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY não configurada');
+    // Fetch custom prompt from database
+    const { data: customPrompt } = await supabase
+      .from('system_prompts')
+      .select('prompt_content')
+      .eq('tenant_id', tenantId)
+      .eq('prompt_key', 'generate_demandas_prompt')
+      .maybeSingle();
+
+    const systemPrompt = customPrompt?.prompt_content || DEFAULT_DEMANDAS_PROMPT;
+    console.log('Using custom prompt:', !!customPrompt);
+
+    // Fetch OpenAI API key from api_keys table
+    const { data: apiKeyData, error: apiKeyError } = await supabase
+      .from('api_keys')
+      .select('key_value')
+      .eq('key_name', 'OPENAI_API_KEY')
+      .single();
+
+    if (apiKeyError || !apiKeyData) {
+      console.error('OpenAI API key not found:', apiKeyError);
+      throw new Error('OPENAI_API_KEY não configurada na tabela api_keys');
     }
 
     // Build comprehensive context
@@ -126,71 +189,27 @@ ${questionsContext || 'Nenhuma pergunta respondida.'}
 - Observações/Restrições: ${periodPlan.observations || 'Nenhuma'}
 `;
 
-    const systemPrompt = `Você é um estrategista de marketing digital premium. Sua tarefa é gerar DUAS linhas de demandas para um período de campanha.
+    console.log('Generating period plans for:', periodPlanId, 'using GPT-5 Mini');
 
-REGRAS IMPORTANTES:
-1. Cada demanda deve ter: titulo (curto), descricao (detalhada com orientações de execução), tipo_conteudo, canal, data_sugerida
-2. As datas devem estar DENTRO do período especificado
-3. Gere entre 8 a 15 demandas para cada linha
-4. Considere o orçamento e restrições mencionadas
-
-LINHA NORMAL (default_plan):
-- Demandas tradicionais, operacionais e seguras
-- Conteúdos que já funcionam no mercado
-- Abordagem conservadora e consistente
-- Foco em resultados previsíveis
-
-LINHA ULTRA (ultra_plan):
-- Demandas ousadas, criativas e fora da caixa
-- Ideias inovadoras e arriscadas
-- Campanhas virais potenciais
-- Abordagem disruptiva e diferenciada
-- Potencial de alto impacto
-
-Responda APENAS com um JSON válido no formato:
-{
-  "default_plan": [
-    {
-      "titulo": "...",
-      "descricao": "...",
-      "tipo_conteudo": "...",
-      "canal": "...",
-      "data_sugerida": "YYYY-MM-DD"
-    }
-  ],
-  "ultra_plan": [
-    {
-      "titulo": "...",
-      "descricao": "...",
-      "tipo_conteudo": "...",
-      "canal": "...",
-      "data_sugerida": "YYYY-MM-DD"
-    }
-  ],
-  "normal_summary": "Descrição breve do tom e abordagem do plano normal",
-  "ultra_summary": "Descrição breve do tom e abordagem do plano ultra"
-}`;
-
-    console.log('Generating period plans for:', periodPlanId);
-
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${apiKeyData.key_value}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-5-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: context }
         ],
+        max_completion_tokens: 4000,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI API error:', response.status, errorText);
+      console.error('OpenAI API error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: 'Rate limit excedido. Tente novamente em alguns segundos.' }), {
@@ -198,13 +217,13 @@ Responda APENAS com um JSON válido no formato:
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: 'Créditos insuficientes. Adicione créditos ao workspace.' }), {
-          status: 402,
+      if (response.status === 401) {
+        return new Response(JSON.stringify({ error: 'API Key inválida. Verifique a configuração do OPENAI_API_KEY.' }), {
+          status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      throw new Error(`AI API error: ${response.status}`);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const aiResponse = await response.json();
@@ -241,7 +260,7 @@ Responda APENAS com um JSON válido no formato:
       throw new Error('Erro ao salvar planos gerados');
     }
 
-    console.log('Period plans generated successfully');
+    console.log('Period plans generated successfully with GPT-5 Mini');
 
     return new Response(JSON.stringify({
       success: true,
