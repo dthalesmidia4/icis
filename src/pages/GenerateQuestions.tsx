@@ -25,21 +25,16 @@ interface StrategicAnswers {
 }
 
 const strategicQuestions = [
-  "O que você deseja alcançar com a sua comunicação e marketing neste momento? (Ex.: aumentar vendas, gerar leads, divulgar um produto específico, fortalecer a marca.)",
-  "Por qual motivo esse objetivo é tão importante para o seu negócio agora? (Desafios, oportunidades, concorrência, sazonalidade.)",
-  "Quem é o público que você precisa impactar? (Perfil, comportamento, faixa etária, região, dores e desejos.)",
-  "Em quais canais o seu público está mais presente e onde devemos concentrar esforços? (Instagram, TikTok, WhatsApp, YouTube, TV indoor, site, Google.)",
-  "Em qual prazo você espera começar a ver resultados dessas ações? (Ex.: nas próximas semanas, no próximo mês, alinhado a metas internas, campanhas em andamento.)",
-  "De que forma você prefere que a comunicação seja desenvolvida? (Tom direto, humanizado, premium, técnico; formatos como reels, carrosséis, vídeos comerciais.)",
-  "Como sua empresa atrai clientes hoje? (Fontes atuais de tráfego: indicações, redes sociais, anúncios, parcerias, Google.)",
-  "Quais diferenciais reais tornam sua empresa mais competitiva? (3 vantagens que devem orientar campanhas e criativos.)",
-  "Qual é o orçamento disponível para ações, anúncios ou impulsionamentos? (Valor mensal, porcentagem ou limite aproximado.)",
-  "Quais materiais você já possui que podem ajudar na produção dos conteúdos? (Fotos, vídeos, identidade visual, catálogo, cardápio, depoimentos, equipe para gravação.)",
-  "Existem datas, eventos ou ocasiões especiais que precisamos incluir no planejamento? (Feriados, semanas temáticas, lançamentos, campanhas internas.)",
-  "Quem será o responsável pela aprovação dos conteúdos e qual o tempo médio dessa aprovação?",
-  "Há alguma limitação que devemos considerar? (Orçamento, tempo, legislação, estoque, equipe, restrições internas.)",
-  "Qual é o maior desafio que impede sua marca de ter resultados melhores hoje? (Visibilidade, conversão, comunicação, público errado, falta de constância.)",
-  "Quais tipos de conteúdo são essenciais para o seu negócio? (Reels, carrosséis, stories, vídeos comerciais, TV indoor, posts estáticos, campanhas pagas.)"
+  "O que você deseja alcançar com sua comunicação neste momento? (Objetivo principal como vendas, leads, lançamento, autoridade, engajamento.)",
+  "Por que esse objetivo é importante para você agora? (Desafios, oportunidades, sazonalidade, concorrência, necessidade interna.)",
+  "Quem você deseja atingir com esse conteúdo? (Perfil, comportamento, região, dores e necessidades do público.)",
+  "Onde esse público está mais presente? (Canais como Instagram, TikTok, WhatsApp, YouTube, Google, site.)",
+  "Quando você espera começar a ver resultados? (Prazo estimado: semanas, próximo mês, campanha específica.)",
+  "Como você prefere que essa comunicação seja feita? (Tom e formatos: direto, humanizado, premium, educativo, reels, vídeos, stories, carrosséis.)",
+  "Como sua empresa atrai clientes hoje? (Fontes atuais: redes sociais, indicações, anúncios, Google, WhatsApp.)",
+  "Quais são os seus principais diferenciais frente aos concorrentes? (Três pontos que tornam sua empresa mais competitiva.)",
+  "Quanto você pode investir em tráfego pago ou impulsionamento? (Valor aproximado ou nível: zero, baixo, médio, alto.)",
+  "Quais limitações precisamos considerar antes de montar seu cronograma? (Tempo, equipe, estoque, gravação, orçamento, restrições internas, legislação, preferências de formatos.)"
 ];
 
 export default function GenerateQuestions() {
