@@ -167,9 +167,48 @@ export default function StrategyCreation() {
     }
   };
 
+  // Parse strategy text into sections based on ## headings
+  const parseStrategySections = (text: string) => {
+    if (!text) return [];
+    
+    const sections: { title: string; content: string }[] = [];
+    const lines = text.split('\n');
+    let currentSection: { title: string; content: string } | null = null;
+    
+    for (const line of lines) {
+      if (line.startsWith('## ')) {
+        if (currentSection) {
+          sections.push(currentSection);
+        }
+        currentSection = {
+          title: line.replace('## ', '').trim(),
+          content: ''
+        };
+      } else if (currentSection) {
+        currentSection.content += (currentSection.content ? '\n' : '') + line;
+      } else {
+        // Content before first ## heading
+        if (!sections.length && line.trim()) {
+          if (!currentSection) {
+            currentSection = { title: 'Visão Geral', content: '' };
+          }
+          currentSection.content += (currentSection.content ? '\n' : '') + line;
+        }
+      }
+    }
+    
+    if (currentSection) {
+      sections.push(currentSection);
+    }
+    
+    return sections;
+  };
+
   if (!selectedClient) return null;
 
-  return <div className="flex flex-col h-screen bg-background">
+  const strategySections = parseStrategySections(strategyText);
+
+  return <div className="flex flex-col min-h-screen bg-background">
       <ConfirmationModal open={showConfirmModal} onOpenChange={setShowConfirmModal} title="Substituir estratégia existente?" description="A estratégia anterior será substituída pela nova versão, impactando no planejamento e nas demandas. Deseja continuar?" onConfirm={handleSave} loading={isSaving} />
 
       <ConfirmationModal open={showDeleteModal} onOpenChange={setShowDeleteModal} title="Remover estratégia?" description="Esta ação não pode ser desfeita. A estratégia e todas as perguntas guias relacionadas serão removidas permanentemente. Deseja continuar?" onConfirm={handleDeleteStrategy} loading={isDeleting} />
@@ -202,67 +241,129 @@ export default function StrategyCreation() {
       />
 
       {/* Container Principal */}
-      <div className="flex-1">
-        <div className="container max-w-4xl mx-auto px-6 py-8">
-        <div className="bg-card rounded-lg border shadow-sm p-8">
-          <div className="space-y-8">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="strategy" className="text-base font-semibold">
-                  {existingStrategy ? 'Estratégia do Cliente' : 'Descreva a estratégia principal deste cliente *'}
-                </Label>
-                {existingStrategy && !isEditMode && <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)} className="gap-2">
+      <div className="flex-1 overflow-auto">
+        <div className="container max-w-4xl mx-auto px-6 py-8 space-y-6">
+          
+          {isLoadingStrategy ? (
+            <Card className="p-8">
+              <div className="flex flex-col items-center justify-center gap-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <p className="text-sm text-muted-foreground">Carregando estratégia...</p>
+              </div>
+            </Card>
+          ) : existingStrategy && !isEditMode ? (
+            <>
+              {/* Header Card with Edit Button */}
+              <Card className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Estratégia do Cliente</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Visualize e edite a estratégia principal de marketing
+                    </p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)} className="gap-2">
                     <Edit2 className="h-4 w-4" />
                     Editar
-                  </Button>}
-              </div>
-              
-              {isLoadingStrategy ? <Card>
-                  <CardContent className="py-12">
-                    <div className="flex flex-col items-center justify-center gap-4">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                      <p className="text-sm text-muted-foreground">Carregando estratégia...</p>
-                    </div>
-                  </CardContent>
-                </Card> : existingStrategy && !isEditMode ? <Card>
-                  <CardContent className="py-6">
-                    <p className="text-foreground whitespace-pre-wrap leading-relaxed">
-                      {strategyText}
-                    </p>
-                  </CardContent>
-                </Card> : <Textarea id="strategy" placeholder="Exemplo: Aumentar presença digital através de conteúdo educativo nas redes sociais, focando em LinkedIn e Instagram. Público-alvo: profissionais de 25-45 anos interessados em tecnologia..." value={strategyText} onChange={e => setStrategyText(e.target.value)} className="min-h-[300px] resize-y" />}
-            </div>
+                  </Button>
+                </div>
+              </Card>
 
-            <div className="space-y-2">
-              <Label htmlFor="observations" className="text-base font-semibold">
-                Observações e Restrições
-              </Label>
-              {isLoadingStrategy ? <Card>
-                  <CardContent className="py-8">
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                    </div>
-                  </CardContent>
-                </Card> : existingStrategy && !isEditMode ? observations ? <Card>
-                  <CardContent className="py-4">
-                    <p className="text-foreground whitespace-pre-wrap leading-relaxed text-sm">
-                      {observations}
+              {/* Strategy Content - Split by sections */}
+              {strategySections.length > 0 ? (
+                strategySections.map((section, index) => (
+                  <Card key={index} className="p-6">
+                    <h4 className="text-base font-semibold text-foreground mb-4 pb-2 border-b border-border">
+                      {section.title}
+                    </h4>
+                    <p className="text-foreground/90 whitespace-pre-wrap leading-relaxed text-sm">
+                      {section.content.trim()}
                     </p>
-                  </CardContent>
-                </Card> : <p className="text-sm text-muted-foreground italic">Nenhuma observação registrada</p> : <Textarea id="observations" placeholder="Adicione restrições específicas do cliente (ex: não publicar aos domingos, evitar temas polêmicos, priorizar tom formal, etc.)" value={observations} onChange={e => setObservations(e.target.value)} className="min-h-[120px] resize-y" />}
-            </div>
+                  </Card>
+                ))
+              ) : (
+                <Card className="p-6">
+                  <p className="text-foreground whitespace-pre-wrap leading-relaxed">
+                    {strategyText}
+                  </p>
+                </Card>
+              )}
 
-            {isEditMode && existingStrategy && (
-              <div className="pt-4">
-                <Button variant="destructive" onClick={() => setShowDeleteModal(true)} disabled={isDeleting} className="gap-2">
-                  <Trash2 className="h-4 w-4" />
-                  Remover Estratégia
-                </Button>
-              </div>
-            )}
-          </div>
+              {/* Observations Card */}
+              <Card className="p-6">
+                <h4 className="text-base font-semibold text-foreground mb-4 pb-2 border-b border-border">
+                  Observações e Restrições
+                </h4>
+                {observations ? (
+                  <p className="text-foreground/90 whitespace-pre-wrap leading-relaxed text-sm">
+                    {observations}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">
+                    Nenhuma observação registrada
+                  </p>
+                )}
+              </Card>
+            </>
+          ) : (
+            <>
+              {/* Edit Mode - Strategy Input */}
+              <Card className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="strategy" className="text-base font-semibold">
+                      {existingStrategy ? 'Editar Estratégia' : 'Descreva a estratégia principal deste cliente *'}
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1 mb-3">
+                      Use ## para criar seções (ex: ## Objetivos, ## Público-Alvo)
+                    </p>
+                  </div>
+                  <Textarea
+                    id="strategy"
+                    placeholder="Exemplo:&#10;## Objetivos&#10;Aumentar presença digital através de conteúdo educativo nas redes sociais...&#10;&#10;## Público-Alvo&#10;Profissionais de 25-45 anos interessados em tecnologia..."
+                    value={strategyText}
+                    onChange={e => setStrategyText(e.target.value)}
+                    className="min-h-[300px] resize-y"
+                  />
+                </div>
+              </Card>
+
+              {/* Edit Mode - Observations Input */}
+              <Card className="p-6">
+                <div className="space-y-4">
+                  <Label htmlFor="observations" className="text-base font-semibold">
+                    Observações e Restrições
+                  </Label>
+                  <Textarea
+                    id="observations"
+                    placeholder="Adicione restrições específicas do cliente (ex: não publicar aos domingos, evitar temas polêmicos, priorizar tom formal, etc.)"
+                    value={observations}
+                    onChange={e => setObservations(e.target.value)}
+                    className="min-h-[120px] resize-y"
+                  />
+                </div>
+              </Card>
+
+              {/* Delete Button - Only in edit mode with existing strategy */}
+              {isEditMode && existingStrategy && (
+                <Card className="p-6 border-destructive/20">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-base font-semibold text-destructive">Zona de Perigo</h4>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Remover a estratégia permanentemente
+                      </p>
+                    </div>
+                    <Button variant="destructive" onClick={() => setShowDeleteModal(true)} disabled={isDeleting} className="gap-2">
+                      <Trash2 className="h-4 w-4" />
+                      Remover Estratégia
+                    </Button>
+                  </div>
+                </Card>
+              )}
+            </>
+          )}
         </div>
       </div>
-    </div>
-  </div>;
+    </div>;
 }
