@@ -61,8 +61,6 @@ const PlanPeriod = () => {
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
   const [budget, setBudget] = useState("");
-  const [objective, setObjective] = useState("");
-  const [priorityChannel, setPriorityChannel] = useState("");
   const [observations, setObservations] = useState("");
   const [excludedFormats, setExcludedFormats] = useState<string[]>([]);
 
@@ -113,21 +111,8 @@ const PlanPeriod = () => {
 
   const displayName = selectedClient.fantasy_name || selectedClient.name;
 
-  const channels = [
-    "Instagram",
-    "Facebook",
-    "LinkedIn",
-    "TikTok",
-    "YouTube",
-    "WhatsApp",
-    "Email Marketing",
-    "Google Ads",
-    "Blog/Site",
-    "Multi-canal"
-  ];
-
   const handleSubmit = async () => {
-    if (!periodTitle || !periodStart || !periodEnd || !objective || !priorityChannel) {
+    if (!periodTitle || !periodStart || !periodEnd) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
@@ -150,8 +135,8 @@ const PlanPeriod = () => {
           period_start: periodStart,
           period_end: periodEnd,
           budget: budget || null,
-          objective,
-          priority_channel: priorityChannel,
+          objective: 'Gerado automaticamente',
+          priority_channel: 'Multi-canal',
           observations: observations || null,
           status: 'draft'
         })
@@ -285,43 +270,6 @@ const PlanPeriod = () => {
                 value={budget}
                 onChange={(e) => setBudget(e.target.value)}
               />
-            </div>
-          </div>
-        </Card>
-
-        {/* Objective & Channel */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Zap className="w-5 h-5 text-yellow-500" />
-            Objetivo e Canal
-          </h3>
-          
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="objective">Objetivo do Período *</Label>
-              <Textarea
-                id="objective"
-                placeholder="Descreva o que você deseja alcançar neste período..."
-                value={objective}
-                onChange={(e) => setObjective(e.target.value)}
-                rows={3}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="priorityChannel">Canal Prioritário *</Label>
-              <Select value={priorityChannel} onValueChange={setPriorityChannel}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o canal principal" />
-                </SelectTrigger>
-                <SelectContent>
-                  {channels.map((channel) => (
-                    <SelectItem key={channel} value={channel}>
-                      {channel}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
         </Card>
