@@ -598,18 +598,28 @@ const PlanPeriod = () => {
       const primaryPlan = selectedMode === 'normal' ? defaultPlan : ultraPlan;
       const finalPlanItems = kanbanIntegrated ? [] : (optionalPackage.length > 0 ? [...primaryPlan, ...optionalPackage] : primaryPlan);
       
-      // Create cards from the final plan
-      const cardsToInsert = finalPlanItems.map((item) => ({
-        tenant_id: tenantId,
-        period_plan_id: periodPlanId,
-        title: item.titulo,
-        description: item.descricao,
-        publication_date: item.data_sugerida || new Date().toISOString().split('T')[0],
-        file_location: `${item.tipo_conteudo} - ${item.canal}`,
-        status: 'unassigned',
-        column_name: 'Planejamento Automatizado',
-        observations: null
-      }));
+      // Create cards from the final plan - handle both Portuguese and English property names
+      const cardsToInsert = finalPlanItems.map((item) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const anyItem = item as any;
+        const title = item.titulo || anyItem.title || 'Sem título';
+        const description = item.descricao || anyItem.description || anyItem.objective || '';
+        const publicationDate = item.data_sugerida || anyItem.suggested_date || anyItem.date || new Date().toISOString().split('T')[0];
+        const contentType = item.tipo_conteudo || anyItem.type || anyItem.content_type || '';
+        const channel = item.canal || anyItem.channel || '';
+        
+        return {
+          tenant_id: tenantId,
+          period_plan_id: periodPlanId,
+          title,
+          description,
+          publication_date: publicationDate,
+          file_location: `${contentType} - ${channel}`.trim().replace(/^- | -$/g, ''),
+          status: 'unassigned',
+          column_name: 'Planejamento Automatizado',
+          observations: null
+        };
+      });
 
       if (cardsToInsert.length > 0) {
         const { error } = await supabase
