@@ -711,7 +711,7 @@ const PlanPeriod = () => {
                   
                   <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
                     <span className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
+                      <CalendarIcon className="w-4 h-4" />
                       {format(new Date(period.period_start), "dd/MM/yyyy", { locale: ptBR })} - {format(new Date(period.period_end), "dd/MM/yyyy", { locale: ptBR })}
                     </span>
                     <span className="flex items-center gap-1">
