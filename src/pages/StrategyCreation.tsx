@@ -186,14 +186,12 @@ export default function StrategyCreation() {
         };
       } else if (currentSection) {
         currentSection.content += (currentSection.content ? '\n' : '') + line;
-      } else {
-        // Content before first ## heading
-        if (!sections.length && line.trim()) {
-          if (!currentSection) {
-            currentSection = { title: 'Visão Geral', content: '' };
-          }
-          currentSection.content += (currentSection.content ? '\n' : '') + line;
+      } else if (line.trim()) {
+        // Content before first ## heading - add to intro without title
+        if (!currentSection) {
+          currentSection = { title: '', content: '' };
         }
+        currentSection.content += (currentSection.content ? '\n' : '') + line;
       }
     }
     
@@ -253,9 +251,9 @@ export default function StrategyCreation() {
             </Card>
           ) : existingStrategy && !isEditMode ? (
             <>
-              {/* Header Card with Edit Button */}
+              {/* Strategy Content Card */}
               <Card className="p-6">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
                   <div>
                     <h3 className="text-lg font-semibold text-foreground">Estratégia do Cliente</h3>
                     <p className="text-sm text-muted-foreground mt-1">
@@ -267,27 +265,29 @@ export default function StrategyCreation() {
                     Editar
                   </Button>
                 </div>
-              </Card>
 
-              {/* Strategy Content - Split by sections */}
-              {strategySections.length > 0 ? (
-                strategySections.map((section, index) => (
-                  <Card key={index} className="p-6">
-                    <h4 className="text-base font-semibold text-foreground mb-4 pb-2 border-b border-border">
-                      {section.title}
-                    </h4>
-                    <p className="text-foreground/90 whitespace-pre-wrap leading-relaxed text-sm">
-                      {section.content.trim()}
+                {/* Strategy Content */}
+                <div className="space-y-6">
+                  {strategySections.length > 0 ? (
+                    strategySections.map((section, index) => (
+                      <div key={index}>
+                        {section.title && (
+                          <h4 className="text-base font-semibold text-foreground mb-3">
+                            {section.title}
+                          </h4>
+                        )}
+                        <p className="text-foreground/90 whitespace-pre-wrap leading-relaxed text-sm">
+                          {section.content.trim()}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-foreground whitespace-pre-wrap leading-relaxed">
+                      {strategyText}
                     </p>
-                  </Card>
-                ))
-              ) : (
-                <Card className="p-6">
-                  <p className="text-foreground whitespace-pre-wrap leading-relaxed">
-                    {strategyText}
-                  </p>
-                </Card>
-              )}
+                  )}
+                </div>
+              </Card>
 
               {/* Observations Card */}
               <Card className="p-6">
