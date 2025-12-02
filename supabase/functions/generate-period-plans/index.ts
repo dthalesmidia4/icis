@@ -231,9 +231,14 @@ ESTRUTURA DE CADA DEMANDA (campos obrigatórios):
 
 IMPORTANTE: O campo "texto_da_peca" DEVE conter o conteúdo COMPLETO E PRONTO PARA USO:
 - Para carrosséis: todos os slides com texto exato de cada um
-- Para reels/vídeos: roteiro completo cena por cena
-- Para posts: texto completo da legenda
-- Para stories: sequência completa de frames
+- Para reels/vídeos: roteiro completo cena por cena com falas e descrição visual
+- Para posts estáticos: texto completo da legenda + texto que vai na imagem
+- Para stories: sequência completa de frames com texto de cada um
+- Para depoimentos: texto completo do depoimento/citação do cliente
+- Para vídeos comerciais: roteiro completo com cada cena, VO (voz off) e texto na tela
+- Para posts LinkedIn: texto completo do artigo/post
+
+⚠️ NUNCA deixe "texto_da_peca" vazio. TODA demanda DEVE ter conteúdo pronto para uso.
 
 FORMATO DE RESPOSTA FINAL:
 {
