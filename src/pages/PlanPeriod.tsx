@@ -549,7 +549,8 @@ const PlanPeriod = () => {
             const title = item.titulo || anyItem.title || 'Sem título';
             const tipo = anyItem.tipo || item.tipo_conteudo || '';
             const objetivo = anyItem.objetivo || anyItem.objective || '';
-            const descricao = anyItem.descricao_da_tarefa || item.descricao || anyItem.description || '';
+            // Priorizar texto_da_peca (conteúdo dos slides)
+            const descricao = anyItem.texto_da_peca || anyItem.descricao_da_tarefa || item.descricao || anyItem.description || '';
             const channel = item.canal || anyItem.channel || '';
             return (
               <div key={idx} className="p-4 bg-muted/50 rounded-lg">
@@ -560,8 +561,8 @@ const PlanPeriod = () => {
                       <Badge variant="outline">{channel}</Badge>
                     </div>
                     <p className="font-medium">{title}</p>
-                    {objetivo && <p className="text-xs text-primary mt-1">Objetivo: {objetivo}</p>}
-                    <p className="text-sm text-muted-foreground mt-1 whitespace-pre-line">{descricao.slice(0, 150)}{descricao.length > 150 ? '...' : ''}</p>
+                    {objetivo && <p className="text-xs text-primary mt-1">📎 {objetivo}</p>}
+                    <p className="text-sm text-muted-foreground mt-2 whitespace-pre-line">{descricao.slice(0, 300)}{descricao.length > 300 ? '...' : ''}</p>
                   </div>
                 </div>
               </div>
@@ -608,13 +609,26 @@ const PlanPeriod = () => {
       const cardsToInsert = finalPlanItems.map((item) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const anyItem = item as any;
-        // New format fields: tipo, titulo, objetivo, descricao_da_tarefa, canal, data_sugerida
+        
+        // Campos principais
         const title = item.titulo || anyItem.title || 'Sem título';
         const tipo = anyItem.tipo || item.tipo_conteudo || anyItem.type || '';
-        const objetivo = anyItem.objetivo || anyItem.objective || '';
-        const descricao = anyItem.descricao_da_tarefa || item.descricao || anyItem.description || '';
         const channel = item.canal || anyItem.channel || '';
         const publicationDate = item.data_sugerida || anyItem.suggested_date || anyItem.date || new Date().toISOString().split('T')[0];
+        
+        // DESCRIÇÃO: priorizar texto_da_peca (conteúdo dos slides) > descricao_da_tarefa > descricao
+        const descricao = anyItem.texto_da_peca || anyItem.descricao_da_tarefa || item.descricao || anyItem.description || '';
+        
+        // OBSERVAÇÕES: combinar objetivo + instruções de produção + CTA recomendado
+        const objetivo = anyItem.objetivo || anyItem.objective || '';
+        const instrucoesProducao = anyItem.instrucoes_de_producao || '';
+        const ctaRecomendado = anyItem.cta_recomendado || '';
+        
+        const observationsParts = [
+          objetivo && `📎 Objetivo: ${objetivo}`,
+          instrucoesProducao && `🎨 Instruções: ${instrucoesProducao}`,
+          ctaRecomendado && `📢 CTA: ${ctaRecomendado}`
+        ].filter(Boolean);
         
         return {
           tenant_id: tenantId,
@@ -625,7 +639,7 @@ const PlanPeriod = () => {
           file_location: tipo ? `${tipo} - ${channel}`.trim().replace(/^- | -$/g, '') : channel,
           status: 'unassigned',
           column_name: 'Planejamento Automatizado',
-          observations: objetivo || null
+          observations: observationsParts.length > 0 ? observationsParts.join('\n\n') : null
         };
       });
 
