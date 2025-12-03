@@ -167,7 +167,7 @@ export default function GenerateQuestions() {
 
     strategicQuestions.forEach((question, idx) => {
       const key = `question_${idx}`;
-      const answer = answers[key] || "Sem resposta";
+      const answer = answers[key]?.trim() || "";
 
       if (yPosition > 260) {
         doc.addPage();
@@ -178,18 +178,23 @@ export default function GenerateQuestions() {
       doc.text(`${idx + 1}. ${question}`, 20, yPosition);
       yPosition += 7;
 
-      doc.setFont("helvetica", "italic");
-      const answerLines = doc.splitTextToSize(answer, 170);
-      answerLines.forEach((line: string) => {
-        if (yPosition > 270) {
-          doc.addPage();
-          yPosition = 20;
-        }
-        doc.text(line, 20, yPosition);
-        yPosition += 5;
-      });
-
-      yPosition += 8;
+      if (answer) {
+        // Se há resposta, exibir normalmente
+        doc.setFont("helvetica", "italic");
+        const answerLines = doc.splitTextToSize(answer, 170);
+        answerLines.forEach((line: string) => {
+          if (yPosition > 270) {
+            doc.addPage();
+            yPosition = 20;
+          }
+          doc.text(line, 20, yPosition);
+          yPosition += 5;
+        });
+        yPosition += 8;
+      } else {
+        // Se não há resposta, deixar espaço em branco para escrita manual
+        yPosition += 25;
+      }
     });
 
     doc.save(
