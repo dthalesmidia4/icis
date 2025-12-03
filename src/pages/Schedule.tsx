@@ -756,7 +756,10 @@ export default function Schedule() {
 
                                       {/* File Location */}
                                       <div>
-                                        <Label className="text-xs text-muted-foreground mb-1 block">Tipo de Conteúdo</Label>
+                                        <div className="flex items-center gap-1.5 mb-1">
+                                          <Layers className="h-3 w-3 text-muted-foreground" />
+                                          <Label className="text-xs text-muted-foreground">Tipo de Conteúdo</Label>
+                                        </div>
                                         {editingField === 'file_location' ? (
                                           <Input
                                             autoFocus
@@ -771,10 +774,9 @@ export default function Schedule() {
                                           />
                                         ) : (
                                           <div 
-                                            className="flex items-center gap-1 text-sm cursor-pointer rounded p-1 -m-1 transition-all duration-200 hover:bg-muted/50"
+                                            className="text-sm cursor-pointer rounded p-1 -m-1 transition-all duration-200 hover:bg-muted/50"
                                             onClick={() => setEditingField('file_location')}
                                           >
-                                            <Layers className="h-3 w-3 text-muted-foreground" />
                                             <span className="text-muted-foreground">
                                               {selectedCard?.file_location || "Clique para definir"}
                                             </span>
