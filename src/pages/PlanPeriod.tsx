@@ -549,8 +549,8 @@ const PlanPeriod = () => {
             const title = item.titulo || anyItem.title || 'Sem título';
             const tipo = anyItem.tipo || item.tipo_conteudo || '';
             const objetivo = anyItem.objetivo || anyItem.objective || '';
-            // Priorizar texto_da_peca (conteúdo dos slides)
-            const descricao = anyItem.texto_da_peca || anyItem.descricao_da_tarefa || item.descricao || anyItem.description || '';
+            // Priorizar conteudo (conteúdo dos slides/roteiros)
+            const descricao = anyItem.conteudo || anyItem.texto_da_peca || anyItem.descricao_da_tarefa || item.descricao || anyItem.description || '';
             const channel = item.canal || anyItem.channel || '';
             return (
               <div key={idx} className="p-4 bg-muted/50 rounded-lg">
@@ -616,8 +616,8 @@ const PlanPeriod = () => {
         const channel = item.canal || anyItem.channel || '';
         const publicationDate = item.data_sugerida || anyItem.suggested_date || anyItem.date || new Date().toISOString().split('T')[0];
         
-        // DESCRIÇÃO: priorizar texto_da_peca (conteúdo dos slides) > descricao_da_tarefa > descricao
-        const descricao = anyItem.texto_da_peca || anyItem.descricao_da_tarefa || item.descricao || anyItem.description || '';
+        // DESCRIÇÃO: priorizar conteudo (conteúdo dos slides/roteiros) > texto_da_peca > descricao_da_tarefa
+        const descricao = anyItem.conteudo || anyItem.texto_da_peca || anyItem.descricao_da_tarefa || item.descricao || anyItem.description || '';
         
         // OBSERVAÇÕES: combinar objetivo + instruções de produção + CTA recomendado
         const objetivo = anyItem.objetivo || anyItem.objective || '';
