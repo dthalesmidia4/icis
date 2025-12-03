@@ -756,7 +756,7 @@ export default function Schedule() {
 
                                       {/* File Location */}
                                       <div>
-                                        <Label className="text-xs text-muted-foreground mb-1 block">Localização do Arquivo</Label>
+                                        <Label className="text-xs text-muted-foreground mb-1 block">Tipo de Conteúdo</Label>
                                         {editingField === 'file_location' ? (
                                           <Input
                                             autoFocus
