@@ -24,7 +24,7 @@ interface KanbanCard {
   title: string;
   status: string;
   column_name: string | null;
-  publication_date: string;
+  delivery_date: string;
   file_location: string | null;
   objetivo: string | null;
   description: string | null;
@@ -263,7 +263,7 @@ export default function Schedule() {
         card.title.toLowerCase().includes(searchLower) ||
         card.description?.toLowerCase().includes(searchLower) ||
         card.file_location?.toLowerCase().includes(searchLower) ||
-        new Date(card.publication_date).toLocaleDateString("pt-BR").includes(searchLower);
+        new Date(card.delivery_date).toLocaleDateString("pt-BR").includes(searchLower);
 
       const matchesChannel = channelFilter === "all" || (() => {
         const text = `${card.file_location || ''} ${card.description || ''}`.toLowerCase();
@@ -494,7 +494,7 @@ export default function Schedule() {
                                       </div>
                                       <div className="flex items-center text-xs text-muted-foreground">
                                         <Calendar className="h-3 w-3 mr-1" />
-                                        {new Date(card.publication_date + 'T00:00:00').toLocaleDateString("pt-BR")}
+                                        {new Date(card.delivery_date + 'T00:00:00').toLocaleDateString("pt-BR")}
                                       </div>
                                     </CardContent>
                                   </Card>
@@ -703,28 +703,28 @@ export default function Schedule() {
                                         )}
                                       </div>
 
-                                      {/* Publication Date */}
+                                      {/* Delivery Date */}
                                       <div>
                                         <Label className="text-xs text-muted-foreground mb-1 block">Data de Entrega</Label>
-                                        {editingField === 'publication_date' ? (
+                                        {editingField === 'delivery_date' ? (
                                           <Input
                                             type="date"
                                             autoFocus
-                                            value={selectedCard?.publication_date || ""}
+                                            value={selectedCard?.delivery_date || ""}
                                             onChange={(e) =>
                                               setSelectedCard((prev) =>
-                                                prev ? { ...prev, publication_date: e.target.value } : null
+                                                prev ? { ...prev, delivery_date: e.target.value } : null
                                               )
                                             }
-                                            onBlur={() => handleAutoSave('publication_date', selectedCard?.publication_date || '')}
+                                            onBlur={() => handleAutoSave('delivery_date', selectedCard?.delivery_date || '')}
                                           />
                                         ) : (
                                           <p 
                                             className="text-sm font-medium cursor-pointer rounded p-1 -m-1 transition-all duration-200 hover:bg-muted/50"
-                                            onClick={() => setEditingField('publication_date')}
+                                            onClick={() => setEditingField('delivery_date')}
                                           >
-                                            {selectedCard?.publication_date
-                                              ? new Date(selectedCard.publication_date + 'T00:00:00').toLocaleDateString("pt-BR", {
+                                            {selectedCard?.delivery_date
+                                              ? new Date(selectedCard.delivery_date + 'T00:00:00').toLocaleDateString("pt-BR", {
                                                   weekday: "long",
                                                   day: "numeric",
                                                   month: "long",
