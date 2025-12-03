@@ -616,30 +616,32 @@ const PlanPeriod = () => {
         const channel = item.canal || anyItem.channel || '';
         const publicationDate = item.data_sugerida || anyItem.suggested_date || anyItem.date || new Date().toISOString().split('T')[0];
         
-        // DESCRIÇÃO: priorizar conteudo (conteúdo dos slides/roteiros) > texto_da_peca > descricao_da_tarefa
+        // ATIVIDADE: priorizar conteudo (conteúdo dos slides/roteiros) > texto_da_peca > descricao_da_tarefa
         const descricao = anyItem.conteudo || anyItem.texto_da_peca || anyItem.descricao_da_tarefa || item.descricao || anyItem.description || '';
         
-        // OBSERVAÇÕES: combinar objetivo + instruções de produção + CTA recomendado
+        // OBJETIVO: campo separado
         const objetivo = anyItem.objetivo || anyItem.objective || '';
+        
+        // INSTRUÇÕES: combinar instruções de produção + CTA recomendado
         const instrucoesProducao = anyItem.instrucoes_de_producao || '';
         const ctaRecomendado = anyItem.cta_recomendado || '';
-        
-        const observationsParts = [
-          objetivo && `📎 Objetivo: ${objetivo}`,
-          instrucoesProducao && `🎨 Instruções: ${instrucoesProducao}`,
-          ctaRecomendado && `📢 CTA: ${ctaRecomendado}`
+        const instrucoesParts = [
+          instrucoesProducao,
+          ctaRecomendado && `CTA: ${ctaRecomendado}`
         ].filter(Boolean);
         
         return {
           tenant_id: tenantId,
           period_plan_id: periodPlanId,
           title,
+          objetivo: objetivo || null,
           description: descricao,
+          instrucoes: instrucoesParts.length > 0 ? instrucoesParts.join('\n\n') : null,
           publication_date: publicationDate,
           file_location: tipo ? `${tipo} - ${channel}`.trim().replace(/^- | -$/g, '') : channel,
           status: 'unassigned',
           column_name: 'Planejamento Automatizado',
-          observations: observationsParts.length > 0 ? observationsParts.join('\n\n') : null
+          observations: null
         };
       });
 
