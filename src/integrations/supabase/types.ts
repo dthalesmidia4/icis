@@ -45,6 +45,8 @@ export type Database = {
           description: string | null
           file_location: string | null
           id: string
+          instrucoes: string | null
+          objetivo: string | null
           observations: string | null
           period_plan_id: string | null
           plan_id: string | null
@@ -60,6 +62,8 @@ export type Database = {
           description?: string | null
           file_location?: string | null
           id?: string
+          instrucoes?: string | null
+          objetivo?: string | null
           observations?: string | null
           period_plan_id?: string | null
           plan_id?: string | null
@@ -75,6 +79,8 @@ export type Database = {
           description?: string | null
           file_location?: string | null
           id?: string
+          instrucoes?: string | null
+          objetivo?: string | null
           observations?: string | null
           period_plan_id?: string | null
           plan_id?: string | null

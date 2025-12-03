@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { ArrowLeft, Calendar, FileText, Link as LinkIcon, Edit2, Save, Search, Filter, Trash2, LayoutGrid } from "lucide-react";
+import { ArrowLeft, Calendar, FileText, Link as LinkIcon, Edit2, Save, Search, Filter, Trash2, LayoutGrid, Target, ClipboardList } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
@@ -25,7 +25,9 @@ interface KanbanCard {
   column_name: string | null;
   publication_date: string;
   file_location: string | null;
+  objetivo: string | null;
   description: string | null;
+  instrucoes: string | null;
   observations: string | null;
   period_plan_id: string | null;
   tenant_id: string;
@@ -210,7 +212,9 @@ export default function Schedule() {
         .from("cards")
         .update({
           title: selectedCard.title,
+          objetivo: selectedCard.objetivo,
           description: selectedCard.description,
+          instrucoes: selectedCard.instrucoes,
           publication_date: selectedCard.publication_date,
           file_location: selectedCard.file_location,
           observations: selectedCard.observations,
@@ -542,12 +546,39 @@ export default function Schedule() {
                                         </div>
                                       </DialogHeader>
 
-                                      {/* Description */}
+                                      {/* Content Sections */}
                                       <div className="space-y-4">
+                                        {/* Objetivo */}
+                                        <div>
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <Target className="h-4 w-4 text-primary" />
+                                            <Label className="text-sm font-medium">Objetivo</Label>
+                                          </div>
+                                          {editMode ? (
+                                            <Textarea
+                                              value={selectedCard?.objetivo || ""}
+                                              onChange={(e) =>
+                                                setSelectedCard((prev) =>
+                                                  prev ? { ...prev, objetivo: e.target.value } : null
+                                                )
+                                              }
+                                              className="min-h-[60px]"
+                                              rows={2}
+                                            />
+                                          ) : (
+                                            <div className="bg-muted/30 rounded-lg p-4">
+                                              {selectedCard?.objetivo || (
+                                                <span className="text-muted-foreground text-sm">Sem objetivo definido</span>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Atividade (antigo Descrição) */}
                                         <div>
                                           <div className="flex items-center gap-2 mb-2">
                                             <FileText className="h-4 w-4 text-muted-foreground" />
-                                            <Label className="text-sm font-medium">Descrição</Label>
+                                            <Label className="text-sm font-medium">Atividade</Label>
                                           </div>
                                           {editMode ? (
                                             <Textarea
@@ -567,18 +598,18 @@ export default function Schedule() {
                                           )}
                                         </div>
 
-                                        {/* Observations */}
+                                        {/* Instruções */}
                                         <div>
                                           <div className="flex items-center gap-2 mb-2">
-                                            <FileText className="h-4 w-4 text-muted-foreground" />
-                                            <Label className="text-sm font-medium">Observações</Label>
+                                            <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                                            <Label className="text-sm font-medium">Instruções</Label>
                                           </div>
                                           {editMode ? (
                                             <Textarea
-                                              value={selectedCard?.observations || ""}
+                                              value={selectedCard?.instrucoes || ""}
                                               onChange={(e) =>
                                                 setSelectedCard((prev) =>
-                                                  prev ? { ...prev, observations: e.target.value } : null
+                                                  prev ? { ...prev, instrucoes: e.target.value } : null
                                                 )
                                               }
                                               className="min-h-[80px]"
@@ -586,8 +617,8 @@ export default function Schedule() {
                                             />
                                           ) : (
                                             <div className="bg-muted/30 rounded-lg p-4">
-                                              {formatDescription(selectedCard?.observations) || (
-                                                <span className="text-muted-foreground text-sm">Sem observações</span>
+                                              {formatDescription(selectedCard?.instrucoes) || (
+                                                <span className="text-muted-foreground text-sm">Sem instruções</span>
                                               )}
                                             </div>
                                           )}
