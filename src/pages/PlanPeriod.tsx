@@ -637,7 +637,7 @@ const PlanPeriod = () => {
           objetivo: objetivo || null,
           description: descricao,
           instrucoes: instrucoesParts.length > 0 ? instrucoesParts.join('\n\n') : null,
-          publication_date: publicationDate,
+          delivery_date: publicationDate,
           file_location: tipo ? `${tipo} - ${channel}`.trim().replace(/^- | -$/g, '') : channel,
           status: 'unassigned',
           column_name: 'Planejamento Automatizado',

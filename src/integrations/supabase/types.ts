@@ -42,6 +42,7 @@ export type Database = {
         Row: {
           column_name: string | null
           created_at: string
+          delivery_date: string
           description: string | null
           file_location: string | null
           id: string
@@ -50,7 +51,6 @@ export type Database = {
           observations: string | null
           period_plan_id: string | null
           plan_id: string | null
-          publication_date: string
           status: string
           tenant_id: string
           title: string
@@ -59,6 +59,7 @@ export type Database = {
         Insert: {
           column_name?: string | null
           created_at?: string
+          delivery_date: string
           description?: string | null
           file_location?: string | null
           id?: string
@@ -67,7 +68,6 @@ export type Database = {
           observations?: string | null
           period_plan_id?: string | null
           plan_id?: string | null
-          publication_date: string
           status?: string
           tenant_id: string
           title: string
@@ -76,6 +76,7 @@ export type Database = {
         Update: {
           column_name?: string | null
           created_at?: string
+          delivery_date?: string
           description?: string | null
           file_location?: string | null
           id?: string
@@ -84,7 +85,6 @@ export type Database = {
           observations?: string | null
           period_plan_id?: string | null
           plan_id?: string | null
-          publication_date?: string
           status?: string
           tenant_id?: string
           title?: string
