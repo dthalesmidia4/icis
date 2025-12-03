@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -501,9 +502,10 @@ export default function Schedule() {
 
                                 {/* Card Detail Modal */}
                                 <DialogContent className="max-w-[95vw] md:max-w-4xl max-h-[90vh] p-0 overflow-hidden">
-                                  <div className="grid grid-cols-1 md:grid-cols-3 max-h-[90vh] overflow-y-auto">
-                                    {/* Left Column - Main Content */}
-                                    <div className="md:col-span-2 p-4 sm:p-6 border-b md:border-b-0 md:border-r border-border">
+                                  <div className="grid grid-cols-1 md:grid-cols-3 h-[90vh]">
+                                    {/* Left Column - Main Content (Scrollable) */}
+                                    <ScrollArea className="md:col-span-2 h-full border-b md:border-b-0 md:border-r border-border">
+                                      <div className="p-4 sm:p-6">
                                       <DialogHeader className="mb-4">
                                         {editingField === 'title' ? (
                                           <Input
@@ -636,10 +638,11 @@ export default function Schedule() {
                                           )}
                                         </div>
                                       </div>
-                                    </div>
+                                      </div>
+                                    </ScrollArea>
 
-                                    {/* Right Column - Metadata */}
-                                    <div className="p-4 sm:p-6 bg-muted/20 space-y-4">
+                                    {/* Right Column - Metadata (Fixed) */}
+                                    <div className="p-4 sm:p-6 bg-muted/20 space-y-4 overflow-y-auto max-h-[90vh]">
                                       {/* Status */}
                                       <div>
                                         <Label className="text-xs text-muted-foreground mb-1 block">Status</Label>
