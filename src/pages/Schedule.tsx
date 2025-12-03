@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { ArrowLeft, Calendar, FileText, Link as LinkIcon, Edit2, Save, Search, Filter, Trash2, LayoutGrid, Target, ClipboardList } from "lucide-react";
+import { ArrowLeft, Calendar, FileText, Link as LinkIcon, Search, Filter, Trash2, LayoutGrid, Target, ClipboardList } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
@@ -52,8 +52,8 @@ export default function Schedule() {
   const [loading, setLoading] = useState(true);
   const [cards, setCards] = useState<KanbanCard[]>([]);
   const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null);
-  const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingField, setEditingField] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [referencePeriod, setReferencePeriod] = useState<{ titulo: string; dataInicio: string; dataFim: string } | null>(null);
@@ -203,43 +203,32 @@ export default function Schedule() {
     }
   };
 
-  const handleSaveCard = async () => {
+  const handleAutoSave = async (field: string, value: string) => {
     if (!selectedCard) return;
 
     setSaving(true);
     try {
+      const updateData: Record<string, any> = { [field]: value };
+      
       const { error } = await supabase
         .from("cards")
-        .update({
-          title: selectedCard.title,
-          objetivo: selectedCard.objetivo,
-          description: selectedCard.description,
-          instrucoes: selectedCard.instrucoes,
-          publication_date: selectedCard.publication_date,
-          file_location: selectedCard.file_location,
-          observations: selectedCard.observations,
-          status: selectedCard.status,
-        })
+        .update(updateData)
         .eq("id", selectedCard.id);
 
       if (error) throw error;
 
-      toast({
-        title: "Tarefa atualizada!",
-        description: "As alterações foram salvas com sucesso.",
-      });
+      // Update local cards state
+      setCards(prev => prev.map(c => 
+        c.id === selectedCard.id ? { ...c, [field]: value } : c
+      ));
 
-      setEditMode(false);
-      fetchPeriodPlanCards();
+      sonnerToast.success("Salvo automaticamente");
     } catch (error) {
       console.error("Error saving card:", error);
-      toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível salvar as alterações.",
-        variant: "destructive",
-      });
+      sonnerToast.error("Erro ao salvar");
     } finally {
       setSaving(false);
+      setEditingField(null);
     }
   };
 
@@ -481,7 +470,7 @@ export default function Schedule() {
                                     }`}
                                     onClick={() => {
                                       setSelectedCard(card);
-                                      setEditMode(false);
+                                      setEditingField(null);
                                     }}
                                   >
                                     <CardHeader className="p-3 pb-2">
@@ -516,34 +505,31 @@ export default function Schedule() {
                                     {/* Left Column - Main Content */}
                                     <div className="md:col-span-2 p-4 sm:p-6 border-b md:border-b-0 md:border-r border-border">
                                       <DialogHeader className="mb-4">
-                                        <div className="flex items-start justify-between">
-                                          {editMode ? (
-                                            <Input
-                                              value={selectedCard?.title || ""}
-                                              onChange={(e) =>
-                                                setSelectedCard((prev) =>
-                                                  prev ? { ...prev, title: e.target.value } : null
-                                                )
+                                        {editingField === 'title' ? (
+                                          <Input
+                                            autoFocus
+                                            value={selectedCard?.title || ""}
+                                            onChange={(e) =>
+                                              setSelectedCard((prev) =>
+                                                prev ? { ...prev, title: e.target.value } : null
+                                              )
+                                            }
+                                            onBlur={() => handleAutoSave('title', selectedCard?.title || '')}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') {
+                                                handleAutoSave('title', selectedCard?.title || '');
                                               }
-                                              className="text-lg font-semibold"
-                                            />
-                                          ) : (
-                                            <DialogTitle className="text-lg pr-8">
-                                              {selectedCard?.title}
-                                            </DialogTitle>
-                                          )}
-                                          {!editMode && (
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() => setEditMode(true)}
-                                              className="shrink-0"
-                                            >
-                                              <Edit2 className="h-4 w-4 mr-1" />
-                                              Editar
-                                            </Button>
-                                          )}
-                                        </div>
+                                            }}
+                                            className="text-lg font-semibold"
+                                          />
+                                        ) : (
+                                          <DialogTitle 
+                                            className="text-lg cursor-pointer rounded-lg p-2 -m-2 transition-all duration-200 hover:bg-muted/50"
+                                            onClick={() => setEditingField('title')}
+                                          >
+                                            {selectedCard?.title}
+                                          </DialogTitle>
+                                        )}
                                       </DialogHeader>
 
                                       {/* Content Sections */}
@@ -553,22 +539,30 @@ export default function Schedule() {
                                           <div className="flex items-center gap-2 mb-2">
                                             <Target className="h-4 w-4 text-primary" />
                                             <Label className="text-sm font-medium">Objetivo</Label>
+                                            {saving && editingField === 'objetivo' && (
+                                              <span className="text-xs text-muted-foreground">Salvando...</span>
+                                            )}
                                           </div>
-                                          {editMode ? (
+                                          {editingField === 'objetivo' ? (
                                             <Textarea
+                                              autoFocus
                                               value={selectedCard?.objetivo || ""}
                                               onChange={(e) =>
                                                 setSelectedCard((prev) =>
                                                   prev ? { ...prev, objetivo: e.target.value } : null
                                                 )
                                               }
+                                              onBlur={() => handleAutoSave('objetivo', selectedCard?.objetivo || '')}
                                               className="min-h-[60px]"
                                               rows={2}
                                             />
                                           ) : (
-                                            <div className="bg-muted/30 rounded-lg p-4">
+                                            <div 
+                                              className="bg-muted/30 rounded-lg p-4 cursor-pointer transition-all duration-200 hover:bg-muted/50 hover:shadow-sm"
+                                              onClick={() => setEditingField('objetivo')}
+                                            >
                                               {selectedCard?.objetivo || (
-                                                <span className="text-muted-foreground text-sm">Sem objetivo definido</span>
+                                                <span className="text-muted-foreground text-sm italic">Clique para adicionar objetivo</span>
                                               )}
                                             </div>
                                           )}
@@ -579,21 +573,31 @@ export default function Schedule() {
                                           <div className="flex items-center gap-2 mb-2">
                                             <FileText className="h-4 w-4 text-muted-foreground" />
                                             <Label className="text-sm font-medium">Atividade</Label>
+                                            {saving && editingField === 'description' && (
+                                              <span className="text-xs text-muted-foreground">Salvando...</span>
+                                            )}
                                           </div>
-                                          {editMode ? (
+                                          {editingField === 'description' ? (
                                             <Textarea
+                                              autoFocus
                                               value={selectedCard?.description || ""}
                                               onChange={(e) =>
                                                 setSelectedCard((prev) =>
                                                   prev ? { ...prev, description: e.target.value } : null
                                                 )
                                               }
+                                              onBlur={() => handleAutoSave('description', selectedCard?.description || '')}
                                               className="min-h-[150px] font-mono text-sm"
                                               rows={8}
                                             />
                                           ) : (
-                                            <div className="bg-muted/30 rounded-lg p-4">
-                                              {formatDescription(selectedCard?.description)}
+                                            <div 
+                                              className="bg-muted/30 rounded-lg p-4 cursor-pointer transition-all duration-200 hover:bg-muted/50 hover:shadow-sm"
+                                              onClick={() => setEditingField('description')}
+                                            >
+                                              {formatDescription(selectedCard?.description) || (
+                                                <span className="text-muted-foreground text-sm italic">Clique para adicionar atividade</span>
+                                              )}
                                             </div>
                                           )}
                                         </div>
@@ -603,52 +607,35 @@ export default function Schedule() {
                                           <div className="flex items-center gap-2 mb-2">
                                             <ClipboardList className="h-4 w-4 text-muted-foreground" />
                                             <Label className="text-sm font-medium">Instruções</Label>
+                                            {saving && editingField === 'instrucoes' && (
+                                              <span className="text-xs text-muted-foreground">Salvando...</span>
+                                            )}
                                           </div>
-                                          {editMode ? (
+                                          {editingField === 'instrucoes' ? (
                                             <Textarea
+                                              autoFocus
                                               value={selectedCard?.instrucoes || ""}
                                               onChange={(e) =>
                                                 setSelectedCard((prev) =>
                                                   prev ? { ...prev, instrucoes: e.target.value } : null
                                                 )
                                               }
+                                              onBlur={() => handleAutoSave('instrucoes', selectedCard?.instrucoes || '')}
                                               className="min-h-[80px]"
                                               rows={3}
                                             />
                                           ) : (
-                                            <div className="bg-muted/30 rounded-lg p-4">
+                                            <div 
+                                              className="bg-muted/30 rounded-lg p-4 cursor-pointer transition-all duration-200 hover:bg-muted/50 hover:shadow-sm"
+                                              onClick={() => setEditingField('instrucoes')}
+                                            >
                                               {formatDescription(selectedCard?.instrucoes) || (
-                                                <span className="text-muted-foreground text-sm">Sem instruções</span>
+                                                <span className="text-muted-foreground text-sm italic">Clique para adicionar instruções</span>
                                               )}
                                             </div>
                                           )}
                                         </div>
                                       </div>
-
-                                      {/* Actions */}
-                                      {editMode && (
-                                        <div className="flex gap-2 mt-6 pt-4 border-t">
-                                          <Button
-                                            onClick={handleSaveCard}
-                                            disabled={saving}
-                                            className="flex-1"
-                                          >
-                                            <Save className="h-4 w-4 mr-2" />
-                                            {saving ? "Salvando..." : "Salvar"}
-                                          </Button>
-                                          <Button
-                                            variant="outline"
-                                            onClick={() => {
-                                              setEditMode(false);
-                                              // Restore original card data
-                                              const originalCard = cards.find(c => c.id === selectedCard?.id);
-                                              if (originalCard) setSelectedCard(originalCard);
-                                            }}
-                                          >
-                                            Cancelar
-                                          </Button>
-                                        </div>
-                                      )}
                                     </div>
 
                                     {/* Right Column - Metadata */}
@@ -656,14 +643,15 @@ export default function Schedule() {
                                       {/* Status */}
                                       <div>
                                         <Label className="text-xs text-muted-foreground mb-1 block">Status</Label>
-                                        {editMode ? (
+                                        {editingField === 'status' ? (
                                           <Select
                                             value={selectedCard?.status || "unassigned"}
-                                            onValueChange={(value) =>
+                                            onValueChange={(value) => {
                                               setSelectedCard((prev) =>
                                                 prev ? { ...prev, status: value } : null
-                                              )
-                                            }
+                                              );
+                                              handleAutoSave('status', value);
+                                            }}
                                           >
                                             <SelectTrigger>
                                               <SelectValue />
@@ -676,19 +664,20 @@ export default function Schedule() {
                                           </Select>
                                         ) : (
                                           <Badge
+                                            onClick={() => setEditingField('status')}
+                                            className={`cursor-pointer transition-all duration-200 hover:opacity-80 ${
+                                              selectedCard?.status === "completed"
+                                                ? "bg-emerald-500"
+                                                : selectedCard?.status === "in_progress"
+                                                ? "bg-amber-500"
+                                                : ""
+                                            }`}
                                             variant={
                                               selectedCard?.status === "completed"
                                                 ? "default"
                                                 : selectedCard?.status === "in_progress"
                                                 ? "secondary"
                                                 : "outline"
-                                            }
-                                            className={
-                                              selectedCard?.status === "completed"
-                                                ? "bg-emerald-500"
-                                                : selectedCard?.status === "in_progress"
-                                                ? "bg-amber-500"
-                                                : ""
                                             }
                                           >
                                             {selectedCard?.status === "completed"
@@ -703,18 +692,23 @@ export default function Schedule() {
                                       {/* Publication Date */}
                                       <div>
                                         <Label className="text-xs text-muted-foreground mb-1 block">Data de Publicação</Label>
-                                        {editMode ? (
+                                        {editingField === 'publication_date' ? (
                                           <Input
                                             type="date"
+                                            autoFocus
                                             value={selectedCard?.publication_date || ""}
                                             onChange={(e) =>
                                               setSelectedCard((prev) =>
                                                 prev ? { ...prev, publication_date: e.target.value } : null
                                               )
                                             }
+                                            onBlur={() => handleAutoSave('publication_date', selectedCard?.publication_date || '')}
                                           />
                                         ) : (
-                                          <p className="text-sm font-medium">
+                                          <p 
+                                            className="text-sm font-medium cursor-pointer rounded p-1 -m-1 transition-all duration-200 hover:bg-muted/50"
+                                            onClick={() => setEditingField('publication_date')}
+                                          >
                                             {selectedCard?.publication_date
                                               ? new Date(selectedCard.publication_date + 'T00:00:00').toLocaleDateString("pt-BR", {
                                                   weekday: "long",
@@ -749,21 +743,26 @@ export default function Schedule() {
                                       {/* File Location */}
                                       <div>
                                         <Label className="text-xs text-muted-foreground mb-1 block">Localização do Arquivo</Label>
-                                        {editMode ? (
+                                        {editingField === 'file_location' ? (
                                           <Input
+                                            autoFocus
                                             value={selectedCard?.file_location || ""}
                                             onChange={(e) =>
                                               setSelectedCard((prev) =>
                                                 prev ? { ...prev, file_location: e.target.value } : null
                                               )
                                             }
+                                            onBlur={() => handleAutoSave('file_location', selectedCard?.file_location || '')}
                                             placeholder="Ex: Google Drive, Notion..."
                                           />
                                         ) : (
-                                          <div className="flex items-center gap-1 text-sm">
+                                          <div 
+                                            className="flex items-center gap-1 text-sm cursor-pointer rounded p-1 -m-1 transition-all duration-200 hover:bg-muted/50"
+                                            onClick={() => setEditingField('file_location')}
+                                          >
                                             <LinkIcon className="h-3 w-3 text-muted-foreground" />
                                             <span className="text-muted-foreground">
-                                              {selectedCard?.file_location || "Não definido"}
+                                              {selectedCard?.file_location || "Clique para definir"}
                                             </span>
                                           </div>
                                         )}
