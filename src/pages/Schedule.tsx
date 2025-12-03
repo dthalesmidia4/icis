@@ -507,10 +507,10 @@ export default function Schedule() {
                                 </DialogTrigger>
 
                                 {/* Card Detail Modal */}
-                                <DialogContent className="max-w-4xl p-0">
-                                  <div className="grid grid-cols-1 md:grid-cols-3">
+                                <DialogContent className="max-w-[95vw] md:max-w-4xl max-h-[90vh] p-0 overflow-hidden">
+                                  <div className="grid grid-cols-1 md:grid-cols-3 max-h-[90vh] overflow-y-auto">
                                     {/* Left Column - Main Content */}
-                                    <div className="md:col-span-2 p-6 border-r border-border">
+                                    <div className="md:col-span-2 p-4 sm:p-6 border-b md:border-b-0 md:border-r border-border">
                                       <DialogHeader className="mb-4">
                                         <div className="flex items-start justify-between">
                                           {editMode ? (
@@ -621,7 +621,7 @@ export default function Schedule() {
                                     </div>
 
                                     {/* Right Column - Metadata */}
-                                    <div className="p-6 bg-muted/20 space-y-4">
+                                    <div className="p-4 sm:p-6 bg-muted/20 space-y-4">
                                       {/* Status */}
                                       <div>
                                         <Label className="text-xs text-muted-foreground mb-1 block">Status</Label>
