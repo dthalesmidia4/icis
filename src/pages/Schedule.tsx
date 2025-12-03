@@ -631,7 +631,18 @@ export default function Schedule() {
                                               className="bg-muted/30 rounded-lg p-4 cursor-pointer transition-all duration-200 hover:bg-muted/50 hover:shadow-sm"
                                               onClick={() => setEditingField('instrucoes')}
                                             >
-                                              {formatDescription(selectedCard?.instrucoes) || (
+                                              {selectedCard?.instrucoes ? (
+                                                <div className="space-y-2">
+                                                  {selectedCard.instrucoes
+                                                    .split(/[.]\s+|[\n]/)
+                                                    .filter(line => line.trim())
+                                                    .map((line, idx) => (
+                                                      <p key={idx} className="text-sm text-muted-foreground">
+                                                        • {line.trim().replace(/\.$/, '')}
+                                                      </p>
+                                                    ))}
+                                                </div>
+                                              ) : (
                                                 <span className="text-muted-foreground text-sm italic">Clique para adicionar instruções</span>
                                               )}
                                             </div>
