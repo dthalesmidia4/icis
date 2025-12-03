@@ -222,14 +222,14 @@ ESTRUTURA DE CADA DEMANDA (campos obrigatórios):
   "tipo": "Carrossel (X slides) | Reels (Xs) | Post estático | Story | Vídeo Comercial | etc",
   "titulo": "Nome curto e objetivo da peça",
   "objetivo": "O que a peça quer alcançar (educar, vender, engajar, autoridade, etc)",
-  "texto_da_peca": "CONTEÚDO DETALHADO E COMPLETO:\\nSLIDE 1 — [texto completo]\\nSLIDE 2 — [texto completo]\\n...ou ROTEIRO COMPLETO para vídeos com cada cena/fala descrita",
+  "conteudo": "CONTEÚDO DETALHADO E COMPLETO:\\nSLIDE 1 — [texto completo]\\nSLIDE 2 — [texto completo]\\n...ou ROTEIRO COMPLETO para vídeos com cada cena/fala descrita",
   "instrucoes_de_producao": "Instruções específicas: cores, ícones, fotos, ângulos, cortes, CTAs visuais, tom",
   "cta_recomendado": "Chamada para ação específica da peça",
   "canal": "Instagram | LinkedIn | TikTok | YouTube | etc",
   "data_sugerida": "YYYY-MM-DD (dentro do período especificado)"
 }
 
-IMPORTANTE: O campo "texto_da_peca" DEVE conter o conteúdo COMPLETO E PRONTO PARA USO:
+IMPORTANTE: O campo "conteudo" DEVE conter o conteúdo COMPLETO E PRONTO PARA USO:
 - Para carrosséis: todos os slides com texto exato de cada um
 - Para reels/vídeos: roteiro completo cena por cena com falas e descrição visual
 - Para posts estáticos: texto completo da legenda + texto que vai na imagem
@@ -238,11 +238,11 @@ IMPORTANTE: O campo "texto_da_peca" DEVE conter o conteúdo COMPLETO E PRONTO PA
 - Para vídeos comerciais: roteiro completo com cada cena, VO (voz off) e texto na tela
 - Para posts LinkedIn: texto completo do artigo/post
 
-⚠️ NUNCA deixe "texto_da_peca" vazio. TODA demanda DEVE ter conteúdo pronto para uso.
+⚠️ NUNCA deixe "conteudo" vazio. TODA demanda DEVE ter conteúdo pronto para uso.
 
 FORMATO DE RESPOSTA FINAL:
 {
-  "default_plan": [{ "tipo": "...", "titulo": "...", "objetivo": "...", "texto_da_peca": "...", "instrucoes_de_producao": "...", "cta_recomendado": "...", "canal": "...", "data_sugerida": "YYYY-MM-DD" }],
+  "default_plan": [{ "tipo": "...", "titulo": "...", "objetivo": "...", "conteudo": "...", "instrucoes_de_producao": "...", "cta_recomendado": "...", "canal": "...", "data_sugerida": "YYYY-MM-DD" }],
   "ultra_plan": [...],
   "normal_summary": "...",
   "ultra_summary": "..."
