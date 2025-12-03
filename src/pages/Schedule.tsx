@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { ArrowLeft, Calendar, FileText, Link as LinkIcon, Search, Filter, Trash2, LayoutGrid, Target, ClipboardList } from "lucide-react";
+import { ArrowLeft, Calendar, FileText, Link as LinkIcon, Search, Filter, Trash2, LayoutGrid, Target, ClipboardList, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
@@ -774,7 +774,7 @@ export default function Schedule() {
                                             className="flex items-center gap-1 text-sm cursor-pointer rounded p-1 -m-1 transition-all duration-200 hover:bg-muted/50"
                                             onClick={() => setEditingField('file_location')}
                                           >
-                                            <LinkIcon className="h-3 w-3 text-muted-foreground" />
+                                            <Layers className="h-3 w-3 text-muted-foreground" />
                                             <span className="text-muted-foreground">
                                               {selectedCard?.file_location || "Clique para definir"}
                                             </span>
