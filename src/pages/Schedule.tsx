@@ -705,7 +705,7 @@ export default function Schedule() {
 
                                       {/* Publication Date */}
                                       <div>
-                                        <Label className="text-xs text-muted-foreground mb-1 block">Data de Publicação</Label>
+                                        <Label className="text-xs text-muted-foreground mb-1 block">Data de Entrega</Label>
                                         {editingField === 'publication_date' ? (
                                           <Input
                                             type="date"
