@@ -169,31 +169,40 @@ export default function GenerateQuestions() {
       const key = `question_${idx}`;
       const answer = answers[key]?.trim() || "";
 
-      if (yPosition > 260) {
+      // Quebrar pergunta em múltiplas linhas para caber na página
+      doc.setFont("helvetica", "bold");
+      const questionText = `${idx + 1}. ${question}`;
+      const questionLines = doc.splitTextToSize(questionText, 170);
+      
+      // Verificar se cabe na página (pergunta + espaço para resposta)
+      const neededSpace = answer ? 50 : 60;
+      if (yPosition + (questionLines.length * 5) + neededSpace > 280) {
         doc.addPage();
         yPosition = 20;
       }
 
-      doc.setFont("helvetica", "bold");
-      doc.text(`${idx + 1}. ${question}`, 20, yPosition);
-      yPosition += 7;
+      questionLines.forEach((line: string) => {
+        doc.text(line, 20, yPosition);
+        yPosition += 5;
+      });
+      yPosition += 3;
 
       if (answer) {
         // Se há resposta, exibir normalmente
-        doc.setFont("helvetica", "italic");
+        doc.setFont("helvetica", "normal");
         const answerLines = doc.splitTextToSize(answer, 170);
         answerLines.forEach((line: string) => {
-          if (yPosition > 270) {
+          if (yPosition > 275) {
             doc.addPage();
             yPosition = 20;
           }
           doc.text(line, 20, yPosition);
           yPosition += 5;
         });
-        yPosition += 8;
+        yPosition += 10;
       } else {
-        // Se não há resposta, deixar espaço em branco para escrita manual
-        yPosition += 25;
+        // Se não há resposta, deixar espaço em branco maior para escrita manual
+        yPosition += 45;
       }
     });
 
