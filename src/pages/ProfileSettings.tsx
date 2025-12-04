@@ -1,3 +1,4 @@
+// Profile Settings Page
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Sun, Moon, Monitor, Upload, Building2, Palette, Image, Check, Loader2 } from 'lucide-react';
@@ -135,44 +136,41 @@ export default function ProfileSettings() {
 
   if (isLoading) {
     return (
-      <Layout>
-        <div className="min-h-screen">
-          <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-            <div className="flex items-center justify-between h-16 px-6">
-              <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="hover:bg-accent">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-                <h1 className="text-xl font-semibold">Editar Perfil</h1>
-              </div>
+      <div className="min-h-screen">
+        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+          <div className="flex items-center justify-between h-16 px-6">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="hover:bg-accent">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <h1 className="text-xl font-semibold">Editar Perfil</h1>
             </div>
-          </header>
-          <div className="max-w-3xl mx-auto p-6 space-y-6">
-            {[1, 2, 3, 4].map((i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <Skeleton className="h-6 w-48" />
-                  <Skeleton className="h-4 w-72" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-32 w-full" />
-                </CardContent>
-              </Card>
-            ))}
           </div>
+        </header>
+        <div className="max-w-3xl mx-auto p-6 space-y-6">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-72" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-32 w-full" />
+              </CardContent>
+            </Card>
+          ))}
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="min-h-screen">
-        {/* Header */}
-        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-          <div className="flex items-center justify-between h-16 px-6">
-            <div className="flex items-center gap-4">
-              <Button
+    <div className="min-h-screen">
+      {/* Header */}
+      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+        <div className="flex items-center justify-between h-16 px-6">
+          <div className="flex items-center gap-4">
+            <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate(-1)}

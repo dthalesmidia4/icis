@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { FileText, Lightbulb, ListTodo, Sparkles, Calendar, Loader2, Plus } from "lucide-react";
-import { Layout } from "@/components/Layout";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useEffect, useState } from "react";
@@ -131,7 +130,7 @@ const ClientHub = () => {
   };
 
   return (
-    <Layout>
+    <>
       <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
         <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
           {/* Header do Cliente */}
@@ -247,7 +246,7 @@ const ClientHub = () => {
           )}
         </DialogContent>
       </Dialog>
-    </Layout>
+    </>
   );
 };
 

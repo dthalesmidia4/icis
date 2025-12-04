@@ -1,7 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { UserPlus, Building2 } from "lucide-react";
-import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
 
@@ -35,9 +34,8 @@ const Home = () => {
   ];
 
   return (
-    <Layout>
-      <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
-        <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
+      <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
           {/* Header de Boas-vindas */}
           <div className="mb-8 sm:mb-12 text-center">
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3 break-words">
@@ -72,15 +70,14 @@ const Home = () => {
             ))}
           </div>
 
-          {/* Footer Info */}
-          <div className="mt-10 sm:mt-16 text-center">
-            <p className="text-xs sm:text-sm text-muted-foreground px-4">
-              Selecione uma opção acima para começar
-            </p>
-          </div>
+        {/* Footer Info */}
+        <div className="mt-10 sm:mt-16 text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground px-4">
+            Selecione uma opção acima para começar
+          </p>
         </div>
       </div>
-    </Layout>
+    </div>
   );
 };
 

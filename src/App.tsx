@@ -42,7 +42,9 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/profile-settings" element={
                 <ProtectedRoute>
-                  <ProfileSettings />
+                  <Layout>
+                    <ProfileSettings />
+                  </Layout>
                 </ProtectedRoute>
               } />
               <Route path="/agency-setup" element={
@@ -58,7 +60,9 @@ const App = () => (
             <Route path="/" element={
               <ProtectedRoute>
                 <RequireTenant>
-                  <Home />
+                  <Layout>
+                    <Home />
+                  </Layout>
                 </RequireTenant>
               </ProtectedRoute>
             } />
@@ -66,7 +70,9 @@ const App = () => (
             <Route path="/home" element={
               <ProtectedRoute>
                 <RequireTenant>
-                  <Home />
+                  <Layout>
+                    <Home />
+                  </Layout>
                 </RequireTenant>
               </ProtectedRoute>
             } />
@@ -74,7 +80,9 @@ const App = () => (
             <Route path="/client-hub" element={
               <ProtectedRoute>
                 <RequireTenant>
-                  <ClientHub />
+                  <Layout>
+                    <ClientHub />
+                  </Layout>
                 </RequireTenant>
               </ProtectedRoute>
             } />
@@ -90,7 +98,9 @@ const App = () => (
           <Route path="/plan-period" element={
             <ProtectedRoute>
               <RequireTenant>
-                <PlanPeriod />
+                <Layout>
+                  <PlanPeriod />
+                </Layout>
               </RequireTenant>
             </ProtectedRoute>
           } />
