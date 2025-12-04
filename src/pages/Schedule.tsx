@@ -500,163 +500,237 @@ export default function Schedule() {
                                   </Card>
                                 </DialogTrigger>
 
-                                {/* Card Detail Modal */}
-                                <DialogContent className="max-w-[95vw] md:max-w-4xl max-h-[90vh] p-0 overflow-hidden">
-                                  <div className="grid grid-cols-1 md:grid-cols-3 h-[90vh]">
+                                {/* Card Detail Modal - Redesigned */}
+                                <DialogContent className="max-w-[95vw] md:max-w-5xl max-h-[90vh] p-0 overflow-hidden">
+                                  <div className="grid grid-cols-1 lg:grid-cols-4 h-[90vh]">
                                     {/* Left Column - Main Content (Scrollable) */}
-                                    <ScrollArea className="md:col-span-2 h-full border-b md:border-b-0 md:border-r border-border">
-                                      <div className="p-4 sm:p-6">
-                                      <DialogHeader className="mb-4">
-                                        {editingField === 'title' ? (
-                                          <Input
-                                            autoFocus
-                                            value={selectedCard?.title || ""}
-                                            onChange={(e) =>
-                                              setSelectedCard((prev) =>
-                                                prev ? { ...prev, title: e.target.value } : null
-                                              )
-                                            }
-                                            onBlur={() => handleAutoSave('title', selectedCard?.title || '')}
-                                            onKeyDown={(e) => {
-                                              if (e.key === 'Enter') {
-                                                handleAutoSave('title', selectedCard?.title || '');
-                                              }
-                                            }}
-                                            className="text-lg font-semibold"
-                                          />
-                                        ) : (
-                                          <DialogTitle 
-                                            className="text-lg cursor-pointer rounded-lg p-2 -m-2 transition-all duration-200 hover:bg-muted/50"
-                                            onClick={() => setEditingField('title')}
-                                          >
-                                            {selectedCard?.title}
-                                          </DialogTitle>
-                                        )}
-                                      </DialogHeader>
-
-                                      {/* Content Sections */}
-                                      <div className="space-y-4">
-                                        {/* Objetivo */}
-                                        <div>
-                                          <div className="flex items-center gap-2 mb-2">
-                                            <Target className="h-4 w-4 text-primary" />
-                                            <Label className="text-sm font-medium">Objetivo</Label>
-                                            {saving && editingField === 'objetivo' && (
-                                              <span className="text-xs text-muted-foreground">Salvando...</span>
-                                            )}
-                                          </div>
-                                          {editingField === 'objetivo' ? (
-                                            <Textarea
+                                    <ScrollArea className="lg:col-span-3 h-full">
+                                      <div className="p-5 sm:p-7 space-y-4">
+                                        {/* Header with Title */}
+                                        <DialogHeader className="pb-4 border-b border-border">
+                                          {editingField === 'title' ? (
+                                            <Input
                                               autoFocus
-                                              value={selectedCard?.objetivo || ""}
+                                              value={selectedCard?.title || ""}
                                               onChange={(e) =>
                                                 setSelectedCard((prev) =>
-                                                  prev ? { ...prev, objetivo: e.target.value } : null
+                                                  prev ? { ...prev, title: e.target.value } : null
                                                 )
                                               }
-                                              onBlur={() => handleAutoSave('objetivo', selectedCard?.objetivo || '')}
-                                              className="min-h-[60px]"
-                                              rows={2}
+                                              onBlur={() => handleAutoSave('title', selectedCard?.title || '')}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                  handleAutoSave('title', selectedCard?.title || '');
+                                                }
+                                              }}
+                                              className="text-xl font-bold"
                                             />
                                           ) : (
-                                            <div 
-                                              className="bg-muted/30 rounded-lg p-4 cursor-pointer transition-all duration-200 hover:bg-muted/50 hover:shadow-sm"
-                                              onClick={() => setEditingField('objetivo')}
+                                            <DialogTitle 
+                                              className="text-xl font-bold cursor-pointer rounded-lg p-3 -m-3 transition-all duration-200 hover:bg-muted/50"
+                                              onClick={() => setEditingField('title')}
                                             >
-                                              {selectedCard?.objetivo || (
-                                                <span className="text-muted-foreground text-sm italic">Clique para adicionar objetivo</span>
+                                              {selectedCard?.title}
+                                            </DialogTitle>
+                                          )}
+                                        </DialogHeader>
+
+                                        {/* Section Cards Container */}
+                                        <div className="space-y-4">
+                                          {/* Card: Objetivo */}
+                                          <div className="bg-card border border-border rounded-xl p-5 sm:p-6 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-3">
+                                              <div className="p-1.5 bg-primary/10 rounded-lg">
+                                                <Target className="h-4 w-4 text-primary" />
+                                              </div>
+                                              <h3 className="text-base font-semibold text-foreground">Objetivo</h3>
+                                              {saving && editingField === 'objetivo' && (
+                                                <span className="text-xs text-muted-foreground ml-auto">Salvando...</span>
                                               )}
                                             </div>
-                                          )}
-                                        </div>
-
-                                        {/* Atividade (antigo Descrição) */}
-                                        <div>
-                                          <div className="flex items-center gap-2 mb-2">
-                                            <FileText className="h-4 w-4 text-muted-foreground" />
-                                            <Label className="text-sm font-medium">Atividade</Label>
-                                            {saving && editingField === 'description' && (
-                                              <span className="text-xs text-muted-foreground">Salvando...</span>
+                                            {editingField === 'objetivo' ? (
+                                              <Textarea
+                                                autoFocus
+                                                value={selectedCard?.objetivo || ""}
+                                                onChange={(e) =>
+                                                  setSelectedCard((prev) =>
+                                                    prev ? { ...prev, objetivo: e.target.value } : null
+                                                  )
+                                                }
+                                                onBlur={() => handleAutoSave('objetivo', selectedCard?.objetivo || '')}
+                                                className="min-h-[80px] text-sm leading-relaxed"
+                                                rows={3}
+                                              />
+                                            ) : (
+                                              <div 
+                                                className="cursor-pointer transition-all duration-200 hover:bg-muted/30 rounded-lg p-3 -m-1"
+                                                onClick={() => setEditingField('objetivo')}
+                                              >
+                                                {selectedCard?.objetivo ? (
+                                                  <p className="text-sm text-foreground leading-relaxed">{selectedCard.objetivo}</p>
+                                                ) : (
+                                                  <span className="text-muted-foreground/60 text-sm italic">Clique para adicionar objetivo</span>
+                                                )}
+                                              </div>
                                             )}
                                           </div>
-                                          {editingField === 'description' ? (
-                                            <Textarea
-                                              autoFocus
-                                              value={selectedCard?.description || ""}
-                                              onChange={(e) =>
-                                                setSelectedCard((prev) =>
-                                                  prev ? { ...prev, description: e.target.value } : null
-                                                )
-                                              }
-                                              onBlur={() => handleAutoSave('description', selectedCard?.description || '')}
-                                              className="min-h-[150px] font-mono text-sm"
-                                              rows={8}
-                                            />
-                                          ) : (
-                                            <div 
-                                              className="bg-muted/30 rounded-lg p-4 cursor-pointer transition-all duration-200 hover:bg-muted/50 hover:shadow-sm"
-                                              onClick={() => setEditingField('description')}
-                                            >
-                                              {formatDescription(selectedCard?.description) || (
-                                                <span className="text-muted-foreground text-sm italic">Clique para adicionar atividade</span>
+
+                                          {/* Card: Copy / Texto da Peça */}
+                                          <div className="bg-card border border-border rounded-xl p-5 sm:p-6 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-3">
+                                              <div className="p-1.5 bg-secondary/50 rounded-lg">
+                                                <FileText className="h-4 w-4 text-secondary-foreground" />
+                                              </div>
+                                              <h3 className="text-base font-semibold text-foreground">Copy / Texto da Peça</h3>
+                                              {saving && editingField === 'description' && (
+                                                <span className="text-xs text-muted-foreground ml-auto">Salvando...</span>
                                               )}
                                             </div>
-                                          )}
-                                        </div>
+                                            {editingField === 'description' ? (
+                                              <Textarea
+                                                autoFocus
+                                                value={selectedCard?.description || ""}
+                                                onChange={(e) =>
+                                                  setSelectedCard((prev) =>
+                                                    prev ? { ...prev, description: e.target.value } : null
+                                                  )
+                                                }
+                                                onBlur={() => handleAutoSave('description', selectedCard?.description || '')}
+                                                className="min-h-[200px] font-mono text-sm leading-relaxed"
+                                                rows={10}
+                                              />
+                                            ) : (
+                                              <div 
+                                                className="cursor-pointer transition-all duration-200 hover:bg-muted/30 rounded-lg"
+                                                onClick={() => setEditingField('description')}
+                                              >
+                                                {selectedCard?.description ? (
+                                                  <div className="space-y-3">
+                                                    {(() => {
+                                                      const lines = selectedCard.description.split('\n');
+                                                      const elements: JSX.Element[] = [];
+                                                      let currentSection: string | null = null;
+                                                      let currentItems: string[] = [];
 
-                                        {/* Instruções */}
-                                        <div>
-                                          <div className="flex items-center gap-2 mb-2">
-                                            <ClipboardList className="h-4 w-4 text-muted-foreground" />
-                                            <Label className="text-sm font-medium">Instruções</Label>
-                                            {saving && editingField === 'instrucoes' && (
-                                              <span className="text-xs text-muted-foreground">Salvando...</span>
+                                                      const flushItems = (key: string) => {
+                                                        if (currentItems.length > 0) {
+                                                          elements.push(
+                                                            <div key={key} className="bg-muted/40 rounded-lg p-4 border border-border/50">
+                                                              <div className="space-y-2">
+                                                                {currentItems.map((item, idx) => (
+                                                                  <p key={idx} className="text-sm text-foreground leading-relaxed select-text">
+                                                                    {item}
+                                                                  </p>
+                                                                ))}
+                                                              </div>
+                                                            </div>
+                                                          );
+                                                          currentItems = [];
+                                                        }
+                                                      };
+
+                                                      lines.forEach((line, index) => {
+                                                        const trimmed = line.trim();
+                                                        
+                                                        // Section headers (SLIDE X, titles ending with :, **bold**)
+                                                        if (trimmed.match(/^SLIDE\s*\d+/i) || 
+                                                            (trimmed.endsWith(':') && trimmed.length < 60) ||
+                                                            (trimmed.startsWith('**') && trimmed.endsWith('**'))) {
+                                                          flushItems(`items-${index}`);
+                                                          const cleanTitle = trimmed.replace(/\*\*/g, '').replace(/:$/, '');
+                                                          elements.push(
+                                                            <div key={`header-${index}`} className="flex items-center gap-2 pt-2 first:pt-0">
+                                                              <div className="w-1 h-5 bg-primary rounded-full" />
+                                                              <span className="text-sm font-semibold text-foreground">{cleanTitle}</span>
+                                                            </div>
+                                                          );
+                                                          currentSection = cleanTitle;
+                                                        }
+                                                        // Bullet points
+                                                        else if (trimmed.startsWith('-') || trimmed.startsWith('•') || trimmed.startsWith('→')) {
+                                                          const content = trimmed.replace(/^[-•→]\s*/, '');
+                                                          currentItems.push(`• ${content}`);
+                                                        }
+                                                        // Regular content
+                                                        else if (trimmed) {
+                                                          currentItems.push(trimmed);
+                                                        }
+                                                      });
+
+                                                      flushItems('items-final');
+                                                      return elements;
+                                                    })()}
+                                                  </div>
+                                                ) : (
+                                                  <div className="p-3">
+                                                    <span className="text-muted-foreground/60 text-sm italic">Clique para adicionar copy</span>
+                                                  </div>
+                                                )}
+                                              </div>
                                             )}
                                           </div>
-                                          {editingField === 'instrucoes' ? (
-                                            <Textarea
-                                              autoFocus
-                                              value={selectedCard?.instrucoes || ""}
-                                              onChange={(e) =>
-                                                setSelectedCard((prev) =>
-                                                  prev ? { ...prev, instrucoes: e.target.value } : null
-                                                )
-                                              }
-                                              onBlur={() => handleAutoSave('instrucoes', selectedCard?.instrucoes || '')}
-                                              className="min-h-[80px]"
-                                              rows={3}
-                                            />
-                                          ) : (
-                                            <div 
-                                              className="bg-muted/30 rounded-lg p-4 cursor-pointer transition-all duration-200 hover:bg-muted/50 hover:shadow-sm"
-                                              onClick={() => setEditingField('instrucoes')}
-                                            >
-                                              {selectedCard?.instrucoes ? (
-                                                <div className="space-y-2">
-                                                  {selectedCard.instrucoes
-                                                    .split(/[.]\s+|[\n]/)
-                                                    .filter(line => line.trim())
-                                                    .map((line, idx) => (
-                                                      <p key={idx} className="text-sm text-muted-foreground">
-                                                        • {line.trim().replace(/\.$/, '')}
-                                                      </p>
-                                                    ))}
-                                                </div>
-                                              ) : (
-                                                <span className="text-muted-foreground text-sm italic">Clique para adicionar instruções</span>
+
+                                          {/* Card: Instruções Técnicas */}
+                                          <div className="bg-card border border-border rounded-xl p-5 sm:p-6 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-3">
+                                              <div className="p-1.5 bg-accent/50 rounded-lg">
+                                                <ClipboardList className="h-4 w-4 text-accent-foreground" />
+                                              </div>
+                                              <h3 className="text-base font-semibold text-foreground">Instruções Técnicas</h3>
+                                              {saving && editingField === 'instrucoes' && (
+                                                <span className="text-xs text-muted-foreground ml-auto">Salvando...</span>
                                               )}
                                             </div>
-                                          )}
+                                            {editingField === 'instrucoes' ? (
+                                              <Textarea
+                                                autoFocus
+                                                value={selectedCard?.instrucoes || ""}
+                                                onChange={(e) =>
+                                                  setSelectedCard((prev) =>
+                                                    prev ? { ...prev, instrucoes: e.target.value } : null
+                                                  )
+                                                }
+                                                onBlur={() => handleAutoSave('instrucoes', selectedCard?.instrucoes || '')}
+                                                className="min-h-[100px] text-sm"
+                                                rows={4}
+                                              />
+                                            ) : (
+                                              <div 
+                                                className="cursor-pointer transition-all duration-200 hover:bg-muted/30 rounded-lg"
+                                                onClick={() => setEditingField('instrucoes')}
+                                              >
+                                                {selectedCard?.instrucoes ? (
+                                                  <ul className="space-y-2 p-3">
+                                                    {selectedCard.instrucoes
+                                                      .split(/[.]\s+|[\n]/)
+                                                      .filter(line => line.trim())
+                                                      .map((line, idx) => (
+                                                        <li key={idx} className="flex items-start gap-2 text-sm text-foreground">
+                                                          <span className="text-primary mt-1">•</span>
+                                                          <span className="leading-relaxed">{line.trim().replace(/\.$/, '')}</span>
+                                                        </li>
+                                                      ))}
+                                                  </ul>
+                                                ) : (
+                                                  <div className="p-3">
+                                                    <span className="text-muted-foreground/60 text-sm italic">Clique para adicionar instruções</span>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
                                         </div>
-                                      </div>
                                       </div>
                                     </ScrollArea>
 
-                                    {/* Right Column - Metadata (Fixed) */}
-                                    <div className="p-4 sm:p-6 bg-muted/20 space-y-4 overflow-y-auto max-h-[90vh]">
-                                      {/* Status */}
-                                      <div>
-                                        <Label className="text-xs text-muted-foreground mb-1 block">Status</Label>
+                                    {/* Right Column - Sidebar Metadata */}
+                                    <div className="border-l border-border bg-muted/10 p-4 sm:p-5 space-y-4 overflow-y-auto">
+                                      {/* Status Card */}
+                                      <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-2">
+                                          <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</span>
+                                        </div>
                                         {editingField === 'status' ? (
                                           <Select
                                             value={selectedCard?.status || "unassigned"}
@@ -667,7 +741,7 @@ export default function Schedule() {
                                               handleAutoSave('status', value);
                                             }}
                                           >
-                                            <SelectTrigger>
+                                            <SelectTrigger className="h-9">
                                               <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -679,33 +753,29 @@ export default function Schedule() {
                                         ) : (
                                           <Badge
                                             onClick={() => setEditingField('status')}
-                                            className={`cursor-pointer transition-all duration-200 hover:opacity-80 ${
+                                            className={`cursor-pointer transition-all duration-200 hover:scale-105 w-full justify-center py-1.5 ${
                                               selectedCard?.status === "completed"
-                                                ? "bg-emerald-500"
+                                                ? "bg-emerald-500/90 hover:bg-emerald-500"
                                                 : selectedCard?.status === "in_progress"
-                                                ? "bg-amber-500"
-                                                : ""
+                                                ? "bg-amber-500/90 hover:bg-amber-500"
+                                                : "bg-muted hover:bg-muted/80"
                                             }`}
-                                            variant={
-                                              selectedCard?.status === "completed"
-                                                ? "default"
-                                                : selectedCard?.status === "in_progress"
-                                                ? "secondary"
-                                                : "outline"
-                                            }
                                           >
                                             {selectedCard?.status === "completed"
-                                              ? "Concluído"
+                                              ? "✓ Concluído"
                                               : selectedCard?.status === "in_progress"
-                                              ? "Em Andamento"
-                                              : "A Fazer"}
+                                              ? "⏳ Em Andamento"
+                                              : "○ A Fazer"}
                                           </Badge>
                                         )}
                                       </div>
 
-                                      {/* Delivery Date */}
-                                      <div>
-                                        <Label className="text-xs text-muted-foreground mb-1 block">Data de Entrega</Label>
+                                      {/* Date Card */}
+                                      <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-2">
+                                          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Entrega</span>
+                                        </div>
                                         {editingField === 'delivery_date' ? (
                                           <Input
                                             type="date"
@@ -717,46 +787,41 @@ export default function Schedule() {
                                               )
                                             }
                                             onBlur={() => handleAutoSave('delivery_date', selectedCard?.delivery_date || '')}
+                                            className="h-9"
                                           />
                                         ) : (
-                                          <p 
-                                            className="text-sm font-medium cursor-pointer rounded p-1 -m-1 transition-all duration-200 hover:bg-muted/50"
+                                          <div 
+                                            className="cursor-pointer transition-all duration-200 hover:bg-muted/50 rounded-lg p-2 -m-1"
                                             onClick={() => setEditingField('delivery_date')}
                                           >
-                                            {selectedCard?.delivery_date
-                                              ? new Date(selectedCard.delivery_date + 'T00:00:00').toLocaleDateString("pt-BR", {
-                                                  weekday: "long",
-                                                  day: "numeric",
-                                                  month: "long",
-                                                  year: "numeric",
-                                                })
-                                              : "-"}
-                                          </p>
+                                            {selectedCard?.delivery_date ? (
+                                              <div className="text-sm">
+                                                <p className="font-semibold text-foreground">
+                                                  {new Date(selectedCard.delivery_date + 'T00:00:00').toLocaleDateString("pt-BR", {
+                                                    day: "numeric",
+                                                    month: "short",
+                                                    year: "numeric",
+                                                  })}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground capitalize">
+                                                  {new Date(selectedCard.delivery_date + 'T00:00:00').toLocaleDateString("pt-BR", {
+                                                    weekday: "long",
+                                                  })}
+                                                </p>
+                                              </div>
+                                            ) : (
+                                              <span className="text-sm text-muted-foreground">Definir data</span>
+                                            )}
+                                          </div>
                                         )}
                                       </div>
 
-                                      {/* Platform & Content Type */}
-                                      {selectedCard && (
-                                        <div>
-                                          <Label className="text-xs text-muted-foreground mb-1 block">Canal e Formato</Label>
-                                          <div className="flex flex-wrap gap-1">
-                                            {extractMetadata(selectedCard).platforms.map((platform) => (
-                                              <Badge key={platform} variant="outline" className="text-xs">
-                                                {platform}
-                                              </Badge>
-                                            ))}
-                                            {extractMetadata(selectedCard).contentTypes.map((type) => (
-                                              <Badge key={type} variant="secondary" className="text-xs">
-                                                {type}
-                                              </Badge>
-                                            ))}
-                                          </div>
+                                      {/* Format Card */}
+                                      <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-2">
+                                          <LinkIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Formato</span>
                                         </div>
-                                      )}
-
-                                      {/* File Location */}
-                                      <div>
-                                        <Label className="text-xs text-muted-foreground mb-1 block">Tipo de Conteúdo</Label>
                                         {editingField === 'file_location' ? (
                                           <Input
                                             autoFocus
@@ -767,48 +832,59 @@ export default function Schedule() {
                                               )
                                             }
                                             onBlur={() => handleAutoSave('file_location', selectedCard?.file_location || '')}
-                                            placeholder="Ex: Google Drive, Notion..."
+                                            placeholder="Ex: Carrossel, Reels..."
+                                            className="h-9"
                                           />
                                         ) : (
-                                          <p 
-                                            className="text-sm font-medium cursor-pointer rounded p-1 -m-1 transition-all duration-200 hover:bg-muted/50"
+                                          <div 
+                                            className="cursor-pointer transition-all duration-200 hover:bg-muted/50 rounded-lg p-2 -m-1"
                                             onClick={() => setEditingField('file_location')}
                                           >
-                                            {selectedCard?.file_location || "Clique para definir"}
-                                          </p>
+                                            <p className="text-sm font-medium text-foreground">
+                                              {selectedCard?.file_location || "Definir formato"}
+                                            </p>
+                                          </div>
                                         )}
                                       </div>
 
+                                      {/* Channel & Type Tags */}
+                                      {selectedCard && (extractMetadata(selectedCard).platforms.length > 0 || extractMetadata(selectedCard).contentTypes.length > 0) && (
+                                        <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+                                          <div className="flex items-center gap-2 mb-3">
+                                            <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
+                                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Canal</span>
+                                          </div>
+                                          <div className="flex flex-wrap gap-1.5">
+                                            {extractMetadata(selectedCard).platforms.map((platform) => (
+                                              <Badge key={platform} variant="outline" className="text-xs px-2 py-0.5">
+                                                {platform}
+                                              </Badge>
+                                            ))}
+                                            {extractMetadata(selectedCard).contentTypes.map((type) => (
+                                              <Badge key={type} variant="secondary" className="text-xs px-2 py-0.5">
+                                                {type}
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+
                                       {/* Timestamps */}
-                                      <div className="pt-4 border-t border-border space-y-2">
-                                        <div>
-                                          <Label className="text-xs text-muted-foreground">Criado em</Label>
-                                          <p className="text-xs">
-                                            {selectedCard?.created_at
-                                              ? new Date(selectedCard.created_at).toLocaleString("pt-BR")
-                                              : "-"}
-                                          </p>
-                                        </div>
-                                        <div>
-                                          <Label className="text-xs text-muted-foreground">Atualizado em</Label>
-                                          <p className="text-xs">
-                                            {selectedCard?.updated_at
-                                              ? new Date(selectedCard.updated_at).toLocaleString("pt-BR")
-                                              : "-"}
-                                          </p>
-                                        </div>
+                                      <div className="text-xs text-muted-foreground space-y-1 px-1 pt-2">
+                                        <p>Criado: {selectedCard?.created_at ? new Date(selectedCard.created_at).toLocaleDateString("pt-BR") : "-"}</p>
+                                        <p>Atualizado: {selectedCard?.updated_at ? new Date(selectedCard.updated_at).toLocaleDateString("pt-BR") : "-"}</p>
                                       </div>
 
                                       {/* Delete Button */}
-                                      <div className="pt-4">
+                                      <div className="pt-2 mt-auto">
                                         <Button
-                                          variant="destructive"
+                                          variant="outline"
                                           size="sm"
-                                          className="w-full"
+                                          className="w-full border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
                                           onClick={() => setCardToDelete(selectedCard?.id || null)}
                                         >
                                           <Trash2 className="h-4 w-4 mr-2" />
-                                          Excluir Demanda
+                                          Excluir
                                         </Button>
                                       </div>
                                     </div>
