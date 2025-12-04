@@ -1,4 +1,4 @@
-import { Home, Code, User, Palette, LogOut } from "lucide-react";
+import { Home, Code, User, LogOut } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
@@ -70,13 +70,9 @@ export function AppSidebar() {
             </Tooltip>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="right" className="w-56">
-            <DropdownMenuItem onClick={() => navigate('/profile')}>
+            <DropdownMenuItem onClick={() => navigate('/profile-settings')}>
               <User className="h-4 w-4 mr-2" />
-              Perfil
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Palette className="h-4 w-4 mr-2" />
-              Tema
+              Editar Perfil
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
               <LogOut className="h-4 w-4 mr-2" />
