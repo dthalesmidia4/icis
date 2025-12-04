@@ -149,6 +149,38 @@ const PlanPeriod = () => {
     }
   };
 
+  // Polling function to check generation status
+  const pollForCompletion = async (planId: string, maxAttempts = 60, intervalMs = 5000) => {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, intervalMs));
+      
+      const { data, error } = await supabase
+        .from('period_plans')
+        .select('status, default_plan, ultra_plan')
+        .eq('id', planId)
+        .single();
+      
+      if (error) {
+        console.error('Error polling status:', error);
+        continue;
+      }
+      
+      if (data.status === 'generated' || data.status === 'mode_selected' || data.status === 'completed') {
+        return {
+          success: true,
+          default_plan: data.default_plan,
+          ultra_plan: data.ultra_plan
+        };
+      }
+      
+      if (data.status === 'error') {
+        return { success: false, error: 'Erro na geração' };
+      }
+    }
+    
+    return { success: false, error: 'Tempo limite excedido' };
+  };
+
   const handleSubmit = async () => {
     if (!periodTitle || !periodStart || !periodEnd) {
       toast.error("Preencha todos os campos obrigatórios");
@@ -185,21 +217,23 @@ const PlanPeriod = () => {
 
       setPeriodPlanId(periodPlan.id);
 
-      // Call edge function to generate plans
-      const { data: functionData, error: functionError } = await supabase.functions.invoke('generate-period-plans', {
+      // Fire edge function without waiting for response (fire-and-forget)
+      supabase.functions.invoke('generate-period-plans', {
         body: { periodPlanId: periodPlan.id, tenantId }
+      }).catch(err => {
+        // Ignore connection errors - the function continues running on the server
+        console.log('Edge function call completed or timed out (expected behavior):', err?.message);
       });
 
-      if (functionError) throw functionError;
-
-      if (functionData.error) {
-        throw new Error(functionData.error);
+      // Poll for completion
+      const result = await pollForCompletion(periodPlan.id);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao gerar planos');
       }
 
-      setDefaultPlan(functionData.default_plan || []);
-      setUltraPlan(functionData.ultra_plan || []);
-      setNormalSummary(functionData.normal_summary || '');
-      setUltraSummary(functionData.ultra_summary || '');
+      setDefaultPlan((result.default_plan as unknown as PlanItem[]) || []);
+      setUltraPlan((result.ultra_plan as unknown as PlanItem[]) || []);
       setCurrentStep('mode-selection');
 
     } catch (error) {
