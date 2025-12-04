@@ -81,6 +81,7 @@ const PlanPeriod = () => {
   const [ultraSummary, setUltraSummary] = useState("");
   const [selectedMode, setSelectedMode] = useState<'normal' | 'ultra' | null>(null);
   const [optionalPackage, setOptionalPackage] = useState<PlanItem[]>([]);
+  const [pollingProgress, setPollingProgress] = useState(0);
 
   // Fetch period history
   useEffect(() => {
@@ -151,7 +152,13 @@ const PlanPeriod = () => {
 
   // Polling function to check generation status
   const pollForCompletion = async (planId: string, maxAttempts = 60, intervalMs = 5000) => {
+    setPollingProgress(0);
+    
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Update progress (0-100%)
+      const progress = Math.min(((attempt + 1) / maxAttempts) * 100, 99);
+      setPollingProgress(progress);
+      
       await new Promise(resolve => setTimeout(resolve, intervalMs));
       
       const { data, error } = await supabase
@@ -166,6 +173,7 @@ const PlanPeriod = () => {
       }
       
       if (data.status === 'generated' || data.status === 'mode_selected' || data.status === 'completed') {
+        setPollingProgress(100);
         return {
           success: true,
           default_plan: data.default_plan,
@@ -1048,11 +1056,34 @@ const PlanPeriod = () => {
             </Tabs>
           )}
           {currentStep === 'loading' && (
-            <LoadingScreen
-              title="Gerando Demandas"
-              description="A IA está criando duas linhas de demandas personalizadas: Normal e Ultra. Isso pode levar alguns segundos..."
-              icon={Sparkles}
-            />
+            <div className="flex flex-col items-center justify-center py-20 space-y-6">
+              <div className="relative">
+                <Sparkles className="h-16 w-16 text-primary animate-pulse" />
+              </div>
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-bold">Gerando Demandas</h2>
+                <p className="text-muted-foreground max-w-md">
+                  A IA está criando duas linhas de demandas personalizadas: Normal e Ultra.
+                </p>
+              </div>
+              <div className="w-full max-w-md space-y-2">
+                <div className="h-3 w-full bg-secondary rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-primary transition-all duration-500 ease-out rounded-full"
+                    style={{ width: `${pollingProgress}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>{Math.round(pollingProgress)}% concluído</span>
+                  <span>
+                    {pollingProgress < 100 
+                      ? `~${Math.ceil((60 - (pollingProgress / 100) * 60) * 5 / 60)} min restantes`
+                      : 'Finalizando...'
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
           )}
           {currentStep === 'mode-selection' && renderModeSelection()}
           {currentStep === 'optional-package' && renderOptionalPackage()}
