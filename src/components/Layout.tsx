@@ -14,9 +14,9 @@ export const Layout = ({ children }: LayoutProps) => {
         <MobileHeader />
         
         {/* Desktop Sidebar */}
-        <div className="sticky top-0 h-screen hidden md:block">
+        <aside className="sticky top-0 h-screen hidden md:flex flex-shrink-0">
           <AppSidebar />
-        </div>
+        </aside>
         
         {/* Main Content */}
         <div className="flex-1 min-h-screen overflow-auto bg-gradient-to-br from-background via-muted/30 to-background">
