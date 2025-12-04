@@ -54,22 +54,15 @@ export function AppSidebar() {
       <SidebarHeader className="border-b p-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="flex items-center justify-center w-full p-1 hover:bg-accent rounded-lg transition-all duration-300 hover:scale-110 group">
-                  <Avatar className="h-10 w-10 border-2 border-primary transition-all duration-300 group-hover:border-primary/80 group-hover:shadow-lg group-hover:shadow-primary/20">
-                    <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-sm font-bold">
-                      {tenantName ? getInitials(tenantName) : 'EM'}
-                    </AvatarFallback>
-                  </Avatar>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={10}>
-                <p className="font-semibold">{tenantName || 'Empresa'}</p>
-              </TooltipContent>
-            </Tooltip>
+            <button className="flex items-center justify-center w-full p-1 hover:bg-accent rounded-lg transition-all duration-300 hover:scale-110 group">
+              <Avatar className="h-10 w-10 border-2 border-primary transition-all duration-300 group-hover:border-primary/80 group-hover:shadow-lg group-hover:shadow-primary/20">
+                <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-sm font-bold">
+                  {tenantName ? getInitials(tenantName) : 'EM'}
+                </AvatarFallback>
+              </Avatar>
+            </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="right" className="w-56">
+          <DropdownMenuContent align="start" side="right" className="w-56 z-50">
             <DropdownMenuItem onClick={() => navigate('/profile-settings')}>
               <User className="h-4 w-4 mr-2" />
               Editar Perfil
