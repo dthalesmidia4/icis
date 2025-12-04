@@ -1,3 +1,4 @@
+// Plan Period Page
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
@@ -964,16 +965,16 @@ const PlanPeriod = () => {
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
-        {/* Fixed Header */}
-        <PageHeader
-          title="Planejar Período"
-          subtitle={displayName}
-          backTo="/client-hub"
-          actions={currentStep === 'form' && activeTab === 'new' ? [
-            {
-              label: "Gerar Demandas",
-              onClick: handleSubmit,
-              icon: <Rocket className="w-4 h-4" />,
+      {/* Fixed Header */}
+      <PageHeader
+        title="Planejar Período"
+        subtitle={displayName}
+        backTo="/client-hub"
+        actions={currentStep === 'form' && activeTab === 'new' ? [
+          {
+            label: "Gerar Demandas",
+            onClick: handleSubmit,
+            icon: <Rocket className="w-4 h-4" />,
               className: "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600",
             }
           ] : []}

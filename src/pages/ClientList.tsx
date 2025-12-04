@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Search, Plus, Edit, Trash2, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
-import { Layout } from "@/components/Layout";
 
 const ClientList = () => {
   const navigate = useNavigate();
@@ -77,7 +76,7 @@ const ClientList = () => {
   };
 
   return (
-    <Layout>
+    <>
       <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
         <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
           {/* Header */}
@@ -215,7 +214,7 @@ const ClientList = () => {
         onConfirm={handleDelete}
         loading={isDeleting}
       />
-    </Layout>
+    </>
   );
 };
 
