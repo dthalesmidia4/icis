@@ -40,6 +40,7 @@ export type Database = {
       }
       cards: {
         Row: {
+          attachments: Json | null
           column_name: string | null
           created_at: string
           delivery_date: string
@@ -57,6 +58,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          attachments?: Json | null
           column_name?: string | null
           created_at?: string
           delivery_date: string
@@ -74,6 +76,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          attachments?: Json | null
           column_name?: string | null
           created_at?: string
           delivery_date?: string

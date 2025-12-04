@@ -13,11 +13,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { ArrowLeft, Calendar, FileText, Link as LinkIcon, Search, Filter, Trash2, LayoutGrid, Target, ClipboardList, Layers } from "lucide-react";
+import { ArrowLeft, Calendar, FileText, Link as LinkIcon, Search, Filter, Trash2, LayoutGrid, Target, ClipboardList, Layers, Paperclip, Upload, X, Image, File, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { LoadingScreen } from "@/components/LoadingScreen";
+
+interface Attachment {
+  url: string;
+  name: string;
+  type: string;
+  size: number;
+  uploadedAt: string;
+}
 
 interface KanbanCard {
   id: string;
@@ -34,6 +42,7 @@ interface KanbanCard {
   tenant_id: string;
   created_at: string;
   updated_at: string;
+  attachments: Attachment[] | null;
 }
 
 const COLUMNS = [
@@ -60,6 +69,7 @@ export default function Schedule() {
   const [referencePeriod, setReferencePeriod] = useState<{ titulo: string; dataInicio: string; dataFim: string } | null>(null);
   const [cardToDelete, setCardToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const periodPlanId = searchParams.get("periodPlanId");
 
@@ -111,7 +121,12 @@ export default function Schedule() {
       if (cardsResponse.error) throw cardsResponse.error;
       if (periodPlanResponse.error) throw periodPlanResponse.error;
 
-      setCards(cardsResponse.data || []);
+      // Cast attachments from Json to Attachment[]
+      const cardsWithAttachments = (cardsResponse.data || []).map(card => ({
+        ...card,
+        attachments: (card.attachments as unknown as Attachment[] | null) || []
+      }));
+      setCards(cardsWithAttachments);
       
       if (periodPlanResponse.data) {
         setReferencePeriod({
@@ -231,6 +246,105 @@ export default function Schedule() {
       setSaving(false);
       setEditingField(null);
     }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedCard || !event.target.files || event.target.files.length === 0) return;
+
+    const files = Array.from(event.target.files);
+    setUploading(true);
+
+    try {
+      const uploadPromises = files.map(async (file) => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${selectedCard.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        
+        const { data, error } = await supabase.storage
+          .from('card-attachments')
+          .upload(fileName, file);
+
+        if (error) throw error;
+
+        const { data: urlData } = supabase.storage
+          .from('card-attachments')
+          .getPublicUrl(fileName);
+
+        return {
+          url: urlData.publicUrl,
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          uploadedAt: new Date().toISOString()
+        } as Attachment;
+      });
+
+      const newAttachments = await Promise.all(uploadPromises);
+      const updatedAttachments = [...(selectedCard.attachments || []), ...newAttachments];
+
+      // Save to database
+      const { error: updateError } = await supabase
+        .from('cards')
+        .update({ attachments: updatedAttachments as unknown as any })
+        .eq('id', selectedCard.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setSelectedCard(prev => prev ? { ...prev, attachments: updatedAttachments } : null);
+      setCards(prev => prev.map(c => 
+        c.id === selectedCard.id ? { ...c, attachments: updatedAttachments } : c
+      ));
+
+      sonnerToast.success(`${newAttachments.length} arquivo(s) anexado(s)`);
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      sonnerToast.error("Erro ao fazer upload do arquivo");
+    } finally {
+      setUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleRemoveAttachment = async (attachmentUrl: string) => {
+    if (!selectedCard) return;
+
+    try {
+      // Extract file path from URL
+      const urlParts = attachmentUrl.split('/card-attachments/');
+      if (urlParts.length > 1) {
+        const filePath = urlParts[1];
+        await supabase.storage.from('card-attachments').remove([filePath]);
+      }
+
+      const updatedAttachments = (selectedCard.attachments || []).filter(a => a.url !== attachmentUrl);
+
+      // Save to database
+      const { error } = await supabase
+        .from('cards')
+        .update({ attachments: updatedAttachments as unknown as any })
+        .eq('id', selectedCard.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setSelectedCard(prev => prev ? { ...prev, attachments: updatedAttachments } : null);
+      setCards(prev => prev.map(c => 
+        c.id === selectedCard.id ? { ...c, attachments: updatedAttachments } : c
+      ));
+
+      sonnerToast.success("Anexo removido");
+    } catch (error) {
+      console.error("Error removing attachment:", error);
+      sonnerToast.error("Erro ao remover anexo");
+    }
+  };
+
+  const isImageFile = (type: string) => type.startsWith('image/');
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   // Extrair canais únicos dos cards
@@ -845,6 +959,82 @@ export default function Schedule() {
                                             </p>
                                           </div>
                                         )}
+                                        </div>
+
+                                      {/* Attachments Card */}
+                                      <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+                                        <div className="flex items-center justify-between mb-3">
+                                          <div className="flex items-center gap-2">
+                                            <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Anexos</span>
+                                          </div>
+                                          {uploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                                        </div>
+
+                                        {/* Uploaded Files */}
+                                        {selectedCard?.attachments && selectedCard.attachments.length > 0 && (
+                                          <div className="space-y-2 mb-3">
+                                            {selectedCard.attachments.map((attachment, idx) => (
+                                              <div key={idx} className="group relative bg-muted/30 rounded-lg overflow-hidden">
+                                                {isImageFile(attachment.type) ? (
+                                                  <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="block">
+                                                    <img 
+                                                      src={attachment.url} 
+                                                      alt={attachment.name}
+                                                      className="w-full h-20 object-cover transition-transform hover:scale-105"
+                                                    />
+                                                  </a>
+                                                ) : (
+                                                  <a 
+                                                    href={attachment.url} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center gap-2 p-2 hover:bg-muted/50 transition-colors"
+                                                  >
+                                                    <File className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                                    <div className="min-w-0 flex-1">
+                                                      <p className="text-xs font-medium text-foreground truncate">{attachment.name}</p>
+                                                      <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                                                    </div>
+                                                  </a>
+                                                )}
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleRemoveAttachment(attachment.url);
+                                                  }}
+                                                  className="absolute top-1 right-1 p-1 bg-destructive/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive"
+                                                >
+                                                  <X className="h-3 w-3 text-destructive-foreground" />
+                                                </button>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+
+                                        {/* Upload Button */}
+                                        <label className="flex items-center justify-center gap-2 w-full py-2 px-3 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 hover:bg-muted/30 transition-colors">
+                                          <input
+                                            type="file"
+                                            multiple
+                                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                                            onChange={handleFileUpload}
+                                            className="sr-only"
+                                            disabled={uploading}
+                                          />
+                                          {uploading ? (
+                                            <>
+                                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                              <span className="text-xs text-muted-foreground">Enviando...</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Upload className="h-4 w-4 text-muted-foreground" />
+                                              <span className="text-xs text-muted-foreground">Anexar arquivos</span>
+                                            </>
+                                          )}
+                                        </label>
                                       </div>
 
                                       {/* Channel & Type Tags */}
