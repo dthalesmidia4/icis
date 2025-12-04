@@ -11,7 +11,6 @@ import { useTheme, ThemeMode, PrimaryColor } from '@/contexts/ThemeContext';
 import { useTenant } from '@/contexts/TenantContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Layout } from '@/components/Layout';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const themeOptions: { value: ThemeMode; label: string; icon: React.ElementType; description: string }[] = [
@@ -171,20 +170,20 @@ export default function ProfileSettings() {
         <div className="flex items-center justify-between h-16 px-6">
           <div className="flex items-center gap-4">
             <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(-1)}
-                className="hover:bg-accent"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <h1 className="text-xl font-semibold">Editar Perfil</h1>
-            </div>
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(-1)}
+              className="hover:bg-accent"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-xl font-semibold">Editar Perfil</h1>
           </div>
-        </header>
+        </div>
+      </header>
 
-        {/* Content */}
-        <div className="max-w-3xl mx-auto p-6 pb-24 space-y-6">
+      {/* Content */}
+      <div className="max-w-3xl mx-auto p-6 pb-24 space-y-6">
           {/* Theme Section */}
           <Card>
             <CardHeader>
@@ -401,6 +400,5 @@ export default function ProfileSettings() {
           </div>
         </div>
       </div>
-    </Layout>
   );
 }
