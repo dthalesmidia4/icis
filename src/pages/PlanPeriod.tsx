@@ -225,13 +225,20 @@ const PlanPeriod = () => {
 
       setPeriodPlanId(periodPlan.id);
 
-      // Fire edge function without waiting for response (fire-and-forget)
-      supabase.functions.invoke('generate-period-plans', {
-        body: { periodPlanId: periodPlan.id, tenantId }
-      }).catch(err => {
-        // Ignore connection errors - the function continues running on the server
-        console.log('Edge function call completed or timed out (expected behavior):', err?.message);
-      });
+      // Fire edge function without waiting - ignore ALL errors (timeout is expected)
+      // Using void to explicitly discard the promise
+      void (async () => {
+        try {
+          await supabase.functions.invoke('generate-period-plans', {
+            body: { periodPlanId: periodPlan.id, tenantId }
+          });
+        } catch {
+          // Silently ignore - edge function continues on server regardless
+        }
+      })();
+
+      // Small delay to ensure edge function started before polling
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Poll for completion
       const result = await pollForCompletion(periodPlan.id);
