@@ -133,37 +133,37 @@ const ClientHub = () => {
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
-        <div className="container max-w-6xl mx-auto px-6 py-12">
+        <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
           {/* Header do Cliente */}
-          <div className="mb-12 text-center">
-            <div className="inline-flex items-center gap-3 mb-4 px-6 py-3 bg-primary/10 rounded-full">
-              <div className="w-3 h-3 bg-primary rounded-full animate-pulse" />
-              <span className="text-sm font-medium text-primary">Cliente Ativo</span>
+          <div className="mb-8 sm:mb-12 text-center">
+            <div className="inline-flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 px-4 sm:px-6 py-2 sm:py-3 bg-primary/10 rounded-full">
+              <div className="w-2 h-2 sm:w-3 sm:h-3 bg-primary rounded-full animate-pulse" />
+              <span className="text-xs sm:text-sm font-medium text-primary">Cliente Ativo</span>
             </div>
-            <h1 className="text-4xl font-bold mb-3">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3 break-words px-2">
               {displayName}
             </h1>
-            <p className="text-lg text-muted-foreground">
+            <p className="text-sm sm:text-lg text-muted-foreground">
               Hub de Controle Estratégico
             </p>
           </div>
 
           {/* Cards de Ação */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {actionCards.map((card, index) => (
               <Card
                 key={index}
-                className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 border-2 hover:border-primary/50"
+                className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
                 onClick={card.action}
               >
                 <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-5 group-hover:opacity-10 transition-opacity`} />
                 
-                <div className="relative p-8 flex flex-col items-center justify-center text-center min-h-[200px]">
-                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${card.gradient} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                    <card.icon className="w-8 h-8 text-white" />
+                <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
+                  <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br ${card.gradient} flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                    <card.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                   </div>
                   
-                  <h3 className={`text-xl font-bold transition-colors ${
+                  <h3 className={`text-base sm:text-xl font-bold transition-colors ${
                     index === 0 ? 'text-cyan-600 dark:text-cyan-400' :
                     index === 1 ? 'text-orange-600 dark:text-orange-400' :
                     index === 2 ? 'text-fuchsia-600 dark:text-fuchsia-400' :
@@ -177,8 +177,8 @@ const ClientHub = () => {
           </div>
 
           {/* Footer Info */}
-          <div className="mt-16 text-center">
-            <p className="text-sm text-muted-foreground">
+          <div className="mt-10 sm:mt-16 text-center">
+            <p className="text-xs sm:text-sm text-muted-foreground px-4">
               Todas as ações serão aplicadas para {displayName}
             </p>
           </div>
@@ -187,10 +187,10 @@ const ClientHub = () => {
 
       {/* Modal de Seleção de Período */}
       <Dialog open={showPeriodModal} onOpenChange={setShowPeriodModal}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[95vw] max-w-lg mx-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" />
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               Selecionar Período
             </DialogTitle>
           </DialogHeader>
@@ -200,33 +200,33 @@ const ClientHub = () => {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : periods.length === 0 ? (
-            <div className="text-center py-8">
-              <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Nenhum período encontrado</h3>
-              <p className="text-sm text-muted-foreground mb-4">
+            <div className="text-center py-6 sm:py-8">
+              <Calendar className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground mb-3 sm:mb-4" />
+              <h3 className="text-base sm:text-lg font-semibold mb-2">Nenhum período encontrado</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-4 px-4">
                 Crie um novo período para começar a planejar suas demandas.
               </p>
-              <Button onClick={handleCreateNewPeriod}>
+              <Button onClick={handleCreateNewPeriod} className="w-full sm:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
                 Criar Novo Período
               </Button>
             </div>
           ) : (
             <>
-              <ScrollArea className="max-h-[400px] pr-4">
-                <div className="space-y-3">
+              <ScrollArea className="max-h-[50vh] sm:max-h-[400px] pr-2 sm:pr-4">
+                <div className="space-y-2 sm:space-y-3">
                   {periods.map((period) => (
                     <Card
                       key={period.id}
-                      className="p-4 cursor-pointer hover:bg-accent/50 transition-colors border-2 hover:border-primary/50"
+                      className="p-3 sm:p-4 cursor-pointer hover:bg-accent/50 transition-colors border-2 hover:border-primary/50 active:scale-[0.98]"
                       onClick={() => handlePeriodSelect(period.id)}
                     >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-semibold text-foreground">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <h4 className="font-semibold text-foreground text-sm sm:text-base truncate">
                             {period.period_title}
                           </h4>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-xs sm:text-sm text-muted-foreground">
                             {formatDate(period.period_start)} - {formatDate(period.period_end)}
                           </p>
                         </div>
@@ -237,7 +237,7 @@ const ClientHub = () => {
                 </div>
               </ScrollArea>
 
-              <div className="pt-4 border-t">
+              <div className="pt-3 sm:pt-4 border-t">
                 <Button variant="outline" className="w-full" onClick={handleCreateNewPeriod}>
                   <Plus className="h-4 w-4 mr-2" />
                   Criar Novo Período
