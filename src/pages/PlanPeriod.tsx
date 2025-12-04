@@ -258,40 +258,41 @@ const PlanPeriod = () => {
   };
 
   const renderForm = () => (
-    <div className="max-w-3xl mx-auto">
-      <div className="space-y-6">
+    <div className="max-w-3xl mx-auto px-4 sm:px-0">
+      <div className="space-y-4 sm:space-y-6">
         {/* Period Info */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
+        <Card className="p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
             Informações do Período
           </h3>
           
           <div className="space-y-4">
             <div>
-              <Label htmlFor="periodTitle">Título do Período *</Label>
+              <Label htmlFor="periodTitle" className="text-sm">Título do Período *</Label>
               <Input
                 id="periodTitle"
                 placeholder="Ex: Campanha de Verão 2025"
                 value={periodTitle}
                 onChange={(e) => setPeriodTitle(e.target.value)}
+                className="mt-1"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-2">
-                <Label>Data Início *</Label>
+                <Label className="text-sm">Data Início *</Label>
                 <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className={cn(
-                        "w-full justify-start text-left font-normal",
+                        "w-full justify-start text-left font-normal h-10",
                         !periodStart && "text-muted-foreground"
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {periodStart ? format(periodStart, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione a data</span>}
+                      {periodStart ? format(periodStart, "dd/MM/yyyy", { locale: ptBR }) : <span className="truncate">Selecione</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0 z-50 bg-background border shadow-lg" align="start">
@@ -310,13 +311,13 @@ const PlanPeriod = () => {
                 </Popover>
               </div>
               <div className="space-y-2">
-                <Label>Data Fim *</Label>
+                <Label className="text-sm">Data Fim *</Label>
                 <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className={cn(
-                        "w-full justify-start text-left font-normal",
+                        "w-full justify-start text-left font-normal h-10",
                         !periodEnd && "text-muted-foreground"
                       )}
                     >

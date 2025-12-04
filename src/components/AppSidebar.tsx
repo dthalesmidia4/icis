@@ -1,4 +1,4 @@
-import { Home, Code, User, LogOut } from "lucide-react";
+import { Home, Code, User, LogOut, Menu, X } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
@@ -13,6 +13,7 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -25,13 +26,104 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 const menuItems = [
   { title: "Home", url: "/home", icon: Home },
   { title: "Developer", url: "/dev-hub", icon: Code },
 ];
 
-export function AppSidebar() {
+// Mobile Sidebar Content
+function MobileSidebarContent({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { signOut } = useAuth();
+  const { tenantName } = useTenant();
+
+  const isActive = (path: string) => location.pathname === path;
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth");
+    onClose();
+  };
+
+  const handleNavigate = (url: string) => {
+    navigate(url);
+    onClose();
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header com Avatar e Nome */}
+      <div className="border-b p-4 flex items-center gap-3">
+        <Avatar className="h-12 w-12 border-2 border-primary">
+          <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-base font-bold">
+            {tenantName ? getInitials(tenantName) : 'EM'}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-foreground truncate">{tenantName || 'Minha Empresa'}</p>
+          <p className="text-xs text-muted-foreground">Administrador</p>
+        </div>
+      </div>
+
+      {/* Menu Items */}
+      <div className="flex-1 py-4 px-2">
+        <nav className="space-y-2">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.url);
+            return (
+              <button
+                key={item.title}
+                onClick={() => handleNavigate(item.url)}
+                className={`
+                  w-full flex items-center gap-3 px-4 py-3 rounded-xl
+                  transition-all duration-200 text-left
+                  ${active 
+                    ? 'bg-primary text-primary-foreground shadow-lg' 
+                    : 'hover:bg-accent text-foreground'
+                  }
+                `}
+              >
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                <span className="font-medium">{item.title}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Footer Actions */}
+      <div className="border-t p-4 space-y-2">
+        <button
+          onClick={() => handleNavigate('/profile-settings')}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-accent text-foreground transition-colors"
+        >
+          <User className="h-5 w-5 flex-shrink-0" />
+          <span className="font-medium">Editar Perfil</span>
+        </button>
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-destructive/10 text-destructive transition-colors"
+        >
+          <LogOut className="h-5 w-5 flex-shrink-0" />
+          <span className="font-medium">Sair</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Desktop Sidebar
+function DesktopSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut } = useAuth();
@@ -49,7 +141,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="none" className="border-r w-16 min-w-16 max-w-16">
+    <Sidebar collapsible="none" className="border-r w-16 min-w-16 max-w-16 hidden md:flex">
       {/* Header com Avatar */}
       <SidebarHeader className="border-b p-2">
         <DropdownMenu>
@@ -132,4 +224,44 @@ export function AppSidebar() {
       </SidebarFooter>
     </Sidebar>
   );
+}
+
+// Mobile Header with Hamburger
+export function MobileHeader() {
+  const [open, setOpen] = useState(false);
+  const { tenantName } = useTenant();
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  return (
+    <header className="md:hidden sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b">
+      <div className="flex items-center justify-between px-4 py-3">
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-10 w-10">
+              <Menu className="h-6 w-6" />
+              <span className="sr-only">Abrir menu</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[280px] p-0">
+            <MobileSidebarContent onClose={() => setOpen(false)} />
+          </SheetContent>
+        </Sheet>
+
+        <div className="flex items-center gap-2">
+          <Avatar className="h-8 w-8 border border-primary">
+            <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-xs font-bold">
+              {tenantName ? getInitials(tenantName) : 'EM'}
+            </AvatarFallback>
+          </Avatar>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+export function AppSidebar() {
+  return <DesktopSidebar />;
 }
