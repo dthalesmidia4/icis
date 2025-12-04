@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Sun, Moon, Monitor, Upload, Building2, Palette, Image, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Layout } from '@/components/Layout';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const themeOptions: { value: ThemeMode; label: string; icon: React.ElementType; description: string }[] = [
   { value: 'light', label: 'Claro', icon: Sun, description: 'Tema claro para ambientes bem iluminados' },
@@ -29,18 +30,35 @@ const colorOptions: { value: PrimaryColor; label: string; hue: number; preview: 
 export default function ProfileSettings() {
   const navigate = useNavigate();
   const { settings, updateSettings, isLoading: themeLoading } = useTheme();
-  const { tenantId, tenantName } = useTenant();
+  const { tenantId, tenantName, isLoading: tenantLoading } = useTenant();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [localSettings, setLocalSettings] = useState({
-    mode: settings.mode,
-    primaryColor: settings.primaryColor,
-    companyName: settings.companyName || tenantName || '',
-    logoUrl: settings.logoUrl,
+    mode: 'system' as ThemeMode,
+    primaryColor: 'purple' as PrimaryColor,
+    companyName: '',
+    logoUrl: null as string | null,
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [previewLogo, setPreviewLogo] = useState<string | null>(settings.logoUrl);
+  const [previewLogo, setPreviewLogo] = useState<string | null>(null);
+  const [initialized, setInitialized] = useState(false);
+
+  // Sync local state with context when loaded
+  useEffect(() => {
+    if (!themeLoading && !tenantLoading && !initialized) {
+      setLocalSettings({
+        mode: settings.mode,
+        primaryColor: settings.primaryColor,
+        companyName: settings.companyName || tenantName || '',
+        logoUrl: settings.logoUrl,
+      });
+      setPreviewLogo(settings.logoUrl);
+      setInitialized(true);
+    }
+  }, [themeLoading, tenantLoading, settings, tenantName, initialized]);
+
+  const isLoading = themeLoading || tenantLoading || !initialized;
 
   const handleThemeChange = (mode: ThemeMode) => {
     setLocalSettings(prev => ({ ...prev, mode }));
@@ -114,6 +132,38 @@ export default function ProfileSettings() {
     localSettings.primaryColor !== settings.primaryColor ||
     localSettings.companyName !== (settings.companyName || tenantName || '') ||
     localSettings.logoUrl !== settings.logoUrl;
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="min-h-screen">
+          <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+            <div className="flex items-center justify-between h-16 px-6">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="hover:bg-accent">
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <h1 className="text-xl font-semibold">Editar Perfil</h1>
+              </div>
+            </div>
+          </header>
+          <div className="max-w-3xl mx-auto p-6 space-y-6">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i}>
+                <CardHeader>
+                  <Skeleton className="h-6 w-48" />
+                  <Skeleton className="h-4 w-72" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-32 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
