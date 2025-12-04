@@ -141,7 +141,7 @@ function DesktopSidebar() {
   };
 
   return (
-    <Sidebar collapsible="none" className="border-r w-16 min-w-16 max-w-16 hidden md:flex">
+    <Sidebar collapsible="none" className="border-r w-16 min-w-16 max-w-16 flex flex-col">
       {/* Header com Avatar */}
       <SidebarHeader className="border-b p-2">
         <DropdownMenu>
