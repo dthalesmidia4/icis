@@ -9,7 +9,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import { useSelectedClient } from '@/contexts/SelectedClientContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
 
 export default function StrategyCreation() {
@@ -17,7 +17,6 @@ export default function StrategyCreation() {
   const { tenantId } = useTenant();
   const { selectedClient } = useSelectedClient();
   const [strategyText, setStrategyText] = useState('');
-  const [observations, setObservations] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [existingStrategy, setExistingStrategy] = useState<any>(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -58,7 +57,6 @@ export default function StrategyCreation() {
       if (data) {
         setExistingStrategy(data);
         setStrategyText(data.strategy_text);
-        setObservations(data.observations || '');
         setIsEditMode(false);
       } else {
         setIsEditMode(true);
@@ -71,6 +69,7 @@ export default function StrategyCreation() {
       setIsLoadingStrategy(false);
     }
   };
+
   const handleSave = async () => {
     if (!strategyText.trim()) {
       toast.error('Por favor, descreva a estratégia');
@@ -85,19 +84,16 @@ export default function StrategyCreation() {
       toast.info('Salvando estratégia...');
       let strategyData;
       if (existingStrategy) {
-        // Atualizar estratégia existente
         const {
           data,
           error: updateError
         } = await supabase.from('strategies').update({
           strategy_text: strategyText,
-          observations: observations,
           updated_at: new Date().toISOString()
         }).eq('id', existingStrategy.id).select().single();
         if (updateError) throw updateError;
         strategyData = data;
       } else {
-        // Criar nova estratégia
         const {
           data,
           error: insertError
@@ -105,7 +101,6 @@ export default function StrategyCreation() {
           company_id: selectedClient.id,
           tenant_id: tenantId,
           strategy_text: strategyText,
-          observations: observations,
           status: 'Em elaboração'
         }).select().single();
         if (insertError) throw insertError;
@@ -113,7 +108,6 @@ export default function StrategyCreation() {
       }
       toast.success('✅ Estratégia salva com sucesso!');
       
-      // Recarregar estratégia e voltar para modo visualização
       setExistingStrategy(strategyData);
       setIsEditMode(false);
     } catch (error) {
@@ -124,6 +118,7 @@ export default function StrategyCreation() {
       setShowConfirmModal(false);
     }
   };
+
   const handleSaveClick = () => {
     if (existingStrategy) {
       setShowConfirmModal(true);
@@ -131,11 +126,12 @@ export default function StrategyCreation() {
       handleSave();
     }
   };
+
   const handleCancelEdit = () => {
     setIsEditMode(false);
     setStrategyText(existingStrategy.strategy_text);
-    setObservations(existingStrategy.observations || '');
   };
+
   const handleBack = () => {
     navigate('/client-hub');
   };
@@ -153,7 +149,6 @@ export default function StrategyCreation() {
 
       toast.success('✅ Estratégia removida com sucesso!');
       
-      // Resetar estado e voltar para hub
       setStrategyText('');
       setExistingStrategy(null);
       setIsEditMode(false);
@@ -167,7 +162,6 @@ export default function StrategyCreation() {
     }
   };
 
-  // Parse strategy text into sections based on ## headings
   const parseStrategySections = (text: string) => {
     if (!text) return [];
     
@@ -187,7 +181,6 @@ export default function StrategyCreation() {
       } else if (currentSection) {
         currentSection.content += (currentSection.content ? '\n' : '') + line;
       } else if (line.trim()) {
-        // Content before first ## heading - add to intro without title
         if (!currentSection) {
           currentSection = { title: '', content: '' };
         }
@@ -238,7 +231,6 @@ export default function StrategyCreation() {
         ]}
       />
 
-      {/* Container Principal */}
       <div className="flex-1 overflow-auto">
         <div className="container max-w-4xl mx-auto px-6 py-8 space-y-6">
           
@@ -250,64 +242,43 @@ export default function StrategyCreation() {
               </div>
             </Card>
           ) : existingStrategy && !isEditMode ? (
-            <>
-              {/* Strategy Content Card */}
-              <Card className="p-6">
-                <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground">Estratégia do Cliente</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Visualize e edite a estratégia principal de marketing
-                    </p>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)} className="gap-2">
-                    <Edit2 className="h-4 w-4" />
-                    Editar
-                  </Button>
-                </div>
-
-                {/* Strategy Content */}
-                <div className="space-y-6">
-                  {strategySections.length > 0 ? (
-                    strategySections.map((section, index) => (
-                      <div key={index}>
-                        {section.title && (
-                          <h4 className="text-base font-semibold text-foreground mb-3">
-                            {section.title}
-                          </h4>
-                        )}
-                        <p className="text-foreground/90 whitespace-pre-wrap leading-relaxed text-sm">
-                          {section.content.trim()}
-                        </p>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-foreground whitespace-pre-wrap leading-relaxed">
-                      {strategyText}
-                    </p>
-                  )}
-                </div>
-              </Card>
-
-              {/* Observations Card */}
-              <Card className="p-6">
-                <h4 className="text-base font-semibold text-foreground mb-4 pb-2 border-b border-border">
-                  Observações e Restrições
-                </h4>
-                {observations ? (
-                  <p className="text-foreground/90 whitespace-pre-wrap leading-relaxed text-sm">
-                    {observations}
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Estratégia do Cliente</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Visualize e edite a estratégia principal de marketing
                   </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)} className="gap-2">
+                  <Edit2 className="h-4 w-4" />
+                  Editar
+                </Button>
+              </div>
+
+              <div className="space-y-6">
+                {strategySections.length > 0 ? (
+                  strategySections.map((section, index) => (
+                    <div key={index}>
+                      {section.title && (
+                        <h4 className="text-base font-semibold text-foreground mb-3">
+                          {section.title}
+                        </h4>
+                      )}
+                      <p className="text-foreground/90 whitespace-pre-wrap leading-relaxed text-sm">
+                        {section.content.trim()}
+                      </p>
+                    </div>
+                  ))
                 ) : (
-                  <p className="text-sm text-muted-foreground italic">
-                    Nenhuma observação registrada
+                  <p className="text-foreground whitespace-pre-wrap leading-relaxed">
+                    {strategyText}
                   </p>
                 )}
-              </Card>
-            </>
+              </div>
+            </Card>
           ) : (
             <>
-              {/* Edit Mode - Strategy Input */}
               <Card className="p-6">
                 <div className="space-y-4">
                   <div>
@@ -328,23 +299,6 @@ export default function StrategyCreation() {
                 </div>
               </Card>
 
-              {/* Edit Mode - Observations Input */}
-              <Card className="p-6">
-                <div className="space-y-4">
-                  <Label htmlFor="observations" className="text-base font-semibold">
-                    Observações e Restrições
-                  </Label>
-                  <Textarea
-                    id="observations"
-                    placeholder="Adicione restrições específicas do cliente (ex: não publicar aos domingos, evitar temas polêmicos, priorizar tom formal, etc.)"
-                    value={observations}
-                    onChange={e => setObservations(e.target.value)}
-                    className="min-h-[120px] resize-y"
-                  />
-                </div>
-              </Card>
-
-              {/* Delete Button - Only in edit mode with existing strategy */}
               {isEditMode && existingStrategy && (
                 <Card className="p-6 border-destructive/20">
                   <div className="flex items-center justify-between">
