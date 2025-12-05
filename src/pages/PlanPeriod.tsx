@@ -1,7 +1,7 @@
 // Plan Period Page
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Layout } from "@/components/Layout";
+
 import { PageHeader } from "@/components/PageHeader";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
@@ -1012,8 +1012,7 @@ const PlanPeriod = () => {
   );
 
   return (
-    <Layout>
-      <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
       {/* Fixed Header */}
       <PageHeader
         title="Planejar Período"
@@ -1097,7 +1096,6 @@ const PlanPeriod = () => {
           {currentStep === 'completed' && renderCompleted()}
         </div>
       </div>
-    </Layout>
   );
 };
 
