@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Building2, ArrowLeft, MapPin, Phone, Mail } from "lucide-react";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
+
 const CompanyRegistration = () => {
   const navigate = useNavigate();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -41,47 +42,48 @@ const CompanyRegistration = () => {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loadingCep, setLoadingCep] = useState(false);
+
   const sectors = ["Alimentação", "Saúde", "Educação", "Tecnologia", "Serviços", "Comércio", "Indústria", "Construção", "Moda", "Beleza", "Outros"];
-  const sizes = ["Micro", "Pequena", "Média", "Grande"];
+
   const validateField = (field: string, value: string) => {
     const requiredFields = ["name", "cnpj", "sector", "size", "products_services", "commercial_phone", "corporate_email", "email", "phone"];
 
-    // CNPJ validation
     if (field === "cnpj") {
       if (!value.trim()) return "CNPJ é obrigatório";
       const cleanValue = value.replace(/\D/g, "");
       if (cleanValue.length !== 14) return "CNPJ inválido";
     }
 
-    // CPF validation (optional)
     if (field === "cpf" && value.trim()) {
       const cleanValue = value.replace(/\D/g, "");
       if (cleanValue.length !== 11) return "CPF inválido";
     }
 
-    // Other sector validation
     if (formData.sector === "Outros" && field === "other_sector" && !value.trim()) {
       return "Informe o setor de atuação";
     }
 
-    // Franchise fields validation
     if (formData.hasFranchise === "sim") {
       if (field === "franchise_units" && !value.trim()) return "Campo obrigatório";
       if (field === "franchise_city" && !value.trim()) return "Campo obrigatório";
       if (field === "franchise_brand" && !value.trim()) return "Campo obrigatório";
     }
+
     if (requiredFields.includes(field) && !value.trim()) {
       return "Este campo é obrigatório";
     }
+
     if ((field === "email" || field === "corporate_email") && value && !/\S+@\S+\.\S+/.test(value)) {
       return "E-mail inválido";
     }
+
     if ((field === "phone" || field === "commercial_phone") && value) {
       const cleanValue = value.replace(/\D/g, "");
       if (cleanValue.length < 10 || cleanValue.length > 11) {
         return "Telefone inválido";
       }
     }
+
     if (field === "cep" && value) {
       const cleanValue = value.replace(/\D/g, "");
       if (cleanValue.length !== 8) {
@@ -90,6 +92,7 @@ const CompanyRegistration = () => {
     }
     return "";
   };
+
   const fetchAddressByCep = async (cep: string) => {
     const cleanCep = cep.replace(/\D/g, "");
     if (cleanCep.length !== 8) return;
@@ -114,11 +117,13 @@ const CompanyRegistration = () => {
       setLoadingCep(false);
     }
   };
+
   useEffect(() => {
     if (formData.cep.replace(/\D/g, "").length === 8) {
       fetchAddressByCep(formData.cep);
     }
   }, [formData.cep]);
+
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({
       ...prev,
@@ -130,10 +135,10 @@ const CompanyRegistration = () => {
       [field]: error
     }));
   };
+
   const isFormValid = () => {
     const baseFields = ["name", "cnpj", "sector", "size", "products_services", "email", "phone"];
 
-    // Check base fields including CNPJ
     for (const field of baseFields) {
       const value = formData[field as keyof typeof formData];
       if (!value.trim() || validateField(field, value)) {
@@ -141,12 +146,10 @@ const CompanyRegistration = () => {
       }
     }
 
-    // Check other sector
     if (formData.sector === "Outros" && (!formData.other_sector.trim() || validateField("other_sector", formData.other_sector))) {
       return false;
     }
 
-    // Check franchise fields
     if (formData.hasFranchise === "sim") {
       const franchiseFields = ["franchise_units", "franchise_city", "franchise_brand"];
       for (const field of franchiseFields) {
@@ -158,6 +161,7 @@ const CompanyRegistration = () => {
     }
     return true;
   };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid()) {
@@ -166,42 +170,34 @@ const CompanyRegistration = () => {
     }
     setShowConfirmModal(true);
   };
+
   const confirmSubmit = async () => {
     setLoading(true);
     try {
-      const {
-        data: {
-          user
-        }
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast.error("Usuário não autenticado");
         return;
       }
-      const {
-        data: profile
-      } = await supabase.from('profiles').select('tenant_id').eq('id', user.id).maybeSingle();
+
+      const { data: profile } = await supabase.from('profiles').select('tenant_id').eq('id', user.id).maybeSingle();
       if (!profile?.tenant_id) {
         toast.error("Configure sua agência antes de cadastrar clientes");
         navigate('/agency-setup');
         return;
       }
-      // Build address string
+
       const addressParts = [formData.street, formData.number && `nº ${formData.number}`, formData.city, formData.state, formData.cep && `CEP: ${formData.cep}`].filter(Boolean);
       const fullAddress = addressParts.join(", ");
 
-      // Build sector value
       const sectorValue = formData.sector === "Outros" ? formData.other_sector : formData.sector;
 
-      // Build size value with franchise info
       let sizeValue = formData.size;
       if (formData.hasFranchise === "sim") {
         sizeValue = `${formData.size} - Franquia: ${formData.franchise_brand} (${formData.franchise_units} unidades, ${formData.franchise_city})`;
       }
-      const {
-        data,
-        error
-      } = await supabase.from("tenant_companies").insert([{
+
+      const { data, error } = await supabase.from("tenant_companies").insert([{
         name: formData.name,
         fantasy_name: formData.fantasy_name,
         cnpj_cpf: formData.cnpj,
@@ -212,6 +208,7 @@ const CompanyRegistration = () => {
         phone: formData.phone,
         tenant_id: profile.tenant_id
       }]).select().single();
+
       if (error) {
         if (error.code === '42501') {
           toast.error("Erro de permissão. Verifique se sua agência está configurada corretamente");
@@ -220,6 +217,7 @@ const CompanyRegistration = () => {
         }
         throw error;
       }
+
       setShowConfirmModal(false);
       toast.success("✅ Cliente cadastrado com sucesso!");
       setTimeout(() => {
@@ -232,325 +230,475 @@ const CompanyRegistration = () => {
       setLoading(false);
     }
   };
-  return <div className="pb-8">
+
+  return (
+    <div className="pb-8">
       <div className="p-4 md:p-8">
         <div className="max-w-4xl mx-auto space-y-6">
-          <Button variant="ghost" onClick={() => navigate("/")} className="mb-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar ao Hub
-          </Button>
-          
-          <Card className="shadow-[var(--shadow-elevated)]">
-            <CardHeader className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-secondary">
-                  <Building2 className="h-6 w-6 text-primary-foreground" />
-                </div>
-                <div>
-                  <CardTitle className="text-2xl">Cadastro de Cliente</CardTitle>
-                  <CardDescription>
-                    Preencha as informações do cliente para começar o planejamento
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-8">
-                {/* Seção 1: Identificação da Empresa */}
-                <div className="space-y-6 pt-2">
-                  <div className="flex items-center gap-2 pb-2 border-b border-border">
-                    <Building2 className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-semibold">Identificação da Empresa</h3>
+          {/* Header */}
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => navigate("/")}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold">Cadastro de Cliente</h1>
+              <p className="text-sm text-muted-foreground">
+                Preencha as informações do cliente para começar o planejamento
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Seção 1: Identificação da Empresa */}
+            <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-3 text-base font-semibold">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                    <Building2 className="h-4 w-4 text-primary" />
                   </div>
-                  
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="space-y-2">
-                        <Label htmlFor="name">Razão Social *</Label>
-                        <Input id="name" value={formData.name} onChange={e => handleChange("name", e.target.value)} placeholder="Digite a razão social da empresa" className={errors.name ? "border-destructive" : ""} />
-                        {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
-                      </div>
+                  Identificação da Empresa
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="name" className="text-xs font-medium text-muted-foreground">Razão Social *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={e => handleChange("name", e.target.value)}
+                      placeholder="Digite a razão social da empresa"
+                      className={`h-10 ${errors.name ? "border-destructive" : "border-border/60"}`}
+                    />
+                    {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+                  </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="cnpj">CNPJ *</Label>
-                        <InputMask mask="99.999.999/9999-99" value={formData.cnpj} onChange={e => handleChange("cnpj", e.target.value)} maskChar={null}>
-                          {(inputProps: any) => <Input {...inputProps} id="cnpj" placeholder="00.000.000/0000-00" className={errors.cnpj ? "border-destructive" : ""} />}
-                        </InputMask>
-                        {errors.cnpj && <p className="text-xs text-destructive">{errors.cnpj}</p>}
-                      </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="cnpj" className="text-xs font-medium text-muted-foreground">CNPJ *</Label>
+                    <InputMask
+                      mask="99.999.999/9999-99"
+                      value={formData.cnpj}
+                      onChange={e => handleChange("cnpj", e.target.value)}
+                      maskChar={null}
+                    >
+                      {(inputProps: any) => (
+                        <Input
+                          {...inputProps}
+                          id="cnpj"
+                          placeholder="00.000.000/0000-00"
+                          className={`h-10 ${errors.cnpj ? "border-destructive" : "border-border/60"}`}
+                        />
+                      )}
+                    </InputMask>
+                    {errors.cnpj && <p className="text-xs text-destructive">{errors.cnpj}</p>}
+                  </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="fantasy_name">Nome Fantasia</Label>
-                        <Input id="fantasy_name" value={formData.fantasy_name} onChange={e => handleChange("fantasy_name", e.target.value)} placeholder="Como é conhecido no mercado" />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <Label htmlFor="sector">Setor de Atuação *</Label>
-                        <Select value={formData.sector} onValueChange={value => handleChange("sector", value)}>
-                          <SelectTrigger className={errors.sector ? "border-destructive" : ""}>
-                            <SelectValue placeholder="Selecione o setor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {sectors.map(sector => <SelectItem key={sector} value={sector}>
-                                {sector}
-                              </SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        {errors.sector && <p className="text-xs text-destructive">{errors.sector}</p>}
-                      </div>
-
-                      {formData.sector === "Outros" && <div className="space-y-2">
-                          <Label htmlFor="other_sector">Informe o setor de atuação *</Label>
-                          <Input id="other_sector" value={formData.other_sector} onChange={e => handleChange("other_sector", e.target.value)} placeholder="Digite o setor específico da empresa" className={errors.other_sector ? "border-destructive" : ""} />
-                          {errors.other_sector && <p className="text-xs text-destructive">{errors.other_sector}</p>}
-                        </div>}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <Label htmlFor="size">Tamanho da Empresa *</Label>
-                        <Select value={formData.size} onValueChange={value => handleChange("size", value)}>
-                          <SelectTrigger className={errors.size ? "border-destructive" : ""}>
-                            <SelectValue placeholder="Selecione o tamanho" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Micro">
-                              <div className="flex items-center justify-between w-full gap-4">
-                                <span>Micro</span>
-                                <span className="text-xs text-muted-foreground">(1-10 funcionários)</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="Pequena">
-                              <div className="flex items-center justify-between w-full gap-4">
-                                <span>Pequena</span>
-                                <span className="text-xs text-muted-foreground">(10-20 funcionários)</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="Média">
-                              <div className="flex items-center justify-between w-full gap-4">
-                                <span>Média</span>
-                                <span className="text-xs text-muted-foreground">(21-100 funcionários)</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="Grande">
-                              <div className="flex items-center justify-between w-full gap-4">
-                                <span>Grande</span>
-                                <span className="text-xs text-muted-foreground">(+100 funcionários)</span>
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {errors.size && <p className="text-xs text-destructive">{errors.size}</p>}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="commercial_phone">Telefone Comercial *</Label>
-                        <InputMask mask={formData.commercial_phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"} value={formData.commercial_phone} onChange={e => handleChange("commercial_phone", e.target.value)} maskChar={null}>
-                          {(inputProps: any) => <Input {...inputProps} id="commercial_phone" type="tel" placeholder="(00) 00000-0000" className={errors.commercial_phone ? "border-destructive" : ""} />}
-                        </InputMask>
-                        <p className="text-xs text-muted-foreground">Número fixo da empresa para contato geral.</p>
-                        {errors.commercial_phone && <p className="text-xs text-destructive">{errors.commercial_phone}</p>}
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Possui Franquia *</Label>
-                        <div className="flex gap-6">
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="hasFranchise"
-                              value="não"
-                              checked={formData.hasFranchise === "não"}
-                              onChange={(e) => handleChange("hasFranchise", e.target.value)}
-                              className="w-4 h-4 accent-primary border-input focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                            />
-                            <span className="text-sm">Não</span>
-                          </label>
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="radio"
-                              name="hasFranchise"
-                              value="sim"
-                              checked={formData.hasFranchise === "sim"}
-                              onChange={(e) => handleChange("hasFranchise", e.target.value)}
-                              className="w-4 h-4 accent-primary border-input focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                            />
-                            <span className="text-sm">Sim</span>
-                          </label>
-                        </div>
-                      </div>
-
-                      {formData.hasFranchise === "sim" && <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 rounded-lg bg-muted/50">
-                        <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="franchise_brand">Nome da Marca Franqueadora *</Label>
-                          <Input id="franchise_brand" value={formData.franchise_brand} onChange={e => handleChange("franchise_brand", e.target.value)} placeholder="Ex: McDonald's, O Boticário" className={errors.franchise_brand ? "border-destructive" : ""} />
-                          {errors.franchise_brand && <p className="text-xs text-destructive">{errors.franchise_brand}</p>}
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="franchise_units">Quantidade de Unidades *</Label>
-                          <Input id="franchise_units" type="number" min="1" value={formData.franchise_units} onChange={e => handleChange("franchise_units", e.target.value)} placeholder="Número de unidades" className={errors.franchise_units ? "border-destructive" : ""} />
-                          {errors.franchise_units && <p className="text-xs text-destructive">{errors.franchise_units}</p>}
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="franchise_city">Cidade Principal da Matriz *</Label>
-                          <Input id="franchise_city" value={formData.franchise_city} onChange={e => handleChange("franchise_city", e.target.value)} placeholder="Ex: São Paulo, Rio de Janeiro" className={errors.franchise_city ? "border-destructive" : ""} />
-                          {errors.franchise_city && <p className="text-xs text-destructive">{errors.franchise_city}</p>}
-                        </div>
-                      </div>}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="products_services">Produtos ou Serviços Oferecidos *</Label>
-                      <Textarea id="products_services" value={formData.products_services} onChange={e => handleChange("products_services", e.target.value)} placeholder="Descreva detalhadamente os produtos ou serviços oferecidos pela empresa." className={`min-h-[100px] resize-none ${errors.products_services ? "border-destructive" : ""}`} />
-                      {errors.products_services && <p className="text-xs text-destructive">{errors.products_services}</p>}
-                    </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="fantasy_name" className="text-xs font-medium text-muted-foreground">Nome Fantasia</Label>
+                    <Input
+                      id="fantasy_name"
+                      value={formData.fantasy_name}
+                      onChange={e => handleChange("fantasy_name", e.target.value)}
+                      placeholder="Como é conhecido no mercado"
+                      className="h-10 border-border/60"
+                    />
                   </div>
                 </div>
 
-                {/* Seção 2: Contato e Comunicação */}
-                <div className="space-y-6 pt-2">
-                  <div className="flex items-center gap-2 pb-2 border-b border-border">
-                    <Phone className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-semibold">Contato</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="sector" className="text-xs font-medium text-muted-foreground">Setor de Atuação *</Label>
+                    <Select value={formData.sector} onValueChange={value => handleChange("sector", value)}>
+                      <SelectTrigger className={`h-10 ${errors.sector ? "border-destructive" : "border-border/60"}`}>
+                        <SelectValue placeholder="Selecione o setor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sectors.map(sector => (
+                          <SelectItem key={sector} value={sector}>{sector}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.sector && <p className="text-xs text-destructive">{errors.sector}</p>}
                   </div>
-                  
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <Label htmlFor="corporate_email">E-mail Corporativo *</Label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Input id="corporate_email" type="email" value={formData.corporate_email} onChange={e => handleChange("corporate_email", e.target.value)} placeholder="contato@empresa.com.br" className={`pl-9 ${errors.corporate_email ? "border-destructive" : ""}`} />
-                        </div>
-                        <p className="text-xs text-muted-foreground">E-mail principal da empresa.</p>
-                        {errors.corporate_email && <p className="text-xs text-destructive">{errors.corporate_email}</p>}
-                      </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="phone">Telefone de Contato / WhatsApp *</Label>
-                        <InputMask mask={formData.phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"} value={formData.phone} onChange={e => handleChange("phone", e.target.value)} maskChar={null}>
-                          {(inputProps: any) => <Input {...inputProps} id="phone" type="tel" placeholder="(00) 00000-0000" className={errors.phone ? "border-destructive" : ""} />}
-                        </InputMask>
-                        <p className="text-xs text-muted-foreground">Número pessoal ou WhatsApp do responsável.</p>
-                        {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
-                      </div>
+                  {formData.sector === "Outros" && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="other_sector" className="text-xs font-medium text-muted-foreground">Informe o setor de atuação *</Label>
+                      <Input
+                        id="other_sector"
+                        value={formData.other_sector}
+                        onChange={e => handleChange("other_sector", e.target.value)}
+                        placeholder="Digite o setor específico da empresa"
+                        className={`h-10 ${errors.other_sector ? "border-destructive" : "border-border/60"}`}
+                      />
+                      {errors.other_sector && <p className="text-xs text-destructive">{errors.other_sector}</p>}
                     </div>
+                  )}
+                </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <Label htmlFor="email">E-mail de Contato *</Label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Input id="email" type="email" value={formData.email} onChange={e => handleChange("email", e.target.value)} placeholder="contato@empresa.com.br" className={`pl-9 ${errors.email ? "border-destructive" : ""}`} />
-                        </div>
-                        {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
-                      </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="size" className="text-xs font-medium text-muted-foreground">Tamanho da Empresa *</Label>
+                    <Select value={formData.size} onValueChange={value => handleChange("size", value)}>
+                      <SelectTrigger className={`h-10 ${errors.size ? "border-destructive" : "border-border/60"}`}>
+                        <SelectValue placeholder="Selecione o tamanho" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Micro">
+                          <div className="flex items-center justify-between w-full gap-4">
+                            <span>Micro</span>
+                            <span className="text-xs text-muted-foreground">(1-10 funcionários)</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Pequena">
+                          <div className="flex items-center justify-between w-full gap-4">
+                            <span>Pequena</span>
+                            <span className="text-xs text-muted-foreground">(10-20 funcionários)</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Média">
+                          <div className="flex items-center justify-between w-full gap-4">
+                            <span>Média</span>
+                            <span className="text-xs text-muted-foreground">(21-100 funcionários)</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Grande">
+                          <div className="flex items-center justify-between w-full gap-4">
+                            <span>Grande</span>
+                            <span className="text-xs text-muted-foreground">(+100 funcionários)</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {errors.size && <p className="text-xs text-destructive">{errors.size}</p>}
+                  </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="cpf">CPF</Label>
-                        <InputMask mask="999.999.999-99" value={formData.cpf} onChange={e => handleChange("cpf", e.target.value)} maskChar={null}>
-                          {(inputProps: any) => <Input {...inputProps} id="cpf" placeholder="000.000.000-00" className={errors.cpf ? "border-destructive" : ""} />}
-                        </InputMask>
-                        <p className="text-xs text-muted-foreground">CPF do responsável (opcional).</p>
-                        {errors.cpf && <p className="text-xs text-destructive">{errors.cpf}</p>}
-                      </div>
-                    </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="commercial_phone" className="text-xs font-medium text-muted-foreground">Telefone Comercial *</Label>
+                    <InputMask
+                      mask={formData.commercial_phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"}
+                      value={formData.commercial_phone}
+                      onChange={e => handleChange("commercial_phone", e.target.value)}
+                      maskChar={null}
+                    >
+                      {(inputProps: any) => (
+                        <Input
+                          {...inputProps}
+                          id="commercial_phone"
+                          type="tel"
+                          placeholder="(00) 00000-0000"
+                          className={`h-10 ${errors.commercial_phone ? "border-destructive" : "border-border/60"}`}
+                        />
+                      )}
+                    </InputMask>
+                    <p className="text-[11px] text-muted-foreground/70">Número fixo da empresa para contato geral.</p>
+                    {errors.commercial_phone && <p className="text-xs text-destructive">{errors.commercial_phone}</p>}
                   </div>
                 </div>
 
-                {/* Seção 3: Localização */}
-                <div className="space-y-6 pt-2">
-                  <div className="flex items-center gap-2 pb-2 border-b border-border">
-                    <MapPin className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-semibold">Localização</h3>
+                {/* Franquia */}
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground">Possui Franquia *</Label>
+                    <div className="flex gap-6 pt-1">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="hasFranchise"
+                          value="não"
+                          checked={formData.hasFranchise === "não"}
+                          onChange={(e) => handleChange("hasFranchise", e.target.value)}
+                          className="w-4 h-4 accent-primary"
+                        />
+                        <span className="text-sm">Não</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="hasFranchise"
+                          value="sim"
+                          checked={formData.hasFranchise === "sim"}
+                          onChange={(e) => handleChange("hasFranchise", e.target.value)}
+                          className="w-4 h-4 accent-primary"
+                        />
+                        <span className="text-sm">Sim</span>
+                      </label>
+                    </div>
                   </div>
-                  
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
-                      <div className="space-y-2 md:col-span-2">
-                        <Label htmlFor="cep">CEP</Label>
-                        <InputMask mask="99999-999" value={formData.cep} onChange={e => handleChange("cep", e.target.value)} maskChar={null} disabled={loadingCep}>
-                          {(inputProps: any) => <Input {...inputProps} id="cep" placeholder="00000-000" className={errors.cep ? "border-destructive" : ""} />}
-                        </InputMask>
-                        {loadingCep && <p className="text-xs text-muted-foreground">Buscando endereço...</p>}
-                        {!loadingCep}
-                        {errors.cep && <p className="text-xs text-destructive">{errors.cep}</p>}
+
+                  {formData.hasFranchise === "sim" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-muted/20 border border-border/30">
+                      <div className="space-y-1.5 md:col-span-2">
+                        <Label htmlFor="franchise_brand" className="text-xs font-medium text-muted-foreground">Nome da Marca Franqueadora *</Label>
+                        <Input
+                          id="franchise_brand"
+                          value={formData.franchise_brand}
+                          onChange={e => handleChange("franchise_brand", e.target.value)}
+                          placeholder="Ex: McDonald's, O Boticário"
+                          className={`h-10 ${errors.franchise_brand ? "border-destructive" : "border-border/60"}`}
+                        />
+                        {errors.franchise_brand && <p className="text-xs text-destructive">{errors.franchise_brand}</p>}
                       </div>
 
-                      <div className="space-y-2 md:col-span-3">
-                        <Label htmlFor="street">Endereço (Rua/Avenida)</Label>
-                        <Input id="street" value={formData.street} onChange={e => handleChange("street", e.target.value)} placeholder="Rua, Avenida, etc." />
+                      <div className="space-y-1.5">
+                        <Label htmlFor="franchise_units" className="text-xs font-medium text-muted-foreground">Quantidade de Unidades *</Label>
+                        <Input
+                          id="franchise_units"
+                          type="number"
+                          min="1"
+                          value={formData.franchise_units}
+                          onChange={e => handleChange("franchise_units", e.target.value)}
+                          placeholder="Número de unidades"
+                          className={`h-10 ${errors.franchise_units ? "border-destructive" : "border-border/60"}`}
+                        />
+                        {errors.franchise_units && <p className="text-xs text-destructive">{errors.franchise_units}</p>}
                       </div>
 
-                      <div className="space-y-2 md:col-span-1">
-                        <Label htmlFor="number">Número</Label>
-                        <Input id="number" value={formData.number} onChange={e => handleChange("number", e.target.value)} placeholder="123" />
+                      <div className="space-y-1.5">
+                        <Label htmlFor="franchise_city" className="text-xs font-medium text-muted-foreground">Cidade Principal da Matriz *</Label>
+                        <Input
+                          id="franchise_city"
+                          value={formData.franchise_city}
+                          onChange={e => handleChange("franchise_city", e.target.value)}
+                          placeholder="Ex: São Paulo, Rio de Janeiro"
+                          className={`h-10 ${errors.franchise_city ? "border-destructive" : "border-border/60"}`}
+                        />
+                        {errors.franchise_city && <p className="text-xs text-destructive">{errors.franchise_city}</p>}
                       </div>
                     </div>
+                  )}
+                </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <Label htmlFor="city">Cidade</Label>
-                        <Input id="city" value={formData.city} onChange={e => handleChange("city", e.target.value)} placeholder="São Paulo" />
-                      </div>
+                {/* Produtos e Serviços */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="products_services" className="text-xs font-medium text-muted-foreground">Produtos ou Serviços Oferecidos *</Label>
+                  <Textarea
+                    id="products_services"
+                    value={formData.products_services}
+                    onChange={e => handleChange("products_services", e.target.value)}
+                    placeholder="Descreva detalhadamente os produtos ou serviços oferecidos pela empresa."
+                    className={`min-h-[100px] resize-none ${errors.products_services ? "border-destructive" : "border-border/60"}`}
+                  />
+                  {errors.products_services && <p className="text-xs text-destructive">{errors.products_services}</p>}
+                </div>
+              </CardContent>
+            </Card>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="state">Estado</Label>
-                        <Select value={formData.state} onValueChange={value => handleChange("state", value)}>
-                          <SelectTrigger id="state">
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background">
-                            <SelectItem value="AC">AC</SelectItem>
-                            <SelectItem value="AL">AL</SelectItem>
-                            <SelectItem value="AP">AP</SelectItem>
-                            <SelectItem value="AM">AM</SelectItem>
-                            <SelectItem value="BA">BA</SelectItem>
-                            <SelectItem value="CE">CE</SelectItem>
-                            <SelectItem value="DF">DF</SelectItem>
-                            <SelectItem value="ES">ES</SelectItem>
-                            <SelectItem value="GO">GO</SelectItem>
-                            <SelectItem value="MA">MA</SelectItem>
-                            <SelectItem value="MT">MT</SelectItem>
-                            <SelectItem value="MS">MS</SelectItem>
-                            <SelectItem value="MG">MG</SelectItem>
-                            <SelectItem value="PA">PA</SelectItem>
-                            <SelectItem value="PB">PB</SelectItem>
-                            <SelectItem value="PR">PR</SelectItem>
-                            <SelectItem value="PE">PE</SelectItem>
-                            <SelectItem value="PI">PI</SelectItem>
-                            <SelectItem value="RJ">RJ</SelectItem>
-                            <SelectItem value="RN">RN</SelectItem>
-                            <SelectItem value="RS">RS</SelectItem>
-                            <SelectItem value="RO">RO</SelectItem>
-                            <SelectItem value="RR">RR</SelectItem>
-                            <SelectItem value="SC">SC</SelectItem>
-                            <SelectItem value="SP">SP</SelectItem>
-                            <SelectItem value="SE">SE</SelectItem>
-                            <SelectItem value="TO">TO</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+            {/* Seção 2: Contato e Comunicação */}
+            <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-3 text-base font-semibold">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                    <Phone className="h-4 w-4 text-primary" />
+                  </div>
+                  Contato e Comunicação
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="corporate_email" className="text-xs font-medium text-muted-foreground">E-mail Corporativo *</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="corporate_email"
+                        type="email"
+                        value={formData.corporate_email}
+                        onChange={e => handleChange("corporate_email", e.target.value)}
+                        placeholder="contato@empresa.com.br"
+                        className={`h-10 pl-9 ${errors.corporate_email ? "border-destructive" : "border-border/60"}`}
+                      />
                     </div>
+                    <p className="text-[11px] text-muted-foreground/70">E-mail principal da empresa.</p>
+                    {errors.corporate_email && <p className="text-xs text-destructive">{errors.corporate_email}</p>}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="phone" className="text-xs font-medium text-muted-foreground">Telefone de Contato / WhatsApp *</Label>
+                    <InputMask
+                      mask={formData.phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"}
+                      value={formData.phone}
+                      onChange={e => handleChange("phone", e.target.value)}
+                      maskChar={null}
+                    >
+                      {(inputProps: any) => (
+                        <Input
+                          {...inputProps}
+                          id="phone"
+                          type="tel"
+                          placeholder="(00) 00000-0000"
+                          className={`h-10 ${errors.phone ? "border-destructive" : "border-border/60"}`}
+                        />
+                      )}
+                    </InputMask>
+                    <p className="text-[11px] text-muted-foreground/70">Número pessoal ou WhatsApp do responsável.</p>
+                    {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
                   </div>
                 </div>
 
-                <Button type="submit" disabled={!isFormValid()} className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition-opacity">
-                  Cadastrar Cliente
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="email" className="text-xs font-medium text-muted-foreground">E-mail de Contato *</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={e => handleChange("email", e.target.value)}
+                        placeholder="contato@empresa.com.br"
+                        className={`h-10 pl-9 ${errors.email ? "border-destructive" : "border-border/60"}`}
+                      />
+                    </div>
+                    {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="cpf" className="text-xs font-medium text-muted-foreground">CPF do Responsável</Label>
+                    <InputMask
+                      mask="999.999.999-99"
+                      value={formData.cpf}
+                      onChange={e => handleChange("cpf", e.target.value)}
+                      maskChar={null}
+                    >
+                      {(inputProps: any) => (
+                        <Input
+                          {...inputProps}
+                          id="cpf"
+                          placeholder="000.000.000-00"
+                          className={`h-10 ${errors.cpf ? "border-destructive" : "border-border/60"}`}
+                        />
+                      )}
+                    </InputMask>
+                    <p className="text-[11px] text-muted-foreground/70">CPF do responsável (opcional).</p>
+                    {errors.cpf && <p className="text-xs text-destructive">{errors.cpf}</p>}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Seção 3: Localização */}
+            <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-3 text-base font-semibold">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                    <MapPin className="h-4 w-4 text-primary" />
+                  </div>
+                  Localização
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="cep" className="text-xs font-medium text-muted-foreground">CEP</Label>
+                    <InputMask
+                      mask="99999-999"
+                      value={formData.cep}
+                      onChange={e => handleChange("cep", e.target.value)}
+                      maskChar={null}
+                      disabled={loadingCep}
+                    >
+                      {(inputProps: any) => (
+                        <Input
+                          {...inputProps}
+                          id="cep"
+                          placeholder="00000-000"
+                          className={`h-10 ${errors.cep ? "border-destructive" : "border-border/60"}`}
+                        />
+                      )}
+                    </InputMask>
+                    {loadingCep && <p className="text-[11px] text-muted-foreground/70">Buscando endereço...</p>}
+                    {errors.cep && <p className="text-xs text-destructive">{errors.cep}</p>}
+                  </div>
+
+                  <div className="space-y-1.5 col-span-2">
+                    <Label htmlFor="street" className="text-xs font-medium text-muted-foreground">Endereço (Rua/Avenida)</Label>
+                    <Input
+                      id="street"
+                      value={formData.street}
+                      onChange={e => handleChange("street", e.target.value)}
+                      placeholder="Rua, Avenida, etc."
+                      className="h-10 border-border/60"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="number" className="text-xs font-medium text-muted-foreground">Número</Label>
+                    <Input
+                      id="number"
+                      value={formData.number}
+                      onChange={e => handleChange("number", e.target.value)}
+                      placeholder="123"
+                      className="h-10 border-border/60"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="city" className="text-xs font-medium text-muted-foreground">Cidade</Label>
+                    <Input
+                      id="city"
+                      value={formData.city}
+                      onChange={e => handleChange("city", e.target.value)}
+                      placeholder="São Paulo"
+                      className="h-10 border-border/60"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="state" className="text-xs font-medium text-muted-foreground">Estado</Label>
+                    <Select value={formData.state} onValueChange={value => handleChange("state", value)}>
+                      <SelectTrigger className="h-10 border-border/60">
+                        <SelectValue placeholder="UF" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"].map(state => (
+                          <SelectItem key={state} value={state}>{state}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="complement" className="text-xs font-medium text-muted-foreground">Complemento</Label>
+                    <Input
+                      id="complement"
+                      value={formData.complement}
+                      onChange={e => handleChange("complement", e.target.value)}
+                      placeholder="Sala, andar, bloco..."
+                      className="h-10 border-border/60"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Button
+              type="submit"
+              disabled={!isFormValid()}
+              className="w-full h-11"
+            >
+              Cadastrar Cliente
+            </Button>
+          </form>
         </div>
       </div>
       
-      <ConfirmationModal open={showConfirmModal} onOpenChange={setShowConfirmModal} title="Confirmar Cadastro" description="Deseja confirmar o cadastro deste cliente?" onConfirm={confirmSubmit} loading={loading} />
-    </div>;
+      <ConfirmationModal
+        open={showConfirmModal}
+        onOpenChange={setShowConfirmModal}
+        title="Confirmar Cadastro"
+        description="Deseja confirmar o cadastro deste cliente?"
+        onConfirm={confirmSubmit}
+        loading={loading}
+      />
+    </div>
+  );
 };
+
 export default CompanyRegistration;
