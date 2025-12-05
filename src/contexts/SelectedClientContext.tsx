@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode } from 'react';
 
 interface Client {
   id: string;
@@ -30,43 +30,25 @@ interface SelectedClientProviderProps {
 }
 
 export const SelectedClientProvider = ({ children }: SelectedClientProviderProps) => {
-  // DEBUG: Log quando o Provider é criado (indica novo mount da app)
-  console.log('[SelectedClientContext] ========== PROVIDER CREATED ==========');
-  console.log('[SelectedClientContext] This indicates app initialization/remount');
-  console.log('[SelectedClientContext] Current URL:', window.location.href);
-  console.log('[SelectedClientContext] Timestamp:', new Date().toISOString());
-  
   // Inicializa o estado diretamente com o valor do sessionStorage
   const [selectedClient, setSelectedClientState] = useState<Client | null>(() => {
     try {
       const stored = sessionStorage.getItem('selectedClient');
-      console.log('[SelectedClientContext] Initial load from sessionStorage:', stored);
-      const parsed = stored ? JSON.parse(stored) : null;
-      console.log('[SelectedClientContext] Parsed client:', parsed);
-      return parsed;
-    } catch (error) {
-      console.error('[SelectedClientContext] Error parsing stored client:', error);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
       return null;
     }
   });
   
-  // isInitialized começa como true se já temos um cliente do sessionStorage
-  // Isso evita o flash de loading quando há cliente persistido
-  const [isInitialized, setIsInitialized] = useState(() => {
-    const hasStoredClient = sessionStorage.getItem('selectedClient') !== null;
-    console.log('[SelectedClientContext] Initial isInitialized:', hasStoredClient || true);
-    return true; // Sempre começa como true pois o useState já leu do sessionStorage
-  });
+  // isInitialized é sempre true pois o useState já leu do sessionStorage sincronamente
+  const isInitialized = true;
 
   const setSelectedClient = (client: Client | null) => {
-    console.log('[SelectedClientContext] setSelectedClient called with:', client);
     setSelectedClientState(client);
     if (client) {
       sessionStorage.setItem('selectedClient', JSON.stringify(client));
-      console.log('[SelectedClientContext] Saved to sessionStorage');
     } else {
       sessionStorage.removeItem('selectedClient');
-      console.log('[SelectedClientContext] Removed from sessionStorage');
     }
   };
 
