@@ -73,15 +73,31 @@ export default function Schedule() {
 
   const periodPlanId = searchParams.get("periodPlanId");
 
+  console.log('[Schedule] Render state:', {
+    periodPlanId,
+    tenantId,
+    isInitialized,
+    tenantLoading,
+    loading,
+    cardsCount: cards.length
+  });
+
   useEffect(() => {
+    console.log('[Schedule] useEffect triggered:', { isInitialized, tenantLoading, periodPlanId, tenantId });
+    
     // Aguardar contextos inicializarem
-    if (!isInitialized || tenantLoading) return;
+    if (!isInitialized || tenantLoading) {
+      console.log('[Schedule] Waiting for contexts...');
+      return;
+    }
     
     // Só buscar dados se tiver periodPlanId e tenantId
     if (periodPlanId && tenantId) {
+      console.log('[Schedule] Fetching cards...');
       fetchPeriodPlanCards();
     } else if (!periodPlanId) {
       // Sem periodPlanId, mostrar estado vazio (não redirecionar)
+      console.log('[Schedule] No periodPlanId, showing empty state');
       setLoading(false);
     }
   }, [periodPlanId, tenantId, isInitialized, tenantLoading]);
