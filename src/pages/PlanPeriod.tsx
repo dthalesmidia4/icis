@@ -957,19 +957,6 @@ const PlanPeriod = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="font-semibold text-lg">{period.period_title}</h3>
-                    <Badge 
-                      variant={period.status === 'completed' ? 'default' : 'secondary'}
-                      className={period.status === 'completed' ? 'bg-green-500' : ''}
-                    >
-                      {period.status === 'completed' ? 'Concluído' : 
-                       period.status === 'mode_selected' ? 'Em Progresso' : 
-                       period.status === 'generated' ? 'Gerado' : 'Rascunho'}
-                    </Badge>
-                    {period.primary_mode && (
-                      <Badge variant="outline" className={period.primary_mode === 'ultra' ? 'border-pink-500 text-pink-500' : ''}>
-                        Modo {period.primary_mode === 'ultra' ? 'Ultra' : 'Normal'}
-                      </Badge>
-                    )}
                   </div>
                   
                   <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
