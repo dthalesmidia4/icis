@@ -418,17 +418,19 @@ const ClientDetails = () => {
           </div>
 
           {/* Seção 1: Identificação da Empresa */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Building2 className="h-5 w-5 text-primary" />
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-base font-semibold">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                  <Building2 className="h-4 w-4 text-primary" />
+                </div>
                 Identificação da Empresa
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Razão Social *</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="name" className="text-xs font-medium text-muted-foreground">Razão Social *</Label>
                   {isEditing ? (
                     <>
                       <Input
@@ -436,17 +438,17 @@ const ClientDetails = () => {
                         value={formData.name}
                         onChange={(e) => handleInputChange('name', e.target.value)}
                         placeholder="Digite a razão social da empresa"
-                        className={errors.name ? "border-destructive" : ""}
+                        className={`h-10 ${errors.name ? "border-destructive" : "border-border/60"}`}
                       />
                       {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
                     </>
                   ) : (
-                    <p className="text-sm py-2 px-3 bg-muted/50 rounded-md">{client.name}</p>
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40">{client.name}</p>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="cnpj">CNPJ *</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cnpj" className="text-xs font-medium text-muted-foreground">CNPJ *</Label>
                   {isEditing ? (
                     <>
                       <InputMask
@@ -460,28 +462,29 @@ const ClientDetails = () => {
                             {...inputProps}
                             id="cnpj"
                             placeholder="00.000.000/0000-00"
-                            className={errors.cnpj ? "border-destructive" : ""}
+                            className={`h-10 ${errors.cnpj ? "border-destructive" : "border-border/60"}`}
                           />
                         )}
                       </InputMask>
                       {errors.cnpj && <p className="text-xs text-destructive">{errors.cnpj}</p>}
                     </>
                   ) : (
-                    <p className="text-sm py-2 px-3 bg-muted/50 rounded-md">{client.cnpj_cpf}</p>
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40">{client.cnpj_cpf}</p>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="fantasy_name">Nome Fantasia</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="fantasy_name" className="text-xs font-medium text-muted-foreground">Nome Fantasia</Label>
                   {isEditing ? (
                     <Input
                       id="fantasy_name"
                       value={formData.fantasy_name}
                       onChange={(e) => handleInputChange('fantasy_name', e.target.value)}
                       placeholder="Como é conhecido no mercado"
+                      className="h-10 border-border/60"
                     />
                   ) : (
-                    <p className="text-sm py-2 px-3 bg-muted/50 rounded-md">
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40">
                       {client.fantasy_name || <span className="text-muted-foreground">Não informado</span>}
                     </p>
                   )}
@@ -489,15 +492,15 @@ const ClientDetails = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sector">Setor de Atuação *</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="sector" className="text-xs font-medium text-muted-foreground">Setor de Atuação *</Label>
                   {isEditing ? (
                     <>
                       <Select
                         value={formData.sector}
                         onValueChange={(value) => handleInputChange('sector', value)}
                       >
-                        <SelectTrigger className={errors.sector ? "border-destructive" : ""}>
+                        <SelectTrigger className={`h-10 ${errors.sector ? "border-destructive" : "border-border/60"}`}>
                           <SelectValue placeholder="Selecione o setor" />
                         </SelectTrigger>
                         <SelectContent>
@@ -511,19 +514,19 @@ const ClientDetails = () => {
                       {errors.sector && <p className="text-xs text-destructive">{errors.sector}</p>}
                     </>
                   ) : (
-                    <p className="text-sm py-2 px-3 bg-muted/50 rounded-md">{client.sector}</p>
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40">{client.sector}</p>
                   )}
                 </div>
 
                 {isEditing && formData.sector === "Outros" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="other_sector">Informe o setor de atuação *</Label>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="other_sector" className="text-xs font-medium text-muted-foreground">Informe o setor de atuação *</Label>
                     <Input
                       id="other_sector"
                       value={formData.other_sector}
                       onChange={(e) => handleInputChange('other_sector', e.target.value)}
                       placeholder="Digite o setor específico da empresa"
-                      className={errors.other_sector ? "border-destructive" : ""}
+                      className={`h-10 ${errors.other_sector ? "border-destructive" : "border-border/60"}`}
                     />
                     {errors.other_sector && <p className="text-xs text-destructive">{errors.other_sector}</p>}
                   </div>
@@ -531,15 +534,15 @@ const ClientDetails = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="size">Tamanho da Empresa *</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="size" className="text-xs font-medium text-muted-foreground">Tamanho da Empresa *</Label>
                   {isEditing ? (
                     <>
                       <Select
                         value={formData.size}
                         onValueChange={(value) => handleInputChange('size', value)}
                       >
-                        <SelectTrigger className={errors.size ? "border-destructive" : ""}>
+                        <SelectTrigger className={`h-10 ${errors.size ? "border-destructive" : "border-border/60"}`}>
                           <SelectValue placeholder="Selecione o tamanho" />
                         </SelectTrigger>
                         <SelectContent>
@@ -556,7 +559,7 @@ const ClientDetails = () => {
                       {errors.size && <p className="text-xs text-destructive">{errors.size}</p>}
                     </>
                   ) : (
-                    <p className="text-sm py-2 px-3 bg-muted/50 rounded-md">
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40">
                       {SIZE_OPTIONS.find(o => client.size?.startsWith(o.value))?.label || client.size}
                       {SIZE_OPTIONS.find(o => client.size?.startsWith(o.value))?.description && (
                         <span className="text-muted-foreground ml-1">
@@ -567,8 +570,8 @@ const ClientDetails = () => {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="commercial_phone">Telefone Comercial</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="commercial_phone" className="text-xs font-medium text-muted-foreground">Telefone Comercial</Label>
                   {isEditing ? (
                     <InputMask
                       mask={formData.commercial_phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"}
@@ -582,24 +585,25 @@ const ClientDetails = () => {
                           id="commercial_phone"
                           type="tel"
                           placeholder="(00) 00000-0000"
+                          className="h-10 border-border/60"
                         />
                       )}
                     </InputMask>
                   ) : (
-                    <p className="text-sm py-2 px-3 bg-muted/50 rounded-md text-muted-foreground">
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
                       Não informado
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground">Número fixo da empresa para contato geral.</p>
+                  <p className="text-[11px] text-muted-foreground/70">Número fixo da empresa para contato geral.</p>
                 </div>
               </div>
 
               {/* Franquia */}
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Possui Franquia</Label>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">Possui Franquia</Label>
                   {isEditing ? (
-                    <div className="flex gap-6">
+                    <div className="flex gap-6 pt-1">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="radio"
@@ -624,16 +628,16 @@ const ClientDetails = () => {
                       </label>
                     </div>
                   ) : (
-                    <p className="text-sm py-2 px-3 bg-muted/50 rounded-md">
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40">
                       {formData.hasFranchise === "sim" ? "Sim" : "Não"}
                     </p>
                   )}
                 </div>
 
                 {formData.hasFranchise === "sim" && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-lg bg-muted/50">
-                    <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="franchise_brand">Nome da Marca Franqueadora *</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-muted/20 border border-border/30">
+                    <div className="space-y-1.5 md:col-span-2">
+                      <Label htmlFor="franchise_brand" className="text-xs font-medium text-muted-foreground">Nome da Marca Franqueadora *</Label>
                       {isEditing ? (
                         <>
                           <Input
@@ -641,17 +645,17 @@ const ClientDetails = () => {
                             value={formData.franchise_brand}
                             onChange={(e) => handleInputChange('franchise_brand', e.target.value)}
                             placeholder="Ex: McDonald's, O Boticário"
-                            className={errors.franchise_brand ? "border-destructive" : ""}
+                            className={`h-10 ${errors.franchise_brand ? "border-destructive" : "border-border/60"}`}
                           />
                           {errors.franchise_brand && <p className="text-xs text-destructive">{errors.franchise_brand}</p>}
                         </>
                       ) : (
-                        <p className="text-sm py-2 px-3 bg-background rounded-md">{formData.franchise_brand}</p>
+                        <p className="text-sm py-2.5 px-3 bg-background rounded-lg border border-border/40">{formData.franchise_brand}</p>
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="franchise_units">Quantidade de Unidades *</Label>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="franchise_units" className="text-xs font-medium text-muted-foreground">Quantidade de Unidades *</Label>
                       {isEditing ? (
                         <>
                           <Input
@@ -661,17 +665,17 @@ const ClientDetails = () => {
                             value={formData.franchise_units}
                             onChange={(e) => handleInputChange('franchise_units', e.target.value)}
                             placeholder="Ex: 5"
-                            className={errors.franchise_units ? "border-destructive" : ""}
+                            className={`h-10 ${errors.franchise_units ? "border-destructive" : "border-border/60"}`}
                           />
                           {errors.franchise_units && <p className="text-xs text-destructive">{errors.franchise_units}</p>}
                         </>
                       ) : (
-                        <p className="text-sm py-2 px-3 bg-background rounded-md">{formData.franchise_units}</p>
+                        <p className="text-sm py-2.5 px-3 bg-background rounded-lg border border-border/40">{formData.franchise_units}</p>
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="franchise_city">Cidade Principal da Matriz *</Label>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="franchise_city" className="text-xs font-medium text-muted-foreground">Cidade Principal da Matriz *</Label>
                       {isEditing ? (
                         <>
                           <Input
@@ -679,12 +683,12 @@ const ClientDetails = () => {
                             value={formData.franchise_city}
                             onChange={(e) => handleInputChange('franchise_city', e.target.value)}
                             placeholder="Ex: São Paulo"
-                            className={errors.franchise_city ? "border-destructive" : ""}
+                            className={`h-10 ${errors.franchise_city ? "border-destructive" : "border-border/60"}`}
                           />
                           {errors.franchise_city && <p className="text-xs text-destructive">{errors.franchise_city}</p>}
                         </>
                       ) : (
-                        <p className="text-sm py-2 px-3 bg-background rounded-md">{formData.franchise_city}</p>
+                        <p className="text-sm py-2.5 px-3 bg-background rounded-lg border border-border/40">{formData.franchise_city}</p>
                       )}
                     </div>
                   </div>
@@ -692,8 +696,8 @@ const ClientDetails = () => {
               </div>
 
               {/* Produtos e Serviços */}
-              <div className="space-y-2">
-                <Label htmlFor="products_services">Produtos ou Serviços Oferecidos *</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="products_services" className="text-xs font-medium text-muted-foreground">Produtos ou Serviços Oferecidos *</Label>
                 {isEditing ? (
                   <>
                     <Textarea
@@ -702,12 +706,12 @@ const ClientDetails = () => {
                       onChange={(e) => handleInputChange('products_services', e.target.value)}
                       placeholder="Descreva os principais produtos ou serviços oferecidos pela empresa"
                       rows={3}
-                      className={errors.products_services ? "border-destructive" : ""}
+                      className={`resize-none ${errors.products_services ? "border-destructive" : "border-border/60"}`}
                     />
                     {errors.products_services && <p className="text-xs text-destructive">{errors.products_services}</p>}
                   </>
                 ) : (
-                  <p className="text-sm py-3 px-3 bg-muted/50 rounded-md leading-relaxed">
+                  <p className="text-sm py-3 px-3 bg-muted/30 rounded-lg border border-border/40 leading-relaxed">
                     {client.products_services || <span className="text-muted-foreground">Não informado</span>}
                   </p>
                 )}
@@ -716,17 +720,19 @@ const ClientDetails = () => {
           </Card>
 
           {/* Seção 2: Localização */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <MapPin className="h-5 w-5 text-primary" />
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-base font-semibold">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                  <MapPin className="h-4 w-4 text-primary" />
+                </div>
                 Localização
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="cep">CEP</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cep" className="text-xs font-medium text-muted-foreground">CEP</Label>
                   {isEditing ? (
                     <InputMask
                       mask="99999-999"
@@ -740,43 +746,46 @@ const ClientDetails = () => {
                           {...inputProps}
                           id="cep"
                           placeholder="00000-000"
+                          className="h-10 border-border/60"
                         />
                       )}
                     </InputMask>
                   ) : (
-                    <p className="text-sm py-2 px-3 bg-muted/50 rounded-md text-muted-foreground">
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
                       {formData.cep || "Não informado"}
                     </p>
                   )}
                 </div>
 
-                <div className="space-y-2 col-span-2">
-                  <Label htmlFor="street">Endereço (Rua/Avenida)</Label>
+                <div className="space-y-1.5 col-span-2">
+                  <Label htmlFor="street" className="text-xs font-medium text-muted-foreground">Endereço (Rua/Avenida)</Label>
                   {isEditing ? (
                     <Input
                       id="street"
                       value={formData.street}
                       onChange={(e) => handleInputChange('street', e.target.value)}
                       placeholder="Nome da rua ou avenida"
+                      className="h-10 border-border/60"
                     />
                   ) : (
-                    <p className="text-sm py-2 px-3 bg-muted/50 rounded-md text-muted-foreground">
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
                       {formData.street || "Não informado"}
                     </p>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="number">Número</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="number" className="text-xs font-medium text-muted-foreground">Número</Label>
                   {isEditing ? (
                     <Input
                       id="number"
                       value={formData.number}
                       onChange={(e) => handleInputChange('number', e.target.value)}
                       placeholder="Nº"
+                      className="h-10 border-border/60"
                     />
                   ) : (
-                    <p className="text-sm py-2 px-3 bg-muted/50 rounded-md text-muted-foreground">
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
                       {formData.number || "Não informado"}
                     </p>
                   )}
@@ -784,30 +793,31 @@ const ClientDetails = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="city">Cidade</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="city" className="text-xs font-medium text-muted-foreground">Cidade</Label>
                   {isEditing ? (
                     <Input
                       id="city"
                       value={formData.city}
                       onChange={(e) => handleInputChange('city', e.target.value)}
                       placeholder="Cidade"
+                      className="h-10 border-border/60"
                     />
                   ) : (
-                    <p className="text-sm py-2 px-3 bg-muted/50 rounded-md text-muted-foreground">
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
                       {formData.city || "Não informado"}
                     </p>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="state">Estado</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="state" className="text-xs font-medium text-muted-foreground">Estado</Label>
                   {isEditing ? (
                     <Select
                       value={formData.state}
                       onValueChange={(value) => handleInputChange('state', value)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10 border-border/60">
                         <SelectValue placeholder="UF" />
                       </SelectTrigger>
                       <SelectContent>
@@ -819,23 +829,24 @@ const ClientDetails = () => {
                       </SelectContent>
                     </Select>
                   ) : (
-                    <p className="text-sm py-2 px-3 bg-muted/50 rounded-md text-muted-foreground">
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
                       {formData.state || "Não informado"}
                     </p>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="complement">Complemento</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="complement" className="text-xs font-medium text-muted-foreground">Complemento</Label>
                   {isEditing ? (
                     <Input
                       id="complement"
                       value={formData.complement}
                       onChange={(e) => handleInputChange('complement', e.target.value)}
                       placeholder="Sala, andar, bloco..."
+                      className="h-10 border-border/60"
                     />
                   ) : (
-                    <p className="text-sm py-2 px-3 bg-muted/50 rounded-md text-muted-foreground">
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
                       {formData.complement || "Não informado"}
                     </p>
                   )}
@@ -845,17 +856,19 @@ const ClientDetails = () => {
           </Card>
 
           {/* Seção 3: Contato e Comunicação */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Phone className="h-5 w-5 text-primary" />
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-base font-semibold">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                  <Phone className="h-4 w-4 text-primary" />
+                </div>
                 Contato e Comunicação
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="corporate_email">E-mail Corporativo</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="corporate_email" className="text-xs font-medium text-muted-foreground">E-mail Corporativo</Label>
                   {isEditing ? (
                     <Input
                       id="corporate_email"
@@ -863,17 +876,18 @@ const ClientDetails = () => {
                       value={formData.corporate_email}
                       onChange={(e) => handleInputChange('corporate_email', e.target.value)}
                       placeholder="empresa@dominio.com"
+                      className="h-10 border-border/60"
                     />
                   ) : (
-                    <p className="text-sm py-2 px-3 bg-muted/50 rounded-md text-muted-foreground">
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
                       Não informado
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground">E-mail oficial da empresa.</p>
+                  <p className="text-[11px] text-muted-foreground/70">E-mail oficial da empresa.</p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email">E-mail de Contato *</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="email" className="text-xs font-medium text-muted-foreground">E-mail de Contato *</Label>
                   {isEditing ? (
                     <>
                       <Input
@@ -882,23 +896,23 @@ const ClientDetails = () => {
                         value={formData.email}
                         onChange={(e) => handleInputChange('email', e.target.value)}
                         placeholder="contato@empresa.com"
-                        className={errors.email ? "border-destructive" : ""}
+                        className={`h-10 ${errors.email ? "border-destructive" : "border-border/60"}`}
                       />
                       {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
                     </>
                   ) : (
-                    <div className="flex items-center gap-2 text-sm py-2 px-3 bg-muted/50 rounded-md">
+                    <div className="flex items-center gap-2 text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40">
                       <Mail className="h-4 w-4 text-muted-foreground" />
                       {client.email}
                     </div>
                   )}
-                  <p className="text-xs text-muted-foreground">E-mail do responsável pelo projeto.</p>
+                  <p className="text-[11px] text-muted-foreground/70">E-mail do responsável pelo projeto.</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Telefone de Contato / WhatsApp *</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="phone" className="text-xs font-medium text-muted-foreground">Telefone de Contato / WhatsApp *</Label>
                   {isEditing ? (
                     <>
                       <InputMask
@@ -913,23 +927,23 @@ const ClientDetails = () => {
                             id="phone"
                             type="tel"
                             placeholder="(00) 00000-0000"
-                            className={errors.phone ? "border-destructive" : ""}
+                            className={`h-10 ${errors.phone ? "border-destructive" : "border-border/60"}`}
                           />
                         )}
                       </InputMask>
                       {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
                     </>
                   ) : (
-                    <div className="flex items-center gap-2 text-sm py-2 px-3 bg-muted/50 rounded-md">
+                    <div className="flex items-center gap-2 text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40">
                       <Phone className="h-4 w-4 text-muted-foreground" />
                       {client.phone}
                     </div>
                   )}
-                  <p className="text-xs text-muted-foreground">Número pessoal ou WhatsApp do responsável.</p>
+                  <p className="text-[11px] text-muted-foreground/70">Número pessoal ou WhatsApp do responsável.</p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="cpf">CPF do Responsável</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cpf" className="text-xs font-medium text-muted-foreground">CPF do Responsável</Label>
                   {isEditing ? (
                     <InputMask
                       mask="999.999.999-99"
@@ -942,42 +956,45 @@ const ClientDetails = () => {
                           {...inputProps}
                           id="cpf"
                           placeholder="000.000.000-00"
+                          className="h-10 border-border/60"
                         />
                       )}
                     </InputMask>
                   ) : (
-                    <p className="text-sm py-2 px-3 bg-muted/50 rounded-md text-muted-foreground">
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
                       Não informado
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground">Opcional - CPF para emissão de notas.</p>
+                  <p className="text-[11px] text-muted-foreground/70">Opcional - CPF para emissão de notas.</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Informações do Sistema */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Calendar className="h-5 w-5 text-primary" />
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-base font-semibold">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                  <Calendar className="h-4 w-4 text-primary" />
+                </div>
                 Informações do Sistema
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground mb-1">Data de Cadastro</p>
-                  <p className="font-medium">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Data de Cadastro</p>
+                  <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 font-medium">
                     {client.created_at 
                       ? format(new Date(client.created_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })
                       : "Não disponível"
                     }
                   </p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground mb-1">Última Atualização</p>
-                  <p className="font-medium">
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Última Atualização</p>
+                  <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 font-medium">
                     {client.updated_at 
                       ? format(new Date(client.updated_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })
                       : "Não disponível"
