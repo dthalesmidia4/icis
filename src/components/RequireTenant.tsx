@@ -1,7 +1,6 @@
 import { ReactNode, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTenant } from '@/contexts/TenantContext';
-import { toast } from 'sonner';
 
 interface RequireTenantProps {
   children: ReactNode;
@@ -13,7 +12,6 @@ export const RequireTenant = ({ children }: RequireTenantProps) => {
   const hasRedirected = useRef(false);
 
   useEffect(() => {
-    // Reset redirect flag when tenant changes
     if (tenantId) {
       hasRedirected.current = false;
     }
@@ -22,7 +20,6 @@ export const RequireTenant = ({ children }: RequireTenantProps) => {
   useEffect(() => {
     if (!isLoading && !tenantId && !hasRedirected.current) {
       hasRedirected.current = true;
-      toast.error("Configure sua agência antes de continuar");
       navigate('/agency-setup');
     }
   }, [tenantId, isLoading, navigate]);
