@@ -1,48 +1,15 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Home, ArrowLeft } from "lucide-react";
 
 const NotFound = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const hasAttemptedFix = useRef(false);
 
   useEffect(() => {
-    // Only attempt to fix once per mount
-    if (hasAttemptedFix.current) return;
-    
-    // Check if the pathname contains encoded query parameters
-    const decodedPath = decodeURIComponent(location.pathname);
-    
-    // If the path contains a question mark after decoding, it was incorrectly encoded
-    if (decodedPath.includes('?') && decodedPath !== location.pathname) {
-      hasAttemptedFix.current = true;
-      console.log('Fixing malformed URL:', location.pathname, '->', decodedPath);
-      
-      // Parse the decoded path to extract route and query params
-      const [routePath, queryString] = decodedPath.split('?');
-      
-      // Use navigate with replace to fix the URL while preserving React state
-      navigate(`${routePath}?${queryString}`, { replace: true });
-      return;
-    }
-
     console.error("404 Error: User attempted to access non-existent route:", location.pathname);
-  }, [location.pathname, navigate]);
-
-  // If we're redirecting, don't show the 404 page
-  const decodedPath = decodeURIComponent(location.pathname);
-  if (decodedPath.includes('?') && decodedPath !== location.pathname) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Redirecionando...</p>
-        </div>
-      </div>
-    );
-  }
+  }, [location.pathname]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
