@@ -27,173 +27,184 @@ import PlanPeriod from "./pages/PlanPeriod";
 import ProfileSettings from "./pages/ProfileSettings";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/auth" element={<Auth />} />
+      <Route path="/profile-settings" element={
+        <ProtectedRoute>
+          <Layout>
+            <ProfileSettings />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      <Route path="/agency-setup" element={
+        <ProtectedRoute>
+          <AgencySetup />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin" element={
+        <ProtectedRoute>
+          <AdminDashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <Home />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/home" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <Home />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/client-hub" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <ClientHub />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/registration" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <CompanyRegistration />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/plan-period" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <PlanPeriod />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/schedule" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <Schedule />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/clientes" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <ClientList />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/clientes/:id" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <ClientDetails />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/strategies" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <StrategyCreation />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/client-guide" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <GenerateQuestions />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/generate-questions" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <GenerateQuestions />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/dev-hub" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <DevHub />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/dev/prompts" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <DevPrompts />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/dev/apis" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <DevApis />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <TenantProvider>
-          <ThemeProvider>
-            <SelectedClientProvider>
-              <Routes>
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/profile-settings" element={
-                <ProtectedRoute>
-                  <Layout>
-                    <ProfileSettings />
-                  </Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/agency-setup" element={
-              <ProtectedRoute>
-                <AgencySetup />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin" element={
-              <ProtectedRoute>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/" element={
-              <ProtectedRoute>
-                <RequireTenant>
-                  <Layout>
-                    <Home />
-                  </Layout>
-                </RequireTenant>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/home" element={
-              <ProtectedRoute>
-                <RequireTenant>
-                  <Layout>
-                    <Home />
-                  </Layout>
-                </RequireTenant>
-              </ProtectedRoute>
-            } />
-
-            <Route path="/client-hub" element={
-              <ProtectedRoute>
-                <RequireTenant>
-                  <Layout>
-                    <ClientHub />
-                  </Layout>
-                </RequireTenant>
-              </ProtectedRoute>
-            } />
-            <Route path="/registration" element={
-              <ProtectedRoute>
-                <RequireTenant>
-                  <Layout>
-                    <CompanyRegistration />
-                  </Layout>
-                </RequireTenant>
-              </ProtectedRoute>
-            } />
-          <Route path="/plan-period" element={
-            <ProtectedRoute>
-              <RequireTenant>
-                <Layout>
-                  <PlanPeriod />
-                </Layout>
-              </RequireTenant>
-            </ProtectedRoute>
-          } />
-          <Route path="/schedule" element={
-            <ProtectedRoute>
-              <RequireTenant>
-                <Layout>
-                  <Schedule />
-                </Layout>
-              </RequireTenant>
-            </ProtectedRoute>
-          } />
-            <Route path="/clientes" element={
-              <ProtectedRoute>
-                <RequireTenant>
-                  <Layout>
-                    <ClientList />
-                  </Layout>
-                </RequireTenant>
-              </ProtectedRoute>
-            } />
-            <Route path="/clientes/:id" element={
-              <ProtectedRoute>
-                <RequireTenant>
-                  <Layout>
-                    <ClientDetails />
-                  </Layout>
-                </RequireTenant>
-              </ProtectedRoute>
-            } />
-          <Route path="/strategies" element={
-            <ProtectedRoute>
-              <RequireTenant>
-                <Layout>
-                  <StrategyCreation />
-                </Layout>
-              </RequireTenant>
-            </ProtectedRoute>
-          } />
-          <Route path="/client-guide" element={
-            <ProtectedRoute>
-              <RequireTenant>
-                <Layout>
-                  <GenerateQuestions />
-                </Layout>
-              </RequireTenant>
-            </ProtectedRoute>
-          } />
-          {/* Redirect antigo para compatibilidade */}
-          <Route path="/generate-questions" element={
-            <ProtectedRoute>
-              <RequireTenant>
-                <Layout>
-                  <GenerateQuestions />
-                </Layout>
-              </RequireTenant>
-            </ProtectedRoute>
-          } />
-          <Route path="/dev-hub" element={
-            <ProtectedRoute>
-              <RequireTenant>
-                <Layout>
-                  <DevHub />
-                </Layout>
-              </RequireTenant>
-            </ProtectedRoute>
-          } />
-          <Route path="/dev/prompts" element={
-            <ProtectedRoute>
-              <RequireTenant>
-                <Layout>
-                  <DevPrompts />
-                </Layout>
-              </RequireTenant>
-            </ProtectedRoute>
-          } />
-          <Route path="/dev/apis" element={
-            <ProtectedRoute>
-              <RequireTenant>
-                <Layout>
-                  <DevApis />
-                </Layout>
-              </RequireTenant>
-            </ProtectedRoute>
-          } />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-            </SelectedClientProvider>
-          </ThemeProvider>
-        </TenantProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+    <BrowserRouter>
+      <TenantProvider>
+        <ThemeProvider>
+          <SelectedClientProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <AppRoutes />
+            </TooltipProvider>
+          </SelectedClientProvider>
+        </ThemeProvider>
+      </TenantProvider>
+    </BrowserRouter>
   </QueryClientProvider>
 );
 
