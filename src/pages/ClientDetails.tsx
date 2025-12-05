@@ -733,13 +733,13 @@ const ClientDetails = () => {
                       value={formData.cep}
                       onChange={(e) => handleInputChange('cep', e.target.value)}
                       maskChar={null}
+                      disabled={loadingCep}
                     >
                       {(inputProps: any) => (
                         <Input
                           {...inputProps}
                           id="cep"
                           placeholder="00000-000"
-                          disabled={loadingCep}
                         />
                       )}
                     </InputMask>
@@ -758,7 +758,6 @@ const ClientDetails = () => {
                       value={formData.street}
                       onChange={(e) => handleInputChange('street', e.target.value)}
                       placeholder="Nome da rua ou avenida"
-                      disabled={loadingCep}
                     />
                   ) : (
                     <p className="text-sm py-2 px-3 bg-muted/50 rounded-md text-muted-foreground">
@@ -793,7 +792,6 @@ const ClientDetails = () => {
                       value={formData.city}
                       onChange={(e) => handleInputChange('city', e.target.value)}
                       placeholder="Cidade"
-                      disabled={loadingCep}
                     />
                   ) : (
                     <p className="text-sm py-2 px-3 bg-muted/50 rounded-md text-muted-foreground">
@@ -808,7 +806,6 @@ const ClientDetails = () => {
                     <Select
                       value={formData.state}
                       onValueChange={(value) => handleInputChange('state', value)}
-                      disabled={loadingCep}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="UF" />
