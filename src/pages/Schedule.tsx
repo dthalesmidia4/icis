@@ -79,11 +79,64 @@ export default function Schedule() {
     isInitialized,
     tenantLoading,
     loading,
-    cardsCount: cards.length
+    cardsCount: cards.length,
+    currentUrl: window.location.href,
+    pathname: window.location.pathname,
+    search: window.location.search
   });
 
+  // DEBUG: Monitor URL changes and history manipulation
   useEffect(() => {
-    console.log('[Schedule] useEffect triggered:', { isInitialized, tenantLoading, periodPlanId, tenantId });
+    console.log('[Schedule] URL Monitor useEffect - Component mounted');
+    console.log('[Schedule] Initial URL on mount:', window.location.href);
+    
+    // Listener para mudanças na URL via botão voltar/avançar
+    const handlePopState = (event: PopStateEvent) => {
+      console.log('[Schedule] POPSTATE EVENT DETECTED!', {
+        url: window.location.href,
+        state: event.state,
+        timestamp: new Date().toISOString()
+      });
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    
+    // Interceptar pushState
+    const originalPushState = history.pushState.bind(history);
+    history.pushState = function(...args: Parameters<typeof history.pushState>) {
+      console.log('[Schedule] HISTORY.PUSHSTATE CALLED!', {
+        state: args[0],
+        title: args[1],
+        url: args[2],
+        currentUrl: window.location.href,
+        timestamp: new Date().toISOString()
+      });
+      return originalPushState(...args);
+    };
+    
+    // Interceptar replaceState
+    const originalReplaceState = history.replaceState.bind(history);
+    history.replaceState = function(...args: Parameters<typeof history.replaceState>) {
+      console.log('[Schedule] HISTORY.REPLACESTATE CALLED!', {
+        state: args[0],
+        title: args[1],
+        url: args[2],
+        currentUrl: window.location.href,
+        timestamp: new Date().toISOString()
+      });
+      return originalReplaceState(...args);
+    };
+    
+    return () => {
+      console.log('[Schedule] URL Monitor useEffect - Component UNMOUNTING, URL:', window.location.href);
+      window.removeEventListener('popstate', handlePopState);
+      history.pushState = originalPushState;
+      history.replaceState = originalReplaceState;
+    };
+  }, []);
+
+  useEffect(() => {
+    console.log('[Schedule] Data fetch useEffect triggered:', { isInitialized, tenantLoading, periodPlanId, tenantId });
     
     // Aguardar contextos inicializarem
     if (!isInitialized || tenantLoading) {
