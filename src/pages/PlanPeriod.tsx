@@ -7,7 +7,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, Eye, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List } from "lucide-react";
+import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -946,76 +946,49 @@ const PlanPeriod = () => {
           </Button>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {periodHistory.map((period) => (
-            <Card 
-              key={period.id} 
-              className="p-5 hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => setSelectedHistoryPlan(period)}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-semibold text-lg">{period.period_title}</h3>
-                    {period.primary_mode && (
-                      <Badge variant="outline" className={period.primary_mode === 'ultra' ? 'border-pink-500 text-pink-500' : ''}>
-                        Modo {period.primary_mode === 'ultra' ? 'Ultra' : 'Normal'}
-                      </Badge>
-                    )}
+        <div className="space-y-3">
+          {periodHistory.map((period) => {
+            const demandCount = period.final_plan?.length || 0;
+            return (
+              <Card 
+                key={period.id} 
+                className="p-4 hover:shadow-md transition-shadow cursor-pointer group"
+                onClick={() => setSelectedHistoryPlan(period)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-semibold truncate">{period.period_title}</h3>
+                      {period.primary_mode && (
+                        <Badge variant="outline" className={`shrink-0 ${period.primary_mode === 'ultra' ? 'border-pink-500 text-pink-500' : ''}`}>
+                          {period.primary_mode === 'ultra' ? 'Ultra' : 'Normal'}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                      <span>{format(new Date(period.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
+                      <span>{demandCount} demandas</span>
+                    </div>
                   </div>
                   
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
-                    <span className="flex items-center gap-1">
-                      <CalendarIcon className="w-4 h-4" />
-                      {format(new Date(period.period_start), "dd/MM/yyyy", { locale: ptBR })} - {format(new Date(period.period_end), "dd/MM/yyyy", { locale: ptBR })}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Target className="w-4 h-4" />
-                      {period.priority_channel}
-                    </span>
+                  <div className="flex items-center gap-2 ml-4">
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPeriodToDelete(period);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
                   </div>
-                  
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {period.objective}
-                  </p>
                 </div>
-                
-                <div className="flex items-center gap-2 ml-4">
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedHistoryPlan(period);
-                    }}
-                  >
-                    <Eye className="w-5 h-5" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPeriodToDelete(period);
-                    }}
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </Button>
-                </div>
-              </div>
-              
-              {period.final_plan && period.final_plan.length > 0 && (
-                <div className="mt-3 pt-3 border-t">
-                  <span className="text-xs text-muted-foreground">
-                    {period.final_plan.length} demandas no plano final
-                    {period.default_plan && period.default_plan.length > 0 && ` • ${period.default_plan.length} Normal`}
-                    {period.ultra_plan && period.ultra_plan.length > 0 && ` • ${period.ultra_plan.length} Ultra`}
-                  </span>
-                </div>
-              )}
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
 
