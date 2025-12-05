@@ -957,6 +957,11 @@ const PlanPeriod = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="font-semibold text-lg">{period.period_title}</h3>
+                    {period.primary_mode && (
+                      <Badge variant="outline" className={period.primary_mode === 'ultra' ? 'border-pink-500 text-pink-500' : ''}>
+                        Modo {period.primary_mode === 'ultra' ? 'Ultra' : 'Normal'}
+                      </Badge>
+                    )}
                   </div>
                   
                   <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
