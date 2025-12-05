@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,7 @@ const COLUMNS = [
 
 export default function Schedule() {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { tenantId, isLoading: tenantLoading } = useTenant();
@@ -71,86 +72,31 @@ export default function Schedule() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const periodPlanId = searchParams.get("periodPlanId");
-
-  console.log('[Schedule] Render state:', {
-    periodPlanId,
-    tenantId,
-    isInitialized,
-    tenantLoading,
-    loading,
-    cardsCount: cards.length,
-    currentUrl: window.location.href,
-    pathname: window.location.pathname,
-    search: window.location.search
-  });
-
-  // DEBUG: Monitor URL changes and history manipulation
-  useEffect(() => {
-    console.log('[Schedule] URL Monitor useEffect - Component mounted');
-    console.log('[Schedule] Initial URL on mount:', window.location.href);
-    
-    // Listener para mudanças na URL via botão voltar/avançar
-    const handlePopState = (event: PopStateEvent) => {
-      console.log('[Schedule] POPSTATE EVENT DETECTED!', {
-        url: window.location.href,
-        state: event.state,
-        timestamp: new Date().toISOString()
-      });
-    };
-    
-    window.addEventListener('popstate', handlePopState);
-    
-    // Interceptar pushState
-    const originalPushState = history.pushState.bind(history);
-    history.pushState = function(...args: Parameters<typeof history.pushState>) {
-      console.log('[Schedule] HISTORY.PUSHSTATE CALLED!', {
-        state: args[0],
-        title: args[1],
-        url: args[2],
-        currentUrl: window.location.href,
-        timestamp: new Date().toISOString()
-      });
-      return originalPushState(...args);
-    };
-    
-    // Interceptar replaceState
-    const originalReplaceState = history.replaceState.bind(history);
-    history.replaceState = function(...args: Parameters<typeof history.replaceState>) {
-      console.log('[Schedule] HISTORY.REPLACESTATE CALLED!', {
-        state: args[0],
-        title: args[1],
-        url: args[2],
-        currentUrl: window.location.href,
-        timestamp: new Date().toISOString()
-      });
-      return originalReplaceState(...args);
-    };
-    
-    return () => {
-      console.log('[Schedule] URL Monitor useEffect - Component UNMOUNTING, URL:', window.location.href);
-      window.removeEventListener('popstate', handlePopState);
-      history.pushState = originalPushState;
-      history.replaceState = originalReplaceState;
-    };
-  }, []);
-
-  useEffect(() => {
-    console.log('[Schedule] Data fetch useEffect triggered:', { isInitialized, tenantLoading, periodPlanId, tenantId });
-    
-    // Aguardar contextos inicializarem
-    if (!isInitialized || tenantLoading) {
-      console.log('[Schedule] Waiting for contexts...');
-      return;
+  // Prioridade: 1) Router state, 2) Query param, 3) SessionStorage
+  const periodPlanId = useMemo(() => {
+    // 1. Tentar do state (mais confiável, não sofre encoding)
+    const stateValue = (location.state as { periodPlanId?: string })?.periodPlanId;
+    if (stateValue) {
+      return stateValue;
     }
+    // 2. Tentar do query param (fallback para links diretos)
+    const fromQuery = searchParams.get("periodPlanId");
+    if (fromQuery) {
+      return fromQuery;
+    }
+    // 3. Tentar do sessionStorage (backup)
+    return sessionStorage.getItem('selected-period-id');
+  }, [location.state, searchParams]);
+
+  useEffect(() => {
+    // Aguardar contextos inicializarem
+    if (!isInitialized || tenantLoading) return;
     
     // Só buscar dados se tiver periodPlanId e tenantId
     if (periodPlanId && tenantId) {
-      console.log('[Schedule] Fetching cards...');
       fetchPeriodPlanCards();
     } else if (!periodPlanId) {
       // Sem periodPlanId, mostrar estado vazio (não redirecionar)
-      console.log('[Schedule] No periodPlanId, showing empty state');
       setLoading(false);
     }
   }, [periodPlanId, tenantId, isInitialized, tenantLoading]);
