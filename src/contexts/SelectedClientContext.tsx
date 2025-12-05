@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface Client {
   id: string;
@@ -12,6 +12,7 @@ interface SelectedClientContextType {
   selectedClient: Client | null;
   setSelectedClient: (client: Client | null) => void;
   clearSelectedClient: () => void;
+  isInitialized: boolean;
 }
 
 const SelectedClientContext = createContext<SelectedClientContextType | undefined>(undefined);
@@ -30,9 +31,18 @@ interface SelectedClientProviderProps {
 
 export const SelectedClientProvider = ({ children }: SelectedClientProviderProps) => {
   const [selectedClient, setSelectedClientState] = useState<Client | null>(() => {
-    const stored = sessionStorage.getItem('selectedClient');
-    return stored ? JSON.parse(stored) : null;
+    try {
+      const stored = sessionStorage.getItem('selectedClient');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
   });
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    setIsInitialized(true);
+  }, []);
 
   const setSelectedClient = (client: Client | null) => {
     setSelectedClientState(client);
@@ -49,7 +59,7 @@ export const SelectedClientProvider = ({ children }: SelectedClientProviderProps
   };
 
   return (
-    <SelectedClientContext.Provider value={{ selectedClient, setSelectedClient, clearSelectedClient }}>
+    <SelectedClientContext.Provider value={{ selectedClient, setSelectedClient, clearSelectedClient, isInitialized }}>
       {children}
     </SelectedClientContext.Provider>
   );

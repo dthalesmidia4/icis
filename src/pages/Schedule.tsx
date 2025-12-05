@@ -57,7 +57,7 @@ export default function Schedule() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { tenantId } = useTenant();
-  const { selectedClient } = useSelectedClient();
+  const { selectedClient, isInitialized } = useSelectedClient();
   
   const [loading, setLoading] = useState(true);
   const [cards, setCards] = useState<KanbanCard[]>([]);
@@ -73,18 +73,15 @@ export default function Schedule() {
 
   const periodPlanId = searchParams.get("periodPlanId");
 
-  // Verificar se há cliente selecionado (com delay para evitar race conditions)
+  // Verificar se há cliente selecionado (apenas após inicialização do contexto)
   useEffect(() => {
-    // Dar tempo para o contexto carregar após navegação
-    const timer = setTimeout(() => {
-      if (!selectedClient) {
-        sonnerToast.error('Nenhum cliente selecionado');
-        navigate('/home');
-      }
-    }, 100);
+    if (!isInitialized) return;
     
-    return () => clearTimeout(timer);
-  }, [selectedClient, navigate]);
+    if (!selectedClient) {
+      sonnerToast.error('Nenhum cliente selecionado');
+      navigate('/home');
+    }
+  }, [isInitialized, selectedClient, navigate]);
 
   useEffect(() => {
     const initializeSchedule = async () => {
