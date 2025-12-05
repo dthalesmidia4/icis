@@ -414,9 +414,7 @@ const PlanPeriod = () => {
           
           <div className="space-y-6">
             {/* Restrictions Checklist */}
-            <div>
-              <Label className="text-sm font-medium mb-4 block">Restrições do Cliente</Label>
-              <div className="space-y-4">
+            <div className="space-y-4">
                 {[
                   { 
                     id: 'no-video-appearance', 
@@ -473,7 +471,6 @@ const PlanPeriod = () => {
                     </label>
                   </div>
                 ))}
-              </div>
             </div>
 
             <div>
