@@ -73,16 +73,22 @@ export default function Schedule() {
 
   const periodPlanId = searchParams.get("periodPlanId");
 
-  // Verificar se há cliente selecionado
+  // Verificar se há cliente selecionado (com delay para evitar race conditions)
   useEffect(() => {
-    if (!selectedClient) {
-      sonnerToast.error('Nenhum cliente selecionado');
-      navigate('/home');
-    }
+    // Dar tempo para o contexto carregar após navegação
+    const timer = setTimeout(() => {
+      if (!selectedClient) {
+        sonnerToast.error('Nenhum cliente selecionado');
+        navigate('/home');
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, [selectedClient, navigate]);
 
   useEffect(() => {
     const initializeSchedule = async () => {
+      // Aguardar contexto estar pronto
       if (!selectedClient || !tenantId) return;
 
       if (periodPlanId) {

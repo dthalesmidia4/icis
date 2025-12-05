@@ -19,13 +19,17 @@ const NotFound = () => {
     if (decodedPath.includes('?') && decodedPath !== location.pathname) {
       hasAttemptedFix.current = true;
       console.log('Fixing malformed URL:', location.pathname, '->', decodedPath);
-      // Use window.location.replace for a clean navigation without loop
-      window.location.replace(decodedPath);
+      
+      // Parse the decoded path to extract route and query params
+      const [routePath, queryString] = decodedPath.split('?');
+      
+      // Use navigate with replace to fix the URL while preserving React state
+      navigate(`${routePath}?${queryString}`, { replace: true });
       return;
     }
 
     console.error("404 Error: User attempted to access non-existent route:", location.pathname);
-  }, [location.pathname]);
+  }, [location.pathname, navigate]);
 
   // If we're redirecting, don't show the 404 page
   const decodedPath = decodeURIComponent(location.pathname);
