@@ -30,26 +30,37 @@ interface SelectedClientProviderProps {
 }
 
 export const SelectedClientProvider = ({ children }: SelectedClientProviderProps) => {
+  // Inicializa o estado diretamente com o valor do sessionStorage
   const [selectedClient, setSelectedClientState] = useState<Client | null>(() => {
     try {
       const stored = sessionStorage.getItem('selectedClient');
-      return stored ? JSON.parse(stored) : null;
-    } catch {
+      console.log('[SelectedClientContext] Initial load from sessionStorage:', stored);
+      const parsed = stored ? JSON.parse(stored) : null;
+      console.log('[SelectedClientContext] Parsed client:', parsed);
+      return parsed;
+    } catch (error) {
+      console.error('[SelectedClientContext] Error parsing stored client:', error);
       return null;
     }
   });
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  useEffect(() => {
-    setIsInitialized(true);
-  }, []);
+  
+  // isInitialized começa como true se já temos um cliente do sessionStorage
+  // Isso evita o flash de loading quando há cliente persistido
+  const [isInitialized, setIsInitialized] = useState(() => {
+    const hasStoredClient = sessionStorage.getItem('selectedClient') !== null;
+    console.log('[SelectedClientContext] Initial isInitialized:', hasStoredClient || true);
+    return true; // Sempre começa como true pois o useState já leu do sessionStorage
+  });
 
   const setSelectedClient = (client: Client | null) => {
+    console.log('[SelectedClientContext] setSelectedClient called with:', client);
     setSelectedClientState(client);
     if (client) {
       sessionStorage.setItem('selectedClient', JSON.stringify(client));
+      console.log('[SelectedClientContext] Saved to sessionStorage');
     } else {
       sessionStorage.removeItem('selectedClient');
+      console.log('[SelectedClientContext] Removed from sessionStorage');
     }
   };
 
