@@ -56,8 +56,8 @@ export default function Schedule() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { tenantId } = useTenant();
-  const { selectedClient } = useSelectedClient();
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+  const { selectedClient, isInitialized } = useSelectedClient();
   
   const [loading, setLoading] = useState(true);
   const [cards, setCards] = useState<KanbanCard[]>([]);
@@ -74,14 +74,17 @@ export default function Schedule() {
   const periodPlanId = searchParams.get("periodPlanId");
 
   useEffect(() => {
+    // Aguardar contextos inicializarem
+    if (!isInitialized || tenantLoading) return;
+    
     // Só buscar dados se tiver periodPlanId e tenantId
     if (periodPlanId && tenantId) {
       fetchPeriodPlanCards();
-    } else if (!periodPlanId && tenantId) {
+    } else if (!periodPlanId) {
       // Sem periodPlanId, mostrar estado vazio (não redirecionar)
       setLoading(false);
     }
-  }, [periodPlanId, tenantId]);
+  }, [periodPlanId, tenantId, isInitialized, tenantLoading]);
 
   const fetchPeriodPlanCards = async () => {
     if (!periodPlanId) return;
@@ -449,6 +452,17 @@ export default function Schedule() {
     
     return { platforms, contentTypes };
   };
+
+  // Aguardar contextos inicializarem
+  if (!isInitialized || tenantLoading) {
+    return (
+      <LoadingScreen
+        title="Carregando"
+        description="Aguarde enquanto preparamos tudo..."
+        icon={LayoutGrid}
+      />
+    );
+  }
 
   if (loading) {
     return (
