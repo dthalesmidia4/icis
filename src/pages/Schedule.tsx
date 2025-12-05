@@ -57,7 +57,7 @@ export default function Schedule() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { tenantId } = useTenant();
-  const { selectedClient, isInitialized } = useSelectedClient();
+  const { selectedClient } = useSelectedClient();
   
   const [loading, setLoading] = useState(true);
   const [cards, setCards] = useState<KanbanCard[]>([]);
@@ -73,33 +73,15 @@ export default function Schedule() {
 
   const periodPlanId = searchParams.get("periodPlanId");
 
-  // Verificar se há cliente selecionado (apenas após inicialização do contexto)
   useEffect(() => {
-    if (!isInitialized) return;
-    
-    if (!selectedClient) {
-      sonnerToast.error('Nenhum cliente selecionado');
-      navigate('/home');
+    // Só buscar dados se tiver periodPlanId e tenantId
+    if (periodPlanId && tenantId) {
+      fetchPeriodPlanCards();
+    } else if (!periodPlanId && tenantId) {
+      // Sem periodPlanId, mostrar estado vazio (não redirecionar)
+      setLoading(false);
     }
-  }, [isInitialized, selectedClient, navigate]);
-
-  useEffect(() => {
-    const initializeSchedule = async () => {
-      // Aguardar contexto estar pronto
-      if (!selectedClient || !tenantId) return;
-
-      if (periodPlanId) {
-        fetchPeriodPlanCards();
-        return;
-      }
-
-      // Sem periodPlanId, redirecionar para plan-period
-      sonnerToast.info("Selecione um período para ver as demandas");
-      navigate("/plan-period");
-    };
-
-    initializeSchedule();
-  }, [periodPlanId, tenantId, selectedClient, navigate]);
+  }, [periodPlanId, tenantId]);
 
   const fetchPeriodPlanCards = async () => {
     if (!periodPlanId) return;
@@ -475,6 +457,38 @@ export default function Schedule() {
         description="Aguarde enquanto carregamos suas tarefas..."
         icon={LayoutGrid}
       />
+    );
+  }
+
+  // Estado vazio quando não há periodPlanId
+  if (!periodPlanId) {
+    return (
+      <div className="pb-8">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
+          <div className="flex items-center gap-3 sm:gap-4 mb-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/client-hub")}
+              className="h-8 w-8 sm:h-10 sm:w-10"
+            >
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+            </Button>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Demandas</h1>
+          </div>
+          
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Calendar className="h-16 w-16 text-muted-foreground mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Nenhum período selecionado</h2>
+            <p className="text-muted-foreground mb-6 max-w-md">
+              Selecione um período para visualizar as demandas do cronograma.
+            </p>
+            <Button onClick={() => navigate("/client-hub")}>
+              Voltar ao Hub
+            </Button>
+          </div>
+        </div>
+      </div>
     );
   }
 
