@@ -3,19 +3,40 @@ import App from "./App.tsx";
 import "./index.css";
 
 // Fix malformed URLs with encoded query params (e.g., /schedule%3FperiodPlanId= instead of /schedule?periodPlanId=)
-const fixEncodedUrl = () => {
+const fixEncodedUrl = (): boolean => {
   const pathname = window.location.pathname;
   const decoded = decodeURIComponent(pathname);
   
   // If the decoded pathname contains a ?, it means the query params were incorrectly encoded in the path
   if (decoded.includes('?') && decoded !== pathname) {
+    // Check if we already tried to fix this URL to prevent infinite loop
+    const lastFixAttempt = sessionStorage.getItem('url-fix-attempt');
+    const currentUrl = window.location.href;
+    
+    if (lastFixAttempt === currentUrl) {
+      console.warn('[URL Fix] Loop detected, skipping correction');
+      sessionStorage.removeItem('url-fix-attempt');
+      return false;
+    }
+    
     const [path, query] = decoded.split('?');
     const newUrl = `${path}?${query}${window.location.hash}`;
     console.log('[URL Fix] Correcting malformed URL:', pathname, '->', newUrl);
-    window.history.replaceState(null, '', newUrl);
+    
+    // Store current URL to detect loops
+    sessionStorage.setItem('url-fix-attempt', currentUrl);
+    
+    // Use location.replace() for clean navigation - this reloads with the correct URL
+    window.location.replace(newUrl);
+    return true; // Indicates redirect happened
   }
+  
+  // Clear flag if URL is correct
+  sessionStorage.removeItem('url-fix-attempt');
+  return false;
 };
 
-fixEncodedUrl();
-
-createRoot(document.getElementById("root")!).render(<App />);
+// Only render the app if no URL correction redirect happened
+if (!fixEncodedUrl()) {
+  createRoot(document.getElementById("root")!).render(<App />);
+}
