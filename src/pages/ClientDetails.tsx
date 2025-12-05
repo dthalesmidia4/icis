@@ -66,7 +66,7 @@ const ClientDetails = () => {
     }
   };
   if (isLoading) {
-    return <div className="min-h-screen bg-background flex items-center justify-center">
+    return <div className="flex items-center justify-center py-20">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Carregando informações do cliente...</p>
@@ -74,7 +74,7 @@ const ClientDetails = () => {
       </div>;
   }
   if (!client) return null;
-  return <div className="min-h-screen bg-background">
+  return <div className="pb-8">
       <div className="p-4 md:p-8">
         <div className="max-w-5xl mx-auto space-y-6">
           <Button variant="ghost" onClick={() => navigate("/clientes")} className="mb-4">

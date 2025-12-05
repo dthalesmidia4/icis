@@ -34,7 +34,7 @@ const Home = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
+    <div className="pb-8">
       <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
           {/* Header de Boas-vindas */}
           <div className="mb-8 sm:mb-12 text-center">

@@ -1012,7 +1012,7 @@ const PlanPeriod = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
+    <div className="pb-8">
       {/* Fixed Header */}
       <PageHeader
         title="Planejar Período"
