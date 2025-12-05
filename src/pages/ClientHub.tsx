@@ -27,18 +27,21 @@ interface PeriodPlan {
 
 const ClientHub = () => {
   const navigate = useNavigate();
-  const { selectedClient } = useSelectedClient();
+  const { selectedClient, isInitialized } = useSelectedClient();
   const { tenantId } = useTenant();
   const [showPeriodModal, setShowPeriodModal] = useState(false);
   const [periods, setPeriods] = useState<PeriodPlan[]>([]);
   const [loadingPeriods, setLoadingPeriods] = useState(false);
 
   useEffect(() => {
+    // Aguardar inicialização do contexto antes de verificar cliente
+    if (!isInitialized) return;
+    
     if (!selectedClient) {
       toast.error("Nenhum cliente selecionado");
       navigate('/home');
     }
-  }, [selectedClient, navigate]);
+  }, [isInitialized, selectedClient, navigate]);
 
   const fetchPeriods = async () => {
     if (!selectedClient || !tenantId) return;
@@ -77,7 +80,8 @@ const ClientHub = () => {
     navigate("/plan-period");
   };
 
-  if (!selectedClient) return null;
+  // Mostrar loading enquanto contexto não inicializa
+  if (!isInitialized || !selectedClient) return null;
 
   const displayName = selectedClient.fantasy_name || selectedClient.name;
 
