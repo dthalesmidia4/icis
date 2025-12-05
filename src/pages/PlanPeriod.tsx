@@ -7,19 +7,20 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, Eye, LayoutGrid, Trash2, AlertTriangle } from "lucide-react";
+import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, Eye, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose, DrawerFooter } from "@/components/ui/drawer";
+import { DemandaCard, DemandaItem } from "@/components/DemandaCard";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,8 @@ interface PeriodPlanHistory {
   status: string;
   created_at: string;
   final_plan: PlanItem[] | null;
+  default_plan: PlanItem[] | null;
+  ultra_plan: PlanItem[] | null;
 }
 
 type Step = 'form' | 'loading' | 'mode-selection' | 'optional-package' | 'completed';
@@ -59,8 +62,16 @@ const PlanPeriod = () => {
   const [periodHistory, setPeriodHistory] = useState<PeriodPlanHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [selectedHistoryPlan, setSelectedHistoryPlan] = useState<PeriodPlanHistory | null>(null);
+  const [historyViewTab, setHistoryViewTab] = useState<'final' | 'normal' | 'ultra'>('final');
   const [periodToDelete, setPeriodToDelete] = useState<PeriodPlanHistory | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Preview drawer state
+  const [previewDrawerOpen, setPreviewDrawerOpen] = useState(false);
+  const [previewMode, setPreviewMode] = useState<'normal' | 'ultra'>('normal');
+
+  // Incomplete period resume state
+  const [incompletePeriod, setIncompletePeriod] = useState<PeriodPlanHistory | null>(null);
 
   // Form state
   const [periodTitle, setPeriodTitle] = useState("");
@@ -83,7 +94,7 @@ const PlanPeriod = () => {
   const [optionalPackage, setOptionalPackage] = useState<PlanItem[]>([]);
   const [pollingProgress, setPollingProgress] = useState(0);
 
-  // Fetch period history
+  // Fetch period history and check for incomplete periods
   useEffect(() => {
     const fetchHistory = async () => {
       if (!selectedClient || !tenantId) return;
@@ -92,13 +103,21 @@ const PlanPeriod = () => {
       try {
         const { data, error } = await supabase
           .from('period_plans')
-          .select('id, period_title, period_start, period_end, objective, priority_channel, primary_mode, status, created_at, final_plan')
+          .select('id, period_title, period_start, period_end, objective, priority_channel, primary_mode, status, created_at, final_plan, default_plan, ultra_plan')
           .eq('company_id', selectedClient.id)
           .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        setPeriodHistory((data as unknown as PeriodPlanHistory[]) || []);
+        
+        const historyData = (data as unknown as PeriodPlanHistory[]) || [];
+        setPeriodHistory(historyData);
+
+        // Check for incomplete periods (generated or mode_selected status)
+        const incomplete = historyData.find(p => p.status === 'generated' || p.status === 'mode_selected');
+        if (incomplete) {
+          setIncompletePeriod(incomplete);
+        }
       } catch (error) {
         console.error('Error fetching period history:', error);
       } finally {
@@ -119,6 +138,34 @@ const PlanPeriod = () => {
   if (!selectedClient || !tenantId) return null;
 
   const displayName = selectedClient.fantasy_name || selectedClient.name;
+
+  // Resume incomplete period
+  const handleResumeIncomplete = async () => {
+    if (!incompletePeriod) return;
+
+    setPeriodPlanId(incompletePeriod.id);
+    setDefaultPlan((incompletePeriod.default_plan as PlanItem[]) || []);
+    setUltraPlan((incompletePeriod.ultra_plan as PlanItem[]) || []);
+
+    if (incompletePeriod.status === 'generated') {
+      setCurrentStep('mode-selection');
+    } else if (incompletePeriod.status === 'mode_selected') {
+      setSelectedMode(incompletePeriod.primary_mode as 'normal' | 'ultra');
+      const secondaryPlan = incompletePeriod.primary_mode === 'normal' 
+        ? (incompletePeriod.ultra_plan || []) 
+        : (incompletePeriod.default_plan || []);
+      const bestIdeas = secondaryPlan.slice(0, Math.min(4, Math.max(2, Math.floor(secondaryPlan.length / 3))));
+      setOptionalPackage(bestIdeas as PlanItem[]);
+      setCurrentStep('optional-package');
+    }
+
+    setIncompletePeriod(null);
+    toast.success("Período retomado com sucesso!");
+  };
+
+  const dismissIncomplete = () => {
+    setIncompletePeriod(null);
+  };
 
   const handleDeletePeriod = async () => {
     if (!periodToDelete) return;
@@ -307,8 +354,41 @@ const PlanPeriod = () => {
     }
   };
 
+  // Open preview drawer
+  const openPreview = (mode: 'normal' | 'ultra', e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPreviewMode(mode);
+    setPreviewDrawerOpen(true);
+  };
+
   const renderForm = () => (
     <div className="max-w-3xl mx-auto px-4 sm:px-0">
+      {/* Incomplete Period Banner */}
+      {incompletePeriod && (
+        <Card className="mb-6 p-4 border-primary/50 bg-primary/5">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <PlayCircle className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-semibold mb-1">Período em andamento</h4>
+              <p className="text-sm text-muted-foreground mb-3">
+                <strong>{incompletePeriod.period_title}</strong> - Você tem um período com demandas geradas aguardando seleção.
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleResumeIncomplete}>
+                  <PlayCircle className="w-4 h-4 mr-1" />
+                  Retomar
+                </Button>
+                <Button size="sm" variant="ghost" onClick={dismissIncomplete}>
+                  Ignorar
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <div className="space-y-4 sm:space-y-6">
         {/* Period Info */}
         <Card className="p-4 sm:p-6">
@@ -532,6 +612,17 @@ const PlanPeriod = () => {
                 </li>
               ))}
             </ul>
+            {defaultPlan.length > 2 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-3 w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+                onClick={(e) => openPreview('normal', e)}
+              >
+                <List className="w-4 h-4 mr-2" />
+                Ver todas as {defaultPlan.length} demandas
+              </Button>
+            )}
           </div>
         </Card>
 
@@ -569,9 +660,78 @@ const PlanPeriod = () => {
                 </li>
               ))}
             </ul>
+            {ultraPlan.length > 2 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-3 w-full text-pink-600 hover:text-pink-700 hover:bg-pink-50 dark:hover:bg-pink-950/20"
+                onClick={(e) => openPreview('ultra', e)}
+              >
+                <List className="w-4 h-4 mr-2" />
+                Ver todas as {ultraPlan.length} demandas
+              </Button>
+            )}
           </div>
         </Card>
       </div>
+
+      {/* Preview Drawer */}
+      <Drawer open={previewDrawerOpen} onOpenChange={setPreviewDrawerOpen}>
+        <DrawerContent className="max-h-[85vh]">
+          <DrawerHeader className="border-b pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  previewMode === 'normal' 
+                    ? 'bg-gradient-to-br from-blue-400 to-cyan-500' 
+                    : 'bg-gradient-to-br from-pink-400 to-purple-500'
+                }`}>
+                  {previewMode === 'normal' ? <Shield className="w-5 h-5 text-white" /> : <Rocket className="w-5 h-5 text-white" />}
+                </div>
+                <div>
+                  <DrawerTitle>
+                    Modo {previewMode === 'normal' ? 'Normal' : 'Ultra'}
+                  </DrawerTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {previewMode === 'normal' ? defaultPlan.length : ultraPlan.length} demandas geradas
+                  </p>
+                </div>
+              </div>
+              <DrawerClose asChild>
+                <Button variant="ghost" size="icon">
+                  <X className="w-5 h-5" />
+                </Button>
+              </DrawerClose>
+            </div>
+          </DrawerHeader>
+          
+          <div className="overflow-y-auto flex-1 p-4">
+            <div className="space-y-3 max-w-3xl mx-auto">
+              {(previewMode === 'normal' ? defaultPlan : ultraPlan).map((item, idx) => (
+                <DemandaCard 
+                  key={idx} 
+                  demanda={item as unknown as DemandaItem} 
+                  variant={previewMode}
+                />
+              ))}
+            </div>
+          </div>
+
+          <DrawerFooter className="border-t pt-4">
+            <Button 
+              size="lg" 
+              className={previewMode === 'ultra' ? 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600' : ''}
+              onClick={() => {
+                setPreviewDrawerOpen(false);
+                handleModeSelection(previewMode);
+              }}
+            >
+              <Check className="w-4 h-4 mr-2" />
+              Selecionar Modo {previewMode === 'normal' ? 'Normal' : 'Ultra'}
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 
@@ -591,31 +751,13 @@ const PlanPeriod = () => {
       <Card className="p-6 mb-6">
         <h3 className="font-semibold mb-4">Ideias Selecionadas:</h3>
         <div className="space-y-3">
-          {optionalPackage.map((item, idx) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const anyItem = item as any;
-            const title = item.titulo || anyItem.title || 'Sem título';
-            const tipo = anyItem.tipo || item.tipo_conteudo || '';
-            const objetivo = anyItem.objetivo || anyItem.objective || '';
-            // Priorizar conteudo (conteúdo dos slides/roteiros)
-            const descricao = anyItem.conteudo || anyItem.texto_da_peca || anyItem.descricao_da_tarefa || item.descricao || anyItem.description || '';
-            const channel = item.canal || anyItem.channel || '';
-            return (
-              <div key={idx} className="p-4 bg-muted/50 rounded-lg">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      {tipo && <Badge variant="secondary" className="text-xs">{tipo}</Badge>}
-                      <Badge variant="outline">{channel}</Badge>
-                    </div>
-                    <p className="font-medium">{title}</p>
-                    {objetivo && <p className="text-xs text-primary mt-1">📎 {objetivo}</p>}
-                    <p className="text-sm text-muted-foreground mt-2 whitespace-pre-line">{descricao.slice(0, 300)}{descricao.length > 300 ? '...' : ''}</p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {optionalPackage.map((item, idx) => (
+            <DemandaCard 
+              key={idx} 
+              demanda={item as unknown as DemandaItem}
+              variant={selectedMode === 'normal' ? 'ultra' : 'normal'}
+            />
+          ))}
         </div>
       </Card>
 
@@ -874,7 +1016,9 @@ const PlanPeriod = () => {
               {period.final_plan && period.final_plan.length > 0 && (
                 <div className="mt-3 pt-3 border-t">
                   <span className="text-xs text-muted-foreground">
-                    {period.final_plan.length} demandas geradas
+                    {period.final_plan.length} demandas no plano final
+                    {period.default_plan && period.default_plan.length > 0 && ` • ${period.default_plan.length} Normal`}
+                    {period.ultra_plan && period.ultra_plan.length > 0 && ` • ${period.ultra_plan.length} Ultra`}
                   </span>
                 </div>
               )}
@@ -883,67 +1027,119 @@ const PlanPeriod = () => {
         </div>
       )}
 
-      {/* Detail Modal */}
+      {/* Detail Modal with Tabs */}
       {selectedHistoryPlan && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedHistoryPlan(null)}>
-          <Card className="max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-bold">{selectedHistoryPlan.period_title}</h2>
-                <p className="text-sm text-muted-foreground">
-                  Criado em {format(new Date(selectedHistoryPlan.created_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                </p>
-              </div>
-              <Button variant="ghost" size="icon" onClick={() => setSelectedHistoryPlan(null)}>
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+          <Card className="max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="p-6 border-b">
+              <div className="flex items-start justify-between">
                 <div>
-                  <Label className="text-muted-foreground">Período</Label>
-                  <p className="font-medium">
-                    {format(new Date(selectedHistoryPlan.period_start), "dd/MM/yyyy")} - {format(new Date(selectedHistoryPlan.period_end), "dd/MM/yyyy")}
+                  <h2 className="text-xl font-bold">{selectedHistoryPlan.period_title}</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Criado em {format(new Date(selectedHistoryPlan.created_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                   </p>
                 </div>
+                <Button variant="ghost" size="icon" onClick={() => setSelectedHistoryPlan(null)}>
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              {/* Info row */}
+              <div className="flex flex-wrap gap-4 mt-4 text-sm">
                 <div>
-                  <Label className="text-muted-foreground">Canal Prioritário</Label>
-                  <p className="font-medium">{selectedHistoryPlan.priority_channel}</p>
+                  <span className="text-muted-foreground">Período: </span>
+                  <span className="font-medium">
+                    {format(new Date(selectedHistoryPlan.period_start), "dd/MM/yyyy")} - {format(new Date(selectedHistoryPlan.period_end), "dd/MM/yyyy")}
+                  </span>
                 </div>
-              </div>
-
-              <div>
-                <Label className="text-muted-foreground">Objetivo</Label>
-                <p className="font-medium">{selectedHistoryPlan.objective}</p>
-              </div>
-
-              {selectedHistoryPlan.primary_mode && (
-                <div>
-                  <Label className="text-muted-foreground">Modo Selecionado</Label>
+                {selectedHistoryPlan.primary_mode && (
                   <Badge className={selectedHistoryPlan.primary_mode === 'ultra' ? 'bg-pink-500' : 'bg-blue-500'}>
-                    {selectedHistoryPlan.primary_mode === 'ultra' ? 'Ultra' : 'Normal'}
+                    Modo {selectedHistoryPlan.primary_mode === 'ultra' ? 'Ultra' : 'Normal'} escolhido
                   </Badge>
-                </div>
-              )}
-
-              {selectedHistoryPlan.final_plan && selectedHistoryPlan.final_plan.length > 0 && (
-                <div>
-                  <Label className="text-muted-foreground mb-2 block">Demandas ({selectedHistoryPlan.final_plan.length})</Label>
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {selectedHistoryPlan.final_plan.map((item, idx) => (
-                      <div key={idx} className="p-3 bg-muted/50 rounded-lg">
-                        <p className="font-medium text-sm">{item.titulo}</p>
-                        <div className="flex gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs">{item.canal}</Badge>
-                          <Badge variant="outline" className="text-xs">{item.tipo_conteudo}</Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
+
+            {/* Tabs for plans */}
+            <Tabs value={historyViewTab} onValueChange={(v) => setHistoryViewTab(v as 'final' | 'normal' | 'ultra')} className="flex-1 flex flex-col overflow-hidden">
+              <div className="px-6 pt-4">
+                <TabsList className="w-full grid grid-cols-3">
+                  <TabsTrigger value="final" className="flex items-center gap-2">
+                    Plano Final
+                    {selectedHistoryPlan.final_plan && (
+                      <Badge variant="secondary" className="text-xs">{selectedHistoryPlan.final_plan.length}</Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="normal" className="flex items-center gap-2">
+                    Normal
+                    {selectedHistoryPlan.default_plan && (
+                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                        {selectedHistoryPlan.default_plan.length}
+                      </Badge>
+                    )}
+                    {selectedHistoryPlan.primary_mode === 'normal' && (
+                      <Check className="w-3 h-3 text-green-500" />
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="ultra" className="flex items-center gap-2">
+                    Ultra
+                    {selectedHistoryPlan.ultra_plan && (
+                      <Badge variant="secondary" className="text-xs bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300">
+                        {selectedHistoryPlan.ultra_plan.length}
+                      </Badge>
+                    )}
+                    {selectedHistoryPlan.primary_mode === 'ultra' && (
+                      <Check className="w-3 h-3 text-green-500" />
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6">
+                <TabsContent value="final" className="m-0">
+                  {selectedHistoryPlan.final_plan && selectedHistoryPlan.final_plan.length > 0 ? (
+                    <div className="space-y-3">
+                      {selectedHistoryPlan.final_plan.map((item, idx) => (
+                        <DemandaCard key={idx} demanda={item as unknown as DemandaItem} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>Nenhuma demanda no plano final</p>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="normal" className="m-0">
+                  {selectedHistoryPlan.default_plan && selectedHistoryPlan.default_plan.length > 0 ? (
+                    <div className="space-y-3">
+                      {selectedHistoryPlan.default_plan.map((item, idx) => (
+                        <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="normal" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>Nenhuma demanda no plano Normal</p>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="ultra" className="m-0">
+                  {selectedHistoryPlan.ultra_plan && selectedHistoryPlan.ultra_plan.length > 0 ? (
+                    <div className="space-y-3">
+                      {selectedHistoryPlan.ultra_plan.map((item, idx) => (
+                        <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="ultra" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>Nenhuma demanda no plano Ultra</p>
+                    </div>
+                  )}
+                </TabsContent>
+              </div>
+            </Tabs>
           </Card>
         </div>
       )}
