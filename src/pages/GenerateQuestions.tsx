@@ -315,7 +315,7 @@ export default function GenerateQuestions() {
 
   if (loadingSession) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="pb-8">
         <div className="sticky top-0 z-10 bg-background border-b">
           <div className="container mx-auto px-6 py-6">
             <div className="flex items-center justify-between">
@@ -348,7 +348,7 @@ export default function GenerateQuestions() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="pb-8">
       {/* Header Fixo usando PageHeader */}
       <PageHeader
         title="Perguntas Guias"

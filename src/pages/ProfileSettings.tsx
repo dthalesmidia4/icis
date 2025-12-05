@@ -135,7 +135,7 @@ export default function ProfileSettings() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen">
+      <div className="pb-8">
         <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
           <div className="flex items-center justify-between h-16 px-6">
             <div className="flex items-center gap-4">
@@ -164,7 +164,7 @@ export default function ProfileSettings() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="pb-8">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
         <div className="flex items-center justify-between h-16 px-6">

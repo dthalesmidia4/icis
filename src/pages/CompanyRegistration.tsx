@@ -232,7 +232,7 @@ const CompanyRegistration = () => {
       setLoading(false);
     }
   };
-  return <div className="min-h-screen bg-background">
+  return <div className="pb-8">
       <div className="p-4 md:p-8">
         <div className="max-w-4xl mx-auto space-y-6">
           <Button variant="ghost" onClick={() => navigate("/")} className="mb-4">
