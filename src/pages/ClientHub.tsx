@@ -71,8 +71,21 @@ const ClientHub = () => {
   };
 
   const handlePeriodSelect = (periodId: string) => {
+    console.log('[ClientHub] handlePeriodSelect called');
+    console.log('[ClientHub] periodId:', periodId);
+    console.log('[ClientHub] Current URL BEFORE navigation:', window.location.href);
+    console.log('[ClientHub] Target URL:', `/schedule?periodPlanId=${periodId}`);
+    
     setShowPeriodModal(false);
     navigate(`/schedule?periodPlanId=${periodId}`);
+    
+    // Log após navigate (síncrono, então a URL pode não ter mudado ainda)
+    console.log('[ClientHub] navigate() called, URL now:', window.location.href);
+    
+    // Verificar URL após um tick
+    setTimeout(() => {
+      console.log('[ClientHub] URL after 100ms:', window.location.href);
+    }, 100);
   };
 
   const handleCreateNewPeriod = () => {

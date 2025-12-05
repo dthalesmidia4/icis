@@ -30,6 +30,12 @@ interface SelectedClientProviderProps {
 }
 
 export const SelectedClientProvider = ({ children }: SelectedClientProviderProps) => {
+  // DEBUG: Log quando o Provider é criado (indica novo mount da app)
+  console.log('[SelectedClientContext] ========== PROVIDER CREATED ==========');
+  console.log('[SelectedClientContext] This indicates app initialization/remount');
+  console.log('[SelectedClientContext] Current URL:', window.location.href);
+  console.log('[SelectedClientContext] Timestamp:', new Date().toISOString());
+  
   // Inicializa o estado diretamente com o valor do sessionStorage
   const [selectedClient, setSelectedClientState] = useState<Client | null>(() => {
     try {
