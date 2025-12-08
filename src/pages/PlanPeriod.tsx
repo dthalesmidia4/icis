@@ -7,7 +7,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw } from "lucide-react";
+import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -361,8 +361,7 @@ const PlanPeriod = () => {
   };
 
   // Open review modal for selecting demands
-  const openReviewModal = (mode: 'normal' | 'ultra', e: React.MouseEvent) => {
-    e.stopPropagation();
+  const openReviewModal = (mode: 'normal' | 'ultra') => {
     setReviewMode(mode);
     setReviewModalOpen(true);
   };
@@ -708,19 +707,17 @@ const PlanPeriod = () => {
   const renderModeSelection = () => (
     <div className="max-w-5xl mx-auto">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold mb-2">Escolha o Modo Principal</h2>
+        <h2 className="text-2xl font-bold mb-2">Revise as Demandas Geradas</h2>
         <p className="text-muted-foreground">
-          Selecione a linha de demandas que melhor se adequa ao seu momento
+          Clique em um modo para revisar e selecionar as demandas que deseja incluir no seu planejamento
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Normal Mode Card */}
         <Card 
-          className={`p-6 cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 ${
-            selectedMode === 'normal' ? 'border-primary ring-2 ring-primary/20' : 'hover:border-primary/50'
-          }`}
-          onClick={() => handleModeSelection('normal')}
+          className="p-6 cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 hover:border-primary/50"
+          onClick={() => openReviewModal('normal')}
         >
           <div className="text-center mb-4">
             <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center mb-4">
@@ -747,26 +744,17 @@ const PlanPeriod = () => {
                 </li>
               ))}
             </ul>
-            {defaultPlan.length > 2 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mt-3 w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20"
-                onClick={(e) => openReviewModal('normal', e)}
-              >
-                <List className="w-4 h-4 mr-2" />
-                Ver todas as {defaultPlan.length} demandas
-              </Button>
-            )}
+            <div className="mt-3 flex items-center justify-center text-sm text-blue-600 dark:text-blue-400">
+              <Eye className="w-4 h-4 mr-2" />
+              Clique para revisar todas as {defaultPlan.length} demandas
+            </div>
           </div>
         </Card>
 
         {/* Ultra Mode Card */}
         <Card 
-          className={`p-6 cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 ${
-            selectedMode === 'ultra' ? 'border-pink-500 ring-2 ring-pink-500/20' : 'hover:border-pink-500/50'
-          }`}
-          onClick={() => handleModeSelection('ultra')}
+          className="p-6 cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 hover:border-pink-500/50"
+          onClick={() => openReviewModal('ultra')}
         >
           <div className="text-center mb-4">
             <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center mb-4">
@@ -795,78 +783,13 @@ const PlanPeriod = () => {
                 </li>
               ))}
             </ul>
-            {ultraPlan.length > 2 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mt-3 w-full text-pink-600 hover:text-pink-700 hover:bg-pink-50 dark:hover:bg-pink-950/20"
-                onClick={(e) => openReviewModal('ultra', e)}
-              >
-                <List className="w-4 h-4 mr-2" />
-                Ver todas as {ultraPlan.length} demandas
-              </Button>
-            )}
+            <div className="mt-3 flex items-center justify-center text-sm text-pink-600 dark:text-pink-400">
+              <Eye className="w-4 h-4 mr-2" />
+              Clique para revisar todas as {ultraPlan.length} demandas
+            </div>
           </div>
         </Card>
       </div>
-
-      {/* Preview Drawer */}
-      <Drawer open={previewDrawerOpen} onOpenChange={setPreviewDrawerOpen}>
-        <DrawerContent className="max-h-[85vh]">
-          <DrawerHeader className="border-b pb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  previewMode === 'normal' 
-                    ? 'bg-gradient-to-br from-blue-400 to-cyan-500' 
-                    : 'bg-gradient-to-br from-pink-400 to-purple-500'
-                }`}>
-                  {previewMode === 'normal' ? <Shield className="w-5 h-5 text-white" /> : <Rocket className="w-5 h-5 text-white" />}
-                </div>
-                <div>
-                  <DrawerTitle>
-                    Modo {previewMode === 'normal' ? 'Normal' : 'Ultra'}
-                  </DrawerTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {previewMode === 'normal' ? defaultPlan.length : ultraPlan.length} demandas geradas
-                  </p>
-                </div>
-              </div>
-              <DrawerClose asChild>
-                <Button variant="ghost" size="icon">
-                  <X className="w-5 h-5" />
-                </Button>
-              </DrawerClose>
-            </div>
-          </DrawerHeader>
-          
-          <div className="overflow-y-auto flex-1 p-4">
-            <div className="space-y-3 max-w-3xl mx-auto">
-              {(previewMode === 'normal' ? defaultPlan : ultraPlan).map((item, idx) => (
-                <DemandaCard 
-                  key={idx} 
-                  demanda={item as unknown as DemandaItem} 
-                  variant={previewMode}
-                />
-              ))}
-            </div>
-          </div>
-
-          <DrawerFooter className="border-t pt-4">
-            <Button 
-              size="lg" 
-              className={previewMode === 'ultra' ? 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600' : ''}
-              onClick={() => {
-                setPreviewDrawerOpen(false);
-                handleModeSelection(previewMode);
-              }}
-            >
-              <Check className="w-4 h-4 mr-2" />
-              Selecionar Modo {previewMode === 'normal' ? 'Normal' : 'Ultra'}
-            </Button>
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
 
       {/* Demand Review Modal */}
       <DemandReviewModal
