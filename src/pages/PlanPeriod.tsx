@@ -368,10 +368,13 @@ const PlanPeriod = () => {
   };
 
   // Handle confirm from review modal - directly integrate selected demands
-  const handleReviewConfirm = async (selectedDemands: PlanItem[]) => {
+  const handleReviewConfirm = async (selectedDemands: PlanItem[], smartSelections: PlanItem[]) => {
     if (!periodPlanId || !tenantId) return;
 
     setReviewModalOpen(false);
+
+    // Combine selected demands with smart selections
+    const allDemands = [...selectedDemands, ...smartSelections];
 
     try {
       // Update the period plan with the selected mode and final plan
@@ -379,13 +382,13 @@ const PlanPeriod = () => {
         .from('period_plans')
         .update({
           primary_mode: reviewMode,
-          final_plan: selectedDemands as unknown as null,
+          final_plan: allDemands as unknown as null,
           status: 'completed'
         })
         .eq('id', periodPlanId);
 
-      // Create cards from selected demands
-      const cardsToInsert = selectedDemands.map((item) => {
+      // Create cards from all selected demands
+      const cardsToInsert = allDemands.map((item) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const anyItem = item as any;
         
@@ -871,6 +874,7 @@ const PlanPeriod = () => {
         onOpenChange={setReviewModalOpen}
         mode={reviewMode}
         demands={reviewMode === 'normal' ? defaultPlan : ultraPlan}
+        smartSuggestions={reviewMode === 'normal' ? ultraPlan : defaultPlan}
         onConfirm={handleReviewConfirm}
         onRegenerate={handleRegenerate}
         isRegenerating={isRegenerating}
