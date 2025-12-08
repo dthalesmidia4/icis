@@ -70,6 +70,9 @@ Defina os principais temas e mensagens-chave que devem guiar toda a comunicaçã
 ## TOM DE VOZ
 Especifique como a marca deve se comunicar (formal, descontraído, técnico, etc.).
 
+## ESTILOS E ABORDAGENS A EVITAR
+Liste claramente os estilos de comunicação, abordagens ou formatos que NÃO devem ser utilizados, conforme indicado pelo cliente.
+
 ## TIPOS DE CONTEÚDO
 Recomende os formatos de conteúdo mais adequados para o negócio e público.
 
@@ -81,7 +84,8 @@ Indique como medir o sucesso das ações de marketing.
 
 Escreva em português brasileiro, de forma profissional mas acessível.
 Seja específico e evite generalizações vazias.
-Baseie todas as recomendações nas informações fornecidas pelo cliente.`;
+Baseie todas as recomendações nas informações fornecidas pelo cliente.
+Respeite rigorosamente os estilos e abordagens que o cliente indicou que NÃO quer usar.`;
 
     const promptContent = systemPrompt?.prompt_content || defaultPrompt;
 
@@ -98,54 +102,39 @@ DADOS DO CLIENTE:
 - Telefone: ${company.phone}
 `;
 
-    // Preparar respostas das perguntas guias
+    // Preparar respostas das perguntas guias (10 perguntas atualizadas)
     const questionsAndAnswers = `
 RESPOSTAS DAS PERGUNTAS ESTRATÉGICAS:
 
-1. O que você deseja alcançar com a sua comunicação e marketing neste momento?
+1. O que você deseja alcançar com sua comunicação neste momento? (Objetivo principal)
 ${answers.question_0 || 'Não respondido'}
 
-2. Por qual motivo esse objetivo é tão importante para o seu negócio agora?
+2. Por que esse objetivo é importante para você agora? (Motivação)
 ${answers.question_1 || 'Não respondido'}
 
-3. Quem é o público que você precisa impactar?
+3. Quem você deseja atingir com esse conteúdo? (Público-alvo)
 ${answers.question_2 || 'Não respondido'}
 
-4. Em quais canais o seu público está mais presente e onde devemos concentrar esforços?
+4. Quando você espera começar a ver resultados? (Prazo)
 ${answers.question_3 || 'Não respondido'}
 
-5. Em qual prazo você espera começar a ver resultados dessas ações?
+5. Como você prefere que essa comunicação seja feita? (Tom e formatos)
 ${answers.question_4 || 'Não respondido'}
 
-6. De que forma você prefere que a comunicação seja desenvolvida?
+6. Existe algum estilo de comunicação ou abordagem que você NÃO quer que seja utilizada? (Restrições de comunicação)
 ${answers.question_5 || 'Não respondido'}
 
-7. Como sua empresa atrai clientes hoje?
+7. Como sua empresa atrai clientes hoje? (Canais atuais)
 ${answers.question_6 || 'Não respondido'}
 
-8. Quais diferenciais reais tornam sua empresa mais competitiva?
+8. Quais são os seus principais diferenciais frente aos concorrentes? (Diferenciais competitivos)
 ${answers.question_7 || 'Não respondido'}
 
-9. Qual é o orçamento disponível para ações, anúncios ou impulsionamentos?
+9. Quanto você pode investir em tráfego pago ou impulsionamento? (Orçamento)
 ${answers.question_8 || 'Não respondido'}
 
-10. Quais materiais você já possui que podem ajudar na produção dos conteúdos?
+10. Quais limitações precisamos considerar antes de montar seu cronograma? (Restrições gerais)
 ${answers.question_9 || 'Não respondido'}
-
-11. Existem datas, eventos ou ocasiões especiais que precisamos incluir no planejamento?
-${answers.question_10 || 'Não respondido'}
-
-12. Quem será o responsável pela aprovação dos conteúdos e qual o tempo médio dessa aprovação?
-${answers.question_11 || 'Não respondido'}
-
-13. Há alguma limitação que devemos considerar?
-${answers.question_12 || 'Não respondido'}
-
-14. Qual é o maior desafio que impede sua marca de ter resultados melhores hoje?
-${answers.question_13 || 'Não respondido'}
-
-15. Quais tipos de conteúdo são essenciais para o seu negócio?
-${answers.question_14 || 'Não respondido'}
 `;
 
     const userPrompt = `
