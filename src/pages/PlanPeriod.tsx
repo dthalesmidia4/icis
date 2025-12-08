@@ -7,7 +7,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List } from "lucide-react";
+import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose, DrawerFooter } from "@/components/ui/drawer";
 import { DemandaCard, DemandaItem } from "@/components/DemandaCard";
+import { DemandReviewModal } from "@/components/DemandReviewModal";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -69,6 +70,11 @@ const PlanPeriod = () => {
   // Preview drawer state
   const [previewDrawerOpen, setPreviewDrawerOpen] = useState(false);
   const [previewMode, setPreviewMode] = useState<'normal' | 'ultra'>('normal');
+
+  // Review modal state
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewMode, setReviewMode] = useState<'normal' | 'ultra'>('normal');
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Incomplete period resume state
   const [incompletePeriod, setIncompletePeriod] = useState<PeriodPlanHistory | null>(null);
@@ -354,6 +360,132 @@ const PlanPeriod = () => {
     }
   };
 
+  // Open review modal for selecting demands
+  const openReviewModal = (mode: 'normal' | 'ultra', e: React.MouseEvent) => {
+    e.stopPropagation();
+    setReviewMode(mode);
+    setReviewModalOpen(true);
+  };
+
+  // Handle confirm from review modal - directly integrate selected demands
+  const handleReviewConfirm = async (selectedDemands: PlanItem[]) => {
+    if (!periodPlanId || !tenantId) return;
+
+    setReviewModalOpen(false);
+
+    try {
+      // Update the period plan with the selected mode and final plan
+      await supabase
+        .from('period_plans')
+        .update({
+          primary_mode: reviewMode,
+          final_plan: selectedDemands as unknown as null,
+          status: 'completed'
+        })
+        .eq('id', periodPlanId);
+
+      // Create cards from selected demands
+      const cardsToInsert = selectedDemands.map((item) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const anyItem = item as any;
+        
+        const title = item.titulo || anyItem.title || 'Sem título';
+        const tipo = anyItem.tipo || item.tipo_conteudo || anyItem.type || '';
+        const channel = item.canal || anyItem.channel || '';
+        const publicationDate = item.data_sugerida || anyItem.suggested_date || anyItem.date || new Date().toISOString().split('T')[0];
+        const descricao = anyItem.conteudo || anyItem.texto_da_peca || anyItem.descricao_da_tarefa || item.descricao || anyItem.description || '';
+        const objetivo = anyItem.objetivo || anyItem.objective || '';
+        const instrucoesProducao = anyItem.instrucoes_de_producao || '';
+        const ctaRecomendado = anyItem.cta_recomendado || '';
+        const instrucoesParts = [
+          instrucoesProducao,
+          ctaRecomendado && `CTA: ${ctaRecomendado}`
+        ].filter(Boolean);
+        
+        return {
+          tenant_id: tenantId,
+          period_plan_id: periodPlanId,
+          title,
+          objetivo: objetivo || null,
+          description: descricao,
+          instrucoes: instrucoesParts.length > 0 ? instrucoesParts.join('\n\n') : null,
+          delivery_date: publicationDate,
+          file_location: tipo ? `${tipo} - ${channel}`.trim().replace(/^- | -$/g, '') : channel,
+          status: 'unassigned',
+          column_name: 'Planejamento Automatizado',
+          observations: null
+        };
+      });
+
+      if (cardsToInsert.length > 0) {
+        const { error } = await supabase
+          .from('cards')
+          .insert(cardsToInsert);
+
+        if (error) throw error;
+      }
+
+      toast.success(`${selectedDemands.length} demandas integradas ao Kanban!`);
+      
+      // Navigate to schedule
+      navigate(`/schedule?periodPlanId=${periodPlanId}`);
+
+    } catch (error) {
+      console.error('Error confirming plan:', error);
+      toast.error('Erro ao confirmar planejamento');
+    }
+  };
+
+  // Handle regenerate from review modal
+  const handleRegenerate = async () => {
+    if (!periodPlanId) return;
+
+    setIsRegenerating(true);
+    setReviewModalOpen(false);
+
+    try {
+      // Reset status to draft
+      await supabase
+        .from('period_plans')
+        .update({ status: 'draft', default_plan: [], ultra_plan: [] })
+        .eq('id', periodPlanId);
+
+      setCurrentStep('loading');
+
+      // Fire edge function
+      void (async () => {
+        try {
+          await supabase.functions.invoke('generate-period-plans', {
+            body: { periodPlanId, tenantId }
+          });
+        } catch {
+          // Silently ignore
+        }
+      })();
+
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const result = await pollForCompletion(periodPlanId);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao regenerar planos');
+      }
+
+      setDefaultPlan((result.default_plan as unknown as PlanItem[]) || []);
+      setUltraPlan((result.ultra_plan as unknown as PlanItem[]) || []);
+      setCurrentStep('mode-selection');
+      
+      toast.success('Demandas regeneradas com sucesso!');
+
+    } catch (error) {
+      console.error('Error regenerating:', error);
+      toast.error('Erro ao regenerar demandas');
+      setCurrentStep('mode-selection');
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
   // Open preview drawer
   const openPreview = (mode: 'normal' | 'ultra', e: React.MouseEvent) => {
     e.stopPropagation();
@@ -617,7 +749,7 @@ const PlanPeriod = () => {
                 variant="ghost"
                 size="sm"
                 className="mt-3 w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20"
-                onClick={(e) => openPreview('normal', e)}
+                onClick={(e) => openReviewModal('normal', e)}
               >
                 <List className="w-4 h-4 mr-2" />
                 Ver todas as {defaultPlan.length} demandas
@@ -665,7 +797,7 @@ const PlanPeriod = () => {
                 variant="ghost"
                 size="sm"
                 className="mt-3 w-full text-pink-600 hover:text-pink-700 hover:bg-pink-50 dark:hover:bg-pink-950/20"
-                onClick={(e) => openPreview('ultra', e)}
+                onClick={(e) => openReviewModal('ultra', e)}
               >
                 <List className="w-4 h-4 mr-2" />
                 Ver todas as {ultraPlan.length} demandas
@@ -732,6 +864,17 @@ const PlanPeriod = () => {
           </DrawerFooter>
         </DrawerContent>
       </Drawer>
+
+      {/* Demand Review Modal */}
+      <DemandReviewModal
+        open={reviewModalOpen}
+        onOpenChange={setReviewModalOpen}
+        mode={reviewMode}
+        demands={reviewMode === 'normal' ? defaultPlan : ultraPlan}
+        onConfirm={handleReviewConfirm}
+        onRegenerate={handleRegenerate}
+        isRegenerating={isRegenerating}
+      />
     </div>
   );
 
