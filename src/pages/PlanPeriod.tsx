@@ -1058,116 +1058,174 @@ const PlanPeriod = () => {
       {/* Detail Modal with Tabs */}
       {selectedHistoryPlan && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedHistoryPlan(null)}>
-          <Card className="max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <Card className="max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="p-6 border-b">
+            <div className="p-6 border-b bg-muted/30">
               <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-xl font-bold">{selectedHistoryPlan.period_title}</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Criado em {format(new Date(selectedHistoryPlan.created_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                  </p>
+                <div className="space-y-1">
+                  <h2 className="text-2xl font-bold">{selectedHistoryPlan.period_title}</h2>
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <CalendarIcon className="w-4 h-4" />
+                      {format(new Date(selectedHistoryPlan.period_start), "dd/MM/yyyy")} - {format(new Date(selectedHistoryPlan.period_end), "dd/MM/yyyy")}
+                    </span>
+                    <span>•</span>
+                    <span>Criado em {format(new Date(selectedHistoryPlan.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
+                  </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setSelectedHistoryPlan(null)}>
+                <Button variant="ghost" size="icon" onClick={() => setSelectedHistoryPlan(null)} className="shrink-0">
                   <X className="w-5 h-5" />
                 </Button>
               </div>
 
-              {/* Info row */}
-              <div className="flex flex-wrap gap-4 mt-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Período: </span>
-                  <span className="font-medium">
-                    {format(new Date(selectedHistoryPlan.period_start), "dd/MM/yyyy")} - {format(new Date(selectedHistoryPlan.period_end), "dd/MM/yyyy")}
-                  </span>
-                </div>
-                {selectedHistoryPlan.primary_mode && (
-                  <Badge className={selectedHistoryPlan.primary_mode === 'ultra' ? 'bg-pink-500' : 'bg-blue-500'}>
-                    Modo {selectedHistoryPlan.primary_mode === 'ultra' ? 'Ultra' : 'Normal'} escolhido
-                  </Badge>
-                )}
+              {/* Summary Cards */}
+              <div className="grid grid-cols-3 gap-3 mt-5">
+                <Card 
+                  className={cn(
+                    "p-4 cursor-pointer transition-all border-2",
+                    historyViewTab === 'final' 
+                      ? "border-primary bg-primary/5" 
+                      : "border-transparent hover:border-border hover:bg-muted/50"
+                  )}
+                  onClick={() => setHistoryViewTab('final')}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
+                        <Check className="w-4 h-4 text-green-500" />
+                      </div>
+                      <span className="font-semibold">Plano Final</span>
+                    </div>
+                    {historyViewTab === 'final' && <Check className="w-4 h-4 text-primary" />}
+                  </div>
+                  <p className="text-2xl font-bold">{selectedHistoryPlan.final_plan?.length || 0}</p>
+                  <p className="text-xs text-muted-foreground">demandas aprovadas</p>
+                </Card>
+
+                <Card 
+                  className={cn(
+                    "p-4 cursor-pointer transition-all border-2",
+                    historyViewTab === 'normal' 
+                      ? "border-blue-500 bg-blue-500/5" 
+                      : "border-transparent hover:border-border hover:bg-muted/50"
+                  )}
+                  onClick={() => setHistoryViewTab('normal')}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                        <Shield className="w-4 h-4 text-blue-500" />
+                      </div>
+                      <span className="font-semibold">Normal</span>
+                    </div>
+                    {selectedHistoryPlan.primary_mode === 'normal' && (
+                      <Badge className="bg-blue-500 text-white text-[10px] px-1.5">Escolhido</Badge>
+                    )}
+                  </div>
+                  <p className="text-2xl font-bold">{selectedHistoryPlan.default_plan?.length || 0}</p>
+                  <p className="text-xs text-muted-foreground">demandas geradas</p>
+                </Card>
+
+                <Card 
+                  className={cn(
+                    "p-4 cursor-pointer transition-all border-2",
+                    historyViewTab === 'ultra' 
+                      ? "border-pink-500 bg-pink-500/5" 
+                      : "border-transparent hover:border-border hover:bg-muted/50"
+                  )}
+                  onClick={() => setHistoryViewTab('ultra')}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center">
+                        <Zap className="w-4 h-4 text-pink-500" />
+                      </div>
+                      <span className="font-semibold">Ultra</span>
+                    </div>
+                    {selectedHistoryPlan.primary_mode === 'ultra' && (
+                      <Badge className="bg-pink-500 text-white text-[10px] px-1.5">Escolhido</Badge>
+                    )}
+                  </div>
+                  <p className="text-2xl font-bold">{selectedHistoryPlan.ultra_plan?.length || 0}</p>
+                  <p className="text-xs text-muted-foreground">demandas geradas</p>
+                </Card>
               </div>
             </div>
 
-            {/* Tabs for plans */}
-            <Tabs value={historyViewTab} onValueChange={(v) => setHistoryViewTab(v as 'final' | 'normal' | 'ultra')} className="flex-1 flex flex-col overflow-hidden">
-              <div className="px-6 pt-4">
-                <TabsList className="w-full grid grid-cols-3">
-                  <TabsTrigger value="final" className="flex items-center gap-2">
-                    Plano Final
-                    {selectedHistoryPlan.final_plan && (
-                      <Badge variant="secondary" className="text-xs">{selectedHistoryPlan.final_plan.length}</Badge>
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="normal" className="flex items-center gap-2">
-                    Normal
-                    {selectedHistoryPlan.default_plan && (
-                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                        {selectedHistoryPlan.default_plan.length}
-                      </Badge>
-                    )}
-                    {selectedHistoryPlan.primary_mode === 'normal' && (
-                      <Check className="w-3 h-3 text-green-500" />
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="ultra" className="flex items-center gap-2">
-                    Ultra
-                    {selectedHistoryPlan.ultra_plan && (
-                      <Badge variant="secondary" className="text-xs bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300">
-                        {selectedHistoryPlan.ultra_plan.length}
-                      </Badge>
-                    )}
-                    {selectedHistoryPlan.primary_mode === 'ultra' && (
-                      <Check className="w-3 h-3 text-green-500" />
-                    )}
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6">
-                <TabsContent value="final" className="m-0">
+            {/* Content Area */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {historyViewTab === 'final' && (
+                <>
                   {selectedHistoryPlan.final_plan && selectedHistoryPlan.final_plan.length > 0 ? (
-                    <div className="space-y-3">
+                    <div className="grid gap-3">
                       {selectedHistoryPlan.final_plan.map((item, idx) => (
                         <DemandaCard key={idx} demanda={item as unknown as DemandaItem} />
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>Nenhuma demanda no plano final</p>
+                    <div className="text-center py-12 text-muted-foreground">
+                      <LayoutGrid className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p className="font-medium">Nenhuma demanda no plano final</p>
+                      <p className="text-sm mt-1">O planejamento pode não ter sido finalizado</p>
                     </div>
                   )}
-                </TabsContent>
+                </>
+              )}
 
-                <TabsContent value="normal" className="m-0">
+              {historyViewTab === 'normal' && (
+                <>
                   {selectedHistoryPlan.default_plan && selectedHistoryPlan.default_plan.length > 0 ? (
-                    <div className="space-y-3">
+                    <div className="grid gap-3">
                       {selectedHistoryPlan.default_plan.map((item, idx) => (
                         <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="normal" />
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>Nenhuma demanda no plano Normal</p>
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Shield className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p className="font-medium">Nenhuma demanda no plano Normal</p>
                     </div>
                   )}
-                </TabsContent>
+                </>
+              )}
 
-                <TabsContent value="ultra" className="m-0">
+              {historyViewTab === 'ultra' && (
+                <>
                   {selectedHistoryPlan.ultra_plan && selectedHistoryPlan.ultra_plan.length > 0 ? (
-                    <div className="space-y-3">
+                    <div className="grid gap-3">
                       {selectedHistoryPlan.ultra_plan.map((item, idx) => (
                         <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="ultra" />
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p>Nenhuma demanda no plano Ultra</p>
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Zap className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p className="font-medium">Nenhuma demanda no plano Ultra</p>
                     </div>
                   )}
-                </TabsContent>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t bg-muted/30 flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {historyViewTab === 'final' && `${selectedHistoryPlan.final_plan?.length || 0} demandas finalizadas`}
+                {historyViewTab === 'normal' && `${selectedHistoryPlan.default_plan?.length || 0} demandas no modo Normal`}
+                {historyViewTab === 'ultra' && `${selectedHistoryPlan.ultra_plan?.length || 0} demandas no modo Ultra`}
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setSelectedHistoryPlan(null)}>
+                  Fechar
+                </Button>
+                {selectedHistoryPlan.status === 'completed' && (
+                  <Button onClick={() => navigate(`/schedule?periodPlanId=${selectedHistoryPlan.id}`)}>
+                    <LayoutGrid className="w-4 h-4 mr-2" />
+                    Ver no Kanban
+                  </Button>
+                )}
               </div>
-            </Tabs>
+            </div>
           </Card>
         </div>
       )}
