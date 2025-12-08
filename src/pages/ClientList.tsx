@@ -6,12 +6,11 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardHeader } from "@/components/ui/card";
 import { ArrowLeft, Search, Plus, Edit, Trash2, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
-
+import ActionCard from "@/components/ActionCard";
 const ClientList = () => {
   const navigate = useNavigate();
   const { tenantId } = useTenant();
@@ -149,57 +148,39 @@ const ClientList = () => {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {clients.map((client) => (
-                <Card
-                  key={client.id}
-                  className="group relative cursor-pointer hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/50 overflow-hidden active:scale-[0.98]"
-                  onClick={() => !editMode && handleClientSelect(client)}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-secondary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  
-                  <CardHeader className="relative space-y-3 sm:space-y-4 p-4 sm:p-6">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                        <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-primary to-secondary flex-shrink-0">
-                          <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-primary-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <CardTitle className="text-base sm:text-lg truncate">
-                            {client.fantasy_name || client.name}
-                          </CardTitle>
-                          <Badge variant="outline" className="mt-1 sm:mt-2 text-xs">
-                            {client.sector}
-                          </Badge>
-                        </div>
-                      </div>
-                      
-                      {editMode && (
-                        <div 
-                          className="flex gap-1 flex-shrink-0" 
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => navigate(`/clientes/${client.id}`)}
-                            title="Editar cliente"
-                            className="h-8 w-8"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteId(client.id)}
-                            title="Excluir cliente"
-                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
+                <div key={client.id} className="relative">
+                  {editMode && (
+                    <div 
+                      className="absolute top-2 right-2 z-10 flex gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        onClick={() => navigate(`/clientes/${client.id}`)}
+                        title="Editar cliente"
+                        className="h-8 w-8"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        onClick={() => setDeleteId(client.id)}
+                        title="Excluir cliente"
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                  </CardHeader>
-                </Card>
+                  )}
+                  <ActionCard
+                    title={client.fantasy_name || client.name}
+                    icon={Building2}
+                    gradient="from-primary to-secondary"
+                    onClick={() => !editMode && handleClientSelect(client)}
+                  />
+                </div>
               ))}
             </div>
           )}
