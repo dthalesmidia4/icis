@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, X, Plus, Trash2, RefreshCw, Shield, Rocket, LayoutGrid, Sparkles, Lightbulb } from "lucide-react";
+import { Check, X, Plus, Trash2, RefreshCw, Shield, Rocket, LayoutGrid, Sparkles, Lightbulb, ArrowRight, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DemandItem {
@@ -40,7 +39,8 @@ export const DemandReviewModal = ({
   onRegenerate,
   isRegenerating = false
 }: DemandReviewModalProps) => {
-  const [activeTab, setActiveTab] = useState<'demands' | 'smart'>('demands');
+  // Step 1 = demands, Step 2 = smart suggestions
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   
   // Track selected demands by index
   const [selectedIndexes, setSelectedIndexes] = useState<Set<number>>(() => 
@@ -61,7 +61,7 @@ export const DemandReviewModal = ({
       setRemovedIndexes(new Set());
       setSelectedSmartIndexes(new Set());
       setRemovedSmartIndexes(new Set());
-      setActiveTab('demands');
+      setCurrentStep(1);
     }
   }, [open, demands]);
 
@@ -257,6 +257,18 @@ export const DemandReviewModal = ({
     );
   };
 
+  const handleNext = () => {
+    if (currentStep === 1) {
+      setCurrentStep(2);
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep === 2) {
+      setCurrentStep(1);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0">
@@ -265,60 +277,53 @@ export const DemandReviewModal = ({
           <div className="flex items-center gap-4">
             <div className={cn(
               "w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-br",
-              gradientClass
+              currentStep === 1 ? gradientClass : smartGradientClass
             )}>
-              {isNormal ? <Shield className="w-6 h-6 text-white" /> : <Rocket className="w-6 h-6 text-white" />}
+              {currentStep === 1 
+                ? (isNormal ? <Shield className="w-6 h-6 text-white" /> : <Rocket className="w-6 h-6 text-white" />)
+                : <Sparkles className="w-6 h-6 text-white" />
+              }
             </div>
             <div className="flex-1">
               <DialogTitle className="text-xl">
-                Revisar Demandas - Modo {isNormal ? 'Normal' : 'Ultra'}
+                {currentStep === 1 
+                  ? `Demandas do Plano - Modo ${isNormal ? 'Normal' : 'Ultra'}`
+                  : 'Pacote Inteligente'
+                }
               </DialogTitle>
               <DialogDescription className="mt-1">
-                Selecione as demandas e sugestões inteligentes para seu planejamento
+                {currentStep === 1 
+                  ? 'Selecione as demandas que deseja incluir no seu planejamento'
+                  : `Sugestões do modo ${isNormal ? 'Ultra' : 'Normal'} para complementar seu plano`
+                }
               </DialogDescription>
             </div>
-            <Badge 
-              variant="secondary" 
-              className={cn(
-                "text-sm px-3 py-1",
-                isNormal 
-                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                  : "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300"
-              )}
-            >
-              {totalSelected} selecionadas
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge 
+                variant="outline" 
+                className="text-xs"
+              >
+                Etapa {currentStep}/2
+              </Badge>
+              <Badge 
+                variant="secondary" 
+                className={cn(
+                  "text-sm px-3 py-1",
+                  isNormal 
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                    : "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300"
+                )}
+              >
+                {totalSelected} selecionadas
+              </Badge>
+            </div>
           </div>
         </DialogHeader>
 
-        {/* Tabs Content */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'demands' | 'smart')} className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          <div className="px-6 pt-4 shrink-0">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="demands" className="gap-2">
-                {isNormal ? <Shield className="w-4 h-4" /> : <Rocket className="w-4 h-4" />}
-                Demandas do Plano
-                <Badge variant="outline" className="ml-1 text-xs">{selectedCount}/{totalVisible}</Badge>
-              </TabsTrigger>
-              <TabsTrigger value="smart" className="gap-2">
-                <Lightbulb className="w-4 h-4" />
-                Pacote Inteligente
-                {selectedSmartCount > 0 && (
-                  <Badge className={cn(
-                    "ml-1 text-xs",
-                    isNormal 
-                      ? "bg-pink-500 text-white"
-                      : "bg-blue-500 text-white"
-                  )}>
-                    +{selectedSmartCount}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="demands" className="flex-1 min-h-0 m-0 overflow-hidden">
-            <ScrollArea className="h-[calc(90vh-280px)]">
+        {/* Content */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {currentStep === 1 ? (
+            <ScrollArea className="h-[calc(90vh-250px)]">
               <div className="p-6 space-y-3">
                 {demands.map((demand, originalIndex) => {
                   if (removedIndexes.has(originalIndex)) return null;
@@ -350,10 +355,8 @@ export const DemandReviewModal = ({
                 )}
               </div>
             </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="smart" className="flex-1 min-h-0 m-0 overflow-hidden">
-            <ScrollArea className="h-[calc(90vh-280px)]">
+          ) : (
+            <ScrollArea className="h-[calc(90vh-250px)]">
               <div className="p-6">
                 {/* Smart package header */}
                 <Card className={cn(
@@ -415,21 +418,33 @@ export const DemandReviewModal = ({
                 </div>
               </div>
             </ScrollArea>
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
 
         {/* Footer */}
         <div className="p-6 pt-4 border-t shrink-0 bg-muted/30">
           <div className="flex items-center justify-between gap-4">
-            <Button
-              variant="outline"
-              onClick={onRegenerate}
-              disabled={isRegenerating}
-              className="gap-2"
-            >
-              <RefreshCw className={cn("w-4 h-4", isRegenerating && "animate-spin")} />
-              Gerar Novamente
-            </Button>
+            <div className="flex items-center gap-2">
+              {currentStep === 2 && (
+                <Button
+                  variant="outline"
+                  onClick={handleBack}
+                  className="gap-2"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Voltar
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={onRegenerate}
+                disabled={isRegenerating}
+                className="gap-2"
+              >
+                <RefreshCw className={cn("w-4 h-4", isRegenerating && "animate-spin")} />
+                Gerar Novamente
+              </Button>
+            </div>
 
             <div className="flex items-center gap-2">
               <Button
@@ -440,17 +455,30 @@ export const DemandReviewModal = ({
                 Fechar
               </Button>
               
-              {totalSelected > 0 && (
+              {currentStep === 1 ? (
                 <Button
-                  onClick={handleConfirm}
+                  onClick={handleNext}
                   className={cn(
                     "gap-2",
                     !isNormal && "bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
                   )}
                 >
-                  <Check className="w-4 h-4" />
-                  Confirmar Planejamento ({totalSelected})
+                  Próximo
+                  <ArrowRight className="w-4 h-4" />
                 </Button>
+              ) : (
+                totalSelected > 0 && (
+                  <Button
+                    onClick={handleConfirm}
+                    className={cn(
+                      "gap-2",
+                      !isNormal && "bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
+                    )}
+                  >
+                    <Check className="w-4 h-4" />
+                    Confirmar Planejamento ({totalSelected})
+                  </Button>
+                )
               )}
             </div>
           </div>
