@@ -1240,9 +1240,9 @@ const PlanPeriod = () => {
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>{Math.round(pollingProgress)}% concluído</span>
                   <span>
-                    {pollingProgress < 100 
-                      ? `~${Math.ceil((60 - (pollingProgress / 100) * 60) * 5 / 60)} min restantes`
-                      : 'Finalizando...'
+                    {pollingProgress >= 100 
+                      ? 'Finalizando...'
+                      : 'Aguarde alguns segundos'
                     }
                   </span>
                 </div>
