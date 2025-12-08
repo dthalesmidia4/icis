@@ -143,13 +143,6 @@ export const DemandaCard = ({ demanda, compact = false, variant = 'default' }: D
           </div>
         )}
 
-        {/* Instruções */}
-        {(instrucoes || cta) && (
-          <div className="text-xs text-muted-foreground border-t pt-2 space-y-1">
-            {instrucoes && <p>📋 {instrucoes}</p>}
-            {cta && <p>🎯 CTA: {cta}</p>}
-          </div>
-        )}
       </div>
     </Card>
   );
