@@ -294,7 +294,7 @@ export const DemandReviewModal = ({
         </DialogHeader>
 
         {/* Tabs Content */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'demands' | 'smart')} className="flex-1 min-h-0 flex flex-col">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'demands' | 'smart')} className="flex-1 min-h-0 flex flex-col overflow-hidden">
           <div className="px-6 pt-4 shrink-0">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="demands" className="gap-2">
@@ -319,8 +319,8 @@ export const DemandReviewModal = ({
             </TabsList>
           </div>
 
-          <TabsContent value="demands" className="flex-1 min-h-0 m-0">
-            <ScrollArea className="h-full max-h-[50vh]">
+          <TabsContent value="demands" className="flex-1 min-h-0 m-0 overflow-hidden">
+            <ScrollArea className="h-[calc(90vh-280px)]">
               <div className="p-6 space-y-3">
                 {demands.map((demand, originalIndex) => {
                   if (removedIndexes.has(originalIndex)) return null;
@@ -354,8 +354,8 @@ export const DemandReviewModal = ({
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="smart" className="flex-1 min-h-0 m-0">
-            <ScrollArea className="h-full max-h-[50vh]">
+          <TabsContent value="smart" className="flex-1 min-h-0 m-0 overflow-hidden">
+            <ScrollArea className="h-[calc(90vh-280px)]">
               <div className="p-6">
                 {/* Smart package header */}
                 <Card className={cn(
