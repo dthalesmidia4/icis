@@ -727,11 +727,8 @@ const PlanPeriod = () => {
             <p className="text-sm text-muted-foreground mt-1">{normalSummary}</p>
           </div>
 
-          <div className="space-y-3 mb-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Demandas geradas:</span>
-              <Badge variant="secondary">{defaultPlan.length} demandas</Badge>
-            </div>
+          <div className="flex justify-center mb-4">
+            <Badge variant="secondary">{defaultPlan.length} demandas</Badge>
           </div>
 
           <div className="border-t pt-4">
@@ -764,13 +761,10 @@ const PlanPeriod = () => {
             <p className="text-sm text-muted-foreground mt-1">{ultraSummary}</p>
           </div>
 
-          <div className="space-y-3 mb-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Demandas geradas:</span>
-              <Badge variant="secondary" className="bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300">
-                {ultraPlan.length} demandas
-              </Badge>
-            </div>
+          <div className="flex justify-center mb-4">
+            <Badge variant="secondary" className="bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300">
+              {ultraPlan.length} demandas
+            </Badge>
           </div>
 
           <div className="border-t pt-4">
