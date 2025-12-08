@@ -1,13 +1,11 @@
 import { useNavigate } from "react-router-dom";
-import { Card } from "@/components/ui/card";
 import { UserPlus, Building2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useTenant } from "@/contexts/TenantContext";
+import ActionCard from "@/components/ActionCard";
 
 const Home = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { tenantName } = useTenant();
 
   const getUserFirstName = () => {
     if (user?.user_metadata?.full_name) {
@@ -46,27 +44,14 @@ const Home = () => {
           {/* Cards de Ação */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto">
             {actionCards.map((card, index) => (
-              <Card
+              <ActionCard
                 key={index}
-                className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
+                title={card.title}
+                icon={card.icon}
+                gradient={card.gradient}
+                description={card.description}
                 onClick={() => navigate(card.route)}
-              >
-                <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-5 group-hover:opacity-10 transition-opacity`} />
-                
-                <div className="relative p-6 sm:p-8">
-                  <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br ${card.gradient} flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform duration-300`}>
-                    <card.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-                  </div>
-                  
-                  <h3 className="text-lg sm:text-xl font-bold mb-2 group-hover:text-primary transition-colors">
-                    {card.title}
-                  </h3>
-                  
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    {card.description}
-                  </p>
-                </div>
-              </Card>
+              />
             ))}
           </div>
 
