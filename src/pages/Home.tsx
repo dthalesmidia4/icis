@@ -19,15 +19,13 @@ const Home = () => {
       title: "Gerenciar Clientes",
       icon: Building2,
       gradient: "from-blue-500 to-indigo-600",
-      route: "/clientes",
-      description: "Acesse a hub de controle de cada cliente"
+      route: "/clientes"
     },
     {
       title: "Cadastrar Cliente",
       icon: UserPlus,
       gradient: "from-green-500 to-emerald-600",
-      route: "/registration",
-      description: "Adicione um novo cliente à plataforma"
+      route: "/registration"
     }
   ];
 
@@ -49,7 +47,6 @@ const Home = () => {
                 title={card.title}
                 icon={card.icon}
                 gradient={card.gradient}
-                description={card.description}
                 onClick={() => navigate(card.route)}
               />
             ))}
