@@ -955,23 +955,22 @@ const PlanPeriod = () => {
                 className="p-4 hover:shadow-md transition-shadow cursor-pointer group"
                 onClick={() => setSelectedHistoryPlan(period)}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3">
-                      <h3 className="font-semibold truncate">{period.period_title}</h3>
-                      {period.primary_mode && (
-                        <Badge variant="outline" className={`shrink-0 ${period.primary_mode === 'ultra' ? 'border-pink-500 text-pink-500' : ''}`}>
-                          {period.primary_mode === 'ultra' ? 'Ultra' : 'Normal'}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                      <span>{format(new Date(period.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
-                      <span>{demandCount} demandas</span>
-                    </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <h3 className="text-base sm:text-lg font-semibold truncate">{period.period_title}</h3>
+                    {period.primary_mode && (
+                      <Badge variant="outline" className={`shrink-0 ${period.primary_mode === 'ultra' ? 'border-pink-500 text-pink-500' : ''}`}>
+                        {period.primary_mode === 'ultra' ? 'Ultra' : 'Normal'}
+                      </Badge>
+                    )}
                   </div>
                   
-                  <div className="flex items-center gap-2 ml-4">
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground shrink-0">
+                    <span>{format(new Date(period.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
+                    <span>{demandCount} demandas</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 shrink-0">
                     <Button 
                       variant="ghost" 
                       size="icon"
