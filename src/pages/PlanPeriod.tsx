@@ -6,7 +6,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Eye } from "lucide-react";
+import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Eye, Instagram, Facebook, Youtube, Linkedin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -85,6 +85,7 @@ const PlanPeriod = () => {
   const [budget, setBudget] = useState("");
   const [observations, setObservations] = useState("");
   const [excludedFormats, setExcludedFormats] = useState<string[]>([]);
+  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
 
@@ -514,6 +515,67 @@ const PlanPeriod = () => {
             <div>
               <Label htmlFor="budget">Orçamento (opcional)</Label>
               <Input id="budget" placeholder="Ex: R$ 5.000,00 ou Sem limite definido" value={budget} onChange={e => setBudget(e.target.value)} />
+            </div>
+
+            {/* Channel Selection */}
+            <div className="space-y-3">
+              <Label className="text-sm">Canais do Período</Label>
+              <p className="text-xs text-muted-foreground -mt-1">Selecione as redes sociais para este período</p>
+              <div className="flex flex-wrap gap-3">
+                {[
+                  { id: 'instagram', label: 'Instagram', icon: Instagram, color: 'from-pink-500 to-purple-500' },
+                  { id: 'facebook', label: 'Facebook', icon: Facebook, color: 'from-blue-600 to-blue-500' },
+                  { id: 'tiktok', label: 'TikTok', icon: () => (
+                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+                    </svg>
+                  ), color: 'from-gray-900 to-gray-700' },
+                  { id: 'youtube', label: 'YouTube', icon: Youtube, color: 'from-red-600 to-red-500' },
+                  { id: 'linkedin', label: 'LinkedIn', icon: Linkedin, color: 'from-blue-700 to-blue-600' },
+                ].map(channel => {
+                  const isSelected = selectedChannels.includes(channel.id);
+                  const IconComponent = channel.icon;
+                  return (
+                    <button
+                      key={channel.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedChannels(prev => 
+                          prev.includes(channel.id) 
+                            ? prev.filter(c => c !== channel.id)
+                            : [...prev, channel.id]
+                        );
+                      }}
+                      className={cn(
+                        "relative flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border-2 transition-all duration-200 min-w-[72px]",
+                        isSelected 
+                          ? "border-primary bg-primary/10 shadow-[0_0_12px_hsl(var(--primary)/0.3)]" 
+                          : "border-border/50 bg-card hover:border-primary/50 hover:bg-primary/5"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-9 h-9 rounded-lg flex items-center justify-center transition-all",
+                        isSelected 
+                          ? `bg-gradient-to-br ${channel.color} text-white` 
+                          : "bg-muted text-muted-foreground"
+                      )}>
+                        <IconComponent />
+                      </div>
+                      <span className={cn(
+                        "text-[10px] font-medium transition-colors",
+                        isSelected ? "text-foreground" : "text-muted-foreground"
+                      )}>
+                        {channel.label}
+                      </span>
+                      {isSelected && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center">
+                          <Check className="w-2.5 h-2.5 text-primary-foreground" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </Card>
