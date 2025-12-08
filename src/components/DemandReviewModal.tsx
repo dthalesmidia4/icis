@@ -424,6 +424,16 @@ export const DemandReviewModal = ({
         {/* Footer */}
         <div className="p-6 pt-4 border-t shrink-0 bg-muted/30">
           <div className="flex items-center justify-between gap-4">
+            <Button
+              variant="outline"
+              onClick={onRegenerate}
+              disabled={isRegenerating}
+              className="gap-2"
+            >
+              <RefreshCw className={cn("w-4 h-4", isRegenerating && "animate-spin")} />
+              Gerar Novamente
+            </Button>
+
             <div className="flex items-center gap-2">
               {currentStep === 2 && (
                 <Button
@@ -435,25 +445,6 @@ export const DemandReviewModal = ({
                   Voltar
                 </Button>
               )}
-              <Button
-                variant="outline"
-                onClick={onRegenerate}
-                disabled={isRegenerating}
-                className="gap-2"
-              >
-                <RefreshCw className={cn("w-4 h-4", isRegenerating && "animate-spin")} />
-                Gerar Novamente
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => onOpenChange(false)}
-              >
-                <X className="w-4 h-4 mr-2" />
-                Fechar
-              </Button>
               
               {currentStep === 1 ? (
                 <Button
@@ -467,18 +458,16 @@ export const DemandReviewModal = ({
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               ) : (
-                totalSelected > 0 && (
-                  <Button
-                    onClick={handleConfirm}
-                    className={cn(
-                      "gap-2",
-                      !isNormal && "bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
-                    )}
-                  >
-                    <Check className="w-4 h-4" />
-                    Confirmar Planejamento ({totalSelected})
-                  </Button>
-                )
+                <Button
+                  onClick={handleConfirm}
+                  className={cn(
+                    "gap-2",
+                    !isNormal && "bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
+                  )}
+                >
+                  <Check className="w-4 h-4" />
+                  Confirmar Planejamento ({totalSelected})
+                </Button>
               )}
             </div>
           </div>
