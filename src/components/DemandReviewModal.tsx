@@ -157,18 +157,18 @@ export const DemandReviewModal = ({
             : "border-border/50 opacity-60"
         )}
       >
-        <div className="flex items-start gap-4">
-          {/* Selection indicator */}
+        <div className="flex gap-3">
+          {/* Selection checkbox */}
           <div 
             onClick={() => onToggle(originalIndex)}
             className={cn(
-              "w-8 h-8 rounded-full shrink-0 flex items-center justify-center cursor-pointer transition-all",
+              "w-5 h-5 rounded border-2 shrink-0 flex items-center justify-center cursor-pointer transition-all mt-0.5",
               isSelected 
-                ? `bg-gradient-to-br ${currentGradient} text-white`
-                : "border-2 border-muted-foreground/30 hover:border-muted-foreground/50"
+                ? `bg-gradient-to-br ${currentGradient} border-transparent text-white`
+                : "border-muted-foreground/40 hover:border-muted-foreground/60"
             )}
           >
-            {isSelected && <Check className="w-4 h-4" />}
+            {isSelected && <Check className="w-3 h-3" />}
           </div>
 
           {/* Content */}
