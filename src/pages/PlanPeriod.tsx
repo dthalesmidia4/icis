@@ -1,7 +1,6 @@
 // Plan Period Page
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
 import { PageHeader } from "@/components/PageHeader";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
@@ -25,7 +24,6 @@ import { DemandReviewModal } from "@/components/DemandReviewModal";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-
 interface PlanItem {
   titulo: string;
   descricao: string;
@@ -33,7 +31,6 @@ interface PlanItem {
   canal: string;
   data_sugerida: string;
 }
-
 interface PeriodPlanHistory {
   id: string;
   period_title: string;
@@ -48,17 +45,19 @@ interface PeriodPlanHistory {
   default_plan: PlanItem[] | null;
   ultra_plan: PlanItem[] | null;
 }
-
 type Step = 'form' | 'loading' | 'mode-selection' | 'optional-package' | 'completed';
-
 const PlanPeriod = () => {
   const navigate = useNavigate();
-  const { selectedClient } = useSelectedClient();
-  const { tenantId } = useTenant();
+  const {
+    selectedClient
+  } = useSelectedClient();
+  const {
+    tenantId
+  } = useTenant();
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
-  
+
   // History state
   const [periodHistory, setPeriodHistory] = useState<PeriodPlanHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
@@ -104,19 +103,16 @@ const PlanPeriod = () => {
   useEffect(() => {
     const fetchHistory = async () => {
       if (!selectedClient || !tenantId) return;
-      
       setLoadingHistory(true);
       try {
-        const { data, error } = await supabase
-          .from('period_plans')
-          .select('id, period_title, period_start, period_end, objective, priority_channel, primary_mode, status, created_at, final_plan, default_plan, ultra_plan')
-          .eq('company_id', selectedClient.id)
-          .eq('tenant_id', tenantId)
-          .order('created_at', { ascending: false });
-
+        const {
+          data,
+          error
+        } = await supabase.from('period_plans').select('id, period_title, period_start, period_end, objective, priority_channel, primary_mode, status, created_at, final_plan, default_plan, ultra_plan').eq('company_id', selectedClient.id).eq('tenant_id', tenantId).order('created_at', {
+          ascending: false
+        });
         if (error) throw error;
-        
-        const historyData = (data as unknown as PeriodPlanHistory[]) || [];
+        const historyData = data as unknown as PeriodPlanHistory[] || [];
         setPeriodHistory(historyData);
 
         // Check for incomplete periods (generated or mode_selected status)
@@ -130,68 +126,50 @@ const PlanPeriod = () => {
         setLoadingHistory(false);
       }
     };
-
     fetchHistory();
   }, [selectedClient, tenantId]);
-
   useEffect(() => {
     if (!selectedClient) {
       toast.error("Nenhum cliente selecionado");
       navigate('/home');
     }
   }, [selectedClient, navigate]);
-
   if (!selectedClient || !tenantId) return null;
-
   const displayName = selectedClient.fantasy_name || selectedClient.name;
 
   // Resume incomplete period
   const handleResumeIncomplete = async () => {
     if (!incompletePeriod) return;
-
     setPeriodPlanId(incompletePeriod.id);
-    setDefaultPlan((incompletePeriod.default_plan as PlanItem[]) || []);
-    setUltraPlan((incompletePeriod.ultra_plan as PlanItem[]) || []);
-
+    setDefaultPlan(incompletePeriod.default_plan as PlanItem[] || []);
+    setUltraPlan(incompletePeriod.ultra_plan as PlanItem[] || []);
     if (incompletePeriod.status === 'generated') {
       setCurrentStep('mode-selection');
     } else if (incompletePeriod.status === 'mode_selected') {
       setSelectedMode(incompletePeriod.primary_mode as 'normal' | 'ultra');
-      const secondaryPlan = incompletePeriod.primary_mode === 'normal' 
-        ? (incompletePeriod.ultra_plan || []) 
-        : (incompletePeriod.default_plan || []);
+      const secondaryPlan = incompletePeriod.primary_mode === 'normal' ? incompletePeriod.ultra_plan || [] : incompletePeriod.default_plan || [];
       const bestIdeas = secondaryPlan.slice(0, Math.min(4, Math.max(2, Math.floor(secondaryPlan.length / 3))));
       setOptionalPackage(bestIdeas as PlanItem[]);
       setCurrentStep('optional-package');
     }
-
     setIncompletePeriod(null);
     toast.success("Período retomado com sucesso!");
   };
-
   const dismissIncomplete = () => {
     setIncompletePeriod(null);
   };
-
   const handleDeletePeriod = async () => {
     if (!periodToDelete) return;
-    
     setIsDeleting(true);
     try {
       // First, delete associated cards
-      await supabase
-        .from('cards')
-        .delete()
-        .eq('period_plan_id', periodToDelete.id);
+      await supabase.from('cards').delete().eq('period_plan_id', periodToDelete.id);
 
       // Then delete the period plan
-      const { error } = await supabase
-        .from('period_plans')
-        .delete()
-        .eq('id', periodToDelete.id);
-
+      const {
+        error
+      } = await supabase.from('period_plans').delete().eq('id', periodToDelete.id);
       if (error) throw error;
-
       setPeriodHistory(prev => prev.filter(p => p.id !== periodToDelete.id));
       toast.success("Período excluído com sucesso");
       setPeriodToDelete(null);
@@ -206,25 +184,19 @@ const PlanPeriod = () => {
   // Polling function to check generation status
   const pollForCompletion = async (planId: string, maxAttempts = 60, intervalMs = 5000) => {
     setPollingProgress(0);
-    
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       // Update progress (0-100%)
-      const progress = Math.min(((attempt + 1) / maxAttempts) * 100, 99);
+      const progress = Math.min((attempt + 1) / maxAttempts * 100, 99);
       setPollingProgress(progress);
-      
       await new Promise(resolve => setTimeout(resolve, intervalMs));
-      
-      const { data, error } = await supabase
-        .from('period_plans')
-        .select('status, default_plan, ultra_plan')
-        .eq('id', planId)
-        .single();
-      
+      const {
+        data,
+        error
+      } = await supabase.from('period_plans').select('status, default_plan, ultra_plan').eq('id', planId).single();
       if (error) {
         console.error('Error polling status:', error);
         continue;
       }
-      
       if (data.status === 'generated' || data.status === 'mode_selected' || data.status === 'completed') {
         setPollingProgress(100);
         return {
@@ -233,49 +205,46 @@ const PlanPeriod = () => {
           ultra_plan: data.ultra_plan
         };
       }
-      
       if (data.status === 'error') {
-        return { success: false, error: 'Erro na geração' };
+        return {
+          success: false,
+          error: 'Erro na geração'
+        };
       }
     }
-    
-    return { success: false, error: 'Tempo limite excedido' };
+    return {
+      success: false,
+      error: 'Tempo limite excedido'
+    };
   };
-
   const handleSubmit = async () => {
     if (!periodTitle || !periodStart || !periodEnd) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
-
     if (periodEnd < periodStart) {
       toast.error("A data final deve ser posterior à data inicial");
       return;
     }
-
     setCurrentStep('loading');
-
     try {
       // Create period plan record
-      const { data: periodPlan, error: createError } = await supabase
-        .from('period_plans')
-        .insert({
-          tenant_id: tenantId,
-          company_id: selectedClient.id,
-          period_title: periodTitle,
-          period_start: format(periodStart, 'yyyy-MM-dd'),
-          period_end: format(periodEnd, 'yyyy-MM-dd'),
-          budget: budget || null,
-          objective: 'Gerado automaticamente',
-          priority_channel: 'Multi-canal',
-          observations: observations || null,
-          status: 'draft'
-        })
-        .select()
-        .single();
-
+      const {
+        data: periodPlan,
+        error: createError
+      } = await supabase.from('period_plans').insert({
+        tenant_id: tenantId,
+        company_id: selectedClient.id,
+        period_title: periodTitle,
+        period_start: format(periodStart, 'yyyy-MM-dd'),
+        period_end: format(periodEnd, 'yyyy-MM-dd'),
+        budget: budget || null,
+        objective: 'Gerado automaticamente',
+        priority_channel: 'Multi-canal',
+        observations: observations || null,
+        status: 'draft'
+      }).select().single();
       if (createError) throw createError;
-
       setPeriodPlanId(periodPlan.id);
 
       // Fire edge function without waiting - ignore ALL errors (timeout is expected)
@@ -283,7 +252,10 @@ const PlanPeriod = () => {
       void (async () => {
         try {
           await supabase.functions.invoke('generate-period-plans', {
-            body: { periodPlanId: periodPlan.id, tenantId }
+            body: {
+              periodPlanId: periodPlan.id,
+              tenantId
+            }
           });
         } catch {
           // Silently ignore - edge function continues on server regardless
@@ -295,22 +267,18 @@ const PlanPeriod = () => {
 
       // Poll for completion
       const result = await pollForCompletion(periodPlan.id);
-      
       if (!result.success) {
         throw new Error(result.error || 'Erro ao gerar planos');
       }
-
-      setDefaultPlan((result.default_plan as unknown as PlanItem[]) || []);
-      setUltraPlan((result.ultra_plan as unknown as PlanItem[]) || []);
+      setDefaultPlan(result.default_plan as unknown as PlanItem[] || []);
+      setUltraPlan(result.ultra_plan as unknown as PlanItem[] || []);
       setCurrentStep('mode-selection');
-
     } catch (error) {
       console.error('Error creating period plan:', error);
       toast.error(error instanceof Error ? error.message : "Erro ao gerar planos");
       setCurrentStep('form');
     }
   };
-
   const handleModeSelection = async (mode: 'normal' | 'ultra') => {
     setSelectedMode(mode);
 
@@ -321,39 +289,27 @@ const PlanPeriod = () => {
 
     // Update database with mode selection
     if (periodPlanId) {
-      await supabase
-        .from('period_plans')
-        .update({
-          primary_mode: mode,
-          optional_package: bestIdeas as unknown as null,
-          status: 'mode_selected'
-        })
-        .eq('id', periodPlanId);
+      await supabase.from('period_plans').update({
+        primary_mode: mode,
+        optional_package: bestIdeas as unknown as null,
+        status: 'mode_selected'
+      }).eq('id', periodPlanId);
     }
-
     setCurrentStep('optional-package');
   };
-
   const handlePackageDecision = async (accept: boolean) => {
     if (!periodPlanId) return;
-
     const primaryPlan = selectedMode === 'normal' ? defaultPlan : ultraPlan;
     const finalPlan = accept ? [...primaryPlan, ...optionalPackage] : primaryPlan;
-
     try {
-      await supabase
-        .from('period_plans')
-        .update({
-          optional_package: accept ? (optionalPackage as unknown as null) : null,
-          package_accepted: accept,
-          final_plan: finalPlan as unknown as null,
-          status: 'completed'
-        })
-        .eq('id', periodPlanId);
-
+      await supabase.from('period_plans').update({
+        optional_package: accept ? optionalPackage as unknown as null : null,
+        package_accepted: accept,
+        final_plan: finalPlan as unknown as null,
+        status: 'completed'
+      }).eq('id', periodPlanId);
       toast.success(accept ? "Pacote extra adicionado com sucesso!" : "Período planejado com sucesso!");
       setCurrentStep('completed');
-
     } catch (error) {
       console.error('Error finalizing plan:', error);
       toast.error("Erro ao finalizar planejamento");
@@ -369,28 +325,22 @@ const PlanPeriod = () => {
   // Handle confirm from review modal - directly integrate selected demands
   const handleReviewConfirm = async (selectedDemands: PlanItem[], smartSelections: PlanItem[]) => {
     if (!periodPlanId || !tenantId) return;
-
     setReviewModalOpen(false);
 
     // Combine selected demands with smart selections
     const allDemands = [...selectedDemands, ...smartSelections];
-
     try {
       // Update the period plan with the selected mode and final plan
-      await supabase
-        .from('period_plans')
-        .update({
-          primary_mode: reviewMode,
-          final_plan: allDemands as unknown as null,
-          status: 'completed'
-        })
-        .eq('id', periodPlanId);
+      await supabase.from('period_plans').update({
+        primary_mode: reviewMode,
+        final_plan: allDemands as unknown as null,
+        status: 'completed'
+      }).eq('id', periodPlanId);
 
       // Create cards from all selected demands
-      const cardsToInsert = allDemands.map((item) => {
+      const cardsToInsert = allDemands.map(item => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const anyItem = item as any;
-        
         const title = item.titulo || anyItem.title || 'Sem título';
         const tipo = anyItem.tipo || item.tipo_conteudo || anyItem.type || '';
         const channel = item.canal || anyItem.channel || '';
@@ -399,11 +349,7 @@ const PlanPeriod = () => {
         const objetivo = anyItem.objetivo || anyItem.objective || '';
         const instrucoesProducao = anyItem.instrucoes_de_producao || '';
         const ctaRecomendado = anyItem.cta_recomendado || '';
-        const instrucoesParts = [
-          instrucoesProducao,
-          ctaRecomendado && `CTA: ${ctaRecomendado}`
-        ].filter(Boolean);
-        
+        const instrucoesParts = [instrucoesProducao, ctaRecomendado && `CTA: ${ctaRecomendado}`].filter(Boolean);
         return {
           tenant_id: tenantId,
           period_plan_id: periodPlanId,
@@ -418,20 +364,16 @@ const PlanPeriod = () => {
           observations: null
         };
       });
-
       if (cardsToInsert.length > 0) {
-        const { error } = await supabase
-          .from('cards')
-          .insert(cardsToInsert);
-
+        const {
+          error
+        } = await supabase.from('cards').insert(cardsToInsert);
         if (error) throw error;
       }
-
       toast.success(`${selectedDemands.length} demandas integradas ao Kanban!`);
-      
+
       // Navigate to schedule
       navigate(`/schedule?periodPlanId=${periodPlanId}`);
-
     } catch (error) {
       console.error('Error confirming plan:', error);
       toast.error('Erro ao confirmar planejamento');
@@ -441,44 +383,39 @@ const PlanPeriod = () => {
   // Handle regenerate from review modal
   const handleRegenerate = async () => {
     if (!periodPlanId) return;
-
     setIsRegenerating(true);
     setReviewModalOpen(false);
-
     try {
       // Reset status to draft
-      await supabase
-        .from('period_plans')
-        .update({ status: 'draft', default_plan: [], ultra_plan: [] })
-        .eq('id', periodPlanId);
-
+      await supabase.from('period_plans').update({
+        status: 'draft',
+        default_plan: [],
+        ultra_plan: []
+      }).eq('id', periodPlanId);
       setCurrentStep('loading');
 
       // Fire edge function
       void (async () => {
         try {
           await supabase.functions.invoke('generate-period-plans', {
-            body: { periodPlanId, tenantId }
+            body: {
+              periodPlanId,
+              tenantId
+            }
           });
         } catch {
           // Silently ignore
         }
       })();
-
       await new Promise(resolve => setTimeout(resolve, 2000));
-
       const result = await pollForCompletion(periodPlanId);
-      
       if (!result.success) {
         throw new Error(result.error || 'Erro ao regenerar planos');
       }
-
-      setDefaultPlan((result.default_plan as unknown as PlanItem[]) || []);
-      setUltraPlan((result.ultra_plan as unknown as PlanItem[]) || []);
+      setDefaultPlan(result.default_plan as unknown as PlanItem[] || []);
+      setUltraPlan(result.ultra_plan as unknown as PlanItem[] || []);
       setCurrentStep('mode-selection');
-      
       toast.success('Demandas regeneradas com sucesso!');
-
     } catch (error) {
       console.error('Error regenerating:', error);
       toast.error('Erro ao regenerar demandas');
@@ -494,12 +431,9 @@ const PlanPeriod = () => {
     setPreviewMode(mode);
     setPreviewDrawerOpen(true);
   };
-
-  const renderForm = () => (
-    <div className="max-w-3xl mx-auto px-4 sm:px-0">
+  const renderForm = () => <div className="max-w-3xl mx-auto px-4 sm:px-0">
       {/* Incomplete Period Banner */}
-      {incompletePeriod && (
-        <Card className="mb-6 p-4 border-primary/50 bg-primary/5">
+      {incompletePeriod && <Card className="mb-6 p-4 border-primary/50 bg-primary/5">
           <div className="flex items-start gap-4">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
               <PlayCircle className="w-5 h-5 text-primary" />
@@ -520,8 +454,7 @@ const PlanPeriod = () => {
               </div>
             </div>
           </div>
-        </Card>
-      )}
+        </Card>}
 
       <div className="space-y-4 sm:space-y-6">
         {/* Period Info */}
@@ -534,13 +467,7 @@ const PlanPeriod = () => {
           <div className="space-y-4">
             <div>
               <Label htmlFor="periodTitle" className="text-sm">Título do Período *</Label>
-              <Input
-                id="periodTitle"
-                placeholder="Ex: Campanha de Verão 2025"
-                value={periodTitle}
-                onChange={(e) => setPeriodTitle(e.target.value)}
-                className="mt-1"
-              />
+              <Input id="periodTitle" placeholder="Ex: Campanha de Verão 2025" value={periodTitle} onChange={e => setPeriodTitle(e.target.value)} className="mt-1" />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -548,29 +475,18 @@ const PlanPeriod = () => {
                 <Label className="text-sm">Data Início *</Label>
                 <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
                   <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal h-10",
-                        !periodStart && "text-muted-foreground"
-                      )}
-                    >
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !periodStart && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {periodStart ? format(periodStart, "dd/MM/yyyy", { locale: ptBR }) : <span className="truncate">Selecione</span>}
+                      {periodStart ? format(periodStart, "dd/MM/yyyy", {
+                      locale: ptBR
+                    }) : <span className="truncate">Selecione</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0 z-50 bg-background border shadow-lg" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={periodStart}
-                      onSelect={(date) => {
-                        setPeriodStart(date);
-                        setStartDateOpen(false);
-                      }}
-                      locale={ptBR}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
+                    <Calendar mode="single" selected={periodStart} onSelect={date => {
+                    setPeriodStart(date);
+                    setStartDateOpen(false);
+                  }} locale={ptBR} initialFocus className={cn("p-3 pointer-events-auto")} />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -578,30 +494,18 @@ const PlanPeriod = () => {
                 <Label className="text-sm">Data Fim *</Label>
                 <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
                   <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal h-10",
-                        !periodEnd && "text-muted-foreground"
-                      )}
-                    >
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !periodEnd && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {periodEnd ? format(periodEnd, "dd/MM/yyyy", { locale: ptBR }) : <span>Selecione a data</span>}
+                      {periodEnd ? format(periodEnd, "dd/MM/yyyy", {
+                      locale: ptBR
+                    }) : <span>Selecione a data</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0 z-50 bg-background border shadow-lg" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={periodEnd}
-                      onSelect={(date) => {
-                        setPeriodEnd(date);
-                        setEndDateOpen(false);
-                      }}
-                      locale={ptBR}
-                      disabled={(date) => periodStart ? date < periodStart : false}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
+                    <Calendar mode="single" selected={periodEnd} onSelect={date => {
+                    setPeriodEnd(date);
+                    setEndDateOpen(false);
+                  }} locale={ptBR} disabled={date => periodStart ? date < periodStart : false} initialFocus className={cn("p-3 pointer-events-auto")} />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -609,12 +513,7 @@ const PlanPeriod = () => {
 
             <div>
               <Label htmlFor="budget">Orçamento (opcional)</Label>
-              <Input
-                id="budget"
-                placeholder="Ex: R$ 5.000,00 ou Sem limite definido"
-                value={budget}
-                onChange={(e) => setBudget(e.target.value)}
-              />
+              <Input id="budget" placeholder="Ex: R$ 5.000,00 ou Sem limite definido" value={budget} onChange={e => setBudget(e.target.value)} />
             </div>
           </div>
         </Card>
@@ -629,53 +528,35 @@ const PlanPeriod = () => {
           <div className="space-y-6">
             {/* Restrictions Checklist */}
             <div className="space-y-4">
-                {[
-                  { 
-                    id: 'no-video-appearance', 
-                    category: 'Disponibilidade para aparecer',
-                    label: 'O cliente NÃO pode aparecer em vídeos.'
-                  },
-                  { 
-                    id: 'no-products-environment', 
-                    category: 'Ambiente e recursos visuais',
-                    label: 'O cliente NÃO pode disponibilizar produtos/ambiente para fotos/vídeos.'
-                  },
-                  { 
-                    id: 'no-clients-patients', 
-                    category: 'Limitações legais do segmento',
-                    label: 'O cliente NÃO pode mostrar clientes/pacientes.'
-                  },
-                  { 
-                    id: 'no-visual-materials', 
-                    category: 'Limitações operacionais',
-                    label: 'O cliente NÃO possui materiais visuais suficientes (fotos/vídeos).'
-                  },
-                  { 
-                    id: 'no-promotional-content', 
-                    category: 'Restrições de narrativa e posicionamento',
-                    label: 'O cliente NÃO quer conteúdos promocionais.'
-                  },
-                ].map((restriction) => (
-                  <div 
-                    key={restriction.id} 
-                    className="flex items-start space-x-3 p-3 rounded-lg border border-border/50 bg-muted/30 hover:bg-muted/50 transition-colors"
-                  >
-                    <Checkbox
-                      id={restriction.id}
-                      checked={excludedFormats.includes(restriction.id)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setExcludedFormats([...excludedFormats, restriction.id]);
-                        } else {
-                          setExcludedFormats(excludedFormats.filter(f => f !== restriction.id));
-                        }
-                      }}
-                      className="mt-0.5"
-                    />
-                    <label
-                      htmlFor={restriction.id}
-                      className="cursor-pointer flex-1"
-                    >
+                {[{
+              id: 'no-video-appearance',
+              category: 'Disponibilidade para aparecer',
+              label: 'O cliente NÃO pode aparecer em vídeos.'
+            }, {
+              id: 'no-products-environment',
+              category: 'Ambiente e recursos visuais',
+              label: 'O cliente NÃO pode disponibilizar produtos/ambiente para fotos/vídeos.'
+            }, {
+              id: 'no-clients-patients',
+              category: 'Limitações legais do segmento',
+              label: 'O cliente NÃO pode mostrar clientes/pacientes.'
+            }, {
+              id: 'no-visual-materials',
+              category: 'Limitações operacionais',
+              label: 'O cliente NÃO possui materiais visuais suficientes (fotos/vídeos).'
+            }, {
+              id: 'no-promotional-content',
+              category: 'Restrições de narrativa e posicionamento',
+              label: 'O cliente NÃO quer conteúdos promocionais.'
+            }].map(restriction => <div key={restriction.id} className="flex items-start space-x-3 p-3 rounded-lg border border-border/50 bg-muted/30 hover:bg-muted/50 transition-colors">
+                    <Checkbox id={restriction.id} checked={excludedFormats.includes(restriction.id)} onCheckedChange={checked => {
+                if (checked) {
+                  setExcludedFormats([...excludedFormats, restriction.id]);
+                } else {
+                  setExcludedFormats(excludedFormats.filter(f => f !== restriction.id));
+                }
+              }} className="mt-0.5" />
+                    <label htmlFor={restriction.id} className="cursor-pointer flex-1">
                       <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-1">
                         {restriction.category}
                       </span>
@@ -683,29 +564,19 @@ const PlanPeriod = () => {
                         {restriction.label}
                       </span>
                     </label>
-                  </div>
-                ))}
+                  </div>)}
             </div>
 
             <div>
               <Label htmlFor="observations">Observações Adicionais (opcional)</Label>
-              <Textarea
-                id="observations"
-                placeholder="Informe restrições, datas comemorativas importantes, produtos em foco, ou qualquer informação relevante..."
-                value={observations}
-                onChange={(e) => setObservations(e.target.value)}
-                rows={4}
-              />
+              <Textarea id="observations" placeholder="Informe restrições, datas comemorativas importantes, produtos em foco, ou qualquer informação relevante..." value={observations} onChange={e => setObservations(e.target.value)} rows={4} />
             </div>
           </div>
         </Card>
 
       </div>
-    </div>
-  );
-
-  const renderModeSelection = () => (
-    <div className="max-w-5xl mx-auto">
+    </div>;
+  const renderModeSelection = () => <div className="max-w-5xl mx-auto">
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold mb-2">Revise as Demandas Geradas</h2>
         <p className="text-muted-foreground">
@@ -715,10 +586,7 @@ const PlanPeriod = () => {
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Normal Mode Card */}
-        <Card 
-          className="p-6 cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 hover:border-primary/50"
-          onClick={() => openReviewModal('normal')}
-        >
+        <Card className="p-6 cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 hover:border-primary/50" onClick={() => openReviewModal('normal')}>
           <div className="text-center mb-4">
             <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center mb-4">
               <Shield className="w-8 h-8 text-white" />
@@ -734,12 +602,10 @@ const PlanPeriod = () => {
           <div className="border-t pt-4">
             <p className="text-xs text-muted-foreground mb-2">Prévia de ideias:</p>
             <ul className="space-y-2">
-              {defaultPlan.slice(0, 2).map((item, idx) => (
-                <li key={idx} className="text-sm bg-muted/50 p-2 rounded">
+              {defaultPlan.slice(0, 2).map((item, idx) => <li key={idx} className="text-sm bg-muted/50 p-2 rounded">
                   <span className="font-medium">{item.titulo}</span>
                   <span className="text-muted-foreground text-xs ml-2">({item.canal})</span>
-                </li>
-              ))}
+                </li>)}
             </ul>
             <div className="mt-3 flex items-center justify-center text-sm text-blue-600 dark:text-blue-400">
               <Eye className="w-4 h-4 mr-2" />
@@ -749,10 +615,7 @@ const PlanPeriod = () => {
         </Card>
 
         {/* Ultra Mode Card */}
-        <Card 
-          className="p-6 cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 hover:border-pink-500/50"
-          onClick={() => openReviewModal('ultra')}
-        >
+        <Card className="p-6 cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 hover:border-pink-500/50" onClick={() => openReviewModal('ultra')}>
           <div className="text-center mb-4">
             <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center mb-4">
               <Rocket className="w-8 h-8 text-white" />
@@ -770,12 +633,10 @@ const PlanPeriod = () => {
           <div className="border-t pt-4">
             <p className="text-xs text-muted-foreground mb-2">Prévia de ideias:</p>
             <ul className="space-y-2">
-              {ultraPlan.slice(0, 2).map((item, idx) => (
-                <li key={idx} className="text-sm bg-pink-50 dark:bg-pink-900/20 p-2 rounded">
+              {ultraPlan.slice(0, 2).map((item, idx) => <li key={idx} className="text-sm bg-pink-50 dark:bg-pink-900/20 p-2 rounded">
                   <span className="font-medium">{item.titulo}</span>
                   <span className="text-muted-foreground text-xs ml-2">({item.canal})</span>
-                </li>
-              ))}
+                </li>)}
             </ul>
             <div className="mt-3 flex items-center justify-center text-sm text-pink-600 dark:text-pink-400">
               <Eye className="w-4 h-4 mr-2" />
@@ -786,21 +647,9 @@ const PlanPeriod = () => {
       </div>
 
       {/* Demand Review Modal */}
-      <DemandReviewModal
-        open={reviewModalOpen}
-        onOpenChange={setReviewModalOpen}
-        mode={reviewMode}
-        demands={reviewMode === 'normal' ? defaultPlan : ultraPlan}
-        smartSuggestions={reviewMode === 'normal' ? ultraPlan : defaultPlan}
-        onConfirm={handleReviewConfirm}
-        onRegenerate={handleRegenerate}
-        isRegenerating={isRegenerating}
-      />
-    </div>
-  );
-
-  const renderOptionalPackage = () => (
-    <div className="max-w-3xl mx-auto">
+      <DemandReviewModal open={reviewModalOpen} onOpenChange={setReviewModalOpen} mode={reviewMode} demands={reviewMode === 'normal' ? defaultPlan : ultraPlan} smartSuggestions={reviewMode === 'normal' ? ultraPlan : defaultPlan} onConfirm={handleReviewConfirm} onRegenerate={handleRegenerate} isRegenerating={isRegenerating} />
+    </div>;
+  const renderOptionalPackage = () => <div className="max-w-3xl mx-auto">
       <div className="text-center mb-8">
         <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center mb-4">
           <Package className="w-10 h-10 text-white" />
@@ -815,75 +664,52 @@ const PlanPeriod = () => {
       <Card className="p-6 mb-6">
         <h3 className="font-semibold mb-4">Ideias Selecionadas:</h3>
         <div className="space-y-3">
-          {optionalPackage.map((item, idx) => (
-            <DemandaCard 
-              key={idx} 
-              demanda={item as unknown as DemandaItem}
-              variant={selectedMode === 'normal' ? 'ultra' : 'normal'}
-            />
-          ))}
+          {optionalPackage.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant={selectedMode === 'normal' ? 'ultra' : 'normal'} />)}
         </div>
       </Card>
 
       <div className="flex gap-4 justify-center">
-        <Button
-          variant="outline"
-          size="lg"
-          onClick={() => handlePackageDecision(false)}
-          className="min-w-[180px]"
-        >
+        <Button variant="outline" size="lg" onClick={() => handlePackageDecision(false)} className="min-w-[180px]">
           <X className="w-5 h-5 mr-2" />
           Ignorar
         </Button>
-        <Button
-          size="lg"
-          onClick={() => handlePackageDecision(true)}
-          className="min-w-[180px] bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
-        >
+        <Button size="lg" onClick={() => handlePackageDecision(true)} className="min-w-[180px] bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
           <Check className="w-5 h-5 mr-2" />
           Adicionar Pacote Extra
         </Button>
       </div>
-    </div>
-  );
-
+    </div>;
   const [integratingKanban, setIntegratingKanban] = useState(false);
   const [kanbanIntegrated, setKanbanIntegrated] = useState(false);
-
   const handleIntegrateToKanban = async () => {
     if (!periodPlanId || !tenantId) return;
-    
     setIntegratingKanban(true);
     try {
       // Get the final plan from the current state
       const primaryPlan = selectedMode === 'normal' ? defaultPlan : ultraPlan;
-      const finalPlanItems = kanbanIntegrated ? [] : (optionalPackage.length > 0 ? [...primaryPlan, ...optionalPackage] : primaryPlan);
-      
+      const finalPlanItems = kanbanIntegrated ? [] : optionalPackage.length > 0 ? [...primaryPlan, ...optionalPackage] : primaryPlan;
+
       // Create cards from the final plan - map new prompt format to card fields
-      const cardsToInsert = finalPlanItems.map((item) => {
+      const cardsToInsert = finalPlanItems.map(item => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const anyItem = item as any;
-        
+
         // Campos principais
         const title = item.titulo || anyItem.title || 'Sem título';
         const tipo = anyItem.tipo || item.tipo_conteudo || anyItem.type || '';
         const channel = item.canal || anyItem.channel || '';
         const publicationDate = item.data_sugerida || anyItem.suggested_date || anyItem.date || new Date().toISOString().split('T')[0];
-        
+
         // ATIVIDADE: priorizar conteudo (conteúdo dos slides/roteiros) > texto_da_peca > descricao_da_tarefa
         const descricao = anyItem.conteudo || anyItem.texto_da_peca || anyItem.descricao_da_tarefa || item.descricao || anyItem.description || '';
-        
+
         // OBJETIVO: campo separado
         const objetivo = anyItem.objetivo || anyItem.objective || '';
-        
+
         // INSTRUÇÕES: combinar instruções de produção + CTA recomendado
         const instrucoesProducao = anyItem.instrucoes_de_producao || '';
         const ctaRecomendado = anyItem.cta_recomendado || '';
-        const instrucoesParts = [
-          instrucoesProducao,
-          ctaRecomendado && `CTA: ${ctaRecomendado}`
-        ].filter(Boolean);
-        
+        const instrucoesParts = [instrucoesProducao, ctaRecomendado && `CTA: ${ctaRecomendado}`].filter(Boolean);
         return {
           tenant_id: tenantId,
           period_plan_id: periodPlanId,
@@ -898,15 +724,12 @@ const PlanPeriod = () => {
           observations: null
         };
       });
-
       if (cardsToInsert.length > 0) {
-        const { error } = await supabase
-          .from('cards')
-          .insert(cardsToInsert);
-
+        const {
+          error
+        } = await supabase.from('cards').insert(cardsToInsert);
         if (error) throw error;
       }
-
       setKanbanIntegrated(true);
       toast.success(`${cardsToInsert.length} demandas integradas ao Kanban!`);
     } catch (error) {
@@ -916,12 +739,9 @@ const PlanPeriod = () => {
       setIntegratingKanban(false);
     }
   };
-
   const renderCompleted = () => {
     const totalDemands = (selectedMode === 'normal' ? defaultPlan.length : ultraPlan.length) + (optionalPackage.length > 0 ? optionalPackage.length : 0);
-    
-    return (
-      <div className="max-w-2xl mx-auto text-center">
+    return <div className="max-w-2xl mx-auto text-center">
         <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center mb-6">
           <Check className="w-12 h-12 text-white" />
         </div>
@@ -938,9 +758,7 @@ const PlanPeriod = () => {
             <p>
               <span className="text-muted-foreground">Total de Demandas:</span> {totalDemands}
             </p>
-            {optionalPackage.length > 0 && (
-              <p><span className="text-muted-foreground">Pacote Extra:</span> Adicionado ({optionalPackage.length} demandas)</p>
-            )}
+            {optionalPackage.length > 0 && <p><span className="text-muted-foreground">Pacote Extra:</span> Adicionado ({optionalPackage.length} demandas)</p>}
           </div>
         </Card>
 
@@ -953,30 +771,18 @@ const PlanPeriod = () => {
           <p className="text-sm text-muted-foreground mb-4">
             Adicione as demandas geradas diretamente ao seu quadro Kanban para gerenciamento.
           </p>
-          {kanbanIntegrated ? (
-            <div className="flex items-center gap-2 text-green-600">
+          {kanbanIntegrated ? <div className="flex items-center gap-2 text-green-600">
               <Check className="w-5 h-5" />
               <span className="font-medium">Demandas integradas ao Kanban!</span>
-            </div>
-          ) : (
-            <Button 
-              onClick={handleIntegrateToKanban}
-              disabled={integratingKanban}
-              className="w-full"
-            >
-              {integratingKanban ? (
-                <>
+            </div> : <Button onClick={handleIntegrateToKanban} disabled={integratingKanban} className="w-full">
+              {integratingKanban ? <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   Integrando...
-                </>
-              ) : (
-                <>
+                </> : <>
                   <LayoutGrid className="w-4 h-4 mr-2" />
                   Adicionar {totalDemands} demandas ao Kanban
-                </>
-              )}
-            </Button>
-          )}
+                </>}
+            </Button>}
         </Card>
 
         <div className="flex gap-4 justify-center">
@@ -987,18 +793,12 @@ const PlanPeriod = () => {
             Ver Demandas
           </Button>
         </div>
-      </div>
-    );
+      </div>;
   };
-
-  const renderHistory = () => (
-    <div className="max-w-4xl mx-auto">
-      {loadingHistory ? (
-        <div className="flex items-center justify-center py-12">
+  const renderHistory = () => <div className="max-w-4xl mx-auto">
+      {loadingHistory ? <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      ) : periodHistory.length === 0 ? (
-        <Card className="p-8 text-center">
+        </div> : periodHistory.length === 0 ? <Card className="p-8 text-center">
           <History className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">Nenhum período planejado</h3>
           <p className="text-muted-foreground mb-4">
@@ -1008,57 +808,42 @@ const PlanPeriod = () => {
             <Plus className="w-4 h-4 mr-2" />
             Criar Primeiro Período
           </Button>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {periodHistory.map((period) => {
-            const demandCount = period.final_plan?.length || 0;
-            return (
-              <Card 
-                key={period.id} 
-                className="p-4 hover:shadow-md transition-shadow cursor-pointer group"
-                onClick={() => setSelectedHistoryPlan(period)}
-              >
+        </Card> : <div className="space-y-3">
+          {periodHistory.map(period => {
+        const demandCount = period.final_plan?.length || 0;
+        return <Card key={period.id} className="p-4 hover:shadow-md transition-shadow cursor-pointer group" onClick={() => setSelectedHistoryPlan(period)}>
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <h3 className="text-base sm:text-lg font-semibold truncate">{period.period_title}</h3>
-                    {period.primary_mode && (
-                      <Badge variant="outline" className={`shrink-0 ${period.primary_mode === 'ultra' ? 'border-pink-500 text-pink-500' : ''}`}>
+                    {period.primary_mode && <Badge variant="outline" className={`shrink-0 ${period.primary_mode === 'ultra' ? 'border-pink-500 text-pink-500' : ''}`}>
                         {period.primary_mode === 'ultra' ? 'Ultra' : 'Normal'}
-                      </Badge>
-                    )}
+                      </Badge>}
                   </div>
                   
                   <div className="flex items-center gap-4 text-sm text-muted-foreground shrink-0">
-                    <span>{format(new Date(period.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
+                    <span>{format(new Date(period.created_at), "dd/MM/yyyy", {
+                  locale: ptBR
+                })}</span>
                     <span>{demandCount} demandas</span>
                   </div>
                   
                   <div className="flex items-center gap-2 shrink-0">
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPeriodToDelete(period);
-                      }}
-                    >
+                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={e => {
+                e.stopPropagation();
+                setPeriodToDelete(period);
+              }}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
                     <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
                   </div>
                 </div>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+              </Card>;
+      })}
+        </div>}
 
       {/* Detail Modal with Tabs */}
-      {selectedHistoryPlan && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedHistoryPlan(null)}>
-          <Card className="max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+      {selectedHistoryPlan && <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedHistoryPlan(null)}>
+          <Card className="max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className="p-6 border-b bg-muted/30">
               <div className="flex items-start justify-between">
@@ -1070,7 +855,9 @@ const PlanPeriod = () => {
                       {format(new Date(selectedHistoryPlan.period_start), "dd/MM/yyyy")} - {format(new Date(selectedHistoryPlan.period_end), "dd/MM/yyyy")}
                     </span>
                     <span>•</span>
-                    <span>Criado em {format(new Date(selectedHistoryPlan.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
+                    <span>Criado em {format(new Date(selectedHistoryPlan.created_at), "dd/MM/yyyy", {
+                    locale: ptBR
+                  })}</span>
                   </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setSelectedHistoryPlan(null)} className="shrink-0">
@@ -1080,15 +867,7 @@ const PlanPeriod = () => {
 
               {/* Summary Cards */}
               <div className="grid grid-cols-3 gap-3 mt-5">
-                <Card 
-                  className={cn(
-                    "p-4 cursor-pointer transition-all border-2",
-                    historyViewTab === 'final' 
-                      ? "border-primary bg-primary/5" 
-                      : "border-transparent hover:border-border hover:bg-muted/50"
-                  )}
-                  onClick={() => setHistoryViewTab('final')}
-                >
+                <Card className={cn("p-4 cursor-pointer transition-all border-2", historyViewTab === 'final' ? "border-primary bg-primary/5" : "border-transparent hover:border-border hover:bg-muted/50")} onClick={() => setHistoryViewTab('final')}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
@@ -1102,15 +881,7 @@ const PlanPeriod = () => {
                   <p className="text-xs text-muted-foreground">demandas aprovadas</p>
                 </Card>
 
-                <Card 
-                  className={cn(
-                    "p-4 cursor-pointer transition-all border-2",
-                    historyViewTab === 'normal' 
-                      ? "border-blue-500 bg-blue-500/5" 
-                      : "border-transparent hover:border-border hover:bg-muted/50"
-                  )}
-                  onClick={() => setHistoryViewTab('normal')}
-                >
+                <Card className={cn("p-4 cursor-pointer transition-all border-2", historyViewTab === 'normal' ? "border-blue-500 bg-blue-500/5" : "border-transparent hover:border-border hover:bg-muted/50")} onClick={() => setHistoryViewTab('normal')}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
@@ -1118,23 +889,13 @@ const PlanPeriod = () => {
                       </div>
                       <span className="font-semibold">Normal</span>
                     </div>
-                    {selectedHistoryPlan.primary_mode === 'normal' && (
-                      <Badge className="bg-blue-500 text-white text-[10px] px-1.5">Escolhido</Badge>
-                    )}
+                    {selectedHistoryPlan.primary_mode === 'normal' && <Badge className="bg-blue-500 text-white text-[10px] px-1.5">Escolhido</Badge>}
                   </div>
                   <p className="text-2xl font-bold">{selectedHistoryPlan.default_plan?.length || 0}</p>
                   <p className="text-xs text-muted-foreground">demandas geradas</p>
                 </Card>
 
-                <Card 
-                  className={cn(
-                    "p-4 cursor-pointer transition-all border-2",
-                    historyViewTab === 'ultra' 
-                      ? "border-pink-500 bg-pink-500/5" 
-                      : "border-transparent hover:border-border hover:bg-muted/50"
-                  )}
-                  onClick={() => setHistoryViewTab('ultra')}
-                >
+                <Card className={cn("p-4 cursor-pointer transition-all border-2", historyViewTab === 'ultra' ? "border-pink-500 bg-pink-500/5" : "border-transparent hover:border-border hover:bg-muted/50")} onClick={() => setHistoryViewTab('ultra')}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center">
@@ -1142,9 +903,7 @@ const PlanPeriod = () => {
                       </div>
                       <span className="font-semibold">Ultra</span>
                     </div>
-                    {selectedHistoryPlan.primary_mode === 'ultra' && (
-                      <Badge className="bg-pink-500 text-white text-[10px] px-1.5">Escolhido</Badge>
-                    )}
+                    {selectedHistoryPlan.primary_mode === 'ultra' && <Badge className="bg-pink-500 text-white text-[10px] px-1.5">Escolhido</Badge>}
                   </div>
                   <p className="text-2xl font-bold">{selectedHistoryPlan.ultra_plan?.length || 0}</p>
                   <p className="text-xs text-muted-foreground">demandas geradas</p>
@@ -1154,57 +913,33 @@ const PlanPeriod = () => {
 
             {/* Content Area */}
             <div className="flex-1 overflow-y-auto p-6">
-              {historyViewTab === 'final' && (
-                <>
-                  {selectedHistoryPlan.final_plan && selectedHistoryPlan.final_plan.length > 0 ? (
-                    <div className="grid gap-3">
-                      {selectedHistoryPlan.final_plan.map((item, idx) => (
-                        <DemandaCard key={idx} demanda={item as unknown as DemandaItem} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12 text-muted-foreground">
+              {historyViewTab === 'final' && <>
+                  {selectedHistoryPlan.final_plan && selectedHistoryPlan.final_plan.length > 0 ? <div className="grid gap-3">
+                      {selectedHistoryPlan.final_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} />)}
+                    </div> : <div className="text-center py-12 text-muted-foreground">
                       <LayoutGrid className="w-12 h-12 mx-auto mb-3 opacity-50" />
                       <p className="font-medium">Nenhuma demanda no plano final</p>
                       <p className="text-sm mt-1">O planejamento pode não ter sido finalizado</p>
-                    </div>
-                  )}
-                </>
-              )}
+                    </div>}
+                </>}
 
-              {historyViewTab === 'normal' && (
-                <>
-                  {selectedHistoryPlan.default_plan && selectedHistoryPlan.default_plan.length > 0 ? (
-                    <div className="grid gap-3">
-                      {selectedHistoryPlan.default_plan.map((item, idx) => (
-                        <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="normal" />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12 text-muted-foreground">
+              {historyViewTab === 'normal' && <>
+                  {selectedHistoryPlan.default_plan && selectedHistoryPlan.default_plan.length > 0 ? <div className="grid gap-3">
+                      {selectedHistoryPlan.default_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="normal" />)}
+                    </div> : <div className="text-center py-12 text-muted-foreground">
                       <Shield className="w-12 h-12 mx-auto mb-3 opacity-50" />
                       <p className="font-medium">Nenhuma demanda no plano Normal</p>
-                    </div>
-                  )}
-                </>
-              )}
+                    </div>}
+                </>}
 
-              {historyViewTab === 'ultra' && (
-                <>
-                  {selectedHistoryPlan.ultra_plan && selectedHistoryPlan.ultra_plan.length > 0 ? (
-                    <div className="grid gap-3">
-                      {selectedHistoryPlan.ultra_plan.map((item, idx) => (
-                        <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="ultra" />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12 text-muted-foreground">
+              {historyViewTab === 'ultra' && <>
+                  {selectedHistoryPlan.ultra_plan && selectedHistoryPlan.ultra_plan.length > 0 ? <div className="grid gap-3">
+                      {selectedHistoryPlan.ultra_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="ultra" />)}
+                    </div> : <div className="text-center py-12 text-muted-foreground">
                       <Zap className="w-12 h-12 mx-auto mb-3 opacity-50" />
                       <p className="font-medium">Nenhuma demanda no plano Ultra</p>
-                    </div>
-                  )}
-                </>
-              )}
+                    </div>}
+                </>}
             </div>
 
             {/* Footer */}
@@ -1215,25 +950,19 @@ const PlanPeriod = () => {
                 {historyViewTab === 'ultra' && `${selectedHistoryPlan.ultra_plan?.length || 0} demandas no modo Ultra`}
               </p>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setSelectedHistoryPlan(null)}>
-                  Fechar
-                </Button>
-                {selectedHistoryPlan.status === 'completed' && (
-                  <Button onClick={() => navigate(`/schedule?periodPlanId=${selectedHistoryPlan.id}`)}>
+                
+                {selectedHistoryPlan.status === 'completed' && <Button onClick={() => navigate(`/schedule?periodPlanId=${selectedHistoryPlan.id}`)}>
                     <LayoutGrid className="w-4 h-4 mr-2" />
                     Ver no Kanban
-                  </Button>
-                )}
+                  </Button>}
               </div>
             </div>
           </Card>
-        </div>
-      )}
+        </div>}
 
       {/* Delete Confirmation Modal */}
-      {periodToDelete && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => !isDeleting && setPeriodToDelete(null)}>
-          <Card className="max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+      {periodToDelete && <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => !isDeleting && setPeriodToDelete(null)}>
+          <Card className="max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-4 mb-4">
               <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="w-6 h-6 text-destructive" />
@@ -1247,79 +976,50 @@ const PlanPeriod = () => {
             <div className="mb-6 p-4 bg-muted/50 rounded-lg">
               <p className="font-medium">{periodToDelete.period_title}</p>
               <p className="text-sm text-muted-foreground mt-1">
-                {format(new Date(periodToDelete.period_start), "dd/MM/yyyy", { locale: ptBR })} - {format(new Date(periodToDelete.period_end), "dd/MM/yyyy", { locale: ptBR })}
+                {format(new Date(periodToDelete.period_start), "dd/MM/yyyy", {
+              locale: ptBR
+            })} - {format(new Date(periodToDelete.period_end), "dd/MM/yyyy", {
+              locale: ptBR
+            })}
               </p>
-              {periodToDelete.final_plan && periodToDelete.final_plan.length > 0 && (
-                <p className="text-sm text-destructive mt-2">
+              {periodToDelete.final_plan && periodToDelete.final_plan.length > 0 && <p className="text-sm text-destructive mt-2">
                   ⚠️ {periodToDelete.final_plan.length} demandas associadas também serão excluídas
-                </p>
-              )}
+                </p>}
             </div>
 
             <div className="flex gap-3">
-              <Button 
-                variant="outline" 
-                className="flex-1"
-                onClick={() => setPeriodToDelete(null)}
-                disabled={isDeleting}
-              >
+              <Button variant="outline" className="flex-1" onClick={() => setPeriodToDelete(null)} disabled={isDeleting}>
                 Cancelar
               </Button>
-              <Button 
-                variant="destructive" 
-                className="flex-1"
-                onClick={handleDeletePeriod}
-                disabled={isDeleting}
-              >
-                {isDeleting ? (
-                  <>
+              <Button variant="destructive" className="flex-1" onClick={handleDeletePeriod} disabled={isDeleting}>
+                {isDeleting ? <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     Excluindo...
-                  </>
-                ) : (
-                  <>
+                  </> : <>
                     <Trash2 className="w-4 h-4 mr-2" />
                     Excluir Período
-                  </>
-                )}
+                  </>}
               </Button>
             </div>
           </Card>
-        </div>
-      )}
-    </div>
-  );
-
-  return (
-    <div className="pb-8">
+        </div>}
+    </div>;
+  return <div className="pb-8">
       {/* Fixed Header */}
-      <PageHeader
-        title="Planejar Período"
-        subtitle={displayName}
-        backTo="/client-hub"
-        actions={currentStep === 'form' && activeTab === 'new' ? [
-          {
-            label: "Gerar Demandas",
-            onClick: handleSubmit,
-            icon: <Rocket className="w-4 h-4" />,
-              className: "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600",
-            }
-          ] : []}
-          rightContent={
-            currentStep !== 'form' && currentStep !== 'loading' ? (
-              <Badge variant="outline" className="text-xs">
+      <PageHeader title="Planejar Período" subtitle={displayName} backTo="/client-hub" actions={currentStep === 'form' && activeTab === 'new' ? [{
+      label: "Gerar Demandas",
+      onClick: handleSubmit,
+      icon: <Rocket className="w-4 h-4" />,
+      className: "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+    }] : []} rightContent={currentStep !== 'form' && currentStep !== 'loading' ? <Badge variant="outline" className="text-xs">
                 {currentStep === 'mode-selection' && 'Etapa 2/3: Escolha do Modo'}
                 {currentStep === 'optional-package' && 'Etapa 3/3: Pacote Opcional'}
                 {currentStep === 'completed' && 'Concluído'}
-              </Badge>
-            ) : null
-          }
-        />
+              </Badge> : null} />
 
         {/* Content */}
         <div className="container max-w-6xl mx-auto px-6 py-8">
-          {currentStep === 'form' && (
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'new' | 'history')} className="w-full">
+          {currentStep === 'form' && <Tabs value={activeTab} onValueChange={v => setActiveTab(v as 'new' | 'history')} className="w-full">
               <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
                 <TabsTrigger value="new" className="flex items-center gap-2">
                   <Plus className="w-4 h-4" />
@@ -1338,10 +1038,8 @@ const PlanPeriod = () => {
               <TabsContent value="history">
                 {renderHistory()}
               </TabsContent>
-            </Tabs>
-          )}
-          {currentStep === 'loading' && (
-            <div className="flex flex-col items-center justify-center py-20 space-y-6">
+            </Tabs>}
+          {currentStep === 'loading' && <div className="flex flex-col items-center justify-center py-20 space-y-6">
               <div className="relative">
                 <Sparkles className="h-16 w-16 text-primary animate-pulse" />
               </div>
@@ -1353,29 +1051,22 @@ const PlanPeriod = () => {
               </div>
               <div className="w-full max-w-md space-y-2">
                 <div className="h-3 w-full bg-secondary rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-primary transition-all duration-500 ease-out rounded-full"
-                    style={{ width: `${pollingProgress}%` }}
-                  />
+                  <div className="h-full bg-primary transition-all duration-500 ease-out rounded-full" style={{
+              width: `${pollingProgress}%`
+            }} />
                 </div>
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>{Math.round(pollingProgress)}% concluído</span>
                   <span>
-                    {pollingProgress >= 100 
-                      ? 'Finalizando...'
-                      : 'Aguarde alguns segundos'
-                    }
+                    {pollingProgress >= 100 ? 'Finalizando...' : 'Aguarde alguns segundos'}
                   </span>
                 </div>
               </div>
-            </div>
-          )}
+            </div>}
           {currentStep === 'mode-selection' && renderModeSelection()}
           {currentStep === 'optional-package' && renderOptionalPackage()}
           {currentStep === 'completed' && renderCompleted()}
         </div>
-      </div>
-  );
+      </div>;
 };
-
 export default PlanPeriod;
