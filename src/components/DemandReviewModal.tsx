@@ -173,46 +173,44 @@ export const DemandReviewModal = ({
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <h4 className="font-semibold text-base line-clamp-2">
-                {demand.titulo}
-              </h4>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {isSmart && (
-                  <Badge 
-                    variant="outline" 
-                    className={cn(
-                      "text-xs gap-1",
-                      isNormal 
-                        ? "border-pink-300 text-pink-600 dark:border-pink-700 dark:text-pink-400"
-                        : "border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400"
-                    )}
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    {isNormal ? 'Ultra' : 'Normal'}
-                  </Badge>
-                )}
-                {tipo && (
-                  <Badge variant="outline" className="text-xs">
-                    {tipo}
-                  </Badge>
-                )}
+            <h4 className="font-semibold text-base mb-2">
+              {demand.titulo}
+            </h4>
+            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+              {isSmart && (
                 <Badge 
-                  variant="secondary" 
+                  variant="outline" 
                   className={cn(
-                    "text-xs",
-                    isSmart
-                      ? (isNormal 
-                          ? "bg-pink-100/50 text-pink-600 dark:bg-pink-900/20 dark:text-pink-400"
-                          : "bg-blue-100/50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400")
-                      : (isNormal 
-                          ? "bg-blue-100/50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
-                          : "bg-pink-100/50 text-pink-600 dark:bg-pink-900/20 dark:text-pink-400")
+                    "text-xs gap-1",
+                    isNormal 
+                      ? "border-pink-300 text-pink-600 dark:border-pink-700 dark:text-pink-400"
+                      : "border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400"
                   )}
                 >
-                  {demand.canal}
+                  <Sparkles className="w-3 h-3" />
+                  {isNormal ? 'Ultra' : 'Normal'}
                 </Badge>
-              </div>
+              )}
+              {tipo && (
+                <Badge variant="outline" className="text-xs">
+                  {tipo}
+                </Badge>
+              )}
+              <Badge 
+                variant="secondary" 
+                className={cn(
+                  "text-xs",
+                  isSmart
+                    ? (isNormal 
+                        ? "bg-pink-100/50 text-pink-600 dark:bg-pink-900/20 dark:text-pink-400"
+                        : "bg-blue-100/50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400")
+                    : (isNormal 
+                        ? "bg-blue-100/50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                        : "bg-pink-100/50 text-pink-600 dark:bg-pink-900/20 dark:text-pink-400")
+                )}
+              >
+                {demand.canal}
+              </Badge>
             </div>
 
             {demand.objetivo && (
