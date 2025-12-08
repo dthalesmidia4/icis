@@ -5,8 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Check, X, Plus, Trash2, RefreshCw, Shield, Rocket, LayoutGrid, Sparkles, Lightbulb, CheckSquare, Square, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, X, Plus, Trash2, RefreshCw, Shield, Rocket, LayoutGrid, Sparkles, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DemandItem {
@@ -42,7 +41,6 @@ export const DemandReviewModal = ({
   isRegenerating = false
 }: DemandReviewModalProps) => {
   const [activeTab, setActiveTab] = useState<'demands' | 'smart'>('demands');
-  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   
   // Track selected demands by index
   const [selectedIndexes, setSelectedIndexes] = useState<Set<number>>(() => 
@@ -64,7 +62,6 @@ export const DemandReviewModal = ({
       setSelectedSmartIndexes(new Set());
       setRemovedSmartIndexes(new Set());
       setActiveTab('demands');
-      setExpandedCards(new Set());
     }
   }, [open, demands]);
 
@@ -116,44 +113,6 @@ export const DemandReviewModal = ({
     setSelectedSmartIndexes(newSelected);
   };
 
-  const handleSelectAll = () => {
-    const newSelected = new Set<number>();
-    demands.forEach((_, idx) => {
-      if (!removedIndexes.has(idx)) {
-        newSelected.add(idx);
-      }
-    });
-    setSelectedIndexes(newSelected);
-  };
-
-  const handleDeselectAll = () => {
-    setSelectedIndexes(new Set());
-  };
-
-  const handleSelectAllSmart = () => {
-    const newSelected = new Set<number>();
-    smartSuggestions.forEach((_, idx) => {
-      if (!removedSmartIndexes.has(idx)) {
-        newSelected.add(idx);
-      }
-    });
-    setSelectedSmartIndexes(newSelected);
-  };
-
-  const handleDeselectAllSmart = () => {
-    setSelectedSmartIndexes(new Set());
-  };
-
-  const toggleExpanded = (cardId: string) => {
-    const newExpanded = new Set(expandedCards);
-    if (newExpanded.has(cardId)) {
-      newExpanded.delete(cardId);
-    } else {
-      newExpanded.add(cardId);
-    }
-    setExpandedCards(newExpanded);
-  };
-
   const handleConfirm = () => {
     const selectedDemands = demands.filter((_, idx) => 
       selectedIndexes.has(idx) && !removedIndexes.has(idx)
@@ -165,8 +124,15 @@ export const DemandReviewModal = ({
   };
 
   const isNormal = mode === 'normal';
-  const modeLabel = isNormal ? 'Normal' : 'Ultra';
-  const oppositeLabel = isNormal ? 'Ultra' : 'Normal';
+  const gradientClass = isNormal 
+    ? 'from-blue-400 to-cyan-500' 
+    : 'from-pink-400 to-purple-500';
+  const smartGradientClass = isNormal
+    ? 'from-pink-400 to-purple-500'
+    : 'from-blue-400 to-cyan-500';
+  const accentColor = isNormal ? 'blue' : 'pink';
+  const smartAccentColor = isNormal ? 'pink' : 'blue';
+
   const totalSelected = selectedCount + selectedSmartCount;
 
   const renderDemandCard = (
@@ -178,128 +144,115 @@ export const DemandReviewModal = ({
     isSmart: boolean = false
   ) => {
     const tipo = demand.tipo || demand.tipo_conteudo || '';
-    const cardId = `${isSmart ? 'smart' : 'main'}-${originalIndex}`;
-    const isExpanded = expandedCards.has(cardId);
-    const hasExpandableContent = demand.objetivo || demand.conteudo || demand.descricao;
+    const currentGradient = isSmart ? smartGradientClass : gradientClass;
+    const currentAccent = isSmart ? smartAccentColor : accentColor;
     
     return (
       <Card 
-        key={cardId}
+        key={`${isSmart ? 'smart' : 'main'}-${originalIndex}`}
         className={cn(
-          "transition-all duration-200 overflow-hidden",
+          "p-4 transition-all duration-200",
           isSelected 
-            ? isSmart 
-              ? isNormal 
-                ? "border-pink-400/60 bg-pink-50/40 dark:bg-pink-950/20 dark:border-pink-700/40"
-                : "border-blue-400/60 bg-blue-50/40 dark:bg-blue-950/20 dark:border-blue-700/40"
-              : isNormal
-                ? "border-blue-400/60 bg-blue-50/40 dark:bg-blue-950/20 dark:border-blue-700/40"
-                : "border-pink-400/60 bg-pink-50/40 dark:bg-pink-950/20 dark:border-pink-700/40"
-            : "border-border/40 bg-muted/20 opacity-70"
+            ? `border-${currentAccent}-500/50 bg-${currentAccent}-50/30 dark:bg-${currentAccent}-900/10`
+            : "border-border/50 opacity-60"
         )}
       >
-        {/* Main content row */}
-        <div className="p-4">
-          <div className="flex items-start gap-3">
-            {/* Checkbox */}
-            <Checkbox
-              checked={isSelected}
-              onCheckedChange={() => onToggle(originalIndex)}
-              className={cn(
-                "mt-1 h-5 w-5",
-                isSelected && (
-                  isSmart 
-                    ? isNormal ? "border-pink-500 data-[state=checked]:bg-pink-500" : "border-blue-500 data-[state=checked]:bg-blue-500"
-                    : isNormal ? "border-blue-500 data-[state=checked]:bg-blue-500" : "border-pink-500 data-[state=checked]:bg-pink-500"
-                )
-              )}
-            />
+        <div className="flex gap-3">
+          {/* Selection checkbox */}
+          <div 
+            onClick={() => onToggle(originalIndex)}
+            className={cn(
+              "w-5 h-5 rounded border-2 shrink-0 flex items-center justify-center cursor-pointer transition-all mt-0.5",
+              isSelected 
+                ? `bg-gradient-to-br ${currentGradient} border-transparent text-white`
+                : "border-muted-foreground/40 hover:border-muted-foreground/60"
+            )}
+          >
+            {isSelected && <Check className="w-3 h-3" />}
+          </div>
 
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-sm leading-snug mb-2">
-                    {demand.titulo}
-                  </h4>
-                  
-                  {/* Tags row */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {isSmart && (
-                      <Badge 
-                        variant="outline" 
-                        className={cn(
-                          "text-[10px] gap-1 font-medium px-1.5 py-0",
-                          isNormal 
-                            ? "border-pink-400 text-pink-600 bg-pink-50/50 dark:border-pink-600 dark:text-pink-400 dark:bg-pink-950/30"
-                            : "border-blue-400 text-blue-600 bg-blue-50/50 dark:border-blue-600 dark:text-blue-400 dark:bg-blue-950/30"
-                        )}
-                      >
-                        <Sparkles className="w-2.5 h-2.5" />
-                        {oppositeLabel}
-                      </Badge>
-                    )}
-                    {tipo && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
-                        {tipo}
-                      </Badge>
-                    )}
-                    <Badge 
-                      variant="secondary" 
-                      className="text-[10px] px-1.5 py-0 font-normal bg-muted/80"
-                    >
-                      {demand.canal}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-1 shrink-0">
-                  {hasExpandableContent && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 text-muted-foreground"
-                      onClick={() => toggleExpanded(cardId)}
-                    >
-                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </Button>
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <h4 className="font-semibold text-base mb-2">
+              {demand.titulo}
+            </h4>
+            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+              {isSmart && (
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "text-xs gap-1",
+                    isNormal 
+                      ? "border-pink-300 text-pink-600 dark:border-pink-700 dark:text-pink-400"
+                      : "border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400"
                   )}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => onRemove(originalIndex)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              </div>
+                >
+                  <Sparkles className="w-3 h-3" />
+                  {isNormal ? 'Ultra' : 'Normal'}
+                </Badge>
+              )}
+              {tipo && (
+                <Badge variant="outline" className="text-xs">
+                  {tipo}
+                </Badge>
+              )}
+              <Badge 
+                variant="secondary" 
+                className={cn(
+                  "text-xs",
+                  isSmart
+                    ? (isNormal 
+                        ? "bg-pink-100/50 text-pink-600 dark:bg-pink-900/20 dark:text-pink-400"
+                        : "bg-blue-100/50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400")
+                    : (isNormal 
+                        ? "bg-blue-100/50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
+                        : "bg-pink-100/50 text-pink-600 dark:bg-pink-900/20 dark:text-pink-400")
+                )}
+              >
+                {demand.canal}
+              </Badge>
             </div>
+
+            {demand.objetivo && (
+              <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                {demand.objetivo}
+              </p>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              size="sm"
+              variant={isSelected ? "secondary" : "default"}
+              className={cn(
+                "h-8 text-xs gap-1.5",
+                isSelected && "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300"
+              )}
+              onClick={() => onToggle(originalIndex)}
+            >
+              {isSelected ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  Adicionado
+                </>
+              ) : (
+                <>
+                  <Plus className="w-3.5 h-3.5" />
+                  Adicionar
+                </>
+              )}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={() => onRemove(originalIndex)}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
           </div>
         </div>
-
-        {/* Expandable content */}
-        {hasExpandableContent && isExpanded && (
-          <div className="px-4 pb-4 pt-0">
-            <div className="ml-8 pl-3 border-l-2 border-muted-foreground/20">
-              {demand.objetivo && (
-                <div className="mb-2">
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Objetivo</span>
-                  <p className="text-xs text-muted-foreground mt-0.5">{demand.objetivo}</p>
-                </div>
-              )}
-              {(demand.conteudo || demand.descricao) && (
-                <div>
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Conteúdo</span>
-                  <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-line line-clamp-4">
-                    {demand.conteudo || demand.descricao}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </Card>
     );
   };
@@ -308,135 +261,65 @@ export const DemandReviewModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0">
         {/* Header */}
-        <DialogHeader className="p-5 pb-4 border-b shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center",
-                isNormal 
-                  ? "bg-gradient-to-br from-blue-500 to-cyan-500" 
-                  : "bg-gradient-to-br from-pink-500 to-purple-500"
-              )}>
-                {isNormal ? <Shield className="w-5 h-5 text-white" /> : <Rocket className="w-5 h-5 text-white" />}
-              </div>
-              <div>
-                <DialogTitle className="text-lg font-semibold">
-                  Modo {modeLabel}
-                </DialogTitle>
-                <DialogDescription className="text-xs mt-0.5">
-                  Revise e selecione as demandas para seu planejamento
-                </DialogDescription>
-              </div>
+        <DialogHeader className="p-6 pb-4 border-b shrink-0">
+          <div className="flex items-center gap-4">
+            <div className={cn(
+              "w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-br",
+              gradientClass
+            )}>
+              {isNormal ? <Shield className="w-6 h-6 text-white" /> : <Rocket className="w-6 h-6 text-white" />}
             </div>
-            
-            {/* Summary chips */}
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5",
+            <div className="flex-1">
+              <DialogTitle className="text-xl">
+                Revisar Demandas - Modo {isNormal ? 'Normal' : 'Ultra'}
+              </DialogTitle>
+              <DialogDescription className="mt-1">
+                Selecione as demandas e sugestões inteligentes para seu planejamento
+              </DialogDescription>
+            </div>
+            <Badge 
+              variant="secondary" 
+              className={cn(
+                "text-sm px-3 py-1",
                 isNormal 
-                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-                  : "bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300"
-              )}>
-                <CheckSquare className="w-3.5 h-3.5" />
-                {selectedCount} do plano
-              </div>
-              {selectedSmartCount > 0 && (
-                <div className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5",
-                  isNormal 
-                    ? "bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300"
-                    : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-                )}>
-                  <Sparkles className="w-3.5 h-3.5" />
-                  +{selectedSmartCount} extras
-                </div>
+                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                  : "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300"
               )}
-            </div>
+            >
+              {totalSelected} selecionadas
+            </Badge>
           </div>
         </DialogHeader>
 
-        {/* Tabs */}
+        {/* Tabs Content */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'demands' | 'smart')} className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          <div className="px-5 pt-3 shrink-0">
-            <div className="flex items-center justify-between gap-4">
-              <TabsList className="grid grid-cols-2 w-auto">
-                <TabsTrigger value="demands" className="gap-2 px-4">
-                  {isNormal ? <Shield className="w-3.5 h-3.5" /> : <Rocket className="w-3.5 h-3.5" />}
-                  <span className="hidden sm:inline">Demandas</span>
-                  <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 h-5">{selectedCount}/{totalVisible}</Badge>
-                </TabsTrigger>
-                <TabsTrigger value="smart" className="gap-2 px-4">
-                  <Lightbulb className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Pacote Inteligente</span>
-                  <Badge 
-                    variant={selectedSmartCount > 0 ? "default" : "secondary"} 
-                    className={cn(
-                      "ml-1 text-[10px] px-1.5 h-5",
-                      selectedSmartCount > 0 && (isNormal ? "bg-pink-500" : "bg-blue-500")
-                    )}
-                  >
-                    {selectedSmartCount > 0 ? `+${selectedSmartCount}` : totalSmartVisible}
+          <div className="px-6 pt-4 shrink-0">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="demands" className="gap-2">
+                {isNormal ? <Shield className="w-4 h-4" /> : <Rocket className="w-4 h-4" />}
+                Demandas do Plano
+                <Badge variant="outline" className="ml-1 text-xs">{selectedCount}/{totalVisible}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="smart" className="gap-2">
+                <Lightbulb className="w-4 h-4" />
+                Pacote Inteligente
+                {selectedSmartCount > 0 && (
+                  <Badge className={cn(
+                    "ml-1 text-xs",
+                    isNormal 
+                      ? "bg-pink-500 text-white"
+                      : "bg-blue-500 text-white"
+                  )}>
+                    +{selectedSmartCount}
                   </Badge>
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Quick actions */}
-              <div className="flex items-center gap-1">
-                {activeTab === 'demands' && totalVisible > 0 && (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs gap-1.5"
-                      onClick={handleSelectAll}
-                      disabled={selectedCount === totalVisible}
-                    >
-                      <CheckSquare className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Selecionar tudo</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs gap-1.5"
-                      onClick={handleDeselectAll}
-                      disabled={selectedCount === 0}
-                    >
-                      <Square className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Limpar</span>
-                    </Button>
-                  </>
                 )}
-                {activeTab === 'smart' && totalSmartVisible > 0 && (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs gap-1.5"
-                      onClick={handleSelectAllSmart}
-                      disabled={selectedSmartCount === totalSmartVisible}
-                    >
-                      <CheckSquare className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Selecionar tudo</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs gap-1.5"
-                      onClick={handleDeselectAllSmart}
-                      disabled={selectedSmartCount === 0}
-                    >
-                      <Square className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Limpar</span>
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
+              </TabsTrigger>
+            </TabsList>
           </div>
 
           <TabsContent value="demands" className="flex-1 min-h-0 m-0 overflow-hidden">
-            <ScrollArea className="h-[calc(90vh-300px)]">
-              <div className="p-5 pt-3 space-y-2">
+            <ScrollArea className="h-[calc(90vh-280px)]">
+              <div className="p-6 space-y-3">
                 {demands.map((demand, originalIndex) => {
                   if (removedIndexes.has(originalIndex)) return null;
                   const isSelected = selectedIndexes.has(originalIndex);
@@ -451,17 +334,16 @@ export const DemandReviewModal = ({
                 })}
 
                 {totalVisible === 0 && (
-                  <div className="text-center py-16">
-                    <LayoutGrid className="w-10 h-10 mx-auto text-muted-foreground/40 mb-3" />
-                    <p className="text-sm text-muted-foreground">Nenhuma demanda disponível</p>
+                  <div className="text-center py-12">
+                    <LayoutGrid className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+                    <p className="text-muted-foreground">Nenhuma demanda disponível</p>
                     <Button 
                       variant="outline" 
-                      size="sm"
-                      className="mt-4 gap-2"
+                      className="mt-4"
                       onClick={onRegenerate}
                       disabled={isRegenerating}
                     >
-                      <RefreshCw className={cn("w-3.5 h-3.5", isRegenerating && "animate-spin")} />
+                      <RefreshCw className={cn("w-4 h-4 mr-2", isRegenerating && "animate-spin")} />
                       Gerar Novamente
                     </Button>
                   </div>
@@ -471,39 +353,41 @@ export const DemandReviewModal = ({
           </TabsContent>
 
           <TabsContent value="smart" className="flex-1 min-h-0 m-0 overflow-hidden">
-            <ScrollArea className="h-[calc(90vh-300px)]">
-              <div className="p-5 pt-3">
-                {/* Smart package intro */}
-                <div className={cn(
-                  "p-4 rounded-xl mb-4 border",
+            <ScrollArea className="h-[calc(90vh-280px)]">
+              <div className="p-6">
+                {/* Smart package header */}
+                <Card className={cn(
+                  "p-4 mb-4 border-dashed",
                   isNormal 
-                    ? "border-pink-200 bg-gradient-to-r from-pink-50/80 to-purple-50/50 dark:border-pink-800/40 dark:from-pink-950/30 dark:to-purple-950/20"
-                    : "border-blue-200 bg-gradient-to-r from-blue-50/80 to-cyan-50/50 dark:border-blue-800/40 dark:from-blue-950/30 dark:to-cyan-950/20"
+                    ? "border-pink-300 bg-pink-50/30 dark:border-pink-800 dark:bg-pink-900/10"
+                    : "border-blue-300 bg-blue-50/30 dark:border-blue-800 dark:bg-blue-900/10"
                 )}>
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-center gap-3">
                     <div className={cn(
-                      "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-                      isNormal 
-                        ? "bg-gradient-to-br from-pink-500 to-purple-500" 
-                        : "bg-gradient-to-br from-blue-500 to-cyan-500"
+                      "w-10 h-10 rounded-full flex items-center justify-center bg-gradient-to-br",
+                      smartGradientClass
                     )}>
-                      <Sparkles className="w-4 h-4 text-white" />
+                      <Sparkles className="w-5 h-5 text-white" />
                     </div>
-                    <div>
-                      <h4 className="text-sm font-medium mb-1">
-                        Sugestões do Modo {oppositeLabel}
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-sm">
+                        Sugestões do Modo {isNormal ? 'Ultra' : 'Normal'}
                       </h4>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {isNormal 
-                          ? "Ideias mais criativas e ousadas do modo Ultra que podem agregar valor ao seu planejamento."
-                          : "Sugestões do modo Normal para equilibrar seu plano com abordagens mais tradicionais."
-                        }
+                          ? "Ideias criativas e ousadas que podem complementar seu planejamento"
+                          : "Sugestões mais tradicionais e seguras para equilibrar seu plano"}
                       </p>
                     </div>
+                    {totalSmartVisible > 0 && (
+                      <Badge variant="outline" className="text-xs">
+                        {selectedSmartCount} de {totalSmartVisible}
+                      </Badge>
+                    )}
                   </div>
-                </div>
+                </Card>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {smartSuggestions.map((demand, originalIndex) => {
                     if (removedSmartIndexes.has(originalIndex)) return null;
                     const isSelected = selectedSmartIndexes.has(originalIndex);
@@ -518,13 +402,13 @@ export const DemandReviewModal = ({
                   })}
 
                   {totalSmartVisible === 0 && (
-                    <div className="text-center py-16">
-                      <Lightbulb className="w-10 h-10 mx-auto text-muted-foreground/40 mb-3" />
-                      <p className="text-sm text-muted-foreground">
-                        Nenhuma sugestão disponível
+                    <div className="text-center py-12">
+                      <Lightbulb className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+                      <p className="text-muted-foreground">
+                        Nenhuma sugestão inteligente disponível
                       </p>
-                      <p className="text-xs text-muted-foreground/60 mt-1">
-                        As sugestões são baseadas no plano {oppositeLabel}
+                      <p className="text-xs text-muted-foreground/70 mt-1">
+                        As sugestões são baseadas no plano alternativo ({isNormal ? 'Ultra' : 'Normal'})
                       </p>
                     </div>
                   )}
@@ -535,42 +419,39 @@ export const DemandReviewModal = ({
         </Tabs>
 
         {/* Footer */}
-        <div className="p-4 border-t shrink-0 bg-muted/20">
-          <div className="flex items-center justify-between gap-3">
+        <div className="p-6 pt-4 border-t shrink-0 bg-muted/30">
+          <div className="flex items-center justify-between gap-4">
             <Button
               variant="outline"
-              size="sm"
               onClick={onRegenerate}
               disabled={isRegenerating}
-              className="gap-2 h-9"
+              className="gap-2"
             >
-              <RefreshCw className={cn("w-3.5 h-3.5", isRegenerating && "animate-spin")} />
-              <span className="hidden sm:inline">Gerar Novamente</span>
-              <span className="sm:hidden">Regenerar</span>
+              <RefreshCw className={cn("w-4 h-4", isRegenerating && "animate-spin")} />
+              Gerar Novamente
             </Button>
 
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
-                size="sm"
                 onClick={() => onOpenChange(false)}
-                className="h-9"
               >
-                Cancelar
+                <X className="w-4 h-4 mr-2" />
+                Fechar
               </Button>
               
-              <Button
-                onClick={handleConfirm}
-                disabled={totalSelected === 0}
-                size="sm"
-                className={cn(
-                  "gap-2 h-9 min-w-[160px]",
-                  totalSelected > 0 && !isNormal && "bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
-                )}
-              >
-                <Check className="w-4 h-4" />
-                Confirmar ({totalSelected})
-              </Button>
+              {totalSelected > 0 && (
+                <Button
+                  onClick={handleConfirm}
+                  className={cn(
+                    "gap-2",
+                    !isNormal && "bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
+                  )}
+                >
+                  <Check className="w-4 h-4" />
+                  Confirmar Planejamento ({totalSelected})
+                </Button>
+              )}
             </div>
           </div>
         </div>
