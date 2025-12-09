@@ -550,7 +550,7 @@ const PlanPeriod = () => {
               <p className="text-xs text-muted-foreground">Valor aproximado mensal</p>
               <div className="flex gap-2">
                 <Select value={budgetCurrency} onValueChange={(value: 'BRL' | 'USD') => setBudgetCurrency(value)}>
-                  <SelectTrigger className="w-[140px]">
+                  <SelectTrigger className="w-[100px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-background z-50">
