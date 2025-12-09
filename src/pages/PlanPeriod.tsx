@@ -86,6 +86,9 @@ const PlanPeriod = () => {
   const [observations, setObservations] = useState("");
   const [excludedFormats, setExcludedFormats] = useState<string[]>([]);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
+  const [clientAcquisition, setClientAcquisition] = useState("");
+  const [paidTrafficBudget, setPaidTrafficBudget] = useState("");
+  const [periodLimitations, setPeriodLimitations] = useState("");
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
 
@@ -237,6 +240,12 @@ const PlanPeriod = () => {
           ? selectedChannels[0].charAt(0).toUpperCase() + selectedChannels[0].slice(1)
           : selectedChannels.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ');
 
+      // Build comprehensive observations including period limitations
+      const fullObservations = [
+        periodLimitations && `LIMITAÇÕES DO PERÍODO: ${periodLimitations}`,
+        observations && observations
+      ].filter(Boolean).join('\n\n') || null;
+
       const {
         data: periodPlan,
         error: createError
@@ -249,7 +258,9 @@ const PlanPeriod = () => {
         budget: budget || null,
         objective: 'Gerado automaticamente',
         priority_channel: priorityChannel,
-        observations: observations || null,
+        observations: fullObservations,
+        client_acquisition: clientAcquisition || null,
+        paid_traffic_budget: paidTrafficBudget || null,
         status: 'draft'
       }).select().single();
       if (createError) throw createError;
@@ -519,9 +530,40 @@ const PlanPeriod = () => {
               </div>
             </div>
 
-            <div>
-              <Label htmlFor="budget">Orçamento (opcional)</Label>
-              <Input id="budget" placeholder="Ex: R$ 5.000,00 ou Sem limite definido" value={budget} onChange={e => setBudget(e.target.value)} />
+            {/* Perguntas estratégicas do período */}
+            <div className="space-y-2">
+              <Label htmlFor="clientAcquisition" className="text-sm">Como a empresa atrai clientes hoje?</Label>
+              <p className="text-xs text-muted-foreground">Fontes atuais: redes sociais, indicações, anúncios, Google, WhatsApp</p>
+              <Textarea 
+                id="clientAcquisition" 
+                placeholder="Descreva as principais formas de aquisição de clientes da empresa..." 
+                value={clientAcquisition} 
+                onChange={e => setClientAcquisition(e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="paidTrafficBudget" className="text-sm">Quanto pode investir em tráfego pago?</Label>
+              <p className="text-xs text-muted-foreground">Valor aproximado ou nível: zero, baixo, médio, alto</p>
+              <Input 
+                id="paidTrafficBudget" 
+                placeholder="Ex: R$ 2.000/mês, baixo, sem investimento..." 
+                value={paidTrafficBudget} 
+                onChange={e => setPaidTrafficBudget(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="periodLimitations" className="text-sm">Quais limitações considerar neste período?</Label>
+              <p className="text-xs text-muted-foreground">Tempo, equipe, estoque, gravação, orçamento, restrições internas, legislação</p>
+              <Textarea 
+                id="periodLimitations" 
+                placeholder="Descreva as limitações e restrições específicas para este período..." 
+                value={periodLimitations} 
+                onChange={e => setPeriodLimitations(e.target.value)}
+                rows={2}
+              />
             </div>
 
             {/* Channel Selection */}

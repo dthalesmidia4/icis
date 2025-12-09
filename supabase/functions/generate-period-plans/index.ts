@@ -214,6 +214,10 @@ ${strategyText || 'Estratégia não definida ainda.'}
 ## CONTEXTO DAS PERGUNTAS GUIAS
 ${questionsContext || 'Nenhuma pergunta respondida.'}
 
+## INFORMAÇÕES ESTRATÉGICAS DO PERÍODO
+- Como a empresa atrai clientes: ${periodPlan.client_acquisition || 'Não informado'}
+- Investimento em tráfego pago: ${periodPlan.paid_traffic_budget || 'Não especificado'}
+
 ## PERÍODO SELECIONADO
 - Título: ${periodPlan.period_title}
 - Data Início: ${periodPlan.period_start}
@@ -224,7 +228,7 @@ ${questionsContext || 'Nenhuma pergunta respondida.'}
 ⚠️ CANAL PRIORITÁRIO (OBRIGATÓRIO PARA TODAS AS DEMANDAS): ${periodPlan.priority_channel}
 ATENÇÃO: Todas as demandas devem ser EXCLUSIVAMENTE para "${periodPlan.priority_channel}". NÃO gere demandas para nenhum outro canal.
 
-- Observações/Restrições: ${periodPlan.observations || 'Nenhuma'}
+- Observações/Restrições do Período: ${periodPlan.observations || 'Nenhuma'}
 `;
 
     console.log('Generating period plans for:', periodPlanId, 'using GPT-5 Mini');
