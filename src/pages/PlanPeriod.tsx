@@ -88,6 +88,7 @@ const PlanPeriod = () => {
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [clientAcquisition, setClientAcquisition] = useState("");
   const [paidTrafficBudget, setPaidTrafficBudget] = useState("");
+  const [budgetCurrency, setBudgetCurrency] = useState<'BRL' | 'USD'>('BRL');
   const [periodLimitations, setPeriodLimitations] = useState("");
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
@@ -260,7 +261,7 @@ const PlanPeriod = () => {
         priority_channel: priorityChannel,
         observations: fullObservations,
         client_acquisition: clientAcquisition || null,
-        paid_traffic_budget: paidTrafficBudget || null,
+        paid_traffic_budget: paidTrafficBudget ? `${budgetCurrency === 'BRL' ? 'R$' : '$'} ${paidTrafficBudget}` : null,
         status: 'draft'
       }).select().single();
       if (createError) throw createError;
@@ -545,13 +546,46 @@ const PlanPeriod = () => {
 
             <div className="space-y-2">
               <Label htmlFor="paidTrafficBudget" className="text-sm">Quanto pode investir em tráfego pago?</Label>
-              <p className="text-xs text-muted-foreground">Valor aproximado ou nível: zero, baixo, médio, alto</p>
-              <Input 
-                id="paidTrafficBudget" 
-                placeholder="Ex: R$ 2.000/mês, baixo, sem investimento..." 
-                value={paidTrafficBudget} 
-                onChange={e => setPaidTrafficBudget(e.target.value)}
-              />
+              <p className="text-xs text-muted-foreground">Valor aproximado mensal</p>
+              <div className="flex gap-2">
+                <div className="flex rounded-md border border-input overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setBudgetCurrency('BRL')}
+                    className={cn(
+                      "px-3 py-2 text-sm font-medium transition-colors",
+                      budgetCurrency === 'BRL' 
+                        ? "bg-primary text-primary-foreground" 
+                        : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    R$
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBudgetCurrency('USD')}
+                    className={cn(
+                      "px-3 py-2 text-sm font-medium transition-colors border-l border-input",
+                      budgetCurrency === 'USD' 
+                        ? "bg-primary text-primary-foreground" 
+                        : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    $
+                  </button>
+                </div>
+                <Input 
+                  id="paidTrafficBudget" 
+                  placeholder={budgetCurrency === 'BRL' ? "Ex: 2.000,00" : "Ex: 500.00"}
+                  value={paidTrafficBudget} 
+                  onChange={e => {
+                    // Allow only numbers, comma, and dot
+                    const value = e.target.value.replace(/[^0-9.,]/g, '');
+                    setPaidTrafficBudget(value);
+                  }}
+                  className="flex-1"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
