@@ -236,18 +236,10 @@ const PlanPeriod = () => {
     try {
       // Create period plan record
       // Determine priority channel from selected channels
-      const priorityChannel = selectedChannels.length === 0 
-        ? 'Multi-canal' 
-        : selectedChannels.length === 1 
-          ? selectedChannels[0].charAt(0).toUpperCase() + selectedChannels[0].slice(1)
-          : selectedChannels.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ');
+      const priorityChannel = selectedChannels.length === 0 ? 'Multi-canal' : selectedChannels.length === 1 ? selectedChannels[0].charAt(0).toUpperCase() + selectedChannels[0].slice(1) : selectedChannels.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ');
 
       // Build comprehensive observations including period limitations
-      const fullObservations = [
-        periodLimitations && `LIMITAÇÕES DO PERÍODO: ${periodLimitations}`,
-        observations && observations
-      ].filter(Boolean).join('\n\n') || null;
-
+      const fullObservations = [periodLimitations && `LIMITAÇÕES DO PERÍODO: ${periodLimitations}`, observations && observations].filter(Boolean).join('\n\n') || null;
       const {
         data: periodPlan,
         error: createError
@@ -536,85 +528,64 @@ const PlanPeriod = () => {
             <div className="space-y-2">
               <Label htmlFor="clientAcquisition" className="text-sm">Como a empresa atrai clientes hoje?</Label>
               <p className="text-xs text-muted-foreground">Fontes atuais: redes sociais, indicações, anúncios, Google, WhatsApp</p>
-              <Textarea 
-                id="clientAcquisition" 
-                placeholder="Descreva as principais formas de aquisição de clientes da empresa..." 
-                value={clientAcquisition} 
-                onChange={e => setClientAcquisition(e.target.value)}
-                rows={2}
-              />
+              <Textarea id="clientAcquisition" placeholder="Descreva as principais formas de aquisição de clientes da empresa..." value={clientAcquisition} onChange={e => setClientAcquisition(e.target.value)} rows={2} />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="periodLimitations" className="text-sm">Quais limitações considerar neste período?</Label>
               <p className="text-xs text-muted-foreground">Tempo, equipe, estoque, gravação, orçamento, restrições internas, legislação</p>
-              <Textarea 
-                id="periodLimitations" 
-                placeholder="Descreva as limitações e restrições específicas para este período..." 
-                value={periodLimitations} 
-                onChange={e => setPeriodLimitations(e.target.value)}
-                rows={2}
-              />
+              <Textarea id="periodLimitations" placeholder="Descreva as limitações e restrições específicas para este período..." value={periodLimitations} onChange={e => setPeriodLimitations(e.target.value)} rows={2} />
             </div>
 
             {/* Channel Selection */}
             <div className="space-y-3">
               <Label className="text-sm">Selecione as redes prioritárias</Label>
-              <p className="text-xs text-muted-foreground -mt-1">Selecione as redes sociais para este período</p>
+              
               <div className="flex flex-wrap gap-3">
-                {[
-                  { id: 'instagram', label: 'Instagram', icon: Instagram, color: 'from-pink-500 to-purple-500' },
-                  { id: 'facebook', label: 'Facebook', icon: Facebook, color: 'from-blue-600 to-blue-500' },
-                  { id: 'tiktok', label: 'TikTok', icon: () => (
-                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
-                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
-                    </svg>
-                  ), color: 'from-gray-900 to-gray-700' },
-                  { id: 'youtube', label: 'YouTube', icon: Youtube, color: 'from-red-600 to-red-500' },
-                  { id: 'linkedin', label: 'LinkedIn', icon: Linkedin, color: 'from-blue-700 to-blue-600' },
-                ].map(channel => {
-                  const isSelected = selectedChannels.includes(channel.id);
-                  const IconComponent = channel.icon;
-                  return (
-                    <button
-                      key={channel.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedChannels(prev => 
-                          prev.includes(channel.id) 
-                            ? prev.filter(c => c !== channel.id)
-                            : [...prev, channel.id]
-                        );
-                      }}
-                      className={cn(
-                        "relative flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border-2 transition-all duration-200 min-w-[72px]",
-                        isSelected 
-                          ? "border-primary bg-primary/10 shadow-[0_0_12px_hsl(var(--primary)/0.3)]" 
-                          : "border-border/50 bg-card hover:border-primary/50 hover:bg-primary/5"
-                      )}
-                    >
-                      <div className={cn(
-                        "w-9 h-9 rounded-lg flex items-center justify-center transition-all",
-                        isSelected 
-                          ? `bg-gradient-to-br ${channel.color} text-white` 
-                          : "bg-muted text-muted-foreground"
-                      )}>
+                {[{
+                id: 'instagram',
+                label: 'Instagram',
+                icon: Instagram,
+                color: 'from-pink-500 to-purple-500'
+              }, {
+                id: 'facebook',
+                label: 'Facebook',
+                icon: Facebook,
+                color: 'from-blue-600 to-blue-500'
+              }, {
+                id: 'tiktok',
+                label: 'TikTok',
+                icon: () => <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                    </svg>,
+                color: 'from-gray-900 to-gray-700'
+              }, {
+                id: 'youtube',
+                label: 'YouTube',
+                icon: Youtube,
+                color: 'from-red-600 to-red-500'
+              }, {
+                id: 'linkedin',
+                label: 'LinkedIn',
+                icon: Linkedin,
+                color: 'from-blue-700 to-blue-600'
+              }].map(channel => {
+                const isSelected = selectedChannels.includes(channel.id);
+                const IconComponent = channel.icon;
+                return <button key={channel.id} type="button" onClick={() => {
+                  setSelectedChannels(prev => prev.includes(channel.id) ? prev.filter(c => c !== channel.id) : [...prev, channel.id]);
+                }} className={cn("relative flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border-2 transition-all duration-200 min-w-[72px]", isSelected ? "border-primary bg-primary/10 shadow-[0_0_12px_hsl(var(--primary)/0.3)]" : "border-border/50 bg-card hover:border-primary/50 hover:bg-primary/5")}>
+                      <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center transition-all", isSelected ? `bg-gradient-to-br ${channel.color} text-white` : "bg-muted text-muted-foreground")}>
                         <IconComponent />
                       </div>
-                      <span className={cn(
-                        "text-[10px] font-medium transition-colors",
-                        isSelected ? "text-foreground" : "text-muted-foreground"
-                      )}>
+                      <span className={cn("text-[10px] font-medium transition-colors", isSelected ? "text-foreground" : "text-muted-foreground")}>
                         {channel.label}
                       </span>
-                      {isSelected && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center">
+                      {isSelected && <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center">
                           <Check className="w-2.5 h-2.5 text-primary-foreground" />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
+                        </div>}
+                    </button>;
+              })}
               </div>
             </div>
 
@@ -642,16 +613,10 @@ const PlanPeriod = () => {
                     </SelectItem>
                   </SelectContent>
                 </Select>
-                <Input 
-                  id="paidTrafficBudget" 
-                  placeholder={budgetCurrency === 'BRL' ? "Ex: 2.000,00" : "Ex: 500.00"}
-                  value={paidTrafficBudget} 
-                  onChange={e => {
-                    const value = e.target.value.replace(/[^0-9.,]/g, '');
-                    setPaidTrafficBudget(value);
-                  }}
-                  className="flex-1"
-                />
+                <Input id="paidTrafficBudget" placeholder={budgetCurrency === 'BRL' ? "Ex: 2.000,00" : "Ex: 500.00"} value={paidTrafficBudget} onChange={e => {
+                const value = e.target.value.replace(/[^0-9.,]/g, '');
+                setPaidTrafficBudget(value);
+              }} className="flex-1" />
               </div>
               <p className="text-xs text-muted-foreground">
                 {budgetCurrency === 'BRL' ? '💵 Moeda selecionada: Real Brasileiro (BRL)' : '💵 Moeda selecionada: Dólar Americano (USD)'}
