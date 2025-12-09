@@ -531,12 +531,6 @@ const PlanPeriod = () => {
               <Textarea id="clientAcquisition" placeholder="Descreva as principais formas de aquisição de clientes da empresa..." value={clientAcquisition} onChange={e => setClientAcquisition(e.target.value)} rows={2} />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="periodLimitations" className="text-sm">Quais limitações considerar neste período?</Label>
-              <p className="text-xs text-muted-foreground">Tempo, equipe, estoque, gravação, orçamento, restrições internas, legislação</p>
-              <Textarea id="periodLimitations" placeholder="Descreva as limitações e restrições específicas para este período..." value={periodLimitations} onChange={e => setPeriodLimitations(e.target.value)} rows={2} />
-            </div>
-
             {/* Channel Selection */}
             <div className="space-y-3">
               <Label className="text-sm">Selecione as redes prioritárias</Label>
@@ -587,6 +581,12 @@ const PlanPeriod = () => {
                     </button>;
               })}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="periodLimitations" className="text-sm">Quais limitações considerar neste período?</Label>
+              <p className="text-xs text-muted-foreground">Tempo, equipe, estoque, gravação, orçamento, restrições internas, legislação</p>
+              <Textarea id="periodLimitations" placeholder="Descreva as limitações e restrições específicas para este período..." value={periodLimitations} onChange={e => setPeriodLimitations(e.target.value)} rows={2} />
             </div>
 
             {/* Paid Traffic Budget */}
