@@ -230,6 +230,13 @@ const PlanPeriod = () => {
     setCurrentStep('loading');
     try {
       // Create period plan record
+      // Determine priority channel from selected channels
+      const priorityChannel = selectedChannels.length === 0 
+        ? 'Multi-canal' 
+        : selectedChannels.length === 1 
+          ? selectedChannels[0].charAt(0).toUpperCase() + selectedChannels[0].slice(1)
+          : selectedChannels.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ');
+
       const {
         data: periodPlan,
         error: createError
@@ -241,7 +248,7 @@ const PlanPeriod = () => {
         period_end: format(periodEnd, 'yyyy-MM-dd'),
         budget: budget || null,
         objective: 'Gerado automaticamente',
-        priority_channel: 'Multi-canal',
+        priority_channel: priorityChannel,
         observations: observations || null,
         status: 'draft'
       }).select().single();
