@@ -462,26 +462,19 @@ export default function Schedule() {
 
   // Extract content type and clean title from card title
   const parseCardTitle = (title: string) => {
-    const contentTypePatterns = [
-      { pattern: /^reels?\s*(\([^)]*\))?\s*[-–—:]\s*/i, type: 'Reels' },
-      { pattern: /^carrossel\s*(\([^)]*\))?\s*[-–—:]\s*/i, type: 'Carrossel' },
-      { pattern: /^carousel\s*(\([^)]*\))?\s*[-–—:]\s*/i, type: 'Carrossel' },
-      { pattern: /^post\s*(estático)?\s*(\([^)]*\))?\s*[-–—:]\s*/i, type: 'Post' },
-      { pattern: /^stories?\s*(\([^)]*\))?\s*[-–—:]\s*/i, type: 'Stories' },
-      { pattern: /^vídeo\s*(\([^)]*\))?\s*[-–—:]\s*/i, type: 'Vídeo' },
-      { pattern: /^video\s*(\([^)]*\))?\s*[-–—:]\s*/i, type: 'Vídeo' },
-      { pattern: /^artigo\s*(\([^)]*\))?\s*[-–—:]\s*/i, type: 'Artigo' },
-      { pattern: /^blog\s*(\([^)]*\))?\s*[-–—:]\s*/i, type: 'Artigo' },
-      // Match "Instagram:", "LinkedIn:", etc. as platform prefix
-      { pattern: /^instagram:\s*/i, type: null, platform: 'Instagram' },
-      { pattern: /^linkedin:\s*/i, type: null, platform: 'LinkedIn' },
-      { pattern: /^facebook:\s*/i, type: null, platform: 'Facebook' },
-      { pattern: /^tiktok:\s*/i, type: null, platform: 'TikTok' },
-      { pattern: /^youtube:\s*/i, type: null, platform: 'YouTube' },
+    // Content type keywords to detect
+    const contentTypes = [
+      { keywords: ['reels', 'reel'], type: 'Reels' },
+      { keywords: ['carrossel', 'carousel'], type: 'Carrossel' },
+      { keywords: ['vídeo curto', 'video curto', 'short'], type: 'Vídeo Curto' },
+      { keywords: ['vídeo', 'video'], type: 'Vídeo' },
+      { keywords: ['post estático', 'post estatico'], type: 'Post' },
+      { keywords: ['post'], type: 'Post' },
+      { keywords: ['stories', 'story'], type: 'Stories' },
+      { keywords: ['artigo', 'blog'], type: 'Artigo' },
     ];
 
-    // First, try to match platform prefix and extract content type from remainder
-    let workingTitle = title;
+    let workingTitle = title.trim();
     
     // Remove platform prefix if present (e.g., "Instagram: Carrossel - Title")
     const platformPrefixes = [
@@ -499,13 +492,22 @@ export default function Schedule() {
       }
     }
 
-    // Now try to match content type
-    for (const { pattern, type } of contentTypePatterns) {
-      if (type && pattern.test(workingTitle)) {
-        return {
-          contentType: type,
-          cleanTitle: workingTitle.replace(pattern, '').trim()
-        };
+    // Try to match content type at the beginning with optional parentheses content
+    // Pattern: "ContentType (optional info) — rest" or "ContentType (optional info) - rest"
+    for (const { keywords, type } of contentTypes) {
+      for (const keyword of keywords) {
+        // Match: keyword + optional (parentheses) + separator (—, -, –, :)
+        const regex = new RegExp(
+          `^${keyword}\\s*(\\([^)]*\\))?\\s*[—–\\-:]\\s*`,
+          'i'
+        );
+        
+        if (regex.test(workingTitle)) {
+          return {
+            contentType: type,
+            cleanTitle: workingTitle.replace(regex, '').trim()
+          };
+        }
       }
     }
 
