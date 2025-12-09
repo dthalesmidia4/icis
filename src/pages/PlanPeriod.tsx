@@ -591,7 +591,7 @@ const PlanPeriod = () => {
 
             {/* Paid Traffic Budget */}
             <div className="space-y-2">
-              <Label htmlFor="paidTrafficBudget" className="text-sm">Como a empresa atrai clientes hoje?</Label>
+              <Label htmlFor="paidTrafficBudget" className="text-sm">Orçamento para campanhas (opcional)</Label>
               
               <div className="flex gap-2">
                 <Select value={budgetCurrency} onValueChange={(value: 'BRL' | 'USD') => setBudgetCurrency(value)}>
