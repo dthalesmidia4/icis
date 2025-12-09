@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose, DrawerFooter } from "@/components/ui/drawer";
 import { DemandaCard, DemandaItem } from "@/components/DemandaCard";
 import { DemandReviewModal } from "@/components/DemandReviewModal";
@@ -548,44 +549,39 @@ const PlanPeriod = () => {
               <Label htmlFor="paidTrafficBudget" className="text-sm">Quanto pode investir em tráfego pago?</Label>
               <p className="text-xs text-muted-foreground">Valor aproximado mensal</p>
               <div className="flex gap-2">
-                <div className="flex rounded-md border border-input overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setBudgetCurrency('BRL')}
-                    className={cn(
-                      "px-3 py-2 text-sm font-medium transition-colors",
-                      budgetCurrency === 'BRL' 
-                        ? "bg-primary text-primary-foreground" 
-                        : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                    )}
-                  >
-                    R$
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBudgetCurrency('USD')}
-                    className={cn(
-                      "px-3 py-2 text-sm font-medium transition-colors border-l border-input",
-                      budgetCurrency === 'USD' 
-                        ? "bg-primary text-primary-foreground" 
-                        : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                    )}
-                  >
-                    $
-                  </button>
-                </div>
+                <Select value={budgetCurrency} onValueChange={(value: 'BRL' | 'USD') => setBudgetCurrency(value)}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50">
+                    <SelectItem value="BRL">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">R$</span>
+                        <span className="text-muted-foreground text-xs">Reais</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="USD">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">$</span>
+                        <span className="text-muted-foreground text-xs">Dólar</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
                 <Input 
                   id="paidTrafficBudget" 
                   placeholder={budgetCurrency === 'BRL' ? "Ex: 2.000,00" : "Ex: 500.00"}
                   value={paidTrafficBudget} 
                   onChange={e => {
-                    // Allow only numbers, comma, and dot
                     const value = e.target.value.replace(/[^0-9.,]/g, '');
                     setPaidTrafficBudget(value);
                   }}
                   className="flex-1"
                 />
               </div>
+              <p className="text-xs text-muted-foreground">
+                {budgetCurrency === 'BRL' ? '💵 Moeda selecionada: Real Brasileiro (BRL)' : '💵 Moeda selecionada: Dólar Americano (USD)'}
+              </p>
             </div>
 
             <div className="space-y-2">
