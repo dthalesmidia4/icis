@@ -354,9 +354,11 @@ const PlanPeriod = () => {
       const cardsToInsert = allDemands.map(item => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const anyItem = item as any;
-        const title = item.titulo || anyItem.title || 'Sem título';
+        const titleBase = item.titulo || anyItem.title || 'Sem título';
         const tipo = anyItem.tipo || item.tipo_conteudo || anyItem.type || '';
         const channel = item.canal || anyItem.channel || '';
+        // Compor título: "Tipo - Título" (ex: "Reels - Do Caos ao Controle")
+        const title = tipo ? `${tipo} - ${titleBase}` : titleBase;
         const publicationDate = item.data_sugerida || anyItem.suggested_date || anyItem.date || new Date().toISOString().split('T')[0];
         const descricao = anyItem.conteudo || anyItem.texto_da_peca || anyItem.descricao_da_tarefa || item.descricao || anyItem.description || '';
         const objetivo = anyItem.objetivo || anyItem.objective || '';
@@ -371,7 +373,7 @@ const PlanPeriod = () => {
           description: descricao,
           instrucoes: instrucoesParts.length > 0 ? instrucoesParts.join('\n\n') : null,
           delivery_date: publicationDate,
-          file_location: tipo ? `${tipo} - ${channel}`.trim().replace(/^- | -$/g, '') : channel,
+          file_location: channel || null, // Apenas o canal (Instagram, LinkedIn, etc.)
           status: 'unassigned',
           column_name: 'Planejamento Automatizado',
           observations: null
@@ -802,9 +804,11 @@ const PlanPeriod = () => {
         const anyItem = item as any;
 
         // Campos principais
-        const title = item.titulo || anyItem.title || 'Sem título';
+        const titleBase = item.titulo || anyItem.title || 'Sem título';
         const tipo = anyItem.tipo || item.tipo_conteudo || anyItem.type || '';
         const channel = item.canal || anyItem.channel || '';
+        // Compor título: "Tipo - Título" (ex: "Reels - Do Caos ao Controle")
+        const title = tipo ? `${tipo} - ${titleBase}` : titleBase;
         const publicationDate = item.data_sugerida || anyItem.suggested_date || anyItem.date || new Date().toISOString().split('T')[0];
 
         // ATIVIDADE: priorizar conteudo (conteúdo dos slides/roteiros) > texto_da_peca > descricao_da_tarefa
@@ -825,7 +829,7 @@ const PlanPeriod = () => {
           description: descricao,
           instrucoes: instrucoesParts.length > 0 ? instrucoesParts.join('\n\n') : null,
           delivery_date: publicationDate,
-          file_location: tipo ? `${tipo} - ${channel}`.trim().replace(/^- | -$/g, '') : channel,
+          file_location: channel || null, // Apenas o canal (Instagram, LinkedIn, etc.)
           status: 'unassigned',
           column_name: 'Planejamento Automatizado',
           observations: null

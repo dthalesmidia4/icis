@@ -646,11 +646,6 @@ export default function Schedule() {
                                             {platform}
                                           </Badge>
                                         ))}
-                                        {extractMetadata(card).contentTypes.slice(0, 1).map((type) => (
-                                          <Badge key={type} variant="secondary" className="text-[10px] px-1.5 py-0">
-                                            {type}
-                                          </Badge>
-                                        ))}
                                       </div>
                                       <div className="flex items-center text-xs text-muted-foreground">
                                         <Calendar className="h-3 w-3 mr-1" />
