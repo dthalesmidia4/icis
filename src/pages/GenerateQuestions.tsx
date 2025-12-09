@@ -8,13 +8,23 @@ import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { PageHeader } from "@/components/PageHeader";
-import { Loader2, Trash2, FileDown, MoreVertical, Sparkles, Check, Cloud, Lightbulb } from "lucide-react";
+import { Loader2, Trash2, FileDown, MoreVertical, Sparkles, Check, Cloud, Lightbulb, AlertTriangle } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import jsPDF from "jspdf";
 import { useQuery } from "@tanstack/react-query";
 import { toast as sonnerToast } from "sonner";
@@ -45,6 +55,7 @@ export default function GenerateQuestions() {
   const [answers, setAnswers] = useState<StrategicAnswers>({});
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   
   // Auto-save states
   const [isAutoSaving, setIsAutoSaving] = useState(false);
@@ -67,6 +78,27 @@ export default function GenerateQuestions() {
       const { data, error } = await supabase
         .from("question_sessions")
         .select("*")
+        .eq("company_id", selectedClient.id)
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error && error.code !== "PGRST116") throw error;
+      return data;
+    },
+    enabled: !!selectedClient && !!tenantId,
+  });
+
+  // Query para verificar se já existe estratégia
+  const { data: existingStrategy } = useQuery({
+    queryKey: ["existing-strategy", selectedClient?.id, tenantId],
+    queryFn: async () => {
+      if (!selectedClient || !tenantId) return null;
+
+      const { data, error } = await supabase
+        .from("strategies")
+        .select("id, created_at")
         .eq("company_id", selectedClient.id)
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false })
@@ -216,16 +248,7 @@ export default function GenerateQuestions() {
     });
   };
 
-  const handleGenerateStrategy = async () => {
-    if (!selectedClient || !tenantId) {
-      toast({
-        title: "Erro",
-        description: "Dados insuficientes para gerar a estratégia",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleGenerateStrategyClick = () => {
     // Verificar perguntas não respondidas e marcar erros
     const unansweredKeys = new Set<string>();
     strategicQuestions.forEach((_, idx) => {
@@ -249,6 +272,48 @@ export default function GenerateQuestions() {
 
     // Limpar erros de validação
     setValidationErrors(new Set());
+
+    // Se já existe estratégia, mostrar modal de confirmação
+    if (existingStrategy) {
+      setShowConfirmModal(true);
+      return;
+    }
+
+    // Caso contrário, gerar diretamente
+    handleGenerateStrategy();
+  };
+
+  const handleGenerateStrategy = async () => {
+    setShowConfirmModal(false);
+    
+    if (!selectedClient || !tenantId) {
+      toast({
+        title: "Erro",
+        description: "Dados insuficientes para gerar a estratégia",
+        variant: "destructive",
+      });
+      return;
+    }
+    const unansweredKeys = new Set<string>();
+    strategicQuestions.forEach((_, idx) => {
+      const key = `question_${idx}`;
+      if (!answers[key] || answers[key].trim().length === 0) {
+        unansweredKeys.add(key);
+      }
+    });
+
+    if (unansweredKeys.size > 0) {
+      setValidationErrors(unansweredKeys);
+      // Scroll para a primeira pergunta não respondida
+      const firstErrorKey = Array.from(unansweredKeys)[0];
+      const element = document.getElementById(firstErrorKey);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        element.focus();
+      }
+      return;
+    }
+
     setIsGeneratingStrategy(true);
 
     try {
@@ -420,7 +485,7 @@ export default function GenerateQuestions() {
             </Button>
             
             {/* Botão principal sempre visível */}
-            <Button onClick={handleGenerateStrategy} disabled={isGeneratingStrategy}>
+            <Button onClick={handleGenerateStrategyClick} disabled={isGeneratingStrategy}>
               {isGeneratingStrategy && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               <Sparkles className="w-4 h-4 mr-2" />
               Gerar Estratégia
@@ -428,6 +493,30 @@ export default function GenerateQuestions() {
           </div>
         }
       />
+
+      {/* Modal de Confirmação */}
+      <AlertDialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 rounded-full bg-amber-500/10">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+              </div>
+              <AlertDialogTitle>Estratégia já registrada</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-base">
+              Já existe uma estratégia registrada para <span className="font-medium text-foreground">{selectedClient?.fantasy_name || selectedClient?.name}</span>. 
+              Ao continuar, a estratégia atual será <span className="font-medium text-destructive">substituída permanentemente</span> pela nova geração.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleGenerateStrategy} className="bg-destructive hover:bg-destructive/90">
+              Substituir Estratégia
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Container Principal */}
       <div className="container mx-auto px-6 py-8">
