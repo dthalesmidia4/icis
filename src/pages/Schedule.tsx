@@ -441,14 +441,14 @@ export default function Schedule() {
     });
   };
 
-  // Extract platform and content type from description/file_location
+  // Extract platform and content type from title/description/file_location
   const extractMetadata = (card: KanbanCard) => {
     const text = `${card.file_location || ''} ${card.description || ''}`.toLowerCase();
+    const titleLower = (card.title || '').toLowerCase();
     
     const platforms: string[] = [];
-    const contentTypes: string[] = [];
     
-    // Platforms
+    // Platforms from file_location and description
     if (text.includes('instagram')) platforms.push('Instagram');
     if (text.includes('facebook')) platforms.push('Facebook');
     if (text.includes('linkedin')) platforms.push('LinkedIn');
@@ -457,15 +457,33 @@ export default function Schedule() {
     if (text.includes('twitter') || text.includes('x.com')) platforms.push('Twitter/X');
     if (text.includes('whatsapp')) platforms.push('WhatsApp');
     
-    // Content types
-    if (text.includes('reels') || text.includes('reel')) contentTypes.push('Reels');
-    if (text.includes('story') || text.includes('stories')) contentTypes.push('Stories');
-    if (text.includes('carrossel') || text.includes('carousel')) contentTypes.push('Carrossel');
-    if (text.includes('post') || text.includes('feed')) contentTypes.push('Post');
-    if (text.includes('vídeo') || text.includes('video')) contentTypes.push('Vídeo');
-    if (text.includes('artigo') || text.includes('blog')) contentTypes.push('Artigo');
-    
-    return { platforms, contentTypes };
+    return { platforms };
+  };
+
+  // Extract content type and clean title from card title
+  const parseCardTitle = (title: string) => {
+    const contentTypePatterns = [
+      { pattern: /^reels?\s*[-–—:]\s*/i, type: 'Reels' },
+      { pattern: /^carrossel\s*[-–—:]\s*/i, type: 'Carrossel' },
+      { pattern: /^carousel\s*[-–—:]\s*/i, type: 'Carrossel' },
+      { pattern: /^post\s*(estático)?\s*[-–—:]\s*/i, type: 'Post' },
+      { pattern: /^stories?\s*[-–—:]\s*/i, type: 'Stories' },
+      { pattern: /^vídeo\s*[-–—:]\s*/i, type: 'Vídeo' },
+      { pattern: /^video\s*[-–—:]\s*/i, type: 'Vídeo' },
+      { pattern: /^artigo\s*[-–—:]\s*/i, type: 'Artigo' },
+      { pattern: /^blog\s*[-–—:]\s*/i, type: 'Artigo' },
+    ];
+
+    for (const { pattern, type } of contentTypePatterns) {
+      if (pattern.test(title)) {
+        return {
+          contentType: type,
+          cleanTitle: title.replace(pattern, '').trim()
+        };
+      }
+    }
+
+    return { contentType: null, cleanTitle: title };
   };
 
   // Aguardar contextos inicializarem
@@ -626,32 +644,63 @@ export default function Schedule() {
                               <Dialog>
                                 <DialogTrigger asChild>
                                   <Card
-                                    className={`mb-2 cursor-pointer hover:shadow-md transition-all ${
-                                      snapshot.isDragging ? "shadow-lg rotate-2" : ""
+                                    className={`mb-3 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-border/50 ${
+                                      snapshot.isDragging ? "shadow-xl rotate-1 scale-105" : ""
                                     }`}
                                     onClick={() => {
                                       setSelectedCard(card);
                                       setEditingField(null);
                                     }}
                                   >
-                                    <CardHeader className="p-3 pb-2">
-                                      <CardTitle className="text-sm font-medium line-clamp-2">
-                                        {card.title}
-                                      </CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="p-3 pt-0">
-                                      <div className="flex flex-wrap gap-1 mb-2">
-                                        {extractMetadata(card).platforms.slice(0, 2).map((platform) => (
-                                          <Badge key={platform} variant="outline" className="text-[10px] px-1.5 py-0">
-                                            {platform}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                      <div className="flex items-center text-xs text-muted-foreground">
-                                        <Calendar className="h-3 w-3 mr-1" />
-                                        {new Date(card.delivery_date + 'T00:00:00').toLocaleDateString("pt-BR")}
-                                      </div>
-                                    </CardContent>
+                                    {(() => {
+                                      const { contentType, cleanTitle } = parseCardTitle(card.title);
+                                      const platforms = extractMetadata(card).platforms;
+                                      const formattedDate = new Date(card.delivery_date + 'T00:00:00').toLocaleDateString("pt-BR");
+                                      
+                                      return (
+                                        <>
+                                          {/* Header: Content Type Badge + Date */}
+                                          <div className="px-3 pt-3 pb-2 flex items-center justify-between gap-2">
+                                            {contentType && (
+                                              <Badge 
+                                                variant="secondary" 
+                                                className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 bg-primary/15 text-primary border-0"
+                                              >
+                                                {contentType}
+                                              </Badge>
+                                            )}
+                                            <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md ml-auto">
+                                              <Calendar className="h-3 w-3" />
+                                              {formattedDate}
+                                            </div>
+                                          </div>
+                                          
+                                          {/* Title */}
+                                          <CardHeader className="px-3 py-2 pt-0">
+                                            <CardTitle className="text-sm font-semibold leading-snug line-clamp-2 text-foreground">
+                                              {cleanTitle}
+                                            </CardTitle>
+                                          </CardHeader>
+                                          
+                                          {/* Footer: Platform Badges */}
+                                          {platforms.length > 0 && (
+                                            <CardContent className="px-3 pb-3 pt-0">
+                                              <div className="flex flex-wrap gap-1.5">
+                                                {platforms.slice(0, 3).map((platform) => (
+                                                  <Badge 
+                                                    key={platform} 
+                                                    variant="outline" 
+                                                    className="text-[10px] px-2 py-0.5 font-medium border-border/60 text-muted-foreground"
+                                                  >
+                                                    {platform}
+                                                  </Badge>
+                                                ))}
+                                              </div>
+                                            </CardContent>
+                                          )}
+                                        </>
+                                      );
+                                    })()}
                                   </Card>
                                 </DialogTrigger>
 
@@ -1078,8 +1127,8 @@ export default function Schedule() {
                                         </label>
                                       </div>
 
-                                      {/* Channel & Type Tags */}
-                                      {selectedCard && (extractMetadata(selectedCard).platforms.length > 0 || extractMetadata(selectedCard).contentTypes.length > 0) && (
+                                      {/* Channel Tags */}
+                                      {selectedCard && extractMetadata(selectedCard).platforms.length > 0 && (
                                         <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
                                           <div className="flex items-center gap-2 mb-3">
                                             <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1089,11 +1138,6 @@ export default function Schedule() {
                                             {extractMetadata(selectedCard).platforms.map((platform) => (
                                               <Badge key={platform} variant="outline" className="text-xs px-2 py-0.5">
                                                 {platform}
-                                              </Badge>
-                                            ))}
-                                            {extractMetadata(selectedCard).contentTypes.map((type) => (
-                                              <Badge key={type} variant="secondary" className="text-xs px-2 py-0.5">
-                                                {type}
                                               </Badge>
                                             ))}
                                           </div>
