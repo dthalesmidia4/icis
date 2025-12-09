@@ -174,7 +174,7 @@ export const DemandReviewModal = ({
           {/* Content */}
           <div className="flex-1 min-w-0">
             <h4 className="font-semibold text-base mb-2">
-              {demand.titulo}
+              {tipo ? `${tipo} - ${demand.titulo}` : demand.titulo}
             </h4>
             <div className="flex flex-wrap items-center gap-1.5 mb-2">
               {isSmart && (
@@ -191,13 +191,8 @@ export const DemandReviewModal = ({
                   {isNormal ? 'Ultra' : 'Normal'}
                 </Badge>
               )}
-              {tipo && (
-                <Badge variant="outline" className="text-xs">
-                  {tipo}
-                </Badge>
-              )}
               <Badge 
-                variant="secondary" 
+                variant="secondary"
                 className={cn(
                   "text-xs",
                   isSmart
