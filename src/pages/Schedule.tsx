@@ -661,14 +661,12 @@ export default function Schedule() {
                                         <>
                                           {/* Header: Content Type Badge + Date */}
                                           <div className="px-3 pt-3 pb-2 flex items-center justify-between gap-2">
-                                            {contentType && (
-                                              <Badge 
-                                                variant="secondary" 
-                                                className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 bg-primary/15 text-primary border-0"
-                                              >
-                                                {contentType}
-                                              </Badge>
-                                            )}
+                                            <Badge 
+                                              variant="secondary" 
+                                              className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 bg-primary/15 text-primary border-0"
+                                            >
+                                              {contentType || 'Conteúdo'}
+                                            </Badge>
                                             <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md ml-auto">
                                               <Calendar className="h-3 w-3" />
                                               {formattedDate}
