@@ -15,13 +15,29 @@ CONTEXTO DISPONÍVEL:
 - Respostas das perguntas guias estratégicas
 - Período selecionado (título, datas, orçamento, objetivo, canal prioritário, observações/restrições)
 
+⚠️ REGRA CRÍTICA - CANAL PRIORITÁRIO:
+TODAS as demandas geradas DEVEM ser EXCLUSIVAMENTE para o CANAL PRIORITÁRIO indicado no contexto.
+- Se o canal prioritário é "Instagram", TODAS as demandas devem ser para Instagram
+- Se o canal prioritário é "LinkedIn", TODAS as demandas devem ser para LinkedIn
+- NUNCA gere demandas para outros canais além do canal prioritário selecionado
+- O campo "canal" de CADA demanda DEVE ser EXATAMENTE o canal prioritário informado
+- NÃO mencione outras redes sociais nos textos, descrições ou instruções
+- Os formatos de conteúdo devem ser ADEQUADOS ao canal prioritário (ex: Reels para Instagram, Artigos para LinkedIn)
+
+⚠️ REGRA CRÍTICA - ESTILOS A EVITAR:
+Considere atentamente a resposta do cliente sobre "estilos de comunicação ou abordagens que NÃO quer usar".
+- Se o cliente indicou que não quer certos estilos, NUNCA use esses estilos nas demandas
+- Adapte todo o conteúdo para respeitar as preferências do cliente
+
 REGRAS OBRIGATÓRIAS:
 1. As datas DEVEM estar DENTRO do período especificado (entre data_inicio e data_fim)
 2. Gere entre 8 a 15 demandas para cada linha
 3. Considere o orçamento e restrições mencionadas nas observações
-4. Respeite os formatos que o cliente NÃO deseja usar (se mencionados)
-5. Distribua as demandas de forma equilibrada ao longo do período
-6. Seja específico e contextualizado - use as informações do cliente para criar demandas personalizadas
+4. Respeite os formatos que o cliente NÃO deseja usar (se mencionados nas perguntas guias)
+5. Respeite os estilos de comunicação que o cliente NÃO quer (conforme respondido nas perguntas guias)
+6. Distribua as demandas de forma equilibrada ao longo do período
+7. Seja específico e contextualizado - use as informações do cliente para criar demandas personalizadas
+8. TODOS os conteúdos devem ser adaptados para o canal prioritário selecionado
 
 ⚠️ EXEMPLO DE COMO VOCÊ DEVE ENTREGAR OS CARDS DAS DEMANDAS (MODELO OBRIGATÓRIO):
 
@@ -30,16 +46,16 @@ REGRAS OBRIGATÓRIAS:
   "titulo": "Erros na Conferência de Notas",
   "objetivo": "Educar e reforçar autoridade",
   "descricao_da_tarefa": "SLIDE 1 – Atenção!\\nErros na conferência de notas custam caro ⚠️\\n✔️ CFOP, NCM e valores precisam bater.\\n❌ NF em CPF sem recibo? Recuse na hora.\\n\\nSLIDE 2 – Transporte\\n📄 Exija o CTe completo.\\n🚛 Confira placa e CNPJ do prestador.\\nSem CTe = sem descarga.",
-  "canal": "Instagram",
+  "canal": "[USAR EXATAMENTE O CANAL PRIORITÁRIO DO CONTEXTO]",
   "data_sugerida": "2025-01-15"
 }
 
 ESTRUTURA DE CADA DEMANDA:
-- tipo: Formato do conteúdo (ex: "Carrossel (3 slides)", "Reels (30s)", "Post estático", "Story sequência")
+- tipo: Formato do conteúdo ADEQUADO AO CANAL PRIORITÁRIO (ex: para Instagram: "Carrossel", "Reels", "Stories"; para LinkedIn: "Post", "Artigo", "Carrossel")
 - titulo: Nome curto e objetivo da demanda
 - objetivo: Propósito da peça (educar, vender, engajar, etc.)
 - descricao_da_tarefa: Conteúdo DETALHADO com roteiro, textos, CTAs, divisão de slides/cenas
-- canal: Plataforma onde será publicado
+- canal: OBRIGATORIAMENTE o canal prioritário selecionado (copiar exatamente do contexto)
 - data_sugerida: Data no formato YYYY-MM-DD
 
 LINHA NORMAL (default_plan):
@@ -62,7 +78,7 @@ FORMATO DE RESPOSTA (JSON válido):
       "titulo": "...",
       "objetivo": "...",
       "descricao_da_tarefa": "...",
-      "canal": "...",
+      "canal": "[CANAL PRIORITÁRIO DO CONTEXTO]",
       "data_sugerida": "YYYY-MM-DD"
     }
   ],
@@ -181,7 +197,7 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY não configurada na tabela api_keys');
     }
 
-    // Build comprehensive context
+    // Build comprehensive context with emphasis on priority channel
     const context = `
 ## DADOS DA EMPRESA
 - Razão Social: ${company.name}
@@ -204,11 +220,15 @@ ${questionsContext || 'Nenhuma pergunta respondida.'}
 - Data Fim: ${periodPlan.period_end}
 - Orçamento: ${periodPlan.budget || 'Não especificado'}
 - Objetivo: ${periodPlan.objective}
-- Canal Prioritário: ${periodPlan.priority_channel}
+
+⚠️ CANAL PRIORITÁRIO (OBRIGATÓRIO PARA TODAS AS DEMANDAS): ${periodPlan.priority_channel}
+ATENÇÃO: Todas as demandas devem ser EXCLUSIVAMENTE para "${periodPlan.priority_channel}". NÃO gere demandas para nenhum outro canal.
+
 - Observações/Restrições: ${periodPlan.observations || 'Nenhuma'}
 `;
 
     console.log('Generating period plans for:', periodPlanId, 'using GPT-5 Mini');
+    console.log('Priority channel:', periodPlan.priority_channel);
 
     // Append JSON instruction to ensure proper output format with DETAILED field requirements
     const jsonInstruction = `
@@ -216,6 +236,9 @@ ${questionsContext || 'Nenhuma pergunta respondida.'}
 ⚠️ INSTRUÇÕES OBRIGATÓRIAS DE FORMATO (SEGUIR EXATAMENTE):
 
 Responda APENAS com JSON válido, sem texto adicional antes ou depois.
+
+⚠️ LEMBRETE CRÍTICO: O campo "canal" de TODAS as demandas DEVE ser EXATAMENTE: "${periodPlan.priority_channel}"
+NÃO use nenhum outro canal. TODAS as demandas são para ${periodPlan.priority_channel}.
 
 ESTRUTURA DE CADA DEMANDA (campos obrigatórios):
 {
@@ -225,7 +248,7 @@ ESTRUTURA DE CADA DEMANDA (campos obrigatórios):
   "conteudo": "CONTEÚDO DETALHADO E COMPLETO:\\nSLIDE 1 — [texto completo]\\nSLIDE 2 — [texto completo]\\n...ou ROTEIRO COMPLETO para vídeos com cada cena/fala descrita",
   "instrucoes_de_producao": "Instruções específicas: cores, ícones, fotos, ângulos, cortes, CTAs visuais, tom",
   "cta_recomendado": "Chamada para ação específica da peça",
-  "canal": "Instagram | LinkedIn | TikTok | YouTube | etc",
+  "canal": "${periodPlan.priority_channel}",
   "data_sugerida": "YYYY-MM-DD (dentro do período especificado)"
 }
 
@@ -239,10 +262,11 @@ IMPORTANTE: O campo "conteudo" DEVE conter o conteúdo COMPLETO E PRONTO PARA US
 - Para posts LinkedIn: texto completo do artigo/post
 
 ⚠️ NUNCA deixe "conteudo" vazio. TODA demanda DEVE ter conteúdo pronto para uso.
+⚠️ TODAS as demandas DEVEM ter canal = "${periodPlan.priority_channel}"
 
 FORMATO DE RESPOSTA FINAL:
 {
-  "default_plan": [{ "tipo": "...", "titulo": "...", "objetivo": "...", "conteudo": "...", "instrucoes_de_producao": "...", "cta_recomendado": "...", "canal": "...", "data_sugerida": "YYYY-MM-DD" }],
+  "default_plan": [{ "tipo": "...", "titulo": "...", "objetivo": "...", "conteudo": "...", "instrucoes_de_producao": "...", "cta_recomendado": "...", "canal": "${periodPlan.priority_channel}", "data_sugerida": "YYYY-MM-DD" }],
   "ultra_plan": [...],
   "normal_summary": "...",
   "ultra_summary": "..."
@@ -320,6 +344,21 @@ FORMATO DE RESPOSTA FINAL:
       console.error('JSON parse error:', parseError);
       console.error('Raw content:', content.substring(0, 500));
       throw new Error('Erro ao processar resposta da IA. A resposta não está em formato JSON válido.');
+    }
+
+    // Ensure all demands have the correct priority channel (post-processing safety)
+    const priorityChannel = periodPlan.priority_channel;
+    if (plans.default_plan && Array.isArray(plans.default_plan)) {
+      plans.default_plan = plans.default_plan.map((demand: any) => ({
+        ...demand,
+        canal: priorityChannel
+      }));
+    }
+    if (plans.ultra_plan && Array.isArray(plans.ultra_plan)) {
+      plans.ultra_plan = plans.ultra_plan.map((demand: any) => ({
+        ...demand,
+        canal: priorityChannel
+      }));
     }
 
     // Update period plan with generated plans
