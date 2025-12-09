@@ -235,6 +235,7 @@ export type Database = {
       period_plans: {
         Row: {
           budget: string | null
+          client_acquisition: string | null
           company_id: string
           created_at: string
           default_plan: Json
@@ -244,6 +245,7 @@ export type Database = {
           observations: string | null
           optional_package: Json | null
           package_accepted: boolean | null
+          paid_traffic_budget: string | null
           period_end: string
           period_start: string
           period_title: string
@@ -257,6 +259,7 @@ export type Database = {
         }
         Insert: {
           budget?: string | null
+          client_acquisition?: string | null
           company_id: string
           created_at?: string
           default_plan?: Json
@@ -266,6 +269,7 @@ export type Database = {
           observations?: string | null
           optional_package?: Json | null
           package_accepted?: boolean | null
+          paid_traffic_budget?: string | null
           period_end: string
           period_start: string
           period_title: string
@@ -279,6 +283,7 @@ export type Database = {
         }
         Update: {
           budget?: string | null
+          client_acquisition?: string | null
           company_id?: string
           created_at?: string
           default_plan?: Json
@@ -288,6 +293,7 @@ export type Database = {
           observations?: string | null
           optional_package?: Json | null
           package_accepted?: boolean | null
+          paid_traffic_budget?: string | null
           period_end?: string
           period_start?: string
           period_title?: string

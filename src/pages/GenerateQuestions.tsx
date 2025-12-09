@@ -41,10 +41,7 @@ const strategicQuestions = [
   "Quando você espera começar a ver resultados? (Prazo estimado: semanas, próximo mês, campanha específica.)",
   "Como você prefere que essa comunicação seja feita? (Tom e formatos: direto, humanizado, premium, educativo, reels, vídeos, stories, carrosséis.)",
   "Existe algum estilo de comunicação ou abordagem que você NÃO quer que seja utilizada? (Formas de comunicação, temas ou formatos que devem ser evitados.)",
-  "Como sua empresa atrai clientes hoje? (Fontes atuais: redes sociais, indicações, anúncios, Google, WhatsApp.)",
-  "Quais são os seus principais diferenciais frente aos concorrentes? (Três pontos que tornam sua empresa mais competitiva.)",
-  "Quanto você pode investir em tráfego pago ou impulsionamento? (Valor aproximado ou nível: zero, baixo, médio, alto.)",
-  "Quais limitações precisamos considerar antes de montar seu cronograma? (Tempo, equipe, estoque, gravação, orçamento, restrições internas, legislação, preferências de formatos.)"
+  "Quais são os seus principais diferenciais frente aos concorrentes? (Três pontos que tornam sua empresa mais competitiva.)"
 ];
 
 export default function GenerateQuestions() {
