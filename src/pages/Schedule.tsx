@@ -687,30 +687,16 @@ export default function Schedule() {
                                       
                                       return (
                                         <>
-                                          {/* Header: Content Type Badge + Date */}
-                                          <div className="px-3 pt-3 pb-2 flex items-center justify-between gap-2">
-                                            <Badge 
-                                              variant="secondary" 
-                                              className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 bg-primary/15 text-primary border-0"
-                                            >
-                                              {contentType || 'Conteúdo'}
-                                            </Badge>
-                                            <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md ml-auto">
-                                              <Calendar className="h-3 w-3" />
-                                              {formattedDate}
-                                            </div>
-                                          </div>
-                                          
-                                          {/* Title */}
-                                          <CardHeader className="px-3 py-2 pt-0">
+                                          {/* Title - Full title with content type */}
+                                          <CardHeader className="px-3 pt-3 pb-2">
                                             <CardTitle className="text-sm font-semibold leading-snug line-clamp-2 text-foreground">
-                                              {cleanTitle}
+                                              {card.title}
                                             </CardTitle>
                                           </CardHeader>
                                           
-                                          {/* Footer: Platform Badges */}
-                                          {platforms.length > 0 && (
-                                            <CardContent className="px-3 pb-3 pt-0">
+                                          {/* Footer: Platform Badges + Date */}
+                                          <CardContent className="px-3 pb-3 pt-0">
+                                            <div className="flex items-center justify-between gap-2">
                                               <div className="flex flex-wrap gap-1.5">
                                                 {platforms.slice(0, 3).map((platform) => (
                                                   <Badge 
@@ -722,8 +708,12 @@ export default function Schedule() {
                                                   </Badge>
                                                 ))}
                                               </div>
-                                            </CardContent>
-                                          )}
+                                              <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md shrink-0">
+                                                <Calendar className="h-3 w-3" />
+                                                {formattedDate}
+                                              </div>
+                                            </div>
+                                          </CardContent>
                                         </>
                                       );
                                     })()}
