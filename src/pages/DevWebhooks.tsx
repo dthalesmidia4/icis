@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import BackButton from "@/components/BackButton";
 
 const DevWebhooks = () => {
   const { toast } = useToast();
@@ -80,7 +81,10 @@ const DevWebhooks = () => {
   return (
     <div className="container max-w-5xl mx-auto px-6 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Webhooks</h1>
+        <div className="flex items-center gap-3 mb-2">
+          <BackButton to="/dev-hub" />
+          <h1 className="text-3xl font-bold">Webhooks</h1>
+        </div>
         <p className="text-muted-foreground">
           Configure URLs de webhook para integrações externas.
         </p>
