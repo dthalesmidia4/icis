@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import BackButton from "@/components/BackButton";
 const DevApis = () => {
   const { toast } = useToast();
   const [apiKey, setApiKey] = useState("");
@@ -78,7 +79,10 @@ const DevApis = () => {
   return (
     <div className="container max-w-5xl mx-auto px-6 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">APIs do Sistema</h1>
+        <div className="flex items-center gap-3 mb-2">
+          <BackButton to="/dev-hub" />
+          <h1 className="text-3xl font-bold">APIs do Sistema</h1>
+        </div>
         <p className="text-muted-foreground">
           Configure as chaves de API externas utilizadas pelo sistema.
         </p>
