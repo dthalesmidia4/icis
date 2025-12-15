@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { ArrowLeft, Calendar, FileText, Link as LinkIcon, Search, Filter, Trash2, LayoutGrid, Target, ClipboardList, Layers, Paperclip, Upload, X, Image, File, Loader2 } from "lucide-react";
+import { ArrowLeft, Calendar, FileText, Link as LinkIcon, Search, Filter, Trash2, LayoutGrid, Target, ClipboardList, Layers, Paperclip, Upload, X, Image, File, Loader2, History, Plus, ChevronRight } from "lucide-react";
+import { Json } from "@/integrations/supabase/types";
 import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
@@ -71,6 +72,9 @@ export default function Schedule() {
   const [cardToDelete, setCardToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyPeriods, setHistoryPeriods] = useState<{ id: string; period_title: string; period_start: string; period_end: string; status: string; created_at: string; final_plan: Json | null; }[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Prioridade: 1) Router state, 2) Query param, 3) SessionStorage
   const periodPlanId = useMemo(() => {
@@ -348,6 +352,48 @@ export default function Schedule() {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const fetchHistoryPeriods = async () => {
+    if (!selectedClient || !tenantId) return;
+    setLoadingHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from("period_plans")
+        .select("id, period_title, period_start, period_end, status, created_at, final_plan")
+        .eq("company_id", selectedClient.id)
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setHistoryPeriods(data || []);
+    } catch (error) {
+      console.error("Error fetching history periods:", error);
+      sonnerToast.error("Erro ao carregar histórico");
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const handleHistoryClick = () => {
+    fetchHistoryPeriods();
+    setShowHistoryModal(true);
+  };
+
+  const handleHistoryPeriodSelect = (periodId: string) => {
+    setShowHistoryModal(false);
+    sessionStorage.setItem('selected-period-id', periodId);
+    navigate('/schedule', { state: { periodPlanId: periodId } });
+    window.location.reload();
+  };
+
+  const getDemandCount = (finalPlan: Json | null): number => {
+    if (!finalPlan) return 0;
+    if (Array.isArray(finalPlan)) return finalPlan.length;
+    return 0;
+  };
+
+  const formatHistoryDate = (dateString: string) => {
+    return new Date(dateString + 'T00:00:00').toLocaleDateString('pt-BR');
   };
 
   // Extrair canais únicos dos cards
@@ -628,6 +674,11 @@ export default function Schedule() {
                 ))}
               </SelectContent>
             </Select>
+
+            <Button variant="outline" onClick={handleHistoryClick} className="w-full sm:w-auto">
+              <History className="h-4 w-4 mr-2" />
+              Histórico
+            </Button>
           </div>
         </div>
 
@@ -1221,6 +1272,76 @@ export default function Schedule() {
         description="Tem certeza que deseja excluir esta demanda? Esta ação não pode ser desfeita."
         loading={isDeleting}
       />
+
+      {/* History Modal */}
+      <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
+        <DialogContent className="w-[95vw] max-w-lg mx-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+              Selecionar Período
+            </DialogTitle>
+          </DialogHeader>
+
+          {loadingHistory ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : historyPeriods.length === 0 ? (
+            <div className="text-center py-6 sm:py-8">
+              <Calendar className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground mb-3 sm:mb-4" />
+              <h3 className="text-base sm:text-lg font-semibold mb-2">Nenhum período encontrado</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-4 px-4">
+                Crie um novo período para começar a planejar suas demandas.
+              </p>
+              <Button onClick={() => { setShowHistoryModal(false); navigate("/plan-period"); }} className="w-full sm:w-auto">
+                <Plus className="h-4 w-4 mr-2" />
+                Criar Novo Período
+              </Button>
+            </div>
+          ) : (
+            <>
+              <ScrollArea className="max-h-[50vh] sm:max-h-[400px] pr-2 sm:pr-4">
+                <div className="space-y-2">
+                  {historyPeriods.map(period => {
+                    const demandCount = getDemandCount(period.final_plan);
+                    const isCurrentPeriod = period.id === periodPlanId;
+                    return (
+                      <Card 
+                        key={period.id} 
+                        className={`p-3 sm:p-4 cursor-pointer hover:bg-accent/50 transition-all border hover:border-primary/50 active:scale-[0.98] group ${isCurrentPeriod ? 'border-primary bg-accent/30' : ''}`}
+                        onClick={() => handleHistoryPeriodSelect(period.id)}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-foreground text-sm sm:text-base truncate">
+                              {period.period_title}
+                              {isCurrentPeriod && <Badge variant="secondary" className="ml-2 text-xs">Atual</Badge>}
+                            </h4>
+                            <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground mt-1">
+                              <span>{formatHistoryDate(period.created_at.split('T')[0])}</span>
+                              <span>•</span>
+                              <span>{demandCount} demandas</span>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+
+              <div className="pt-3 sm:pt-4 border-t">
+                <Button variant="outline" className="w-full" onClick={() => { setShowHistoryModal(false); navigate("/plan-period"); }}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Criar Novo Período
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
