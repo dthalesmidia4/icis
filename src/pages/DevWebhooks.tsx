@@ -114,7 +114,7 @@ const DevWebhooks = () => {
             size="lg"
           >
             <Save className="h-4 w-4 mr-2" />
-            {isSaving ? "Salvando..." : hasExistingUrl ? "Atualizar Webhook" : "Salvar Webhook"}
+            {isSaving ? "Salvando..." : "Salvar"}
           </Button>
         </CardContent>
       </Card>
