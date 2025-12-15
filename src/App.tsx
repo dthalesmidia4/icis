@@ -22,6 +22,7 @@ import GenerateQuestions from "./pages/GenerateQuestions";
 import DevHub from "./pages/DevHub";
 import DevPrompts from "./pages/DevPrompts";
 import DevApis from "./pages/DevApis";
+import DevWebhooks from "./pages/DevWebhooks";
 import Schedule from "./pages/Schedule";
 import PlanPeriod from "./pages/PlanPeriod";
 import ProfileSettings from "./pages/ProfileSettings";
@@ -181,6 +182,15 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <DevApis />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/dev/webhooks" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <DevWebhooks />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>

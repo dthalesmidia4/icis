@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { FileCode, Wifi } from "lucide-react";
+import { FileCode, Wifi, Link2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 const DevHub = () => {
@@ -18,6 +18,12 @@ const DevHub = () => {
       icon: Wifi,
       color: "from-indigo-500 to-indigo-600",
       route: "/dev/apis",
+    },
+    {
+      title: "Webhooks",
+      icon: Link2,
+      color: "from-emerald-500 to-emerald-600",
+      route: "/dev/webhooks",
     },
   ];
 
