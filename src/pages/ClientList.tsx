@@ -7,10 +7,11 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader } from "@/components/ui/card";
-import { ArrowLeft, Search, Plus, Edit, Trash2, Building2 } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import ActionCard from "@/components/ActionCard";
+import BackButton from "@/components/BackButton";
 const ClientList = () => {
   const navigate = useNavigate();
   const { tenantId } = useTenant();
@@ -80,14 +81,7 @@ const ClientList = () => {
         <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
           {/* Header */}
           <div className="flex items-center gap-3">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => navigate("/home")} 
-              className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
-            >
-              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
+            <BackButton to="/home" />
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">
               Gerenciar Clientes
             </h1>
