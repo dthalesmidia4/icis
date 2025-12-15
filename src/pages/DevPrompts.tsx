@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import BackButton from "@/components/BackButton";
 
 const DEFAULT_STRATEGY_PROMPT = `Você é um estrategista de marketing sênior com mais de 15 anos de experiência em criar estratégias globais e atemporais para negócios de diversos setores.
 
@@ -260,7 +261,10 @@ const DevPrompts = () => {
   return (
     <div className="container max-w-5xl mx-auto px-6 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Gerenciamento de Prompts</h1>
+        <div className="flex items-center gap-3 mb-2">
+          <BackButton to="/dev-hub" />
+          <h1 className="text-3xl font-bold">Gerenciamento de Prompts</h1>
+        </div>
         <p className="text-muted-foreground">
           Configure os prompts utilizados pelo sistema para geração de estratégias e demandas.
         </p>
