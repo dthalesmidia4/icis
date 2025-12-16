@@ -1,10 +1,12 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Bold, Italic, Heading1, Heading2, Heading3, 
-  List, ListOrdered, Minus, Type, Plus
+  List, ListOrdered, Minus, Type, Quote, Code, CheckSquare
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -61,6 +63,27 @@ export function BlockEditor({
             class: 'my-4 border-t border-border',
           },
         },
+        blockquote: {
+          HTMLAttributes: {
+            class: 'border-l-4 border-primary/50 pl-4 italic text-muted-foreground my-3',
+          },
+        },
+        codeBlock: {
+          HTMLAttributes: {
+            class: 'bg-muted rounded-lg p-4 font-mono text-sm my-3 overflow-x-auto',
+          },
+        },
+      }),
+      TaskList.configure({
+        HTMLAttributes: {
+          class: 'not-prose space-y-2 my-3',
+        },
+      }),
+      TaskItem.configure({
+        HTMLAttributes: {
+          class: 'flex items-start gap-2',
+        },
+        nested: true,
       }),
       Placeholder.configure({
         placeholder: ({ node }) => {
@@ -86,11 +109,21 @@ export function BlockEditor({
           'prose-li:text-foreground prose-li:my-0.5',
           'prose-strong:font-semibold prose-strong:text-foreground',
           'prose-em:italic',
+          'prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono',
+          'prose-blockquote:border-l-4 prose-blockquote:border-primary/50 prose-blockquote:pl-4 prose-blockquote:italic',
           '[&_.is-editor-empty:first-child::before]:text-muted-foreground/50',
           '[&_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
           '[&_.is-editor-empty:first-child::before]:float-left',
           '[&_.is-editor-empty:first-child::before]:h-0',
           '[&_.is-editor-empty:first-child::before]:pointer-events-none',
+          // TaskList styles
+          '[&_ul[data-type="taskList"]]:list-none [&_ul[data-type="taskList"]]:pl-0',
+          '[&_ul[data-type="taskList"]_li]:flex [&_ul[data-type="taskList"]_li]:items-start [&_ul[data-type="taskList"]_li]:gap-2',
+          '[&_ul[data-type="taskList"]_li_label]:flex [&_ul[data-type="taskList"]_li_label]:items-center',
+          '[&_ul[data-type="taskList"]_li_label_input]:w-4 [&_ul[data-type="taskList"]_li_label_input]:h-4',
+          '[&_ul[data-type="taskList"]_li_label_input]:accent-primary',
+          '[&_ul[data-type="taskList"]_li_div]:flex-1',
+          '[&_ul[data-type="taskList"]_li[data-checked="true"]_div]:line-through [&_ul[data-type="taskList"]_li[data-checked="true"]_div]:text-muted-foreground',
         ),
       },
       handleKeyDown: (view, event) => {
@@ -226,6 +259,24 @@ export function BlockEditor({
       command: () => editor.chain().focus().toggleOrderedList().run(),
     },
     {
+      title: 'Checklist',
+      description: 'Lista de tarefas',
+      icon: <CheckSquare className="h-4 w-4" />,
+      command: () => editor.chain().focus().toggleTaskList().run(),
+    },
+    {
+      title: 'Citação',
+      description: 'Bloco de citação',
+      icon: <Quote className="h-4 w-4" />,
+      command: () => editor.chain().focus().toggleBlockquote().run(),
+    },
+    {
+      title: 'Código',
+      description: 'Bloco de código',
+      icon: <Code className="h-4 w-4" />,
+      command: () => editor.chain().focus().toggleCodeBlock().run(),
+    },
+    {
       title: 'Divisor',
       description: 'Linha horizontal',
       icon: <Minus className="h-4 w-4" />,
@@ -292,6 +343,7 @@ export function BlockEditor({
               editor.isActive('bold') && "bg-muted text-primary"
             )}
             type="button"
+            title="Negrito (Ctrl+B)"
           >
             <Bold className="h-4 w-4" />
           </button>
@@ -302,8 +354,20 @@ export function BlockEditor({
               editor.isActive('italic') && "bg-muted text-primary"
             )}
             type="button"
+            title="Itálico (Ctrl+I)"
           >
             <Italic className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleCode().run()}
+            className={cn(
+              "p-1.5 rounded hover:bg-muted transition-colors",
+              editor.isActive('code') && "bg-muted text-primary"
+            )}
+            type="button"
+            title="Código inline"
+          >
+            <Code className="h-4 w-4" />
           </button>
           <div className="w-px h-4 bg-border mx-1" />
           <button
@@ -313,6 +377,7 @@ export function BlockEditor({
               editor.isActive('heading', { level: 1 }) && "bg-muted text-primary"
             )}
             type="button"
+            title="Título 1"
           >
             <Heading1 className="h-4 w-4" />
           </button>
@@ -323,6 +388,7 @@ export function BlockEditor({
               editor.isActive('heading', { level: 2 }) && "bg-muted text-primary"
             )}
             type="button"
+            title="Título 2"
           >
             <Heading2 className="h-4 w-4" />
           </button>
@@ -334,8 +400,20 @@ export function BlockEditor({
               editor.isActive('bulletList') && "bg-muted text-primary"
             )}
             type="button"
+            title="Lista"
           >
             <List className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => editor.chain().focus().toggleBlockquote().run()}
+            className={cn(
+              "p-1.5 rounded hover:bg-muted transition-colors",
+              editor.isActive('blockquote') && "bg-muted text-primary"
+            )}
+            type="button"
+            title="Citação"
+          >
+            <Quote className="h-4 w-4" />
           </button>
         </div>
       )}
@@ -358,7 +436,7 @@ export function BlockEditor({
         >
           <div className="p-2 border-b border-border bg-muted/30">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Plus className="h-3 w-3" />
+              <Type className="h-3 w-3" />
               <span>Adicionar bloco</span>
               {filterText && (
                 <span className="ml-auto text-primary">"{filterText}"</span>
@@ -406,7 +484,7 @@ export function BlockEditor({
 
       {/* Helper text */}
       <div className="absolute bottom-2 right-3 text-[10px] text-muted-foreground/50 pointer-events-none">
-        Digite / para comandos
+        / comandos • Ctrl+B negrito • Ctrl+I itálico
       </div>
     </div>
   );
