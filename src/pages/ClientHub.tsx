@@ -2,15 +2,19 @@ import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { FileText, Lightbulb, ListTodo, Sparkles } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { useEffect } from "react";
+import { useTenant } from "@/contexts/TenantContext";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const ClientHub = () => {
   const navigate = useNavigate();
+  const { tenantId } = useTenant();
   const {
     selectedClient,
     isInitialized
   } = useSelectedClient();
+  const [loadingDemandas, setLoadingDemandas] = useState(false);
 
   useEffect(() => {
     // Aguardar inicialização do contexto antes de verificar cliente
@@ -20,6 +24,45 @@ const ClientHub = () => {
       navigate('/home');
     }
   }, [isInitialized, selectedClient, navigate]);
+
+  // Buscar último período planejado e navegar para demandas
+  const handleDemandasClick = async () => {
+    if (!selectedClient || !tenantId) return;
+    
+    setLoadingDemandas(true);
+    try {
+      // Buscar o período mais recente com status 'generated' ou 'approved'
+      const { data: latestPeriod, error } = await supabase
+        .from('period_plans')
+        .select('id, period_title, status')
+        .eq('company_id', selectedClient.id)
+        .eq('tenant_id', tenantId)
+        .in('status', ['generated', 'approved', 'mode_selected'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Erro ao buscar período:', error);
+        toast.error('Erro ao buscar período planejado');
+        return;
+      }
+
+      if (latestPeriod) {
+        // Navegar para schedule com o periodPlanId
+        navigate('/schedule', { state: { periodPlanId: latestPeriod.id } });
+      } else {
+        // Nenhum período encontrado
+        toast.info('Nenhum período planejado encontrado. Crie um novo período primeiro.');
+        navigate('/plan-period');
+      }
+    } catch (err) {
+      console.error('Erro inesperado:', err);
+      toast.error('Erro ao acessar demandas');
+    } finally {
+      setLoadingDemandas(false);
+    }
+  };
 
   // Mostrar loading enquanto contexto não inicializa
   if (!isInitialized || !selectedClient) return null;
@@ -45,11 +88,11 @@ const ClientHub = () => {
     route: "/plan-period",
     action: () => navigate("/plan-period")
   }, {
-    title: "Demandas",
+    title: loadingDemandas ? "Carregando..." : "Demandas",
     icon: ListTodo,
     gradient: "from-green-400 to-emerald-500",
     route: "/schedule",
-    action: () => navigate("/schedule")
+    action: handleDemandasClick
   }];
   return (
     <div className="pb-8">
