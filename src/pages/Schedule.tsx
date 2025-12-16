@@ -727,9 +727,6 @@ export default function Schedule() {
                                     title={card.title}
                                     platforms={extractMetadata(card).platforms}
                                     deliveryDate={card.delivery_date}
-                                    status={card.status}
-                                    objetivo={card.objetivo}
-                                    attachments={card.attachments}
                                     isDragging={snapshot.isDragging}
                                     onClick={() => {
                                       setSelectedCard(card);
