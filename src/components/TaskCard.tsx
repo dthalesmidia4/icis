@@ -14,8 +14,9 @@ import { ptBR } from "date-fns/locale";
 import { 
   CalendarIcon, Clock, Target, FileText, MessageSquare,
   Paperclip, Upload, X, File, Loader2, Trash2, CheckCircle2,
-  Circle, Timer, AlertTriangle
+  Circle, AlertTriangle, Check, Pause
 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 interface Attachment {
   url: string;
@@ -65,11 +66,106 @@ const formatFileSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-// Status configuration
-const STATUS_CONFIG = {
-  unassigned: { label: "A Fazer", icon: Circle, color: "bg-muted text-muted-foreground border-border" },
-  in_progress: { label: "Em Andamento", icon: Timer, color: "bg-amber-500/10 text-amber-600 border-amber-500/30" },
-  completed: { label: "Concluído", icon: CheckCircle2, color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" },
+// ClickUp-inspired Status configuration with groups
+const STATUS_GROUPS = [
+  {
+    label: "Não iniciado",
+    statuses: [
+      { 
+        value: "nao_iniciado", 
+        label: "NÃO INICIADO", 
+        color: "hsl(0 0% 45%)", 
+        bgColor: "bg-[hsl(0,0%,45%)]/10",
+        textColor: "text-[hsl(0,0%,45%)]",
+        borderColor: "border-[hsl(0,0%,45%)]/30"
+      },
+    ]
+  },
+  {
+    label: "Ativo",
+    statuses: [
+      { 
+        value: "mapeamento", 
+        label: "MAPEAMENTO DE PROCESSOS", 
+        color: "hsl(270 60% 55%)", 
+        bgColor: "bg-[hsl(270,60%,55%)]/10",
+        textColor: "text-[hsl(270,60%,55%)]",
+        borderColor: "border-[hsl(270,60%,55%)]/30"
+      },
+      { 
+        value: "desenvolvimento", 
+        label: "DESENVOLVIMENTO", 
+        color: "hsl(25 95% 55%)", 
+        bgColor: "bg-[hsl(25,95%,55%)]/10",
+        textColor: "text-[hsl(25,95%,55%)]",
+        borderColor: "border-[hsl(25,95%,55%)]/30"
+      },
+      { 
+        value: "implantacao", 
+        label: "IMPLANTAÇÃO", 
+        color: "hsl(210 80% 55%)", 
+        bgColor: "bg-[hsl(210,80%,55%)]/10",
+        textColor: "text-[hsl(210,80%,55%)]",
+        borderColor: "border-[hsl(210,80%,55%)]/30"
+      },
+      { 
+        value: "otimizacao", 
+        label: "OTIMIZAÇÃO", 
+        color: "hsl(175 70% 40%)", 
+        bgColor: "bg-[hsl(175,70%,40%)]/10",
+        textColor: "text-[hsl(175,70%,40%)]",
+        borderColor: "border-[hsl(175,70%,40%)]/30"
+      },
+    ]
+  },
+  {
+    label: "Pausado",
+    statuses: [
+      { 
+        value: "desenvolvimento_pausado", 
+        label: "DESENVOLVIMENTO PAUSADO", 
+        color: "hsl(280 40% 70%)", 
+        bgColor: "bg-[hsl(280,40%,70%)]/10",
+        textColor: "text-[hsl(280,40%,70%)]",
+        borderColor: "border-[hsl(280,40%,70%)]/30"
+      },
+      { 
+        value: "implantacao_pausada", 
+        label: "IMPLANTAÇÃO PAUSADA", 
+        color: "hsl(210 50% 70%)", 
+        bgColor: "bg-[hsl(210,50%,70%)]/10",
+        textColor: "text-[hsl(210,50%,70%)]",
+        borderColor: "border-[hsl(210,50%,70%)]/30"
+      },
+    ]
+  },
+  {
+    label: "Concluído",
+    statuses: [
+      { 
+        value: "concluido", 
+        label: "CONCLUÍDO", 
+        color: "hsl(142 70% 45%)", 
+        bgColor: "bg-[hsl(142,70%,45%)]/10",
+        textColor: "text-[hsl(142,70%,45%)]",
+        borderColor: "border-[hsl(142,70%,45%)]/30"
+      },
+    ]
+  },
+];
+
+// Flatten for easy lookup
+const ALL_STATUSES = STATUS_GROUPS.flatMap(g => g.statuses);
+
+const getStatusConfig = (statusValue: string) => {
+  return ALL_STATUSES.find(s => s.value === statusValue) || ALL_STATUSES[0];
+};
+
+// Legacy status mapping for backwards compatibility
+const LEGACY_STATUS_MAP: Record<string, string> = {
+  unassigned: "nao_iniciado",
+  in_progress: "desenvolvimento",
+  completed: "concluido",
 };
 
 export default function TaskCard({
@@ -102,13 +198,15 @@ export default function TaskCard({
     }
   };
 
+  // Normalize legacy status values
+  const normalizedStatus = LEGACY_STATUS_MAP[card?.status || ''] || card?.status || 'nao_iniciado';
+
   // Calculate if deadline is overdue
-  const isOverdue = card?.delivery_date && new Date(card.delivery_date + 'T23:59:59') < new Date() && card.status !== 'completed';
+  const isOverdue = card?.delivery_date && new Date(card.delivery_date + 'T23:59:59') < new Date() && normalizedStatus !== 'concluido';
 
   if (!card) return null;
 
-  const statusConfig = STATUS_CONFIG[card.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.unassigned;
-  const StatusIcon = statusConfig.icon;
+  const statusConfig = getStatusConfig(normalizedStatus);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -140,39 +238,67 @@ export default function TaskCard({
 
           {/* Control Fields Row */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Status */}
+            {/* Status - ClickUp inspired */}
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</span>
               <Select
-                value={card.status}
+                value={normalizedStatus}
                 onValueChange={(value) => {
                   onCardChange({ ...card, status: value });
                   handleFieldSave('status', value);
                 }}
               >
-                <SelectTrigger className={cn("h-8 w-auto gap-2 border", statusConfig.color)}>
-                  <StatusIcon className="h-3.5 w-3.5" />
-                  <SelectValue />
+                <SelectTrigger 
+                  className={cn(
+                    "h-9 w-auto min-w-[180px] gap-2 border font-medium text-xs",
+                    statusConfig.bgColor,
+                    statusConfig.textColor,
+                    statusConfig.borderColor
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <span 
+                      className="h-3 w-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: statusConfig.color }}
+                    />
+                    <span className="truncate">{statusConfig.label}</span>
+                  </div>
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unassigned">
-                    <div className="flex items-center gap-2">
-                      <Circle className="h-3.5 w-3.5" />
-                      A Fazer
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="in_progress">
-                    <div className="flex items-center gap-2">
-                      <Timer className="h-3.5 w-3.5" />
-                      Em Andamento
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="completed">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Concluído
-                    </div>
-                  </SelectItem>
+                <SelectContent className="min-w-[220px] max-h-[320px]">
+                  <ScrollArea className="max-h-[300px]">
+                    {STATUS_GROUPS.map((group, groupIdx) => (
+                      <div key={group.label}>
+                        {groupIdx > 0 && <Separator className="my-1" />}
+                        <div className="px-2 py-1.5">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            {group.label}
+                          </span>
+                        </div>
+                        {group.statuses.map((status) => (
+                          <SelectItem 
+                            key={status.value} 
+                            value={status.value}
+                            className="cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span 
+                                className={cn(
+                                  "h-3 w-3 rounded-full flex-shrink-0 flex items-center justify-center",
+                                  status.value === 'concluido' && "ring-1 ring-inset ring-white/30"
+                                )}
+                                style={{ backgroundColor: status.color }}
+                              >
+                                {status.value === 'concluido' && (
+                                  <Check className="h-2 w-2 text-white" />
+                                )}
+                              </span>
+                              <span className="text-xs font-medium">{status.label}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </div>
+                    ))}
+                  </ScrollArea>
                 </SelectContent>
               </Select>
             </div>
