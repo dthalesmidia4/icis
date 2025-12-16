@@ -48,7 +48,7 @@ interface KanbanCard {
 }
 
 const COLUMNS = [
-  { id: "Planejamento Automatizado", title: "Planejamento Automatizado", color: "bg-purple-500" },
+  { id: "Planejamento Gerado", title: "Planejamento Gerado", color: "bg-purple-500" },
   { id: "A Fazer", title: "A Fazer", color: "bg-blue-500" },
   { id: "Em Andamento", title: "Em Andamento", color: "bg-amber-500" },
   { id: "Concluído", title: "Concluído", color: "bg-emerald-500" },
@@ -439,7 +439,7 @@ export default function Schedule() {
   }, [cards, searchQuery, channelFilter]);
 
   const getCardsByColumn = (columnId: string) => {
-    return filteredCards.filter((card) => (card.column_name || "Planejamento Automatizado") === columnId);
+    return filteredCards.filter((card) => (card.column_name || "Planejamento Gerado") === columnId);
   };
 
   // Format description with hierarchy
