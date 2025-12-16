@@ -236,6 +236,20 @@ export default function Schedule() {
     if (!selectedCard || !event.target.files || event.target.files.length === 0) return;
 
     const files = Array.from(event.target.files);
+    const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB em bytes
+
+    // Validar tamanho de cada arquivo
+    const oversizedFiles = files.filter(file => file.size > MAX_FILE_SIZE);
+    if (oversizedFiles.length > 0) {
+      const fileNames = oversizedFiles.map(f => f.name).join(', ');
+      sonnerToast.error(
+        `Arquivo(s) muito grande(s): ${fileNames}. O limite é 100MB.`,
+        { duration: 5000 }
+      );
+      event.target.value = '';
+      return;
+    }
+
     setUploading(true);
 
     try {
