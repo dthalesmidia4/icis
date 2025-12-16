@@ -27,6 +27,7 @@ interface SlashMenuItem {
 export function BlockEditor({ 
   content, 
   onChange, 
+  onBlur,
   placeholder = "Digite '/' para comandos...",
   className,
   minHeight = "120px"
@@ -182,6 +183,8 @@ export function BlockEditor({
         setShowSlashMenu(false);
         setShowToolbar(false);
       }, 200);
+      // Call the onBlur prop for auto-save
+      onBlur?.();
     },
   });
 
