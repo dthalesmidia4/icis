@@ -214,7 +214,7 @@ const PlanPeriod = () => {
       if (data.status === 'error') {
         return {
           success: false,
-          error: 'Erro na geração'
+          error: 'Erro na geração. Verifique se o prompt de demandas está configurado em /dev/prompts'
         };
       }
     }
@@ -260,18 +260,20 @@ const PlanPeriod = () => {
       if (createError) throw createError;
       setPeriodPlanId(periodPlan.id);
 
-      // Fire edge function without waiting - ignore ALL errors (timeout is expected)
-      // Using void to explicitly discard the promise
+      // Fire edge function without waiting - log errors for debugging
       void (async () => {
         try {
-          await supabase.functions.invoke('generate-period-plans', {
+          const { error } = await supabase.functions.invoke('generate-period-plans', {
             body: {
               periodPlanId: periodPlan.id,
               tenantId
             }
           });
-        } catch {
-          // Silently ignore - edge function continues on server regardless
+          if (error) {
+            console.error('Edge function returned error:', error);
+          }
+        } catch (err) {
+          console.error('Edge function invocation failed:', err);
         }
       })();
 

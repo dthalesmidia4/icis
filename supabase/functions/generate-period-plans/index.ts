@@ -7,93 +7,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const DEFAULT_DEMANDAS_PROMPT = `Você é um estrategista de marketing digital premium. Sua tarefa é gerar DUAS linhas de demandas para um período de campanha.
-
-CONTEXTO DISPONÍVEL:
-- Dados cadastrais da empresa (razão social, nome fantasia, setor, tamanho, produtos/serviços)
-- Estratégia global de marketing previamente definida
-- Respostas das perguntas guias estratégicas
-- Período selecionado (título, datas, orçamento, objetivo, canal prioritário, observações/restrições)
-
-⚠️ REGRA CRÍTICA - CANAL PRIORITÁRIO:
-TODAS as demandas geradas DEVEM ser EXCLUSIVAMENTE para o CANAL PRIORITÁRIO indicado no contexto.
-- Se o canal prioritário é "Instagram", TODAS as demandas devem ser para Instagram
-- Se o canal prioritário é "LinkedIn", TODAS as demandas devem ser para LinkedIn
-- NUNCA gere demandas para outros canais além do canal prioritário selecionado
-- O campo "canal" de CADA demanda DEVE ser EXATAMENTE o canal prioritário informado
-- NÃO mencione outras redes sociais nos textos, descrições ou instruções
-- Os formatos de conteúdo devem ser ADEQUADOS ao canal prioritário (ex: Reels para Instagram, Artigos para LinkedIn)
-
-⚠️ REGRA CRÍTICA - ESTILOS A EVITAR:
-Considere atentamente a resposta do cliente sobre "estilos de comunicação ou abordagens que NÃO quer usar".
-- Se o cliente indicou que não quer certos estilos, NUNCA use esses estilos nas demandas
-- Adapte todo o conteúdo para respeitar as preferências do cliente
-
-REGRAS OBRIGATÓRIAS:
-1. As datas DEVEM estar DENTRO do período especificado (entre data_inicio e data_fim)
-2. Gere entre 8 a 15 demandas para cada linha
-3. Considere o orçamento e restrições mencionadas nas observações
-4. Respeite os formatos que o cliente NÃO deseja usar (se mencionados nas perguntas guias)
-5. Respeite os estilos de comunicação que o cliente NÃO quer (conforme respondido nas perguntas guias)
-6. Distribua as demandas de forma equilibrada ao longo do período
-7. Seja específico e contextualizado - use as informações do cliente para criar demandas personalizadas
-8. TODOS os conteúdos devem ser adaptados para o canal prioritário selecionado
-
-⚠️ EXEMPLO DE COMO VOCÊ DEVE ENTREGAR OS CARDS DAS DEMANDAS (MODELO OBRIGATÓRIO):
-
-{
-  "tipo": "Carrossel (3 slides)",
-  "titulo": "Erros na Conferência de Notas",
-  "objetivo": "Educar e reforçar autoridade",
-  "descricao_da_tarefa": "SLIDE 1 – Atenção!\\nErros na conferência de notas custam caro ⚠️\\n✔️ CFOP, NCM e valores precisam bater.\\n❌ NF em CPF sem recibo? Recuse na hora.\\n\\nSLIDE 2 – Transporte\\n📄 Exija o CTe completo.\\n🚛 Confira placa e CNPJ do prestador.\\nSem CTe = sem descarga.",
-  "canal": "[USAR EXATAMENTE O CANAL PRIORITÁRIO DO CONTEXTO]",
-  "data_sugerida": "2025-01-15"
-}
-
-ESTRUTURA DE CADA DEMANDA:
-- tipo: Formato do conteúdo ADEQUADO AO CANAL PRIORITÁRIO (ex: para Instagram: "Carrossel", "Reels", "Stories"; para LinkedIn: "Post", "Artigo", "Carrossel")
-- titulo: Nome curto e objetivo da demanda
-- objetivo: Propósito da peça (educar, vender, engajar, etc.)
-- descricao_da_tarefa: Conteúdo DETALHADO com roteiro, textos, CTAs, divisão de slides/cenas
-- canal: OBRIGATORIAMENTE o canal prioritário selecionado (copiar exatamente do contexto)
-- data_sugerida: Data no formato YYYY-MM-DD
-
-LINHA NORMAL (default_plan):
-- Demandas tradicionais, operacionais e seguras
-- Conteúdos comprovados que funcionam no mercado
-- Abordagem conservadora e consistente
-- Foco em resultados previsíveis e mensuráveis
-
-LINHA ULTRA (ultra_plan):
-- Demandas ousadas, criativas e fora da caixa
-- Ideias inovadoras com potencial viral
-- Campanhas disruptivas e diferenciadas
-- Abordagem de alto risco/alto impacto
-
-FORMATO DE RESPOSTA (JSON válido):
-{
-  "default_plan": [
-    {
-      "tipo": "...",
-      "titulo": "...",
-      "objetivo": "...",
-      "descricao_da_tarefa": "...",
-      "canal": "[CANAL PRIORITÁRIO DO CONTEXTO]",
-      "data_sugerida": "YYYY-MM-DD"
-    }
-  ],
-  "ultra_plan": [...],
-  "normal_summary": "Descrição breve do tom e abordagem do plano normal",
-  "ultra_summary": "Descrição breve do tom e abordagem do plano ultra"
-}`;
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let periodPlanId: string | null = null;
+  let supabase: ReturnType<typeof createClient> | null = null;
+
   try {
-    const { periodPlanId, tenantId } = await req.json();
+    const body = await req.json();
+    periodPlanId = body.periodPlanId;
+    const tenantId = body.tenantId;
+
+    console.log('=== GENERATE-PERIOD-PLANS START ===');
+    console.log('periodPlanId:', periodPlanId);
+    console.log('tenantId:', tenantId);
 
     if (!periodPlanId || !tenantId) {
       throw new Error('periodPlanId e tenantId são obrigatórios');
@@ -101,45 +30,57 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    supabase = createClient(supabaseUrl, supabaseKey);
 
     // Fetch period plan data
-    const { data: periodPlan, error: periodError } = await supabase
+    console.log('Fetching period plan...');
+    const { data: periodPlanData, error: periodError } = await supabase
       .from('period_plans')
       .select('*')
       .eq('id', periodPlanId)
       .single();
 
-    if (periodError || !periodPlan) {
+    if (periodError || !periodPlanData) {
+      console.error('Period plan not found:', periodError);
       throw new Error('Plano de período não encontrado');
     }
+    
+    const periodPlan = periodPlanData as any;
+    console.log('Period plan found:', periodPlan.period_title);
 
     // Fetch company data
-    const { data: company, error: companyError } = await supabase
+    console.log('Fetching company...');
+    const { data: companyData, error: companyError } = await supabase
       .from('tenant_companies')
       .select('*')
       .eq('id', periodPlan.company_id)
       .single();
 
-    if (companyError || !company) {
+    if (companyError || !companyData) {
+      console.error('Company not found:', companyError);
       throw new Error('Empresa não encontrada');
     }
+    
+    const company = companyData as any;
+    console.log('Company found:', company.name);
 
     // Fetch strategy if exists
     let strategyText = '';
     if (periodPlan.strategy_id) {
-      const { data: strategy } = await supabase
+      const { data: strategyData } = await supabase
         .from('strategies')
         .select('strategy_text, name')
         .eq('id', periodPlan.strategy_id)
         .single();
       
+      const strategy = strategyData as any;
       if (strategy) {
         strategyText = strategy.strategy_text;
+        console.log('Strategy found by ID');
       }
     } else {
       // Try to get latest strategy for the company
-      const { data: latestStrategy } = await supabase
+      const { data: latestStrategyData } = await supabase
         .from('strategies')
         .select('strategy_text, name')
         .eq('company_id', periodPlan.company_id)
@@ -148,13 +89,15 @@ serve(async (req) => {
         .limit(1)
         .maybeSingle();
       
+      const latestStrategy = latestStrategyData as any;
       if (latestStrategy) {
         strategyText = latestStrategy.strategy_text;
+        console.log('Latest strategy found');
       }
     }
 
     // Fetch guide questions answers
-    const { data: questionSession } = await supabase
+    const { data: questionSessionData } = await supabase
       .from('question_sessions')
       .select('questions, answers')
       .eq('company_id', periodPlan.company_id)
@@ -163,39 +106,56 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
+    const questionSession = questionSessionData as any;
     let questionsContext = '';
     if (questionSession?.questions && questionSession?.answers) {
       const questions = questionSession.questions as string[];
       const answers = questionSession.answers as Record<string, string>;
       
-      questionsContext = questions.map((q, i) => {
+      questionsContext = questions.map((q: string, i: number) => {
         const answer = answers[i.toString()] || 'Não respondido';
         return `Pergunta: ${q}\nResposta: ${answer}`;
       }).join('\n\n');
+      console.log('Questions context loaded:', questions.length, 'questions');
     }
 
-    // Fetch custom prompt from database
-    const { data: customPrompt } = await supabase
+    // Fetch custom prompt from database - OBRIGATÓRIO
+    console.log('Fetching custom prompt for tenant:', tenantId);
+    const { data: customPromptData, error: promptError } = await supabase
       .from('system_prompts')
       .select('prompt_content')
       .eq('tenant_id', tenantId)
       .eq('prompt_key', 'generate_demandas_prompt')
       .maybeSingle();
 
-    const systemPrompt = customPrompt?.prompt_content || DEFAULT_DEMANDAS_PROMPT;
-    console.log('Using custom prompt:', !!customPrompt);
+    if (promptError) {
+      console.error('Error fetching prompt:', promptError);
+      throw new Error('Erro ao buscar prompt de demandas no banco de dados');
+    }
+
+    const customPrompt = customPromptData as any;
+    if (!customPrompt?.prompt_content) {
+      console.error('Prompt not found for tenant:', tenantId);
+      throw new Error('Prompt de demandas não configurado. Acesse /dev/prompts para configurar o prompt "generate_demandas_prompt".');
+    }
+
+    const systemPrompt = customPrompt.prompt_content;
+    console.log('Custom prompt loaded, length:', systemPrompt.length);
 
     // Fetch OpenAI API key from api_keys table
-    const { data: apiKeyData, error: apiKeyError } = await supabase
+    const { data: apiKeyDataResult, error: apiKeyError } = await supabase
       .from('api_keys')
       .select('key_value')
       .eq('key_name', 'OPENAI_API_KEY')
       .single();
 
-    if (apiKeyError || !apiKeyData) {
+    if (apiKeyError || !apiKeyDataResult) {
       console.error('OpenAI API key not found:', apiKeyError);
       throw new Error('OPENAI_API_KEY não configurada na tabela api_keys');
     }
+    
+    const apiKeyData = apiKeyDataResult as any;
+    console.log('OpenAI API key found');
 
     // Build comprehensive context with emphasis on priority channel
     const context = `
@@ -276,6 +236,7 @@ FORMATO DE RESPOSTA FINAL:
   "ultra_summary": "..."
 }`;
 
+    console.log('Calling OpenAI API...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -294,22 +255,16 @@ FORMATO DE RESPOSTA FINAL:
 
     const responseText = await response.text();
     console.log('OpenAI raw response status:', response.status);
-    console.log('OpenAI raw response preview:', responseText.substring(0, 300));
+    console.log('OpenAI raw response preview:', responseText.substring(0, 500));
 
     if (!response.ok) {
       console.error('OpenAI API error:', response.status, responseText);
       
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limit excedido. Tente novamente em alguns segundos.' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        throw new Error('Rate limit excedido. Tente novamente em alguns segundos.');
       }
       if (response.status === 401) {
-        return new Response(JSON.stringify({ error: 'API Key inválida. Verifique a configuração do OPENAI_API_KEY.' }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        throw new Error('API Key inválida. Verifique a configuração do OPENAI_API_KEY.');
       }
       throw new Error(`OpenAI API error: ${response.status} - ${responseText}`);
     }
@@ -329,7 +284,7 @@ FORMATO DE RESPOSTA FINAL:
       throw new Error('Resposta vazia da IA. Verifique o modelo e prompt.');
     }
 
-    console.log('AI content preview:', content.substring(0, 200));
+    console.log('AI content preview:', content.substring(0, 300));
 
     // Parse JSON response - try multiple extraction methods
     let plans;
@@ -346,7 +301,7 @@ FORMATO DE RESPOSTA FINAL:
       plans = JSON.parse(cleanContent);
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
-      console.error('Raw content:', content.substring(0, 500));
+      console.error('Raw content:', content.substring(0, 1000));
       throw new Error('Erro ao processar resposta da IA. A resposta não está em formato JSON válido.');
     }
 
@@ -357,16 +312,19 @@ FORMATO DE RESPOSTA FINAL:
         ...demand,
         canal: priorityChannel
       }));
+      console.log('Default plan demands:', plans.default_plan.length);
     }
     if (plans.ultra_plan && Array.isArray(plans.ultra_plan)) {
       plans.ultra_plan = plans.ultra_plan.map((demand: any) => ({
         ...demand,
         canal: priorityChannel
       }));
+      console.log('Ultra plan demands:', plans.ultra_plan.length);
     }
 
     // Update period plan with generated plans
-    const { error: updateError } = await supabase
+    console.log('Updating period plan with generated plans...');
+    const { error: updateError } = await (supabase as any)
       .from('period_plans')
       .update({
         default_plan: plans.default_plan || [],
@@ -378,10 +336,10 @@ FORMATO DE RESPOSTA FINAL:
 
     if (updateError) {
       console.error('Update error:', updateError);
-      throw new Error('Erro ao salvar planos gerados');
+      throw new Error('Erro ao salvar planos gerados no banco de dados');
     }
 
-    console.log('Period plans generated successfully with GPT-5 Mini');
+    console.log('=== GENERATE-PERIOD-PLANS SUCCESS ===');
 
     return new Response(JSON.stringify({
       success: true,
@@ -394,7 +352,23 @@ FORMATO DE RESPOSTA FINAL:
     });
 
   } catch (error) {
-    console.error('Error in generate-period-plans:', error);
+    console.error('=== GENERATE-PERIOD-PLANS ERROR ===');
+    console.error('Error:', error);
+
+    // Try to update status to error so polling knows it failed
+    if (periodPlanId && supabase) {
+      try {
+        console.log('Updating period plan status to error...');
+        await (supabase as any)
+          .from('period_plans')
+          .update({ status: 'error' })
+          .eq('id', periodPlanId);
+        console.log('Status updated to error');
+      } catch (updateErr) {
+        console.error('Failed to update status to error:', updateErr);
+      }
+    }
+
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'Erro desconhecido' 
     }), {
