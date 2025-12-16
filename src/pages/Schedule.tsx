@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import KanbanCard from "@/components/KanbanCard";
 
 interface Attachment {
   url: string;
@@ -722,53 +723,16 @@ export default function Schedule() {
                             >
                               <Dialog>
                                 <DialogTrigger asChild>
-                                  <Card
-                                    className={`mb-3 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-border/50 ${
-                                      snapshot.isDragging ? "shadow-xl rotate-1 scale-105" : ""
-                                    }`}
+                                  <KanbanCard
+                                    title={card.title}
+                                    platforms={extractMetadata(card).platforms}
+                                    deliveryDate={card.delivery_date}
+                                    isDragging={snapshot.isDragging}
                                     onClick={() => {
                                       setSelectedCard(card);
                                       setEditingField(null);
                                     }}
-                                  >
-                                    {(() => {
-                                      const { contentType, cleanTitle } = parseCardTitle(card.title);
-                                      const platforms = extractMetadata(card).platforms;
-                                      const formattedDate = new Date(card.delivery_date + 'T00:00:00').toLocaleDateString("pt-BR");
-                                      
-                                      return (
-                                        <>
-                                          {/* Title - Full title with content type */}
-                                          <CardHeader className="px-3 pt-3 pb-2">
-                                            <CardTitle className="text-sm font-semibold leading-snug line-clamp-2 text-foreground">
-                                              {card.title}
-                                            </CardTitle>
-                                          </CardHeader>
-                                          
-                                          {/* Footer: Platform Badges + Date */}
-                                          <CardContent className="px-3 pb-3 pt-0">
-                                            <div className="flex items-center justify-between gap-2">
-                                              <div className="flex flex-wrap gap-1.5">
-                                                {platforms.slice(0, 3).map((platform) => (
-                                                  <Badge 
-                                                    key={platform} 
-                                                    variant="outline" 
-                                                    className="text-[10px] px-2 py-0.5 font-medium border-border/60 text-muted-foreground"
-                                                  >
-                                                    {platform}
-                                                  </Badge>
-                                                ))}
-                                              </div>
-                                              <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md shrink-0">
-                                                <Calendar className="h-3 w-3" />
-                                                {formattedDate}
-                                              </div>
-                                            </div>
-                                          </CardContent>
-                                        </>
-                                      );
-                                    })()}
-                                  </Card>
+                                  />
                                 </DialogTrigger>
 
                                 {/* Card Detail Modal - Redesigned */}
