@@ -210,7 +210,7 @@ export default function TaskCard({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] md:max-w-4xl max-h-[90vh] p-0 overflow-hidden flex flex-col">
+      <DialogContent className="max-w-[95vw] md:max-w-4xl h-[90vh] p-0 overflow-hidden flex flex-col">
         {/* ===== HEADER OPERACIONAL (Fixo, compacto) ===== */}
         <div className="border-b border-border bg-card px-6 py-4 shrink-0">
           {/* Title */}
@@ -363,7 +363,7 @@ export default function TaskCard({
         </div>
 
         {/* ===== BODY (Conteúdo de execução, scrollable) ===== */}
-        <ScrollArea className="flex-1 min-h-0">
+        <ScrollArea className="flex-1 overflow-auto">
           <div className="p-6 space-y-6">
             
             {/* Objetivo */}
