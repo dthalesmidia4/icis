@@ -260,7 +260,7 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent
-          className={`p-0 gap-0 bg-background border-border overflow-hidden ${
+          className={`p-0 gap-0 bg-background border-border overflow-hidden [&>button]:hidden ${
             isFullscreen
               ? "fixed inset-0 w-screen h-screen max-w-none max-h-none rounded-none translate-x-0 translate-y-0 left-0 top-0"
               : "max-w-5xl w-[95vw] h-[90vh]"
