@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
+import { BlockEditor } from "@/components/BlockEditor";
 
 interface Attachment {
   url: string;
@@ -424,28 +424,15 @@ export default function TaskCard({
                     <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />
                   )}
                 </div>
-                {editingField === 'objetivo' ? (
-                  <Textarea
-                    autoFocus
-                    value={card.objetivo || ""}
-                    onChange={(e) => onCardChange({ ...card, objetivo: e.target.value })}
-                    onBlur={() => handleFieldSave('objetivo', card.objetivo || '')}
-                    placeholder="Qual é a finalidade estratégica deste material?"
-                    className="min-h-[60px] text-sm resize-none"
-                    rows={2}
-                  />
-                ) : (
-                  <div 
-                    className="cursor-pointer rounded-lg border border-transparent hover:border-border hover:bg-muted/30 p-3 -m-1 transition-all"
-                    onClick={() => setEditingField('objetivo')}
-                  >
-                    {card.objetivo ? (
-                      <p className="text-sm text-foreground leading-relaxed">{card.objetivo}</p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground/60 italic">Clique para definir o objetivo...</p>
-                    )}
-                  </div>
-                )}
+                <BlockEditor
+                  content={card.objetivo || ""}
+                  onChange={(value) => {
+                    onCardChange({ ...card, objetivo: value });
+                  }}
+                  onBlur={() => handleFieldSave('objetivo', card.objetivo || '')}
+                  placeholder="Qual é a finalidade estratégica deste material?"
+                  minHeight="80px"
+                />
               </section>
 
               {/* Atividade */}
@@ -459,34 +446,15 @@ export default function TaskCard({
                     <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />
                   )}
                 </div>
-                {editingField === 'description' ? (
-                  <Textarea
-                    autoFocus
-                    value={card.description || ""}
-                    onChange={(e) => onCardChange({ ...card, description: e.target.value })}
-                    onBlur={() => handleFieldSave('description', card.description || '')}
-                    placeholder="Copy, roteiros, frames, instruções de produção..."
-                    className="min-h-[200px] font-mono text-sm resize-none"
-                    rows={10}
-                  />
-                ) : (
-                  <div 
-                    className="cursor-pointer rounded-lg border border-transparent hover:border-border hover:bg-muted/30 transition-all"
-                    onClick={() => setEditingField('description')}
-                  >
-                    {card.description ? (
-                      <div className="bg-muted/20 rounded-lg border border-border/50 p-4">
-                        <pre className="text-sm text-foreground whitespace-pre-wrap font-mono leading-relaxed">
-                          {card.description}
-                        </pre>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground/60 italic p-3">
-                        Clique para adicionar copy, roteiros, frames...
-                      </p>
-                    )}
-                  </div>
-                )}
+                <BlockEditor
+                  content={card.description || ""}
+                  onChange={(value) => {
+                    onCardChange({ ...card, description: value });
+                  }}
+                  onBlur={() => handleFieldSave('description', card.description || '')}
+                  placeholder="Copy, roteiros, frames, instruções de produção..."
+                  minHeight="200px"
+                />
               </section>
 
               {/* Observações */}
@@ -500,28 +468,15 @@ export default function TaskCard({
                     <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />
                   )}
                 </div>
-                {editingField === 'observations' ? (
-                  <Textarea
-                    autoFocus
-                    value={card.observations || ""}
-                    onChange={(e) => onCardChange({ ...card, observations: e.target.value })}
-                    onBlur={() => handleFieldSave('observations', card.observations || '')}
-                    placeholder="Feedbacks, ajustes, observações internas..."
-                    className="min-h-[80px] text-sm resize-none"
-                    rows={3}
-                  />
-                ) : (
-                  <div 
-                    className="cursor-pointer rounded-lg border border-transparent hover:border-border hover:bg-muted/30 p-3 -m-1 transition-all"
-                    onClick={() => setEditingField('observations')}
-                  >
-                    {card.observations ? (
-                      <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{card.observations}</p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground/60 italic">Clique para adicionar observações...</p>
-                    )}
-                  </div>
-                )}
+                <BlockEditor
+                  content={card.observations || ""}
+                  onChange={(value) => {
+                    onCardChange({ ...card, observations: value });
+                  }}
+                  onBlur={() => handleFieldSave('observations', card.observations || '')}
+                  placeholder="Feedbacks, ajustes, observações internas..."
+                  minHeight="100px"
+                />
               </section>
 
               {/* Anexos */}
