@@ -17,6 +17,7 @@ import {
   Circle, AlertTriangle, Check, Pause
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 
 interface Attachment {
   url: string;
@@ -183,6 +184,7 @@ export default function TaskCard({
 }: TaskCardProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [deliveryDateOpen, setDeliveryDateOpen] = useState(false);
+  const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
 
   const handleFieldSave = async (field: string, value: string) => {
     await onSave(field, value);
@@ -495,10 +497,11 @@ export default function TaskCard({
                   {card.attachments.map((attachment, idx) => (
                     <div 
                       key={idx} 
-                      className="group relative bg-muted/30 rounded-lg border border-border/50 overflow-hidden hover:border-primary/50 transition-colors"
+                      className="group relative bg-muted/30 rounded-lg border border-border/50 overflow-hidden hover:border-primary/50 transition-colors cursor-pointer"
+                      onClick={() => setPreviewAttachment(attachment)}
                     >
                       {isImageFile(attachment.type) ? (
-                        <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="block">
+                        <div className="block">
                           <div className="aspect-square">
                             <img 
                               src={attachment.url} 
@@ -510,18 +513,13 @@ export default function TaskCard({
                             <p className="text-xs font-medium truncate">{attachment.name}</p>
                             <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
                           </div>
-                        </a>
+                        </div>
                       ) : (
-                        <a 
-                          href={attachment.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="flex flex-col items-center justify-center p-4 aspect-square hover:bg-muted/50 transition-colors"
-                        >
+                        <div className="flex flex-col items-center justify-center p-4 aspect-square hover:bg-muted/50 transition-colors">
                           <File className="h-10 w-10 text-muted-foreground mb-2" />
                           <p className="text-xs font-medium text-center truncate w-full">{attachment.name}</p>
                           <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
-                        </a>
+                        </div>
                       )}
                       <button
                         onClick={(e) => {
@@ -575,6 +573,18 @@ export default function TaskCard({
           </div>
         </ScrollArea>
       </DialogContent>
+
+      {/* Attachment Preview Modal */}
+      <AttachmentPreviewModal
+        isOpen={!!previewAttachment}
+        onClose={() => setPreviewAttachment(null)}
+        fileUrl={previewAttachment?.url || ""}
+        fileName={previewAttachment?.name || ""}
+        onDelete={previewAttachment ? () => {
+          onRemoveAttachment(previewAttachment.url);
+          setPreviewAttachment(null);
+        } : undefined}
+      />
     </Dialog>
   );
 }
