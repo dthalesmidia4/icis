@@ -377,7 +377,7 @@ const PlanPeriod = () => {
           delivery_date: publicationDate,
           file_location: channel || null, // Apenas o canal (Instagram, LinkedIn, etc.)
           status: 'unassigned',
-          column_name: 'Planejamento Automatizado',
+          column_name: 'Planejamento Gerado',
           observations: null
         };
       });
@@ -833,7 +833,7 @@ const PlanPeriod = () => {
           delivery_date: publicationDate,
           file_location: channel || null, // Apenas o canal (Instagram, LinkedIn, etc.)
           status: 'unassigned',
-          column_name: 'Planejamento Automatizado',
+          column_name: 'Planejamento Gerado',
           observations: null
         };
       });
