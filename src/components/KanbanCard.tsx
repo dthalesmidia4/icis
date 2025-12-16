@@ -34,23 +34,21 @@ const KanbanCard = ({
       </CardHeader>
       
       {/* Footer: Platform Badges + Date */}
-      <CardContent className="px-3 pb-3 pt-0">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-1.5">
-            {platforms.slice(0, 3).map((platform) => (
-              <Badge 
-                key={platform} 
-                variant="outline" 
-                className="text-[10px] px-2 py-0.5 font-medium border-border/60 text-muted-foreground"
-              >
-                {platform}
-              </Badge>
-            ))}
-          </div>
-          <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md shrink-0">
-            <Calendar className="h-3 w-3" />
-            {formattedDate}
-          </div>
+      <CardContent className="px-3 pb-3 pt-0 space-y-2">
+        <div className="flex flex-wrap gap-1.5">
+          {platforms.slice(0, 3).map((platform) => (
+            <Badge 
+              key={platform} 
+              variant="outline" 
+              className="text-[10px] px-2 py-0.5 font-medium border-border/60 text-muted-foreground"
+            >
+              {platform}
+            </Badge>
+          ))}
+        </div>
+        <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md w-fit">
+          <Calendar className="h-3 w-3" />
+          {formattedDate}
         </div>
       </CardContent>
     </Card>
