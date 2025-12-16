@@ -270,12 +270,12 @@ export default function TaskCard({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleFieldSave('title', card.title || '');
                   }}
-                  className="text-xl font-semibold border-primary"
+                  className="text-2xl font-semibold border-primary"
                 />
               ) : (
               <h1
                   id="task-card-title"
-                  className="text-xl font-semibold cursor-pointer hover:text-primary transition-colors"
+                  className="text-2xl font-semibold cursor-pointer hover:text-primary transition-colors"
                   onClick={() => setEditingField('title')}
               >
                   {card.title}
