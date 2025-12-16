@@ -363,7 +363,7 @@ export default function TaskCard({
         </div>
 
         {/* ===== BODY (Conteúdo de execução, scrollable) ===== */}
-        <ScrollArea className="flex-1 overflow-auto">
+        <ScrollArea className="flex-1 min-h-0">
           <div className="p-6 space-y-6">
             
             {/* Objetivo */}
