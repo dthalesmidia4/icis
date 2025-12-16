@@ -307,7 +307,7 @@ export default function TaskCard({
 
             {/* Prazo de Entrega (Deadline) */}
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Prazo</span>
+              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Prazo de Entrega</span>
               <Popover open={deliveryDateOpen} onOpenChange={setDeliveryDateOpen}>
                 <PopoverTrigger asChild>
                   <Button
