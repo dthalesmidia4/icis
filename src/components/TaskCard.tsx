@@ -273,13 +273,13 @@ export default function TaskCard({
                   className="text-xl font-semibold border-primary"
                 />
               ) : (
-                <h2
+              <h1
                   id="task-card-title"
                   className="text-xl font-semibold cursor-pointer hover:text-primary transition-colors"
                   onClick={() => setEditingField('title')}
-                >
+              >
                   {card.title}
-                </h2>
+                </h1>
               )}
             </div>
 
