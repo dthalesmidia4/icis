@@ -337,7 +337,7 @@ export default function TaskCard({
                   <div className="p-1.5 bg-secondary/50 rounded-md">
                     <FileText className="h-4 w-4 text-secondary-foreground" />
                   </div>
-                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Atividade</h3>
+                  <h3 className="font-semibold text-foreground uppercase tracking-wide text-lg">Atividade</h3>
                   {saving && savingField === 'description' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
                 </div>
                 <BlockEditor content={card.description || ""} onChange={value => {
