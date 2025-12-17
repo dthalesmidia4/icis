@@ -371,7 +371,7 @@ export default function TaskCard({
                   <div className="p-1.5 bg-muted rounded-md">
                     <Paperclip className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Anexos</h3>
+                  <h3 className="font-semibold text-foreground uppercase tracking-wide text-lg">Anexos</h3>
                   {uploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
                 </div>
 
