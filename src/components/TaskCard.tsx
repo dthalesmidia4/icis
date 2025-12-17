@@ -585,11 +585,19 @@ export default function TaskCard({
         </div>
       </div>
 
-      {/* Attachment Preview Modal */}
-      <AttachmentPreviewModal isOpen={!!previewAttachment} onClose={() => setPreviewAttachment(null)} fileUrl={previewAttachment?.url || ""} fileName={previewAttachment?.name || ""} onDelete={previewAttachment ? () => {
-      onRemoveAttachment(previewAttachment.url);
-      setPreviewAttachment(null);
-    } : undefined} />
+      {/* Attachment Preview Modal - isolated to prevent transform leaking */}
+      <div style={{ isolation: 'isolate', contain: 'layout' }}>
+        <AttachmentPreviewModal 
+          isOpen={!!previewAttachment} 
+          onClose={() => setPreviewAttachment(null)} 
+          fileUrl={previewAttachment?.url || ""} 
+          fileName={previewAttachment?.name || ""} 
+          onDelete={previewAttachment ? () => {
+            onRemoveAttachment(previewAttachment.url);
+            setPreviewAttachment(null);
+          } : undefined} 
+        />
+      </div>
     </>;
 
   // Render using portal to document.body
