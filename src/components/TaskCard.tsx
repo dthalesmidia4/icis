@@ -463,7 +463,7 @@ export default function TaskCard({
           </div>
 
           {/* ===== BODY (Conteúdo de execução, scrollable) ===== */}
-          <ScrollArea className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="px-10 py-6 space-y-6">
               
               {/* Objetivo */}
@@ -581,7 +581,7 @@ export default function TaskCard({
                 }) : "-"}</span>
               </div>
             </div>
-          </ScrollArea>
+          </div>
         </div>
       </div>
 
