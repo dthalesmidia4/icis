@@ -27,7 +27,7 @@ const COLUMNS = [
   { id: "Planejamento Automatizado", title: "Planejamento Automatizado", color: "bg-purple-500" },
   { id: "A Fazer", title: "A Fazer", color: "bg-blue-500" },
   { id: "Em Andamento", title: "Em Andamento", color: "bg-amber-500" },
-  { id: "Concluído", title: "Concluído", color: "bg-emerald-500" },
+  { id: "Conteúdo Programado", title: "Conteúdo Programado", color: "bg-emerald-500" },
 ];
 
 export default function Schedule() {
@@ -174,7 +174,7 @@ export default function Schedule() {
     if (!card) return;
 
     const newColumnName = destination.droppableId;
-    const newStatus = newColumnName === "Concluído" ? "completed" : 
+    const newStatus = newColumnName === "Conteúdo Programado" ? "completed" : 
                       newColumnName === "Em Andamento" ? "in_progress" : "unassigned";
 
     // Atualizar localmente
