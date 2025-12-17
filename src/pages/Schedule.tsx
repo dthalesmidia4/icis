@@ -24,7 +24,7 @@ import type { KanbanCardData, Attachment, PublicationDate } from "@/components/T
 // Using types from TaskCard component
 
 const COLUMNS = [
-  { id: "Planejamento Automatizado", title: "Planejamento Automatizado", color: "bg-purple-500" },
+  { id: "Planejamento", title: "Planejamento", color: "bg-purple-500" },
   { id: "A Fazer", title: "A Fazer", color: "bg-blue-500" },
   { id: "Em Andamento", title: "Em Andamento", color: "bg-amber-500" },
   { id: "Conteúdo Programado", title: "Conteúdo Programado", color: "bg-emerald-500" },
