@@ -429,7 +429,7 @@ export default function TaskCard({
                         Clique ou arraste arquivos para anexar
                       </span>
                       <span className="text-xs text-muted-foreground/60">
-                        Imagens, PDFs, documentos, vídeos • Máximo 500MB
+                        Imagens, PDFs, documentos, vídeos • Máximo 400MB
                       </span>
                     </>}
                 </label>
