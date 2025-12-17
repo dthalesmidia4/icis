@@ -237,7 +237,7 @@ export default function Schedule() {
     if (!selectedCard || !event.target.files || event.target.files.length === 0) return;
 
     const files = Array.from(event.target.files);
-    const MAX_FILE_SIZE = 400 * 1024 * 1024; // 400MB - limite máximo por arquivo
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB - limite do plano gratuito Supabase
 
     // Validar tamanho de cada arquivo
     const oversizedFiles = files.filter(file => file.size > MAX_FILE_SIZE);
@@ -245,8 +245,11 @@ export default function Schedule() {
       const fileNames = oversizedFiles.map(f => f.name).join(', ');
       const fileSizes = oversizedFiles.map(f => `${(f.size / (1024 * 1024)).toFixed(1)}MB`).join(', ');
       sonnerToast.error(
-        `Arquivo(s) muito grande(s): ${fileNames} (${fileSizes}). O limite é 400MB por arquivo.`,
-        { duration: 5000 }
+        `Arquivo muito grande: ${fileNames} (${fileSizes})`,
+        { 
+          description: "Limite de 50MB por arquivo no plano gratuito do Supabase.",
+          duration: 6000 
+        }
       );
       event.target.value = '';
       return;
