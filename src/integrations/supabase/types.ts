@@ -52,6 +52,7 @@ export type Database = {
           observations: string | null
           period_plan_id: string | null
           plan_id: string | null
+          publication_dates: Json | null
           status: string
           tenant_id: string
           title: string
@@ -70,6 +71,7 @@ export type Database = {
           observations?: string | null
           period_plan_id?: string | null
           plan_id?: string | null
+          publication_dates?: Json | null
           status?: string
           tenant_id: string
           title: string
@@ -88,6 +90,7 @@ export type Database = {
           observations?: string | null
           period_plan_id?: string | null
           plan_id?: string | null
+          publication_dates?: Json | null
           status?: string
           tenant_id?: string
           title?: string
