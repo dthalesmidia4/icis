@@ -304,70 +304,88 @@ export default function TaskCard({
               <span className="sr-only">Fechar</span>
             </Button>
 
-            {/* Title */}
-            <div className="mb-4 pr-12">
+            {/* Title - Centered */}
+            <div className="mb-4 px-12 text-center">
               {editingField === 'title' ? <Input autoFocus value={card.title || ""} onChange={e => onCardChange({
               ...card,
               title: e.target.value
             })} onBlur={() => handleFieldSave('title', card.title || '')} onKeyDown={e => {
               if (e.key === 'Enter') handleFieldSave('title', card.title || '');
-            }} className="text-2xl font-semibold border-primary" /> : <h1 id="task-card-title" onClick={() => setEditingField('title')} className="font-semibold cursor-pointer hover:text-primary transition-colors text-4xl">
+            }} className="text-2xl font-semibold border-primary text-center" /> : <h1 id="task-card-title" onClick={() => setEditingField('title')} className="font-semibold cursor-pointer hover:text-primary transition-colors text-4xl">
                   {card.title}
                 </h1>}
             </div>
 
-            {/* Control Fields Row */}
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Status - ClickUp inspired */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</span>
-                <Select value={normalizedStatus} onValueChange={value => {
-                onCardChange({
-                  ...card,
-                  status: value
-                });
-                handleFieldSave('status', value);
-              }}>
-                  <SelectTrigger className={cn("h-9 w-auto min-w-[180px] gap-2 border font-medium text-xs", statusConfig.bgColor, statusConfig.textColor, statusConfig.borderColor)}>
-                    <div className="flex items-center gap-2">
-                      <span className="h-3 w-3 rounded-full flex-shrink-0" style={{
-                      backgroundColor: statusConfig.color
-                    }} />
-                      <span className="truncate">{statusConfig.label}</span>
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="min-w-[220px] max-h-[320px]">
-                    <ScrollArea className="max-h-[300px]">
-                      {STATUS_GROUPS.map((group, groupIdx) => <div key={group.label}>
-                          {groupIdx > 0 && <Separator className="my-1" />}
-                          <div className="px-2 py-1.5">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                              {group.label}
-                            </span>
-                          </div>
-                          {group.statuses.map(status => <SelectItem key={status.value} value={status.value} className="cursor-pointer">
-                              <div className="flex items-center gap-2">
-                                <span className={cn("h-3 w-3 rounded-full flex-shrink-0 flex items-center justify-center", status.value === 'concluido' && "ring-1 ring-inset ring-white/30")} style={{
-                            backgroundColor: status.color
-                          }}>
-                                  {status.value === 'concluido' && <Check className="h-2 w-2 text-white" />}
-                                </span>
-                                <span className="text-xs font-medium">{status.label}</span>
-                              </div>
-                            </SelectItem>)}
-                        </div>)}
-                    </ScrollArea>
-                  </SelectContent>
-                </Select>
+            {/* Control Fields - Centered, Two Rows */}
+            <div className="flex flex-col items-center gap-3">
+              {/* Row 1: Status + Tempo */}
+              <div className="flex items-center gap-3">
+                {/* Status - ClickUp inspired */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</span>
+                  <Select value={normalizedStatus} onValueChange={value => {
+                  onCardChange({
+                    ...card,
+                    status: value
+                  });
+                  handleFieldSave('status', value);
+                }}>
+                    <SelectTrigger className={cn("h-9 w-auto min-w-[180px] gap-2 border font-medium text-xs", statusConfig.bgColor, statusConfig.textColor, statusConfig.borderColor)}>
+                      <div className="flex items-center gap-2">
+                        <span className="h-3 w-3 rounded-full flex-shrink-0" style={{
+                        backgroundColor: statusConfig.color
+                      }} />
+                        <span className="truncate">{statusConfig.label}</span>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="min-w-[220px] max-h-[320px]">
+                      <ScrollArea className="max-h-[300px]">
+                        {STATUS_GROUPS.map((group, groupIdx) => <div key={group.label}>
+                            {groupIdx > 0 && <Separator className="my-1" />}
+                            <div className="px-2 py-1.5">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                {group.label}
+                              </span>
+                            </div>
+                            {group.statuses.map(status => <SelectItem key={status.value} value={status.value} className="cursor-pointer">
+                                <div className="flex items-center gap-2">
+                                  <span className={cn("h-3 w-3 rounded-full flex-shrink-0 flex items-center justify-center", status.value === 'concluido' && "ring-1 ring-inset ring-white/30")} style={{
+                              backgroundColor: status.color
+                            }}>
+                                    {status.value === 'concluido' && <Check className="h-2 w-2 text-white" />}
+                                  </span>
+                                  <span className="text-xs font-medium">{status.label}</span>
+                                </div>
+                              </SelectItem>)}
+                          </div>)}
+                      </ScrollArea>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="h-4 w-px bg-border" />
+
+                {/* Tempo de Atividade (placeholder) */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Tempo</span>
+                  <Badge variant="outline" className="h-8 gap-1.5 font-normal text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    --:--
+                  </Badge>
+                </div>
+
+                {/* Delete button */}
+                <div className="h-4 w-px bg-border" />
+                <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={onDelete}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
 
-              <div className="h-4 w-px bg-border" />
-
-              {/* Datas de Publicação */}
-              <div className="flex items-center gap-2 flex-wrap">
+              {/* Row 2: Datas de Publicação */}
+              <div className="flex items-center gap-2 flex-wrap justify-center">
                 <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Publicação</span>
                 <TooltipProvider delayDuration={200}>
-                  <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap justify-center">
                     {publicationDates.map((pubDate, index) => (
                       <div key={index} className="flex items-center gap-1">
                         {/* Date Picker */}
@@ -441,22 +459,6 @@ export default function TaskCard({
                   </div>
                 </TooltipProvider>
               </div>
-
-              <div className="h-4 w-px bg-border" />
-
-              {/* Tempo de Atividade (placeholder) */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Tempo</span>
-                <Badge variant="outline" className="h-8 gap-1.5 font-normal text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5" />
-                  --:--
-                </Badge>
-              </div>
-
-              {/* Delete button - far right */}
-              <Button variant="ghost" size="sm" className="ml-auto h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={onDelete}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
             </div>
           </div>
 
