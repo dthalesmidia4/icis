@@ -290,7 +290,7 @@ export default function TaskCard({
   const statusConfig = getStatusConfig(normalizedStatus);
   const modalContent = <>
       {/* Full-screen modal container - respects sidebar */}
-      <div className="fixed inset-0 z-[60] md:left-16 flex flex-col" role="dialog" aria-modal="true" aria-labelledby="task-card-title">
+      <div className="fixed inset-0 z-50 md:left-16 flex flex-col" role="dialog" aria-modal="true" aria-labelledby="task-card-title">
         {/* Overlay - only covers content area */}
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" aria-hidden="true" />
         

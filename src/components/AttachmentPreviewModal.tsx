@@ -257,11 +257,11 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
   const showZoomControls = fileType === "image" || fileType === "pdf";
 
   return (
-    <>
+    <div className="relative z-[70]">
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent
           aria-describedby={undefined}
-          className={`p-0 gap-0 bg-background border-border overflow-hidden [&>button]:hidden transform-gpu ${
+          className={`p-0 gap-0 bg-background border-border overflow-hidden [&>button]:hidden transform-gpu z-[70] ${
             isFullscreen
               ? "fixed inset-0 w-screen h-screen max-w-none max-h-none rounded-none translate-x-0 translate-y-0 left-0 top-0"
               : "max-w-5xl w-[95vw] h-[90vh]"
@@ -430,6 +430,6 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 };
