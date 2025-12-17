@@ -14,14 +14,30 @@ import { CalendarIcon, Clock, Target, FileText, MessageSquare, Paperclip, Upload
 import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import { BlockEditor } from "@/components/BlockEditor";
-interface Attachment {
+// Enhanced Attachment interface with full traceability
+export interface Attachment {
+  // Identificação do arquivo
   url: string;
   name: string;
   type: string;
   size: number;
+  storagePath: string; // Caminho completo no storage para rastreabilidade
+  
+  // Metadados de auditoria
   uploadedAt: string;
+  uploadedBy: {
+    id: string;
+    email: string;
+    name?: string;
+  };
+  
+  // Vínculos obrigatórios (rastreabilidade)
+  cardId: string;        // Vínculo direto com TaskCard
+  tenantId: string;      // Vínculo com tenant
+  clientId?: string;     // Vínculo com cliente
+  periodPlanId?: string; // Vínculo com período
 }
-interface KanbanCardData {
+export interface KanbanCardData {
   id: string;
   title: string;
   status: string;
@@ -413,7 +429,7 @@ export default function TaskCard({
                         Clique ou arraste arquivos para anexar
                       </span>
                       <span className="text-xs text-muted-foreground/60">
-                        Imagens, PDFs, documentos, vídeos • Máximo 50MB
+                        Imagens, PDFs, documentos, vídeos • Máximo 500MB
                       </span>
                     </>}
                 </label>
@@ -443,4 +459,3 @@ export default function TaskCard({
   // Render using portal to document.body
   return createPortal(modalContent, document.body);
 }
-export type { KanbanCardData, Attachment };
