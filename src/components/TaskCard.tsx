@@ -316,73 +316,66 @@ export default function TaskCard({
                 </h1>}
             </div>
 
-            {/* Control Fields - Centered, Two Rows */}
-            <div className="flex flex-col items-center gap-3">
-              {/* Row 1: Status + Tempo */}
-              <div className="flex items-center gap-3">
-                {/* Status - ClickUp inspired */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</span>
-                  <Select value={normalizedStatus} onValueChange={value => {
-                  onCardChange({
-                    ...card,
-                    status: value
-                  });
-                  handleFieldSave('status', value);
-                }}>
-                    <SelectTrigger className={cn("h-9 w-auto min-w-[180px] gap-2 border font-medium text-xs", statusConfig.bgColor, statusConfig.textColor, statusConfig.borderColor)}>
-                      <div className="flex items-center gap-2">
-                        <span className="h-3 w-3 rounded-full flex-shrink-0" style={{
-                        backgroundColor: statusConfig.color
-                      }} />
-                        <span className="truncate">{statusConfig.label}</span>
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent className="min-w-[220px] max-h-[320px]">
-                      <ScrollArea className="max-h-[300px]">
-                        {STATUS_GROUPS.map((group, groupIdx) => <div key={group.label}>
-                            {groupIdx > 0 && <Separator className="my-1" />}
-                            <div className="px-2 py-1.5">
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                {group.label}
-                              </span>
-                            </div>
-                            {group.statuses.map(status => <SelectItem key={status.value} value={status.value} className="cursor-pointer">
-                                <div className="flex items-center gap-2">
-                                  <span className={cn("h-3 w-3 rounded-full flex-shrink-0 flex items-center justify-center", status.value === 'concluido' && "ring-1 ring-inset ring-white/30")} style={{
-                              backgroundColor: status.color
-                            }}>
-                                    {status.value === 'concluido' && <Check className="h-2 w-2 text-white" />}
-                                  </span>
-                                  <span className="text-xs font-medium">{status.label}</span>
-                                </div>
-                              </SelectItem>)}
-                          </div>)}
-                      </ScrollArea>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="h-4 w-px bg-border" />
-
-                {/* Tempo de Atividade (placeholder) */}
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Tempo</span>
-                  <Badge variant="outline" className="h-8 gap-1.5 font-normal text-muted-foreground">
-                    <Clock className="h-3.5 w-3.5" />
-                    --:--
-                  </Badge>
-                </div>
-
-                {/* Delete button */}
-                <div className="h-4 w-px bg-border" />
-                <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={onDelete}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+            {/* Control Fields - Centered, Single Row */}
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              {/* Status - ClickUp inspired */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</span>
+                <Select value={normalizedStatus} onValueChange={value => {
+                onCardChange({
+                  ...card,
+                  status: value
+                });
+                handleFieldSave('status', value);
+              }}>
+                  <SelectTrigger className={cn("h-9 w-auto min-w-[180px] gap-2 border font-medium text-xs", statusConfig.bgColor, statusConfig.textColor, statusConfig.borderColor)}>
+                    <div className="flex items-center gap-2">
+                      <span className="h-3 w-3 rounded-full flex-shrink-0" style={{
+                      backgroundColor: statusConfig.color
+                    }} />
+                      <span className="truncate">{statusConfig.label}</span>
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="min-w-[220px] max-h-[320px]">
+                    <ScrollArea className="max-h-[300px]">
+                      {STATUS_GROUPS.map((group, groupIdx) => <div key={group.label}>
+                          {groupIdx > 0 && <Separator className="my-1" />}
+                          <div className="px-2 py-1.5">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              {group.label}
+                            </span>
+                          </div>
+                          {group.statuses.map(status => <SelectItem key={status.value} value={status.value} className="cursor-pointer">
+                              <div className="flex items-center gap-2">
+                                <span className={cn("h-3 w-3 rounded-full flex-shrink-0 flex items-center justify-center", status.value === 'concluido' && "ring-1 ring-inset ring-white/30")} style={{
+                            backgroundColor: status.color
+                          }}>
+                                  {status.value === 'concluido' && <Check className="h-2 w-2 text-white" />}
+                                </span>
+                                <span className="text-xs font-medium">{status.label}</span>
+                              </div>
+                            </SelectItem>)}
+                        </div>)}
+                    </ScrollArea>
+                  </SelectContent>
+                </Select>
               </div>
 
-              {/* Row 2: Datas de Publicação */}
-              <div className="flex items-center gap-2 flex-wrap justify-center">
+              <div className="h-4 w-px bg-border" />
+
+              {/* Tempo de Atividade (placeholder) */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Tempo</span>
+                <Badge variant="outline" className="h-8 gap-1.5 font-normal text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" />
+                  --:--
+                </Badge>
+              </div>
+
+              <div className="h-4 w-px bg-border" />
+
+              {/* Datas de Publicação */}
+              <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Publicação</span>
                 <TooltipProvider delayDuration={200}>
                   <div className="flex items-center gap-1.5 flex-wrap justify-center">
@@ -459,6 +452,13 @@ export default function TaskCard({
                   </div>
                 </TooltipProvider>
               </div>
+
+              <div className="h-4 w-px bg-border" />
+
+              {/* Delete button */}
+              <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={onDelete}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
           </div>
 
