@@ -18,7 +18,8 @@ import { toast as sonnerToast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import KanbanCard from "@/components/KanbanCard";
-import TaskCard, { type KanbanCardData, type Attachment } from "@/components/TaskCard";
+import TaskCard from "@/components/TaskCard";
+import type { KanbanCardData, Attachment } from "@/components/TaskCard";
 
 // Using types from TaskCard component
 
@@ -236,7 +237,7 @@ export default function Schedule() {
     if (!selectedCard || !event.target.files || event.target.files.length === 0) return;
 
     const files = Array.from(event.target.files);
-    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB em bytes (limite do Supabase)
+    const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB - limite máximo por arquivo
 
     // Validar tamanho de cada arquivo
     const oversizedFiles = files.filter(file => file.size > MAX_FILE_SIZE);
@@ -244,10 +245,17 @@ export default function Schedule() {
       const fileNames = oversizedFiles.map(f => f.name).join(', ');
       const fileSizes = oversizedFiles.map(f => `${(f.size / (1024 * 1024)).toFixed(1)}MB`).join(', ');
       sonnerToast.error(
-        `Arquivo(s) muito grande(s): ${fileNames} (${fileSizes}). O limite é 50MB por arquivo.`,
+        `Arquivo(s) muito grande(s): ${fileNames} (${fileSizes}). O limite é 500MB por arquivo.`,
         { duration: 5000 }
       );
       event.target.value = '';
+      return;
+    }
+
+    // Obter dados do usuário atual para rastreabilidade
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      sonnerToast.error("Usuário não autenticado. Faça login novamente.");
       return;
     }
 
@@ -255,54 +263,101 @@ export default function Schedule() {
 
     try {
       const uploadPromises = files.map(async (file) => {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${selectedCard.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const fileExt = file.name.split('.').pop()?.toLowerCase() || 'bin';
+        const timestamp = Date.now();
+        const uniqueId = Math.random().toString(36).substring(2, 9);
+        
+        // Caminho organizado: tenant/client/period/card/timestamp-uniqueId.ext
+        // Estrutura hierárquica para rastreabilidade e organização
+        const storagePath = [
+          tenantId || 'unknown-tenant',
+          selectedClient?.id || 'unknown-client',
+          periodPlanId || 'unknown-period',
+          selectedCard.id,
+          `${timestamp}-${uniqueId}.${fileExt}`
+        ].join('/');
         
         const { data, error } = await supabase.storage
           .from('card-attachments')
-          .upload(fileName, file);
+          .upload(storagePath, file, {
+            cacheControl: '3600',
+            upsert: false // Nunca sobrescrever - cada anexo é único
+          });
 
         if (error) throw error;
 
         const { data: urlData } = supabase.storage
           .from('card-attachments')
-          .getPublicUrl(fileName);
+          .getPublicUrl(storagePath);
 
-        return {
+        // Metadados completos do anexo para rastreabilidade
+        const attachment: Attachment = {
+          // Identificação do arquivo
           url: urlData.publicUrl,
           name: file.name,
-          type: file.type,
+          type: file.type || 'application/octet-stream',
           size: file.size,
-          uploadedAt: new Date().toISOString()
-        } as Attachment;
+          storagePath: storagePath,
+          
+          // Metadados de auditoria
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: {
+            id: user.id,
+            email: user.email || '',
+            name: user.user_metadata?.full_name || undefined
+          },
+          
+          // Vínculos obrigatórios
+          cardId: selectedCard.id,
+          tenantId: tenantId || '',
+          clientId: selectedClient?.id,
+          periodPlanId: periodPlanId || undefined
+        };
+
+        return attachment;
       });
 
       const newAttachments = await Promise.all(uploadPromises);
       const updatedAttachments = [...(selectedCard.attachments || []), ...newAttachments];
 
-      // Save to database
+      // Salvar no banco de dados com metadados completos
       const { error: updateError } = await supabase
         .from('cards')
-        .update({ attachments: updatedAttachments as unknown as any })
+        .update({ 
+          attachments: updatedAttachments as unknown as any,
+          updated_at: new Date().toISOString() // Atualizar timestamp para histórico
+        })
         .eq('id', selectedCard.id);
 
       if (updateError) throw updateError;
 
-      // Update local state
+      // Atualizar estado local
       setSelectedCard(prev => prev ? { ...prev, attachments: updatedAttachments } : null);
       setCards(prev => prev.map(c => 
         c.id === selectedCard.id ? { ...c, attachments: updatedAttachments } : c
       ));
 
-      sonnerToast.success(`${newAttachments.length} arquivo(s) anexado(s)`);
+      sonnerToast.success(
+        `${newAttachments.length} arquivo(s) anexado(s) com sucesso`,
+        { description: `Vinculado à tarefa: ${selectedCard.title?.substring(0, 30)}...` }
+      );
     } catch (error: any) {
       console.error("Error uploading file:", error);
       
-      // Mensagem de erro mais específica
+      // Mensagens de erro específicas para debugging
       if (error?.message?.includes('exceeded the maximum allowed size') || error?.statusCode === '413') {
-        sonnerToast.error("Arquivo muito grande. O limite é 50MB por arquivo.", { duration: 5000 });
+        sonnerToast.error("Arquivo muito grande para o bucket.", { 
+          description: "Contate o administrador para aumentar o limite do storage.",
+          duration: 5000 
+        });
       } else if (error?.message?.includes('not found') || error?.statusCode === '404') {
-        sonnerToast.error("Bucket de armazenamento não encontrado. Contate o suporte.");
+        sonnerToast.error("Bucket de armazenamento não encontrado.", {
+          description: "Verifique a configuração do Supabase Storage."
+        });
+      } else if (error?.message?.includes('Duplicate')) {
+        sonnerToast.error("Arquivo duplicado.", {
+          description: "Um arquivo com esse nome já existe."
+        });
       } else {
         sonnerToast.error(`Erro ao fazer upload: ${error?.message || 'Tente novamente'}`);
       }
@@ -316,33 +371,56 @@ export default function Schedule() {
     if (!selectedCard) return;
 
     try {
-      // Extract file path from URL
-      const urlParts = attachmentUrl.split('/card-attachments/');
-      if (urlParts.length > 1) {
-        const filePath = urlParts[1];
-        await supabase.storage.from('card-attachments').remove([filePath]);
+      // Encontrar o anexo pelo URL
+      const attachment = (selectedCard.attachments || []).find(a => a.url === attachmentUrl);
+      
+      // Usar storagePath se disponível (mais confiável), senão extrair da URL
+      let filePath: string | null = null;
+      if (attachment?.storagePath) {
+        filePath = attachment.storagePath;
+      } else {
+        // Fallback para anexos antigos sem storagePath
+        const urlParts = attachmentUrl.split('/card-attachments/');
+        if (urlParts.length > 1) {
+          filePath = urlParts[1];
+        }
+      }
+
+      // Remover do storage
+      if (filePath) {
+        const { error: storageError } = await supabase.storage
+          .from('card-attachments')
+          .remove([filePath]);
+        
+        if (storageError) {
+          console.warn("Aviso ao remover do storage:", storageError);
+          // Continuar mesmo com erro no storage (arquivo pode já ter sido removido)
+        }
       }
 
       const updatedAttachments = (selectedCard.attachments || []).filter(a => a.url !== attachmentUrl);
 
-      // Save to database
+      // Salvar no banco de dados
       const { error } = await supabase
         .from('cards')
-        .update({ attachments: updatedAttachments as unknown as any })
+        .update({ 
+          attachments: updatedAttachments as unknown as any,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', selectedCard.id);
 
       if (error) throw error;
 
-      // Update local state
+      // Atualizar estado local
       setSelectedCard(prev => prev ? { ...prev, attachments: updatedAttachments } : null);
       setCards(prev => prev.map(c => 
         c.id === selectedCard.id ? { ...c, attachments: updatedAttachments } : c
       ));
 
-      sonnerToast.success("Anexo removido");
+      sonnerToast.success("Anexo removido com sucesso");
     } catch (error) {
       console.error("Error removing attachment:", error);
-      sonnerToast.error("Erro ao remover anexo");
+      sonnerToast.error("Erro ao remover anexo. Tente novamente.");
     }
   };
 
