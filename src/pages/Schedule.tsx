@@ -53,22 +53,27 @@ export default function Schedule() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [historyPeriods, setHistoryPeriods] = useState<{ id: string; period_title: string; period_start: string; period_end: string; status: string; created_at: string; final_plan: Json | null; }[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [activePeriodId, setActivePeriodId] = useState<string | null>(null);
 
-  // Prioridade: 1) Router state, 2) Query param, 3) SessionStorage
+  // Prioridade: 1) State local, 2) Router state, 3) Query param, 4) SessionStorage
   const periodPlanId = useMemo(() => {
-    // 1. Tentar do state (mais confiável, não sofre encoding)
+    // 1. State local (para navegação in-place)
+    if (activePeriodId) {
+      return activePeriodId;
+    }
+    // 2. Tentar do state (mais confiável, não sofre encoding)
     const stateValue = (location.state as { periodPlanId?: string })?.periodPlanId;
     if (stateValue) {
       return stateValue;
     }
-    // 2. Tentar do query param (fallback para links diretos)
+    // 3. Tentar do query param (fallback para links diretos)
     const fromQuery = searchParams.get("periodPlanId");
     if (fromQuery) {
       return fromQuery;
     }
-    // 3. Tentar do sessionStorage (backup)
+    // 4. Tentar do sessionStorage (backup)
     return sessionStorage.getItem('selected-period-id');
-  }, [location.state, searchParams]);
+  }, [activePeriodId, location.state, searchParams]);
 
   useEffect(() => {
     // Aguardar contextos inicializarem
@@ -463,8 +468,7 @@ export default function Schedule() {
   const handleHistoryPeriodSelect = (periodId: string) => {
     setShowHistoryModal(false);
     sessionStorage.setItem('selected-period-id', periodId);
-    navigate('/schedule', { state: { periodPlanId: periodId } });
-    window.location.reload();
+    setActivePeriodId(periodId);
   };
 
   const getDemandCount = (finalPlan: Json | null): number => {
