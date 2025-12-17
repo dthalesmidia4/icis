@@ -236,14 +236,15 @@ export default function Schedule() {
     if (!selectedCard || !event.target.files || event.target.files.length === 0) return;
 
     const files = Array.from(event.target.files);
-    const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB em bytes
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB em bytes (limite do Supabase)
 
     // Validar tamanho de cada arquivo
     const oversizedFiles = files.filter(file => file.size > MAX_FILE_SIZE);
     if (oversizedFiles.length > 0) {
       const fileNames = oversizedFiles.map(f => f.name).join(', ');
+      const fileSizes = oversizedFiles.map(f => `${(f.size / (1024 * 1024)).toFixed(1)}MB`).join(', ');
       sonnerToast.error(
-        `Arquivo(s) muito grande(s): ${fileNames}. O limite é 500MB.`,
+        `Arquivo(s) muito grande(s): ${fileNames} (${fileSizes}). O limite é 50MB por arquivo.`,
         { duration: 5000 }
       );
       event.target.value = '';
@@ -294,9 +295,17 @@ export default function Schedule() {
       ));
 
       sonnerToast.success(`${newAttachments.length} arquivo(s) anexado(s)`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error uploading file:", error);
-      sonnerToast.error("Erro ao fazer upload do arquivo");
+      
+      // Mensagem de erro mais específica
+      if (error?.message?.includes('exceeded the maximum allowed size') || error?.statusCode === '413') {
+        sonnerToast.error("Arquivo muito grande. O limite é 50MB por arquivo.", { duration: 5000 });
+      } else if (error?.message?.includes('not found') || error?.statusCode === '404') {
+        sonnerToast.error("Bucket de armazenamento não encontrado. Contate o suporte.");
+      } else {
+        sonnerToast.error(`Erro ao fazer upload: ${error?.message || 'Tente novamente'}`);
+      }
     } finally {
       setUploading(false);
       event.target.value = '';
