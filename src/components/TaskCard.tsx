@@ -320,7 +320,7 @@ export default function TaskCard({
                   <div className="p-1.5 bg-primary/10 rounded-md">
                     <Target className="h-4 w-4 text-primary" />
                   </div>
-                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">Objetivo</h3>
+                  <h3 className="font-semibold text-foreground uppercase tracking-wide text-xl">Objetivo</h3>
                   {saving && savingField === 'objetivo' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
                 </div>
                 <BlockEditor content={card.objetivo || ""} onChange={value => {
