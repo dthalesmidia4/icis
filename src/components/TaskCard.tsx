@@ -7,13 +7,21 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Clock, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, CheckCircle2, Circle, AlertTriangle, Check, Pause } from "lucide-react";
+import { CalendarIcon, Clock, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import { BlockEditor } from "@/components/BlockEditor";
+
+// Publication date interface
+export interface PublicationDate {
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM
+}
+
 // Enhanced Attachment interface with full traceability
 export interface Attachment {
   // Identificação do arquivo
@@ -37,6 +45,7 @@ export interface Attachment {
   clientId?: string;     // Vínculo com cliente
   periodPlanId?: string; // Vínculo com período
 }
+
 export interface KanbanCardData {
   id: string;
   title: string;
@@ -53,6 +62,7 @@ export interface KanbanCardData {
   created_at: string;
   updated_at: string;
   attachments: Attachment[] | null;
+  publication_dates?: PublicationDate[] | null;
 }
 interface TaskCardProps {
   open: boolean;
@@ -171,8 +181,15 @@ export default function TaskCard({
   uploading = false
 }: TaskCardProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
-  const [deliveryDateOpen, setDeliveryDateOpen] = useState(false);
+  const [openDatePickerIndex, setOpenDatePickerIndex] = useState<number | null>(null);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+
+  // Get publication dates from card or use default with one empty date
+  const publicationDates: PublicationDate[] = card?.publication_dates?.length 
+    ? card.publication_dates 
+    : [{ date: card?.delivery_date || '', time: '09:00' }];
+
+  const MAX_PUBLICATION_DATES = 5;
 
   // Handle ESC key to close modal
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -180,6 +197,7 @@ export default function TaskCard({
       onOpenChange(false);
     }
   }, [open, onOpenChange]);
+  
   useEffect(() => {
     if (open) {
       document.addEventListener('keydown', handleKeyDown);
@@ -191,27 +209,83 @@ export default function TaskCard({
       document.body.style.overflow = '';
     };
   }, [open, handleKeyDown]);
+  
   const handleFieldSave = async (field: string, value: string) => {
     await onSave(field, value);
     setEditingField(null);
   };
-  const handleDateSelect = async (date: Date | undefined) => {
-    if (date && card) {
-      const dateStr = format(date, "yyyy-MM-dd");
-      onCardChange({
-        ...card,
-        delivery_date: dateStr
-      });
-      await onSave('delivery_date', dateStr);
-      setDeliveryDateOpen(false);
-    }
+
+  // Publication dates handlers
+  const handlePublicationDateChange = async (index: number, newDate: Date | undefined) => {
+    if (!newDate || !card) return;
+    
+    const dateStr = format(newDate, "yyyy-MM-dd");
+    const newDates = [...publicationDates];
+    newDates[index] = { ...newDates[index], date: dateStr };
+    
+    onCardChange({
+      ...card,
+      publication_dates: newDates,
+      delivery_date: newDates[0]?.date || card.delivery_date // Keep delivery_date synced with first date
+    });
+    await onSave('publication_dates', JSON.stringify(newDates));
+    setOpenDatePickerIndex(null);
+  };
+
+  const handlePublicationTimeChange = async (index: number, time: string) => {
+    if (!card) return;
+    
+    const newDates = [...publicationDates];
+    newDates[index] = { ...newDates[index], time };
+    
+    onCardChange({
+      ...card,
+      publication_dates: newDates
+    });
+    await onSave('publication_dates', JSON.stringify(newDates));
+  };
+
+  const addPublicationDate = async () => {
+    if (!card || publicationDates.length >= MAX_PUBLICATION_DATES) return;
+    
+    const newDates = [...publicationDates, { date: '', time: '09:00' }];
+    
+    onCardChange({
+      ...card,
+      publication_dates: newDates
+    });
+    await onSave('publication_dates', JSON.stringify(newDates));
+  };
+
+  const removePublicationDate = async (index: number) => {
+    if (!card || publicationDates.length <= 1) return;
+    
+    const newDates = publicationDates.filter((_, i) => i !== index);
+    
+    onCardChange({
+      ...card,
+      publication_dates: newDates,
+      delivery_date: newDates[0]?.date || card.delivery_date
+    });
+    await onSave('publication_dates', JSON.stringify(newDates));
+  };
+
+  // Format date for display
+  const formatShortDate = (dateStr: string) => {
+    if (!dateStr) return null;
+    const date = new Date(dateStr + 'T00:00:00');
+    return format(date, "EEE, dd/MM/yyyy", { locale: ptBR });
+  };
+
+  const formatFullDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr + 'T00:00:00');
+    return format(date, "EEEE, dd/MM/yyyy", { locale: ptBR });
   };
 
   // Normalize legacy status values
   const normalizedStatus = LEGACY_STATUS_MAP[card?.status || ''] || card?.status || 'nao_iniciado';
 
-  // Calculate if deadline is overdue
-  const isOverdue = card?.delivery_date && new Date(card.delivery_date + 'T23:59:59') < new Date() && normalizedStatus !== 'concluido';
   if (!card || !open) return null;
   const statusConfig = getStatusConfig(normalizedStatus);
   const modalContent = <>
@@ -289,23 +363,83 @@ export default function TaskCard({
 
               <div className="h-4 w-px bg-border" />
 
-              {/* Prazo de Entrega (Deadline) */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Prazo de Entrega</span>
-                <Popover open={deliveryDateOpen} onOpenChange={setDeliveryDateOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className={cn("h-8 gap-2 font-normal", isOverdue && "border-destructive/50 text-destructive bg-destructive/5")}>
-                      {isOverdue && <AlertTriangle className="h-3.5 w-3.5" />}
-                      <CalendarIcon className="h-3.5 w-3.5" />
-                      {card.delivery_date ? format(new Date(card.delivery_date + 'T00:00:00'), "dd MMM yyyy", {
-                      locale: ptBR
-                    }) : <span className="text-muted-foreground">Definir prazo</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar mode="single" selected={card.delivery_date ? new Date(card.delivery_date + 'T00:00:00') : undefined} onSelect={handleDateSelect} initialFocus className="p-3 pointer-events-auto" />
-                  </PopoverContent>
-                </Popover>
+              {/* Datas de Publicação */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Publicação</span>
+                <TooltipProvider delayDuration={200}>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {publicationDates.map((pubDate, index) => (
+                      <div key={index} className="flex items-center gap-1">
+                        {/* Date Picker */}
+                        <Popover 
+                          open={openDatePickerIndex === index} 
+                          onOpenChange={(open) => setOpenDatePickerIndex(open ? index : null)}
+                        >
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <PopoverTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="h-7 px-2 gap-1.5 font-normal text-xs"
+                                >
+                                  <CalendarIcon className="h-3 w-3" />
+                                  {pubDate.date ? formatShortDate(pubDate.date) : <span className="text-muted-foreground">Data {index + 1}</span>}
+                                </Button>
+                              </PopoverTrigger>
+                            </TooltipTrigger>
+                            {pubDate.date && (
+                              <TooltipContent side="top">
+                                <span className="capitalize">{formatFullDate(pubDate.date)}</span>
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar 
+                              mode="single" 
+                              selected={pubDate.date ? new Date(pubDate.date + 'T00:00:00') : undefined} 
+                              onSelect={(date) => handlePublicationDateChange(index, date)} 
+                              initialFocus 
+                              className="p-3 pointer-events-auto" 
+                            />
+                          </PopoverContent>
+                        </Popover>
+
+                        {/* Time Input */}
+                        <Input
+                          type="time"
+                          value={pubDate.time || '09:00'}
+                          onChange={(e) => handlePublicationTimeChange(index, e.target.value)}
+                          className="h-7 w-[80px] text-xs px-2"
+                        />
+
+                        {/* Remove button (only if more than 1 date) */}
+                        {publicationDates.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                            onClick={() => removePublicationDate(index)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+
+                        {/* Add button (only on last item and if under max) */}
+                        {index === publicationDates.length - 1 && publicationDates.length < MAX_PUBLICATION_DATES && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-muted-foreground hover:text-primary"
+                            onClick={addPublicationDate}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </TooltipProvider>
               </div>
 
               <div className="h-4 w-px bg-border" />

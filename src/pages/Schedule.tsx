@@ -19,7 +19,7 @@ import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import KanbanCard from "@/components/KanbanCard";
 import TaskCard from "@/components/TaskCard";
-import type { KanbanCardData, Attachment } from "@/components/TaskCard";
+import type { KanbanCardData, Attachment, PublicationDate } from "@/components/TaskCard";
 
 // Using types from TaskCard component
 
@@ -111,10 +111,11 @@ export default function Schedule() {
       if (cardsResponse.error) throw cardsResponse.error;
       if (periodPlanResponse.error) throw periodPlanResponse.error;
 
-      // Cast attachments from Json to Attachment[]
+      // Cast attachments and publication_dates from Json to proper types
       const cardsWithAttachments = (cardsResponse.data || []).map(card => ({
         ...card,
-        attachments: (card.attachments as unknown as Attachment[] | null) || []
+        attachments: (card.attachments as unknown as Attachment[] | null) || [],
+        publication_dates: (card.publication_dates as unknown as PublicationDate[] | null) || []
       }));
       setCards(cardsWithAttachments);
       
@@ -214,7 +215,17 @@ export default function Schedule() {
 
     setSaving(true);
     try {
-      const updateData: Record<string, any> = { [field]: value };
+      // Handle JSON fields that need to be parsed
+      let parsedValue: any = value;
+      if (field === 'publication_dates' || field === 'attachments') {
+        try {
+          parsedValue = JSON.parse(value);
+        } catch {
+          parsedValue = value;
+        }
+      }
+      
+      const updateData: Record<string, any> = { [field]: parsedValue };
       
       const { error } = await supabase
         .from("cards")
@@ -225,7 +236,7 @@ export default function Schedule() {
 
       // Update local cards state
       setCards(prev => prev.map(c => 
-        c.id === selectedCard.id ? { ...c, [field]: value } : c
+        c.id === selectedCard.id ? { ...c, [field]: parsedValue } : c
       ));
 
       sonnerToast.success("Salvo automaticamente");
@@ -808,7 +819,7 @@ export default function Schedule() {
                               <KanbanCard
                                 title={card.title}
                                 platforms={extractMetadata(card).platforms}
-                                deliveryDate={card.delivery_date}
+                                deliveryDate={card.publication_dates?.[0]?.date || card.delivery_date}
                                 isDragging={snapshot.isDragging}
                                 onClick={() => {
                                   setSelectedCard(card);
