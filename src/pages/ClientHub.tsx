@@ -75,7 +75,7 @@ const ClientHub = () => {
     route: "/strategies",
     action: () => navigate("/strategies")
   }, {
-    title: "Planejar Período",
+    title: "Períodos",
     icon: Sparkles,
     gradient: "from-violet-400 to-fuchsia-500",
     route: "/plan-period",
