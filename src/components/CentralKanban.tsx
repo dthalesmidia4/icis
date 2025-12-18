@@ -392,15 +392,6 @@ const CentralKanban = () => {
                     </Badge>
                   </div>
 
-                  {/* Content Type Badge */}
-                  <div className="px-3 pt-2">
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] px-2 py-0.5 font-medium bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
-                    >
-                      {type}
-                    </Badge>
-                  </div>
 
                   {/* Title */}
                   <CardHeader className="px-3 pt-2 pb-2">
