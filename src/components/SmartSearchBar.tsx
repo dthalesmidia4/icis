@@ -223,13 +223,13 @@ export function SmartSearchBar<T extends SearchableItem>({
       
       {/* Results Dropdown */}
       {showDropdown && !isListening && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-xl z-50">
           {results.length === 0 ? (
             <div className="p-4 text-center text-muted-foreground">
               <p className="text-sm">Nenhum resultado encontrado para "{query}"</p>
             </div>
           ) : (
-            <ScrollArea className="h-auto max-h-[320px]">
+            <ScrollArea className="max-h-[320px] overflow-auto">
               <div className="p-1">
                 {results.map((result, index) => (
                   <SearchResultItem
