@@ -229,7 +229,7 @@ export function SmartSearchBar<T extends SearchableItem>({
               <p className="text-sm">Nenhum resultado encontrado para "{query}"</p>
             </div>
           ) : (
-            <ScrollArea className="max-h-[320px]">
+            <ScrollArea className="h-auto max-h-[320px]">
               <div className="p-1">
                 {results.map((result, index) => (
                   <SearchResultItem
