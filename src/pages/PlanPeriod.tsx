@@ -6,7 +6,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Eye, Instagram, Facebook, Youtube, Linkedin } from "lucide-react";
+import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Eye, Instagram, Facebook, Youtube, Linkedin, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -167,9 +167,18 @@ const PlanPeriod = () => {
   };
 
   // Toggle operational status (Developer role can edit)
+  // Cycles through: em_planejamento -> em_andamento -> concluido -> em_planejamento
   const handleToggleOperationalStatus = async (period: PeriodPlanHistory, e: React.MouseEvent) => {
     e.stopPropagation();
-    const newStatus = period.operational_status === 'em_andamento' ? 'concluido' : 'em_andamento';
+    
+    const statusCycle: Record<string, string> = {
+      'em_planejamento': 'em_andamento',
+      'em_andamento': 'concluido',
+      'concluido': 'em_planejamento'
+    };
+    
+    const currentStatus = period.operational_status || 'em_planejamento';
+    const newStatus = statusCycle[currentStatus] || 'em_andamento';
     
     try {
       const { error } = await supabase
@@ -183,7 +192,12 @@ const PlanPeriod = () => {
         prev.map(p => p.id === period.id ? { ...p, operational_status: newStatus } : p)
       );
       
-      toast.success(newStatus === 'concluido' ? 'Período marcado como concluído!' : 'Período marcado como em andamento');
+      const statusMessages: Record<string, string> = {
+        'em_planejamento': 'Período marcado como em planejamento',
+        'em_andamento': 'Período marcado como em andamento',
+        'concluido': 'Período marcado como concluído!'
+      };
+      toast.success(statusMessages[newStatus]);
     } catch (error) {
       console.error('Error updating operational status:', error);
       toast.error('Erro ao atualizar status');
@@ -974,7 +988,9 @@ const PlanPeriod = () => {
                         "cursor-pointer transition-all hover:scale-105",
                         isCompleted 
                           ? "bg-green-500 hover:bg-green-600 text-white" 
-                          : "bg-amber-500/20 text-amber-700 dark:text-amber-400 hover:bg-amber-500/30"
+                          : period.operational_status === 'em_planejamento'
+                            ? "bg-blue-500/20 text-blue-700 dark:text-blue-400 hover:bg-blue-500/30"
+                            : "bg-amber-500/20 text-amber-700 dark:text-amber-400 hover:bg-amber-500/30"
                       )}
                       onClick={(e) => handleToggleOperationalStatus(period, e)}
                     >
@@ -982,6 +998,11 @@ const PlanPeriod = () => {
                         <>
                           <Check className="w-3 h-3 mr-1" />
                           Concluído
+                        </>
+                      ) : period.operational_status === 'em_planejamento' ? (
+                        <>
+                          <Clock className="w-3 h-3 mr-1" />
+                          Em Planejamento
                         </>
                       ) : (
                         <>
