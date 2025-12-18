@@ -26,6 +26,7 @@ import DevWebhooks from "./pages/DevWebhooks";
 import Schedule from "./pages/Schedule";
 import PlanPeriod from "./pages/PlanPeriod";
 import ProfileSettings from "./pages/ProfileSettings";
+import Kanban from "./pages/Kanban";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -191,6 +192,15 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <DevWebhooks />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/kanban" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <Kanban />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>

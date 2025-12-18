@@ -1,12 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Building2, Loader2, CheckCircle2 } from "lucide-react";
+import { Calendar, Building2, Loader2, CheckCircle2, Filter } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PublicationDate } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface CentralKanbanCard extends KanbanCardData {
   clientName: string;
@@ -22,6 +29,24 @@ const CentralKanban = () => {
   const [saving, setSaving] = useState(false);
   const [savingField, setSavingField] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [selectedClientFilter, setSelectedClientFilter] = useState<string>("all");
+
+  // Extrair lista única de clientes
+  const clients = useMemo(() => {
+    const uniqueClients = new Map<string, string>();
+    cards.forEach(card => {
+      if (card.clientId && card.clientName) {
+        uniqueClients.set(card.clientId, card.clientName);
+      }
+    });
+    return Array.from(uniqueClients.entries()).map(([id, name]) => ({ id, name }));
+  }, [cards]);
+
+  // Filtrar cards por cliente
+  const filteredCards = useMemo(() => {
+    if (selectedClientFilter === "all") return cards;
+    return cards.filter(card => card.clientId === selectedClientFilter);
+  }, [cards, selectedClientFilter]);
 
   useEffect(() => {
     if (!tenantLoading && tenantId) {
@@ -285,18 +310,40 @@ const CentralKanban = () => {
   }
 
   return (
-    <div className="mt-8 sm:mt-12">
+    <div className="mt-4">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-emerald-500/10 rounded-lg">
-          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-emerald-500/10 rounded-lg">
+            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">
+            Kanban Central
+          </h2>
+          <Badge variant="secondary">
+            {filteredCards.length} {filteredCards.length === 1 ? 'item' : 'itens'}
+          </Badge>
         </div>
-        <h2 className="text-xl sm:text-2xl font-bold text-foreground">
-          Conteúdo Programado Geral
-        </h2>
-        <Badge variant="secondary" className="ml-2">
-          {cards.length} {cards.length === 1 ? 'item' : 'itens'}
-        </Badge>
+
+        {/* Client Filter */}
+        {clients.length > 0 && (
+          <div className="flex items-center gap-2 sm:ml-auto">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={selectedClientFilter} onValueChange={setSelectedClientFilter}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filtrar por cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os clientes</SelectItem>
+                {clients.map(client => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {/* Kanban Column */}
@@ -306,22 +353,26 @@ const CentralKanban = () => {
           <div className="w-3 h-3 rounded-full bg-emerald-500" />
           <span className="font-semibold text-foreground">Conteúdo Programado</span>
           <Badge variant="outline" className="ml-auto text-xs">
-            {cards.length}
+            {filteredCards.length}
           </Badge>
         </div>
 
         {/* Cards Grid */}
-        {cards.length === 0 ? (
+        {filteredCards.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <CheckCircle2 className="h-12 w-12 mb-4 opacity-30" />
-            <p className="text-sm">Nenhum conteúdo programado no momento</p>
+            <p className="text-sm">
+              {selectedClientFilter === "all" 
+                ? "Nenhum conteúdo programado no momento" 
+                : "Nenhum conteúdo programado para este cliente"}
+            </p>
             <p className="text-xs mt-1 opacity-70">
               Mova demandas para "Conteúdo Programado" nos kanbans dos clientes
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {cards.map((card) => {
+            {filteredCards.map((card) => {
               const { type, cleanTitle } = extractContentType(card.title);
 
               return (

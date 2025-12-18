@@ -1,8 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import { UserPlus, Building2 } from "lucide-react";
+import { UserPlus, Building2, LayoutGrid } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import ActionCard from "@/components/ActionCard";
-import CentralKanban from "@/components/CentralKanban";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -27,6 +26,12 @@ const Home = () => {
       icon: UserPlus,
       gradient: "from-green-500 to-emerald-600",
       route: "/registration"
+    },
+    {
+      title: "Kanban Central",
+      icon: LayoutGrid,
+      gradient: "from-purple-500 to-violet-600",
+      route: "/kanban"
     }
   ];
 
@@ -41,7 +46,7 @@ const Home = () => {
         </div>
 
         {/* Cards de Ação */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-5xl mx-auto">
           {actionCards.map((card, index) => (
             <ActionCard
               key={index}
@@ -52,9 +57,6 @@ const Home = () => {
             />
           ))}
         </div>
-
-        {/* Kanban Central - Conteúdo Programado Geral */}
-        <CentralKanban />
       </div>
     </div>
   );
