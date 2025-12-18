@@ -534,7 +534,7 @@ export default function Schedule() {
   }, [cards, searchQuery, channelFilter]);
 
   const getCardsByColumn = (columnId: string) => {
-    return filteredCards.filter((card) => (card.column_name || "Planejamento Automatizado") === columnId);
+    return filteredCards.filter((card) => (card.column_name || "Planejamento") === columnId);
   };
 
   // Format description with hierarchy
