@@ -246,6 +246,7 @@ export type Database = {
           id: string
           objective: string
           observations: string | null
+          operational_status: string
           optional_package: Json | null
           package_accepted: boolean | null
           paid_traffic_budget: string | null
@@ -270,6 +271,7 @@ export type Database = {
           id?: string
           objective: string
           observations?: string | null
+          operational_status?: string
           optional_package?: Json | null
           package_accepted?: boolean | null
           paid_traffic_budget?: string | null
@@ -294,6 +296,7 @@ export type Database = {
           id?: string
           objective?: string
           observations?: string | null
+          operational_status?: string
           optional_package?: Json | null
           package_accepted?: boolean | null
           paid_traffic_budget?: string | null

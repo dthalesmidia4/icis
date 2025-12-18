@@ -41,6 +41,7 @@ interface PeriodPlanHistory {
   priority_channel: string;
   primary_mode: string | null;
   status: string;
+  operational_status: string;
   created_at: string;
   final_plan: PlanItem[] | null;
   default_plan: PlanItem[] | null;
@@ -114,7 +115,7 @@ const PlanPeriod = () => {
         const {
           data,
           error
-        } = await supabase.from('period_plans').select('id, period_title, period_start, period_end, objective, priority_channel, primary_mode, status, created_at, final_plan, default_plan, ultra_plan').eq('company_id', selectedClient.id).eq('tenant_id', tenantId).order('created_at', {
+        } = await supabase.from('period_plans').select('id, period_title, period_start, period_end, objective, priority_channel, primary_mode, status, operational_status, created_at, final_plan, default_plan, ultra_plan').eq('company_id', selectedClient.id).eq('tenant_id', tenantId).order('created_at', {
           ascending: false
         });
         if (error) throw error;
@@ -163,6 +164,30 @@ const PlanPeriod = () => {
   };
   const dismissIncomplete = () => {
     setIncompletePeriod(null);
+  };
+
+  // Toggle operational status (Developer role can edit)
+  const handleToggleOperationalStatus = async (period: PeriodPlanHistory, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newStatus = period.operational_status === 'em_andamento' ? 'concluido' : 'em_andamento';
+    
+    try {
+      const { error } = await supabase
+        .from('period_plans')
+        .update({ operational_status: newStatus })
+        .eq('id', period.id);
+
+      if (error) throw error;
+
+      setPeriodHistory(prev => 
+        prev.map(p => p.id === period.id ? { ...p, operational_status: newStatus } : p)
+      );
+      
+      toast.success(newStatus === 'concluido' ? 'Período marcado como concluído!' : 'Período marcado como em andamento');
+    } catch (error) {
+      console.error('Error updating operational status:', error);
+      toast.error('Erro ao atualizar status');
+    }
   };
   const handleDeletePeriod = async () => {
     if (!periodToDelete) return;
@@ -924,6 +949,7 @@ const PlanPeriod = () => {
         </Card> : <div className="space-y-3">
           {periodHistory.map(period => {
         const demandCount = period.final_plan?.length || 0;
+        const isCompleted = period.operational_status === 'concluido';
         return <Card key={period.id} className="p-4 hover:shadow-md transition-shadow cursor-pointer group" onClick={() => setSelectedHistoryPlan(period)}>
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -941,6 +967,30 @@ const PlanPeriod = () => {
                   </div>
                   
                   <div className="flex items-center gap-2 shrink-0">
+                    {/* Operational Status Badge - Developer can click to toggle */}
+                    <Badge 
+                      variant={isCompleted ? "default" : "secondary"}
+                      className={cn(
+                        "cursor-pointer transition-all hover:scale-105",
+                        isCompleted 
+                          ? "bg-green-500 hover:bg-green-600 text-white" 
+                          : "bg-amber-500/20 text-amber-700 dark:text-amber-400 hover:bg-amber-500/30"
+                      )}
+                      onClick={(e) => handleToggleOperationalStatus(period, e)}
+                    >
+                      {isCompleted ? (
+                        <>
+                          <Check className="w-3 h-3 mr-1" />
+                          Concluído
+                        </>
+                      ) : (
+                        <>
+                          <PlayCircle className="w-3 h-3 mr-1" />
+                          Em andamento
+                        </>
+                      )}
+                    </Badge>
+                    
                     <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={e => {
                 e.stopPropagation();
                 setPeriodToDelete(period);
