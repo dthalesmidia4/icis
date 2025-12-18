@@ -6,6 +6,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import BackButton from "@/components/BackButton";
 
 const ClientHub = () => {
   const navigate = useNavigate();
@@ -90,7 +91,10 @@ const ClientHub = () => {
     <div className="pb-8">
       <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
         {/* Header do Cliente */}
-        <div className="mb-8 sm:mb-12 text-center">
+        <div className="mb-8 sm:mb-12 text-center relative">
+          <div className="absolute left-0 top-0">
+            <BackButton to="/clientes" />
+          </div>
           <div className="inline-flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 px-4 sm:px-6 py-2 sm:py-3 bg-primary/10 rounded-full">
             <div className="w-2 h-2 sm:w-3 sm:h-3 bg-primary rounded-full animate-pulse" />
             <span className="text-xs sm:text-sm font-medium text-primary">Cliente Ativo</span>
