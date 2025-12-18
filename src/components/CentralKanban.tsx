@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, Loader2, CheckCircle2, Filter } from "lucide-react";
+import { ChevronRight, Loader2, CheckCircle2, Filter, Paperclip } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PublicationDate } from "@/components/TaskCard";
@@ -361,8 +361,14 @@ const CentralKanban = () => {
                 </span>
               </div>
               
-              {/* Right side: Badge + Chevron */}
+              {/* Right side: Attachments indicator + Badge + Chevron */}
               <div className="flex items-center gap-3 shrink-0">
+                {card.attachments && card.attachments.length > 0 && (
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <Paperclip className="h-4 w-4" />
+                    <span className="text-xs">{card.attachments.length}</span>
+                  </div>
+                )}
                 <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary border-primary/20 font-medium whitespace-nowrap">
                   {card.clientName}
                 </Badge>
