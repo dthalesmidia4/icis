@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,9 @@ import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PublicationDate } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import SmartSearchBar from "@/components/SmartSearchBar";
+import { cn } from "@/lib/utils";
+
 interface CentralKanbanCard extends KanbanCardData {
   clientName: string;
   clientId: string;
@@ -25,6 +28,8 @@ const CentralKanban = () => {
   const [savingField, setSavingField] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>("all");
+  const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Extrair lista única de clientes
   const clients = useMemo(() => {
@@ -45,6 +50,31 @@ const CentralKanban = () => {
     if (selectedClientFilter === "all") return cards;
     return cards.filter(card => card.clientId === selectedClientFilter);
   }, [cards, selectedClientFilter]);
+
+  // Handle search result selection - scroll to and highlight card
+  const handleSearchResultSelect = useCallback((card: CentralKanbanCard) => {
+    // If card is filtered out, clear the filter first
+    if (selectedClientFilter !== "all" && card.clientId !== selectedClientFilter) {
+      setSelectedClientFilter("all");
+    }
+    
+    // Highlight the card
+    setHighlightedCardId(card.id);
+    
+    // Scroll to the card after a short delay to allow filter change
+    setTimeout(() => {
+      const cardElement = cardRefs.current.get(card.id);
+      if (cardElement) {
+        cardElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 100);
+    
+    // Remove highlight after 3 seconds
+    setTimeout(() => {
+      setHighlightedCardId(null);
+    }, 3000);
+  }, [selectedClientFilter]);
+
   useEffect(() => {
     if (!tenantLoading && tenantId) {
       fetchScheduledCards();
@@ -289,6 +319,16 @@ const CentralKanban = () => {
       </div>;
   }
   return <div className="mt-4">
+      {/* Search Bar */}
+      <div className="mb-6">
+        <SmartSearchBar
+          items={cards}
+          onResultSelect={handleSearchResultSelect}
+          placeholder="Pesquisar por tarefa, cliente, anexo, data, mês, palavra-chave…"
+          maxResults={8}
+        />
+      </div>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
         <div className="flex items-center gap-3">
@@ -345,10 +385,20 @@ const CentralKanban = () => {
           const {
             cleanTitle
           } = extractContentType(card.title);
+          const isHighlighted = highlightedCardId === card.id;
           return (
             <div 
-              key={card.id} 
-              className="flex items-center justify-between gap-4 px-4 py-3 bg-background rounded-lg border border-border/50 cursor-pointer hover:bg-muted/50 transition-colors group"
+              key={card.id}
+              ref={(el) => {
+                if (el) cardRefs.current.set(card.id, el);
+                else cardRefs.current.delete(card.id);
+              }}
+              className={cn(
+                "flex items-center justify-between gap-4 px-4 py-3 bg-background rounded-lg border cursor-pointer hover:bg-muted/50 transition-all duration-300 group",
+                isHighlighted 
+                  ? "border-primary ring-2 ring-primary/30 bg-primary/5 shadow-lg scale-[1.02]" 
+                  : "border-border/50"
+              )}
               onClick={() => handleCardClick(card)}
             >
               {/* Left side: Date, Title */}
@@ -356,7 +406,10 @@ const CentralKanban = () => {
                 <span className="text-sm font-medium text-foreground whitespace-nowrap">
                   {formatDate(card.delivery_date)}
                 </span>
-                <span className="text-sm font-medium text-foreground truncate">
+                <span className={cn(
+                  "text-sm font-medium truncate",
+                  isHighlighted ? "text-primary" : "text-foreground"
+                )}>
                   {cleanTitle || card.title}
                 </span>
               </div>
