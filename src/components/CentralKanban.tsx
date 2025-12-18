@@ -351,7 +351,7 @@ const CentralKanban = () => {
               className="flex items-center justify-between gap-4 px-4 py-3 bg-background rounded-lg border border-border/50 cursor-pointer hover:bg-muted/50 transition-colors group"
               onClick={() => handleCardClick(card)}
             >
-              {/* Left side: Date, Title, Badge */}
+              {/* Left side: Date, Title */}
               <div className="flex items-center gap-4 min-w-0 flex-1">
                 <span className="text-sm font-medium text-foreground whitespace-nowrap">
                   {formatDate(card.delivery_date)}
@@ -359,13 +359,15 @@ const CentralKanban = () => {
                 <span className="text-sm font-medium text-foreground truncate">
                   {cleanTitle || card.title}
                 </span>
-                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary border-primary/20 font-medium whitespace-nowrap shrink-0">
-                  {card.clientName}
-                </Badge>
               </div>
               
-              {/* Right side: Chevron */}
-              <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 group-hover:text-foreground transition-colors" />
+              {/* Right side: Badge + Chevron */}
+              <div className="flex items-center gap-3 shrink-0">
+                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary border-primary/20 font-medium whitespace-nowrap">
+                  {card.clientName}
+                </Badge>
+                <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+              </div>
             </div>
           );
         })}
