@@ -319,19 +319,32 @@ const CentralKanban = () => {
       </div>;
   }
   return <div className="mt-4">
-      {/* Search and Filter Row */}
+      {/* Search Bar */}
+      <div className="mb-6">
+        <SmartSearchBar
+          items={cards}
+          onResultSelect={handleSearchResultSelect}
+          placeholder="Pesquisar por tarefa, cliente, anexo, data, mês, palavra-chave…"
+          maxResults={8}
+        />
+      </div>
+
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
-        <div className="flex-1">
-          <SmartSearchBar
-            items={cards}
-            onResultSelect={handleSearchResultSelect}
-            placeholder="Pesquisar por tarefa, cliente, anexo, data, mês, palavra-chave…"
-            maxResults={8}
-          />
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-emerald-500/10 rounded-lg">
+            <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">
+            Kanban Central
+          </h2>
+          <Badge variant="secondary">
+            {filteredCards.length} {filteredCards.length === 1 ? 'item' : 'itens'}
+          </Badge>
         </div>
 
         {/* Client Filter */}
-        {clients.length > 0 && <div className="flex items-center gap-2">
+        {clients.length > 0 && <div className="flex items-center gap-2 sm:ml-auto">
             <Filter className="h-4 w-4 text-muted-foreground" />
             <Select value={selectedClientFilter} onValueChange={setSelectedClientFilter}>
               <SelectTrigger className="w-[200px]">
