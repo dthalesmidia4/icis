@@ -31,7 +31,7 @@ const Home = () => {
       title: "Conteúdo Programado",
       icon: CalendarDays,
       gradient: "from-purple-500 to-violet-600",
-      route: "/kanban"
+      route: "/content-schedule"
     }
   ];
 
