@@ -347,27 +347,24 @@ const CentralKanban = () => {
             cleanTitle
           } = extractContentType(card.title);
           return <Card key={card.id} className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-border/50 group" onClick={() => handleCardClick(card)}>
-                  {/* Client Badge */}
-                  <div className="px-3 pt-3">
-                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary border-primary/20 font-medium">
-                      <Building2 className="h-2.5 w-2.5 mr-1" />
-                      {card.clientName}
-                    </Badge>
-                  </div>
-
-
                   {/* Title */}
-                  <CardHeader className="px-3 pt-2 pb-2">
+                  <CardHeader className="px-3 pt-3 pb-2">
                     <CardTitle className="font-semibold leading-snug line-clamp-2 text-foreground text-base">
                       {cleanTitle || card.title}
                     </CardTitle>
                   </CardHeader>
 
-                  {/* Footer: Date */}
+                  {/* Footer: Date + Client Badge */}
                   <CardContent className="px-3 pb-3 pt-0">
-                    <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md w-fit">
-                      <Calendar className="h-3 w-3" />
-                      {formatDate(card.delivery_date)}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md">
+                        <Calendar className="h-3 w-3" />
+                        {formatDate(card.delivery_date)}
+                      </div>
+                      <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary border-primary/20 font-medium">
+                        <Building2 className="h-2.5 w-2.5 mr-1" />
+                        {card.clientName}
+                      </Badge>
                     </div>
                   </CardContent>
                 </Card>;
