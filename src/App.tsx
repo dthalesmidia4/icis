@@ -196,7 +196,7 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
-      <Route path="/kanban" element={
+      <Route path="/content-schedule" element={
         <ProtectedRoute>
           <RequireTenant>
             <Layout>
