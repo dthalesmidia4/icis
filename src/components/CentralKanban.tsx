@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Building2, Loader2, CheckCircle2, Filter } from "lucide-react";
+import { ChevronRight, Loader2, CheckCircle2, Filter } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PublicationDate } from "@/components/TaskCard";
@@ -331,7 +331,7 @@ const CentralKanban = () => {
           </Badge>
         </div>
 
-        {/* Cards Grid */}
+        {/* Cards List */}
         {filteredCards.length === 0 ? <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <CheckCircle2 className="h-12 w-12 mb-4 opacity-30" />
             <p className="text-sm">
@@ -340,34 +340,34 @@ const CentralKanban = () => {
             <p className="text-xs mt-1 opacity-70">
               Mova demandas para "Conteúdo Programado" nos kanbans dos clientes
             </p>
-          </div> : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          </div> : <div className="flex flex-col gap-2">
             {filteredCards.map(card => {
           const {
-            type,
             cleanTitle
           } = extractContentType(card.title);
-          return <Card key={card.id} className="cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-border/50 group" onClick={() => handleCardClick(card)}>
-                  {/* Title */}
-                  <CardHeader className="px-3 pt-3 pb-2">
-                    <CardTitle className="font-semibold leading-snug line-clamp-2 text-foreground text-base">
-                      {cleanTitle || card.title}
-                    </CardTitle>
-                  </CardHeader>
-
-                  {/* Footer: Date + Client Badge */}
-                  <CardContent className="px-3 pb-3 pt-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md">
-                        <Calendar className="h-3 w-3" />
-                        {formatDate(card.delivery_date)}
-                      </div>
-                      <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary border-primary/20 font-medium">
-                        <Building2 className="h-2.5 w-2.5 mr-1" />
-                        {card.clientName}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>;
+          return (
+            <div 
+              key={card.id} 
+              className="flex items-center justify-between gap-4 px-4 py-3 bg-background rounded-lg border border-border/50 cursor-pointer hover:bg-muted/50 transition-colors group"
+              onClick={() => handleCardClick(card)}
+            >
+              {/* Left side: Date, Title, Badge */}
+              <div className="flex items-center gap-4 min-w-0 flex-1">
+                <span className="text-sm font-medium text-foreground whitespace-nowrap">
+                  {formatDate(card.delivery_date)}
+                </span>
+                <span className="text-sm font-medium text-foreground truncate">
+                  {cleanTitle || card.title}
+                </span>
+                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary border-primary/20 font-medium whitespace-nowrap shrink-0">
+                  {card.clientName}
+                </Badge>
+              </div>
+              
+              {/* Right side: Chevron */}
+              <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 group-hover:text-foreground transition-colors" />
+            </div>
+          );
         })}
           </div>}
       </div>
