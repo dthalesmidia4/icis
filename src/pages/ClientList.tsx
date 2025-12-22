@@ -6,12 +6,12 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Search, Plus, Edit, Trash2, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
-import ActionCard from "@/components/ActionCard";
 import BackButton from "@/components/BackButton";
+
 const ClientList = () => {
   const navigate = useNavigate();
   const { tenantId } = useTenant();
@@ -77,18 +77,27 @@ const ClientList = () => {
 
   return (
     <>
-      <div className="pb-8 p-4 sm:p-6 md:p-8">
-        <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+      <div className="pb-8">
+        <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
           {/* Header */}
-          <div className="flex items-center gap-3">
-            <BackButton to="/home" />
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold truncate">
+          <div className="mb-8 sm:mb-12 text-center relative">
+            <div className="absolute left-0 top-0">
+              <BackButton to="/home" />
+            </div>
+            <div className="inline-flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 px-4 sm:px-6 py-2 sm:py-3 bg-primary/10 rounded-full">
+              <div className="w-2 h-2 sm:w-3 sm:h-3 bg-primary rounded-full animate-pulse" />
+              <span className="text-xs sm:text-sm font-medium text-primary">Clientes Cadastrados</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3 break-words px-2">
               Gerenciar Clientes
             </h1>
+            <p className="text-sm sm:text-lg text-muted-foreground">
+              Selecione um cliente para acessar seu hub
+            </p>
           </div>
 
           {/* Search and Actions */}
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 mb-6">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -110,20 +119,13 @@ const ClientList = () => {
 
           {/* Client Grid */}
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Card key={i} className="group relative overflow-hidden">
-                  <CardHeader className="space-y-4 p-4 sm:p-6">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-muted animate-pulse" />
-                        <div className="flex-1 space-y-2">
-                          <div className="h-4 sm:h-5 w-24 sm:w-32 bg-muted rounded animate-pulse" />
-                          <div className="h-3 sm:h-4 w-16 sm:w-20 bg-muted rounded animate-pulse" />
-                        </div>
-                      </div>
-                    </div>
-                  </CardHeader>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i} className="overflow-hidden">
+                  <div className="p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-muted animate-pulse mb-3 sm:mb-4" />
+                    <div className="h-5 w-24 bg-muted rounded animate-pulse" />
+                  </div>
                 </Card>
               ))}
             </div>
@@ -140,8 +142,8 @@ const ClientList = () => {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {clients.map((client) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              {clients.map((client, index) => (
                 <div key={client.id} className="relative">
                   {editMode && (
                     <div 
@@ -168,12 +170,22 @@ const ClientList = () => {
                       </Button>
                     </div>
                   )}
-                  <ActionCard
-                    title={client.fantasy_name || client.name}
-                    icon={Building2}
-                    gradient="from-primary to-secondary"
+                  <Card 
+                    className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]" 
                     onClick={() => !editMode && handleClientSelect(client)}
-                  />
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 opacity-5 group-hover:opacity-10 transition-opacity" />
+                    
+                    <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                        <Building2 className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                      </div>
+                      
+                      <h3 className="text-base sm:text-xl font-bold transition-colors text-indigo-600 dark:text-indigo-400 line-clamp-2">
+                        {client.fantasy_name || client.name}
+                      </h3>
+                    </div>
+                  </Card>
                 </div>
               ))}
             </div>
