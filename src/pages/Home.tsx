@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { UserPlus, Building2, CalendarDays } from "lucide-react";
+import { UserPlus, Building2, CalendarDays, LayoutGrid } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import ActionCard from "@/components/ActionCard";
 
@@ -32,6 +32,12 @@ const Home = () => {
       icon: CalendarDays,
       gradient: "from-purple-500 to-violet-600",
       route: "/content-schedule"
+    },
+    {
+      title: "Kanban Central",
+      icon: LayoutGrid,
+      gradient: "from-cyan-500 to-teal-600",
+      route: "/kanban-central"
     }
   ];
 

@@ -27,6 +27,7 @@ import Schedule from "./pages/Schedule";
 import PlanPeriod from "./pages/PlanPeriod";
 import ProfileSettings from "./pages/ProfileSettings";
 import Kanban from "./pages/Kanban";
+import KanbanCentralPage from "./pages/KanbanCentralPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -201,6 +202,15 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <Kanban />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/kanban-central" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <KanbanCentralPage />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>
