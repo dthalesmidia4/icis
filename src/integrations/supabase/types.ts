@@ -503,6 +503,7 @@ export type Database = {
           email: string
           fantasy_name: string | null
           id: string
+          logo_url: string | null
           name: string
           phone: string
           products_services: string
@@ -517,6 +518,7 @@ export type Database = {
           email: string
           fantasy_name?: string | null
           id?: string
+          logo_url?: string | null
           name: string
           phone: string
           products_services: string
@@ -531,6 +533,7 @@ export type Database = {
           email?: string
           fantasy_name?: string | null
           id?: string
+          logo_url?: string | null
           name?: string
           phone?: string
           products_services?: string
