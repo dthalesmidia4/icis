@@ -95,16 +95,16 @@ const ClientHub = () => {
           <div className="absolute left-0 top-0">
             <BackButton to="/clientes" />
           </div>
-          <div className="inline-flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 px-4 sm:px-6 py-2 sm:py-3 bg-primary/10 rounded-full">
-            <div className="w-2 h-2 sm:w-3 sm:h-3 bg-primary rounded-full animate-pulse" />
-            <span className="text-xs sm:text-sm font-medium text-primary">Cliente Ativo</span>
-          </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3 break-words px-2">
             {displayName}
           </h1>
-          <p className="text-sm sm:text-lg text-muted-foreground">
+          <p className="text-sm sm:text-lg text-muted-foreground mb-3 sm:mb-4">
             Hub de Controle Estratégico
           </p>
+          <div className="inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2 sm:py-3 bg-primary/10 rounded-full">
+            <div className="w-2 h-2 sm:w-3 sm:h-3 bg-primary rounded-full animate-pulse" />
+            <span className="text-xs sm:text-sm font-medium text-primary">Cliente Ativo</span>
+          </div>
         </div>
 
         {/* Cards de Ação */}
