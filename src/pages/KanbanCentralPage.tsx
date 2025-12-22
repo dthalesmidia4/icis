@@ -12,7 +12,7 @@ import {
   Search
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
-import TaskCard from "@/components/TaskCard";
+import TaskCard, { getColumnFromStatus, getStatusFromColumn } from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PublicationDate } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -189,8 +189,7 @@ const KanbanCentralPage = () => {
     if (!card) return;
 
     const newColumnName = destination.droppableId;
-    const newStatus = newColumnName === "Conteúdo Programado" ? "completed" : 
-                      newColumnName === "Em Andamento" ? "in_progress" : "unassigned";
+    const newStatus = getStatusFromColumn(newColumnName);
 
     // Atualizar localmente
     setCards((prev) =>
@@ -246,16 +245,38 @@ const KanbanCentralPage = () => {
           parsedValue = value;
         }
       }
-      const { error } = await supabase.from("cards").update({
-        [field]: parsedValue
-      }).eq("id", selectedCard.id);
+      
+      const updateData: Record<string, any> = { [field]: parsedValue };
+      
+      // If status changes, also update the column_name to sync with Kanban
+      if (field === 'status') {
+        const newColumnName = getColumnFromStatus(value);
+        updateData.column_name = newColumnName;
+      }
+      
+      const { error } = await supabase.from("cards").update(updateData).eq("id", selectedCard.id);
       if (error) throw error;
 
-      // Atualizar estado local
-      setCards(prev => prev.map(c => c.id === selectedCard.id ? {
-        ...c,
-        [field]: parsedValue
-      } : c));
+      // Atualizar estado local (include column_name if status changed)
+      setCards(prev => prev.map(c => {
+        if (c.id === selectedCard.id) {
+          const updates: Partial<CentralKanbanCard> = { [field]: parsedValue };
+          if (field === 'status') {
+            updates.column_name = getColumnFromStatus(value);
+          }
+          return { ...c, ...updates };
+        }
+        return c;
+      }));
+
+      // Also update selectedCard to keep modal in sync
+      if (field === 'status') {
+        setSelectedCard(prev => prev ? { 
+          ...prev, 
+          status: value, 
+          column_name: getColumnFromStatus(value) 
+        } : null);
+      }
 
       sonnerToast.success("Salvo automaticamente");
     } catch (error) {

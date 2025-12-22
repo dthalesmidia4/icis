@@ -84,88 +84,89 @@ const formatFileSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-// ClickUp-inspired Status configuration with groups
-const STATUS_GROUPS = [{
-  label: "Não iniciado",
+// Status configuration mapped directly to Kanban columns
+export const STATUS_GROUPS = [{
+  label: "Planejamento",
+  column: "Planejamento",
   statuses: [{
-    value: "nao_iniciado",
-    label: "NÃO INICIADO",
-    color: "hsl(0 0% 45%)",
-    bgColor: "bg-[hsl(0,0%,45%)]/10",
-    textColor: "text-[hsl(0,0%,45%)]",
-    borderColor: "border-[hsl(0,0%,45%)]/30"
-  }]
-}, {
-  label: "Ativo",
-  statuses: [{
-    value: "mapeamento",
-    label: "MAPEAMENTO DE PROCESSOS",
+    value: "planejamento",
+    label: "PLANEJAMENTO",
     color: "hsl(270 60% 55%)",
     bgColor: "bg-[hsl(270,60%,55%)]/10",
     textColor: "text-[hsl(270,60%,55%)]",
-    borderColor: "border-[hsl(270,60%,55%)]/30"
-  }, {
-    value: "desenvolvimento",
-    label: "DESENVOLVIMENTO",
-    color: "hsl(25 95% 55%)",
-    bgColor: "bg-[hsl(25,95%,55%)]/10",
-    textColor: "text-[hsl(25,95%,55%)]",
-    borderColor: "border-[hsl(25,95%,55%)]/30"
-  }, {
-    value: "implantacao",
-    label: "IMPLANTAÇÃO",
+    borderColor: "border-[hsl(270,60%,55%)]/30",
+    column: "Planejamento"
+  }]
+}, {
+  label: "A Fazer",
+  column: "A Fazer",
+  statuses: [{
+    value: "a_fazer",
+    label: "A FAZER",
     color: "hsl(210 80% 55%)",
     bgColor: "bg-[hsl(210,80%,55%)]/10",
     textColor: "text-[hsl(210,80%,55%)]",
-    borderColor: "border-[hsl(210,80%,55%)]/30"
-  }, {
-    value: "otimizacao",
-    label: "OTIMIZAÇÃO",
-    color: "hsl(175 70% 40%)",
-    bgColor: "bg-[hsl(175,70%,40%)]/10",
-    textColor: "text-[hsl(175,70%,40%)]",
-    borderColor: "border-[hsl(175,70%,40%)]/30"
+    borderColor: "border-[hsl(210,80%,55%)]/30",
+    column: "A Fazer"
   }]
 }, {
-  label: "Pausado",
+  label: "Em Andamento",
+  column: "Em Andamento",
   statuses: [{
-    value: "desenvolvimento_pausado",
-    label: "DESENVOLVIMENTO PAUSADO",
-    color: "hsl(280 40% 70%)",
-    bgColor: "bg-[hsl(280,40%,70%)]/10",
-    textColor: "text-[hsl(280,40%,70%)]",
-    borderColor: "border-[hsl(280,40%,70%)]/30"
-  }, {
-    value: "implantacao_pausada",
-    label: "IMPLANTAÇÃO PAUSADA",
-    color: "hsl(210 50% 70%)",
-    bgColor: "bg-[hsl(210,50%,70%)]/10",
-    textColor: "text-[hsl(210,50%,70%)]",
-    borderColor: "border-[hsl(210,50%,70%)]/30"
+    value: "em_andamento",
+    label: "EM ANDAMENTO",
+    color: "hsl(25 95% 55%)",
+    bgColor: "bg-[hsl(25,95%,55%)]/10",
+    textColor: "text-[hsl(25,95%,55%)]",
+    borderColor: "border-[hsl(25,95%,55%)]/30",
+    column: "Em Andamento"
   }]
 }, {
-  label: "Concluído",
+  label: "Conteúdo Programado",
+  column: "Conteúdo Programado",
   statuses: [{
-    value: "concluido",
-    label: "CONCLUÍDO",
+    value: "conteudo_programado",
+    label: "CONTEÚDO PROGRAMADO",
     color: "hsl(142 70% 45%)",
     bgColor: "bg-[hsl(142,70%,45%)]/10",
     textColor: "text-[hsl(142,70%,45%)]",
-    borderColor: "border-[hsl(142,70%,45%)]/30"
+    borderColor: "border-[hsl(142,70%,45%)]/30",
+    column: "Conteúdo Programado"
   }]
 }];
 
 // Flatten for easy lookup
-const ALL_STATUSES = STATUS_GROUPS.flatMap(g => g.statuses);
-const getStatusConfig = (statusValue: string) => {
+export const ALL_STATUSES = STATUS_GROUPS.flatMap(g => g.statuses);
+
+export const getStatusConfig = (statusValue: string) => {
   return ALL_STATUSES.find(s => s.value === statusValue) || ALL_STATUSES[0];
 };
 
+// Get column name from status value
+export const getColumnFromStatus = (statusValue: string): string => {
+  const status = ALL_STATUSES.find(s => s.value === statusValue);
+  return status?.column || "Planejamento";
+};
+
+// Get status value from column name
+export const getStatusFromColumn = (columnName: string): string => {
+  const group = STATUS_GROUPS.find(g => g.column === columnName);
+  return group?.statuses[0]?.value || "planejamento";
+};
+
 // Legacy status mapping for backwards compatibility
-const LEGACY_STATUS_MAP: Record<string, string> = {
-  unassigned: "nao_iniciado",
-  in_progress: "desenvolvimento",
-  completed: "concluido"
+export const LEGACY_STATUS_MAP: Record<string, string> = {
+  unassigned: "planejamento",
+  nao_iniciado: "planejamento",
+  mapeamento: "planejamento",
+  in_progress: "em_andamento",
+  desenvolvimento: "em_andamento",
+  implantacao: "em_andamento",
+  otimizacao: "em_andamento",
+  desenvolvimento_pausado: "a_fazer",
+  implantacao_pausada: "a_fazer",
+  completed: "conteudo_programado",
+  concluido: "conteudo_programado"
 };
 export default function TaskCard({
   open,
