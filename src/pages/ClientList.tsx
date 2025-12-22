@@ -7,7 +7,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Search, Plus, Edit, Trash2, Building2, Upload, X, Image } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Building2, Upload, X, Image, Crop } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import BackButton from "@/components/BackButton";
@@ -19,6 +19,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { ImageCropper } from "@/components/ImageCropper";
 
 const ClientList = () => {
   const navigate = useNavigate();
@@ -34,6 +35,9 @@ const ClientList = () => {
   const [selectedClientForLogo, setSelectedClientForLogo] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [rawImageSrc, setRawImageSrc] = useState<string | null>(null);
+  const [croppedBlob, setCroppedBlob] = useState<Blob | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -101,6 +105,8 @@ const ClientList = () => {
     setLogoModalOpen(false);
     setSelectedClientForLogo(null);
     setPreviewUrl(null);
+    setRawImageSrc(null);
+    setCroppedBlob(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -117,27 +123,35 @@ const ClientList = () => {
       return;
     }
 
-    // Validate file size (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Arquivo muito grande. Máximo 2MB.");
+    // Validate file size (max 5MB for raw image before crop)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Arquivo muito grande. Máximo 5MB.");
       return;
     }
 
-    // Create preview
+    // Create preview and open cropper
     const reader = new FileReader();
     reader.onloadend = () => {
-      setPreviewUrl(reader.result as string);
+      const imageSrc = reader.result as string;
+      setRawImageSrc(imageSrc);
+      setCropperOpen(true);
     };
     reader.readAsDataURL(file);
   };
 
+  const handleCropComplete = (blob: Blob) => {
+    setCroppedBlob(blob);
+    const previewUrl = URL.createObjectURL(blob);
+    setPreviewUrl(previewUrl);
+    setCropperOpen(false);
+  };
+
   const handleUploadLogo = async () => {
-    if (!selectedClientForLogo || !fileInputRef.current?.files?.[0]) {
-      toast.error("Selecione uma imagem");
+    if (!selectedClientForLogo || !croppedBlob) {
+      toast.error("Recorte uma imagem primeiro");
       return;
     }
 
-    const file = fileInputRef.current.files[0];
     setUploading(true);
 
     try {
@@ -149,14 +163,16 @@ const ClientList = () => {
         }
       }
 
-      // Upload new logo
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
+      // Upload cropped image
+      const fileName = `${Date.now()}.png`;
       const filePath = `${selectedClientForLogo.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('company-logos')
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, croppedBlob, { 
+          upsert: true,
+          contentType: 'image/png'
+        });
 
       if (uploadError) throw uploadError;
 
@@ -212,6 +228,12 @@ const ClientList = () => {
       toast.error(error.message || "Erro ao remover logo");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleOpenCropper = () => {
+    if (rawImageSrc) {
+      setCropperOpen(true);
     }
   };
 
@@ -362,7 +384,7 @@ const ClientList = () => {
           
           <div className="space-y-4">
             {/* Preview */}
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-3">
               <div className="w-32 h-32 rounded-xl border-2 border-dashed border-muted-foreground/30 flex items-center justify-center overflow-hidden bg-muted">
                 {previewUrl ? (
                   <img
@@ -374,6 +396,18 @@ const ClientList = () => {
                   <Building2 className="w-12 h-12 text-muted-foreground" />
                 )}
               </div>
+              
+              {/* Re-crop button */}
+              {rawImageSrc && previewUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenCropper}
+                >
+                  <Crop className="h-4 w-4 mr-2" />
+                  Ajustar Recorte
+                </Button>
+              )}
             </div>
 
             {/* File Input */}
@@ -388,7 +422,7 @@ const ClientList = () => {
                 className="cursor-pointer"
               />
               <p className="text-xs text-muted-foreground">
-                Formatos aceitos: PNG, JPG, JPEG. Tamanho máximo: 2MB
+                Formatos aceitos: PNG, JPG, JPEG. Tamanho máximo: 5MB
               </p>
             </div>
           </div>
@@ -407,7 +441,7 @@ const ClientList = () => {
             )}
             <Button
               onClick={handleUploadLogo}
-              disabled={uploading || !fileInputRef.current?.files?.length}
+              disabled={uploading || !croppedBlob}
               className="w-full sm:w-auto"
             >
               <Upload className="h-4 w-4 mr-2" />
@@ -416,6 +450,17 @@ const ClientList = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Image Cropper */}
+      {rawImageSrc && (
+        <ImageCropper
+          open={cropperOpen}
+          onClose={() => setCropperOpen(false)}
+          imageSrc={rawImageSrc}
+          onCropComplete={handleCropComplete}
+          aspectRatio={1}
+        />
+      )}
 
       <ConfirmationModal
         open={!!deleteId}
