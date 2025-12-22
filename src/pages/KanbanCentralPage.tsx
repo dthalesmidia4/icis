@@ -453,11 +453,11 @@ const KanbanCentralPage = () => {
 
         {/* Kanban Board with Drag & Drop */}
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {COLUMNS.map((column) => {
               const columnCards = getCardsForColumn(column.id);
               return (
-                <div key={column.id} className="bg-muted/30 rounded-xl p-3 border border-border/50 min-h-[400px] flex flex-col">
+                <div key={column.id} className="bg-muted/30 rounded-xl p-4 border border-border/50 min-h-[500px] flex flex-col">
                   {/* Column Header */}
                   <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/50">
                     <div className={cn("w-3 h-3 rounded-full", column.color)} />
