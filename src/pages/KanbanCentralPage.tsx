@@ -24,9 +24,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Colunas do Kanban (mesma estrutura do Schedule)
 const COLUMNS = [
-  { id: "A Fazer", title: "A Fazer", color: "bg-blue-500" },
-  { id: "Em Andamento", title: "Em Andamento", color: "bg-amber-500" },
-  { id: "Conteúdo Programado", title: "Conteúdo Programado", color: "bg-emerald-500" },
+  { id: "Pendente", title: "Pendente", color: "bg-blue-500" },
+  { id: "Em Produção", title: "Em Produção", color: "bg-amber-500" },
+  { id: "Revisão", title: "Revisão", color: "bg-emerald-500" },
 ];
 
 interface CentralKanbanCard extends KanbanCardData {
