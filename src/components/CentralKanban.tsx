@@ -85,7 +85,7 @@ const CentralKanban = () => {
     try {
       setLoading(true);
 
-      // Buscar cards na coluna "Conteúdo Programado" com informações do cliente
+      // Buscar cards na coluna "Revisão" com informações do cliente
       const {
         data: cardsData,
         error: cardsError
@@ -99,7 +99,7 @@ const CentralKanban = () => {
               name
             )
           )
-        `).eq("tenant_id", tenantId).eq("column_name", "Conteúdo Programado").order("delivery_date", {
+        `).eq("tenant_id", tenantId).eq("column_name", "Revisão").order("delivery_date", {
         ascending: true
       });
       if (cardsError) throw cardsError;
@@ -161,13 +161,13 @@ const CentralKanban = () => {
         [field]: parsedValue
       } : c));
 
-      // Verificar se o card saiu da coluna "Conteúdo Programado"
-      if (field === 'column_name' && parsedValue !== 'Conteúdo Programado') {
+      // Verificar se o card saiu da coluna "Revisão"
+      if (field === 'column_name' && parsedValue !== 'Revisão') {
         // Remover do kanban central
         setCards(prev => prev.filter(c => c.id !== selectedCard.id));
         setIsTaskCardOpen(false);
         setSelectedCard(null);
-        sonnerToast.info("Card removido do Conteúdo Programado Geral");
+        sonnerToast.info("Card removido da Revisão");
       } else {
         sonnerToast.success("Salvo automaticamente");
       }
@@ -365,7 +365,7 @@ const CentralKanban = () => {
         {/* Column Header */}
         <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border/50">
           <div className="w-3 h-3 rounded-full bg-emerald-500" />
-          <span className="font-semibold text-foreground">Conteúdo Programado</span>
+          <span className="font-semibold text-foreground">Revisão</span>
           <Badge variant="outline" className="ml-auto text-xs">
             {filteredCards.length}
           </Badge>
@@ -375,10 +375,10 @@ const CentralKanban = () => {
         {filteredCards.length === 0 ? <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <CheckCircle2 className="h-12 w-12 mb-4 opacity-30" />
             <p className="text-sm">
-              {selectedClientFilter === "all" ? "Nenhum conteúdo programado no momento" : "Nenhum conteúdo programado para este cliente"}
+              {selectedClientFilter === "all" ? "Nenhum conteúdo em revisão no momento" : "Nenhum conteúdo em revisão para este cliente"}
             </p>
             <p className="text-xs mt-1 opacity-70">
-              Mova demandas para "Conteúdo Programado" nos kanbans dos clientes
+              Mova demandas para "Revisão" nos kanbans dos clientes
             </p>
           </div> : <div className="flex flex-col gap-2">
             {filteredCards.map(card => {

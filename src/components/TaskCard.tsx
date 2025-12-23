@@ -98,40 +98,40 @@ export const STATUS_GROUPS = [{
     column: "Planejamento"
   }]
 }, {
-  label: "A Fazer",
-  column: "A Fazer",
+  label: "Pendente",
+  column: "Pendente",
   statuses: [{
-    value: "a_fazer",
-    label: "A FAZER",
+    value: "pendente",
+    label: "PENDENTE",
     color: "hsl(210 80% 55%)",
     bgColor: "bg-[hsl(210,80%,55%)]/10",
     textColor: "text-[hsl(210,80%,55%)]",
     borderColor: "border-[hsl(210,80%,55%)]/30",
-    column: "A Fazer"
+    column: "Pendente"
   }]
 }, {
-  label: "Em Andamento",
-  column: "Em Andamento",
+  label: "Em Produção",
+  column: "Em Produção",
   statuses: [{
-    value: "em_andamento",
-    label: "EM ANDAMENTO",
+    value: "em_producao",
+    label: "EM PRODUÇÃO",
     color: "hsl(25 95% 55%)",
     bgColor: "bg-[hsl(25,95%,55%)]/10",
     textColor: "text-[hsl(25,95%,55%)]",
     borderColor: "border-[hsl(25,95%,55%)]/30",
-    column: "Em Andamento"
+    column: "Em Produção"
   }]
 }, {
-  label: "Conteúdo Programado",
-  column: "Conteúdo Programado",
+  label: "Revisão",
+  column: "Revisão",
   statuses: [{
-    value: "conteudo_programado",
-    label: "CONTEÚDO PROGRAMADO",
+    value: "revisao",
+    label: "REVISÃO",
     color: "hsl(142 70% 45%)",
     bgColor: "bg-[hsl(142,70%,45%)]/10",
     textColor: "text-[hsl(142,70%,45%)]",
     borderColor: "border-[hsl(142,70%,45%)]/30",
-    column: "Conteúdo Programado"
+    column: "Revisão"
   }]
 }];
 
@@ -159,14 +159,17 @@ export const LEGACY_STATUS_MAP: Record<string, string> = {
   unassigned: "planejamento",
   nao_iniciado: "planejamento",
   mapeamento: "planejamento",
-  in_progress: "em_andamento",
-  desenvolvimento: "em_andamento",
-  implantacao: "em_andamento",
-  otimizacao: "em_andamento",
-  desenvolvimento_pausado: "a_fazer",
-  implantacao_pausada: "a_fazer",
-  completed: "conteudo_programado",
-  concluido: "conteudo_programado"
+  in_progress: "em_producao",
+  desenvolvimento: "em_producao",
+  implantacao: "em_producao",
+  otimizacao: "em_producao",
+  em_andamento: "em_producao",
+  desenvolvimento_pausado: "pendente",
+  implantacao_pausada: "pendente",
+  a_fazer: "pendente",
+  completed: "revisao",
+  concluido: "revisao",
+  conteudo_programado: "revisao"
 };
 export default function TaskCard({
   open,
