@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,20 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { ArrowLeft, Calendar, Search, Filter, LayoutGrid, Loader2, History, Plus, ChevronRight } from "lucide-react";
+import { ArrowLeft, Calendar, Filter, LayoutGrid, Loader2, History, Plus, ChevronRight, Paperclip } from "lucide-react";
 import { Json } from "@/integrations/supabase/types";
 import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import KanbanCard from "@/components/KanbanCard";
 import TaskCard, { getColumnFromStatus, getStatusFromColumn, LEGACY_STATUS_MAP } from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PublicationDate } from "@/components/TaskCard";
+import SmartSearchBar from "@/components/SmartSearchBar";
+import { cn } from "@/lib/utils";
 
 // Using types from TaskCard component
 
@@ -44,9 +44,29 @@ export default function Schedule() {
   const [isTaskCardOpen, setIsTaskCardOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingField, setSavingField] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [referencePeriod, setReferencePeriod] = useState<{ titulo: string; dataInicio: string; dataFim: string } | null>(null);
+  const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // Handle search result selection - scroll to and highlight card
+  const handleSearchResultSelect = useCallback((card: KanbanCardData) => {
+    // Highlight the card
+    setHighlightedCardId(card.id);
+    
+    // Scroll to the card after a short delay
+    setTimeout(() => {
+      const cardElement = cardRefs.current.get(card.id);
+      if (cardElement) {
+        cardElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 100);
+    
+    // Remove highlight after 3 seconds
+    setTimeout(() => {
+      setHighlightedCardId(null);
+    }, 3000);
+  }, []);
   const [cardToDelete, setCardToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -535,24 +555,17 @@ export default function Schedule() {
     return Array.from(channels).sort();
   }, [cards]);
 
-  // Filtrar cards baseado na busca e filtro de canal
+  // Filtrar cards baseado no filtro de canal
   const filteredCards = useMemo(() => {
     return cards.filter(card => {
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = !searchQuery || 
-        card.title.toLowerCase().includes(searchLower) ||
-        card.description?.toLowerCase().includes(searchLower) ||
-        card.file_location?.toLowerCase().includes(searchLower) ||
-        new Date(card.delivery_date).toLocaleDateString("pt-BR").includes(searchLower);
-
       const matchesChannel = channelFilter === "all" || (() => {
         const text = `${card.file_location || ''} ${card.description || ''}`.toLowerCase();
         return text.includes(channelFilter.toLowerCase());
       })();
 
-      return matchesSearch && matchesChannel;
+      return matchesChannel;
     });
-  }, [cards, searchQuery, channelFilter]);
+  }, [cards, channelFilter]);
 
   const getCardsByColumn = (columnId: string) => {
     return filteredCards.filter((card) => (card.column_name || "Planejamento") === columnId);
@@ -768,32 +781,32 @@ export default function Schedule() {
           )}
 
           {/* Search and Filter */}
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-              <Input
-                placeholder="Buscar demandas..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-                aria-label="Buscar demandas"
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+            <div className="flex-1">
+              <SmartSearchBar
+                items={cards}
+                onResultSelect={handleSearchResultSelect}
+                placeholder="Pesquisar demandas..."
+                maxResults={10}
               />
             </div>
             
-            <Select value={channelFilter} onValueChange={setChannelFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]" aria-label="Filtrar por canal">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Canal" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os canais</SelectItem>
-                {availableChannels.map((channel) => (
-                  <SelectItem key={channel} value={channel}>
-                    {channel}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={channelFilter} onValueChange={setChannelFilter}>
+                <SelectTrigger className="w-[180px]" aria-label="Filtrar por canal">
+                  <SelectValue placeholder="Canal" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os canais</SelectItem>
+                  {availableChannels.map((channel) => (
+                    <SelectItem key={channel} value={channel}>
+                      {channel}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <Button variant="outline" onClick={handleHistoryClick} className="w-full sm:w-auto">
               <History className="h-4 w-4 mr-2" />
@@ -804,62 +817,111 @@ export default function Schedule() {
 
         {/* Kanban Board */}
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {COLUMNS.map((column) => (
-              <div key={column.id} className="flex flex-col">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className={`w-3 h-3 rounded-full ${column.color}`} />
-                  <h3 className="font-semibold text-sm text-foreground">
-                    {column.title}
-                  </h3>
-                  <Badge variant="secondary" className="ml-auto text-xs">
-                    {getCardsByColumn(column.id).length}
-                  </Badge>
-                </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {COLUMNS.map((column) => {
+              const columnCards = getCardsByColumn(column.id);
+              return (
+                <div key={column.id} className="bg-muted/30 rounded-xl p-4 border border-border/50 min-h-[400px] flex flex-col">
+                  {/* Column Header */}
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/50">
+                    <div className={cn("w-3 h-3 rounded-full", column.color)} />
+                    <span className="font-semibold text-foreground text-sm">{column.title}</span>
+                    <Badge variant="outline" className="ml-auto text-xs">
+                      {columnCards.length}
+                    </Badge>
+                  </div>
 
-                <Droppable droppableId={column.id}>
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className={`flex-1 min-h-[200px] rounded-lg p-2 transition-colors ${
-                        snapshot.isDraggingOver
-                          ? "bg-accent/50"
-                          : "bg-muted/30"
-                      }`}
-                    >
-                      {getCardsByColumn(column.id).map((card, index) => (
-                        <Draggable
-                          key={card.id}
-                          draggableId={card.id}
-                          index={index}
-                        >
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                            >
-                              <KanbanCard
-                                title={card.title}
-                                platforms={extractMetadata(card).platforms}
-                                deliveryDate={card.publication_dates?.[0]?.date || card.delivery_date}
-                                isDragging={snapshot.isDragging}
-                                onClick={() => {
-                                  setSelectedCard(card);
-                                  setIsTaskCardOpen(true);
-                                }}
-                              />
-                            </div>
+                  {/* Droppable Area */}
+                  <Droppable droppableId={column.id}>
+                    {(provided, snapshot) => (
+                      <ScrollArea className="flex-1">
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={cn(
+                            "min-h-[250px] transition-colors rounded-lg p-1",
+                            snapshot.isDraggingOver && "bg-primary/5"
                           )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-              </div>
-            ))}
+                        >
+                          {columnCards.length === 0 ? (
+                            <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+                              Nenhuma demanda
+                            </div>
+                          ) : (
+                            columnCards.map((card, index) => {
+                              const isHighlighted = highlightedCardId === card.id;
+                              const { platforms } = extractMetadata(card);
+                              return (
+                                <Draggable key={card.id} draggableId={card.id} index={index}>
+                                  {(provided, snapshot) => (
+                                    <div
+                                      ref={(el) => {
+                                        provided.innerRef(el);
+                                        if (el) cardRefs.current.set(card.id, el);
+                                        else cardRefs.current.delete(card.id);
+                                      }}
+                                      {...provided.draggableProps}
+                                      {...provided.dragHandleProps}
+                                      className={cn(
+                                        "mb-2 transition-all duration-300",
+                                        isHighlighted && "ring-2 ring-primary ring-offset-2 scale-[1.02]"
+                                      )}
+                                      onClick={() => {
+                                        setSelectedCard(card);
+                                        setIsTaskCardOpen(true);
+                                      }}
+                                    >
+                                      {/* Card Content */}
+                                      <div className={cn(
+                                        "p-3 bg-background rounded-lg border cursor-pointer hover:shadow-md transition-all",
+                                        snapshot.isDragging ? "shadow-xl rotate-1 scale-105 border-primary" : "border-border/50",
+                                        isHighlighted && "border-primary bg-primary/5"
+                                      )}>
+                                        {/* Platform Badges */}
+                                        {platforms.length > 0 && (
+                                          <div className="flex flex-wrap gap-1 mb-2">
+                                            {platforms.slice(0, 2).map((platform) => (
+                                              <Badge 
+                                                key={platform} 
+                                                variant="outline" 
+                                                className="text-[10px] px-2 py-0.5 font-medium border-border/60 text-muted-foreground"
+                                              >
+                                                {platform}
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        )}
+                                        
+                                        {/* Title */}
+                                        <h4 className="text-sm font-semibold leading-snug line-clamp-2 text-foreground mb-2">
+                                          {card.title}
+                                        </h4>
+                                        
+                                        {/* Footer: Date + Attachments */}
+                                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                          <span>{new Date(card.delivery_date + 'T00:00:00').toLocaleDateString("pt-BR")}</span>
+                                          {card.attachments && card.attachments.length > 0 && (
+                                            <div className="flex items-center gap-1">
+                                              <Paperclip className="h-3 w-3" />
+                                              {card.attachments.length}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </Draggable>
+                              );
+                            })
+                          )}
+                          {provided.placeholder}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </Droppable>
+                </div>
+              );
+            })}
           </div>
         </DragDropContext>
 
