@@ -138,7 +138,7 @@ export function ImageCropper({
 
         <div className="space-y-4 py-2">
           <div className="flex items-center gap-3">
-            <ZoomOut className="h-4 w-4 text-muted-foreground" />
+            <ZoomOut className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <Slider
               value={[zoom]}
               min={1}
@@ -146,12 +146,13 @@ export function ImageCropper({
               step={0.1}
               onValueChange={(value) => setZoom(value[0])}
               className="flex-1"
+              aria-label="Ajustar zoom da imagem"
             />
-            <ZoomIn className="h-4 w-4 text-muted-foreground" />
+            <ZoomIn className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </div>
           
           <div className="flex items-center gap-3">
-            <RotateCw className="h-4 w-4 text-muted-foreground" />
+            <RotateCw className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <Slider
               value={[rotation]}
               min={0}
@@ -159,8 +160,9 @@ export function ImageCropper({
               step={1}
               onValueChange={(value) => setRotation(value[0])}
               className="flex-1"
+              aria-label="Ajustar rotação da imagem"
             />
-            <span className="text-xs text-muted-foreground w-10">{rotation}°</span>
+            <span className="text-xs text-muted-foreground w-10" aria-live="polite">{rotation}°</span>
           </div>
         </div>
 

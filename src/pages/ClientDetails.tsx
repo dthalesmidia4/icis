@@ -359,6 +359,7 @@ const ClientDetails = () => {
                 variant="ghost" 
                 size="icon"
                 onClick={() => navigate("/clientes")}
+                aria-label="Voltar para lista de clientes"
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
@@ -409,6 +410,7 @@ const ClientDetails = () => {
                     size="icon"
                     onClick={() => setShowDeleteModal(true)}
                     className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    aria-label="Excluir cliente"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -594,7 +596,7 @@ const ClientDetails = () => {
                       Não informado
                     </p>
                   )}
-                  <p className="text-[11px] text-muted-foreground/70">Número fixo da empresa para contato geral.</p>
+                  <p className="text-[11px] text-muted-foreground">Número fixo da empresa para contato geral.</p>
                 </div>
               </div>
 
@@ -883,7 +885,7 @@ const ClientDetails = () => {
                       Não informado
                     </p>
                   )}
-                  <p className="text-[11px] text-muted-foreground/70">E-mail oficial da empresa.</p>
+                  <p className="text-[11px] text-muted-foreground">E-mail oficial da empresa.</p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -906,7 +908,7 @@ const ClientDetails = () => {
                       {client.email}
                     </div>
                   )}
-                  <p className="text-[11px] text-muted-foreground/70">E-mail do responsável pelo projeto.</p>
+                  <p className="text-[11px] text-muted-foreground">E-mail do responsável pelo projeto.</p>
                 </div>
               </div>
 
@@ -939,7 +941,7 @@ const ClientDetails = () => {
                       {client.phone}
                     </div>
                   )}
-                  <p className="text-[11px] text-muted-foreground/70">Número pessoal ou WhatsApp do responsável.</p>
+                  <p className="text-[11px] text-muted-foreground">Número pessoal ou WhatsApp do responsável.</p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -965,7 +967,7 @@ const ClientDetails = () => {
                       Não informado
                     </p>
                   )}
-                  <p className="text-[11px] text-muted-foreground/70">Opcional - CPF para emissão de notas.</p>
+                  <p className="text-[11px] text-muted-foreground">Opcional - CPF para emissão de notas.</p>
                 </div>
               </div>
             </CardContent>

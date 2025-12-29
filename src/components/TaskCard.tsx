@@ -426,6 +426,7 @@ export default function TaskCard({
                           value={pubDate.time || '09:00'}
                           onChange={(e) => handlePublicationTimeChange(index, e.target.value)}
                           className="h-7 w-[80px] text-xs px-2"
+                          aria-label={`Horário de publicação ${index + 1}`}
                         />
 
                         {/* Remove button (only if more than 1 date) */}
@@ -549,19 +550,23 @@ export default function TaskCard({
                             <p className="text-xs font-medium text-center truncate w-full">{attachment.name}</p>
                             <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
                           </div>}
-                        <button onClick={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onRemoveAttachment(attachment.url);
-                  }} className="absolute top-2 right-2 p-1.5 bg-destructive/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive shadow-lg">
+                        <button 
+                          onClick={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onRemoveAttachment(attachment.url);
+                          }} 
+                          className="absolute top-2 right-2 p-1.5 bg-destructive/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive shadow-lg"
+                          aria-label={`Remover anexo ${attachment.name}`}
+                        >
                           <X className="h-3 w-3 text-destructive-foreground" />
                         </button>
                       </div>)}
                   </div>}
 
                 {/* Upload Area */}
-                <label className="flex flex-col items-center justify-center gap-2 w-full py-6 px-4 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 hover:bg-muted/20 transition-colors">
-                  <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.mp4,.mov,.avi" onChange={onFileUpload} className="sr-only" disabled={uploading} />
+                <label className="flex flex-col items-center justify-center gap-2 w-full py-6 px-4 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 hover:bg-muted/20 transition-colors" aria-label="Área de upload de arquivos">
+                  <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.mp4,.mov,.avi" onChange={onFileUpload} className="sr-only" disabled={uploading} aria-label="Selecionar arquivos para anexar" />
                   {uploading ? <>
                       <Loader2 className="h-6 w-6 animate-spin text-primary" />
                       <span className="text-sm text-muted-foreground">Enviando arquivos...</span>

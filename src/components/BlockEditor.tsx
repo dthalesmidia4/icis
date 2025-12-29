@@ -111,7 +111,7 @@ export function BlockEditor({
           'prose-em:italic',
           'prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono',
           'prose-blockquote:border-l-4 prose-blockquote:border-primary/50 prose-blockquote:pl-4 prose-blockquote:italic',
-          '[&_.is-editor-empty:first-child::before]:text-muted-foreground/50',
+          '[&_.is-editor-empty:first-child::before]:text-muted-foreground/70',
           '[&_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
           '[&_.is-editor-empty:first-child::before]:float-left',
           '[&_.is-editor-empty:first-child::before]:h-0',
@@ -344,6 +344,7 @@ export function BlockEditor({
             )}
             type="button"
             title="Negrito (Ctrl+B)"
+            aria-label="Negrito"
           >
             <Bold className="h-4 w-4" />
           </button>
@@ -355,6 +356,7 @@ export function BlockEditor({
             )}
             type="button"
             title="Itálico (Ctrl+I)"
+            aria-label="Itálico"
           >
             <Italic className="h-4 w-4" />
           </button>
@@ -366,6 +368,7 @@ export function BlockEditor({
             )}
             type="button"
             title="Código inline"
+            aria-label="Código inline"
           >
             <Code className="h-4 w-4" />
           </button>
@@ -378,6 +381,7 @@ export function BlockEditor({
             )}
             type="button"
             title="Título 1"
+            aria-label="Título 1"
           >
             <Heading1 className="h-4 w-4" />
           </button>
@@ -389,6 +393,7 @@ export function BlockEditor({
             )}
             type="button"
             title="Título 2"
+            aria-label="Título 2"
           >
             <Heading2 className="h-4 w-4" />
           </button>
@@ -401,6 +406,7 @@ export function BlockEditor({
             )}
             type="button"
             title="Lista"
+            aria-label="Lista com marcadores"
           >
             <List className="h-4 w-4" />
           </button>
@@ -412,6 +418,7 @@ export function BlockEditor({
             )}
             type="button"
             title="Citação"
+            aria-label="Citação"
           >
             <Quote className="h-4 w-4" />
           </button>
@@ -483,7 +490,7 @@ export function BlockEditor({
       )}
 
       {/* Helper text */}
-      <div className="absolute bottom-2 right-3 text-[10px] text-muted-foreground/50 pointer-events-none">
+      <div className="absolute bottom-2 right-3 text-[10px] text-muted-foreground/80 pointer-events-none">
         / comandos • Ctrl+B negrito • Ctrl+I itálico
       </div>
     </div>

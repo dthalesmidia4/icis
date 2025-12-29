@@ -174,6 +174,7 @@ export default function ProfileSettings() {
               size="icon"
               onClick={() => navigate(-1)}
               className="hover:bg-accent"
+              aria-label="Voltar"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
