@@ -344,11 +344,6 @@ export default function TaskCard({
                     <ScrollArea className="max-h-[300px]">
                       {STATUS_GROUPS.map((group, groupIdx) => <div key={group.label}>
                           {groupIdx > 0 && <Separator className="my-1" />}
-                          <div className="px-2 py-1.5">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                              {group.label}
-                            </span>
-                          </div>
                           {group.statuses.map(status => <SelectItem key={status.value} value={status.value} className="cursor-pointer">
                               <div className="flex items-center gap-2">
                                 <span className={cn("h-3 w-3 rounded-full flex-shrink-0 flex items-center justify-center", status.value === 'concluido' && "ring-1 ring-inset ring-white/30")} style={{
