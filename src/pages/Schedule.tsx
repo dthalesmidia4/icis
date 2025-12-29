@@ -778,7 +778,7 @@ export default function Schedule() {
             </div>
             
             <Select value={channelFilter} onValueChange={setChannelFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]" aria-label="Filtrar por canal">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Canal" />
               </SelectTrigger>

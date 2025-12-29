@@ -638,7 +638,7 @@ const PlanPeriod = () => {
               
               <div className="flex gap-2">
                 <Select value={budgetCurrency} onValueChange={(value: 'BRL' | 'USD') => setBudgetCurrency(value)}>
-                  <SelectTrigger className="w-[100px]">
+                  <SelectTrigger className="w-[100px]" aria-label="Selecionar moeda">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-background z-50">
@@ -1015,7 +1015,7 @@ const PlanPeriod = () => {
                     <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={e => {
                 e.stopPropagation();
                 setPeriodToDelete(period);
-              }}>
+              }} aria-label="Excluir período">
                       <Trash2 className="w-4 h-4" />
                     </Button>
                     <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
@@ -1044,7 +1044,7 @@ const PlanPeriod = () => {
                   })}</span>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setSelectedHistoryPlan(null)} className="shrink-0">
+                <Button variant="ghost" size="icon" onClick={() => setSelectedHistoryPlan(null)} className="shrink-0" aria-label="Fechar detalhes">
                   <X className="w-5 h-5" />
                 </Button>
               </div>

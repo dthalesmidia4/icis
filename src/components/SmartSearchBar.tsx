@@ -164,6 +164,7 @@ export function SmartSearchBar<T extends SearchableItem>({
               size="icon"
               className="h-7 w-7 text-muted-foreground hover:text-foreground"
               onClick={handleClear}
+              aria-label="Limpar pesquisa"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -181,7 +182,7 @@ export function SmartSearchBar<T extends SearchableItem>({
                   : "text-muted-foreground hover:text-foreground"
               )}
               onClick={handleVoiceClick}
-              title={isListening ? "Parar gravação" : "Pesquisar por voz"}
+              aria-label={isListening ? "Parar gravação" : "Pesquisar por voz"}
             >
               {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
             </Button>

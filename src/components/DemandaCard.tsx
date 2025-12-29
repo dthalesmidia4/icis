@@ -126,6 +126,8 @@ export const DemandaCard = ({ demanda, compact = false, variant = 'default' }: D
               <button
                 onClick={() => setExpanded(!expanded)}
                 className="text-xs text-primary hover:underline flex items-center gap-1"
+                aria-label={expanded ? "Ver menos conteúdo" : "Ver mais conteúdo"}
+                aria-expanded={expanded}
               >
                 {expanded ? (
                   <>

@@ -421,7 +421,7 @@ export default function GenerateQuestions() {
             {/* Dropdown para Mobile */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="md:hidden">
+                <Button variant="outline" size="icon" className="md:hidden" aria-label="Mais opções">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>

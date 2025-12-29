@@ -285,6 +285,7 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
               size="icon"
               onClick={onClose}
               className="shrink-0"
+              aria-label="Fechar visualização"
             >
               <X className="w-5 h-5" />
             </Button>
