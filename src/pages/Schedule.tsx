@@ -44,7 +44,7 @@ export default function Schedule() {
   const [isTaskCardOpen, setIsTaskCardOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingField, setSavingField] = useState<string | null>(null);
-  const [channelFilter, setChannelFilter] = useState<string>("all");
+  const [contentTypeFilter, setContentTypeFilter] = useState<string>("all");
   const [referencePeriod, setReferencePeriod] = useState<{ titulo: string; dataInicio: string; dataFim: string } | null>(null);
   const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -533,39 +533,34 @@ export default function Schedule() {
     return new Date(dateString + 'T00:00:00').toLocaleDateString('pt-BR');
   };
 
-  // Extrair canais únicos dos cards
-  const availableChannels = useMemo(() => {
-    const channels = new Set<string>();
-    cards.forEach(card => {
-      const text = `${card.file_location || ''} ${card.description || ''}`.toLowerCase();
-      
-      const channelKeywords = [
-        'instagram', 'facebook', 'linkedin', 'youtube', 
-        'tiktok', 'twitter', 'whatsapp', 'email', 'e-mail',
-        'reels', 'story', 'stories', 'post', 'feed'
-      ];
-      
-      channelKeywords.forEach(keyword => {
-        if (text.includes(keyword)) {
-          const normalizedChannel = keyword.charAt(0).toUpperCase() + keyword.slice(1);
-          channels.add(normalizedChannel);
-        }
-      });
-    });
-    return Array.from(channels).sort();
-  }, [cards]);
+  // Tipos de conteúdo disponíveis para filtro
+  const CONTENT_TYPES = [
+    { value: "carrossel", label: "Carrossel", keywords: ["carrossel", "carousel"] },
+    { value: "reels", label: "Reels", keywords: ["reels", "reel"] },
+    { value: "comercial", label: "Comercial", keywords: ["comercial", "vídeo comercial", "video comercial", "anúncio", "anuncio", "ad"] },
+    { value: "story", label: "Story/Stories", keywords: ["story", "stories", "storie"] },
+    { value: "post-estatico", label: "Post Estático", keywords: ["post estático", "post estatico", "imagem estática", "imagem estatica", "post único", "post unico", "arte única", "arte unica", "single post"] },
+    { value: "video", label: "Vídeo", keywords: ["vídeo", "video"] },
+    { value: "live", label: "Live", keywords: ["live", "ao vivo"] },
+    { value: "podcast", label: "Podcast", keywords: ["podcast", "áudio", "audio"] },
+    { value: "blog", label: "Blog/Artigo", keywords: ["blog", "artigo", "texto", "matéria", "materia"] },
+    { value: "email-mkt", label: "E-mail Marketing", keywords: ["email", "e-mail", "newsletter", "email marketing"] },
+    { value: "motion", label: "Motion Graphics", keywords: ["motion", "animação", "animacao", "gif"] },
+    { value: "infografico", label: "Infográfico", keywords: ["infográfico", "infografico"] },
+  ];
 
-  // Filtrar cards baseado no filtro de canal
+  // Filtrar cards baseado no tipo de conteúdo
   const filteredCards = useMemo(() => {
     return cards.filter(card => {
-      const matchesChannel = channelFilter === "all" || (() => {
-        const text = `${card.file_location || ''} ${card.description || ''}`.toLowerCase();
-        return text.includes(channelFilter.toLowerCase());
-      })();
-
-      return matchesChannel;
+      if (contentTypeFilter === "all") return true;
+      
+      const contentType = CONTENT_TYPES.find(ct => ct.value === contentTypeFilter);
+      if (!contentType) return true;
+      
+      const text = `${card.title || ''} ${card.file_location || ''} ${card.description || ''}`.toLowerCase();
+      return contentType.keywords.some(keyword => text.includes(keyword));
     });
-  }, [cards, channelFilter]);
+  }, [cards, contentTypeFilter]);
 
   const getCardsByColumn = (columnId: string) => {
     return filteredCards.filter((card) => (card.column_name || "Planejamento") === columnId);
@@ -793,17 +788,24 @@ export default function Schedule() {
             
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={channelFilter} onValueChange={setChannelFilter}>
-                <SelectTrigger className="w-[180px]" aria-label="Filtrar por canal">
-                  <SelectValue placeholder="Canal" />
+              <Select value={contentTypeFilter} onValueChange={setContentTypeFilter}>
+                <SelectTrigger className="w-[180px]" aria-label="Filtrar por tipo de conteúdo">
+                  <SelectValue placeholder="Tipo de conteúdo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os canais</SelectItem>
-                  {availableChannels.map((channel) => (
-                    <SelectItem key={channel} value={channel}>
-                      {channel}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="all">Todos os tipos</SelectItem>
+                  <SelectItem value="carrossel">Carrossel</SelectItem>
+                  <SelectItem value="reels">Reels</SelectItem>
+                  <SelectItem value="comercial">Comercial</SelectItem>
+                  <SelectItem value="story">Story/Stories</SelectItem>
+                  <SelectItem value="post-estatico">Post Estático</SelectItem>
+                  <SelectItem value="video">Vídeo</SelectItem>
+                  <SelectItem value="live">Live</SelectItem>
+                  <SelectItem value="podcast">Podcast</SelectItem>
+                  <SelectItem value="blog">Blog/Artigo</SelectItem>
+                  <SelectItem value="email-mkt">E-mail Marketing</SelectItem>
+                  <SelectItem value="motion">Motion Graphics</SelectItem>
+                  <SelectItem value="infografico">Infográfico</SelectItem>
                 </SelectContent>
               </Select>
             </div>
