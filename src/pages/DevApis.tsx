@@ -122,7 +122,7 @@ const DevApis = () => {
                 <Label htmlFor="apiKey">Chave API</Label>
                 <div className="relative">
                   <Input id="apiKey" type={showKey ? "text" : "password"} placeholder="sk-..." value={apiKey} onChange={e => setApiKey(e.target.value)} className="pr-10" />
-                  <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 hover:bg-transparent" onClick={() => setShowKey(!showKey)}>
+                  <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 hover:bg-transparent" onClick={() => setShowKey(!showKey)} aria-label={showKey ? "Ocultar chave" : "Mostrar chave"}>
                     {showKey ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                   </Button>
                 </div>

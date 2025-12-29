@@ -139,7 +139,7 @@ export default function ProfileSettings() {
         <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
           <div className="flex items-center justify-between h-16 px-6">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="hover:bg-accent">
+              <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="hover:bg-accent" aria-label="Voltar">
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <h1 className="text-xl font-semibold">Editar Perfil</h1>

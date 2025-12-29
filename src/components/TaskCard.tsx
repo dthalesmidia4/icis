@@ -332,7 +332,7 @@ export default function TaskCard({
                 });
                 handleFieldSave('status', value);
               }}>
-                  <SelectTrigger className={cn("h-9 w-auto min-w-[180px] gap-2 border font-medium text-xs", statusConfig.bgColor, statusConfig.textColor, statusConfig.borderColor)}>
+                  <SelectTrigger className={cn("h-9 w-auto min-w-[180px] gap-2 border font-medium text-xs", statusConfig.bgColor, statusConfig.textColor, statusConfig.borderColor)} aria-label="Selecionar status da tarefa">
                     <div className="flex items-center gap-2">
                       <span className="h-3 w-3 rounded-full flex-shrink-0" style={{
                       backgroundColor: statusConfig.color
@@ -435,6 +435,7 @@ export default function TaskCard({
                             size="icon"
                             className="h-6 w-6 text-muted-foreground hover:text-destructive"
                             onClick={() => removePublicationDate(index)}
+                            aria-label="Remover data de publicação"
                           >
                             <X className="h-3 w-3" />
                           </Button>
@@ -447,6 +448,7 @@ export default function TaskCard({
                             size="icon"
                             className="h-6 w-6 text-muted-foreground hover:text-primary"
                             onClick={addPublicationDate}
+                            aria-label="Adicionar data de publicação"
                           >
                             <Plus className="h-3 w-3" />
                           </Button>
@@ -460,7 +462,7 @@ export default function TaskCard({
               <div className="h-4 w-px bg-border" />
 
               {/* Delete button */}
-              <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={onDelete}>
+              <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={onDelete} aria-label="Excluir tarefa">
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>

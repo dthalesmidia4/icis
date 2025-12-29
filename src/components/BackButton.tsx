@@ -26,6 +26,7 @@ const BackButton = ({ to, onClick }: BackButtonProps) => {
       size="icon"
       onClick={handleClick} 
       className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
+      aria-label="Voltar"
     >
       <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
     </Button>

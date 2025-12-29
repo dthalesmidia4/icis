@@ -265,13 +265,13 @@ const ClientList = () => {
             </div> : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {clients.map(client => <div key={client.id} className="relative">
                   {editMode && <div className="absolute top-2 right-2 z-10 flex gap-1" onClick={e => e.stopPropagation()}>
-                      <Button variant="secondary" size="icon" onClick={() => openLogoModal(client)} title="Editar logo" className="h-8 w-8">
+                      <Button variant="secondary" size="icon" onClick={() => openLogoModal(client)} className="h-8 w-8" aria-label="Editar logo">
                         <Image className="h-4 w-4" />
                       </Button>
-                      <Button variant="secondary" size="icon" onClick={() => navigate(`/clientes/${client.id}`)} title="Editar cliente" className="h-8 w-8">
+                      <Button variant="secondary" size="icon" onClick={() => navigate(`/clientes/${client.id}`)} className="h-8 w-8" aria-label="Editar cliente">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="secondary" size="icon" onClick={() => setDeleteId(client.id)} title="Excluir cliente" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10">
+                      <Button variant="secondary" size="icon" onClick={() => setDeleteId(client.id)} className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" aria-label="Excluir cliente">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>}

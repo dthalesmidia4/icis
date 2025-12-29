@@ -65,7 +65,7 @@ export function MonthSelectionModal({ open, onClose, onConfirm, isGenerating }: 
           <div className="space-y-2">
             <label className="text-sm font-medium">Mês de Referência</label>
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Selecionar mês">
                 <SelectValue placeholder="Selecione o mês" />
               </SelectTrigger>
               <SelectContent>

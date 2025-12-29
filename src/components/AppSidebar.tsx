@@ -146,7 +146,7 @@ function DesktopSidebar() {
       <SidebarHeader className="border-b p-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center justify-center w-full p-1 hover:bg-accent rounded-lg transition-all duration-300 hover:scale-110 group">
+            <button className="flex items-center justify-center w-full p-1 hover:bg-accent rounded-lg transition-all duration-300 hover:scale-110 group" aria-label="Menu do perfil">
               <Avatar className="h-10 w-10 border-2 border-primary transition-all duration-300 group-hover:border-primary/80 group-hover:shadow-lg group-hover:shadow-primary/20">
                 <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-sm font-bold">
                   {tenantName ? getInitials(tenantName) : 'EM'}
@@ -213,6 +213,7 @@ function DesktopSidebar() {
             <button
               onClick={handleSignOut}
               className="flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all duration-300 hover:scale-110 hover:bg-destructive/10 hover:shadow-lg hover:shadow-destructive/20 text-muted-foreground hover:text-destructive"
+              aria-label="Sair da conta"
             >
               <LogOut className="h-5 w-5" />
             </button>
