@@ -542,7 +542,11 @@ export default function Schedule() {
     { value: "post-estatico", label: "Post Estático", keywords: ["post estático", "post estatico", "imagem estática", "imagem estatica", "post único", "post unico", "arte única", "arte unica", "single post"] },
     { value: "video", label: "Vídeo", keywords: ["vídeo", "video"] },
     { value: "live", label: "Live", keywords: ["live", "ao vivo"] },
+    { value: "podcast", label: "Podcast", keywords: ["podcast", "áudio", "audio"] },
     { value: "blog", label: "Blog/Artigo", keywords: ["blog", "artigo", "texto", "matéria", "materia"] },
+    { value: "email-mkt", label: "E-mail Marketing", keywords: ["email", "e-mail", "newsletter", "email marketing"] },
+    { value: "motion", label: "Motion Graphics", keywords: ["motion", "animação", "animacao", "gif"] },
+    { value: "infografico", label: "Infográfico", keywords: ["infográfico", "infografico"] },
   ];
 
   // Filtrar cards baseado no tipo de conteúdo
