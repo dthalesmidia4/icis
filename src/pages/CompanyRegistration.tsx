@@ -241,6 +241,7 @@ const CompanyRegistration = () => {
               variant="ghost" 
               size="icon"
               onClick={() => navigate("/")}
+              aria-label="Voltar para página inicial"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
@@ -395,7 +396,7 @@ const CompanyRegistration = () => {
                         />
                       )}
                     </InputMask>
-                    <p className="text-[11px] text-muted-foreground/70">Número fixo da empresa para contato geral.</p>
+                    <p className="text-[11px] text-muted-foreground">Número fixo da empresa para contato geral.</p>
                     {errors.commercial_phone && <p className="text-xs text-destructive">{errors.commercial_phone}</p>}
                   </div>
                 </div>
@@ -513,7 +514,7 @@ const CompanyRegistration = () => {
                         className={`h-10 pl-9 ${errors.corporate_email ? "border-destructive" : "border-border/60"}`}
                       />
                     </div>
-                    <p className="text-[11px] text-muted-foreground/70">E-mail principal da empresa.</p>
+                    <p className="text-[11px] text-muted-foreground">E-mail principal da empresa.</p>
                     {errors.corporate_email && <p className="text-xs text-destructive">{errors.corporate_email}</p>}
                   </div>
 
@@ -535,7 +536,7 @@ const CompanyRegistration = () => {
                         />
                       )}
                     </InputMask>
-                    <p className="text-[11px] text-muted-foreground/70">Número pessoal ou WhatsApp do responsável.</p>
+                    <p className="text-[11px] text-muted-foreground">Número pessoal ou WhatsApp do responsável.</p>
                     {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
                   </div>
                 </div>
@@ -574,7 +575,7 @@ const CompanyRegistration = () => {
                         />
                       )}
                     </InputMask>
-                    <p className="text-[11px] text-muted-foreground/70">CPF do responsável (opcional).</p>
+                    <p className="text-[11px] text-muted-foreground">CPF do responsável (opcional).</p>
                     {errors.cpf && <p className="text-xs text-destructive">{errors.cpf}</p>}
                   </div>
                 </div>
@@ -611,7 +612,7 @@ const CompanyRegistration = () => {
                         />
                       )}
                     </InputMask>
-                    {loadingCep && <p className="text-[11px] text-muted-foreground/70">Buscando endereço...</p>}
+                    {loadingCep && <p className="text-[11px] text-muted-foreground">Buscando endereço...</p>}
                     {errors.cep && <p className="text-xs text-destructive">{errors.cep}</p>}
                   </div>
 

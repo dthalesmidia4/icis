@@ -709,6 +709,7 @@ export default function Schedule() {
               size="icon"
               onClick={() => navigate("/client-hub")}
               className="h-8 w-8 sm:h-10 sm:w-10"
+              aria-label="Voltar para o hub do cliente"
             >
               <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
@@ -741,6 +742,7 @@ export default function Schedule() {
               size="icon"
               onClick={() => navigate("/client-hub")}
               className="h-8 w-8 sm:h-10 sm:w-10"
+              aria-label="Voltar para o hub do cliente"
             >
               <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
@@ -768,12 +770,13 @@ export default function Schedule() {
           {/* Search and Filter */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <Input
                 placeholder="Buscar demandas..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
+                aria-label="Buscar demandas"
               />
             </div>
             

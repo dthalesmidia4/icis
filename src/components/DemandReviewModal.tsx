@@ -159,17 +159,20 @@ export const DemandReviewModal = ({
       >
         <div className="flex gap-3">
           {/* Selection checkbox */}
-          <div 
+          <button 
             onClick={() => onToggle(originalIndex)}
+            type="button"
+            aria-label={isSelected ? `Remover ${demand.titulo} da seleção` : `Adicionar ${demand.titulo} à seleção`}
+            aria-pressed={isSelected}
             className={cn(
               "w-5 h-5 rounded border-2 shrink-0 flex items-center justify-center cursor-pointer transition-all mt-0.5",
               isSelected 
                 ? `bg-gradient-to-br ${currentGradient} border-transparent text-white`
-                : "border-muted-foreground/40 hover:border-muted-foreground/60"
+                : "border-muted-foreground/50 hover:border-muted-foreground/70"
             )}
           >
             {isSelected && <Check className="w-3 h-3" />}
-          </div>
+          </button>
 
           {/* Content */}
           <div className="flex-1 min-w-0">
@@ -243,6 +246,7 @@ export const DemandReviewModal = ({
               variant="ghost"
               className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
               onClick={() => onRemove(originalIndex)}
+              aria-label={`Remover ${demand.titulo}`}
             >
               <Trash2 className="w-4 h-4" />
             </Button>
@@ -335,7 +339,7 @@ export const DemandReviewModal = ({
 
                 {totalVisible === 0 && (
                   <div className="text-center py-12">
-                    <LayoutGrid className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+                    <LayoutGrid className="w-12 h-12 mx-auto text-muted-foreground/70 mb-3" aria-hidden="true" />
                     <p className="text-muted-foreground">Nenhuma demanda disponível</p>
                     <Button 
                       variant="outline" 
@@ -401,11 +405,11 @@ export const DemandReviewModal = ({
 
                   {totalSmartVisible === 0 && (
                     <div className="text-center py-12">
-                      <Lightbulb className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+                      <Lightbulb className="w-12 h-12 mx-auto text-muted-foreground/70 mb-3" aria-hidden="true" />
                       <p className="text-muted-foreground">
                         Nenhuma sugestão inteligente disponível
                       </p>
-                      <p className="text-xs text-muted-foreground/70 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         As sugestões são baseadas no plano alternativo ({isNormal ? 'Ultra' : 'Normal'})
                       </p>
                     </div>
