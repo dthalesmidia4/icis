@@ -797,11 +797,7 @@ export default function Schedule() {
                   <SelectItem value="post-estatico">Post Estático</SelectItem>
                   <SelectItem value="video">Vídeo</SelectItem>
                   <SelectItem value="live">Live</SelectItem>
-                  <SelectItem value="podcast">Podcast</SelectItem>
                   <SelectItem value="blog">Blog/Artigo</SelectItem>
-                  <SelectItem value="email-mkt">E-mail Marketing</SelectItem>
-                  <SelectItem value="motion">Motion Graphics</SelectItem>
-                  <SelectItem value="infografico">Infográfico</SelectItem>
                 </SelectContent>
               </Select>
             </div>
