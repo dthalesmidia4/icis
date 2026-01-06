@@ -322,6 +322,144 @@ FORMATO DE RESPOSTA FINAL:
       console.log('Ultra plan demands:', plans.ultra_plan.length);
     }
 
+    // ============================================================================
+    // CHECKLIST LÓGICO INTERNO PÓS-GERAÇÃO (AUTO-REVISÃO SILENCIOSA)
+    // Valida e corrige automaticamente TODAS as demandas antes de salvar
+    // ============================================================================
+    console.log('=== INICIANDO CHECKLIST PÓS-GERAÇÃO ===');
+
+    const checklistPrompt = `
+Você é um revisor interno de qualidade para demandas de marketing de agência.
+Sua função é VALIDAR e CORRIGIR silenciosamente as demandas geradas, sem criar novas.
+
+## CONTEXTO DO PERÍODO
+- Objetivo: ${periodPlan.objective}
+- Canal prioritário: ${priorityChannel}
+- Observações/Restrições: ${periodPlan.observations || 'Nenhuma restrição especificada'}
+- Data início: ${periodPlan.period_start}
+- Data fim: ${periodPlan.period_end}
+
+## CHECKLIST OBRIGATÓRIO (responda internamente para cada demanda):
+
+### 1. PLANEJAMENTO
+- A demanda respeita todas as restrições do período?
+- O tom está coerente com a estratégia geral?
+
+### 2. CTA (Call-to-Action)
+- O CTA utilizado é permitido para este período?
+- Existe CTA comercial, promessa ou prazo quando isso NÃO foi autorizado nas observações?
+- Se CTA comercial não é permitido, substitua por encerramento neutro (ex: "Reflita sobre isso", "Salve para depois", "Comente sua opinião")
+
+### 3. COERÊNCIA
+- O objetivo declarado da demanda bate com o conteúdo visível?
+- O conteúdo cumpre exatamente a função proposta (autoridade, educação, posicionamento etc.)?
+
+### 4. REPETIÇÃO (dentro da mesma geração)
+- A ideia central desta demanda já apareceu em outra demanda?
+- A estrutura narrativa ou promessa está sendo repetida?
+- Se houver repetição, altere o ângulo/abordagem mantendo a ideia central
+
+### 5. VIABILIDADE DE AGÊNCIA
+- Isso faz sentido como uma demanda real para uma equipe executar?
+- Está claro, acionável e pronto para produção?
+
+## REGRAS DE CORREÇÃO
+- Se qualquer validação FALHAR, ajuste APENAS o trecho necessário
+- Mantenha a ideia central sempre que possível
+- Remova ou substitua CTAs indevidos por encerramentos neutros
+- Reescreva textos que violem tom ou estratégia
+- Ajuste ângulo para evitar repetição entre demandas
+- NÃO altere o número de demandas
+- NÃO crie novas demandas fora do escopo
+- NÃO explique as correções no output
+
+## DEMANDAS PARA REVISAR
+
+### PLANO NORMAL (default_plan):
+${JSON.stringify(plans.default_plan, null, 2)}
+
+### PLANO ULTRA (ultra_plan):
+${JSON.stringify(plans.ultra_plan, null, 2)}
+
+## FORMATO DE RESPOSTA
+Retorne APENAS o JSON corrigido, sem explicações:
+{
+  "default_plan": [...demandas corrigidas...],
+  "ultra_plan": [...demandas corrigidas...]
+}
+`;
+
+    console.log('Calling OpenAI for post-generation checklist validation...');
+    const checklistResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKeyData.key_value}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-5-mini',
+        messages: [
+          { 
+            role: 'system', 
+            content: 'Você é um revisor de qualidade silencioso. Retorne APENAS JSON válido com as demandas corrigidas. Sem explicações.' 
+          },
+          { role: 'user', content: checklistPrompt }
+        ],
+        max_completion_tokens: 16000,
+      }),
+    });
+
+    const checklistResponseText = await checklistResponse.text();
+    console.log('Checklist response status:', checklistResponse.status);
+
+    if (checklistResponse.ok) {
+      try {
+        const checklistAiResponse = JSON.parse(checklistResponseText);
+        const checklistContent = checklistAiResponse.choices?.[0]?.message?.content;
+
+        if (checklistContent) {
+          // Parse corrected plans
+          let cleanChecklistContent = checklistContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          const checklistJsonMatch = cleanChecklistContent.match(/\{[\s\S]*"default_plan"[\s\S]*"ultra_plan"[\s\S]*\}/);
+          if (checklistJsonMatch) {
+            cleanChecklistContent = checklistJsonMatch[0];
+          }
+
+          const correctedPlans = JSON.parse(cleanChecklistContent);
+
+          // Apply corrections ensuring channel is still correct
+          if (correctedPlans.default_plan && Array.isArray(correctedPlans.default_plan)) {
+            plans.default_plan = correctedPlans.default_plan.map((demand: any) => ({
+              ...demand,
+              canal: priorityChannel
+            }));
+            console.log('Checklist: default_plan validated and corrected');
+          }
+          if (correctedPlans.ultra_plan && Array.isArray(correctedPlans.ultra_plan)) {
+            plans.ultra_plan = correctedPlans.ultra_plan.map((demand: any) => ({
+              ...demand,
+              canal: priorityChannel
+            }));
+            console.log('Checklist: ultra_plan validated and corrected');
+          }
+
+          console.log('=== CHECKLIST PÓS-GERAÇÃO CONCLUÍDO ===');
+        } else {
+          console.log('Checklist returned empty content, keeping original plans');
+        }
+      } catch (checklistParseError) {
+        console.error('Checklist parse error (keeping original):', checklistParseError);
+        // Keep original plans if checklist fails - don't break the flow
+      }
+    } else {
+      console.error('Checklist API error (keeping original):', checklistResponse.status);
+      // Keep original plans if checklist API fails - don't break the flow
+    }
+
+    // ============================================================================
+    // FIM DO CHECKLIST PÓS-GERAÇÃO
+    // ============================================================================
+
     // Update period plan with generated plans
     console.log('Updating period plan with generated plans...');
     const { error: updateError } = await (supabase as any)
