@@ -194,7 +194,7 @@ ATENÇÃO: Todas as demandas devem ser EXCLUSIVAMENTE para "${periodPlan.priorit
     console.log('Generating period plans for:', periodPlanId, 'using GPT-5 Mini');
     console.log('Priority channel:', periodPlan.priority_channel);
 
-    // Append JSON instruction to ensure proper output format with DETAILED field requirements
+    // Append JSON instruction with VALIDATION RULES integrated (avoiding second API call)
     const jsonInstruction = `
 
 ⚠️ INSTRUÇÕES OBRIGATÓRIAS DE FORMATO (SEGUIR EXATAMENTE):
@@ -227,6 +227,18 @@ IMPORTANTE: O campo "conteudo" DEVE conter o conteúdo COMPLETO E PRONTO PARA US
 
 ⚠️ NUNCA deixe "conteudo" vazio. TODA demanda DEVE ter conteúdo pronto para uso.
 ⚠️ TODAS as demandas DEVEM ter canal = "${periodPlan.priority_channel}"
+
+## ⚠️ AUTO-VALIDAÇÃO OBRIGATÓRIA (aplicar ANTES de finalizar cada demanda):
+
+Antes de incluir qualquer demanda no resultado, valide internamente:
+
+1. PLANEJAMENTO: A demanda respeita as observações/restrições do período "${periodPlan.observations || 'Nenhuma'}"?
+2. CTA: Se CTA comercial/vendas NÃO foi autorizado nas observações, use APENAS encerramentos neutros (ex: "Reflita sobre isso", "Salve para depois", "Comente sua opinião"). NUNCA prometa resultados, prazos ou promoções sem autorização.
+3. COERÊNCIA: O objetivo declarado bate com o conteúdo? A peça cumpre exatamente a função proposta?
+4. REPETIÇÃO: Cada demanda deve ter ideia central ÚNICA. NÃO repita estruturas narrativas ou abordagens entre demandas da mesma geração. Varie os ângulos.
+5. VIABILIDADE: A demanda está clara, acionável e pronta para uma equipe de agência produzir?
+
+Se qualquer validação falhar, AJUSTE a demanda antes de incluir no JSON. Não inclua demandas que violem essas regras.
 
 FORMATO DE RESPOSTA FINAL:
 {
@@ -322,143 +334,8 @@ FORMATO DE RESPOSTA FINAL:
       console.log('Ultra plan demands:', plans.ultra_plan.length);
     }
 
-    // ============================================================================
-    // CHECKLIST LÓGICO INTERNO PÓS-GERAÇÃO (AUTO-REVISÃO SILENCIOSA)
-    // Valida e corrige automaticamente TODAS as demandas antes de salvar
-    // ============================================================================
-    console.log('=== INICIANDO CHECKLIST PÓS-GERAÇÃO ===');
-
-    const checklistPrompt = `
-Você é um revisor interno de qualidade para demandas de marketing de agência.
-Sua função é VALIDAR e CORRIGIR silenciosamente as demandas geradas, sem criar novas.
-
-## CONTEXTO DO PERÍODO
-- Objetivo: ${periodPlan.objective}
-- Canal prioritário: ${priorityChannel}
-- Observações/Restrições: ${periodPlan.observations || 'Nenhuma restrição especificada'}
-- Data início: ${periodPlan.period_start}
-- Data fim: ${periodPlan.period_end}
-
-## CHECKLIST OBRIGATÓRIO (responda internamente para cada demanda):
-
-### 1. PLANEJAMENTO
-- A demanda respeita todas as restrições do período?
-- O tom está coerente com a estratégia geral?
-
-### 2. CTA (Call-to-Action)
-- O CTA utilizado é permitido para este período?
-- Existe CTA comercial, promessa ou prazo quando isso NÃO foi autorizado nas observações?
-- Se CTA comercial não é permitido, substitua por encerramento neutro (ex: "Reflita sobre isso", "Salve para depois", "Comente sua opinião")
-
-### 3. COERÊNCIA
-- O objetivo declarado da demanda bate com o conteúdo visível?
-- O conteúdo cumpre exatamente a função proposta (autoridade, educação, posicionamento etc.)?
-
-### 4. REPETIÇÃO (dentro da mesma geração)
-- A ideia central desta demanda já apareceu em outra demanda?
-- A estrutura narrativa ou promessa está sendo repetida?
-- Se houver repetição, altere o ângulo/abordagem mantendo a ideia central
-
-### 5. VIABILIDADE DE AGÊNCIA
-- Isso faz sentido como uma demanda real para uma equipe executar?
-- Está claro, acionável e pronto para produção?
-
-## REGRAS DE CORREÇÃO
-- Se qualquer validação FALHAR, ajuste APENAS o trecho necessário
-- Mantenha a ideia central sempre que possível
-- Remova ou substitua CTAs indevidos por encerramentos neutros
-- Reescreva textos que violem tom ou estratégia
-- Ajuste ângulo para evitar repetição entre demandas
-- NÃO altere o número de demandas
-- NÃO crie novas demandas fora do escopo
-- NÃO explique as correções no output
-
-## DEMANDAS PARA REVISAR
-
-### PLANO NORMAL (default_plan):
-${JSON.stringify(plans.default_plan, null, 2)}
-
-### PLANO ULTRA (ultra_plan):
-${JSON.stringify(plans.ultra_plan, null, 2)}
-
-## FORMATO DE RESPOSTA
-Retorne APENAS o JSON corrigido, sem explicações:
-{
-  "default_plan": [...demandas corrigidas...],
-  "ultra_plan": [...demandas corrigidas...]
-}
-`;
-
-    console.log('Calling OpenAI for post-generation checklist validation...');
-    const checklistResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKeyData.key_value}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-5-mini',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'Você é um revisor de qualidade silencioso. Retorne APENAS JSON válido com as demandas corrigidas. Sem explicações.' 
-          },
-          { role: 'user', content: checklistPrompt }
-        ],
-        max_completion_tokens: 16000,
-      }),
-    });
-
-    const checklistResponseText = await checklistResponse.text();
-    console.log('Checklist response status:', checklistResponse.status);
-
-    if (checklistResponse.ok) {
-      try {
-        const checklistAiResponse = JSON.parse(checklistResponseText);
-        const checklistContent = checklistAiResponse.choices?.[0]?.message?.content;
-
-        if (checklistContent) {
-          // Parse corrected plans
-          let cleanChecklistContent = checklistContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-          const checklistJsonMatch = cleanChecklistContent.match(/\{[\s\S]*"default_plan"[\s\S]*"ultra_plan"[\s\S]*\}/);
-          if (checklistJsonMatch) {
-            cleanChecklistContent = checklistJsonMatch[0];
-          }
-
-          const correctedPlans = JSON.parse(cleanChecklistContent);
-
-          // Apply corrections ensuring channel is still correct
-          if (correctedPlans.default_plan && Array.isArray(correctedPlans.default_plan)) {
-            plans.default_plan = correctedPlans.default_plan.map((demand: any) => ({
-              ...demand,
-              canal: priorityChannel
-            }));
-            console.log('Checklist: default_plan validated and corrected');
-          }
-          if (correctedPlans.ultra_plan && Array.isArray(correctedPlans.ultra_plan)) {
-            plans.ultra_plan = correctedPlans.ultra_plan.map((demand: any) => ({
-              ...demand,
-              canal: priorityChannel
-            }));
-            console.log('Checklist: ultra_plan validated and corrected');
-          }
-
-          console.log('=== CHECKLIST PÓS-GERAÇÃO CONCLUÍDO ===');
-        } else {
-          console.log('Checklist returned empty content, keeping original plans');
-        }
-      } catch (checklistParseError) {
-        console.error('Checklist parse error (keeping original):', checklistParseError);
-        // Keep original plans if checklist fails - don't break the flow
-      }
-    } else {
-      console.error('Checklist API error (keeping original):', checklistResponse.status);
-      // Keep original plans if checklist API fails - don't break the flow
-    }
-
-    // ============================================================================
-    // FIM DO CHECKLIST PÓS-GERAÇÃO
-    // ============================================================================
+    // Note: Checklist validation is now integrated into the main prompt above
+    // This eliminates the second OpenAI API call that was causing timeouts
 
     // Update period plan with generated plans
     console.log('Updating period plan with generated plans...');
