@@ -24,7 +24,7 @@ const Home = () => {
     gradient: "from-green-500 to-emerald-600",
     route: "/registration"
   }, {
-    title: "Conteúdo Programado",
+    title: "Agendamento",
     icon: CalendarDays,
     gradient: "from-purple-500 to-violet-600",
     route: "/content-schedule"
