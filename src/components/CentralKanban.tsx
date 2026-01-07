@@ -463,7 +463,8 @@ const CentralKanban = () => {
           </div> : <div className="flex flex-col gap-2">
             {filteredCards.map(card => {
           const {
-            cleanTitle
+            cleanTitle,
+            type: contentType
           } = extractContentType(card.title);
           const isHighlighted = highlightedCardId === card.id;
           const priority = getPriorityIndicator(card);
@@ -484,22 +485,28 @@ const CentralKanban = () => {
               )}
               onClick={() => handleCardClick(card)}
             >
-              {/* Left side: Priority, Title */}
+              {/* Left side: Priority, Company, Content Type, Title */}
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 {priority && (
                   <Badge className={cn("text-[10px] px-2 py-0.5 font-medium whitespace-nowrap", priority.className)}>
                     {priority.label}
                   </Badge>
                 )}
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                  {card.clientName}
+                </span>
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                  {contentType}
+                </span>
                 <span className={cn(
                   "text-sm font-medium truncate",
                   isHighlighted ? "text-primary" : "text-foreground"
                 )}>
-                  {cleanTitle || card.title}
+                  {cleanTitle}
                 </span>
               </div>
               
-              {/* Right side: Attachments indicator + Badge + Date + Schedule Button */}
+              {/* Right side: Attachments indicator + Date + Schedule Button */}
               <div className="flex items-center gap-3 shrink-0">
                 {card.attachments && card.attachments.length > 0 && (
                   <div className="flex items-center gap-1 text-muted-foreground">
@@ -507,9 +514,6 @@ const CentralKanban = () => {
                     <span className="text-xs">{card.attachments.length}</span>
                   </div>
                 )}
-                <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary border-primary/20 font-medium whitespace-nowrap">
-                  {card.clientName}
-                </Badge>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
