@@ -483,16 +483,13 @@ const CentralKanban = () => {
               )}
               onClick={() => handleCardClick(card)}
             >
-              {/* Left side: Priority, Date, Title */}
+              {/* Left side: Priority, Title */}
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 {priority && (
                   <Badge className={cn("text-[10px] px-2 py-0.5 font-medium whitespace-nowrap", priority.className)}>
                     {priority.label}
                   </Badge>
                 )}
-                <span className="text-sm font-medium text-foreground whitespace-nowrap">
-                  {firstPubDate ? firstPubDate.toLocaleDateString("pt-BR") + " " + firstPubDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : formatDate(card.delivery_date)}
-                </span>
                 <span className={cn(
                   "text-sm font-medium truncate",
                   isHighlighted ? "text-primary" : "text-foreground"
@@ -501,7 +498,7 @@ const CentralKanban = () => {
                 </span>
               </div>
               
-              {/* Right side: Attachments indicator + Badge + Schedule Button */}
+              {/* Right side: Attachments indicator + Badge + Date + Schedule Button */}
               <div className="flex items-center gap-3 shrink-0">
                 {card.attachments && card.attachments.length > 0 && (
                   <div className="flex items-center gap-1 text-muted-foreground">
@@ -512,6 +509,12 @@ const CentralKanban = () => {
                 <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary border-primary/20 font-medium whitespace-nowrap">
                   {card.clientName}
                 </Badge>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-muted/80 rounded-md border border-border/50">
+                  <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-sm font-semibold text-foreground whitespace-nowrap">
+                    {firstPubDate ? firstPubDate.toLocaleDateString("pt-BR") + " " + firstPubDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : formatDate(card.delivery_date)}
+                  </span>
+                </div>
                 <Button
                   size="sm"
                   className="h-8 px-3 text-xs font-medium"
