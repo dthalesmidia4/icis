@@ -25,9 +25,9 @@ import { cn } from "@/lib/utils";
 
 const COLUMNS = [
   { id: "Planejamento", title: "Planejamento", color: "bg-purple-500" },
-  { id: "Pendente", title: "Pendente", color: "bg-blue-500" },
   { id: "Em Produção", title: "Em Produção", color: "bg-amber-500" },
   { id: "Revisão", title: "Revisão", color: "bg-emerald-500" },
+  { id: "Agendar Publicação", title: "Agendar Publicação", color: "bg-cyan-500" },
 ];
 
 export default function Schedule() {
@@ -558,8 +558,73 @@ export default function Schedule() {
     });
   }, [cards, contentTypeFilter]);
 
+  // Função auxiliar para obter a próxima data de publicação de um card
+  const getNextPublicationDateTime = (card: KanbanCardData): Date | null => {
+    const pubDates = card.publication_dates;
+    if (!pubDates || pubDates.length === 0) {
+      // Fallback para delivery_date se não tiver publication_dates
+      if (card.delivery_date) {
+        return new Date(card.delivery_date + 'T09:00:00');
+      }
+      return null;
+    }
+    
+    const now = new Date();
+    // Encontrar a próxima data de publicação (mais próxima do agora ou a primeira futura)
+    const sortedDates = [...pubDates]
+      .filter(pd => pd.date)
+      .map(pd => new Date(`${pd.date}T${pd.time || '09:00'}:00`))
+      .sort((a, b) => a.getTime() - b.getTime());
+    
+    // Encontrar a primeira data futura ou a mais recente passada
+    const futureDate = sortedDates.find(d => d.getTime() >= now.getTime());
+    return futureDate || sortedDates[0] || null;
+  };
+
+  // Função para calcular a prioridade baseada na data de publicação
+  const getPublicationPriority = (card: KanbanCardData): { label: string; className: string } | null => {
+    const pubDate = getNextPublicationDateTime(card);
+    if (!pubDate) return null;
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+    const in3Days = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const pubDateDay = new Date(pubDate.getFullYear(), pubDate.getMonth(), pubDate.getDate());
+    
+    if (pubDateDay.getTime() < today.getTime()) {
+      return { label: "Atrasado", className: "bg-destructive/10 text-destructive border-destructive/30" };
+    }
+    if (pubDateDay.getTime() === today.getTime()) {
+      return { label: "Publica hoje", className: "bg-orange-500/10 text-orange-600 border-orange-500/30" };
+    }
+    if (pubDateDay.getTime() === tomorrow.getTime()) {
+      return { label: "Publica amanhã", className: "bg-amber-500/10 text-amber-600 border-amber-500/30" };
+    }
+    if (pubDateDay.getTime() < in3Days.getTime()) {
+      return { label: "Próximos dias", className: "bg-cyan-500/10 text-cyan-600 border-cyan-500/30" };
+    }
+    return null;
+  };
+
   const getCardsByColumn = (columnId: string) => {
-    return filteredCards.filter((card) => (card.column_name || "Planejamento") === columnId);
+    let columnCards = filteredCards.filter((card) => (card.column_name || "Planejamento") === columnId);
+    
+    // Ordenar cards da coluna "Agendar Publicação" por data/hora de publicação
+    if (columnId === "Agendar Publicação") {
+      columnCards = columnCards.sort((a, b) => {
+        const dateA = getNextPublicationDateTime(a);
+        const dateB = getNextPublicationDateTime(b);
+        
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        
+        return dateA.getTime() - dateB.getTime();
+      });
+    }
+    
+    return columnCards;
   };
 
   // Format description with hierarchy
@@ -845,6 +910,7 @@ export default function Schedule() {
                             columnCards.map((card, index) => {
                               const isHighlighted = highlightedCardId === card.id;
                               const { platforms } = extractMetadata(card);
+                              const priority = column.id === "Agendar Publicação" ? getPublicationPriority(card) : null;
                               return (
                                 <Draggable key={card.id} draggableId={card.id} index={index}>
                                   {(provided, snapshot) => (
@@ -871,6 +937,18 @@ export default function Schedule() {
                                         snapshot.isDragging ? "shadow-xl rotate-1 scale-105 border-primary" : "border-border/50",
                                         isHighlighted && "border-primary bg-primary/5"
                                       )}>
+                                        {/* Priority Badge (only for Agendar Publicação column) */}
+                                        {priority && (
+                                          <div className="mb-2">
+                                            <Badge 
+                                              variant="outline" 
+                                              className={cn("text-[10px] px-2 py-0.5 font-semibold", priority.className)}
+                                            >
+                                              {priority.label}
+                                            </Badge>
+                                          </div>
+                                        )}
+                                        
                                         {/* Platform Badges */}
                                         {platforms.length > 0 && (
                                           <div className="flex flex-wrap gap-1 mb-2">
@@ -891,9 +969,14 @@ export default function Schedule() {
                                           {card.title}
                                         </h4>
                                         
-                                        {/* Footer: Date + Attachments */}
+                                        {/* Footer: Date + Time + Attachments */}
                                         <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                          <span>{new Date(card.delivery_date + 'T00:00:00').toLocaleDateString("pt-BR")}</span>
+                                          <div className="flex items-center gap-1">
+                                            <span>{new Date(card.delivery_date + 'T00:00:00').toLocaleDateString("pt-BR")}</span>
+                                            {column.id === "Agendar Publicação" && card.publication_dates?.[0]?.time && (
+                                              <span className="text-muted-foreground/70">• {card.publication_dates[0].time}</span>
+                                            )}
+                                          </div>
                                           {card.attachments && card.attachments.length > 0 && (
                                             <div className="flex items-center gap-1">
                                               <Paperclip className="h-3 w-3" />

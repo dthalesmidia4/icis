@@ -98,18 +98,6 @@ export const STATUS_GROUPS = [{
     column: "Planejamento"
   }]
 }, {
-  label: "Pendente",
-  column: "Pendente",
-  statuses: [{
-    value: "pendente",
-    label: "PENDENTE",
-    color: "hsl(210 80% 55%)",
-    bgColor: "bg-[hsl(210,80%,55%)]/10",
-    textColor: "text-[hsl(210,80%,55%)]",
-    borderColor: "border-[hsl(210,80%,55%)]/30",
-    column: "Pendente"
-  }]
-}, {
   label: "Em Produção",
   column: "Em Produção",
   statuses: [{
@@ -132,6 +120,18 @@ export const STATUS_GROUPS = [{
     textColor: "text-[hsl(142,70%,45%)]",
     borderColor: "border-[hsl(142,70%,45%)]/30",
     column: "Revisão"
+  }]
+}, {
+  label: "Agendar Publicação",
+  column: "Agendar Publicação",
+  statuses: [{
+    value: "agendar_publicacao",
+    label: "AGENDAR PUBLICAÇÃO",
+    color: "hsl(190 80% 50%)",
+    bgColor: "bg-[hsl(190,80%,50%)]/10",
+    textColor: "text-[hsl(190,80%,50%)]",
+    borderColor: "border-[hsl(190,80%,50%)]/30",
+    column: "Agendar Publicação"
   }]
 }];
 
@@ -164,12 +164,13 @@ export const LEGACY_STATUS_MAP: Record<string, string> = {
   implantacao: "em_producao",
   otimizacao: "em_producao",
   em_andamento: "em_producao",
-  desenvolvimento_pausado: "pendente",
-  implantacao_pausada: "pendente",
-  a_fazer: "pendente",
+  desenvolvimento_pausado: "agendar_publicacao",
+  implantacao_pausada: "agendar_publicacao",
+  a_fazer: "agendar_publicacao",
+  pendente: "agendar_publicacao", // Migração: pendente -> agendar_publicacao
   completed: "revisao",
   concluido: "revisao",
-  conteudo_programado: "revisao"
+  conteudo_programado: "agendar_publicacao"
 };
 export default function TaskCard({
   open,
