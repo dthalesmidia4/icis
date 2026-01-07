@@ -495,6 +495,7 @@ const CentralKanban = () => {
                 <span className="text-sm text-muted-foreground whitespace-nowrap">
                   {card.clientName}
                 </span>
+                <span className="text-muted-foreground/40">•</span>
                 <span className="text-sm text-muted-foreground whitespace-nowrap">
                   {contentType}
                 </span>
