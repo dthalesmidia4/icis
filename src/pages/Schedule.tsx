@@ -939,64 +939,103 @@ export default function Schedule() {
                                         "mb-2 transition-all duration-300",
                                         isHighlighted && "ring-2 ring-primary ring-offset-2 scale-[1.02]"
                                       )}
-                                      onClick={() => {
-                                        setSelectedCard(card);
-                                        setIsTaskCardOpen(true);
-                                      }}
                                     >
-                                      {/* Card Content */}
-                                      <div className={cn(
-                                        "p-3 bg-background rounded-lg border cursor-pointer hover:shadow-md transition-all",
-                                        snapshot.isDragging ? "shadow-xl rotate-1 scale-105 border-primary" : "border-border/50",
-                                        isHighlighted && "border-primary bg-primary/5"
-                                      )}>
-                                        {/* Priority Badge (only for Agendar Publicação column) */}
-                                        {priority && (
-                                          <div className="mb-2">
-                                            <Badge 
-                                              variant="outline" 
-                                              className={cn("text-[10px] px-2 py-0.5 font-semibold", priority.className)}
-                                            >
-                                              {priority.label}
-                                            </Badge>
-                                          </div>
-                                        )}
-                                        
-                                        {/* Platform Badges */}
-                                        {platforms.length > 0 && (
-                                          <div className="flex flex-wrap gap-1 mb-2">
-                                            {platforms.slice(0, 2).map((platform) => (
+                                      <div className="flex items-stretch gap-2">
+                                        {/* Card Content */}
+                                        <div 
+                                          className={cn(
+                                            "flex-1 p-3 bg-background rounded-lg border cursor-pointer hover:shadow-md transition-all",
+                                            snapshot.isDragging ? "shadow-xl rotate-1 scale-105 border-primary" : "border-border/50",
+                                            isHighlighted && "border-primary bg-primary/5"
+                                          )}
+                                          onClick={() => {
+                                            setSelectedCard(card);
+                                            setIsTaskCardOpen(true);
+                                          }}
+                                        >
+                                          {/* Priority Badge (only for Agendar Publicação column) */}
+                                          {priority && (
+                                            <div className="mb-2">
                                               <Badge 
-                                                key={platform} 
                                                 variant="outline" 
-                                                className="text-[10px] px-2 py-0.5 font-medium border-border/60 text-muted-foreground"
+                                                className={cn("text-[10px] px-2 py-0.5 font-semibold", priority.className)}
                                               >
-                                                {platform}
+                                                {priority.label}
                                               </Badge>
-                                            ))}
-                                          </div>
-                                        )}
-                                        
-                                        {/* Title */}
-                                        <h4 className="text-sm font-semibold leading-snug line-clamp-2 text-foreground mb-2">
-                                          {card.title}
-                                        </h4>
-                                        
-                                        {/* Footer: Date + Time + Attachments */}
-                                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                          <div className="flex items-center gap-1">
-                                            <span>{new Date(card.delivery_date + 'T00:00:00').toLocaleDateString("pt-BR")}</span>
-                                            {column.id === "Agendar Publicação" && card.publication_dates?.[0]?.time && (
-                                              <span className="text-muted-foreground/70">• {card.publication_dates[0].time}</span>
-                                            )}
-                                          </div>
-                                          {card.attachments && card.attachments.length > 0 && (
-                                            <div className="flex items-center gap-1">
-                                              <Paperclip className="h-3 w-3" />
-                                              {card.attachments.length}
                                             </div>
                                           )}
+                                          
+                                          {/* Publication Date/Time - Highlighted (only for Agendar Publicação column) */}
+                                          {column.id === "Agendar Publicação" && (
+                                            <div className="mb-2 p-2 bg-primary/10 rounded-md border border-primary/20">
+                                              <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                                                <Calendar className="h-3.5 w-3.5" />
+                                                <span>
+                                                  {card.publication_dates?.[0]?.date 
+                                                    ? new Date(card.publication_dates[0].date + 'T00:00:00').toLocaleDateString("pt-BR", { weekday: 'short', day: '2-digit', month: 'short' })
+                                                    : new Date(card.delivery_date + 'T00:00:00').toLocaleDateString("pt-BR", { weekday: 'short', day: '2-digit', month: 'short' })
+                                                  }
+                                                  {card.publication_dates?.[0]?.time && (
+                                                    <span className="ml-1">às {card.publication_dates[0].time}</span>
+                                                  )}
+                                                </span>
+                                              </div>
+                                            </div>
+                                          )}
+                                          
+                                          {/* Platform Badges */}
+                                          {platforms.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mb-2">
+                                              {platforms.slice(0, 2).map((platform) => (
+                                                <Badge 
+                                                  key={platform} 
+                                                  variant="outline" 
+                                                  className="text-[10px] px-2 py-0.5 font-medium border-border/60 text-muted-foreground"
+                                                >
+                                                  {platform}
+                                                </Badge>
+                                              ))}
+                                            </div>
+                                          )}
+                                          
+                                          {/* Title */}
+                                          <h4 className="text-sm font-semibold leading-snug line-clamp-2 text-foreground mb-2">
+                                            {card.title}
+                                          </h4>
+                                          
+                                          {/* Footer: Date + Attachments (hide date for Agendar Publicação since it's highlighted above) */}
+                                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                            {column.id !== "Agendar Publicação" && (
+                                              <div className="flex items-center gap-1">
+                                                <span>{new Date(card.delivery_date + 'T00:00:00').toLocaleDateString("pt-BR")}</span>
+                                              </div>
+                                            )}
+                                            {column.id === "Agendar Publicação" && <div />}
+                                            {card.attachments && card.attachments.length > 0 && (
+                                              <div className="flex items-center gap-1">
+                                                <Paperclip className="h-3 w-3" />
+                                                {card.attachments.length}
+                                              </div>
+                                            )}
+                                          </div>
                                         </div>
+                                        
+                                        {/* Schedule Button (only for Agendar Publicação column) */}
+                                        {column.id === "Agendar Publicação" && (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-auto px-2 py-3 flex flex-col items-center justify-center gap-1 text-xs bg-primary/5 hover:bg-primary/10 border-primary/30 hover:border-primary/50"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelectedCard(card);
+                                              setIsTaskCardOpen(true);
+                                            }}
+                                          >
+                                            <Calendar className="h-4 w-4 text-primary" />
+                                            <span className="text-[10px] font-medium text-primary">Agendar</span>
+                                          </Button>
+                                        )}
                                       </div>
                                     </div>
                                   )}
