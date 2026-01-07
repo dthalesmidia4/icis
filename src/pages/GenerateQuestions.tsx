@@ -515,52 +515,48 @@ export default function GenerateQuestions() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Container Principal */}
-      <div className="container mx-auto px-6 py-8">
-        <div className="bg-card rounded-lg border shadow-sm p-8 max-h-[calc(100vh-200px)] overflow-y-auto">
-          <div className="max-w-[900px] mx-auto space-y-6">
-            {strategicQuestions.map((question, idx) => {
-              const key = `question_${idx}`;
-              // Separar pergunta principal da descrição em parênteses
-              const match = question.match(/^(.+?)(\s*\(.+\))$/);
-              const mainQuestion = match ? match[1] : question;
-              const description = match ? match[2] : null;
-              
-              return (
-                <div key={key} className="space-y-3">
-                  <Label 
-                    htmlFor={key} 
-                    className="text-base font-semibold text-foreground leading-relaxed block"
-                  >
-                    {idx + 1}. {mainQuestion}
-                    {description && (
-                      <span className="text-muted-foreground font-normal text-sm">
-                        {description}
-                      </span>
-                    )}
-                  </Label>
-                  <Textarea
-                    id={key}
-                    value={answers[key] || ""}
-                    onChange={(e) => handleAnswerChange(key, e.target.value)}
-                    placeholder="Digite sua resposta aqui..."
-                    className={`min-h-[120px] resize-y focus:ring-2 focus:ring-primary/20 transition-all ${
-                      validationErrors.has(key) 
-                        ? "border-destructive ring-2 ring-destructive/20" 
-                        : ""
-                    }`}
-                    rows={4}
-                  />
-                  {validationErrors.has(key) && (
-                    <p className="text-sm text-destructive mt-1">
-                      Esta pergunta é obrigatória
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+      {/* Questionário */}
+      <div className="space-y-6 px-6 py-8">
+        {strategicQuestions.map((question, idx) => {
+          const key = `question_${idx}`;
+          // Separar pergunta principal da descrição em parênteses
+          const match = question.match(/^(.+?)(\s*\(.+\))$/);
+          const mainQuestion = match ? match[1] : question;
+          const description = match ? match[2] : null;
+          
+          return (
+            <div key={key} className="space-y-3">
+              <Label 
+                htmlFor={key} 
+                className="text-base font-semibold text-foreground leading-relaxed block"
+              >
+                {idx + 1}. {mainQuestion}
+                {description && (
+                  <span className="text-muted-foreground font-normal text-sm">
+                    {description}
+                  </span>
+                )}
+              </Label>
+              <Textarea
+                id={key}
+                value={answers[key] || ""}
+                onChange={(e) => handleAnswerChange(key, e.target.value)}
+                placeholder="Digite sua resposta aqui..."
+                className={`min-h-[120px] resize-y focus:ring-2 focus:ring-primary/20 transition-all ${
+                  validationErrors.has(key) 
+                    ? "border-destructive ring-2 ring-destructive/20" 
+                    : ""
+                }`}
+                rows={4}
+              />
+              {validationErrors.has(key) && (
+                <p className="text-sm text-destructive mt-1">
+                  Esta pergunta é obrigatória
+                </p>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
