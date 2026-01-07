@@ -982,12 +982,18 @@ export default function Schedule() {
                                           {card.title}
                                         </h4>
                                         
-                                        {/* Footer: Date + Time + Attachments */}
+                                        {/* Footer: Publication Date + Time + Attachments */}
                                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                                           <div className="flex items-center gap-1">
-                                            <span>{new Date(card.delivery_date + 'T00:00:00').toLocaleDateString("pt-BR")}</span>
-                                            {column.id === "Agendar Publicação" && card.publication_dates?.[0]?.time && (
-                                              <span className="text-muted-foreground/70">• {card.publication_dates[0].time}</span>
+                                            {column.id === "Agendar Publicação" && card.publication_dates?.[0]?.date ? (
+                                              <>
+                                                <span>{new Date(card.publication_dates[0].date + 'T00:00:00').toLocaleDateString("pt-BR")}</span>
+                                                {card.publication_dates[0].time && (
+                                                  <span className="text-muted-foreground/70">• {card.publication_dates[0].time}</span>
+                                                )}
+                                              </>
+                                            ) : (
+                                              <span>{new Date(card.delivery_date + 'T00:00:00').toLocaleDateString("pt-BR")}</span>
                                             )}
                                           </div>
                                           {card.attachments && card.attachments.length > 0 && (
