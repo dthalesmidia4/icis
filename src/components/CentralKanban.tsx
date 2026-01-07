@@ -412,7 +412,7 @@ const CentralKanban = () => {
           <CalendarDays className="h-5 w-5 text-violet-500" />
         </div>
         <h2 className="text-xl sm:text-2xl font-bold text-foreground">
-          Agendar Publicação
+          Agendamento
         </h2>
         <Badge variant="secondary">
           {filteredCards.length} {filteredCards.length === 1 ? 'item' : 'itens'}
