@@ -499,6 +499,7 @@ const CentralKanban = () => {
                 <span className="text-sm text-muted-foreground whitespace-nowrap">
                   {contentType}
                 </span>
+                <span className="text-muted-foreground/40">•</span>
                 <span className={cn(
                   "text-sm font-medium truncate",
                   isHighlighted ? "text-primary" : "text-foreground"
