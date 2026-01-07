@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive, Calendar } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PublicationDate } from "@/components/TaskCard";
@@ -503,7 +504,7 @@ const CentralKanban = () => {
                 </span>
               </div>
               
-              {/* Right side: Attachments indicator + Badge + Chevron */}
+              {/* Right side: Attachments indicator + Badge + Schedule Button */}
               <div className="flex items-center gap-3 shrink-0">
                 {card.attachments && card.attachments.length > 0 && (
                   <div className="flex items-center gap-1 text-muted-foreground">
@@ -514,6 +515,18 @@ const CentralKanban = () => {
                 <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary border-primary/20 font-medium whitespace-nowrap">
                   {card.clientName}
                 </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3 flex items-center gap-2 text-xs bg-primary/5 hover:bg-primary/10 border-primary/30 hover:border-primary/50"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCardClick(card);
+                  }}
+                >
+                  <Calendar className="h-3.5 w-3.5 text-primary" />
+                  <span className="font-medium text-primary">Agendar</span>
+                </Button>
                 <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
               </div>
             </div>
