@@ -550,7 +550,7 @@ export default function GenerateQuestions() {
                 aria-required="true"
                 aria-invalid={validationErrors.has(key)}
                 minHeight={120}
-                className={`focus:ring-2 focus:ring-primary/20 transition-all bg-muted/50 text-muted-foreground focus:text-foreground focus:bg-background ${
+                className={`focus:ring-2 focus:ring-primary/20 transition-all bg-muted/50 text-foreground placeholder:text-muted-foreground ${
                   validationErrors.has(key) 
                     ? "border-destructive ring-2 ring-destructive/20" 
                     : "border-border/50"
