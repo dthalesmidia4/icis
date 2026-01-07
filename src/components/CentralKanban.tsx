@@ -386,12 +386,23 @@ const CentralKanban = () => {
     type: string;
     cleanTitle: string;
   } => {
-    const patterns = [/^(Reels?(?:\s+\w+)?(?:\s*\([^)]+\))?)\s*[-–:]\s*/i, /^(Carrossel(?:\s+\w+)?(?:\s*\([^)]+\))?)\s*[-–:]\s*/i, /^(Post(?:\s+\w+)?(?:\s*\([^)]+\))?)\s*[-–:]\s*/i, /^(Story|Stories(?:\s+\w+)?(?:\s*\([^)]+\))?)\s*[-–:]\s*/i, /^(Vídeo(?:\s+[Cc]urto)?(?:\s*\([^)]+\))?)\s*[-–:]\s*/i];
+    const patterns = [
+      /^(Reels?)(?:\s+(\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i,
+      /^(Carrossel)(?:\s+(\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i,
+      /^(Post)(?:\s+(\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i,
+      /^(Story|Stories)(?:\s+(\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i,
+      /^(Vídeo)(?:\s+([Cc]urto|\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i
+    ];
     for (const pattern of patterns) {
       const match = title.match(pattern);
       if (match) {
+        // Se tem modificador (ex: "estático" em "Post estático"), usa só o modificador capitalizado
+        // Senão, usa o tipo principal
+        const displayType = match[2] 
+          ? match[2].charAt(0).toUpperCase() + match[2].slice(1).toLowerCase()
+          : match[1];
         return {
-          type: match[1],
+          type: displayType,
           cleanTitle: title.replace(pattern, '').trim()
         };
       }
