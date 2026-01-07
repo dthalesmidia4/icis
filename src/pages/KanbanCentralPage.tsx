@@ -191,6 +191,19 @@ const KanbanCentralPage = () => {
     const newColumnName = destination.droppableId;
     const newStatus = getStatusFromColumn(newColumnName);
 
+    // Validação: exigir data de publicação para mover para "Agendar Publicação"
+    if (newColumnName === "Agendar Publicação") {
+      const hasValidPublicationDate = card.publication_dates?.some(pd => pd.date && pd.time) || false;
+      const hasDeliveryDate = !!card.delivery_date;
+      
+      if (!hasValidPublicationDate && !hasDeliveryDate) {
+        sonnerToast.error("Defina uma data de publicação", {
+          description: "Para mover para 'Agendar Publicação', defina data e horário primeiro."
+        });
+        return;
+      }
+    }
+
     // Atualizar localmente
     setCards((prev) =>
       prev.map((c) =>
