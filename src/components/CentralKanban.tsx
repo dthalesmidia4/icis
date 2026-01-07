@@ -120,26 +120,31 @@ const CentralKanban = () => {
     return new Date(`${first.date}T${first.time || '09:00'}`);
   };
 
-  // Função para obter indicador de prioridade
+  // Função para obter indicador de prioridade baseado na data/hora de publicação
   const getPriorityIndicator = (card: CentralKanbanCard): { label: string; className: string } | null => {
     const pubDateTime = getFirstPublicationDateTime(card);
     if (!pubDateTime) return null;
     
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+    const in3Days = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
     const pubDate = new Date(pubDateTime.getFullYear(), pubDateTime.getMonth(), pubDateTime.getDate());
     
-    if (pubDateTime < now) {
-      return { label: "Atrasado", className: "bg-red-500/20 text-red-600 border-red-500/30" };
-    } else if (pubDate.getTime() === today.getTime()) {
-      return { label: "Hoje", className: "bg-orange-500/20 text-orange-600 border-orange-500/30" };
-    } else if (pubDate.getTime() === tomorrow.getTime()) {
-      return { label: "Amanhã", className: "bg-yellow-500/20 text-yellow-600 border-yellow-500/30" };
-    } else {
-      return { label: "Próximos dias", className: "bg-blue-500/20 text-blue-600 border-blue-500/30" };
+    // Atrasado: data de publicação é anterior a hoje OU é hoje mas o horário já passou
+    if (pubDate.getTime() < today.getTime() || (pubDate.getTime() === today.getTime() && pubDateTime < now)) {
+      return { label: "Atrasado", className: "bg-destructive/10 text-destructive border-destructive/30" };
     }
+    if (pubDate.getTime() === today.getTime()) {
+      return { label: "Hoje", className: "bg-orange-500/10 text-orange-600 border-orange-500/30" };
+    }
+    if (pubDate.getTime() === tomorrow.getTime()) {
+      return { label: "Amanhã", className: "bg-amber-500/10 text-amber-600 border-amber-500/30" };
+    }
+    if (pubDate.getTime() < in3Days.getTime()) {
+      return { label: "Próximos dias", className: "bg-cyan-500/10 text-cyan-600 border-cyan-500/30" };
+    }
+    return null;
   };
 
   const fetchScheduledCards = async () => {
