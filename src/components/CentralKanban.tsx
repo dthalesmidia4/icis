@@ -386,18 +386,32 @@ const CentralKanban = () => {
     type: string;
     cleanTitle: string;
   } => {
-    const patterns = [
-      /^(Reels?)(?:\s+(\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i,
-      /^(Carrossel)(?:\s+(\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i,
-      /^(Post)(?:\s+(\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i,
-      /^(Story|Stories)(?:\s+(\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i,
-      /^(Vídeo)(?:\s+([Cc]urto|\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i
+    // Padrões que sempre mostram o tipo principal (sem modificador)
+    const fixedTypePatterns: Array<{ pattern: RegExp; displayType: string }> = [
+      { pattern: /^Carrossel(?:\s+\w+)?(?:\s*\([^)]+\))?\s*[-–:]\s*/i, displayType: "Carrossel" },
+      { pattern: /^(?:Story|Stories)(?:\s*\([^)]+\)|\s+\w+)*\s*[-–:]\s*/i, displayType: "Story" },
     ];
-    for (const pattern of patterns) {
+    
+    for (const { pattern, displayType } of fixedTypePatterns) {
       const match = title.match(pattern);
       if (match) {
-        // Se tem modificador (ex: "estático" em "Post estático"), usa só o modificador capitalizado
-        // Senão, usa o tipo principal
+        return {
+          type: displayType,
+          cleanTitle: title.replace(pattern, '').trim()
+        };
+      }
+    }
+    
+    // Padrões que mostram o modificador quando existe
+    const modifierPatterns = [
+      /^(Reels?)(?:\s+(\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i,
+      /^(Post)(?:\s+(\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i,
+      /^(Vídeo)(?:\s+([Cc]urto|\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i
+    ];
+    
+    for (const pattern of modifierPatterns) {
+      const match = title.match(pattern);
+      if (match) {
         const displayType = match[2] 
           ? match[2].charAt(0).toUpperCase() + match[2].slice(1).toLowerCase()
           : match[1];
@@ -407,6 +421,7 @@ const CentralKanban = () => {
         };
       }
     }
+    
     return {
       type: "Conteúdo",
       cleanTitle: title
