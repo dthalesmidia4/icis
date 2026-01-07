@@ -609,10 +609,10 @@ export default function Schedule() {
       return { label: "Atrasado", className: "bg-destructive/10 text-destructive border-destructive/30" };
     }
     if (pubDateDay.getTime() === today.getTime()) {
-      return { label: "Publica hoje", className: "bg-orange-500/10 text-orange-600 border-orange-500/30" };
+      return { label: "Hoje", className: "bg-orange-500/10 text-orange-600 border-orange-500/30" };
     }
     if (pubDateDay.getTime() === tomorrow.getTime()) {
-      return { label: "Publica amanhã", className: "bg-amber-500/10 text-amber-600 border-amber-500/30" };
+      return { label: "Amanhã", className: "bg-amber-500/10 text-amber-600 border-amber-500/30" };
     }
     if (pubDateDay.getTime() < in3Days.getTime()) {
       return { label: "Próximos dias", className: "bg-cyan-500/10 text-cyan-600 border-cyan-500/30" };
