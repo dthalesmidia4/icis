@@ -24,7 +24,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Colunas do Kanban (mesma estrutura do Schedule)
 const COLUMNS = [
-  { id: "Em Produção", title: "Em Produção", color: "bg-amber-500" },
+  { id: "Produção", title: "Produção", color: "bg-amber-500" },
   { id: "Revisão", title: "Revisão", color: "bg-emerald-500" },
   { id: "Agendar Publicação", title: "Agendar Publicação", color: "bg-cyan-500" },
 ];

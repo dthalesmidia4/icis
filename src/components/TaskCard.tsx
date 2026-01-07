@@ -98,16 +98,16 @@ export const STATUS_GROUPS = [{
     column: "Planejamento"
   }]
 }, {
-  label: "Em Produção",
-  column: "Em Produção",
+  label: "Produção",
+  column: "Produção",
   statuses: [{
     value: "em_producao",
-    label: "EM PRODUÇÃO",
+    label: "PRODUÇÃO",
     color: "hsl(25 95% 55%)",
     bgColor: "bg-[hsl(25,95%,55%)]/10",
     textColor: "text-[hsl(25,95%,55%)]",
     borderColor: "border-[hsl(25,95%,55%)]/30",
-    column: "Em Produção"
+    column: "Produção"
   }]
 }, {
   label: "Revisão",
