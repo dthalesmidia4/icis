@@ -516,7 +516,7 @@ export default function GenerateQuestions() {
       </AlertDialog>
 
       {/* Questionário */}
-      <div className="space-y-6 px-6 py-8">
+      <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
         {strategicQuestions.map((question, idx) => {
           const key = `question_${idx}`;
           // Separar pergunta principal da descrição em parênteses
