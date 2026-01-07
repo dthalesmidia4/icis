@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { AutoResizeTextarea } from "@/components/ui/auto-resize-textarea";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -540,8 +540,8 @@ export default function GenerateQuestions() {
                 )}
               </Label>
               
-              {/* Answer Textarea - lower contrast */}
-              <Textarea
+              {/* Answer Textarea - auto-resize to content */}
+              <AutoResizeTextarea
                 id={key}
                 value={answers[key] || ""}
                 onChange={(e) => handleAnswerChange(key, e.target.value)}
@@ -549,12 +549,12 @@ export default function GenerateQuestions() {
                 aria-label={`Resposta para: ${mainQuestion}`}
                 aria-required="true"
                 aria-invalid={validationErrors.has(key)}
-                className={`min-h-[120px] resize-y focus:ring-2 focus:ring-primary/20 transition-all bg-muted/50 text-muted-foreground focus:text-foreground focus:bg-background ${
+                minHeight={120}
+                className={`focus:ring-2 focus:ring-primary/20 transition-all bg-muted/50 text-muted-foreground focus:text-foreground focus:bg-background ${
                   validationErrors.has(key) 
                     ? "border-destructive ring-2 ring-destructive/20" 
                     : "border-border/50"
                 }`}
-                rows={4}
               />
               {validationErrors.has(key) && (
                 <p className="text-sm text-destructive mt-1" role="alert">
