@@ -526,31 +526,40 @@ export default function GenerateQuestions() {
           
           return (
             <div key={key} className="space-y-3">
-              <Label 
-                htmlFor={key} 
-                className="text-base font-semibold text-foreground leading-relaxed block"
-              >
-                {idx + 1}. {mainQuestion}
-                {description && (
-                  <span className="text-muted-foreground font-normal text-sm">
-                    {description}
-                  </span>
-                )}
-              </Label>
+              {/* Question Header with highlight for better contrast */}
+              <div className="bg-primary/10 border-l-4 border-primary rounded-r-lg p-4">
+                <Label 
+                  htmlFor={key} 
+                  className="text-base font-semibold text-foreground leading-relaxed block cursor-pointer"
+                >
+                  <span className="text-primary font-bold mr-2">{idx + 1}.</span>
+                  {mainQuestion}
+                  {description && (
+                    <span className="block mt-1 text-muted-foreground font-normal text-sm">
+                      {description}
+                    </span>
+                  )}
+                </Label>
+              </div>
+              
+              {/* Answer Textarea */}
               <Textarea
                 id={key}
                 value={answers[key] || ""}
                 onChange={(e) => handleAnswerChange(key, e.target.value)}
                 placeholder="Digite sua resposta aqui..."
-                className={`min-h-[120px] resize-y focus:ring-2 focus:ring-primary/20 transition-all ${
+                aria-label={`Resposta para: ${mainQuestion}`}
+                aria-required="true"
+                aria-invalid={validationErrors.has(key)}
+                className={`min-h-[120px] resize-y focus:ring-2 focus:ring-primary/20 transition-all bg-background ${
                   validationErrors.has(key) 
                     ? "border-destructive ring-2 ring-destructive/20" 
-                    : ""
+                    : "border-border"
                 }`}
                 rows={4}
               />
               {validationErrors.has(key) && (
-                <p className="text-sm text-destructive mt-1">
+                <p className="text-sm text-destructive mt-1" role="alert">
                   Esta pergunta é obrigatória
                 </p>
               )}
