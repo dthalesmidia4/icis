@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive, Calendar } from "lucide-react";
@@ -12,7 +11,6 @@ import { toast as sonnerToast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SmartSearchBar from "@/components/SmartSearchBar";
 import { cn } from "@/lib/utils";
-
 interface CentralKanbanCard extends KanbanCardData {
   clientName: string;
   clientId: string;
@@ -63,29 +61,31 @@ const CentralKanban = () => {
       setIsTaskCardOpen(true);
       return;
     }
-    
+
     // If card is filtered out, clear the filter first
     if (selectedClientFilter !== "all" && card.clientId !== selectedClientFilter) {
       setSelectedClientFilter("all");
     }
-    
+
     // Highlight the card
     setHighlightedCardId(card.id);
-    
+
     // Scroll to the card after a short delay to allow filter change
     setTimeout(() => {
       const cardElement = cardRefs.current.get(card.id);
       if (cardElement) {
-        cardElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        cardElement.scrollIntoView({
+          behavior: "smooth",
+          block: "center"
+        });
       }
     }, 100);
-    
+
     // Remove highlight after 3 seconds
     setTimeout(() => {
       setHighlightedCardId(null);
     }, 3000);
   }, [selectedClientFilter]);
-
   useEffect(() => {
     if (!tenantLoading && tenantId) {
       fetchScheduledCards();
@@ -101,53 +101,61 @@ const CentralKanban = () => {
       }
       return null;
     }
-    
-    const sortedDates = [...pubDates]
-      .filter(pd => pd.date)
-      .sort((a, b) => {
-        const dateA = new Date(`${a.date}T${a.time || '09:00'}`);
-        const dateB = new Date(`${b.date}T${b.time || '09:00'}`);
-        return dateA.getTime() - dateB.getTime();
-      });
-    
+    const sortedDates = [...pubDates].filter(pd => pd.date).sort((a, b) => {
+      const dateA = new Date(`${a.date}T${a.time || '09:00'}`);
+      const dateB = new Date(`${b.date}T${b.time || '09:00'}`);
+      return dateA.getTime() - dateB.getTime();
+    });
     if (sortedDates.length === 0) {
       if (card.delivery_date) {
         return new Date(card.delivery_date + 'T09:00:00');
       }
       return null;
     }
-    
     const first = sortedDates[0];
     return new Date(`${first.date}T${first.time || '09:00'}`);
   };
 
   // Função para obter indicador de prioridade baseado na data/hora de publicação
-  const getPriorityIndicator = (card: CentralKanbanCard): { label: string; className: string } | null => {
+  const getPriorityIndicator = (card: CentralKanbanCard): {
+    label: string;
+    className: string;
+  } | null => {
     const pubDateTime = getFirstPublicationDateTime(card);
     if (!pubDateTime) return null;
-    
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
     const in3Days = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
     const pubDate = new Date(pubDateTime.getFullYear(), pubDateTime.getMonth(), pubDateTime.getDate());
-    
+
     // Atrasado: data de publicação é anterior a hoje OU é hoje mas o horário já passou
-    if (pubDate.getTime() < today.getTime() || (pubDate.getTime() === today.getTime() && pubDateTime < now)) {
-      return { label: "Atrasado", className: "bg-destructive/10 text-destructive border-destructive/30" };
+    if (pubDate.getTime() < today.getTime() || pubDate.getTime() === today.getTime() && pubDateTime < now) {
+      return {
+        label: "Atrasado",
+        className: "bg-destructive/10 text-destructive border-destructive/30"
+      };
     }
     if (pubDate.getTime() === today.getTime()) {
-      return { label: "Hoje", className: "bg-orange-500/10 text-orange-600 border-orange-500/30" };
+      return {
+        label: "Hoje",
+        className: "bg-orange-500/10 text-orange-600 border-orange-500/30"
+      };
     }
     if (pubDate.getTime() === tomorrow.getTime()) {
-      return { label: "Amanhã", className: "bg-amber-500/10 text-amber-600 border-amber-500/30" };
+      return {
+        label: "Amanhã",
+        className: "bg-amber-500/10 text-amber-600 border-amber-500/30"
+      };
     }
     if (pubDate.getTime() < in3Days.getTime()) {
-      return { label: "Próximos dias", className: "bg-cyan-500/10 text-cyan-600 border-cyan-500/30" };
+      return {
+        label: "Próximos dias",
+        className: "bg-cyan-500/10 text-cyan-600 border-cyan-500/30"
+      };
     }
     return null;
   };
-
   const fetchScheduledCards = async () => {
     if (!tenantId) return;
     try {
@@ -198,7 +206,6 @@ const CentralKanban = () => {
       // Separar cards ativos e arquivados
       const active = mappedCards.filter(card => !card.isArchived);
       const all = mappedCards;
-
       setActiveCards(active);
       setAllCards(all);
     } catch (error) {
@@ -241,9 +248,10 @@ const CentralKanban = () => {
       if (error) throw error;
 
       // Atualizar estado local
-      const updateCard = (c: CentralKanbanCard) => 
-        c.id === selectedCard.id ? { ...c, [field]: parsedValue } : c;
-      
+      const updateCard = (c: CentralKanbanCard) => c.id === selectedCard.id ? {
+        ...c,
+        [field]: parsedValue
+      } : c;
       setActiveCards(prev => prev.map(updateCard));
       setAllCards(prev => prev.map(updateCard));
 
@@ -330,8 +338,10 @@ const CentralKanban = () => {
         ...prev,
         attachments: updatedAttachments
       } : null);
-      const updateAttachments = (c: CentralKanbanCard) => 
-        c.id === selectedCard.id ? { ...c, attachments: updatedAttachments } : c;
+      const updateAttachments = (c: CentralKanbanCard) => c.id === selectedCard.id ? {
+        ...c,
+        attachments: updatedAttachments
+      } : c;
       setActiveCards(prev => prev.map(updateAttachments));
       setAllCards(prev => prev.map(updateAttachments));
       sonnerToast.success(`${newAttachments.length} arquivo(s) anexado(s)`);
@@ -361,8 +371,10 @@ const CentralKanban = () => {
         ...prev,
         attachments: updatedAttachments
       } : null);
-      const updateAttachments = (c: CentralKanbanCard) => 
-        c.id === selectedCard.id ? { ...c, attachments: updatedAttachments } : c;
+      const updateAttachments = (c: CentralKanbanCard) => c.id === selectedCard.id ? {
+        ...c,
+        attachments: updatedAttachments
+      } : c;
       setActiveCards(prev => prev.map(updateAttachments));
       setAllCards(prev => prev.map(updateAttachments));
       sonnerToast.success("Anexo removido");
@@ -387,12 +399,20 @@ const CentralKanban = () => {
     cleanTitle: string;
   } => {
     // Padrões que sempre mostram o tipo principal (sem modificador)
-    const fixedTypePatterns: Array<{ pattern: RegExp; displayType: string }> = [
-      { pattern: /^Carrossel(?:\s+\w+)?(?:\s*\([^)]+\))?\s*[-–:]\s*/i, displayType: "Carrossel" },
-      { pattern: /^(?:Story|Stories)(?:\s*\([^)]+\)|\s+\w+)*\s*[-–:]\s*/i, displayType: "Story" },
-    ];
-    
-    for (const { pattern, displayType } of fixedTypePatterns) {
+    const fixedTypePatterns: Array<{
+      pattern: RegExp;
+      displayType: string;
+    }> = [{
+      pattern: /^Carrossel(?:\s+\w+)?(?:\s*\([^)]+\))?\s*[-–:]\s*/i,
+      displayType: "Carrossel"
+    }, {
+      pattern: /^(?:Story|Stories)(?:\s*\([^)]+\)|\s+\w+)*\s*[-–:]\s*/i,
+      displayType: "Story"
+    }];
+    for (const {
+      pattern,
+      displayType
+    } of fixedTypePatterns) {
       const match = title.match(pattern);
       if (match) {
         return {
@@ -401,27 +421,19 @@ const CentralKanban = () => {
         };
       }
     }
-    
+
     // Padrões que mostram o modificador quando existe
-    const modifierPatterns = [
-      /^(Reels?)(?:\s+(\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i,
-      /^(Post)(?:\s+(\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i,
-      /^(Vídeo)(?:\s+([Cc]urto|\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i
-    ];
-    
+    const modifierPatterns = [/^(Reels?)(?:\s+(\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i, /^(Post)(?:\s+(\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i, /^(Vídeo)(?:\s+([Cc]urto|\w+))?(?:\s*\([^)]+\))?\s*[-–:]\s*/i];
     for (const pattern of modifierPatterns) {
       const match = title.match(pattern);
       if (match) {
-        const displayType = match[2] 
-          ? match[2].charAt(0).toUpperCase() + match[2].slice(1).toLowerCase()
-          : match[1];
+        const displayType = match[2] ? match[2].charAt(0).toUpperCase() + match[2].slice(1).toLowerCase() : match[1];
         return {
           type: displayType,
           cleanTitle: title.replace(pattern, '').trim()
         };
       }
     }
-    
     return {
       type: "Conteúdo",
       cleanTitle: title
@@ -449,12 +461,7 @@ const CentralKanban = () => {
       {/* Search Bar and Filter */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
         <div className="flex-1">
-          <SmartSearchBar
-            items={allCards}
-            onResultSelect={handleSearchResultSelect}
-            placeholder="Pesquisar por tarefa, cliente, anexo, data, mês, palavra-chave… (inclui arquivados)"
-            maxResults={8}
-          />
+          <SmartSearchBar items={allCards} onResultSelect={handleSearchResultSelect} placeholder="Pesquisar por tarefa, cliente, anexo, data, mês, palavra-chave… (inclui arquivados)" maxResults={8} />
         </div>
 
         {/* Client Filter */}
@@ -495,29 +502,14 @@ const CentralKanban = () => {
           const isHighlighted = highlightedCardId === card.id;
           const priority = getPriorityIndicator(card);
           const firstPubDate = getFirstPublicationDateTime(card);
-          
-          return (
-            <div 
-              key={card.id}
-              ref={(el) => {
-                if (el) cardRefs.current.set(card.id, el);
-                else cardRefs.current.delete(card.id);
-              }}
-              className={cn(
-                "flex items-center justify-between gap-4 px-4 py-3 bg-background rounded-lg border cursor-pointer hover:bg-muted/50 transition-all duration-300 group",
-                isHighlighted 
-                  ? "border-primary ring-2 ring-primary/30 bg-primary/5 shadow-lg scale-[1.02]" 
-                  : "border-border/50"
-              )}
-              onClick={() => handleCardClick(card)}
-            >
+          return <div key={card.id} ref={el => {
+            if (el) cardRefs.current.set(card.id, el);else cardRefs.current.delete(card.id);
+          }} className={cn("flex items-center justify-between gap-4 px-4 py-3 bg-background rounded-lg border cursor-pointer hover:bg-muted/50 transition-all duration-300 group", isHighlighted ? "border-primary ring-2 ring-primary/30 bg-primary/5 shadow-lg scale-[1.02]" : "border-border/50")} onClick={() => handleCardClick(card)}>
               {/* Left side: Priority, Company, Content Type, Title */}
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                {priority && (
-                  <Badge className={cn("text-[10px] px-2 py-0.5 font-medium whitespace-nowrap", priority.className)}>
+                {priority && <Badge className={cn("text-[10px] px-2 py-0.5 font-medium whitespace-nowrap", priority.className)}>
                     {priority.label}
-                  </Badge>
-                )}
+                  </Badge>}
                 <span className="text-sm text-muted-foreground whitespace-nowrap">
                   {card.clientName}
                 </span>
@@ -526,56 +518,51 @@ const CentralKanban = () => {
                   {contentType}
                 </span>
                 <span className="text-muted-foreground/40">•</span>
-                <span className={cn(
-                  "text-sm font-medium truncate",
-                  isHighlighted ? "text-primary" : "text-foreground"
-                )}>
+                <span className={cn("text-sm font-medium truncate", isHighlighted ? "text-primary" : "text-foreground")}>
                   {cleanTitle}
                 </span>
               </div>
               
               {/* Right side: Attachments indicator + Date + Schedule Button */}
               <div className="flex items-center gap-3 shrink-0">
-                {card.attachments && card.attachments.length > 0 && (
-                  <div className="flex items-center gap-1 text-muted-foreground">
+                {card.attachments && card.attachments.length > 0 && <div className="flex items-center gap-1 text-muted-foreground">
                     <Paperclip className="h-4 w-4" />
                     <span className="text-xs">{card.attachments.length}</span>
-                  </div>
-                )}
+                  </div>}
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex items-center gap-1.5 px-2.5 py-1 bg-muted/80 rounded-md border border-border/50 cursor-default">
                         <CalendarDays className="h-3.5 w-3.5 text-primary" />
                         <span className="text-sm font-semibold text-foreground whitespace-nowrap">
-                          {firstPubDate ? firstPubDate.toLocaleDateString("pt-BR") + " " + firstPubDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : formatDate(card.delivery_date)}
+                          {firstPubDate ? firstPubDate.toLocaleDateString("pt-BR") + " " + firstPubDate.toLocaleTimeString("pt-BR", {
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        }) : formatDate(card.delivery_date)}
                         </span>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="font-medium">
-                        {firstPubDate 
-                          ? firstPubDate.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
-                          : new Date(card.delivery_date).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
-                        }
+                        {firstPubDate ? firstPubDate.toLocaleDateString("pt-BR", {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric"
+                      }) : new Date(card.delivery_date).toLocaleDateString("pt-BR", {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric"
+                      })}
                       </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                <Button
-                  size="sm"
-                  className="h-8 px-3 text-xs font-medium"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCardClick(card);
-                  }}
-                >
-                  Publicar
-                </Button>
+                
                 <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
               </div>
-            </div>
-          );
+            </div>;
         })}
           </div>}
       </div>
