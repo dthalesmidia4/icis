@@ -442,16 +442,8 @@ const CentralKanban = () => {
           </div>}
       </div>
 
-      {/* Kanban Column */}
+      {/* Cards Container */}
       <div className="bg-muted/30 rounded-xl p-4 border border-border/50 min-h-[300px]">
-        {/* Column Header */}
-        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border/50">
-          <div className="w-3 h-3 rounded-full bg-amber-500" />
-          <span className="font-semibold text-foreground">Agendar Publicação</span>
-          <Badge variant="outline" className="ml-auto text-xs">
-            {filteredCards.length}
-          </Badge>
-        </div>
 
         {/* Cards List */}
         {filteredCards.length === 0 ? <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
