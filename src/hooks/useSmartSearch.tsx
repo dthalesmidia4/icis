@@ -20,6 +20,7 @@ export interface SearchableItem {
   }> | null;
   column_name?: string | null;
   status?: string;
+  isArchived?: boolean;
 }
 
 export interface SearchResult<T extends SearchableItem> {

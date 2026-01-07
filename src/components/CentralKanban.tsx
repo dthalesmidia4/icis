@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip } from "lucide-react";
+import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PublicationDate } from "@/components/TaskCard";
@@ -14,13 +14,15 @@ import { cn } from "@/lib/utils";
 interface CentralKanbanCard extends KanbanCardData {
   clientName: string;
   clientId: string;
+  isArchived: boolean;
 }
 const CentralKanban = () => {
   const {
     tenantId,
     isLoading: tenantLoading
   } = useTenant();
-  const [cards, setCards] = useState<CentralKanbanCard[]>([]);
+  const [allCards, setAllCards] = useState<CentralKanbanCard[]>([]);
+  const [activeCards, setActiveCards] = useState<CentralKanbanCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCard, setSelectedCard] = useState<CentralKanbanCard | null>(null);
   const [isTaskCardOpen, setIsTaskCardOpen] = useState(false);
@@ -31,10 +33,10 @@ const CentralKanban = () => {
   const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  // Extrair lista única de clientes
+  // Extrair lista única de clientes (apenas de cards ativos)
   const clients = useMemo(() => {
     const uniqueClients = new Map<string, string>();
-    cards.forEach(card => {
+    activeCards.forEach(card => {
       if (card.clientId && card.clientName) {
         uniqueClients.set(card.clientId, card.clientName);
       }
@@ -43,16 +45,23 @@ const CentralKanban = () => {
       id,
       name
     }));
-  }, [cards]);
+  }, [activeCards]);
 
-  // Filtrar cards por cliente
+  // Filtrar cards ativos por cliente (para exibição)
   const filteredCards = useMemo(() => {
-    if (selectedClientFilter === "all") return cards;
-    return cards.filter(card => card.clientId === selectedClientFilter);
-  }, [cards, selectedClientFilter]);
+    if (selectedClientFilter === "all") return activeCards;
+    return activeCards.filter(card => card.clientId === selectedClientFilter);
+  }, [activeCards, selectedClientFilter]);
 
-  // Handle search result selection - scroll to and highlight card
+  // Handle search result selection - scroll to and highlight card, or open modal for archived
   const handleSearchResultSelect = useCallback((card: CentralKanbanCard) => {
+    // If card is archived, open it directly in the modal
+    if (card.isArchived) {
+      setSelectedCard(card);
+      setIsTaskCardOpen(true);
+      return;
+    }
+    
     // If card is filtered out, clear the filter first
     if (selectedClientFilter !== "all" && card.clientId !== selectedClientFilter) {
       setSelectedClientFilter("all");
@@ -137,7 +146,7 @@ const CentralKanban = () => {
     try {
       setLoading(true);
 
-      // Buscar cards na coluna "Agendar Publicação" com informações do cliente
+      // Buscar cards na coluna "Agendar Publicação" com informações do cliente e status do planejamento
       const {
         data: cardsData,
         error: cardsError
@@ -145,6 +154,7 @@ const CentralKanban = () => {
           *,
           period_plans!cards_period_plan_id_fkey (
             company_id,
+            operational_status,
             tenant_companies!period_plans_company_id_fkey (
               id,
               fantasy_name,
@@ -154,15 +164,17 @@ const CentralKanban = () => {
         `).eq("tenant_id", tenantId).eq("column_name", "Agendar Publicação");
       if (cardsError) throw cardsError;
 
-      // Mapear cards com nome do cliente
+      // Mapear cards com nome do cliente e status de arquivamento
       const mappedCards: CentralKanbanCard[] = (cardsData || []).map(card => {
         const company = card.period_plans?.tenant_companies;
+        const operationalStatus = card.period_plans?.operational_status;
         return {
           ...card,
           attachments: card.attachments as unknown as Attachment[] | null || [],
           publication_dates: card.publication_dates as unknown as PublicationDate[] | null || [],
           clientName: company?.fantasy_name || company?.name || "Cliente",
-          clientId: company?.id || ""
+          clientId: company?.id || "",
+          isArchived: operationalStatus === "concluido"
         };
       });
 
@@ -176,7 +188,12 @@ const CentralKanban = () => {
         return dateA.getTime() - dateB.getTime();
       });
 
-      setCards(mappedCards);
+      // Separar cards ativos e arquivados
+      const active = mappedCards.filter(card => !card.isArchived);
+      const all = mappedCards;
+
+      setActiveCards(active);
+      setAllCards(all);
     } catch (error) {
       console.error("Error fetching scheduled cards:", error);
       sonnerToast.error("Erro ao carregar conteúdo programado");
@@ -217,15 +234,17 @@ const CentralKanban = () => {
       if (error) throw error;
 
       // Atualizar estado local
-      setCards(prev => prev.map(c => c.id === selectedCard.id ? {
-        ...c,
-        [field]: parsedValue
-      } : c));
+      const updateCard = (c: CentralKanbanCard) => 
+        c.id === selectedCard.id ? { ...c, [field]: parsedValue } : c;
+      
+      setActiveCards(prev => prev.map(updateCard));
+      setAllCards(prev => prev.map(updateCard));
 
       // Verificar se o card saiu da coluna "Agendar Publicação"
       if (field === 'column_name' && parsedValue !== 'Agendar Publicação') {
         // Remover do kanban central
-        setCards(prev => prev.filter(c => c.id !== selectedCard.id));
+        setActiveCards(prev => prev.filter(c => c.id !== selectedCard.id));
+        setAllCards(prev => prev.filter(c => c.id !== selectedCard.id));
         setIsTaskCardOpen(false);
         setSelectedCard(null);
         sonnerToast.info("Card removido de Agendar Publicação");
@@ -304,10 +323,10 @@ const CentralKanban = () => {
         ...prev,
         attachments: updatedAttachments
       } : null);
-      setCards(prev => prev.map(c => c.id === selectedCard.id ? {
-        ...c,
-        attachments: updatedAttachments
-      } : c));
+      const updateAttachments = (c: CentralKanbanCard) => 
+        c.id === selectedCard.id ? { ...c, attachments: updatedAttachments } : c;
+      setActiveCards(prev => prev.map(updateAttachments));
+      setAllCards(prev => prev.map(updateAttachments));
       sonnerToast.success(`${newAttachments.length} arquivo(s) anexado(s)`);
     } catch (error) {
       console.error("Error uploading file:", error);
@@ -335,10 +354,10 @@ const CentralKanban = () => {
         ...prev,
         attachments: updatedAttachments
       } : null);
-      setCards(prev => prev.map(c => c.id === selectedCard.id ? {
-        ...c,
-        attachments: updatedAttachments
-      } : c));
+      const updateAttachments = (c: CentralKanbanCard) => 
+        c.id === selectedCard.id ? { ...c, attachments: updatedAttachments } : c;
+      setActiveCards(prev => prev.map(updateAttachments));
+      setAllCards(prev => prev.map(updateAttachments));
       sonnerToast.success("Anexo removido");
     } catch (error) {
       console.error("Error removing attachment:", error);
@@ -347,7 +366,8 @@ const CentralKanban = () => {
   };
   const handleDelete = async () => {
     if (!selectedCard) return;
-    setCards(prev => prev.filter(c => c.id !== selectedCard.id));
+    setActiveCards(prev => prev.filter(c => c.id !== selectedCard.id));
+    setAllCards(prev => prev.filter(c => c.id !== selectedCard.id));
     setIsTaskCardOpen(false);
     setSelectedCard(null);
     sonnerToast.success("Card excluído");
@@ -397,9 +417,9 @@ const CentralKanban = () => {
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
         <div className="flex-1">
           <SmartSearchBar
-            items={cards}
+            items={allCards}
             onResultSelect={handleSearchResultSelect}
-            placeholder="Pesquisar por tarefa, cliente, anexo, data, mês, palavra-chave…"
+            placeholder="Pesquisar por tarefa, cliente, anexo, data, mês, palavra-chave… (inclui arquivados)"
             maxResults={8}
           />
         </div>

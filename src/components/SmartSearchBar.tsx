@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { Search, Mic, MicOff, X, Loader2, Calendar } from "lucide-react";
+import { Search, Mic, MicOff, X, Loader2, Calendar, Archive } from "lucide-react";
 import { useVoiceSearch } from "@/hooks/useVoiceSearch";
 import { useSmartSearch, SearchResult, SearchableItem, formatSearchResultDate } from "@/hooks/useSmartSearch";
 
@@ -287,6 +287,15 @@ function SearchResultItem<T extends SearchableItem>({
       </div>
       
       <div className="flex items-center gap-2 shrink-0">
+        {item.isArchived && (
+          <Badge 
+            variant="outline" 
+            className="text-[10px] px-2 py-0.5 bg-muted/50 text-muted-foreground border-muted-foreground/30 font-medium whitespace-nowrap"
+          >
+            <Archive className="h-3 w-3 mr-1" />
+            Arquivado
+          </Badge>
+        )}
         {dateDisplay && (
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Calendar className="h-3 w-3" />
