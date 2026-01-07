@@ -124,9 +124,9 @@ const CentralKanban = () => {
     if (pubDateTime < now) {
       return { label: "Atrasado", className: "bg-red-500/20 text-red-600 border-red-500/30" };
     } else if (pubDate.getTime() === today.getTime()) {
-      return { label: "Publica hoje", className: "bg-orange-500/20 text-orange-600 border-orange-500/30" };
+      return { label: "Hoje", className: "bg-orange-500/20 text-orange-600 border-orange-500/30" };
     } else if (pubDate.getTime() === tomorrow.getTime()) {
-      return { label: "Publica amanhã", className: "bg-yellow-500/20 text-yellow-600 border-yellow-500/30" };
+      return { label: "Amanhã", className: "bg-yellow-500/20 text-yellow-600 border-yellow-500/30" };
     } else {
       return { label: "Próximos dias", className: "bg-blue-500/20 text-blue-600 border-blue-500/30" };
     }
