@@ -386,7 +386,7 @@ const CentralKanban = () => {
     type: string;
     cleanTitle: string;
   } => {
-    const patterns = [/^(Reels?(?:\s*\([^)]+\))?)\s*[-–:]\s*/i, /^(Carrossel(?:\s*\([^)]+\))?)\s*[-–:]\s*/i, /^(Post(?:\s*\([^)]+\))?)\s*[-–:]\s*/i, /^(Story|Stories(?:\s*\([^)]+\))?)\s*[-–:]\s*/i, /^(Vídeo(?:\s+[Cc]urto)?(?:\s*\([^)]+\))?)\s*[-–:]\s*/i];
+    const patterns = [/^(Reels?(?:\s+\w+)?(?:\s*\([^)]+\))?)\s*[-–:]\s*/i, /^(Carrossel(?:\s+\w+)?(?:\s*\([^)]+\))?)\s*[-–:]\s*/i, /^(Post(?:\s+\w+)?(?:\s*\([^)]+\))?)\s*[-–:]\s*/i, /^(Story|Stories(?:\s+\w+)?(?:\s*\([^)]+\))?)\s*[-–:]\s*/i, /^(Vídeo(?:\s+[Cc]urto)?(?:\s*\([^)]+\))?)\s*[-–:]\s*/i];
     for (const pattern of patterns) {
       const match = title.match(pattern);
       if (match) {
