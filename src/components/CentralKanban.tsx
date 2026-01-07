@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, Loader2, CheckCircle2, Filter, Paperclip } from "lucide-react";
+import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PublicationDate } from "@/components/TaskCard";
@@ -382,8 +382,8 @@ const CentralKanban = () => {
   return <div className="mt-4">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 bg-amber-500/10 rounded-lg">
-          <CheckCircle2 className="h-5 w-5 text-amber-500" />
+        <div className="p-2 bg-violet-500/10 rounded-lg">
+          <CalendarDays className="h-5 w-5 text-violet-500" />
         </div>
         <h2 className="text-xl sm:text-2xl font-bold text-foreground">
           Agendar Publicação
@@ -434,7 +434,7 @@ const CentralKanban = () => {
 
         {/* Cards List */}
         {filteredCards.length === 0 ? <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <CheckCircle2 className="h-12 w-12 mb-4 opacity-30" />
+            <CalendarDays className="h-12 w-12 mb-4 opacity-30" />
             <p className="text-sm">
               {selectedClientFilter === "all" ? "Nenhum conteúdo aguardando agendamento" : "Nenhum conteúdo para agendar para este cliente"}
             </p>
