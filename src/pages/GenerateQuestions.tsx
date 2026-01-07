@@ -526,23 +526,21 @@ export default function GenerateQuestions() {
           
           return (
             <div key={key} className="space-y-3">
-              {/* Question Header with highlight for better contrast */}
-              <div className="bg-primary/10 border-l-4 border-primary rounded-r-lg p-4">
-                <Label 
-                  htmlFor={key} 
-                  className="text-base font-semibold text-foreground leading-relaxed block cursor-pointer"
-                >
-                  <span className="text-primary font-bold mr-2">{idx + 1}.</span>
-                  {mainQuestion}
-                  {description && (
-                    <span className="block mt-1 text-muted-foreground font-normal text-sm">
-                      {description}
-                    </span>
-                  )}
-                </Label>
-              </div>
+              {/* Question Header */}
+              <Label 
+                htmlFor={key} 
+                className="text-base font-semibold text-foreground leading-relaxed block cursor-pointer"
+              >
+                <span className="text-primary font-bold mr-2">{idx + 1}.</span>
+                {mainQuestion}
+                {description && (
+                  <span className="block mt-1 text-muted-foreground font-normal text-sm">
+                    {description}
+                  </span>
+                )}
+              </Label>
               
-              {/* Answer Textarea */}
+              {/* Answer Textarea - lower contrast */}
               <Textarea
                 id={key}
                 value={answers[key] || ""}
@@ -551,10 +549,10 @@ export default function GenerateQuestions() {
                 aria-label={`Resposta para: ${mainQuestion}`}
                 aria-required="true"
                 aria-invalid={validationErrors.has(key)}
-                className={`min-h-[120px] resize-y focus:ring-2 focus:ring-primary/20 transition-all bg-background ${
+                className={`min-h-[120px] resize-y focus:ring-2 focus:ring-primary/20 transition-all bg-muted/50 text-muted-foreground focus:text-foreground focus:bg-background ${
                   validationErrors.has(key) 
                     ? "border-destructive ring-2 ring-destructive/20" 
-                    : "border-border"
+                    : "border-border/50"
                 }`}
                 rows={4}
               />
