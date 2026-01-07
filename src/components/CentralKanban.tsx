@@ -80,12 +80,49 @@ const CentralKanban = () => {
       fetchScheduledCards();
     }
   }, [tenantId, tenantLoading]);
+  // Função para obter a primeira data de publicação
+  const getFirstPublicationDateTime = (card: CentralKanbanCard): Date | null => {
+    const pubDates = card.publication_dates;
+    if (!pubDates || pubDates.length === 0) return null;
+    
+    const sortedDates = [...pubDates].sort((a, b) => {
+      const dateA = new Date(`${a.date}T${a.time || '00:00'}`);
+      const dateB = new Date(`${b.date}T${b.time || '00:00'}`);
+      return dateA.getTime() - dateB.getTime();
+    });
+    
+    const first = sortedDates[0];
+    return new Date(`${first.date}T${first.time || '00:00'}`);
+  };
+
+  // Função para obter indicador de prioridade
+  const getPriorityIndicator = (card: CentralKanbanCard): { label: string; className: string } | null => {
+    const pubDateTime = getFirstPublicationDateTime(card);
+    if (!pubDateTime) return null;
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const pubDate = new Date(pubDateTime.getFullYear(), pubDateTime.getMonth(), pubDateTime.getDate());
+    
+    if (pubDateTime < now) {
+      return { label: "Atrasado", className: "bg-red-500/20 text-red-600 border-red-500/30" };
+    } else if (pubDate.getTime() === today.getTime()) {
+      return { label: "Publica hoje", className: "bg-orange-500/20 text-orange-600 border-orange-500/30" };
+    } else if (pubDate.getTime() === tomorrow.getTime()) {
+      return { label: "Publica amanhã", className: "bg-yellow-500/20 text-yellow-600 border-yellow-500/30" };
+    } else {
+      return { label: "Próximos dias", className: "bg-blue-500/20 text-blue-600 border-blue-500/30" };
+    }
+  };
+
   const fetchScheduledCards = async () => {
     if (!tenantId) return;
     try {
       setLoading(true);
 
-      // Buscar cards na coluna "Revisão" com informações do cliente
+      // Buscar cards na coluna "Agendar Publicação" com informações do cliente
       const {
         data: cardsData,
         error: cardsError
@@ -99,9 +136,7 @@ const CentralKanban = () => {
               name
             )
           )
-        `).eq("tenant_id", tenantId).eq("column_name", "Revisão").order("delivery_date", {
-        ascending: true
-      });
+        `).eq("tenant_id", tenantId).eq("column_name", "Agendar Publicação");
       if (cardsError) throw cardsError;
 
       // Mapear cards com nome do cliente
@@ -115,6 +150,17 @@ const CentralKanban = () => {
           clientId: company?.id || ""
         };
       });
+
+      // Ordenar por data de publicação mais próxima
+      mappedCards.sort((a, b) => {
+        const dateA = getFirstPublicationDateTime(a);
+        const dateB = getFirstPublicationDateTime(b);
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return dateA.getTime() - dateB.getTime();
+      });
+
       setCards(mappedCards);
     } catch (error) {
       console.error("Error fetching scheduled cards:", error);
@@ -161,13 +207,13 @@ const CentralKanban = () => {
         [field]: parsedValue
       } : c));
 
-      // Verificar se o card saiu da coluna "Revisão"
-      if (field === 'column_name' && parsedValue !== 'Revisão') {
+      // Verificar se o card saiu da coluna "Agendar Publicação"
+      if (field === 'column_name' && parsedValue !== 'Agendar Publicação') {
         // Remover do kanban central
         setCards(prev => prev.filter(c => c.id !== selectedCard.id));
         setIsTaskCardOpen(false);
         setSelectedCard(null);
-        sonnerToast.info("Card removido da Revisão");
+        sonnerToast.info("Card removido de Agendar Publicação");
       } else {
         sonnerToast.success("Salvo automaticamente");
       }
@@ -321,11 +367,11 @@ const CentralKanban = () => {
   return <div className="mt-4">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 bg-emerald-500/10 rounded-lg">
-          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+        <div className="p-2 bg-amber-500/10 rounded-lg">
+          <CheckCircle2 className="h-5 w-5 text-amber-500" />
         </div>
         <h2 className="text-xl sm:text-2xl font-bold text-foreground">
-          Conteúdos Programados
+          Agendar Publicação
         </h2>
         <Badge variant="secondary">
           {filteredCards.length} {filteredCards.length === 1 ? 'item' : 'itens'}
@@ -364,8 +410,8 @@ const CentralKanban = () => {
       <div className="bg-muted/30 rounded-xl p-4 border border-border/50 min-h-[300px]">
         {/* Column Header */}
         <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border/50">
-          <div className="w-3 h-3 rounded-full bg-emerald-500" />
-          <span className="font-semibold text-foreground">Revisão</span>
+          <div className="w-3 h-3 rounded-full bg-amber-500" />
+          <span className="font-semibold text-foreground">Agendar Publicação</span>
           <Badge variant="outline" className="ml-auto text-xs">
             {filteredCards.length}
           </Badge>
@@ -375,10 +421,10 @@ const CentralKanban = () => {
         {filteredCards.length === 0 ? <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <CheckCircle2 className="h-12 w-12 mb-4 opacity-30" />
             <p className="text-sm">
-              {selectedClientFilter === "all" ? "Nenhum conteúdo em revisão no momento" : "Nenhum conteúdo em revisão para este cliente"}
+              {selectedClientFilter === "all" ? "Nenhum conteúdo aguardando agendamento" : "Nenhum conteúdo para agendar para este cliente"}
             </p>
             <p className="text-xs mt-1 opacity-70">
-              Mova demandas para "Revisão" nos kanbans dos clientes
+              Mova demandas para "Agendar Publicação" nos kanbans dos clientes
             </p>
           </div> : <div className="flex flex-col gap-2">
             {filteredCards.map(card => {
@@ -386,6 +432,9 @@ const CentralKanban = () => {
             cleanTitle
           } = extractContentType(card.title);
           const isHighlighted = highlightedCardId === card.id;
+          const priority = getPriorityIndicator(card);
+          const firstPubDate = getFirstPublicationDateTime(card);
+          
           return (
             <div 
               key={card.id}
@@ -401,10 +450,15 @@ const CentralKanban = () => {
               )}
               onClick={() => handleCardClick(card)}
             >
-              {/* Left side: Date, Title */}
-              <div className="flex items-center gap-4 min-w-0 flex-1">
+              {/* Left side: Priority, Date, Title */}
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                {priority && (
+                  <Badge className={cn("text-[10px] px-2 py-0.5 font-medium whitespace-nowrap", priority.className)}>
+                    {priority.label}
+                  </Badge>
+                )}
                 <span className="text-sm font-medium text-foreground whitespace-nowrap">
-                  {formatDate(card.delivery_date)}
+                  {firstPubDate ? firstPubDate.toLocaleDateString("pt-BR") + " " + firstPubDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : formatDate(card.delivery_date)}
                 </span>
                 <span className={cn(
                   "text-sm font-medium truncate",
