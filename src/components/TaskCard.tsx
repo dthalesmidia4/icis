@@ -326,13 +326,28 @@ export default function TaskCard({
               {/* Status - ClickUp inspired */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</span>
-                <Select value={normalizedStatus} onValueChange={value => {
-                onCardChange({
-                  ...card,
-                  status: value
-                });
-                handleFieldSave('status', value);
-              }}>
+                <Select value={normalizedStatus} onValueChange={async (value) => {
+                  // Validação: exigir data de publicação para mover para "Agendar Publicação"
+                  const targetColumn = getColumnFromStatus(value);
+                  if (targetColumn === "Agendar Publicação") {
+                    const hasValidPublicationDate = publicationDates.some(pd => pd.date && pd.time);
+                    const hasDeliveryDate = !!card.delivery_date;
+                    
+                    if (!hasValidPublicationDate && !hasDeliveryDate) {
+                      const { toast } = await import("sonner");
+                      toast.error("Defina uma data de publicação", {
+                        description: "Para mover para 'Agendar Publicação', defina data e horário primeiro."
+                      });
+                      return;
+                    }
+                  }
+                  
+                  onCardChange({
+                    ...card,
+                    status: value
+                  });
+                  handleFieldSave('status', value);
+                }}>
                   <SelectTrigger className={cn("h-9 w-auto min-w-[180px] gap-2 border font-medium text-xs", statusConfig.bgColor, statusConfig.textColor, statusConfig.borderColor)} aria-label="Selecionar status da tarefa">
                     <div className="flex items-center gap-2">
                       <span className="h-3 w-3 rounded-full flex-shrink-0" style={{

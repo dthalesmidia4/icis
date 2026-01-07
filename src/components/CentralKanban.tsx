@@ -83,16 +83,31 @@ const CentralKanban = () => {
   // Função para obter a primeira data de publicação
   const getFirstPublicationDateTime = (card: CentralKanbanCard): Date | null => {
     const pubDates = card.publication_dates;
-    if (!pubDates || pubDates.length === 0) return null;
+    if (!pubDates || pubDates.length === 0) {
+      // Fallback para delivery_date se não tiver publication_dates
+      if (card.delivery_date) {
+        return new Date(card.delivery_date + 'T09:00:00');
+      }
+      return null;
+    }
     
-    const sortedDates = [...pubDates].sort((a, b) => {
-      const dateA = new Date(`${a.date}T${a.time || '00:00'}`);
-      const dateB = new Date(`${b.date}T${b.time || '00:00'}`);
-      return dateA.getTime() - dateB.getTime();
-    });
+    const sortedDates = [...pubDates]
+      .filter(pd => pd.date)
+      .sort((a, b) => {
+        const dateA = new Date(`${a.date}T${a.time || '09:00'}`);
+        const dateB = new Date(`${b.date}T${b.time || '09:00'}`);
+        return dateA.getTime() - dateB.getTime();
+      });
+    
+    if (sortedDates.length === 0) {
+      if (card.delivery_date) {
+        return new Date(card.delivery_date + 'T09:00:00');
+      }
+      return null;
+    }
     
     const first = sortedDates[0];
-    return new Date(`${first.date}T${first.time || '00:00'}`);
+    return new Date(`${first.date}T${first.time || '09:00'}`);
   };
 
   // Função para obter indicador de prioridade
