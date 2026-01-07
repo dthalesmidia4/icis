@@ -513,16 +513,14 @@ const CentralKanban = () => {
                   {card.clientName}
                 </Badge>
                 <Button
-                  variant="outline"
                   size="sm"
-                  className="h-8 px-3 flex items-center gap-2 text-xs bg-primary/5 hover:bg-primary/10 border-primary/30 hover:border-primary/50"
+                  className="h-8 px-3 text-xs font-medium"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleCardClick(card);
                   }}
                 >
-                  <Calendar className="h-3.5 w-3.5 text-primary" />
-                  <span className="font-medium text-primary">Agendar</span>
+                  Publicar
                 </Button>
                 <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
               </div>
