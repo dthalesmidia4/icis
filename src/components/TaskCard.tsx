@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Clock, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus } from "lucide-react";
+import { CalendarIcon, Clock, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import { BlockEditor } from "@/components/BlockEditor";
@@ -188,6 +188,21 @@ export default function TaskCard({
   const [editingField, setEditingField] = useState<string | null>(null);
   const [openDatePickerIndex, setOpenDatePickerIndex] = useState<number | null>(null);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+  
+  // Section collapse states
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+    objetivo: false,
+    atividade: false,
+    observacoes: false,
+    anexos: false
+  });
+  
+  const toggleSection = (section: string) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
 
   // Get publication dates from card or use default with one empty date
   const publicationDates: PublicationDate[] = card?.publication_dates?.length 
@@ -486,111 +501,160 @@ export default function TaskCard({
               
               {/* Objetivo */}
               <section>
-                <div className="flex items-center gap-2 mb-3">
+                <button 
+                  type="button"
+                  onClick={() => toggleSection('objetivo')}
+                  className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
+                >
+                  {collapsedSections.objetivo ? (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
                   <div className="p-1.5 bg-primary/10 rounded-md">
                     <Target className="h-4 w-4 text-primary" />
                   </div>
                   <h3 className="font-semibold text-foreground uppercase tracking-wide text-xl">Objetivo</h3>
                   {saving && savingField === 'objetivo' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                </div>
-                <BlockEditor content={card.objetivo || ""} onChange={value => {
-                onCardChange({
-                  ...card,
-                  objetivo: value
-                });
-              }} onBlur={() => handleFieldSave('objetivo', card.objetivo || '')} placeholder="Qual é a finalidade estratégica deste material?" minHeight="80px" />
+                </button>
+                {!collapsedSections.objetivo && (
+                  <BlockEditor content={card.objetivo || ""} onChange={value => {
+                    onCardChange({
+                      ...card,
+                      objetivo: value
+                    });
+                  }} onBlur={() => handleFieldSave('objetivo', card.objetivo || '')} placeholder="Qual é a finalidade estratégica deste material?" minHeight="80px" />
+                )}
               </section>
 
               {/* Atividade */}
               <section>
-                <div className="flex items-center gap-2 mb-3">
+                <button 
+                  type="button"
+                  onClick={() => toggleSection('atividade')}
+                  className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
+                >
+                  {collapsedSections.atividade ? (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
                   <div className="p-1.5 bg-secondary/50 rounded-md">
                     <FileText className="h-4 w-4 text-secondary-foreground" />
                   </div>
                   <h3 className="font-semibold text-foreground uppercase tracking-wide text-lg">Atividade</h3>
                   {saving && savingField === 'description' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                </div>
-                <BlockEditor content={card.description || ""} onChange={value => {
-                onCardChange({
-                  ...card,
-                  description: value
-                });
-              }} onBlur={() => handleFieldSave('description', card.description || '')} placeholder="Copy, roteiros, frames, instruções de produção..." minHeight="200px" />
+                </button>
+                {!collapsedSections.atividade && (
+                  <BlockEditor content={card.description || ""} onChange={value => {
+                    onCardChange({
+                      ...card,
+                      description: value
+                    });
+                  }} onBlur={() => handleFieldSave('description', card.description || '')} placeholder="Copy, roteiros, frames, instruções de produção..." minHeight="200px" />
+                )}
               </section>
 
               {/* Observações */}
               <section>
-                <div className="flex items-center gap-2 mb-3">
+                <button 
+                  type="button"
+                  onClick={() => toggleSection('observacoes')}
+                  className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
+                >
+                  {collapsedSections.observacoes ? (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
                   <div className="p-1.5 bg-accent/50 rounded-md">
                     <MessageSquare className="h-4 w-4 text-accent-foreground" />
                   </div>
                   <h3 className="font-semibold text-foreground uppercase tracking-wide text-lg">Observações</h3>
                   {saving && savingField === 'observations' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                </div>
-                <BlockEditor content={card.observations || ""} onChange={value => {
-                onCardChange({
-                  ...card,
-                  observations: value
-                });
-              }} onBlur={() => handleFieldSave('observations', card.observations || '')} placeholder="Feedbacks, ajustes, observações internas..." minHeight="100px" />
+                </button>
+                {!collapsedSections.observacoes && (
+                  <BlockEditor content={card.observations || ""} onChange={value => {
+                    onCardChange({
+                      ...card,
+                      observations: value
+                    });
+                  }} onBlur={() => handleFieldSave('observations', card.observations || '')} placeholder="Feedbacks, ajustes, observações internas..." minHeight="100px" />
+                )}
               </section>
 
               {/* Anexos */}
               <section>
-                <div className="flex items-center gap-2 mb-3">
+                <button 
+                  type="button"
+                  onClick={() => toggleSection('anexos')}
+                  className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
+                >
+                  {collapsedSections.anexos ? (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
                   <div className="p-1.5 bg-muted rounded-md">
                     <Paperclip className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <h3 className="font-semibold text-foreground uppercase tracking-wide text-lg">Anexos</h3>
+                  {card.attachments && card.attachments.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 text-xs">{card.attachments.length}</Badge>
+                  )}
                   {uploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                </div>
+                </button>
 
-                {/* Attachments Grid */}
-                {card.attachments && card.attachments.length > 0 && <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-4">
-                    {card.attachments.map((attachment, idx) => <div key={idx} className="group relative bg-muted/30 rounded-lg border border-border/50 overflow-hidden hover:border-primary/50 transition-colors cursor-pointer" onClick={() => setPreviewAttachment(attachment)}>
-                        {isImageFile(attachment.type) ? <div className="block">
-                            <div className="aspect-square">
-                              <img src={attachment.url} alt={attachment.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                            </div>
-                            <div className="p-2 bg-background/80 backdrop-blur-sm">
-                              <p className="text-xs font-medium truncate">{attachment.name}</p>
-                              <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
-                            </div>
-                          </div> : <div className="flex flex-col items-center justify-center p-4 aspect-square hover:bg-muted/50 transition-colors">
-                            <File className="h-10 w-10 text-muted-foreground mb-2" />
-                            <p className="text-xs font-medium text-center truncate w-full">{attachment.name}</p>
-                            <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
-                          </div>}
-                        <button 
-                          onClick={e => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onRemoveAttachment(attachment.url);
-                          }} 
-                          className="absolute top-2 right-2 p-1.5 bg-destructive/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive shadow-lg"
-                          aria-label={`Remover anexo ${attachment.name}`}
-                        >
-                          <X className="h-3 w-3 text-destructive-foreground" />
-                        </button>
-                      </div>)}
-                  </div>}
+                {!collapsedSections.anexos && (
+                  <>
+                    {/* Attachments Grid */}
+                    {card.attachments && card.attachments.length > 0 && <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-4">
+                        {card.attachments.map((attachment, idx) => <div key={idx} className="group relative bg-muted/30 rounded-lg border border-border/50 overflow-hidden hover:border-primary/50 transition-colors cursor-pointer" onClick={() => setPreviewAttachment(attachment)}>
+                            {isImageFile(attachment.type) ? <div className="block">
+                                <div className="aspect-square">
+                                  <img src={attachment.url} alt={attachment.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                                </div>
+                                <div className="p-2 bg-background/80 backdrop-blur-sm">
+                                  <p className="text-xs font-medium truncate">{attachment.name}</p>
+                                  <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                                </div>
+                              </div> : <div className="flex flex-col items-center justify-center p-4 aspect-square hover:bg-muted/50 transition-colors">
+                                <File className="h-10 w-10 text-muted-foreground mb-2" />
+                                <p className="text-xs font-medium text-center truncate w-full">{attachment.name}</p>
+                                <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                              </div>}
+                            <button 
+                              onClick={e => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onRemoveAttachment(attachment.url);
+                              }} 
+                              className="absolute top-2 right-2 p-1.5 bg-destructive/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive shadow-lg"
+                              aria-label={`Remover anexo ${attachment.name}`}
+                            >
+                              <X className="h-3 w-3 text-destructive-foreground" />
+                            </button>
+                          </div>)}
+                      </div>}
 
-                {/* Upload Area */}
-                <label className="flex flex-col items-center justify-center gap-2 w-full py-6 px-4 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 hover:bg-muted/20 transition-colors" aria-label="Área de upload de arquivos">
-                  <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.mp4,.mov,.avi" onChange={onFileUpload} className="sr-only" disabled={uploading} aria-label="Selecionar arquivos para anexar" />
-                  {uploading ? <>
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                      <span className="text-sm text-muted-foreground">Enviando arquivos...</span>
-                    </> : <>
-                      <Upload className="h-6 w-6 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">
-                        Clique ou arraste arquivos para anexar
-                      </span>
-                      <span className="text-xs text-muted-foreground/60">
-                        Imagens, PDFs, documentos, vídeos • Máximo 50MB
-                      </span>
-                    </>}
-                </label>
+                    {/* Upload Area */}
+                    <label className="flex flex-col items-center justify-center gap-2 w-full py-6 px-4 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 hover:bg-muted/20 transition-colors" aria-label="Área de upload de arquivos">
+                      <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.mp4,.mov,.avi" onChange={onFileUpload} className="sr-only" disabled={uploading} aria-label="Selecionar arquivos para anexar" />
+                      {uploading ? <>
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                          <span className="text-sm text-muted-foreground">Enviando arquivos...</span>
+                        </> : <>
+                          <Upload className="h-6 w-6 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">
+                            Clique ou arraste arquivos para anexar
+                          </span>
+                          <span className="text-xs text-muted-foreground/60">
+                            Imagens, PDFs, documentos, vídeos • Máximo 50MB
+                          </span>
+                        </>}
+                    </label>
+                  </>
+                )}
               </section>
 
               {/* Timestamps */}
