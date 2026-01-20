@@ -84,6 +84,54 @@ const formatFileSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+// Converte texto plano/Markdown para HTML para o BlockEditor
+const convertToHtml = (text: string): string => {
+  if (!text) return '';
+  
+  // Se já é HTML válido, retornar como está
+  if (text.trim().startsWith('<') && text.includes('</')) {
+    return text;
+  }
+  
+  // Converter Markdown básico para HTML
+  let html = text
+    // Escapar caracteres HTML perigosos
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    // Converter títulos Markdown
+    .replace(/^### (.+)$/gm, '</p><h3>$1</h3><p>')
+    .replace(/^## (.+)$/gm, '</p><h2>$1</h2><p>')
+    .replace(/^# (.+)$/gm, '</p><h1>$1</h1><p>')
+    // Converter negrito e itálico
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // Converter padrões SLIDE/FRAME/CENA em títulos
+    .replace(/^(SLIDE|FRAME|CENA|IMAGEM|LEGENDA|ROTEIRO|NARRAÇÃO|VISUAL)\s*(\d*)[\s—:-]*/gim, '</p><h3>$1 $2</h3><p>');
+  
+  // Dividir por quebras de linha duplas para criar parágrafos
+  const paragraphs = html.split(/\n\n+/).filter(p => p.trim());
+  
+  html = paragraphs.map(paragraph => {
+    // Se já tem tags de título, não envolver em <p>
+    if (paragraph.includes('<h1>') || paragraph.includes('<h2>') || paragraph.includes('<h3>')) {
+      return paragraph.replace(/\n/g, '<br>');
+    }
+    // Converter quebras de linha simples em <br>
+    const content = paragraph.replace(/\n/g, '<br>').trim();
+    return content ? `<p>${content}</p>` : '';
+  }).join('');
+  
+  // Limpar tags vazias
+  html = html
+    .replace(/<p><\/p>/g, '')
+    .replace(/<p>\s*<\/p>/g, '')
+    .replace(/^<\/p>/, '')
+    .replace(/<p>$/, '');
+  
+  return html || `<p>${text.replace(/\n/g, '<br>')}</p>`;
+};
+
 // Status configuration mapped directly to Kanban columns
 export const STATUS_GROUPS = [{
   label: "Planejamento",
@@ -518,7 +566,7 @@ export default function TaskCard({
                   {saving && savingField === 'objetivo' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
                 </button>
                 {!collapsedSections.objetivo && (
-                  <BlockEditor content={card.objetivo || ""} onChange={value => {
+                  <BlockEditor content={convertToHtml(card.objetivo || "")} onChange={value => {
                     onCardChange({
                       ...card,
                       objetivo: value
@@ -546,7 +594,7 @@ export default function TaskCard({
                   {saving && savingField === 'description' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
                 </button>
                 {!collapsedSections.atividade && (
-                  <BlockEditor content={card.description || ""} onChange={value => {
+                  <BlockEditor content={convertToHtml(card.description || "")} onChange={value => {
                     onCardChange({
                       ...card,
                       description: value
@@ -574,7 +622,7 @@ export default function TaskCard({
                   {saving && savingField === 'observations' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
                 </button>
                 {!collapsedSections.observacoes && (
-                  <BlockEditor content={card.observations || ""} onChange={value => {
+                  <BlockEditor content={convertToHtml(card.observations || "")} onChange={value => {
                     onCardChange({
                       ...card,
                       observations: value

@@ -209,7 +209,7 @@ ESTRUTURA DE CADA DEMANDA (campos obrigatórios):
   "tipo": "Carrossel (X slides) | Reels (Xs) | Post estático | Story | Vídeo Comercial | etc",
   "titulo": "Nome curto e objetivo da peça",
   "objetivo": "O que a peça quer alcançar (educar, vender, engajar, autoridade, etc)",
-  "conteudo": "CONTEÚDO DETALHADO E COMPLETO:\\nSLIDE 1 — [texto completo]\\nSLIDE 2 — [texto completo]\\n...ou ROTEIRO COMPLETO para vídeos com cada cena/fala descrita",
+  "conteudo": "CONTEÚDO FORMATADO COM MARKDOWN para facilitar leitura. Use ## para títulos de seções, - para listas, e linhas em branco para separar parágrafos. Exemplo:\n\n## SLIDE 1\nTexto completo do slide\n\n## SLIDE 2\nTexto completo do slide\n\nPara vídeos:\n\n## CENA 1\n**Visual:** descrição\n**Narração:** texto\n\n## CENA 2\n...",
   "instrucoes_de_producao": "Instruções específicas: cores, ícones, fotos, ângulos, cortes, CTAs visuais, tom",
   "cta_recomendado": "Chamada para ação específica da peça",
   "canal": "${periodPlan.priority_channel}",
