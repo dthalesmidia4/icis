@@ -539,8 +539,8 @@ export default function TaskCard({
                   ) : (
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   )}
-                  <div className="p-1.5 bg-secondary/50 rounded-md">
-                    <FileText className="h-4 w-4 text-secondary-foreground" />
+                  <div className="p-1.5 bg-primary/10 rounded-md">
+                    <FileText className="h-4 w-4 text-primary" />
                   </div>
                   <h3 className="font-semibold text-foreground uppercase tracking-wide text-lg">Atividade</h3>
                   {saving && savingField === 'description' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
@@ -567,8 +567,8 @@ export default function TaskCard({
                   ) : (
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   )}
-                  <div className="p-1.5 bg-accent/50 rounded-md">
-                    <MessageSquare className="h-4 w-4 text-accent-foreground" />
+                  <div className="p-1.5 bg-primary/10 rounded-md">
+                    <MessageSquare className="h-4 w-4 text-primary" />
                   </div>
                   <h3 className="font-semibold text-foreground uppercase tracking-wide text-lg">Observações</h3>
                   {saving && savingField === 'observations' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
@@ -595,8 +595,8 @@ export default function TaskCard({
                   ) : (
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   )}
-                  <div className="p-1.5 bg-muted rounded-md">
-                    <Paperclip className="h-4 w-4 text-muted-foreground" />
+                  <div className="p-1.5 bg-primary/10 rounded-md">
+                    <Paperclip className="h-4 w-4 text-primary" />
                   </div>
                   <h3 className="font-semibold text-foreground uppercase tracking-wide text-lg">Anexos</h3>
                   {card.attachments && card.attachments.length > 0 && (
