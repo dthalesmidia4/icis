@@ -237,19 +237,39 @@ export default function TaskCard({
   const [openDatePickerIndex, setOpenDatePickerIndex] = useState<number | null>(null);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   
-  // Section collapse states
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
-    objetivo: false,
-    atividade: false,
-    observacoes: false,
-    anexos: false
+  // Section collapse states - persisted in localStorage
+  const STORAGE_KEY = 'taskcard-collapsed-sections';
+  
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.warn('Failed to load collapsed sections from localStorage:', e);
+    }
+    return {
+      objetivo: false,
+      atividade: false,
+      observacoes: false,
+      anexos: false
+    };
   });
   
   const toggleSection = (section: string) => {
-    setCollapsedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
+    setCollapsedSections(prev => {
+      const newState = {
+        ...prev,
+        [section]: !prev[section]
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
+      } catch (e) {
+        console.warn('Failed to save collapsed sections to localStorage:', e);
+      }
+      return newState;
+    });
   };
 
   // Get publication dates from card or use default with one empty date
