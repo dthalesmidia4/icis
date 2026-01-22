@@ -11,6 +11,22 @@ export const useAuth = () => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('[Auth] State change:', event);
+        
+        if (event === 'TOKEN_REFRESHED') {
+          console.log('[Auth] Token refreshed successfully');
+        }
+        
+        if (event === 'SIGNED_OUT') {
+          console.log('[Auth] User signed out, clearing local state');
+          // Limpar estados locais que podem causar inconsistência
+          localStorage.removeItem('taskcard-collapsed-sections');
+        }
+
+        if (event === 'SIGNED_IN') {
+          console.log('[Auth] User signed in');
+        }
+        
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
@@ -19,6 +35,7 @@ export const useAuth = () => {
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('[Auth] Initial session check:', session ? 'Session found' : 'No session');
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);

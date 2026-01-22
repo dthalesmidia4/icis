@@ -402,6 +402,25 @@ export default function AgencySetup() {
                 {isLoading ? 'Salvando...' : 'Salvar e continuar'}
               </Button>
             </div>
+
+            {/* Botão de emergência para loops */}
+            <div className="pt-4 border-t border-border">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full text-muted-foreground hover:text-foreground"
+                onClick={async () => {
+                  console.log('[AgencySetup] Force logout triggered');
+                  localStorage.clear();
+                  sessionStorage.clear();
+                  await supabase.auth.signOut();
+                  window.location.href = '/auth';
+                }}
+              >
+                Problemas para acessar? Clique aqui para sair e tentar novamente
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
