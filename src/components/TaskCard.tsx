@@ -180,6 +180,18 @@ export const STATUS_GROUPS = [{
     column: "Revisão"
   }]
 }, {
+  label: "Aguardando Cliente",
+  column: "Aguardando Cliente",
+  statuses: [{
+    value: "aguardando_cliente",
+    label: "AGUARDANDO CLIENTE",
+    color: "hsl(45 90% 50%)",
+    bgColor: "bg-[hsl(45,90%,50%)]/10",
+    textColor: "text-[hsl(45,90%,50%)]",
+    borderColor: "border-[hsl(45,90%,50%)]/30",
+    column: "Aguardando Cliente"
+  }]
+}, {
   label: "Agendar Publicação",
   column: "Agendar Publicação",
   statuses: [{

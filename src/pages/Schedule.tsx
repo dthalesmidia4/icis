@@ -27,6 +27,7 @@ const COLUMNS = [
   { id: "Planejamento", title: "Planejamento", color: "bg-purple-500" },
   { id: "Produção", title: "Produção", color: "bg-amber-500" },
   { id: "Revisão", title: "Revisão", color: "bg-emerald-500" },
+  { id: "Aguardando Cliente", title: "Aguardando Cliente", color: "bg-yellow-500" },
   { id: "Agendar Publicação", title: "Agendar Publicação", color: "bg-cyan-500" },
 ];
 
