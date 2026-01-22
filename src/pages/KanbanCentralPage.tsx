@@ -521,7 +521,7 @@ const KanbanCentralPage = () => {
   }
 
   return (
-    <div className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <BackButton to="/home" />
       
       <div className="mt-4">
@@ -578,7 +578,7 @@ const KanbanCentralPage = () => {
 
         {/* Kanban Board with Drag & Drop */}
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
             {COLUMNS.map((column) => {
               const columnCards = getCardsForColumn(column.id);
               return (
