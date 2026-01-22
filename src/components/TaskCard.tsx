@@ -15,6 +15,16 @@ import { CalendarIcon, Clock, Target, FileText, MessageSquare, Paperclip, Upload
 import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import { BlockEditor } from "@/components/BlockEditor";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Publication date interface
 export interface PublicationDate {
@@ -236,6 +246,7 @@ export default function TaskCard({
   const [editingField, setEditingField] = useState<string | null>(null);
   const [openDatePickerIndex, setOpenDatePickerIndex] = useState<number | null>(null);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+  const [attachmentToRemove, setAttachmentToRemove] = useState<Attachment | null>(null);
   
   // Section collapse states - persisted in localStorage
   const STORAGE_KEY = 'taskcard-collapsed-sections';
@@ -695,7 +706,7 @@ export default function TaskCard({
                               onClick={e => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                onRemoveAttachment(attachment.url);
+                                setAttachmentToRemove(attachment);
                               }} 
                               className="absolute top-2 right-2 p-1.5 bg-destructive/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive shadow-lg"
                               aria-label={`Remover anexo ${attachment.name}`}
@@ -747,11 +758,44 @@ export default function TaskCard({
           fileUrl={previewAttachment?.url || ""} 
           fileName={previewAttachment?.name || ""} 
           onDelete={previewAttachment ? () => {
-            onRemoveAttachment(previewAttachment.url);
+            setAttachmentToRemove(previewAttachment);
             setPreviewAttachment(null);
           } : undefined} 
         />
       </div>
+
+      {/* Attachment Removal Confirmation Modal */}
+      <AlertDialog open={!!attachmentToRemove} onOpenChange={(open) => !open && setAttachmentToRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover anexo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a remover o anexo "<strong>{attachmentToRemove?.name}</strong>".
+              <br /><br />
+              Esta ação não pode ser desfeita. O arquivo será permanentemente removido do sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (attachmentToRemove) {
+                  console.log('[Attachment] Usuário confirmou remoção:', {
+                    cardId: card.id,
+                    attachmentName: attachmentToRemove.name,
+                    attachmentUrl: attachmentToRemove.url
+                  });
+                  onRemoveAttachment(attachmentToRemove.url);
+                  setAttachmentToRemove(null);
+                }
+              }}
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>;
 
   // Render using portal to document.body

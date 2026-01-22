@@ -254,7 +254,19 @@ const KanbanCentralPage = () => {
       if (field === 'publication_dates' || field === 'attachments') {
         try {
           parsedValue = JSON.parse(value);
+          // PROTEÇÃO: Nunca sobrescrever attachments com array vazio acidentalmente via handleSave
+          if (field === 'attachments' && (!Array.isArray(parsedValue) || parsedValue.length === 0)) {
+            console.warn('[Attachment] Proteção ativada: tentativa de sobrescrever attachments com valor vazio via handleSave', {
+              cardId: selectedCard.id,
+              currentAttachments: selectedCard.attachments?.length,
+              attemptedValue: value
+            });
+            setSaving(false);
+            setSavingField(null);
+            return;
+          }
         } catch {
+          console.warn('[Attachment] JSON parse falhou para field:', field, value);
           parsedValue = value;
         }
       }
@@ -371,8 +383,18 @@ const KanbanCentralPage = () => {
 
   const handleRemoveAttachment = async (attachmentUrl: string) => {
     if (!selectedCard) return;
+    
+    // Log de auditoria para debugging
+    const attachment = (selectedCard.attachments || []).find(a => a.url === attachmentUrl);
+    console.log('[Attachment] Iniciando remoção de anexo:', {
+      cardId: selectedCard.id,
+      cardTitle: selectedCard.title,
+      attachmentName: attachment?.name,
+      attachmentUrl: attachmentUrl,
+      totalAnexosAntes: selectedCard.attachments?.length || 0
+    });
+    
     try {
-      const attachment = (selectedCard.attachments || []).find(a => a.url === attachmentUrl);
       if (attachment?.storagePath) {
         await supabase.storage.from('card-attachments').remove([attachment.storagePath]);
       }
@@ -381,6 +403,12 @@ const KanbanCentralPage = () => {
         attachments: updatedAttachments as unknown as any
       }).eq('id', selectedCard.id);
       if (error) throw error;
+      
+      console.log('[Attachment] Anexo removido com sucesso:', {
+        cardId: selectedCard.id,
+        totalAnexosDepois: updatedAttachments.length
+      });
+      
       setSelectedCard(prev => prev ? {
         ...prev,
         attachments: updatedAttachments
@@ -391,7 +419,7 @@ const KanbanCentralPage = () => {
       } : c));
       sonnerToast.success("Anexo removido");
     } catch (error) {
-      console.error("Error removing attachment:", error);
+      console.error("[Attachment] Error removing attachment:", error);
       sonnerToast.error("Erro ao remover anexo");
     }
   };
