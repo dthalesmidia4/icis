@@ -810,7 +810,7 @@ export default function Schedule() {
   if (!periodPlanId) {
     return (
       <div className="pb-8">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
           <div className="flex items-center gap-3 sm:gap-4 mb-8">
             <Button
               variant="ghost"
@@ -841,7 +841,7 @@ export default function Schedule() {
 
   return (
     <div className="pb-8">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
+      <div className="max-w-[1600px] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div className="flex items-center gap-3 sm:gap-4 mb-4">
@@ -915,7 +915,7 @@ export default function Schedule() {
 
         {/* Kanban Board */}
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 lg:gap-4">
             {COLUMNS.map((column) => {
               const columnCards = getCardsByColumn(column.id);
               return (
