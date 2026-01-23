@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormSection } from "@/components/ui/form-section";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -420,16 +421,7 @@ const ClientDetails = () => {
           </div>
 
           {/* Seção 1: Identificação da Empresa */}
-          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-3 text-base font-semibold">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                  <Building2 className="h-4 w-4 text-primary" />
-                </div>
-                Identificação da Empresa
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
+          <FormSection title="Identificação da Empresa" icon={Building2} contentClassName="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="name" className="text-xs font-medium text-muted-foreground">Razão Social *</Label>
@@ -718,20 +710,10 @@ const ClientDetails = () => {
                   </p>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </FormSection>
 
           {/* Seção 2: Localização */}
-          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-3 text-base font-semibold">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                  <MapPin className="h-4 w-4 text-primary" />
-                </div>
-                Localização
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <FormSection title="Localização" icon={MapPin}>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="cep" className="text-xs font-medium text-muted-foreground">CEP</Label>
@@ -854,20 +836,10 @@ const ClientDetails = () => {
                   )}
                 </div>
               </div>
-            </CardContent>
-          </Card>
+          </FormSection>
 
           {/* Seção 3: Contato e Comunicação */}
-          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-3 text-base font-semibold">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                  <Phone className="h-4 w-4 text-primary" />
-                </div>
-                Contato e Comunicação
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <FormSection title="Contato e Comunicação" icon={Phone}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="corporate_email" className="text-xs font-medium text-muted-foreground">E-mail Corporativo</Label>
@@ -970,20 +942,10 @@ const ClientDetails = () => {
                   <p className="text-[11px] text-muted-foreground">Opcional - CPF para emissão de notas.</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+          </FormSection>
 
           {/* Informações do Sistema */}
-          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-3 text-base font-semibold">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                  <Calendar className="h-4 w-4 text-primary" />
-                </div>
-                Informações do Sistema
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+          <FormSection title="Informações do Sistema" icon={Calendar}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <p className="text-xs font-medium text-muted-foreground">Data de Cadastro</p>
@@ -1004,8 +966,7 @@ const ClientDetails = () => {
                   </p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+          </FormSection>
         </div>
       </div>
 
