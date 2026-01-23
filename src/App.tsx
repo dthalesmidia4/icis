@@ -8,6 +8,7 @@ import { SelectedClientProvider } from "./contexts/SelectedClientContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { RequireTenant } from "./components/RequireTenant";
+import { RequireRole } from "./components/RequireRole";
 import { Layout } from "./components/Layout";
 import Home from "./pages/Home";
 import ClientHub from "./pages/ClientHub";
@@ -89,21 +90,26 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      {/* === ROTAS ADMINISTRATIVAS (apenas agency_admin) === */}
       <Route path="/registration" element={
         <ProtectedRoute>
           <RequireTenant>
-            <Layout>
-              <CompanyRegistration />
-            </Layout>
+            <RequireRole allowedRoles={['agency_admin']}>
+              <Layout>
+                <CompanyRegistration />
+              </Layout>
+            </RequireRole>
           </RequireTenant>
         </ProtectedRoute>
       } />
       <Route path="/plan-period" element={
         <ProtectedRoute>
           <RequireTenant>
-            <Layout>
-              <PlanPeriod />
-            </Layout>
+            <RequireRole allowedRoles={['agency_admin']}>
+              <Layout>
+                <PlanPeriod />
+              </Layout>
+            </RequireRole>
           </RequireTenant>
         </ProtectedRoute>
       } />
@@ -119,81 +125,99 @@ function AppRoutes() {
       <Route path="/clientes" element={
         <ProtectedRoute>
           <RequireTenant>
-            <Layout>
-              <ClientList />
-            </Layout>
+            <RequireRole allowedRoles={['agency_admin']}>
+              <Layout>
+                <ClientList />
+              </Layout>
+            </RequireRole>
           </RequireTenant>
         </ProtectedRoute>
       } />
       <Route path="/clientes/:id" element={
         <ProtectedRoute>
           <RequireTenant>
-            <Layout>
-              <ClientDetails />
-            </Layout>
+            <RequireRole allowedRoles={['agency_admin']}>
+              <Layout>
+                <ClientDetails />
+              </Layout>
+            </RequireRole>
           </RequireTenant>
         </ProtectedRoute>
       } />
       <Route path="/strategies" element={
         <ProtectedRoute>
           <RequireTenant>
-            <Layout>
-              <StrategyCreation />
-            </Layout>
+            <RequireRole allowedRoles={['agency_admin']}>
+              <Layout>
+                <StrategyCreation />
+              </Layout>
+            </RequireRole>
           </RequireTenant>
         </ProtectedRoute>
       } />
       <Route path="/client-guide" element={
         <ProtectedRoute>
           <RequireTenant>
-            <Layout>
-              <GenerateQuestions />
-            </Layout>
+            <RequireRole allowedRoles={['agency_admin']}>
+              <Layout>
+                <GenerateQuestions />
+              </Layout>
+            </RequireRole>
           </RequireTenant>
         </ProtectedRoute>
       } />
       <Route path="/generate-questions" element={
         <ProtectedRoute>
           <RequireTenant>
-            <Layout>
-              <GenerateQuestions />
-            </Layout>
+            <RequireRole allowedRoles={['agency_admin']}>
+              <Layout>
+                <GenerateQuestions />
+              </Layout>
+            </RequireRole>
           </RequireTenant>
         </ProtectedRoute>
       } />
       <Route path="/dev-hub" element={
         <ProtectedRoute>
           <RequireTenant>
-            <Layout>
-              <DevHub />
-            </Layout>
+            <RequireRole allowedRoles={['agency_admin']}>
+              <Layout>
+                <DevHub />
+              </Layout>
+            </RequireRole>
           </RequireTenant>
         </ProtectedRoute>
       } />
       <Route path="/dev/prompts" element={
         <ProtectedRoute>
           <RequireTenant>
-            <Layout>
-              <DevPrompts />
-            </Layout>
+            <RequireRole allowedRoles={['agency_admin']}>
+              <Layout>
+                <DevPrompts />
+              </Layout>
+            </RequireRole>
           </RequireTenant>
         </ProtectedRoute>
       } />
       <Route path="/dev/apis" element={
         <ProtectedRoute>
           <RequireTenant>
-            <Layout>
-              <DevApis />
-            </Layout>
+            <RequireRole allowedRoles={['agency_admin']}>
+              <Layout>
+                <DevApis />
+              </Layout>
+            </RequireRole>
           </RequireTenant>
         </ProtectedRoute>
       } />
       <Route path="/dev/webhooks" element={
         <ProtectedRoute>
           <RequireTenant>
-            <Layout>
-              <DevWebhooks />
-            </Layout>
+            <RequireRole allowedRoles={['agency_admin']}>
+              <Layout>
+                <DevWebhooks />
+              </Layout>
+            </RequireRole>
           </RequireTenant>
         </ProtectedRoute>
       } />
