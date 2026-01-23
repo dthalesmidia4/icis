@@ -9,10 +9,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { signupSchema } from '@/lib/validations/authSchemas';
-import { Building2, MapPin, Briefcase, Lock, Upload } from 'lucide-react';
+import { InviteCodeInput } from '@/components/InviteCodeInput';
+import { Building2, MapPin, Briefcase, Lock, Upload, UserPlus } from 'lucide-react';
 import { z } from 'zod';
 
 const Auth = () => {
@@ -46,6 +48,12 @@ const Auth = () => {
     adminPassword: '',
     confirmPassword: ''
   });
+  
+  // Invite code state
+  const [inviteCode, setInviteCode] = useState('');
+  const [inviteTenantId, setInviteTenantId] = useState('');
+  const [inviteRole, setInviteRole] = useState('');
+  const [signupMode, setSignupMode] = useState<'company' | 'invite'>('company');
   
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>('');
@@ -316,6 +324,103 @@ const Auth = () => {
     }
   };
 
+  const handleInviteSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setFieldErrors({});
+
+    try {
+      // Validação básica
+      if (!signupData.adminName || signupData.adminName.length < 2) {
+        setFieldErrors(prev => ({ ...prev, adminName: 'Nome deve ter pelo menos 2 caracteres' }));
+        throw new Error('Validação falhou');
+      }
+      if (!signupData.adminEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signupData.adminEmail)) {
+        setFieldErrors(prev => ({ ...prev, adminEmail: 'Email inválido' }));
+        throw new Error('Validação falhou');
+      }
+      if (!signupData.adminPassword || signupData.adminPassword.length < 6) {
+        setFieldErrors(prev => ({ ...prev, adminPassword: 'Senha deve ter pelo menos 6 caracteres' }));
+        throw new Error('Validação falhou');
+      }
+      if (signupData.adminPassword !== signupData.confirmPassword) {
+        setFieldErrors(prev => ({ ...prev, confirmPassword: 'Senhas não conferem' }));
+        throw new Error('Validação falhou');
+      }
+
+      console.log('🚀 Iniciando cadastro com convite...');
+      
+      // Criar conta de autenticação
+      console.log('👤 Criando conta de usuário...');
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: signupData.adminEmail,
+        password: signupData.adminPassword,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            full_name: signupData.adminName
+          }
+        }
+      });
+      
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Falha ao criar usuário');
+      console.log('✅ Usuário criado:', authData.user.id);
+      
+      // Aguardar profile ser criado pelo trigger
+      console.log('⏳ Aguardando criação do profile...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Fazer login imediato
+      console.log('🔐 Fazendo login automático...');
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: signupData.adminEmail,
+        password: signupData.adminPassword
+      });
+      
+      if (signInError) throw signInError;
+      console.log('✅ Sessão estabelecida');
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Usar o convite via RPC
+      console.log('🎫 Usando convite...');
+      const { data: inviteResult, error: inviteError } = await supabase
+        .rpc('use_invitation', {
+          _code: inviteCode,
+          _user_id: authData.user.id
+        });
+      
+      if (inviteError) throw inviteError;
+      
+      const result = inviteResult as { success: boolean; error?: string; tenant_id?: string; role?: string };
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao usar convite');
+      }
+      
+      console.log('✅ Convite utilizado:', result);
+      
+      // Limpar state e redirecionar
+      localStorage.removeItem('signup_draft');
+      toast.success('Conta criada com sucesso! Bem-vindo!');
+      navigate('/');
+      
+    } catch (error: any) {
+      console.error('Erro no cadastro com convite:', error);
+      
+      if (error.message !== 'Validação falhou') {
+        if (error?.message?.includes('User already registered')) {
+          toast.error('Este email já está cadastrado. Tente fazer login.');
+        } else {
+          toast.error(error?.message || 'Erro ao criar conta. Tente novamente.');
+        }
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Calcular progresso do formulário
   const filledRequiredFields = [
     signupData.companyName, signupData.cnpjCpf, signupData.corporateEmail,
@@ -385,6 +490,120 @@ const Auth = () => {
             </TabsContent>
 
             <TabsContent value="signup" className="max-h-[70vh] overflow-y-auto px-1">
+              {/* Seletor de modo de cadastro */}
+              <div className="space-y-4 mb-6">
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={signupMode === 'company' ? 'default' : 'outline'}
+                    className="flex-1"
+                    onClick={() => setSignupMode('company')}
+                  >
+                    <Building2 className="h-4 w-4 mr-2" />
+                    Nova Empresa
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={signupMode === 'invite' ? 'default' : 'outline'}
+                    className="flex-1"
+                    onClick={() => setSignupMode('invite')}
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Tenho um Convite
+                  </Button>
+                </div>
+              </div>
+
+              {signupMode === 'invite' ? (
+                <form onSubmit={handleInviteSignup} className="space-y-6">
+                  <InviteCodeInput
+                    onValidCode={(code, tenantId, role) => {
+                      setInviteCode(code);
+                      setInviteTenantId(tenantId);
+                      setInviteRole(role);
+                    }}
+                    onInvalidCode={() => {
+                      setInviteCode('');
+                      setInviteTenantId('');
+                      setInviteRole('');
+                    }}
+                  />
+
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      <Lock className="h-5 w-5" />
+                      Seus Dados de Acesso
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="inviteAdminName">Seu Nome *</Label>
+                        <Input
+                          id="inviteAdminName"
+                          value={signupData.adminName}
+                          onChange={(e) => handleSignupChange('adminName', e.target.value)}
+                          placeholder="Seu nome completo"
+                          className={fieldErrors.adminName ? 'border-destructive' : ''}
+                        />
+                        {fieldErrors.adminName && (
+                          <p className="text-xs text-destructive">{fieldErrors.adminName}</p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="inviteAdminEmail">Seu Email *</Label>
+                        <Input
+                          id="inviteAdminEmail"
+                          type="email"
+                          value={signupData.adminEmail}
+                          onChange={(e) => handleSignupChange('adminEmail', e.target.value)}
+                          placeholder="seu@email.com"
+                          className={fieldErrors.adminEmail ? 'border-destructive' : ''}
+                        />
+                        {fieldErrors.adminEmail && (
+                          <p className="text-xs text-destructive">{fieldErrors.adminEmail}</p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="inviteAdminPassword">Senha *</Label>
+                        <Input
+                          id="inviteAdminPassword"
+                          type="password"
+                          value={signupData.adminPassword}
+                          onChange={(e) => handleSignupChange('adminPassword', e.target.value)}
+                          placeholder="••••••••"
+                          className={fieldErrors.adminPassword ? 'border-destructive' : ''}
+                        />
+                        {fieldErrors.adminPassword && (
+                          <p className="text-xs text-destructive">{fieldErrors.adminPassword}</p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="inviteConfirmPassword">Confirmar Senha *</Label>
+                        <Input
+                          id="inviteConfirmPassword"
+                          type="password"
+                          value={signupData.confirmPassword}
+                          onChange={(e) => handleSignupChange('confirmPassword', e.target.value)}
+                          placeholder="••••••••"
+                          className={fieldErrors.confirmPassword ? 'border-destructive' : ''}
+                        />
+                        {fieldErrors.confirmPassword && (
+                          <p className="text-xs text-destructive">{fieldErrors.confirmPassword}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={isLoading || !inviteCode}
+                  >
+                    {isLoading ? 'Criando conta...' : 'Criar Conta com Convite'}
+                  </Button>
+                </form>
+              ) : (
               <form onSubmit={handleSignup} className="space-y-6">
                 
                 {/* Progresso */}
@@ -709,6 +928,7 @@ const Auth = () => {
                   {isLoading ? 'Criando empresa...' : 'Finalizar Cadastro'}
                 </Button>
               </form>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
