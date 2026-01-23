@@ -1,8 +1,8 @@
 // Profile Settings Page
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Sun, Moon, Monitor, Upload, Building2, Palette, Image, Check, Loader2 } from 'lucide-react';
+import { Sun, Moon, Monitor, Upload, Building2, Palette, Image, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/PageHeader';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,7 +28,6 @@ const colorOptions: { value: PrimaryColor; label: string; hue: number; preview: 
 ];
 
 export default function ProfileSettings() {
-  const navigate = useNavigate();
   const { settings, updateSettings, isLoading: themeLoading } = useTheme();
   const { tenantId, tenantName, isLoading: tenantLoading } = useTenant();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -136,16 +135,10 @@ export default function ProfileSettings() {
   if (isLoading) {
     return (
       <div className="pb-8">
-        <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-          <div className="flex items-center justify-between h-16 px-6">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="hover:bg-accent" aria-label="Voltar">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <h1 className="text-xl font-semibold">Editar Perfil</h1>
-            </div>
-          </div>
-        </header>
+        <PageHeader 
+          title="Editar Perfil" 
+          onBack={() => window.history.back()}
+        />
         <div className="max-w-3xl mx-auto p-6 space-y-6">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i}>
@@ -165,42 +158,19 @@ export default function ProfileSettings() {
 
   return (
     <div className="pb-8">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-        <div className="flex items-center justify-between h-16 px-6">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(-1)}
-              className="hover:bg-accent"
-              aria-label="Voltar"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-xl font-semibold">Editar Perfil</h1>
-              <p className="text-xs text-muted-foreground">
-                {hasChanges ? 'Você tem alterações não salvas' : 'Todas as alterações foram salvas'}
-              </p>
-            </div>
-          </div>
-          <Button
-            onClick={handleSave}
-            disabled={!hasChanges || isSaving}
-            size="sm"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              'Salvar Alterações'
-            )}
-          </Button>
-        </div>
-      </header>
+      <PageHeader 
+        title="Editar Perfil"
+        subtitle={hasChanges ? 'Você tem alterações não salvas' : 'Todas as alterações foram salvas'}
+        onBack={() => window.history.back()}
+        actions={[
+          {
+            label: isSaving ? 'Salvando...' : 'Salvar Alterações',
+            onClick: handleSave,
+            disabled: !hasChanges || isSaving,
+            loading: isSaving,
+          }
+        ]}
+      />
 
       {/* Content */}
       <div className="max-w-3xl mx-auto p-6 space-y-6">
