@@ -1,10 +1,12 @@
 import { ReactNode } from "react";
 import { LucideIcon } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface FormSectionProps {
   /** Título da seção */
   title: string;
+  /** Descrição opcional abaixo do título */
+  description?: string;
   /** Ícone Lucide para exibir ao lado do título */
   icon: LucideIcon;
   /** Conteúdo da seção (inputs, fields, etc) */
@@ -16,10 +18,10 @@ interface FormSectionProps {
 }
 
 /**
- * Componente de seção de formulário com título e ícone padronizados.
+ * Componente de seção de formulário com título, descrição e ícone padronizados.
  * 
  * @example
- * <FormSection title="Localização" icon={MapPin}>
+ * <FormSection title="Localização" icon={MapPin} description="Endereço da empresa">
  *   <div className="grid grid-cols-2 gap-4">
  *     <Input ... />
  *   </div>
@@ -27,6 +29,7 @@ interface FormSectionProps {
  */
 export function FormSection({
   title,
+  description,
   icon: Icon,
   children,
   className = "",
@@ -41,6 +44,9 @@ export function FormSection({
           </div>
           {title}
         </CardTitle>
+        {description && (
+          <CardDescription>{description}</CardDescription>
+        )}
       </CardHeader>
       <CardContent className={contentClassName}>
         {children}
