@@ -178,13 +178,32 @@ export default function ProfileSettings() {
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-xl font-semibold">Editar Perfil</h1>
+            <div>
+              <h1 className="text-xl font-semibold">Editar Perfil</h1>
+              <p className="text-xs text-muted-foreground">
+                {hasChanges ? 'Você tem alterações não salvas' : 'Todas as alterações foram salvas'}
+              </p>
+            </div>
           </div>
+          <Button
+            onClick={handleSave}
+            disabled={!hasChanges || isSaving}
+            size="sm"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              'Salvar Alterações'
+            )}
+          </Button>
         </div>
       </header>
 
       {/* Content */}
-      <div className="max-w-3xl mx-auto p-6 pb-24 space-y-6">
+      <div className="max-w-3xl mx-auto p-6 space-y-6">
           {/* Theme Section */}
           <Card>
             <CardHeader>
@@ -376,29 +395,6 @@ export default function ProfileSettings() {
               </div>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Fixed Footer */}
-        <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t p-4">
-          <div className="max-w-3xl mx-auto flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              {hasChanges ? 'Você tem alterações não salvas' : 'Todas as alterações foram salvas'}
-            </p>
-            <Button
-              onClick={handleSave}
-              disabled={!hasChanges || isSaving}
-              className="min-w-32"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                'Salvar Alterações'
-              )}
-            </Button>
-          </div>
         </div>
       </div>
   );
