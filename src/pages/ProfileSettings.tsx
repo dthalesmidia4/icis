@@ -15,7 +15,9 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { InvitationList } from '@/components/InvitationList';
 import type { Database } from '@/integrations/supabase/types';
+
 const themeOptions: { value: ThemeMode; label: string; icon: React.ElementType; description: string }[] = [
   { value: 'light', label: 'Claro', icon: Sun, description: 'Tema claro para ambientes bem iluminados' },
   { value: 'dark', label: 'Escuro', icon: Moon, description: 'Tema escuro para reduzir cansaço visual' },
@@ -58,6 +60,7 @@ export default function ProfileSettings() {
   const [selectedRole, setSelectedRole] = useState<AppRole | ''>('');
   const [generatedCode, setGeneratedCode] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [invitationRefresh, setInvitationRefresh] = useState(0);
 
   const canInvite = isAgencyAdmin || isSuperAdmin;
 
@@ -163,6 +166,7 @@ export default function ProfileSettings() {
       if (insertError) throw insertError;
 
       setGeneratedCode(code);
+      setInvitationRefresh(prev => prev + 1); // Trigger list refresh
       toast({ title: 'Convite gerado', description: 'O código de convite foi criado com sucesso.' });
     } catch (error) {
       console.error('Error generating invite:', error);
@@ -460,6 +464,12 @@ export default function ProfileSettings() {
                     </Button>
                   )}
                 </div>
+              </div>
+
+              {/* Invitation History */}
+              <div className="mt-6 pt-6 border-t">
+                <h4 className="text-sm font-medium mb-4">Histórico de Convites</h4>
+                <InvitationList tenantId={tenantId!} refreshTrigger={invitationRefresh} />
               </div>
             </FormSection>
           )}
