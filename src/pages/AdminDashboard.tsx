@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { UserPlus } from 'lucide-react';
+
 
 interface Tenant {
   id: string;
@@ -105,10 +105,6 @@ const AdminDashboard = () => {
             </p>
           </div>
           <div className="flex gap-4">
-            <Button onClick={() => navigate('/admin/invitations')} variant="secondary">
-              <UserPlus className="h-4 w-4 mr-2" />
-              Gerenciar Convites
-            </Button>
             <Button onClick={() => navigate('/')}>
               Voltar ao App
             </Button>

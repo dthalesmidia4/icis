@@ -1,6 +1,6 @@
 // Profile Settings Page
 import { useState, useRef, useEffect } from 'react';
-import { Sun, Moon, Monitor, Upload, Building2, Palette, Image, Check, Loader2 } from 'lucide-react';
+import { Sun, Moon, Monitor, Upload, Building2, Palette, Image, Check, Loader2, UserPlus, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/PageHeader';
 import { Input } from '@/components/ui/input';
@@ -8,12 +8,14 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { FormSection } from '@/components/ui/form-section';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTheme, ThemeMode, PrimaryColor } from '@/contexts/ThemeContext';
 import { useTenant } from '@/contexts/TenantContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-
+import type { Database } from '@/integrations/supabase/types';
 const themeOptions: { value: ThemeMode; label: string; icon: React.ElementType; description: string }[] = [
   { value: 'light', label: 'Claro', icon: Sun, description: 'Tema claro para ambientes bem iluminados' },
   { value: 'dark', label: 'Escuro', icon: Moon, description: 'Tema escuro para reduzir cansaço visual' },
@@ -28,9 +30,17 @@ const colorOptions: { value: PrimaryColor; label: string; hue: number; preview: 
   { value: 'brown', label: 'Marrom', hue: 30, preview: 'hsl(30 50% 40%)' },
 ];
 
+type AppRole = Database['public']['Enums']['app_role'];
+
+const roleOptions: { value: AppRole; label: string }[] = [
+  { value: 'agency_admin', label: 'Admin da Agência' },
+  { value: 'agency_user', label: 'Usuário da Agência' },
+];
+
 export default function ProfileSettings() {
   const { settings, updateSettings, isLoading: themeLoading } = useTheme();
   const { tenantId, tenantName, isLoading: tenantLoading } = useTenant();
+  const { isAgencyAdmin, isSuperAdmin, isLoading: roleLoading } = useUserRole();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [localSettings, setLocalSettings] = useState({
@@ -43,6 +53,13 @@ export default function ProfileSettings() {
   const [isUploading, setIsUploading] = useState(false);
   const [previewLogo, setPreviewLogo] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
+
+  // Invitation states
+  const [selectedRole, setSelectedRole] = useState<AppRole | ''>('');
+  const [generatedCode, setGeneratedCode] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const canInvite = isAgencyAdmin || isSuperAdmin;
 
   // Sync local state with context when loaded
   useEffect(() => {
@@ -58,7 +75,7 @@ export default function ProfileSettings() {
     }
   }, [themeLoading, tenantLoading, settings, tenantName, initialized]);
 
-  const isLoading = themeLoading || tenantLoading || !initialized;
+  const isLoading = themeLoading || tenantLoading || roleLoading || !initialized;
 
   const handleThemeChange = (mode: ThemeMode) => {
     setLocalSettings(prev => ({ ...prev, mode }));
@@ -112,6 +129,56 @@ export default function ProfileSettings() {
       toast({ title: 'Erro ao enviar', description: 'Não foi possível enviar o logo.', variant: 'destructive' });
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleGenerateInvite = async () => {
+    if (!selectedRole || !tenantId) return;
+    
+    setIsGenerating(true);
+    try {
+      // Get user id for created_by
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      // Generate code via RPC
+      const { data: code, error: codeError } = await supabase.rpc('generate_invitation_code');
+      if (codeError) throw codeError;
+
+      // Calculate expiration (7 days)
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      // Insert invitation
+      const { error: insertError } = await supabase
+        .from('invitations')
+        .insert({
+          code,
+          tenant_id: tenantId,
+          role: selectedRole,
+          created_by: user.id,
+          expires_at: expiresAt.toISOString(),
+        });
+
+      if (insertError) throw insertError;
+
+      setGeneratedCode(code);
+      toast({ title: 'Convite gerado', description: 'O código de convite foi criado com sucesso.' });
+    } catch (error) {
+      console.error('Error generating invite:', error);
+      toast({ title: 'Erro', description: 'Não foi possível gerar o convite.', variant: 'destructive' });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const copyCode = async () => {
+    if (!generatedCode) return;
+    try {
+      await navigator.clipboard.writeText(generatedCode);
+      toast({ title: 'Copiado!', description: 'Código copiado para a área de transferência.' });
+    } catch {
+      toast({ title: 'Erro', description: 'Não foi possível copiar o código.', variant: 'destructive' });
     }
   };
 
@@ -338,6 +405,64 @@ export default function ProfileSettings() {
                 />
               </div>
           </FormSection>
+
+          {/* Invitation Section - Only for agency_admin or super_admin */}
+          {canInvite && (
+            <FormSection 
+              title="Convidar" 
+              icon={UserPlus}
+              description="Gere códigos de convite para novos membros da equipe"
+            >
+              <div className="flex items-center gap-3 flex-wrap">
+                <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as AppRole)}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Nível de acesso" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roleOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Button 
+                  onClick={handleGenerateInvite} 
+                  disabled={!selectedRole || isGenerating}
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Gerando...
+                    </>
+                  ) : (
+                    'Gerar convite'
+                  )}
+                </Button>
+
+                <div className="relative flex-1 min-w-[180px] max-w-[220px]">
+                  <Input 
+                    value={generatedCode} 
+                    readOnly 
+                    placeholder="--------"
+                    className="font-mono pr-16 text-center tracking-wider"
+                  />
+                  {generatedCode && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs px-2"
+                      onClick={copyCode}
+                    >
+                      <Copy className="h-3 w-3 mr-1" />
+                      Copiar
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </FormSection>
+          )}
         </div>
       </div>
   );
