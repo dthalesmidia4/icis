@@ -29,7 +29,7 @@ import PlanPeriod from "./pages/PlanPeriod";
 import ProfileSettings from "./pages/ProfileSettings";
 import Kanban from "./pages/Kanban";
 import KanbanCentralPage from "./pages/KanbanCentralPage";
-import InvitationManager from "./pages/InvitationManager";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -60,13 +60,6 @@ function AppRoutes() {
       <Route path="/admin" element={
         <ProtectedRoute>
           <AdminDashboard />
-        </ProtectedRoute>
-      } />
-      <Route path="/admin/invitations" element={
-        <ProtectedRoute>
-          <Layout>
-            <InvitationManager />
-          </Layout>
         </ProtectedRoute>
       } />
       <Route path="/" element={
