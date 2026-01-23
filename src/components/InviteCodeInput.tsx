@@ -38,40 +38,21 @@ export const InviteCodeInput = ({ onValidCode, onInvalidCode }: InviteCodeInputP
     setInvitationInfo(null);
 
     try {
-      // Query invitation without join (RLS allows reading valid invitations)
-      const { data: invitation, error } = await supabase
-        .from('invitations')
-        .select('id, code, tenant_id, role, expires_at')
-        .eq('code', code.toUpperCase().trim())
-        .is('used_at', null)
-        .gt('expires_at', new Date().toISOString())
-        .maybeSingle();
+      // Use edge function to validate (bypasses RLS restrictions)
+      const { data, error } = await supabase.functions.invoke('validate-invitation', {
+        body: { code: code.trim() }
+      });
 
       if (error) throw error;
 
-      if (invitation) {
-        // Fetch tenant info separately (may fail for unauth users, that's ok)
-        let tenantName = 'Organização';
-        let tenantType = 'agency';
-        
-        const { data: tenant } = await supabase
-          .from('tenants')
-          .select('name, tenant_type')
-          .eq('id', invitation.tenant_id)
-          .maybeSingle();
-        
-        if (tenant) {
-          tenantName = tenant.name;
-          tenantType = tenant.tenant_type;
-        }
-
+      if (data.valid) {
         setValidationResult('valid');
         setInvitationInfo({
-          tenant_name: tenantName,
-          role: invitation.role,
-          tenant_type: tenantType
+          tenant_name: data.tenant_name,
+          role: data.role,
+          tenant_type: data.tenant_type
         });
-        onValidCode(code.toUpperCase().trim(), invitation.tenant_id, invitation.role);
+        onValidCode(code.toUpperCase().trim(), data.tenant_id, data.role);
       } else {
         setValidationResult('invalid');
         onInvalidCode();
