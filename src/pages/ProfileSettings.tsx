@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/PageHeader';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { FormSection } from '@/components/ui/form-section';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useTheme, ThemeMode, PrimaryColor } from '@/contexts/ThemeContext';
 import { useTenant } from '@/contexts/TenantContext';
@@ -175,17 +176,11 @@ export default function ProfileSettings() {
       {/* Content */}
       <div className="max-w-3xl mx-auto p-6 space-y-6">
           {/* Theme Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sun className="h-5 w-5 text-primary" />
-                Tema da Interface
-              </CardTitle>
-              <CardDescription>
-                Escolha como a interface deve ser exibida. Esta configuração afeta apenas o seu usuário.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          <FormSection 
+            title="Tema da Interface" 
+            icon={Sun}
+            description="Escolha como a interface deve ser exibida. Esta configuração afeta apenas o seu usuário."
+          >
               <RadioGroup
                 value={localSettings.mode}
                 onValueChange={(v) => handleThemeChange(v as ThemeMode)}
@@ -218,21 +213,14 @@ export default function ProfileSettings() {
                   );
                 })}
               </RadioGroup>
-            </CardContent>
-          </Card>
+          </FormSection>
 
           {/* Primary Color Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Palette className="h-5 w-5 text-primary" />
-                Cor Primária da Identidade Visual
-              </CardTitle>
-              <CardDescription>
-                A cor primária será aplicada a botões, links e destaques visuais em toda a interface.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          <FormSection 
+            title="Cor Primária da Identidade Visual" 
+            icon={Palette}
+            description="A cor primária será aplicada a botões, links e destaques visuais em toda a interface."
+          >
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                 {colorOptions.map((color) => (
                   <button
@@ -279,21 +267,14 @@ export default function ProfileSettings() {
                   </span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+          </FormSection>
 
           {/* Logo Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Image className="h-5 w-5 text-primary" />
-                Logotipo da Empresa
-              </CardTitle>
-              <CardDescription>
-                Faça upload do logo da sua empresa. Tamanho recomendado: 256x256px. Máximo: 2MB.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          <FormSection 
+            title="Logotipo da Empresa" 
+            icon={Image}
+            description="Faça upload do logo da sua empresa. Tamanho recomendado: 256x256px. Máximo: 2MB."
+          >
               <div className="flex items-start gap-6">
                 {/* Preview */}
                 <div className="shrink-0">
@@ -338,21 +319,14 @@ export default function ProfileSettings() {
                   </p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+          </FormSection>
 
           {/* Company Name Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-primary" />
-                Nome Público da Empresa
-              </CardTitle>
-              <CardDescription>
-                Este nome será exibido na interface e identificará sua empresa dentro da plataforma.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+          <FormSection 
+            title="Nome Público da Empresa" 
+            icon={Building2}
+            description="Este nome será exibido na interface e identificará sua empresa dentro da plataforma."
+          >
               <div className="space-y-2">
                 <Label htmlFor="companyName">Nome Fantasia</Label>
                 <Input
@@ -363,8 +337,7 @@ export default function ProfileSettings() {
                   className="max-w-md"
                 />
               </div>
-            </CardContent>
-          </Card>
+          </FormSection>
         </div>
       </div>
   );
