@@ -466,6 +466,27 @@ export type Database = {
           },
         ]
       }
+      super_admins: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       system_prompts: {
         Row: {
           created_at: string
@@ -671,6 +692,10 @@ export type Database = {
           tenant_type: string
         }[]
       }
+      get_user_role_in_tenant: {
+        Args: { _tenant_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
       get_user_tenant: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -679,6 +704,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_agency_admin: { Args: { _tenant_id: string }; Returns: boolean }
+      is_super_admin: { Args: never; Returns: boolean }
       user_has_tenant_access: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean

@@ -1,7 +1,8 @@
-import { Home, Code, User, LogOut, Menu, X } from "lucide-react";
+import { Home, Code, User, LogOut, Menu, X, Users, Calendar, LayoutGrid } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Sidebar,
@@ -28,11 +29,21 @@ import {
 } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
-const menuItems = [
+interface MenuItem {
+  title: string;
+  url: string;
+  icon: React.ElementType;
+  adminOnly?: boolean;
+}
+
+// Definição de itens de menu com flag adminOnly
+const allMenuItems: MenuItem[] = [
   { title: "Home", url: "/home", icon: Home },
-  { title: "Developer", url: "/dev-hub", icon: Code },
+  { title: "Kanban", url: "/kanban-central", icon: LayoutGrid },
+  { title: "Clientes", url: "/clientes", icon: Users, adminOnly: true },
+  { title: "Developer", url: "/dev-hub", icon: Code, adminOnly: true },
 ];
 
 // Mobile Sidebar Content
@@ -41,8 +52,20 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
   const location = useLocation();
   const { signOut } = useAuth();
   const { tenantName } = useTenant();
+  const { canAccessAdmin, isAgencyAdmin, isSuperAdmin } = useUserRole();
+
+  // Filtrar itens de menu baseado na role
+  const menuItems = useMemo(() => {
+    return allMenuItems.filter(item => !item.adminOnly || canAccessAdmin);
+  }, [canAccessAdmin]);
 
   const isActive = (path: string) => location.pathname === path;
+
+  const getRoleLabel = () => {
+    if (isSuperAdmin) return 'Super Admin';
+    if (isAgencyAdmin) return 'Administrador';
+    return 'Operador';
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -70,7 +93,7 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
         </Avatar>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-foreground truncate">{tenantName || 'Minha Empresa'}</p>
-          <p className="text-xs text-muted-foreground">Administrador</p>
+          <p className="text-xs text-muted-foreground">{getRoleLabel()}</p>
         </div>
       </div>
 
@@ -128,6 +151,12 @@ function DesktopSidebar() {
   const location = useLocation();
   const { signOut } = useAuth();
   const { tenantName } = useTenant();
+  const { canAccessAdmin } = useUserRole();
+
+  // Filtrar itens de menu baseado na role
+  const menuItems = useMemo(() => {
+    return allMenuItems.filter(item => !item.adminOnly || canAccessAdmin);
+  }, [canAccessAdmin]);
 
   const isActive = (path: string) => location.pathname === path;
 
