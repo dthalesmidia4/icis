@@ -10,8 +10,8 @@ import { FormSection } from '@/components/ui/form-section';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTheme, ThemeMode, PrimaryColor } from '@/contexts/ThemeContext';
-import { useTenant } from '@/contexts/TenantContext';
-import { useUserRole } from '@/hooks/useUserRole';
+import { useTenant, useAgency } from '@/contexts/TenantContext';
+import { useUserRole, useAgencyRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -41,8 +41,8 @@ const roleOptions: { value: AppRole; label: string }[] = [
 
 export default function ProfileSettings() {
   const { settings, updateSettings, isLoading: themeLoading } = useTheme();
-  const { tenantId, tenantName, isLoading: tenantLoading } = useTenant();
-  const { isAgencyAdmin, isSuperAdmin, isLoading: roleLoading } = useUserRole();
+  const { agencyId, agencyName, tenantId, tenantName, isLoading: tenantLoading } = useAgency();
+  const { isAgencyAdmin, isSuperAdmin, isLoading: roleLoading } = useAgencyRole();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [localSettings, setLocalSettings] = useState({
@@ -65,18 +65,19 @@ export default function ProfileSettings() {
   const canInvite = isAgencyAdmin || isSuperAdmin;
 
   // Sync local state with context when loaded
+  // Usar agencyName com fallback para tenantName (compatibilidade)
   useEffect(() => {
     if (!themeLoading && !tenantLoading && !initialized) {
       setLocalSettings({
         mode: settings.mode,
         primaryColor: settings.primaryColor,
-        companyName: settings.companyName || tenantName || '',
+        companyName: settings.companyName || agencyName || tenantName || '',
         logoUrl: settings.logoUrl,
       });
       setPreviewLogo(settings.logoUrl);
       setInitialized(true);
     }
-  }, [themeLoading, tenantLoading, settings, tenantName, initialized]);
+  }, [themeLoading, tenantLoading, settings, agencyName, tenantName, initialized]);
 
   const isLoading = themeLoading || tenantLoading || roleLoading || !initialized;
 
@@ -90,7 +91,9 @@ export default function ProfileSettings() {
 
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !tenantId) return;
+    // Usar agencyId com fallback para tenantId (compatibilidade)
+    const currentId = agencyId || tenantId;
+    if (!file || !currentId) return;
 
     // Validate file
     if (!file.type.startsWith('image/')) {
@@ -111,8 +114,8 @@ export default function ProfileSettings() {
       reader.onload = (e) => setPreviewLogo(e.target?.result as string);
       reader.readAsDataURL(file);
 
-      // Upload to storage
-      const fileName = `${tenantId}/logo-${Date.now()}.${file.name.split('.').pop()}`;
+      // Upload to storage (usar currentId já definido acima)
+      const fileName = `${currentId}/logo-${Date.now()}.${file.name.split('.').pop()}`;
       const { error: uploadError } = await supabase.storage
         .from('company-logos')
         .upload(fileName, file, { upsert: true });
@@ -136,7 +139,9 @@ export default function ProfileSettings() {
   };
 
   const handleGenerateInvite = async () => {
-    if (!selectedRole || !tenantId) return;
+    // Usar agencyId com fallback para tenantId
+    const currentId = agencyId || tenantId;
+    if (!selectedRole || !currentId) return;
     
     setIsGenerating(true);
     try {
@@ -152,16 +157,17 @@ export default function ProfileSettings() {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
 
-      // Insert invitation
+      // Insert invitation com agency_id (NOVO MODELO)
       const { error: insertError } = await supabase
         .from('invitations')
         .insert({
           code,
-          tenant_id: tenantId,
+          agency_id: agencyId, // NOVO: usar agency_id
+          tenant_id: tenantId, // Manter para compatibilidade
           role: selectedRole,
           created_by: user.id,
           expires_at: expiresAt.toISOString(),
-        });
+        } as any);
 
       if (insertError) throw insertError;
 
@@ -469,7 +475,7 @@ export default function ProfileSettings() {
               {/* Invitation History */}
               <div className="mt-6 pt-6 border-t">
                 <h4 className="text-sm font-medium mb-4">Histórico de Convites</h4>
-                <InvitationList tenantId={tenantId!} refreshTrigger={invitationRefresh} />
+                <InvitationList agencyId={agencyId || undefined} tenantId={tenantId || undefined} refreshTrigger={invitationRefresh} />
               </div>
             </FormSection>
           )}
