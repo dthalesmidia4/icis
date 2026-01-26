@@ -71,7 +71,9 @@ export const AgencyProvider = ({ children }: AgencyProviderProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const retryCount = useRef(0);
-  const maxRetries = 3;
+  // Um pouco mais alto para cobrir o caso de cadastro via convite,
+  // onde o tenant_id pode demorar alguns segundos para ser preenchido pelo RPC.
+  const maxRetries = 5;
 
   const loadAgency = useCallback(async () => {
     // Aguardar auth terminar de carregar
@@ -109,7 +111,22 @@ export const AgencyProvider = ({ children }: AgencyProviderProps) => {
 
       // Se não tem tenant_id, usuário não tem agency vinculada
       if (!profile?.tenant_id) {
-        console.log('[AgencyContext] User has no tenant_id, no agency assigned');
+        // IMPORTANTE: após signup + uso de convite, o tenant_id pode ser atualizado
+        // alguns instantes depois (RPC + commit). Então re-tentamos antes de concluir
+        // que o usuário realmente não tem agência.
+        if (retryCount.current < maxRetries) {
+          retryCount.current += 1;
+          const delay = 800 * retryCount.current;
+          console.log(
+            `[AgencyContext] tenant_id ainda não disponível. Re-tentando em ${delay}ms (attempt ${retryCount.current}/${maxRetries})`
+          );
+          setTimeout(() => {
+            loadAgency();
+          }, delay);
+          return;
+        }
+
+        console.log('[AgencyContext] User has no tenant_id after retries, no agency assigned');
         setAgencyId(null);
         setAgencyName(null);
         setAgencySlug(null);
