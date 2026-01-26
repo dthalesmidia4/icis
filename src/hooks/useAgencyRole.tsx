@@ -114,8 +114,8 @@ export function useAgencyRole(): UseAgencyRoleReturn {
   const isAgencyManager = role === 'agency_manager';
   const isAgencyUser = role === 'agency_user';
   
-  // Quem pode acessar área administrativa
-  const canAccessAdmin = isAgencyAdmin;
+  // Quem pode acessar área administrativa (admin e manager)
+  const canAccessAdmin = isAgencyAdmin || isAgencyManager;
   
   // Quem pode gerenciar equipe (admin e manager)
   const canManageTeam = isAgencyAdmin || isAgencyManager;

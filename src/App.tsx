@@ -126,7 +126,7 @@ function AppRoutes() {
       <Route path="/clientes" element={
         <ProtectedRoute>
           <RequireTenant>
-            <RequireRole allowedRoles={['agency_admin']}>
+            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
               <Layout>
                 <ClientList />
               </Layout>
@@ -137,7 +137,7 @@ function AppRoutes() {
       <Route path="/clientes/:id" element={
         <ProtectedRoute>
           <RequireTenant>
-            <RequireRole allowedRoles={['agency_admin']}>
+            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
               <Layout>
                 <ClientDetails />
               </Layout>
