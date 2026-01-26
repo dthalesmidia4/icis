@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle2, XCircle, Loader2, Ticket } from 'lucide-react';
+import { getRoleLabel, isLegacyRole } from '@/lib/constants/roles';
 
 interface InviteCodeInputProps {
   onValidCode: (code: string, agencyId: string, role: string) => void;
@@ -14,13 +15,8 @@ interface InviteCodeInputProps {
 interface InvitationInfo {
   agency_name: string;
   role: string;
+  is_legacy_role?: boolean;
 }
-
-// Apenas roles válidos no novo modelo
-const roleLabels: Record<string, string> = {
-  agency_admin: 'Admin da Agência',
-  agency_user: 'Usuário da Agência',
-};
 
 export const InviteCodeInput = ({ onValidCode, onInvalidCode }: InviteCodeInputProps) => {
   const [code, setCode] = useState('');
@@ -48,6 +44,7 @@ export const InviteCodeInput = ({ onValidCode, onInvalidCode }: InviteCodeInputP
         setInvitationInfo({
           agency_name: data.agency_name || data.tenant_name,
           role: data.role,
+          is_legacy_role: data.is_legacy_role,
         });
         // Preferir agency_id, fallback para tenant_id
         onValidCode(code.toUpperCase().trim(), data.agency_id || data.tenant_id, data.role);
@@ -115,8 +112,8 @@ export const InviteCodeInput = ({ onValidCode, onInvalidCode }: InviteCodeInputP
             </p>
             <p className="text-xs text-muted-foreground">
               Você será adicionado à <strong>{invitationInfo.agency_name}</strong> como{' '}
-              <Badge variant="outline" className="ml-1">
-                {roleLabels[invitationInfo.role] || invitationInfo.role}
+              <Badge variant={isLegacyRole(invitationInfo.role) ? 'destructive' : 'outline'} className="ml-1">
+                {getRoleLabel(invitationInfo.role)}
               </Badge>
             </p>
           </div>

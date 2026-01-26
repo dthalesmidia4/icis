@@ -3,6 +3,9 @@
  * 
  * SCHEMA ATUAL: Usa tenants e tenant_id (tabela invitations)
  * As tabelas agencies/agency_memberships ainda não existem
+ * 
+ * ROLES VÁLIDAS: agency_admin, agency_manager, agency_user
+ * ROLES LEGADAS (deprecated): client_admin, client_user, subclient_user
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -11,6 +14,12 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Roles válidas para o produto atual
+const VALID_AGENCY_ROLES = ['agency_admin', 'agency_manager', 'agency_user'];
+
+// Roles legadas (deprecated)
+const LEGACY_ROLES = ['client_admin', 'client_user', 'subclient_user'];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -71,6 +80,10 @@ serve(async (req) => {
       .eq("id", invitation.tenant_id)
       .maybeSingle();
 
+    // Determinar se é role legada
+    const isLegacyRole = LEGACY_ROLES.includes(invitation.role);
+    const isValidRole = VALID_AGENCY_ROLES.includes(invitation.role);
+
     return new Response(
       JSON.stringify({
         valid: true,
@@ -81,6 +94,9 @@ serve(async (req) => {
         tenant_name: tenant?.name || "Organização",
         agency_name: tenant?.name || "Organização",
         tenant_type: tenant?.tenant_type || "agency",
+        // Flags para o frontend
+        is_legacy_role: isLegacyRole,
+        is_valid_role: isValidRole,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

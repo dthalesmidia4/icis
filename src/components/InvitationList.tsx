@@ -26,14 +26,12 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { Database } from '@/integrations/supabase/types';
-
-type AppRole = Database['public']['Enums']['app_role'];
+import { getRoleLabel, isLegacyRole } from '@/lib/constants/roles';
 
 interface Invitation {
   id: string;
   code: string;
-  role: AppRole;
+  role: string;
   expires_at: string;
   used_at: string | null;
   created_at: string;
@@ -45,13 +43,6 @@ interface InvitationListProps {
   agencyId?: string;
   refreshTrigger?: number;
 }
-
-const roleLabels: Record<string, string> = {
-  agency_admin: 'Admin da Agência',
-  agency_user: 'Usuário da Agência',
-  client_admin: 'Admin do Cliente',
-  client_user: 'Usuário do Cliente',
-};
 
 type InvitationStatus = 'active' | 'used' | 'expired';
 
@@ -209,8 +200,8 @@ export function InvitationList({ tenantId, agencyId, refreshTrigger }: Invitatio
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="secondary">
-                    {roleLabels[invitation.role] || invitation.role}
+                  <Badge variant={isLegacyRole(invitation.role) ? 'destructive' : 'secondary'}>
+                    {getRoleLabel(invitation.role)}
                   </Badge>
                 </TableCell>
                 <TableCell>
