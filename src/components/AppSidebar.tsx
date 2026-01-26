@@ -1,9 +1,10 @@
-import { Home, Code, User, LogOut, Menu, X, Users, Calendar, LayoutGrid } from "lucide-react";
+import { Home, Code, User, LogOut, Menu, Users, LayoutGrid } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { RoleBadge } from "@/components/RoleBadge";
 import {
   Sidebar,
   SidebarContent,
@@ -52,7 +53,7 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
   const location = useLocation();
   const { signOut } = useAuth();
   const { tenantName } = useTenant();
-  const { canAccessAdmin, isAgencyAdmin, isSuperAdmin } = useUserRole();
+  const { canAccessAdmin, role } = useUserRole();
 
   // Filtrar itens de menu baseado na role
   const menuItems = useMemo(() => {
@@ -60,12 +61,6 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
   }, [canAccessAdmin]);
 
   const isActive = (path: string) => location.pathname === path;
-
-  const getRoleLabel = () => {
-    if (isSuperAdmin) return 'Super Admin';
-    if (isAgencyAdmin) return 'Administrador';
-    return 'Operador';
-  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -93,7 +88,7 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
         </Avatar>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-foreground truncate">{tenantName || 'Minha Empresa'}</p>
-          <p className="text-xs text-muted-foreground">{getRoleLabel()}</p>
+          <RoleBadge role={role} className="mt-1" />
         </div>
       </div>
 
