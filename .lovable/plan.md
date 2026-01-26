@@ -1,116 +1,161 @@
 
-# Plano: Corrigir Redirecionamento Após Login
+# Plano: Corrigir Fluxo de Convites para Schema Atual
 
-## Problema Identificado
+## Problema
 
-Quando o usuário faz login, ele é redirecionado incorretamente para `/agency-setup` em vez de permanecer na página inicial `/`. 
+O sistema está direcionando usuários convidados para a tela de cadastro de empresa (`/agency-setup`) em vez de levá-los diretamente para a página inicial. Isso ocorre porque:
 
-### Causa Raiz
-Existe uma **condição de corrida (race condition)** entre o carregamento do `AgencyContext` e a verificação de redirecionamento na página `Index.tsx`.
+1. A página `AgencySetup.tsx` ainda usa tabelas que **não existem** (`agencies`, `agency_memberships`, `agency_id`)
+2. O `RequireTenant` redireciona usuários sem `agencyId` para `/agency-setup` antes do contexto terminar de carregar
+3. Não há distinção clara entre "usuário novo sem empresa" e "usuário novo via convite"
 
-A página `Index.tsx` (linhas 21-25) tem seu próprio `useEffect` que verifica se `tenantId` existe:
+---
+
+## Diagnóstico do Banco de Dados
+
+A usuária "Giovanna" (ID: `a6b42f62-09a7-440e-bc8c-a59fecbead6b`):
+- `tenant_id`: **null** (não tem empresa vinculada)
+- `user_roles`: **vazio** (não tem nenhuma role)
+- Convite F118AFA6: **não foi usado** (`used_at: null`)
+
+Isso indica que ela criou a conta **sem usar um convite** ou **o convite não foi processado corretamente**.
+
+---
+
+## Solução
+
+### 1. Corrigir `AgencySetup.tsx` para usar Schema Atual
+
+A página precisa ser revertida para usar `tenants`, `user_roles` e `tenant_id` (que existem), em vez de `agencies`, `agency_memberships` e `agency_id` (que não existem).
+
+**Mudanças:**
+- Substituir inserção em `agencies` por inserção em `tenants`
+- Substituir inserção em `agency_memberships` por inserção em `user_roles`
+- Substituir update de `agency_id` por update de `tenant_id`
+
+```typescript
+// Criar tenant (em vez de agency)
+const { data: tenant, error: tenantError } = await supabase
+  .from('tenants')
+  .insert({
+    name: data.officialName,
+    slug: slug,
+    tenant_type: 'agency',
+    email: data.email,
+    phone: data.phone,
+    cnpj_cpf: data.cnpjCpf,
+    status: 'active',
+    settings: { ... }
+  })
+  .select()
+  .single();
+
+// Atualizar profile com tenant_id (em vez de agency_id)
+await supabase
+  .from('profiles')
+  .update({ tenant_id: tenant.id })
+  .eq('id', user.id);
+
+// Criar user_role (em vez de agency_membership)
+await supabase
+  .from('user_roles')
+  .insert({
+    user_id: user.id,
+    tenant_id: tenant.id,
+    role: 'agency_admin'
+  });
+```
+
+---
+
+### 2. Melhorar Verificação no `AgencySetup.tsx`
+
+Verificar se o usuário já tem `tenant_id` no profile ao carregar (usando schema atual):
 
 ```typescript
 useEffect(() => {
-  if (!tenantLoading && user && !tenantId) {
-    navigate('/agency-setup', { replace: true });
-  }
-}, [tenantLoading, user, tenantId, navigate]);
+  const checkExistingTenant = async () => {
+    if (!user) return;
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('tenant_id')
+      .eq('id', user.id)
+      .single();
+
+    // Se já tem tenant_id, redirecionar para home
+    if (profile?.tenant_id) {
+      navigate('/');
+    }
+  };
+
+  checkExistingTenant();
+}, [user, navigate]);
 ```
-
-O problema é que essa verificação pode disparar **antes** do `AgencyContext` terminar de buscar os dados do banco, causando um redirecionamento indevido.
-
-### Pontos de Redirecionamento Duplicados
-
-Atualmente há 3 lugares que verificam o tenant e redirecionam:
-1. `Index.tsx` - Verifica e redireciona imediatamente
-2. `RequireTenant.tsx` - Verifica com delay de 2 segundos
-3. `CompanyRegistration.tsx` - Verifica no submit do formulário
 
 ---
 
-## Solução Proposta
+### 3. Aumentar Robustez do `AgencyContext`
 
-### 1. Remover a Lógica de Redirecionamento Duplicada do Index.tsx
-
-O componente `RequireTenant` já faz essa verificação de forma mais robusta (com delay e estados de fallback). Não há necessidade de ter a mesma lógica duplicada dentro da página `Index.tsx`.
-
-**Arquivo:** `src/pages/Index.tsx`
-
-**Mudança:** Remover completamente o `useEffect` que redireciona para `/agency-setup` (linhas 20-25).
+Melhorar o contexto para forçar um refresh após o cadastro via convite:
 
 ```typescript
-// REMOVER este bloco:
-useEffect(() => {
-  if (!tenantLoading && user && !tenantId) {
-    navigate('/agency-setup', { replace: true });
-  }
-}, [tenantLoading, user, tenantId, navigate]);
-```
+// Em Auth.tsx, após usar convite com sucesso:
+// Aguardar um pouco mais para o RPC commitar
+await new Promise(resolve => setTimeout(resolve, 1500));
 
-O `RequireTenant` já envolve a rota `/` no `App.tsx`, então ele já cuida dessa verificação:
-
-```tsx
-<Route path="/" element={
-  <ProtectedRoute>
-    <RequireTenant>  {/* ← Já verifica o tenant aqui */}
-      <Layout>
-        <Home />
-      </Layout>
-    </RequireTenant>
-  </ProtectedRoute>
-} />
+// Navegar e forçar refresh do contexto
+navigate('/');
 ```
 
 ---
 
-### 2. (Opcional) Melhorar o RequireTenant
+### 4. Remover Código que Tenta Usar Tabelas Inexistentes
 
-Se necessário, podemos ajustar o `RequireTenant` para ter um comportamento mais previsível:
-
-- Aumentar o delay antes de redirecionar (de 2s para 3s)
-- Adicionar mais logs para debug
-- Verificar se o contexto realmente terminou de carregar antes de decidir redirecionar
+Na página `AgencySetup.tsx`, remover:
+- Query para `agency_memberships` (não existe)
+- Insert em `agencies` (não existe)
+- Update de `agency_id` no profile (coluna não existe)
 
 ---
 
-## Diagrama do Fluxo Corrigido
+## Resumo das Mudanças
 
-```
-Login bem-sucedido
-       │
-       ▼
-ProtectedRoute (verifica autenticação)
-       │
-       ▼
-RequireTenant (verifica se tem agency)
-       │
-       ├─── isLoading? → Mostra "Carregando..."
-       │
-       ├─── error? → Mostra tela de erro com retry
-       │
-       ├─── agencyId existe? → Renderiza conteúdo (Home)
-       │
-       └─── agencyId não existe após delay? → Redireciona para /agency-setup
+| Arquivo | Mudança |
+|---------|---------|
+| `src/pages/AgencySetup.tsx` | Reverter para usar `tenants`, `user_roles`, `tenant_id` |
+| `src/pages/Auth.tsx` | Adicionar delay maior após usar convite para garantir que RPC commitou |
+
+---
+
+## Fluxo Corrigido
+
+```text
+Usuário com Convite:
+1. Entra código de convite → validado
+2. Preenche dados pessoais (nome, email, senha)
+3. Clica "Criar Conta com Convite"
+4. Auth.tsx cria conta → chama RPC use_invitation
+5. RPC atualiza profiles.tenant_id e cria user_role
+6. Aguarda 1.5s para garantir commit
+7. Navega para "/" 
+8. AgencyContext carrega tenant_id do profile
+9. RequireTenant encontra agencyId → mostra Home
+
+Usuário SEM Convite (Nova Empresa):
+1. Preenche formulário completo de cadastro
+2. Auth.tsx cria conta → cria tenant → atualiza profile → cria user_role
+3. Navega para "/"
+4. AgencyContext carrega tenant_id
+5. RequireTenant encontra agencyId → mostra Home
 ```
 
 ---
 
 ## Resultado Esperado
 
-Após a correção:
-1. Usuário faz login
-2. Passa pelo `ProtectedRoute` (autenticado)
-3. `RequireTenant` mostra loading enquanto carrega o tenant
-4. Tenant é encontrado → página Home é exibida normalmente
-5. Sem redirecionamento indevido para `/agency-setup`
-
----
-
-## Resumo das Alterações
-
-| Arquivo | Ação |
-|---------|------|
-| `src/pages/Index.tsx` | Remover useEffect de redirecionamento (linhas 20-25) e imports não utilizados (`useTenant`, `supabase`, `useQuery`) |
-
-Esta é uma correção simples de 1 arquivo que resolve o problema de redirecionamento duplicado.
+Após as correções:
+1. Usuários convidados serão adicionados à agência existente corretamente
+2. Não serão mais redirecionados para `/agency-setup`
+3. A página AgencySetup funcionará para casos onde realmente é necessário criar uma nova empresa
+4. O sistema usará consistentemente o schema atual (`tenants`, `user_roles`, `tenant_id`)
