@@ -405,6 +405,11 @@ const Auth = () => {
       
       console.log('✅ Convite utilizado:', result);
       
+      // Aguardar um pouco mais para garantir que o RPC commitou todas as alterações
+      // (profile.tenant_id e user_role)
+      console.log('⏳ Aguardando commit do banco...');
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
       // Limpar state e redirecionar
       localStorage.removeItem('signup_draft');
       toast.success('Conta criada com sucesso! Bem-vindo!');
