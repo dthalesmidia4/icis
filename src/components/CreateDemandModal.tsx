@@ -415,8 +415,8 @@ export function CreateDemandModal({
           </DialogTitle>
         </DialogHeader>
         
-        <div className="flex-1 overflow-y-auto min-h-0 pr-2">
-          <div className="space-y-6 pb-4">
+        <ScrollArea className="flex-1 min-h-0 -mr-4 pr-4">
+          <div className="space-y-6 pb-4 pr-2">
             {/* Cliente Selection */}
             <div className="space-y-2">
               <Label htmlFor="client">Cliente *</Label>
@@ -691,7 +691,7 @@ export function CreateDemandModal({
               </div>
             </div>
           </div>
-        </div>
+        </ScrollArea>
         
         {/* Footer */}
         <div className="flex justify-end gap-2 pt-4 border-t">
