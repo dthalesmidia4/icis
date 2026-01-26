@@ -120,6 +120,124 @@ export type Database = {
           },
         ]
       }
+      client_demand_template_stats: {
+        Row: {
+          last_matched_at: string | null
+          last_used_at: string | null
+          template_id: string
+          times_matched: number
+          times_used: number
+        }
+        Insert: {
+          last_matched_at?: string | null
+          last_used_at?: string | null
+          template_id: string
+          times_matched?: number
+          times_used?: number
+        }
+        Update: {
+          last_matched_at?: string | null
+          last_used_at?: string | null
+          template_id?: string
+          times_matched?: number
+          times_used?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_demand_template_stats_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: true
+            referencedRelation: "client_demand_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_demand_templates: {
+        Row: {
+          channel: string | null
+          client_id: string
+          created_at: string
+          default_due_offset_days: number | null
+          default_publish_weekday: number | null
+          demand_type: string | null
+          id: string
+          instructions_template: string | null
+          pipeline_id: string
+          recurrence_hint: string | null
+          score: number
+          source: string
+          status_id: string
+          tenant_id: string
+          title_template: string
+          updated_at: string
+        }
+        Insert: {
+          channel?: string | null
+          client_id: string
+          created_at?: string
+          default_due_offset_days?: number | null
+          default_publish_weekday?: number | null
+          demand_type?: string | null
+          id?: string
+          instructions_template?: string | null
+          pipeline_id: string
+          recurrence_hint?: string | null
+          score?: number
+          source?: string
+          status_id: string
+          tenant_id: string
+          title_template: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: string | null
+          client_id?: string
+          created_at?: string
+          default_due_offset_days?: number | null
+          default_publish_weekday?: number | null
+          demand_type?: string | null
+          id?: string
+          instructions_template?: string | null
+          pipeline_id?: string
+          recurrence_hint?: string | null
+          score?: number
+          source?: string
+          status_id?: string
+          tenant_id?: string
+          title_template?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_demand_templates_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_demand_templates_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_demand_templates_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_statuses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_demand_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           cnpj_cpf: string
@@ -158,6 +276,111 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      demands: {
+        Row: {
+          attachments: Json
+          channel: string | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          demand_type: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          instructions: string | null
+          objective: string | null
+          period_plan_id: string | null
+          pipeline_id: string
+          publish_date: string | null
+          source: string
+          status_id: string
+          template_id: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          attachments?: Json
+          channel?: string | null
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          demand_type?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          instructions?: string | null
+          objective?: string | null
+          period_plan_id?: string | null
+          pipeline_id: string
+          publish_date?: string | null
+          source?: string
+          status_id: string
+          template_id?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          attachments?: Json
+          channel?: string | null
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          demand_type?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          instructions?: string | null
+          objective?: string | null
+          period_plan_id?: string | null
+          pipeline_id?: string
+          publish_date?: string | null
+          source?: string
+          status_id?: string
+          template_id?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demands_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demands_period_plan_id_fkey"
+            columns: ["period_plan_id"]
+            isOneToOne: false
+            referencedRelation: "period_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demands_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demands_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_statuses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demands_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invitations: {
         Row: {
@@ -378,6 +601,94 @@ export type Database = {
           },
           {
             foreignKeyName: "period_plans_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_statuses: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          is_final: boolean
+          is_initial: boolean
+          name: string
+          pipeline_id: string
+          position: number
+          requires_fields: Json
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_final?: boolean
+          is_initial?: boolean
+          name: string
+          pipeline_id: string
+          position?: number
+          requires_fields?: Json
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_final?: boolean
+          is_initial?: boolean
+          name?: string
+          pipeline_id?: string
+          position?: number
+          requires_fields?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_statuses_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipelines: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_default: boolean
+          name: string
+          position: number
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          position?: number
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          position?: number
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipelines_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -722,9 +1033,30 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_create_demands: { Args: { _tenant_id: string }; Returns: boolean }
       can_create_tenant: { Args: { _user_id: string }; Returns: boolean }
+      create_demand_from_template: {
+        Args: {
+          p_channel?: string
+          p_client_id: string
+          p_demand_type?: string
+          p_description?: string
+          p_due_date?: string
+          p_period_plan_id?: string
+          p_pipeline_id?: string
+          p_publish_date?: string
+          p_status_id?: string
+          p_template_id?: string
+          p_title?: string
+        }
+        Returns: Json
+      }
       debug_tenant_creation: { Args: { _user_id: string }; Returns: Json }
       generate_invitation_code: { Args: never; Returns: string }
+      get_client_demand_suggestions: {
+        Args: { p_client_id: string; p_limit?: number }
+        Returns: Json
+      }
       get_tenant_descendants: {
         Args: { _tenant_id: string }
         Returns: {
@@ -755,8 +1087,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      initialize_default_pipeline: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       is_agency_admin: { Args: { _tenant_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      refresh_client_templates: { Args: { p_client_id: string }; Returns: Json }
       use_invitation: {
         Args: { _code: string; _user_id: string }
         Returns: Json
