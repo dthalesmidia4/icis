@@ -94,42 +94,22 @@ export const AgencyProvider = ({ children }: AgencyProviderProps) => {
       setError(null);
       console.log('[AgencyContext] Loading agency for user:', user.id);
 
-      // Buscar o perfil do usuário com agency_id
-      // Usar type assertion porque as novas colunas ainda não estão no types.ts
+      // Primeiro, tentar buscar apenas tenant_id (sempre existe na tabela profiles)
+      // Isso evita erro 400 se agency_id ainda não existir
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('agency_id, tenant_id')
+        .select('tenant_id')
         .eq('id', user.id)
-        .maybeSingle() as { data: { agency_id: string | null; tenant_id: string | null } | null; error: any };
+        .maybeSingle();
 
       if (profileError) {
         console.error('[AgencyContext] Error fetching profile:', profileError);
         throw new Error('Erro ao carregar perfil do usuário');
       }
 
-      if (!profile?.agency_id) {
-        console.log('[AgencyContext] User has no agency_id, checking legacy tenant_id');
-        
-        // Fallback para tenant_id legado (período de transição)
-        if (profile?.tenant_id) {
-          // Buscar agency via legacy_tenant_id
-          const { data: agency, error: agencyError } = await supabase
-            .from('agencies' as any)
-            .select('id, name, slug')
-            .eq('legacy_tenant_id', profile.tenant_id)
-            .maybeSingle() as { data: { id: string; name: string; slug: string } | null; error: any };
-
-          if (agency && !agencyError) {
-            console.log('[AgencyContext] Found agency via legacy mapping:', agency);
-            setAgencyId(agency.id);
-            setAgencyName(agency.name);
-            setAgencySlug(agency.slug);
-            retryCount.current = 0;
-            setIsLoading(false);
-            return;
-          }
-        }
-        
+      // Se não tem tenant_id, usuário não tem agency vinculada
+      if (!profile?.tenant_id) {
+        console.log('[AgencyContext] User has no tenant_id, no agency assigned');
         setAgencyId(null);
         setAgencyName(null);
         setAgencySlug(null);
@@ -138,22 +118,41 @@ export const AgencyProvider = ({ children }: AgencyProviderProps) => {
         return;
       }
 
-      // Buscar informações da agency
-      const { data: agency, error: agencyError } = await supabase
-        .from('agencies' as any)
+      // Buscar dados do tenant (que funciona como agency no modelo atual)
+      const { data: tenant, error: tenantError } = await supabase
+        .from('tenants')
         .select('id, name, slug')
-        .eq('id', profile.agency_id)
-        .single() as { data: { id: string; name: string; slug: string }; error: any };
+        .eq('id', profile.tenant_id)
+        .maybeSingle();
 
-      if (agencyError) {
-        console.error('[AgencyContext] Error fetching agency:', agencyError);
+      if (tenantError) {
+        console.error('[AgencyContext] Error fetching tenant:', tenantError);
         throw new Error('Erro ao carregar dados da agência');
       }
 
-      console.log('[AgencyContext] Agency loaded:', agency);
-      setAgencyId(agency.id);
-      setAgencyName(agency.name);
-      setAgencySlug(agency.slug);
+      if (tenant) {
+        console.log('[AgencyContext] Using tenant as agency:', tenant);
+        setAgencyId(tenant.id);
+        setAgencyName(tenant.name);
+        setAgencySlug(tenant.slug);
+        retryCount.current = 0;
+        setIsLoading(false);
+        return;
+      }
+
+      setAgencyId(null);
+      setAgencyName(null);
+      setAgencySlug(null);
+      setIsLoading(false);
+      retryCount.current = 0;
+      return;
+
+      // Este bloco não será alcançado com o código atual, mas mantemos para quando
+      // a migração completa for aplicada e agency_id existir
+      console.log('[AgencyContext] Unexpected state - no agency found');
+      setAgencyId(null);
+      setAgencyName(null);
+      setAgencySlug(null);
       retryCount.current = 0;
     } catch (err) {
       console.error('[AgencyContext] Error loading agency:', err);
