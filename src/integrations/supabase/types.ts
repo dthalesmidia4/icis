@@ -761,6 +761,10 @@ export type Database = {
         Args: { _code: string; _user_id: string }
         Returns: Json
       }
+      use_invitation_v2: {
+        Args: { _code: string; _user_id: string }
+        Returns: Json
+      }
       user_has_tenant_access: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean

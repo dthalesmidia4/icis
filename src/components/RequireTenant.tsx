@@ -1,6 +1,12 @@
+/**
+ * RequireTenant - Componente de proteção para rotas que requerem agency
+ * 
+ * NOTA: Mantido como RequireTenant para compatibilidade.
+ * Internamente usa useAgency() do novo modelo.
+ */
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useTenant } from '@/contexts/TenantContext';
+import { useAgency } from '@/contexts/AgencyContext';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, LogOut, Home } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,15 +16,16 @@ interface RequireTenantProps {
 }
 
 export const RequireTenant = ({ children }: RequireTenantProps) => {
-  const { tenantId, isLoading, error, refreshTenant } = useTenant();
+  // Usar novo contexto de Agency (agencyId substitui tenantId)
+  const { agencyId, isLoading, error, refreshAgency } = useAgency();
   const navigate = useNavigate();
   const hasRedirected = useRef(false);
   const [showFallback, setShowFallback] = useState(false);
   const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Reset redirect flag when tenantId becomes available
+  // Reset redirect flag when agencyId becomes available
   useEffect(() => {
-    if (tenantId) {
+    if (agencyId) {
       hasRedirected.current = false;
       setShowFallback(false);
       if (redirectTimerRef.current) {
@@ -26,21 +33,18 @@ export const RequireTenant = ({ children }: RequireTenantProps) => {
         redirectTimerRef.current = null;
       }
     }
-  }, [tenantId]);
+  }, [agencyId]);
 
   // Handle redirect with delay to avoid race conditions
   useEffect(() => {
-    if (!isLoading && !tenantId && !error && !hasRedirected.current) {
-      // Aguardar 2 segundos antes de redirecionar para evitar race conditions
+    if (!isLoading && !agencyId && !error && !hasRedirected.current) {
       redirectTimerRef.current = setTimeout(() => {
-        if (!tenantId) {
-          console.log('[RequireTenant] No tenant after delay, redirecting to agency-setup');
+        if (!agencyId) {
+          console.log('[RequireTenant] No agency after delay, redirecting to agency-setup');
           hasRedirected.current = true;
           navigate('/agency-setup');
         }
       }, 2000);
-
-      // Mostrar fallback imediatamente para feedback visual
       setShowFallback(true);
     }
 
@@ -49,10 +53,9 @@ export const RequireTenant = ({ children }: RequireTenantProps) => {
         clearTimeout(redirectTimerRef.current);
       }
     };
-  }, [tenantId, isLoading, error, navigate]);
+  }, [agencyId, isLoading, error, navigate]);
 
   const handleForceLogout = async () => {
-    console.log('[RequireTenant] Force logout triggered');
     localStorage.clear();
     sessionStorage.clear();
     await supabase.auth.signOut();
@@ -60,17 +63,15 @@ export const RequireTenant = ({ children }: RequireTenantProps) => {
   };
 
   const handleRetry = async () => {
-    console.log('[RequireTenant] Retry triggered');
     setShowFallback(false);
     if (redirectTimerRef.current) {
       clearTimeout(redirectTimerRef.current);
       redirectTimerRef.current = null;
     }
     hasRedirected.current = false;
-    await refreshTenant();
+    await refreshAgency();
   };
 
-  // Se houver erro, mostrar opções de recuperação
   if (error) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-4">
@@ -92,7 +93,6 @@ export const RequireTenant = ({ children }: RequireTenantProps) => {
     );
   }
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -104,8 +104,7 @@ export const RequireTenant = ({ children }: RequireTenantProps) => {
     );
   }
 
-  // Fallback state - aguardando verificação ou redirecionamento
-  if (!tenantId && showFallback) {
+  if (!agencyId && showFallback) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-4">
         <div className="text-center space-y-2">
@@ -131,7 +130,7 @@ export const RequireTenant = ({ children }: RequireTenantProps) => {
     );
   }
 
-  if (!tenantId) return null;
+  if (!agencyId) return null;
 
   return <>{children}</>;
 };

@@ -7,21 +7,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle2, XCircle, Loader2, Ticket } from 'lucide-react';
 
 interface InviteCodeInputProps {
-  onValidCode: (code: string, tenantId: string, role: string) => void;
+  onValidCode: (code: string, agencyId: string, role: string) => void;
   onInvalidCode: () => void;
 }
 
 interface InvitationInfo {
-  tenant_name: string;
+  agency_name: string;
   role: string;
-  tenant_type: string;
 }
 
+// Apenas roles válidos no novo modelo
 const roleLabels: Record<string, string> = {
   agency_admin: 'Admin da Agência',
   agency_user: 'Usuário da Agência',
-  client_admin: 'Admin do Cliente',
-  client_user: 'Usuário do Cliente',
 };
 
 export const InviteCodeInput = ({ onValidCode, onInvalidCode }: InviteCodeInputProps) => {
@@ -48,11 +46,11 @@ export const InviteCodeInput = ({ onValidCode, onInvalidCode }: InviteCodeInputP
       if (data.valid) {
         setValidationResult('valid');
         setInvitationInfo({
-          tenant_name: data.tenant_name,
+          agency_name: data.agency_name || data.tenant_name,
           role: data.role,
-          tenant_type: data.tenant_type
         });
-        onValidCode(code.toUpperCase().trim(), data.tenant_id, data.role);
+        // Preferir agency_id, fallback para tenant_id
+        onValidCode(code.toUpperCase().trim(), data.agency_id || data.tenant_id, data.role);
       } else {
         setValidationResult('invalid');
         onInvalidCode();
@@ -116,7 +114,7 @@ export const InviteCodeInput = ({ onValidCode, onInvalidCode }: InviteCodeInputP
               Convite válido!
             </p>
             <p className="text-xs text-muted-foreground">
-              Você será adicionado à <strong>{invitationInfo.tenant_name}</strong> como{' '}
+              Você será adicionado à <strong>{invitationInfo.agency_name}</strong> como{' '}
               <Badge variant="outline" className="ml-1">
                 {roleLabels[invitationInfo.role] || invitationInfo.role}
               </Badge>

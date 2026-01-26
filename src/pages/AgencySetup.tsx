@@ -86,36 +86,36 @@ export default function AgencySetup() {
       
       console.log('🔍 Debug - Can create tenant?', debugData);
 
-      // Verificar se já tem roles
-      const { data: existingRoles, error: rolesCheckError } = await supabase
-        .from('user_roles')
+      // Verificar se já existe membership (NOVO MODELO)
+      const { data: existingMemberships, error: membershipsCheckError } = await supabase
+        .from('agency_memberships' as any)
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id) as { data: any[] | null; error: any };
 
-      if (rolesCheckError) {
-        console.error('❌ Erro ao verificar roles:', rolesCheckError);
+      if (membershipsCheckError) {
+        console.error('❌ Erro ao verificar memberships:', membershipsCheckError);
       }
 
-      console.log('🔍 Existing roles:', existingRoles);
+      console.log('🔍 Existing memberships:', existingMemberships);
 
-      if (existingRoles && existingRoles.length > 0) {
+      if (existingMemberships && existingMemberships.length > 0) {
         navigate('/');
         return;
       }
 
-      // 1. Criar o tenant principal (agência raiz)
-      const { data: tenant, error: tenantError } = await supabase
-        .from('tenants')
+      // 1. Criar agency (NOVO MODELO - substitui tenant)
+      const slug = data.officialName.toLowerCase().replace(/\s+/g, '-');
+      
+      const { data: agency, error: agencyError } = await supabase
+        .from('agencies' as any)
         .insert({
           name: data.officialName,
-          tenant_type: 'agency',
+          slug: slug,
           email: data.email,
           phone: data.phone,
           cnpj_cpf: data.cnpjCpf,
-          slug: data.officialName.toLowerCase().replace(/\s+/g, '-'),
           status: 'active',
-          parent_id: null,
-          metadata: {
+          settings: {
             tradeName: data.tradeName,
             legalName: data.legalName,
             address: {
@@ -129,19 +129,19 @@ export default function AgencySetup() {
           },
         })
         .select()
-        .single();
+        .single() as { data: { id: string } | null; error: any };
 
-      if (tenantError) {
-        console.error('❌ Erro ao criar tenant:', tenantError);
-        throw tenantError;
+      if (agencyError) {
+        console.error('❌ Erro ao criar agency:', agencyError);
+        throw agencyError;
       }
 
-      console.log('✅ Tenant criado:', tenant);
+      console.log('✅ Agency criada:', agency);
 
-      // 2. Atualizar o perfil do usuário com o tenant_id
+      // 2. Atualizar o perfil do usuário com o agency_id
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ tenant_id: tenant.id })
+        .update({ agency_id: agency?.id } as any)
         .eq('id', user.id);
 
       if (profileError) {
@@ -151,21 +151,21 @@ export default function AgencySetup() {
 
       console.log('✅ Profile atualizado');
 
-      // 3. Criar o role de super_admin para o usuário
-      const { error: roleError } = await supabase
-        .from('user_roles')
+      // 3. Criar a membership de agency_admin para o usuário
+      const { error: membershipError } = await supabase
+        .from('agency_memberships' as any)
         .insert({
           user_id: user.id,
-          tenant_id: tenant.id,
-          role: 'super_admin',
+          agency_id: agency?.id,
+          role: 'agency_admin',
         });
 
-      if (roleError) {
-        console.error('❌ Erro ao criar role:', roleError);
-        throw roleError;
+      if (membershipError) {
+        console.error('❌ Erro ao criar membership:', membershipError);
+        throw membershipError;
       }
 
-      console.log('✅ Role criado');
+      console.log('✅ Membership criada');
 
       toast.success('Agência principal cadastrada com sucesso!');
       navigate('/');

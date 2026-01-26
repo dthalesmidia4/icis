@@ -40,7 +40,9 @@ interface Invitation {
 }
 
 interface InvitationListProps {
-  tenantId: string;
+  /** @deprecated Use agencyId */
+  tenantId?: string;
+  agencyId?: string;
   refreshTrigger?: number;
 }
 
@@ -85,19 +87,25 @@ function StatusBadge({ status }: { status: InvitationStatus }) {
   }
 }
 
-export function InvitationList({ tenantId, refreshTrigger }: InvitationListProps) {
+export function InvitationList({ tenantId, agencyId, refreshTrigger }: InvitationListProps) {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
+  // Usar agencyId com fallback para tenantId
+  const currentId = agencyId || tenantId;
+
   const fetchInvitations = async () => {
+    if (!currentId) return;
+    
     try {
+      // Buscar invitations - usar agency_id ou tenant_id baseado no que temos
       const { data, error } = await supabase
         .from('invitations')
         .select('id, code, role, expires_at, used_at, created_at')
-        .eq('tenant_id', tenantId)
+        .or(`agency_id.eq.${agencyId},tenant_id.eq.${tenantId}`)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(20) as { data: Invitation[] | null; error: any };
 
       if (error) throw error;
       setInvitations(data || []);
@@ -110,10 +118,10 @@ export function InvitationList({ tenantId, refreshTrigger }: InvitationListProps
   };
 
   useEffect(() => {
-    if (tenantId) {
+    if (currentId) {
       fetchInvitations();
     }
-  }, [tenantId, refreshTrigger]);
+  }, [currentId, refreshTrigger]);
 
   const handleRevoke = async (invitationId: string) => {
     setRevokingId(invitationId);

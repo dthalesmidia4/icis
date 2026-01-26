@@ -211,23 +211,24 @@ const Auth = () => {
       // Aguardar a sessão ser estabelecida
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Criar tenant
-      console.log('🏢 Criando tenant...');
-      const { data: tenant, error: tenantError } = await supabase
-        .from('tenants')
+      // Criar agency (NOVO MODELO - substitui tenant)
+      console.log('🏢 Criando agency...');
+      const slug = validated.companyName
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+        
+      const { data: agency, error: agencyError } = await supabase
+        .from('agencies' as any)
         .insert({
-          tenant_type: 'agency',
           name: validated.companyName,
-          slug: validated.companyName
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/(^-|-$)/g, ''),
+          slug: slug,
           cnpj_cpf: validated.cnpjCpf,
           email: validated.corporateEmail,
           phone: validated.phone,
-          metadata: {
+          settings: {
             razao_social: validated.razaoSocial || null,
             nome_fantasia: validated.fantasyName || null,
             endereco: {
@@ -245,19 +246,19 @@ const Auth = () => {
           }
         })
         .select()
-        .single();
+        .single() as { data: { id: string } | null; error: any };
       
-      if (tenantError) {
-        console.error('❌ Erro ao criar tenant:', tenantError);
-        throw tenantError;
+      if (agencyError) {
+        console.error('❌ Erro ao criar agency:', agencyError);
+        throw agencyError;
       }
-      console.log('✅ Tenant criado:', tenant.id);
+      console.log('✅ Agency criada:', agency?.id);
       
-      // Atualizar profile com tenant_id
+      // Atualizar profile com agency_id
       console.log('👤 Atualizando profile...');
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ tenant_id: tenant.id })
+        .update({ agency_id: agency?.id } as any)
         .eq('id', authData.user.id);
       
       if (profileError) {
@@ -266,21 +267,21 @@ const Auth = () => {
       }
       console.log('✅ Profile atualizado');
       
-      // Criar role de admin
-      console.log('🎭 Criando role de admin...');
-      const { error: roleError } = await supabase
-        .from('user_roles')
+      // Criar membership de admin (NOVO MODELO - substitui user_roles)
+      console.log('🎭 Criando membership de admin...');
+      const { error: membershipError } = await supabase
+        .from('agency_memberships' as any)
         .insert({
           user_id: authData.user.id,
-          tenant_id: tenant.id,
+          agency_id: agency?.id,
           role: 'agency_admin'
         });
       
-      if (roleError) {
-        console.error('❌ Erro ao criar role:', roleError);
-        throw roleError;
+      if (membershipError) {
+        console.error('❌ Erro ao criar membership:', membershipError);
+        throw membershipError;
       }
-      console.log('✅ Role criada');
+      console.log('✅ Membership criada');
       
       // Limpar rascunho e redirecionar
       localStorage.removeItem('signup_draft');
