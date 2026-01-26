@@ -16,7 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InvitationList } from '@/components/InvitationList';
-import type { Database } from '@/integrations/supabase/types';
+import { INVITE_ROLE_OPTIONS, ValidAgencyRole } from '@/lib/constants/roles';
 
 const themeOptions: { value: ThemeMode; label: string; icon: React.ElementType; description: string }[] = [
   { value: 'light', label: 'Claro', icon: Sun, description: 'Tema claro para ambientes bem iluminados' },
@@ -30,13 +30,6 @@ const colorOptions: { value: PrimaryColor; label: string; hue: number; preview: 
   { value: 'pink', label: 'Rosa', hue: 330, preview: 'hsl(330 70% 50%)' },
   { value: 'red', label: 'Vermelho', hue: 0, preview: 'hsl(0 70% 50%)' },
   { value: 'brown', label: 'Marrom', hue: 30, preview: 'hsl(30 50% 40%)' },
-];
-
-type AppRole = Database['public']['Enums']['app_role'];
-
-const roleOptions: { value: AppRole; label: string }[] = [
-  { value: 'agency_admin', label: 'Admin da Agência' },
-  { value: 'agency_user', label: 'Usuário da Agência' },
 ];
 
 export default function ProfileSettings() {
@@ -57,7 +50,7 @@ export default function ProfileSettings() {
   const [initialized, setInitialized] = useState(false);
 
   // Invitation states
-  const [selectedRole, setSelectedRole] = useState<AppRole | ''>('');
+  const [selectedRole, setSelectedRole] = useState<ValidAgencyRole | ''>('');
   const [generatedCode, setGeneratedCode] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [invitationRefresh, setInvitationRefresh] = useState(0);
@@ -424,14 +417,17 @@ export default function ProfileSettings() {
               description="Gere códigos de convite para novos membros da equipe"
             >
               <div className="flex items-center gap-3 flex-wrap">
-                <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as AppRole)}>
-                  <SelectTrigger className="w-[200px]">
+                <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as ValidAgencyRole)}>
+                  <SelectTrigger className="w-[220px]">
                     <SelectValue placeholder="Nível de acesso" />
                   </SelectTrigger>
                   <SelectContent>
-                    {roleOptions.map((option) => (
+                    {INVITE_ROLE_OPTIONS.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
-                        {option.label}
+                        <div className="flex flex-col items-start">
+                          <span>{option.label}</span>
+                          <span className="text-xs text-muted-foreground">{option.description}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
