@@ -40,10 +40,10 @@ export default function Schedule() {
   const { toast } = useToast();
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const { selectedClient, isInitialized } = useSelectedClient();
-  const { isSuperAdmin, isAgencyManager } = useAgencyRole();
+  const { isSuperAdmin, isAgencyAdmin, isAgencyManager } = useAgencyRole();
   
-  // Permission to create demands (SUPER_ADMIN or AGENCY_MANAGER only)
-  const canCreateDemand = isSuperAdmin || isAgencyManager;
+  // Permission to create demands (SUPER_ADMIN, AGENCY_ADMIN, or AGENCY_MANAGER)
+  const canCreateDemand = isSuperAdmin || isAgencyAdmin || isAgencyManager;
   
   const [loading, setLoading] = useState(true);
   const [cards, setCards] = useState<KanbanCardData[]>([]);
