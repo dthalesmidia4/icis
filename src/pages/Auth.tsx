@@ -211,8 +211,9 @@ const Auth = () => {
       // Aguardar a sessão ser estabelecida
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Criar agency (NOVO MODELO - substitui tenant)
-      console.log('🏢 Criando agency...');
+      // Criar tenant (schema atual - tabela tenants)
+      // A tabela agencies ainda não existe
+      console.log('🏢 Criando tenant...');
       const slug = validated.companyName
         .toLowerCase()
         .normalize('NFD')
@@ -220,11 +221,12 @@ const Auth = () => {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
         
-      const { data: agency, error: agencyError } = await supabase
-        .from('agencies' as any)
+      const { data: tenant, error: tenantError } = await supabase
+        .from('tenants')
         .insert({
           name: validated.companyName,
           slug: slug,
+          tenant_type: 'agency',
           cnpj_cpf: validated.cnpjCpf,
           email: validated.corporateEmail,
           phone: validated.phone,
@@ -246,19 +248,19 @@ const Auth = () => {
           }
         })
         .select()
-        .single() as { data: { id: string } | null; error: any };
+        .single();
       
-      if (agencyError) {
-        console.error('❌ Erro ao criar agency:', agencyError);
-        throw agencyError;
+      if (tenantError) {
+        console.error('❌ Erro ao criar tenant:', tenantError);
+        throw tenantError;
       }
-      console.log('✅ Agency criada:', agency?.id);
+      console.log('✅ Tenant criado:', tenant?.id);
       
-      // Atualizar profile com agency_id
+      // Atualizar profile com tenant_id
       console.log('👤 Atualizando profile...');
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ agency_id: agency?.id } as any)
+        .update({ tenant_id: tenant?.id })
         .eq('id', authData.user.id);
       
       if (profileError) {
@@ -267,21 +269,22 @@ const Auth = () => {
       }
       console.log('✅ Profile atualizado');
       
-      // Criar membership de admin (NOVO MODELO - substitui user_roles)
-      console.log('🎭 Criando membership de admin...');
-      const { error: membershipError } = await supabase
-        .from('agency_memberships' as any)
+      // Criar user_role (schema atual - tabela user_roles)
+      // A tabela agency_memberships ainda não existe
+      console.log('🎭 Criando user_role...');
+      const { error: roleError } = await supabase
+        .from('user_roles')
         .insert({
           user_id: authData.user.id,
-          agency_id: agency?.id,
+          tenant_id: tenant?.id,
           role: 'agency_admin'
         });
       
-      if (membershipError) {
-        console.error('❌ Erro ao criar membership:', membershipError);
-        throw membershipError;
+      if (roleError) {
+        console.error('❌ Erro ao criar user_role:', roleError);
+        throw roleError;
       }
-      console.log('✅ Membership criada');
+      console.log('✅ User role criado');
       
       // Limpar rascunho e redirecionar
       localStorage.removeItem('signup_draft');

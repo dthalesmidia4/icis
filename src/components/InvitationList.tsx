@@ -99,16 +99,17 @@ export function InvitationList({ tenantId, agencyId, refreshTrigger }: Invitatio
     if (!currentId) return;
     
     try {
-      // Buscar invitations - usar agency_id ou tenant_id baseado no que temos
+      // Buscar invitations usando tenant_id (schema atual)
+      // A coluna agency_id ainda não existe na tabela invitations
       const { data, error } = await supabase
         .from('invitations')
         .select('id, code, role, expires_at, used_at, created_at')
-        .or(`agency_id.eq.${agencyId},tenant_id.eq.${tenantId}`)
+        .eq('tenant_id', currentId)
         .order('created_at', { ascending: false })
-        .limit(20) as { data: Invitation[] | null; error: any };
+        .limit(20);
 
       if (error) throw error;
-      setInvitations(data || []);
+      setInvitations((data || []) as Invitation[]);
     } catch (error) {
       console.error('Error fetching invitations:', error);
       toast({ title: 'Erro', description: 'Não foi possível carregar os convites.', variant: 'destructive' });

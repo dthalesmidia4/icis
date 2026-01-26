@@ -157,17 +157,17 @@ export default function ProfileSettings() {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
 
-      // Insert invitation com agency_id (NOVO MODELO)
+      // Insert invitation usando tenant_id (schema atual)
+      // A coluna agency_id ainda não existe na tabela invitations
       const { error: insertError } = await supabase
         .from('invitations')
         .insert({
           code,
-          agency_id: agencyId, // NOVO: usar agency_id
-          tenant_id: tenantId, // Manter para compatibilidade
+          tenant_id: currentId, // Usar tenant_id que existe
           role: selectedRole,
           created_by: user.id,
           expires_at: expiresAt.toISOString(),
-        } as any);
+        });
 
       if (insertError) throw insertError;
 
