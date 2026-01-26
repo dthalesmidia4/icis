@@ -1,28 +1,11 @@
-import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, UserPlus, Users, BarChart3, FileQuestion, Calendar, ClipboardList } from "lucide-react";
-import { useTenant } from "@/contexts/TenantContext";
+import { UserPlus, Users, BarChart3, FileQuestion, Calendar, ClipboardList } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+
 const Index = () => {
   const navigate = useNavigate();
-  const {
-    user
-  } = useAuth();
-  const {
-    tenantId,
-    isLoading: tenantLoading
-  } = useTenant();
-
-  // Redirecionar para setup se não tiver tenant configurado
-  useEffect(() => {
-    if (!tenantLoading && user && !tenantId) {
-      navigate('/agency-setup', { replace: true });
-    }
-  }, [tenantLoading, user, tenantId, navigate]);
+  const { user } = useAuth();
   const actionCards = [{
     title: "Cadastro de Clientes",
     icon: UserPlus,
