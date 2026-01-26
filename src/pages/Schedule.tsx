@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { ArrowLeft, Calendar, Filter, LayoutGrid, Loader2, History, Plus, ChevronRight, Paperclip } from "lucide-react";
+import { useAgencyRole } from "@/hooks/useAgencyRole";
+import { ArrowLeft, Calendar, Filter, LayoutGrid, Loader2, History, Plus, ChevronRight, Paperclip, Sparkles } from "lucide-react";
 import { Json } from "@/integrations/supabase/types";
 import { Badge } from "@/components/ui/badge";
 import { toast as sonnerToast } from "sonner";
@@ -19,6 +20,7 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import TaskCard, { getColumnFromStatus, getStatusFromColumn, LEGACY_STATUS_MAP } from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PublicationDate } from "@/components/TaskCard";
 import SmartSearchBar from "@/components/SmartSearchBar";
+import { CreateDemandModal } from "@/components/CreateDemandModal";
 import { cn } from "@/lib/utils";
 
 // Using types from TaskCard component
@@ -38,6 +40,10 @@ export default function Schedule() {
   const { toast } = useToast();
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const { selectedClient, isInitialized } = useSelectedClient();
+  const { isSuperAdmin, isAgencyManager } = useAgencyRole();
+  
+  // Permission to create demands (SUPER_ADMIN or AGENCY_MANAGER only)
+  const canCreateDemand = isSuperAdmin || isAgencyManager;
   
   const [loading, setLoading] = useState(true);
   const [cards, setCards] = useState<KanbanCardData[]>([]);
@@ -48,6 +54,7 @@ export default function Schedule() {
   const [contentTypeFilter, setContentTypeFilter] = useState<string>("all");
   const [referencePeriod, setReferencePeriod] = useState<{ titulo: string; dataInicio: string; dataFim: string } | null>(null);
   const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
+  const [showCreateDemandModal, setShowCreateDemandModal] = useState(false);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Handle search result selection - scroll to and highlight card
@@ -910,6 +917,13 @@ export default function Schedule() {
               <History className="h-4 w-4 mr-2" />
               Histórico
             </Button>
+            
+            {canCreateDemand && (
+              <Button onClick={() => setShowCreateDemandModal(true)} className="w-full sm:w-auto">
+                <Sparkles className="h-4 w-4 mr-2" />
+                Criar Demanda
+              </Button>
+            )}
           </div>
         </div>
 
@@ -1158,6 +1172,14 @@ export default function Schedule() {
           )}
         </DialogContent>
       </Dialog>
+      
+      {/* Create Demand Modal */}
+      <CreateDemandModal
+        open={showCreateDemandModal}
+        onOpenChange={setShowCreateDemandModal}
+        periodPlanId={periodPlanId}
+        onDemandCreated={fetchPeriodPlanCards}
+      />
     </div>
   );
 }
