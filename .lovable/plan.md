@@ -1,109 +1,208 @@
 
+# Plano: Corrigir Sistema de Convites para Schema Atual
 
-# Plano: Corrigir Recursão Infinita na Tabela `super_admins`
+## Resumo do Problema
 
-## Problema Identificado
+O código foi atualizado para usar um novo modelo (`agencies`, `agency_memberships`, `agency_id`) que ainda **não existe no banco de dados**. As tabelas e colunas necessárias não foram criadas, causando erros em todo o sistema de convites.
 
-A tabela `super_admins` possui políticas RLS que consultam a própria tabela para verificar permissões, criando um loop infinito:
+### Estado Atual do Banco de Dados
+- Tabela `agencies`: **NÃO EXISTE**
+- Tabela `agency_memberships`: **NÃO EXISTE**
+- Coluna `invitations.agency_id`: **NÃO EXISTE**
+- Coluna `profiles.agency_id`: **NÃO EXISTE**
 
-```sql
--- Política atual (problemática)
-CREATE POLICY "super_admins_select" ON public.super_admins
-  FOR SELECT TO authenticated
-  USING (EXISTS (SELECT 1 FROM public.super_admins sa WHERE sa.user_id = auth.uid()));
-```
-
-Quando um usuário tenta ler a tabela `super_admins`, a política executa uma query na própria tabela, que por sua vez ativa a mesma política, resultando no erro `42P17 - infinite recursion detected`.
-
-## Solução
-
-A correção envolve duas partes:
-
-### Parte 1: Atualizar Políticas RLS no Banco de Dados
-
-Substituir as políticas atuais por versões que usam a função `is_super_admin()` já existente (que é `SECURITY DEFINER` e bypassa RLS):
-
-```sql
--- 1. Remover políticas problemáticas
-DROP POLICY IF EXISTS "super_admins_select" ON public.super_admins;
-DROP POLICY IF EXISTS "super_admins_manage" ON public.super_admins;
-
--- 2. Criar novas políticas usando a função SECURITY DEFINER
-CREATE POLICY "super_admins_select" ON public.super_admins
-  FOR SELECT TO authenticated
-  USING (is_super_admin());
-
-CREATE POLICY "super_admins_manage" ON public.super_admins
-  FOR ALL TO authenticated
-  USING (is_super_admin())
-  WITH CHECK (is_super_admin());
-```
-
-### Parte 2: Atualizar Frontend para Usar RPC
-
-Modificar o hook `useUserRole.tsx` para chamar a função `is_super_admin()` via RPC ao invés de consultar diretamente a tabela:
-
-```tsx
-// Antes (problemático)
-const { data: superAdmin } = await supabase
-  .from('super_admins')
-  .select('id')
-  .eq('user_id', user.id)
-  .maybeSingle();
-
-// Depois (correto)
-const { data: isSuperAdminResult } = await supabase
-  .rpc('is_super_admin');
-
-if (isSuperAdminResult === true) {
-  setIsSuperAdmin(true);
-  setRole('super_admin');
-  setIsLoading(false);
-  return;
-}
-```
-
-## Arquivos Modificados
-
-| Arquivo | Alteração |
-|---------|-----------|
-| Nova migração SQL | Recria políticas RLS usando `is_super_admin()` |
-| `src/hooks/useUserRole.tsx` | Substitui query direta por chamada RPC |
-
-## Resultado Esperado
-
-- Erro 500 eliminado ao carregar permissões
-- Super admins conseguem acessar e gerenciar a tabela normalmente
-- Usuários não-super-admin não têm acesso à tabela (comportamento correto)
-- Logs de console limpos, sem erros de recursão
+### Tabelas que Funcionam
+- `tenants` (funciona como "agencies")
+- `user_roles` (funciona como "agency_memberships")
+- `invitations.tenant_id` (existe e tem dados)
 
 ---
 
-## Detalhes Técnicos
+## Solução Proposta
 
-### Por que a função `is_super_admin()` resolve o problema?
+Reverter todo o código para usar o **schema atual funcional** (`tenants`, `user_roles`, `tenant_id`) enquanto as novas tabelas não existem.
 
-A função usa `SECURITY DEFINER`, o que significa que ela executa com os privilégios do usuário que a criou (geralmente `postgres`), ignorando completamente as políticas RLS. Isso quebra o ciclo de recursão.
+---
 
-### Sequência de Execução
+## Tarefas
 
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                        FLUXO ATUAL (ERRO)                           │
-├─────────────────────────────────────────────────────────────────────┤
-│  1. Frontend: SELECT FROM super_admins WHERE user_id = X            │
-│  2. RLS: Executa USING (EXISTS SELECT FROM super_admins...)         │
-│  3. RLS: Executa USING novamente para a subquery                    │
-│  4. Loop infinito -> Erro 42P17                                     │
-└─────────────────────────────────────────────────────────────────────┘
+### 1. Corrigir Edge Function `validate-invitation`
 
-┌─────────────────────────────────────────────────────────────────────┐
-│                      FLUXO CORRIGIDO                                │
-├─────────────────────────────────────────────────────────────────────┤
-│  1. Frontend: SELECT is_super_admin() (RPC)                         │
-│  2. Função SECURITY DEFINER executa (bypassa RLS)                   │
-│  3. Retorna true/false                                              │
-│  4. Sem recursão!                                                   │
-└─────────────────────────────────────────────────────────────────────┘
+**Arquivo:** `supabase/functions/validate-invitation/index.ts`
+
+**Mudanças:**
+- Remover tentativa de buscar `agency_id` da tabela `invitations`
+- Usar apenas `tenant_id` que existe
+- Retornar dados do `tenant` como se fosse a "agency"
+
+```typescript
+// Buscar apenas tenant_id (que existe)
+const { data: invitation } = await supabase
+  .from("invitations")
+  .select("id, code, tenant_id, role, expires_at")
+  .eq("code", code.toUpperCase().trim())
+  .is("used_at", null)
+  .gt("expires_at", new Date().toISOString())
+  .maybeSingle();
+
+// Buscar tenant e retornar como agency
+const { data: tenant } = await supabase
+  .from("tenants")
+  .select("id, name")
+  .eq("id", invitation.tenant_id)
+  .maybeSingle();
+
+return {
+  valid: true,
+  tenant_id: invitation.tenant_id,
+  agency_id: invitation.tenant_id, // Compatibilidade
+  role: invitation.role,
+  tenant_name: tenant?.name,
+  agency_name: tenant?.name,
+};
 ```
 
+---
+
+### 2. Corrigir `useAgencyRole` Hook
+
+**Arquivo:** `src/hooks/useAgencyRole.tsx`
+
+**Mudanças:**
+- Remover tentativa de buscar `agency_memberships` (não existe)
+- Usar apenas `user_roles` para determinar a role do usuário
+- Manter a interface pública igual para compatibilidade
+
+```typescript
+// Usar user_roles ao invés de agency_memberships
+const { data: legacyRole } = await supabase
+  .from('user_roles')
+  .select('role')
+  .eq('user_id', user.id)
+  .in('role', ['agency_admin', 'agency_user'])
+  .maybeSingle();
+
+if (legacyRole?.role) {
+  setRole(legacyRole.role as AgencyRole);
+}
+```
+
+---
+
+### 3. Corrigir `InvitationList` Component
+
+**Arquivo:** `src/components/InvitationList.tsx`
+
+**Mudanças:**
+- Remover query por `agency_id` (coluna não existe)
+- Usar apenas `tenant_id` para filtrar convites
+
+```typescript
+// Query apenas por tenant_id
+const { data, error } = await supabase
+  .from('invitations')
+  .select('id, code, role, expires_at, used_at, created_at')
+  .eq('tenant_id', currentId)
+  .order('created_at', { ascending: false })
+  .limit(20);
+```
+
+---
+
+### 4. Corrigir `ProfileSettings` Page
+
+**Arquivo:** `src/pages/ProfileSettings.tsx`
+
+**Mudanças:**
+- Remover tentativa de inserir `agency_id` em invitations
+- Usar apenas `tenant_id` para criar convites
+
+```typescript
+// Insert apenas com tenant_id
+const { error: insertError } = await supabase
+  .from('invitations')
+  .insert({
+    code,
+    tenant_id: tenantId, // Usar tenantId, não agencyId
+    role: selectedRole,
+    created_by: user.id,
+    expires_at: expiresAt.toISOString(),
+  });
+```
+
+---
+
+### 5. Corrigir `Auth` Page (Cadastro)
+
+**Arquivo:** `src/pages/Auth.tsx`
+
+**Mudanças:**
+- Remover tentativa de criar em `agencies` (tabela não existe)
+- Remover tentativa de criar em `agency_memberships` (tabela não existe)
+- Usar `tenants` e `user_roles` que funcionam
+
+```typescript
+// Criar tenant ao invés de agency
+const { data: tenant } = await supabase
+  .from('tenants')
+  .insert({
+    name: validated.companyName,
+    slug: slug,
+    tenant_type: 'agency',
+    cnpj_cpf: validated.cnpjCpf,
+    email: validated.corporateEmail,
+    phone: validated.phone,
+    settings: { ... }
+  })
+  .select()
+  .single();
+
+// Atualizar profile com tenant_id
+await supabase
+  .from('profiles')
+  .update({ tenant_id: tenant.id })
+  .eq('id', authData.user.id);
+
+// Criar user_role ao invés de agency_membership
+await supabase
+  .from('user_roles')
+  .insert({
+    user_id: authData.user.id,
+    tenant_id: tenant.id,
+    role: 'agency_admin'
+  });
+```
+
+---
+
+## Resumo das Mudanças
+
+| Arquivo | Problema | Solução |
+|---------|----------|---------|
+| `validate-invitation` | Query `agency_id` inexistente | Usar apenas `tenant_id` |
+| `useAgencyRole.tsx` | Query `agency_memberships` inexistente | Usar `user_roles` |
+| `InvitationList.tsx` | Query `agency_id` inexistente | Filtrar por `tenant_id` |
+| `ProfileSettings.tsx` | Insert `agency_id` inexistente | Usar `tenant_id` |
+| `Auth.tsx` | Insert em `agencies` inexistente | Usar `tenants` |
+
+---
+
+## Resultado Esperado
+
+Após as correções:
+1. Sistema de convites funcionará normalmente
+2. Cadastro de novas empresas funcionará
+3. Validação de convites funcionará
+4. Lista de convites carregará corretamente
+5. Determinação de roles funcionará
+
+---
+
+## Nota Técnica
+
+O modelo atual usa:
+- `tenants` como se fosse `agencies`
+- `user_roles` como se fosse `agency_memberships`
+- `tenant_id` como se fosse `agency_id`
+
+Os hooks e contextos já exportam aliases (`useAgency`, `useAgencyRole`) que mapeiam para essas tabelas existentes, mantendo a API do frontend consistente para quando a migração real for feita.
