@@ -4,6 +4,7 @@
  * SCHEMA ATUAL (usando tenants/user_roles):
  * - SUPER_ADMIN: via tabela super_admins (RPC is_super_admin)
  * - AGENCY_ADMIN: via user_roles.role = 'agency_admin'
+ * - AGENCY_MANAGER: via user_roles.role = 'agency_manager'
  * - AGENCY_USER: via user_roles.role = 'agency_user'
  * 
  * NOTA: O código foi preparado para usar agency_memberships no futuro,
@@ -13,15 +14,18 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgency } from '@/contexts/AgencyContext';
+import { VALID_AGENCY_ROLES, type ValidAgencyRole } from '@/lib/constants/roles';
 
-export type AgencyRole = 'super_admin' | 'agency_admin' | 'agency_user' | null;
+export type AgencyRole = 'super_admin' | ValidAgencyRole | null;
 
 interface UseAgencyRoleReturn {
   role: AgencyRole;
   isSuperAdmin: boolean;
   isAgencyAdmin: boolean;
+  isAgencyManager: boolean;
   isAgencyUser: boolean;
   canAccessAdmin: boolean;
+  canManageTeam: boolean;
   isLoading: boolean;
   error: Error | null;
   refreshRole: () => Promise<void>;
@@ -70,12 +74,12 @@ export function useAgencyRole(): UseAgencyRoleReturn {
       setIsSuperAdmin(false);
 
       // Buscar role via user_roles (schema atual funcional)
-      // A tabela agency_memberships ainda não existe
+      // Usar VALID_AGENCY_ROLES para manter consistência
       const { data: userRole, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
-        .in('role', ['agency_admin', 'agency_user'])
+        .in('role', VALID_AGENCY_ROLES)
         .maybeSingle();
 
       if (roleError) {
@@ -105,12 +109,25 @@ export function useAgencyRole(): UseAgencyRoleReturn {
     await fetchRole();
   }, [fetchRole]);
 
+  // Derivar permissões baseadas na role
+  const isAgencyAdmin = role === 'agency_admin' || isSuperAdmin;
+  const isAgencyManager = role === 'agency_manager';
+  const isAgencyUser = role === 'agency_user';
+  
+  // Quem pode acessar área administrativa
+  const canAccessAdmin = isAgencyAdmin;
+  
+  // Quem pode gerenciar equipe (admin e manager)
+  const canManageTeam = isAgencyAdmin || isAgencyManager;
+
   return {
     role,
     isSuperAdmin,
-    isAgencyAdmin: role === 'agency_admin' || isSuperAdmin,
-    isAgencyUser: role === 'agency_user',
-    canAccessAdmin: role === 'agency_admin' || isSuperAdmin,
+    isAgencyAdmin,
+    isAgencyManager,
+    isAgencyUser,
+    canAccessAdmin,
+    canManageTeam,
     isLoading,
     error,
     refreshRole,
