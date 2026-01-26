@@ -1,8 +1,8 @@
 /**
  * validate-invitation Edge Function
  * 
- * NOVO MODELO: Valida convites usando agency_id
- * Mantém compatibilidade com tenant_id durante transição
+ * SCHEMA ATUAL: Usa tenants e tenant_id (tabela invitations)
+ * As tabelas agencies/agency_memberships ainda não existem
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -33,10 +33,10 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Query invitation using service role (bypasses RLS)
-    // Buscar tanto agency_id quanto tenant_id para compatibilidade
+    // Usar apenas tenant_id que existe no schema atual
     const { data: invitation, error } = await supabase
       .from("invitations")
-      .select("id, code, tenant_id, agency_id, role, expires_at")
+      .select("id, code, tenant_id, role, expires_at")
       .eq("code", code.toUpperCase().trim())
       .is("used_at", null)
       .gt("expires_at", new Date().toISOString())
@@ -57,67 +57,31 @@ serve(async (req) => {
       );
     }
 
-    // NOVO MODELO: Tentar buscar agency primeiro
-    if (invitation.agency_id) {
-      const { data: agency } = await supabase
-        .from("agencies")
-        .select("id, name")
-        .eq("id", invitation.agency_id)
-        .maybeSingle();
-
-      if (agency) {
-        // Mapear role para novo modelo
-        const mappedRole = invitation.role === 'agency_admin' || invitation.role === 'super_admin' 
-          ? 'agency_admin' 
-          : 'agency_user';
-
-        return new Response(
-          JSON.stringify({
-            valid: true,
-            agency_id: agency.id,
-            // Compatibilidade: ainda retorna tenant_id para código legado
-            tenant_id: invitation.tenant_id || agency.id,
-            role: mappedRole,
-            agency_name: agency.name,
-            tenant_name: agency.name, // Compatibilidade
-            tenant_type: "agency",
-          }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    }
-
-    // Fallback: Buscar tenant (código legado durante transição)
-    if (invitation.tenant_id) {
-      const { data: tenant } = await supabase
-        .from("tenants")
-        .select("name, tenant_type")
-        .eq("id", invitation.tenant_id)
-        .maybeSingle();
-
-      // Tentar encontrar agency correspondente via legacy_tenant_id
-      const { data: agency } = await supabase
-        .from("agencies")
-        .select("id, name")
-        .eq("legacy_tenant_id", invitation.tenant_id)
-        .maybeSingle();
-
+    if (!invitation.tenant_id) {
       return new Response(
-        JSON.stringify({
-          valid: true,
-          tenant_id: invitation.tenant_id,
-          agency_id: agency?.id || null,
-          role: invitation.role,
-          tenant_name: tenant?.name || agency?.name || "Organização",
-          agency_name: agency?.name || tenant?.name || "Organização",
-          tenant_type: tenant?.tenant_type || "agency",
-        }),
+        JSON.stringify({ valid: false, error: "Convite sem organização associada" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    // Buscar tenant (schema atual)
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("id, name, tenant_type")
+      .eq("id", invitation.tenant_id)
+      .maybeSingle();
+
     return new Response(
-      JSON.stringify({ valid: false, error: "Convite sem organização associada" }),
+      JSON.stringify({
+        valid: true,
+        tenant_id: invitation.tenant_id,
+        // Compatibilidade: retornar também como agency_id para código que espera o novo modelo
+        agency_id: invitation.tenant_id,
+        role: invitation.role,
+        tenant_name: tenant?.name || "Organização",
+        agency_name: tenant?.name || "Organização",
+        tenant_type: tenant?.tenant_type || "agency",
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

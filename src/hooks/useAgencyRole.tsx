@@ -1,10 +1,13 @@
 /**
- * useAgencyRole - Hook para gerenciar roles no novo modelo Agency
+ * useAgencyRole - Hook para gerenciar roles no modelo atual
  * 
- * NOVO MODELO:
+ * SCHEMA ATUAL (usando tenants/user_roles):
  * - SUPER_ADMIN: via tabela super_admins (RPC is_super_admin)
- * - AGENCY_ADMIN: via agency_memberships.role = 'agency_admin'
- * - AGENCY_USER: via agency_memberships.role = 'agency_user'
+ * - AGENCY_ADMIN: via user_roles.role = 'agency_admin'
+ * - AGENCY_USER: via user_roles.role = 'agency_user'
+ * 
+ * NOTA: O código foi preparado para usar agency_memberships no futuro,
+ * mas a tabela ainda não existe. Usando user_roles como fonte de verdade.
  */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -66,38 +69,21 @@ export function useAgencyRole(): UseAgencyRoleReturn {
 
       setIsSuperAdmin(false);
 
-      // Buscar role na agency atual via agency_memberships
-      // Usar type assertion porque a tabela ainda não está no types.ts
-      if (agencyId) {
-        const { data: membership, error: membershipError } = await supabase
-          .from('agency_memberships' as any)
-          .select('role')
-          .eq('user_id', user.id)
-          .eq('agency_id', agencyId)
-          .maybeSingle() as { data: { role: string } | null; error: any };
+      // Buscar role via user_roles (schema atual funcional)
+      // A tabela agency_memberships ainda não existe
+      const { data: userRole, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .in('role', ['agency_admin', 'agency_user'])
+        .maybeSingle();
 
-        if (membershipError) {
-          console.error('[useAgencyRole] Error fetching membership:', membershipError);
-          // Não lançar erro, tentar fallback
-        }
+      if (roleError) {
+        console.error('[useAgencyRole] Error fetching role:', roleError);
+      }
 
-        if (membership?.role) {
-          setRole(membership.role as AgencyRole);
-        } else {
-          // Fallback: verificar user_roles legado durante transição
-          const { data: legacyRole } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', user.id)
-            .in('role', ['agency_admin', 'agency_user'])
-            .maybeSingle();
-
-          if (legacyRole?.role) {
-            setRole(legacyRole.role as AgencyRole);
-          } else {
-            setRole(null);
-          }
-        }
+      if (userRole?.role) {
+        setRole(userRole.role as AgencyRole);
       } else {
         setRole(null);
       }
