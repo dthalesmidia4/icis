@@ -41,21 +41,15 @@ export function useUserRole(): UseUserRoleReturn {
     try {
       setError(null);
 
-      // Verificar se é super_admin (tabela separada)
-      const { data: superAdmin, error: superAdminError } = await supabase
-        .from('super_admins')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // Verificar se é super_admin usando RPC (evita recursão RLS)
+      const { data: isSuperAdminResult, error: superAdminError } = await supabase
+        .rpc('is_super_admin');
 
       if (superAdminError) {
-        // Se erro for de permissão (não é super_admin), isso é esperado
-        if (superAdminError.code !== 'PGRST116') {
-          console.log('[useUserRole] Not a super_admin or no access to table');
-        }
+        console.error('[useUserRole] Error checking super_admin:', superAdminError);
       }
 
-      if (superAdmin) {
+      if (isSuperAdminResult === true) {
         setIsSuperAdmin(true);
         setRole('super_admin');
         setIsLoading(false);
