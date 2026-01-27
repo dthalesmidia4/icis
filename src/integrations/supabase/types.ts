@@ -293,6 +293,7 @@ export type Database = {
           period_plan_id: string | null
           pipeline_id: string
           publish_date: string | null
+          publish_time: string | null
           source: string
           status_id: string
           template_id: string | null
@@ -315,6 +316,7 @@ export type Database = {
           period_plan_id?: string | null
           pipeline_id: string
           publish_date?: string | null
+          publish_time?: string | null
           source?: string
           status_id: string
           template_id?: string | null
@@ -337,6 +339,7 @@ export type Database = {
           period_plan_id?: string | null
           pipeline_id?: string
           publish_date?: string | null
+          publish_time?: string | null
           source?: string
           status_id?: string
           template_id?: string | null

@@ -191,7 +191,7 @@ export default function Schedule() {
           attachments: (demand.attachments as unknown as Attachment[] | null) || [],
           publication_dates: demand.publish_date ? [{
             date: demand.publish_date,
-            time: "09:00",
+            time: (demand as any).publish_time || "09:00", // Usar publish_time do banco se existir
             platform: demand.channel || undefined
           }] : [],
           tenant_id: demand.tenant_id,
@@ -391,6 +391,7 @@ export default function Schedule() {
           .update({ 
             status_id: statusData?.id,
             publish_date: date,
+            publish_time: time, // Salvar horário no banco
             updated_at: new Date().toISOString()
           })
           .eq("id", card.id);
