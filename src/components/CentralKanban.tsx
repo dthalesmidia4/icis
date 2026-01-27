@@ -2,10 +2,10 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive, Calendar } from "lucide-react";
+import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive, Calendar, Sparkles, FileText } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTenant } from "@/contexts/TenantContext";
-import TaskCard from "@/components/TaskCard";
+import TaskCard, { getColumnFromStatus } from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PublicationDate } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -161,26 +161,43 @@ const CentralKanban = () => {
     try {
       setLoading(true);
 
-      // Buscar cards na coluna "Agendar Publicação" com informações do cliente e status do planejamento
-      const {
-        data: cardsData,
-        error: cardsError
-      } = await supabase.from("cards").select(`
-          *,
-          period_plans!cards_period_plan_id_fkey (
-            company_id,
-            operational_status,
-            tenant_companies!period_plans_company_id_fkey (
+      // Buscar cards e demands na coluna "Agendar Publicação" com informações do cliente e status do planejamento
+      const [cardsResult, demandsResult] = await Promise.all([
+        supabase.from("cards").select(`
+            *,
+            period_plans!cards_period_plan_id_fkey (
+              company_id,
+              operational_status,
+              tenant_companies!period_plans_company_id_fkey (
+                id,
+                fantasy_name,
+                name
+              )
+            )
+          `).eq("tenant_id", tenantId).eq("column_name", "Agendar Publicação"),
+        supabase.from("demands").select(`
+            *,
+            pipeline_statuses!demands_status_id_fkey (
+              name,
+              color,
+              position
+            ),
+            tenant_companies!demands_client_id_fkey (
               id,
               fantasy_name,
               name
+            ),
+            period_plans!demands_period_plan_id_fkey (
+              operational_status
             )
-          )
-        `).eq("tenant_id", tenantId).eq("column_name", "Agendar Publicação");
-      if (cardsError) throw cardsError;
+          `).eq("tenant_id", tenantId)
+      ]);
+      
+      if (cardsResult.error) throw cardsResult.error;
+      if (demandsResult.error) throw demandsResult.error;
 
       // Mapear cards com nome do cliente e status de arquivamento
-      const mappedCards: CentralKanbanCard[] = (cardsData || []).map(card => {
+      const mappedCards: CentralKanbanCard[] = (cardsResult.data || []).map(card => {
         const company = card.period_plans?.tenant_companies;
         const operationalStatus = card.period_plans?.operational_status;
         return {
@@ -189,12 +206,54 @@ const CentralKanban = () => {
           publication_dates: card.publication_dates as unknown as PublicationDate[] | null || [],
           clientName: company?.fantasy_name || company?.name || "Cliente",
           clientId: company?.id || "",
-          isArchived: operationalStatus === "concluido"
+          isArchived: operationalStatus === "concluido",
+          source: 'card' as const
         };
       });
+      
+      // Mapear demands para o mesmo formato - filtrar apenas as que estão em "Agendar Publicação"
+      const mappedDemands: CentralKanbanCard[] = (demandsResult.data || [])
+        .filter(demand => demand.pipeline_statuses?.name === "Agendar Publicação")
+        .map(demand => {
+          const company = demand.tenant_companies;
+          const operationalStatus = demand.period_plans?.operational_status;
+          return {
+            id: demand.id,
+            title: demand.title,
+            description: demand.instructions || demand.description || null,
+            objetivo: demand.objective || null,
+            instrucoes: demand.instructions || null,
+            observations: null,
+            status: demand.pipeline_statuses?.name || "Planejamento",
+            column_name: "Agendar Publicação",
+            delivery_date: demand.due_date || demand.publish_date || new Date().toISOString().split('T')[0],
+            file_location: demand.channel || null,
+            attachments: (demand.attachments as unknown as Attachment[] | null) || [],
+            publication_dates: demand.publish_date ? [{
+              date: demand.publish_date,
+              time: "09:00",
+              platform: demand.channel || undefined
+            }] : [],
+            tenant_id: demand.tenant_id,
+            period_plan_id: demand.period_plan_id,
+            plan_id: null,
+            created_at: demand.created_at,
+            updated_at: demand.updated_at,
+            clientName: company?.fantasy_name || company?.name || "Cliente",
+            clientId: company?.id || demand.client_id || "",
+            isArchived: operationalStatus === "concluido",
+            source: 'demand' as const,
+            demand_id: demand.id,
+            demand_type: demand.demand_type,
+            channel: demand.channel
+          };
+        });
+      
+      // Combinar cards e demands
+      const allMappedCards = [...mappedCards, ...mappedDemands];
 
       // Ordenar por data de publicação mais próxima
-      mappedCards.sort((a, b) => {
+      allMappedCards.sort((a, b) => {
         const dateA = getFirstPublicationDateTime(a);
         const dateB = getFirstPublicationDateTime(b);
         if (!dateA && !dateB) return 0;
@@ -204,8 +263,8 @@ const CentralKanban = () => {
       });
 
       // Separar cards ativos e arquivados
-      const active = mappedCards.filter(card => !card.isArchived);
-      const all = mappedCards;
+      const active = allMappedCards.filter(card => !card.isArchived);
+      const all = allMappedCards;
       setActiveCards(active);
       setAllCards(all);
     } catch (error) {
@@ -240,12 +299,58 @@ const CentralKanban = () => {
           parsedValue = value;
         }
       }
-      const {
-        error
-      } = await supabase.from("cards").update({
-        [field]: parsedValue
-      }).eq("id", selectedCard.id);
-      if (error) throw error;
+      
+      // Choose table based on source
+      if (selectedCard.source === 'demand') {
+        // Map card fields to demand fields
+        const demandUpdateData: Record<string, any> = {};
+        
+        if (field === 'title') demandUpdateData.title = parsedValue;
+        else if (field === 'description' || field === 'instrucoes') demandUpdateData.instructions = parsedValue;
+        else if (field === 'objetivo') demandUpdateData.objective = parsedValue;
+        else if (field === 'observations') demandUpdateData.description = parsedValue;
+        else if (field === 'attachments') demandUpdateData.attachments = parsedValue;
+        else if (field === 'status') {
+          // Find status_id by name
+          const { data: statusData } = await supabase
+            .from("pipeline_statuses")
+            .select("id")
+            .eq("name", value)
+            .limit(1)
+            .maybeSingle();
+          if (statusData) demandUpdateData.status_id = statusData.id;
+        }
+        else if (field === 'publication_dates' && Array.isArray(parsedValue) && parsedValue.length > 0) {
+          demandUpdateData.publish_date = parsedValue[0].date;
+        }
+        else if (field === 'delivery_date') demandUpdateData.due_date = parsedValue;
+        else if (field === 'column_name') {
+          // Find status_id for the new column
+          const newStatus = field === 'column_name' ? value : getColumnFromStatus(value);
+          const { data: statusData } = await supabase
+            .from("pipeline_statuses")
+            .select("id")
+            .eq("name", newStatus)
+            .limit(1)
+            .maybeSingle();
+          if (statusData) demandUpdateData.status_id = statusData.id;
+        }
+        
+        if (Object.keys(demandUpdateData).length > 0) {
+          demandUpdateData.updated_at = new Date().toISOString();
+          const { error } = await supabase
+            .from("demands")
+            .update(demandUpdateData)
+            .eq("id", selectedCard.id);
+
+          if (error) throw error;
+        }
+      } else {
+        const { error } = await supabase.from("cards").update({
+          [field]: parsedValue
+        }).eq("id", selectedCard.id);
+        if (error) throw error;
+      }
 
       // Atualizar estado local
       const updateCard = (c: CentralKanbanCard) => c.id === selectedCard.id ? {
@@ -262,7 +367,14 @@ const CentralKanban = () => {
         setAllCards(prev => prev.filter(c => c.id !== selectedCard.id));
         setIsTaskCardOpen(false);
         setSelectedCard(null);
-        sonnerToast.info("Card removido de Agendar Publicação");
+        sonnerToast.info("Demanda removida de Agendar Publicação");
+      } else if (field === 'status' && parsedValue !== 'Agendar Publicação') {
+        // Remover do kanban central se status mudou
+        setActiveCards(prev => prev.filter(c => c.id !== selectedCard.id));
+        setAllCards(prev => prev.filter(c => c.id !== selectedCard.id));
+        setIsTaskCardOpen(false);
+        setSelectedCard(null);
+        sonnerToast.info("Demanda removida de Agendar Publicação");
       } else {
         sonnerToast.success("Salvo automaticamente");
       }
@@ -507,6 +619,24 @@ const CentralKanban = () => {
           }} className={cn("flex items-center justify-between gap-4 px-4 py-3 bg-background rounded-lg border cursor-pointer hover:bg-muted/50 transition-all duration-300 group", isHighlighted ? "border-primary ring-2 ring-primary/30 bg-primary/5 shadow-lg scale-[1.02]" : "border-border/50")} onClick={() => handleCardClick(card)}>
               {/* Left side: Priority, Company, Content Type, Title */}
               <div className="flex items-center gap-3 min-w-0 flex-1">
+                {/* Source Badge */}
+                {card.source === 'demand' ? (
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] px-2 py-0.5 font-medium bg-amber-500/10 text-amber-600 border-amber-500/30 whitespace-nowrap"
+                  >
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    Manual
+                  </Badge>
+                ) : (
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] px-2 py-0.5 font-medium bg-violet-500/10 text-violet-600 border-violet-500/30 whitespace-nowrap"
+                  >
+                    <FileText className="h-3 w-3 mr-1" />
+                    Planejado
+                  </Badge>
+                )}
                 {priority && <Badge className={cn("text-[10px] px-2 py-0.5 font-medium whitespace-nowrap", priority.className)}>
                     {priority.label}
                   </Badge>}

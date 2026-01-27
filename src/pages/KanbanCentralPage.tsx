@@ -9,7 +9,9 @@ import {
   Paperclip, 
   LayoutGrid,
   Archive,
-  Search
+  Search,
+  Sparkles,
+  Calendar
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import TaskCard, { getColumnFromStatus, getStatusFromColumn } from "@/components/TaskCard";
@@ -121,33 +123,56 @@ const KanbanCentralPage = () => {
     try {
       setLoading(true);
 
-      // Buscar todos os cards com informações do período e cliente
-      // Filtrando apenas os que pertencem a períodos com operational_status = 'em_andamento'
-      const { data: activeCardsData, error: activeError } = await supabase
-        .from("cards")
-        .select(`
-          *,
-          period_plans!cards_period_plan_id_fkey (
-            id,
-            operational_status,
-            company_id,
-            tenant_companies!period_plans_company_id_fkey (
+      // Buscar cards e demands em paralelo
+      const [cardsResult, demandsResult] = await Promise.all([
+        supabase
+          .from("cards")
+          .select(`
+            *,
+            period_plans!cards_period_plan_id_fkey (
+              id,
+              operational_status,
+              company_id,
+              tenant_companies!period_plans_company_id_fkey (
+                id,
+                fantasy_name,
+                name
+              )
+            )
+          `)
+          .eq("tenant_id", tenantId)
+          .order("delivery_date", { ascending: true }),
+        supabase
+          .from("demands")
+          .select(`
+            *,
+            pipeline_statuses!demands_status_id_fkey (
+              name,
+              color,
+              position
+            ),
+            tenant_companies!demands_client_id_fkey (
               id,
               fantasy_name,
               name
+            ),
+            period_plans!demands_period_plan_id_fkey (
+              id,
+              operational_status
             )
-          )
-        `)
-        .eq("tenant_id", tenantId)
-        .order("delivery_date", { ascending: true });
+          `)
+          .eq("tenant_id", tenantId)
+          .order("created_at", { ascending: true })
+      ]);
 
-      if (activeError) throw activeError;
+      if (cardsResult.error) throw cardsResult.error;
+      if (demandsResult.error) throw demandsResult.error;
 
       // Separar cards ativos (em_andamento) e arquivados (concluido)
       const activeCards: CentralKanbanCard[] = [];
       const archived: CentralKanbanCard[] = [];
 
-      (activeCardsData || []).forEach(card => {
+      (cardsResult.data || []).forEach(card => {
         const period = card.period_plans;
         const company = period?.tenant_companies;
         const mappedCard: CentralKanbanCard = {
@@ -157,7 +182,8 @@ const KanbanCentralPage = () => {
           clientName: company?.fantasy_name || company?.name || "Cliente",
           clientId: company?.id || "",
           periodPlanId: period?.id || "",
-          isArchived: false
+          isArchived: false,
+          source: 'card' as const
         };
 
         // Separar por status operacional do período
@@ -167,6 +193,56 @@ const KanbanCentralPage = () => {
           archived.push({ ...mappedCard, isArchived: true });
         }
         // Cards de períodos 'em_planejamento' não aparecem no kanban central
+      });
+      
+      // Mapear demands para o formato do kanban
+      // Incluir apenas as que NÃO estão em "Planejamento" (já passaram para produção)
+      (demandsResult.data || []).forEach(demand => {
+        const statusName = demand.pipeline_statuses?.name || "Planejamento";
+        // Pular demandas em Planejamento - elas não devem aparecer no kanban central
+        if (statusName === "Planejamento") return;
+        
+        const company = demand.tenant_companies;
+        const period = demand.period_plans;
+        const columnName = getColumnFromStatus(statusName);
+        
+        const mappedDemand: CentralKanbanCard = {
+          id: demand.id,
+          title: demand.title,
+          description: demand.instructions || demand.description || null,
+          objetivo: demand.objective || null,
+          instrucoes: demand.instructions || null,
+          observations: null,
+          status: statusName,
+          column_name: columnName,
+          delivery_date: demand.due_date || demand.publish_date || new Date().toISOString().split('T')[0],
+          file_location: demand.channel || null,
+          attachments: (demand.attachments as unknown as Attachment[] | null) || [],
+          publication_dates: demand.publish_date ? [{
+            date: demand.publish_date,
+            time: "09:00",
+            platform: demand.channel || undefined
+          }] : [],
+          tenant_id: demand.tenant_id,
+          period_plan_id: demand.period_plan_id,
+          plan_id: null,
+          created_at: demand.created_at,
+          updated_at: demand.updated_at,
+          clientName: company?.fantasy_name || company?.name || "Cliente",
+          clientId: company?.id || demand.client_id || "",
+          periodPlanId: period?.id || "",
+          isArchived: period?.operational_status === "concluido",
+          source: 'demand' as const,
+          demand_id: demand.id,
+          demand_type: demand.demand_type,
+          channel: demand.channel
+        };
+        
+        if (period?.operational_status === 'concluido') {
+          archived.push(mappedDemand);
+        } else {
+          activeCards.push(mappedDemand);
+        }
       });
 
       setCards(activeCards);
@@ -214,14 +290,34 @@ const KanbanCentralPage = () => {
       )
     );
 
-    // Atualizar no banco
+    // Atualizar no banco (escolher tabela correta baseado no source)
     try {
-      const { error } = await supabase
-        .from("cards")
-        .update({ column_name: newColumnName, status: newStatus })
-        .eq("id", draggableId);
+      if (card.source === 'demand') {
+        // Para demands, precisamos buscar o status_id correspondente
+        const { data: statusData } = await supabase
+          .from("pipeline_statuses")
+          .select("id")
+          .eq("name", newStatus)
+          .limit(1)
+          .maybeSingle();
+        
+        const { error } = await supabase
+          .from("demands")
+          .update({ 
+            status_id: statusData?.id,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", card.id);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("cards")
+          .update({ column_name: newColumnName, status: newStatus })
+          .eq("id", card.id);
+
+        if (error) throw error;
+      }
 
       sonnerToast.success(`Movida para "${newColumnName}"`);
     } catch (error) {
@@ -280,8 +376,54 @@ const KanbanCentralPage = () => {
         updateData.column_name = newColumnName;
       }
       
-      const { error } = await supabase.from("cards").update(updateData).eq("id", selectedCard.id);
-      if (error) throw error;
+      // Choose table based on source
+      if (selectedCard.source === 'demand') {
+        // Map card fields to demand fields
+        const demandUpdateData: Record<string, any> = {};
+        
+        if (field === 'title') demandUpdateData.title = parsedValue;
+        else if (field === 'description' || field === 'instrucoes') demandUpdateData.instructions = parsedValue;
+        else if (field === 'objetivo') demandUpdateData.objective = parsedValue;
+        else if (field === 'observations') demandUpdateData.description = parsedValue;
+        else if (field === 'attachments') demandUpdateData.attachments = parsedValue;
+        else if (field === 'status') {
+          // Find status_id by name
+          const { data: statusData } = await supabase
+            .from("pipeline_statuses")
+            .select("id")
+            .eq("name", value)
+            .limit(1)
+            .maybeSingle();
+          if (statusData) demandUpdateData.status_id = statusData.id;
+        }
+        else if (field === 'publication_dates' && Array.isArray(parsedValue) && parsedValue.length > 0) {
+          demandUpdateData.publish_date = parsedValue[0].date;
+        }
+        else if (field === 'delivery_date') demandUpdateData.due_date = parsedValue;
+        else if (field === 'column_name') {
+          // Find status_id for the new column
+          const { data: statusData } = await supabase
+            .from("pipeline_statuses")
+            .select("id")
+            .eq("name", value)
+            .limit(1)
+            .maybeSingle();
+          if (statusData) demandUpdateData.status_id = statusData.id;
+        }
+        
+        if (Object.keys(demandUpdateData).length > 0) {
+          demandUpdateData.updated_at = new Date().toISOString();
+          const { error } = await supabase
+            .from("demands")
+            .update(demandUpdateData)
+            .eq("id", selectedCard.id);
+
+          if (error) throw error;
+        }
+      } else {
+        const { error } = await supabase.from("cards").update(updateData).eq("id", selectedCard.id);
+        if (error) throw error;
+      }
 
       // Atualizar estado local (include column_name if status changed)
       setCards(prev => prev.map(c => {
@@ -428,16 +570,21 @@ const KanbanCentralPage = () => {
   const handleDelete = async () => {
     if (!selectedCard) return;
     try {
-      const { error } = await supabase.from("cards").delete().eq("id", selectedCard.id);
-      if (error) throw error;
+      if (selectedCard.source === 'demand') {
+        const { error } = await supabase.from("demands").delete().eq("id", selectedCard.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("cards").delete().eq("id", selectedCard.id);
+        if (error) throw error;
+      }
       
       setCards(prev => prev.filter(c => c.id !== selectedCard.id));
       setIsTaskCardOpen(false);
       setSelectedCard(null);
-      sonnerToast.success("Card excluído");
+      sonnerToast.success("Demanda excluída");
     } catch (error) {
       console.error("Error deleting card:", error);
-      sonnerToast.error("Erro ao excluir card");
+      sonnerToast.error("Erro ao excluir demanda");
     }
   };
 
@@ -635,17 +782,34 @@ const KanbanCentralPage = () => {
                                         snapshot.isDragging ? "shadow-xl rotate-1 scale-105 border-primary" : "border-border/50",
                                         isHighlighted && "border-primary bg-primary/5"
                                       )}>
-                                        {/* Priority Badge (only for Agendar Publicação column) */}
-                                        {priority && (
-                                          <div className="mb-2">
+                                        {/* Source & Priority Badges */}
+                                        <div className="flex items-center gap-1 mb-2">
+                                          {card.source === 'demand' ? (
+                                            <Badge 
+                                              variant="outline" 
+                                              className="text-[10px] px-2 py-0.5 font-medium bg-amber-500/10 text-amber-600 border-amber-500/30"
+                                            >
+                                              <Sparkles className="h-3 w-3 mr-1" />
+                                              Manual
+                                            </Badge>
+                                          ) : (
+                                            <Badge 
+                                              variant="outline" 
+                                              className="text-[10px] px-2 py-0.5 font-medium bg-violet-500/10 text-violet-600 border-violet-500/30"
+                                            >
+                                              <Calendar className="h-3 w-3 mr-1" />
+                                              Planejado
+                                            </Badge>
+                                          )}
+                                          {priority && (
                                             <Badge 
                                               variant="outline" 
                                               className={cn("text-[10px] px-2 py-0.5 font-semibold", priority.className)}
                                             >
                                               {priority.label}
                                             </Badge>
-                                          </div>
-                                        )}
+                                          )}
+                                        </div>
                                         
                                         {/* Client Badge */}
                                         <Badge 
