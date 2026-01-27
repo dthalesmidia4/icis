@@ -21,7 +21,10 @@ import TaskCard, { getColumnFromStatus, getStatusFromColumn, LEGACY_STATUS_MAP }
 import type { KanbanCardData, Attachment, PublicationDate } from "@/components/TaskCard";
 import SmartSearchBar from "@/components/SmartSearchBar";
 import { CreateDemandModal } from "@/components/CreateDemandModal";
+import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { cn } from "@/lib/utils";
+import { format, parse } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 // Using types from TaskCard component
 
@@ -82,6 +85,14 @@ export default function Schedule() {
   const [historyPeriods, setHistoryPeriods] = useState<{ id: string; period_title: string; period_start: string; period_end: string; status: string; created_at: string; final_plan: Json | null; }[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [activePeriodId, setActivePeriodId] = useState<string | null>(null);
+  
+  // Schedule Publication Modal state
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [pendingScheduleCard, setPendingScheduleCard] = useState<{
+    card: KanbanCardData;
+    previousColumn: string;
+    previousStatus: string;
+  } | null>(null);
 
   // Prioridade: 1) State local, 2) Router state, 3) Query param, 4) SessionStorage
   const periodPlanId = useMemo(() => {
@@ -270,21 +281,33 @@ export default function Schedule() {
 
     const newColumnName = destination.droppableId;
     const newStatus = getStatusFromColumn(newColumnName);
+    const previousColumn = source.droppableId;
+    const previousStatus = card.status;
 
-    // Validação: exigir data de publicação para mover para "Agendar Publicação"
+    // Se estiver movendo para "Agendar Publicação", abrir modal de confirmação
     if (newColumnName === "Agendar Publicação") {
-      const hasValidPublicationDate = card.publication_dates?.some(pd => pd.date && pd.time) || false;
-      const hasDeliveryDate = !!card.delivery_date;
+      // Guardar estado pendente para o modal
+      setPendingScheduleCard({
+        card,
+        previousColumn,
+        previousStatus,
+      });
       
-      if (!hasValidPublicationDate && !hasDeliveryDate) {
-        sonnerToast.error("Defina uma data de publicação", {
-          description: "Para mover para 'Agendar Publicação', defina data e horário primeiro."
-        });
-        return;
-      }
+      // Mover visualmente para dar feedback
+      setCards((prev) =>
+        prev.map((c) =>
+          c.id === draggableId
+            ? { ...c, column_name: newColumnName, status: newStatus }
+            : c
+        )
+      );
+      
+      // Abrir modal
+      setShowScheduleModal(true);
+      return;
     }
 
-    // Atualizar localmente
+    // Para outras colunas, mover normalmente
     setCards((prev) =>
       prev.map((c) =>
         c.id === draggableId
@@ -300,7 +323,7 @@ export default function Schedule() {
         const { data: statusData } = await supabase
           .from("pipeline_statuses")
           .select("id")
-          .eq("name", newColumnName) // Usar newColumnName, não newStatus
+          .eq("name", newColumnName)
           .limit(1)
           .maybeSingle();
         
@@ -335,6 +358,137 @@ export default function Schedule() {
       });
       fetchPeriodPlanCards();
     }
+  };
+
+  // Handler para confirmar agendamento no modal
+  const handleConfirmSchedule = async (date: string, time: string) => {
+    if (!pendingScheduleCard) return;
+
+    const { card } = pendingScheduleCard;
+    
+    try {
+      // Criar datetime combinando data e hora
+      const publishDateTime = new Date(`${date}T${time}:00`);
+      
+      if (card.source === 'demand') {
+        // Para demands, buscar status_id e salvar publish_date
+        const { data: statusData } = await supabase
+          .from("pipeline_statuses")
+          .select("id")
+          .eq("name", "Agendar Publicação")
+          .limit(1)
+          .maybeSingle();
+        
+        const { error } = await supabase
+          .from("demands")
+          .update({ 
+            status_id: statusData?.id,
+            publish_date: date,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", card.id);
+
+        if (error) throw error;
+      } else {
+        // Para cards, salvar publication_dates
+        const newPublicationDates = [{
+          date,
+          time,
+          platform: card.file_location || undefined
+        }];
+        
+        const { error } = await supabase
+          .from("cards")
+          .update({ 
+            column_name: "Agendar Publicação", 
+            status: getStatusFromColumn("Agendar Publicação"),
+            publication_dates: newPublicationDates
+          })
+          .eq("id", card.id);
+
+        if (error) throw error;
+        
+        // Atualizar card localmente com publication_dates
+        setCards((prev) =>
+          prev.map((c) =>
+            c.id === card.id
+              ? { ...c, publication_dates: newPublicationDates }
+              : c
+          )
+        );
+      }
+
+      // Formatar texto do toast
+      const dayOfWeek = format(publishDateTime, "EEEE", { locale: ptBR });
+      const dateExtenso = format(publishDateTime, "d 'de' MMMM", { locale: ptBR });
+      
+      // Toast de sucesso com link
+      sonnerToast.success(
+        <div className="flex flex-col gap-1">
+          <span>Conteúdo agendado para {dayOfWeek}, {dateExtenso} às {time}.</span>
+          <a 
+            href="/content-schedule" 
+            className="text-primary underline hover:no-underline text-sm font-medium"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/content-schedule");
+            }}
+          >
+            Ver Agendamentos
+          </a>
+        </div>,
+        { duration: 5000 }
+      );
+
+      // Limpar estado
+      setShowScheduleModal(false);
+      setPendingScheduleCard(null);
+      
+    } catch (error) {
+      console.error("Error scheduling card:", error);
+      sonnerToast.error("Erro ao agendar publicação");
+      
+      // Reverter em caso de erro
+      if (pendingScheduleCard) {
+        setCards((prev) =>
+          prev.map((c) =>
+            c.id === card.id
+              ? { ...c, column_name: pendingScheduleCard.previousColumn, status: pendingScheduleCard.previousStatus }
+              : c
+          )
+        );
+      }
+      setShowScheduleModal(false);
+      setPendingScheduleCard(null);
+    }
+  };
+
+  // Handler para cancelar agendamento no modal
+  const handleCancelSchedule = () => {
+    if (!pendingScheduleCard) {
+      setShowScheduleModal(false);
+      return;
+    }
+
+    const { card, previousColumn, previousStatus } = pendingScheduleCard;
+    
+    // Reverter card para coluna anterior
+    setCards((prev) =>
+      prev.map((c) =>
+        c.id === card.id
+          ? { ...c, column_name: previousColumn, status: previousStatus }
+          : c
+      )
+    );
+
+    // Toast neutro
+    sonnerToast("O conteúdo não foi agendado corretamente.", {
+      duration: 3500,
+    });
+
+    // Limpar estado
+    setShowScheduleModal(false);
+    setPendingScheduleCard(null);
   };
 
   const handleAutoSave = async (field: string, value: string) => {
@@ -1113,35 +1267,17 @@ export default function Schedule() {
                                         snapshot.isDragging ? "shadow-xl rotate-1 scale-105 border-primary" : "border-border/50",
                                         isHighlighted && "border-primary bg-primary/5"
                                       )}>
-                                        {/* Source Badge (Manual demand vs Planned) */}
-                                        <div className="flex items-center gap-1 mb-2">
-                                          {card.source === 'demand' ? (
-                                            <Badge 
-                                              variant="outline" 
-                                              className="text-[10px] px-2 py-0.5 font-medium bg-amber-500/10 text-amber-600 border-amber-500/30"
-                                            >
-                                              <Sparkles className="h-3 w-3 mr-1" />
-                                              Manual
-                                            </Badge>
-                                          ) : (
-                                            <Badge 
-                                              variant="outline" 
-                                              className="text-[10px] px-2 py-0.5 font-medium bg-violet-500/10 text-violet-600 border-violet-500/30"
-                                            >
-                                              <Calendar className="h-3 w-3 mr-1" />
-                                              Planejado
-                                            </Badge>
-                                          )}
-                                          {/* Priority Badge (only for Agendar Publicação column) */}
-                                          {priority && (
+                                        {/* Priority Badge (only for Agendar Publicação column) */}
+                                        {priority && (
+                                          <div className="mb-2">
                                             <Badge 
                                               variant="outline" 
                                               className={cn("text-[10px] px-2 py-0.5 font-semibold", priority.className)}
                                             >
                                               {priority.label}
                                             </Badge>
-                                          )}
-                                        </div>
+                                          </div>
+                                        )}
                                         
                                         {/* Platform Badges */}
                                         {platforms.length > 0 && (
@@ -1320,6 +1456,20 @@ export default function Schedule() {
         onOpenChange={setShowCreateDemandModal}
         periodPlanId={periodPlanId}
         onDemandCreated={fetchPeriodPlanCards}
+      />
+
+      {/* Schedule Publication Modal */}
+      <SchedulePublicationModal
+        open={showScheduleModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCancelSchedule();
+          }
+        }}
+        existingDate={pendingScheduleCard?.card?.publication_dates?.[0]?.date || null}
+        existingTime={pendingScheduleCard?.card?.publication_dates?.[0]?.time || null}
+        onConfirm={handleConfirmSchedule}
+        onCancel={handleCancelSchedule}
       />
     </div>
   );

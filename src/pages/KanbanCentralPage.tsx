@@ -9,9 +9,7 @@ import {
   Paperclip, 
   LayoutGrid,
   Archive,
-  Search,
-  Sparkles,
-  Calendar
+  Search
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import TaskCard, { getColumnFromStatus, getStatusFromColumn } from "@/components/TaskCard";
@@ -782,34 +780,17 @@ const KanbanCentralPage = () => {
                                         snapshot.isDragging ? "shadow-xl rotate-1 scale-105 border-primary" : "border-border/50",
                                         isHighlighted && "border-primary bg-primary/5"
                                       )}>
-                                        {/* Source & Priority Badges */}
-                                        <div className="flex items-center gap-1 mb-2">
-                                          {card.source === 'demand' ? (
-                                            <Badge 
-                                              variant="outline" 
-                                              className="text-[10px] px-2 py-0.5 font-medium bg-amber-500/10 text-amber-600 border-amber-500/30"
-                                            >
-                                              <Sparkles className="h-3 w-3 mr-1" />
-                                              Manual
-                                            </Badge>
-                                          ) : (
-                                            <Badge 
-                                              variant="outline" 
-                                              className="text-[10px] px-2 py-0.5 font-medium bg-violet-500/10 text-violet-600 border-violet-500/30"
-                                            >
-                                              <Calendar className="h-3 w-3 mr-1" />
-                                              Planejado
-                                            </Badge>
-                                          )}
-                                          {priority && (
+                                        {/* Priority Badge (only for Agendar Publicação column) */}
+                                        {priority && (
+                                          <div className="mb-2">
                                             <Badge 
                                               variant="outline" 
                                               className={cn("text-[10px] px-2 py-0.5 font-semibold", priority.className)}
                                             >
                                               {priority.label}
                                             </Badge>
-                                          )}
-                                        </div>
+                                          </div>
+                                        )}
                                         
                                         {/* Client Badge */}
                                         <Badge 
