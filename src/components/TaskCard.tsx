@@ -68,11 +68,17 @@ export interface KanbanCardData {
   instrucoes: string | null;
   observations: string | null;
   period_plan_id: string | null;
+  plan_id?: string | null;
   tenant_id: string;
   created_at: string;
   updated_at: string;
   attachments: Attachment[] | null;
   publication_dates?: PublicationDate[] | null;
+  // Fields for demands mapped to cards
+  source?: 'card' | 'demand';
+  demand_id?: string;
+  demand_type?: string | null;
+  channel?: string | null;
 }
 interface TaskCardProps {
   open: boolean;

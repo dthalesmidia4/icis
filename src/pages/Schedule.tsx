@@ -122,30 +122,85 @@ export default function Schedule() {
     try {
       setLoading(true);
       
-      // Fetch cards and period plan info
-      const [cardsResponse, periodPlanResponse] = await Promise.all([
+      // Fetch cards, demands, and period plan info in parallel
+      const [cardsResponse, demandsResponse, periodPlanResponse] = await Promise.all([
         supabase
           .from("cards")
           .select("*")
           .eq("period_plan_id", periodPlanId)
           .order("created_at", { ascending: true }),
         supabase
+          .from("demands")
+          .select(`
+            *,
+            pipeline_statuses!demands_status_id_fkey (
+              name,
+              color,
+              position
+            )
+          `)
+          .eq("period_plan_id", periodPlanId)
+          .order("created_at", { ascending: true }),
+        supabase
           .from("period_plans")
-          .select("period_title, period_start, period_end")
+          .select("period_title, period_start, period_end, tenant_id")
           .eq("id", periodPlanId)
           .single()
       ]);
 
       if (cardsResponse.error) throw cardsResponse.error;
+      if (demandsResponse.error) throw demandsResponse.error;
       if (periodPlanResponse.error) throw periodPlanResponse.error;
 
-      // Cast attachments and publication_dates from Json to proper types
-      const cardsWithAttachments = (cardsResponse.data || []).map(card => ({
+      // Cast attachments and publication_dates from Json to proper types for cards
+      const cardsWithAttachments: KanbanCardData[] = (cardsResponse.data || []).map(card => ({
         ...card,
         attachments: (card.attachments as unknown as Attachment[] | null) || [],
-        publication_dates: (card.publication_dates as unknown as PublicationDate[] | null) || []
+        publication_dates: (card.publication_dates as unknown as PublicationDate[] | null) || [],
+        source: 'card' as const
       }));
-      setCards(cardsWithAttachments);
+      
+      // Map demands to KanbanCardData format
+      const demandsAsCards: KanbanCardData[] = (demandsResponse.data || []).map(demand => {
+        // Map status name to column_name
+        const statusName = demand.pipeline_statuses?.name || "Planejamento";
+        const columnName = getColumnFromStatus(statusName);
+        
+        return {
+          id: demand.id,
+          title: demand.title,
+          description: demand.instructions || demand.description || null,
+          objetivo: demand.objective || null,
+          instrucoes: demand.instructions || null,
+          observations: null,
+          status: statusName,
+          column_name: columnName,
+          delivery_date: demand.due_date || demand.publish_date || new Date().toISOString().split('T')[0],
+          file_location: demand.channel || null,
+          attachments: (demand.attachments as unknown as Attachment[] | null) || [],
+          publication_dates: demand.publish_date ? [{
+            date: demand.publish_date,
+            time: "09:00",
+            platform: demand.channel || undefined
+          }] : [],
+          tenant_id: demand.tenant_id,
+          period_plan_id: demand.period_plan_id,
+          plan_id: null,
+          created_at: demand.created_at,
+          updated_at: demand.updated_at,
+          source: 'demand' as const,
+          demand_id: demand.id,
+          demand_type: demand.demand_type,
+          channel: demand.channel
+        };
+      });
+      
+      // Combine cards and demands, sorted by created_at
+      const allItems = [...cardsWithAttachments, ...demandsAsCards].sort((a, b) => 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      
+      setCards(allItems);
       
       if (periodPlanResponse.data) {
         setReferencePeriod({
@@ -172,20 +227,32 @@ export default function Schedule() {
     try {
       setIsDeleting(true);
 
-      const { error } = await supabase
-        .from("cards")
-        .delete()
-        .eq("id", cardToDelete);
+      // Find the card to determine its source
+      const cardToRemove = cards.find(c => c.id === cardToDelete);
+      
+      if (cardToRemove?.source === 'demand') {
+        const { error } = await supabase
+          .from("demands")
+          .delete()
+          .eq("id", cardToDelete);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("cards")
+          .delete()
+          .eq("id", cardToDelete);
 
-      sonnerToast.success("Card excluído com sucesso!");
+        if (error) throw error;
+      }
+
+      sonnerToast.success("Demanda excluída com sucesso!");
       setCardToDelete(null);
       
       await fetchPeriodPlanCards();
     } catch (error) {
       console.error("Error deleting card:", error);
-      sonnerToast.error("Erro ao excluir card");
+      sonnerToast.error("Erro ao excluir demanda");
     } finally {
       setIsDeleting(false);
     }
@@ -226,14 +293,34 @@ export default function Schedule() {
       )
     );
 
-    // Atualizar no banco
+    // Atualizar no banco (escolher tabela correta baseado no source)
     try {
-      const { error } = await supabase
-        .from("cards")
-        .update({ column_name: newColumnName, status: newStatus })
-        .eq("id", draggableId);
+      if (card.source === 'demand') {
+        // Para demands, precisamos buscar o status_id correspondente
+        const { data: statusData } = await supabase
+          .from("pipeline_statuses")
+          .select("id")
+          .eq("name", newStatus)
+          .limit(1)
+          .maybeSingle();
+        
+        const { error } = await supabase
+          .from("demands")
+          .update({ 
+            status_id: statusData?.id,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", card.id);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("cards")
+          .update({ column_name: newColumnName, status: newStatus })
+          .eq("id", card.id);
+
+        if (error) throw error;
+      }
 
       toast({
         title: "Tarefa movida!",
@@ -284,12 +371,48 @@ export default function Schedule() {
         updateData.column_name = newColumnName;
       }
       
-      const { error } = await supabase
-        .from("cards")
-        .update(updateData)
-        .eq("id", selectedCard.id);
+      // Choose table based on source
+      if (selectedCard.source === 'demand') {
+        // Map card fields to demand fields
+        const demandUpdateData: Record<string, any> = {};
+        
+        if (field === 'title') demandUpdateData.title = parsedValue;
+        else if (field === 'description' || field === 'instrucoes') demandUpdateData.instructions = parsedValue;
+        else if (field === 'objetivo') demandUpdateData.objective = parsedValue;
+        else if (field === 'observations') demandUpdateData.description = parsedValue;
+        else if (field === 'attachments') demandUpdateData.attachments = parsedValue;
+        else if (field === 'status') {
+          // Find status_id by name
+          const { data: statusData } = await supabase
+            .from("pipeline_statuses")
+            .select("id")
+            .eq("name", value)
+            .limit(1)
+            .maybeSingle();
+          if (statusData) demandUpdateData.status_id = statusData.id;
+        }
+        else if (field === 'publication_dates' && Array.isArray(parsedValue) && parsedValue.length > 0) {
+          demandUpdateData.publish_date = parsedValue[0].date;
+        }
+        else if (field === 'delivery_date') demandUpdateData.due_date = parsedValue;
+        
+        if (Object.keys(demandUpdateData).length > 0) {
+          demandUpdateData.updated_at = new Date().toISOString();
+          const { error } = await supabase
+            .from("demands")
+            .update(demandUpdateData)
+            .eq("id", selectedCard.id);
 
-      if (error) throw error;
+          if (error) throw error;
+        }
+      } else {
+        const { error } = await supabase
+          .from("cards")
+          .update(updateData)
+          .eq("id", selectedCard.id);
+
+        if (error) throw error;
+      }
 
       // Update local cards state (include column_name if status changed)
       setCards(prev => prev.map(c => {
