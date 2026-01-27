@@ -207,8 +207,8 @@ const PlanPeriod = () => {
     if (!periodToDelete) return;
     setIsDeleting(true);
     try {
-      // First, delete associated cards
-      await supabase.from('cards').delete().eq('period_plan_id', periodToDelete.id);
+      // First, delete associated demands
+      await supabase.from('demands').delete().eq('period_plan_id', periodToDelete.id);
 
       // Then delete the period plan
       const {
@@ -391,8 +391,31 @@ const PlanPeriod = () => {
         status: 'completed'
       }).eq('id', periodPlanId);
 
-      // Create cards from all selected demands
-      const cardsToInsert = allDemands.map(item => {
+      // Get pipeline and initial status for demands
+      const { data: pipelineData } = await supabase
+        .from('pipelines')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('is_default', true)
+        .limit(1)
+        .maybeSingle();
+      
+      const pipelineId = pipelineData?.id;
+      
+      let statusId: string | null = null;
+      if (pipelineId) {
+        const { data: statusData } = await supabase
+          .from('pipeline_statuses')
+          .select('id')
+          .eq('pipeline_id', pipelineId)
+          .eq('is_initial', true)
+          .limit(1)
+          .maybeSingle();
+        statusId = statusData?.id || null;
+      }
+
+      // Create demands from all selected demands
+      const demandsToInsert = allDemands.map(item => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const anyItem = item as any;
         const titleBase = item.titulo || anyItem.title || 'Sem título';
@@ -408,22 +431,27 @@ const PlanPeriod = () => {
         const instrucoesParts = [instrucoesProducao, ctaRecomendado && `CTA: ${ctaRecomendado}`].filter(Boolean);
         return {
           tenant_id: tenantId,
+          client_id: selectedClient.id,
+          pipeline_id: pipelineId,
+          status_id: statusId,
           period_plan_id: periodPlanId,
           title,
-          objetivo: objetivo || null,
-          description: descricao,
+          objective: objetivo || null,
+          instructions: descricao,
           instrucoes: instrucoesParts.length > 0 ? instrucoesParts.join('\n\n') : null,
           delivery_date: publicationDate,
-          file_location: channel || null, // Apenas o canal (Instagram, LinkedIn, etc.)
-          status: 'unassigned',
+          publish_date: publicationDate,
+          channel: channel || null,
+          demand_type: tipo || null,
+          source: 'card',
           column_name: 'Planejamento',
           observations: null
         };
       });
-      if (cardsToInsert.length > 0) {
+      if (demandsToInsert.length > 0 && pipelineId && statusId) {
         const {
           error
-        } = await supabase.from('cards').insert(cardsToInsert);
+        } = await supabase.from('demands').insert(demandsToInsert);
         if (error) throw error;
       }
       toast.success(`${selectedDemands.length} demandas integradas ao Kanban!`);
@@ -832,15 +860,44 @@ const PlanPeriod = () => {
   const [integratingKanban, setIntegratingKanban] = useState(false);
   const [kanbanIntegrated, setKanbanIntegrated] = useState(false);
   const handleIntegrateToKanban = async () => {
-    if (!periodPlanId || !tenantId) return;
+    if (!periodPlanId || !tenantId || !selectedClient) return;
     setIntegratingKanban(true);
     try {
+      // Get pipeline and initial status for demands
+      const { data: pipelineData } = await supabase
+        .from('pipelines')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('is_default', true)
+        .limit(1)
+        .maybeSingle();
+      
+      const pipelineId = pipelineData?.id;
+      
+      let statusId: string | null = null;
+      if (pipelineId) {
+        const { data: statusData } = await supabase
+          .from('pipeline_statuses')
+          .select('id')
+          .eq('pipeline_id', pipelineId)
+          .eq('is_initial', true)
+          .limit(1)
+          .maybeSingle();
+        statusId = statusData?.id || null;
+      }
+
+      if (!pipelineId || !statusId) {
+        toast.error('Pipeline não configurado. Acesse /dev/prompts primeiro.');
+        setIntegratingKanban(false);
+        return;
+      }
+
       // Get the final plan from the current state
       const primaryPlan = selectedMode === 'normal' ? defaultPlan : ultraPlan;
       const finalPlanItems = kanbanIntegrated ? [] : optionalPackage.length > 0 ? [...primaryPlan, ...optionalPackage] : primaryPlan;
 
-      // Create cards from the final plan - map new prompt format to card fields
-      const cardsToInsert = finalPlanItems.map(item => {
+      // Create demands from the final plan
+      const demandsToInsert = finalPlanItems.map(item => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const anyItem = item as any;
 
@@ -848,42 +905,41 @@ const PlanPeriod = () => {
         const titleBase = item.titulo || anyItem.title || 'Sem título';
         const tipo = anyItem.tipo || item.tipo_conteudo || anyItem.type || '';
         const channel = item.canal || anyItem.channel || '';
-        // Compor título: "Tipo - Título" (ex: "Reels - Do Caos ao Controle")
         const title = tipo ? `${tipo} - ${titleBase}` : titleBase;
         const publicationDate = item.data_sugerida || anyItem.suggested_date || anyItem.date || new Date().toISOString().split('T')[0];
 
-        // ATIVIDADE: priorizar conteudo (conteúdo dos slides/roteiros) > texto_da_peca > descricao_da_tarefa
         const descricao = anyItem.conteudo || anyItem.texto_da_peca || anyItem.descricao_da_tarefa || item.descricao || anyItem.description || '';
-
-        // OBJETIVO: campo separado
         const objetivo = anyItem.objetivo || anyItem.objective || '';
-
-        // INSTRUÇÕES: combinar instruções de produção + CTA recomendado
         const instrucoesProducao = anyItem.instrucoes_de_producao || '';
         const ctaRecomendado = anyItem.cta_recomendado || '';
         const instrucoesParts = [instrucoesProducao, ctaRecomendado && `CTA: ${ctaRecomendado}`].filter(Boolean);
         return {
           tenant_id: tenantId,
+          client_id: selectedClient.id,
+          pipeline_id: pipelineId,
+          status_id: statusId,
           period_plan_id: periodPlanId,
           title,
-          objetivo: objetivo || null,
-          description: descricao,
+          objective: objetivo || null,
+          instructions: descricao,
           instrucoes: instrucoesParts.length > 0 ? instrucoesParts.join('\n\n') : null,
           delivery_date: publicationDate,
-          file_location: channel || null, // Apenas o canal (Instagram, LinkedIn, etc.)
-          status: 'unassigned',
+          publish_date: publicationDate,
+          channel: channel || null,
+          demand_type: tipo || null,
+          source: 'card',
           column_name: 'Planejamento',
           observations: null
         };
       });
-      if (cardsToInsert.length > 0) {
+      if (demandsToInsert.length > 0) {
         const {
           error
-        } = await supabase.from('cards').insert(cardsToInsert);
+        } = await supabase.from('demands').insert(demandsToInsert);
         if (error) throw error;
       }
       setKanbanIntegrated(true);
-      toast.success(`${cardsToInsert.length} demandas integradas ao Kanban!`);
+      toast.success(`${demandsToInsert.length} demandas integradas ao Kanban!`);
     } catch (error) {
       console.error('Error integrating to Kanban:', error);
       toast.error('Erro ao integrar demandas ao Kanban');

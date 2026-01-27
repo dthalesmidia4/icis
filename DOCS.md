@@ -118,7 +118,10 @@ Sistema SaaS para agências de marketing digital que automatiza o planejamento d
 | `strategies` | Estratégias globais de marketing | `tenant_companies.id` |
 | `question_sessions` | Sessões de perguntas guias | `tenant_companies.id` |
 | `period_plans` | Planejamentos de período | `tenant_companies.id` |
-| `cards` | Demandas/tarefas do Kanban | `period_plans.id` |
+| `demands` | **Tabela unificada de demandas/tarefas** | `period_plans.id`, `pipelines.id` |
+| `pipelines` | Definição de pipelines do Kanban | `tenants.id` |
+| `pipeline_statuses` | Status/colunas de cada pipeline | `pipelines.id` |
+| `client_demand_templates` | Templates de demandas por cliente | `tenant_companies.id` |
 | `system_prompts` | Prompts customizáveis | `tenants.id` |
 | `api_keys` | Chaves de API (OpenAI) | `tenants.id` |
 
@@ -193,21 +196,27 @@ Sistema SaaS para agências de marketing digital que automatiza o planejamento d
            │ 1:N
            ▼
 ┌─────────────────────┐
-│       cards         │
+│      demands        │
 │─────────────────────│
 │ id (PK)             │
 │ period_plan_id (FK) │
+│ pipeline_id (FK)    │
+│ status_id (FK)      │
+│ client_id (FK)      │
 │ tenant_id (FK)      │
 │ title               │
-│ objetivo            │
-│ description         │
-│ instrucoes          │
-│ delivery_date       │
-│ status              │
+│ objective           │
+│ instructions        │
+│ publish_date        │
+│ publish_time        │
+│ source              │ ← 'card' | 'demand' | 'manual' | 'template'
 │ attachments (JSON)  │
 │ publication_dates   │
 └─────────────────────┘
 ```
+
+> **Nota sobre Unificação:** A tabela `cards` foi migrada e unificada na tabela `demands`. 
+> O campo `source` indica a origem do registro ('card' para dados migrados, 'demand' para novos).
 
 ### 3.3 Schema Detalhado: `period_plans`
 
@@ -255,45 +264,76 @@ CREATE TABLE period_plans (
 );
 ```
 
-### 3.4 Schema Detalhado: `cards`
+### 3.4 Schema Detalhado: `demands` (Tabela Unificada)
 
 ```sql
-CREATE TABLE cards (
+CREATE TABLE demands (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id),
+  client_id UUID NOT NULL REFERENCES tenant_companies(id),
+  pipeline_id UUID NOT NULL REFERENCES pipelines(id),
+  status_id UUID NOT NULL REFERENCES pipeline_statuses(id),
   period_plan_id UUID REFERENCES period_plans(id),
   
   -- Conteúdo
   title TEXT NOT NULL,
-  objetivo TEXT,
-  description TEXT,           -- Conteúdo principal (Markdown)
-  instrucoes TEXT,            -- Instruções de produção
+  objective TEXT,              -- Objetivo da demanda
+  instructions TEXT,           -- Instruções de produção (Markdown)
+  description TEXT,            -- Descrição adicional
+  observations TEXT,           -- Observações
+  
+  -- Campos legados (migrados de cards)
+  objetivo TEXT,               -- Alias para objective
+  instrucoes TEXT,             -- Alias para instructions
   
   -- Metadados
-  tipo TEXT,                  -- Tipo de peça (Carrossel, Reels, etc.)
-  canal TEXT,                 -- Canal de publicação
-  cta_recomendado TEXT,       -- Call-to-action sugerido
+  demand_type TEXT,            -- Tipo de peça (Carrossel, Reels, etc.)
+  channel TEXT,                -- Canal de publicação
+  source TEXT DEFAULT 'manual', -- Origem: 'card' | 'demand' | 'manual' | 'template'
+  template_id UUID,            -- Template usado (se aplicável)
   
   -- Datas
-  delivery_date DATE,
-  publication_dates JSONB,    -- Datas de publicação agendadas
-  
-  -- Status do Kanban
-  status TEXT DEFAULT 'unassigned',
-  -- Valores: unassigned → planejamento → producao → revisao → 
-  --          aguardando_cliente → agendar_publicacao
+  publish_date DATE,           -- Data de publicação principal
+  publish_time TEXT,           -- Horário de publicação (ex: '14:30')
+  due_date DATE,               -- Data de entrega
+  delivery_date DATE,          -- Alias para due_date (migrado de cards)
+  publication_dates JSONB,     -- Múltiplas datas de publicação (JSONB)
   
   -- Arquivos
   file_location TEXT,
-  attachments JSONB,          -- Array de anexos
+  attachments JSONB DEFAULT '[]', -- Array de anexos
+  
+  -- Controle
+  column_name TEXT,            -- Nome da coluna do Kanban (para compatibilidade)
+  created_by UUID,             -- Usuário que criou
   
   -- Timestamps
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Índices para performance
+CREATE INDEX idx_demands_source ON demands(source);
+CREATE INDEX idx_demands_publication_dates ON demands USING GIN(publication_dates);
 ```
 
-### 3.5 Estrutura de Demanda (JSONB)
+### 3.5 Migração: Cards → Demands
+
+A unificação seguiu esta lógica:
+
+| Campo Original (cards) | Campo Destino (demands) |
+|------------------------|-------------------------|
+| `title` | `title` |
+| `objetivo` | `objective` + `objetivo` (alias) |
+| `description` | `instructions` |
+| `instrucoes` | `instructions` + `instrucoes` (alias) |
+| `delivery_date` | `delivery_date` + `due_date` |
+| `status` | Mapeado para `status_id` via pipeline |
+| `publication_dates[0]` | `publish_date` + `publish_time` |
+| `attachments` | `attachments` |
+| `file_location` | `channel` + `file_location` |
+
+### 3.6 Estrutura de Demanda Gerada pela IA (JSONB)
 
 Estrutura de cada item em `default_plan` e `ultra_plan`:
 
@@ -307,6 +347,27 @@ Estrutura de cada item em `default_plan` e `ultra_plan`:
   "cta_recomendado": "Salve esse post para consultar depois!",
   "canal": "Instagram",
   "data_sugerida": "2025-02-15"
+}
+```
+
+### 3.7 Estrutura de Anexo (attachments JSONB)
+
+```json
+{
+  "url": "https://...",
+  "name": "arquivo.pdf",
+  "type": "application/pdf",
+  "size": 1024000,
+  "storagePath": "tenant-id/client-id/period-id/demand-id/timestamp-uniqueid.pdf",
+  "uploadedAt": "2025-01-27T14:30:00Z",
+  "uploadedBy": {
+    "id": "user-uuid",
+    "email": "user@example.com"
+  },
+  "cardId": "demand-uuid",
+  "tenantId": "tenant-uuid",
+  "clientId": "client-uuid",
+  "periodPlanId": "period-uuid"
 }
 ```
 
