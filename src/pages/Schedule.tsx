@@ -370,6 +370,13 @@ export default function Schedule() {
       // Criar datetime combinando data e hora
       const publishDateTime = new Date(`${date}T${time}:00`);
       
+      // publication_dates para atualização local (ambos usam)
+      const newPublicationDates = [{
+        date,
+        time,
+        platform: card.file_location || undefined
+      }];
+
       if (card.source === 'demand') {
         // Para demands, buscar status_id e salvar publish_date
         const { data: statusData } = await supabase
@@ -389,14 +396,17 @@ export default function Schedule() {
           .eq("id", card.id);
 
         if (error) throw error;
+        
+        // Atualizar card localmente com publication_dates (para exibir horário correto na UI)
+        setCards((prev) =>
+          prev.map((c) =>
+            c.id === card.id
+              ? { ...c, publication_dates: newPublicationDates }
+              : c
+          )
+        );
       } else {
         // Para cards, salvar publication_dates
-        const newPublicationDates = [{
-          date,
-          time,
-          platform: card.file_location || undefined
-        }];
-        
         const { error } = await supabase
           .from("cards")
           .update({ 
