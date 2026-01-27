@@ -162,9 +162,9 @@ export default function Schedule() {
       
       // Map demands to KanbanCardData format
       const demandsAsCards: KanbanCardData[] = (demandsResponse.data || []).map(demand => {
-        // Map status name to column_name
+        // O nome do status no banco É o nome da coluna (modelo dinâmico)
         const statusName = demand.pipeline_statuses?.name || "Planejamento";
-        const columnName = getColumnFromStatus(statusName);
+        const columnName = statusName; // Usar diretamente - não precisa de conversão
         
         return {
           id: demand.id,
@@ -296,11 +296,11 @@ export default function Schedule() {
     // Atualizar no banco (escolher tabela correta baseado no source)
     try {
       if (card.source === 'demand') {
-        // Para demands, precisamos buscar o status_id correspondente
+        // Para demands, buscar status_id pelo NOME DA COLUNA (que é igual ao nome do status no banco)
         const { data: statusData } = await supabase
           .from("pipeline_statuses")
           .select("id")
-          .eq("name", newStatus)
+          .eq("name", newColumnName) // Usar newColumnName, não newStatus
           .limit(1)
           .maybeSingle();
         

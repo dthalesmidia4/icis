@@ -325,12 +325,11 @@ const CentralKanban = () => {
         }
         else if (field === 'delivery_date') demandUpdateData.due_date = parsedValue;
         else if (field === 'column_name') {
-          // Find status_id for the new column
-          const newStatus = field === 'column_name' ? value : getColumnFromStatus(value);
+          // Find status_id for the new column - usar value diretamente (é o nome do status no banco)
           const { data: statusData } = await supabase
             .from("pipeline_statuses")
             .select("id")
-            .eq("name", newStatus)
+            .eq("name", value) // value já é o nome correto da coluna/status
             .limit(1)
             .maybeSingle();
           if (statusData) demandUpdateData.status_id = statusData.id;
