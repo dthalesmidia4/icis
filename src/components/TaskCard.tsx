@@ -30,6 +30,7 @@ import {
 export interface PublicationDate {
   date: string; // YYYY-MM-DD
   time: string; // HH:MM
+  platform?: string; // Optional platform (e.g., Instagram, LinkedIn)
 }
 
 // Enhanced Attachment interface with full traceability
