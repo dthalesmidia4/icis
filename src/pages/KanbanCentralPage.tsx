@@ -204,7 +204,7 @@ const KanbanCentralPage = () => {
         
         const company = demand.tenant_companies;
         const period = demand.period_plans;
-        const columnName = getColumnFromStatus(statusName);
+        const columnName = statusName; // O nome do status no banco É o nome da coluna
         
         const mappedDemand: CentralKanbanCard = {
           id: demand.id,
@@ -293,11 +293,11 @@ const KanbanCentralPage = () => {
     // Atualizar no banco (escolher tabela correta baseado no source)
     try {
       if (card.source === 'demand') {
-        // Para demands, precisamos buscar o status_id correspondente
+        // Para demands, buscar status_id pelo NOME DA COLUNA (que é igual ao nome do status no banco)
         const { data: statusData } = await supabase
           .from("pipeline_statuses")
           .select("id")
-          .eq("name", newStatus)
+          .eq("name", newColumnName) // Usar newColumnName, não newStatus
           .limit(1)
           .maybeSingle();
         
