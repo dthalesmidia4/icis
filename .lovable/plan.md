@@ -1,180 +1,109 @@
 
-# Plano: Refatorar Sistema de Convites e Roles
+# Plano de Correção: Salvamento de Status ao Mover Cards
 
-## Análise do Estado Atual
+## Diagnóstico do Problema
 
-### Enum `app_role` no Banco de Dados
-O enum atual contém 6 valores:
-- `super_admin` ✅ (manter, mas não expor em convites)
-- `agency_admin` ✅ (válido)
-- `agency_user` ✅ (válido)
-- `client_admin` ❌ (legado)
-- `client_user` ❌ (legado)
-- `subclient_user` ❌ (legado)
+O sistema está com uma **inconsistência entre os valores de status usados no frontend e no banco de dados**:
 
-### Problema Crítico
-A role `agency_manager` solicitada **NÃO EXISTE** no enum atual. Será necessário adicioná-la via migração SQL.
+| Componente | Valor |
+|------------|-------|
+| Banco (`pipeline_statuses.name`) | "Produção", "Revisão", etc. |
+| Frontend (`STATUS_GROUPS.value`) | "em_producao", "revisao", etc. |
+
+### Consequências
+
+1. **Ao carregar demandas**: A função `getColumnFromStatus("Produção")` não encontra o valor e retorna "Planejamento" como fallback
+2. **Ao mover cards**: A query `.eq("name", "em_producao")` não encontra resultado no banco (deveria ser "Produção")
 
 ---
 
 ## Solução
 
-### 1. Migração de Banco de Dados
-Adicionar `agency_manager` ao enum `app_role`:
+Modificar as funções de mapeamento para usar os **nomes de coluna** (que são iguais aos nomes do banco) ao invés dos valores internos do frontend.
 
-```sql
-ALTER TYPE app_role ADD VALUE 'agency_manager';
+### Alterações Necessárias
+
+#### 1. Atualizar `handleDragEnd` em `Schedule.tsx`
+
+Modificar a query para buscar o status pelo **nome da coluna** (que corresponde ao nome no banco), não pelo valor interno:
+
+```text
+ANTES:
+const newStatus = getStatusFromColumn(newColumnName);
+// newStatus = "em_producao"
+.eq("name", newStatus) // Não encontra!
+
+DEPOIS:
+// Usar diretamente o nome da coluna como nome do status
+.eq("name", newColumnName) // newColumnName = "Produção" - Encontra!
 ```
 
-### 2. Criar Constantes Centralizadas de Roles
+#### 2. Atualizar mapeamento ao carregar demandas em `Schedule.tsx`
 
-Criar arquivo `src/lib/constants/roles.ts` com definições explícitas (não baseadas no enum):
+O `status` da demanda deve ser o nome do status do banco, e a coluna é derivada diretamente:
 
-```typescript
-// Roles válidas para o produto atual
-export const VALID_AGENCY_ROLES = ['agency_admin', 'agency_manager', 'agency_user'] as const;
+```text
+ANTES:
+const statusName = demand.pipeline_statuses?.name || "Planejamento";
+const columnName = getColumnFromStatus(statusName); // Falha!
 
-// Labels para exibição
-export const ROLE_LABELS: Record<string, string> = {
-  super_admin: 'Super Admin',
-  agency_admin: 'Administrador da Agência',
-  agency_manager: 'Gestor Operacional',
-  agency_user: 'Colaborador',
-};
-
-// Roles legadas (para compatibilidade histórica)
-export const LEGACY_ROLE_LABEL = 'Role legada (não utilizada)';
-export const LEGACY_ROLES = ['client_admin', 'client_user', 'subclient_user'];
-
-// Opções para o select de convite
-export const INVITE_ROLE_OPTIONS = [
-  { value: 'agency_admin', label: 'Administrador da Agência', description: 'Acesso total à agência' },
-  { value: 'agency_manager', label: 'Gestor Operacional', description: 'Gerencia operações e equipe' },
-  { value: 'agency_user', label: 'Colaborador', description: 'Executa tarefas operacionais' },
-] as const;
+DEPOIS:
+const statusName = demand.pipeline_statuses?.name || "Planejamento";
+// O nome da coluna É o nome do status no novo modelo
+const columnName = statusName;
 ```
 
-### 3. Atualizar `ProfileSettings.tsx`
+#### 3. Mesmas correções em `KanbanCentralPage.tsx` e `CentralKanban.tsx`
 
-**Mudanças:**
-- Importar constantes de `@/lib/constants/roles`
-- Usar `INVITE_ROLE_OPTIONS` no select (lista explícita, não enum)
-- Remover referência direta ao tipo `AppRole` para o select
-
-```typescript
-import { INVITE_ROLE_OPTIONS } from '@/lib/constants/roles';
-
-// No select:
-<Select value={selectedRole} onValueChange={setSelectedRole}>
-  <SelectTrigger>
-    <SelectValue placeholder="Nível de acesso" />
-  </SelectTrigger>
-  <SelectContent>
-    {INVITE_ROLE_OPTIONS.map((option) => (
-      <SelectItem key={option.value} value={option.value}>
-        <div>
-          <span>{option.label}</span>
-          <span className="text-muted-foreground">{option.description}</span>
-        </div>
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
-```
-
-### 4. Atualizar `InvitationList.tsx`
-
-**Mudanças:**
-- Importar `ROLE_LABELS`, `LEGACY_ROLES`, `LEGACY_ROLE_LABEL`
-- Tratar roles legadas no histórico
-
-```typescript
-import { ROLE_LABELS, LEGACY_ROLES, LEGACY_ROLE_LABEL } from '@/lib/constants/roles';
-
-// Função para obter label da role
-function getRoleLabel(role: string): string {
-  if (LEGACY_ROLES.includes(role)) {
-    return LEGACY_ROLE_LABEL;
-  }
-  return ROLE_LABELS[role] || role;
-}
-
-// Na tabela:
-<Badge variant={LEGACY_ROLES.includes(invitation.role) ? 'destructive' : 'secondary'}>
-  {getRoleLabel(invitation.role)}
-</Badge>
-```
-
-### 5. Atualizar `InviteCodeInput.tsx`
-
-**Mudanças:**
-- Importar `ROLE_LABELS`, `LEGACY_ROLE_LABEL`, `LEGACY_ROLES`
-- Usar o mesmo padrão de labels
-
-```typescript
-import { ROLE_LABELS, LEGACY_ROLES, LEGACY_ROLE_LABEL } from '@/lib/constants/roles';
-
-// Ao exibir a role:
-{LEGACY_ROLES.includes(invitationInfo.role) 
-  ? LEGACY_ROLE_LABEL 
-  : ROLE_LABELS[invitationInfo.role] || invitationInfo.role}
-```
-
-### 6. Validação no Backend (Edge Function)
-
-Atualizar `validate-invitation` para rejeitar roles inválidas se necessário:
-
-```typescript
-// Roles válidas para novos convites
-const VALID_ROLES = ['agency_admin', 'agency_manager', 'agency_user'];
-
-// Na resposta, indicar se é role legada
-is_legacy_role: !VALID_ROLES.includes(invitation.role)
-```
+Aplicar as mesmas correções de mapeamento.
 
 ---
 
-## Resumo das Alterações
+## Detalhes Técnicos
 
-| Arquivo | Alteração |
-|---------|-----------|
-| **Migração SQL** | Adicionar `agency_manager` ao enum `app_role` |
-| `src/lib/constants/roles.ts` | **Novo arquivo** - Constantes centralizadas de roles |
-| `src/pages/ProfileSettings.tsx` | Usar `INVITE_ROLE_OPTIONS` para popular select |
-| `src/components/InvitationList.tsx` | Usar `ROLE_LABELS` e tratar roles legadas |
-| `src/components/InviteCodeInput.tsx` | Usar labels centralizados |
-| `supabase/functions/validate-invitation/index.ts` | Adicionar flag `is_legacy_role` (opcional) |
+### Arquivo: `src/pages/Schedule.tsx`
 
----
+**Linha ~165-177** - Mapeamento ao carregar demandas:
+- Substituir `getColumnFromStatus(statusName)` por usar diretamente `statusName` como nome da coluna
 
-## Comportamento Esperado
+**Linha ~298-315** - handleDragEnd para demandas:
+- Alterar a query de `.eq("name", newStatus)` para `.eq("name", newColumnName)`
+- Adicionar filtro pelo `pipeline_id` da demanda para maior segurança
 
-### Select de Convite
-Mostrará apenas 3 opções:
-- Administrador da Agência
-- Gestor Operacional  
-- Colaborador
+### Arquivo: `src/pages/KanbanCentralPage.tsx`
 
-### Histórico de Convites
-- Roles válidas: Exibe label correto
-- Roles legadas (`client_*`): Exibe "Role legada (não utilizada)" com badge destrutivo
+**Linha ~293-307** - handleDragEnd:
+- Aplicar mesma correção da query de busca de status
 
-### Validação na Criação
-- Apenas `agency_admin` ou `super_admin` podem criar convites
-- Convites só podem ser criados com roles: `agency_admin`, `agency_manager`, `agency_user`
+**Linha ~163-240** - fetchAllCards:
+- Corrigir mapeamento de demandas para usar nome do status diretamente
+
+### Arquivo: `src/components/CentralKanban.tsx`
+
+**Linha ~213-255** - fetchScheduledCards:
+- Corrigir mapeamento de demandas
+
+**Linha ~289-350** - handleSave:
+- Corrigir busca de status_id
 
 ---
 
-## Seção Técnica
+## Resumo das Mudanças
 
-### Tipo TypeScript para Roles Válidas
-```typescript
-export type ValidAgencyRole = typeof VALID_AGENCY_ROLES[number];
-// Resulta em: 'agency_admin' | 'agency_manager' | 'agency_user'
-```
+| Arquivo | Função | Alteração |
+|---------|--------|-----------|
+| `Schedule.tsx` | Mapeamento de demandas | Usar nome do status diretamente como coluna |
+| `Schedule.tsx` | `handleDragEnd` | Buscar status por nome da coluna |
+| `KanbanCentralPage.tsx` | `handleDragEnd` | Buscar status por nome da coluna |
+| `KanbanCentralPage.tsx` | `fetchAllCards` | Corrigir mapeamento |
+| `CentralKanban.tsx` | `handleSave` | Buscar status por nome da coluna |
+| `CentralKanban.tsx` | `fetchScheduledCards` | Corrigir mapeamento |
 
-### Ordem de Implementação
-1. Executar migração SQL para adicionar `agency_manager`
-2. Criar arquivo de constantes `roles.ts`
-3. Atualizar componentes de UI em paralelo
-4. Atualizar edge function (opcional)
+---
+
+## Resultado Esperado
+
+Após as correções:
+- Cards e demandas serão corretamente posicionados na coluna correspondente ao seu status no banco
+- Mover cards via drag-and-drop atualizará corretamente o `status_id` no banco
+- O status será persistido e mantido após recarregar a página
