@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Clock, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight } from "lucide-react";
+import { CalendarIcon, Clock, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import { BlockEditor } from "@/components/BlockEditor";
@@ -89,6 +90,7 @@ interface TaskCardProps {
   onSave: (field: string, value: string) => Promise<void>;
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
   onRemoveAttachment: (url: string) => Promise<void>;
+  onReorderAttachments?: (attachments: Attachment[]) => Promise<void>;
   onDelete: () => void;
   saving?: boolean;
   savingField?: string | null;
@@ -257,6 +259,7 @@ export default function TaskCard({
   onSave,
   onFileUpload,
   onRemoveAttachment,
+  onReorderAttachments,
   onDelete,
   saving = false,
   savingField = null,
@@ -301,6 +304,31 @@ export default function TaskCard({
       return newState;
     });
   };
+
+  // Handle attachment reorder via drag and drop
+  const handleAttachmentDragEnd = useCallback(async (result: DropResult) => {
+    if (!result.destination || !card?.attachments) return;
+    
+    const sourceIndex = result.source.index;
+    const destIndex = result.destination.index;
+    
+    if (sourceIndex === destIndex) return;
+    
+    const newAttachments = Array.from(card.attachments);
+    const [removed] = newAttachments.splice(sourceIndex, 1);
+    newAttachments.splice(destIndex, 0, removed);
+    
+    // Update local state immediately for responsiveness
+    onCardChange({
+      ...card,
+      attachments: newAttachments
+    });
+    
+    // Persist to database
+    if (onReorderAttachments) {
+      await onReorderAttachments(newAttachments);
+    }
+  }, [card, onCardChange, onReorderAttachments]);
 
   // Get publication dates from card or use default with one empty date
   const publicationDates: PublicationDate[] = card?.publication_dates?.length 
@@ -705,35 +733,88 @@ export default function TaskCard({
 
                 {!collapsedSections.anexos && (
                   <>
-                    {/* Attachments Grid */}
-                    {card.attachments && card.attachments.length > 0 && <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-4">
-                        {card.attachments.map((attachment, idx) => <div key={idx} className="group relative bg-muted/30 rounded-lg border border-border/50 overflow-hidden hover:border-primary/50 transition-colors cursor-pointer" onClick={() => setPreviewAttachment(attachment)}>
-                            {isImageFile(attachment.type) ? <div className="block">
-                                <div className="aspect-square">
-                                  <img src={attachment.url} alt={attachment.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                                </div>
-                                <div className="p-2 bg-background/80 backdrop-blur-sm">
-                                  <p className="text-xs font-medium truncate">{attachment.name}</p>
-                                  <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
-                                </div>
-                              </div> : <div className="flex flex-col items-center justify-center p-4 aspect-square hover:bg-muted/50 transition-colors">
-                                <File className="h-10 w-10 text-muted-foreground mb-2" />
-                                <p className="text-xs font-medium text-center truncate w-full">{attachment.name}</p>
-                                <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
-                              </div>}
-                            <button 
-                              onClick={e => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setAttachmentToRemove(attachment);
-                              }} 
-                              className="absolute top-2 right-2 p-1.5 bg-destructive/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive shadow-lg"
-                              aria-label={`Remover anexo ${attachment.name}`}
+                    {/* Attachments Grid with Drag and Drop */}
+                    {card.attachments && card.attachments.length > 0 && (
+                      <DragDropContext onDragEnd={handleAttachmentDragEnd}>
+                        <Droppable droppableId="attachments-grid" direction="horizontal">
+                          {(provided) => (
+                            <div 
+                              ref={provided.innerRef}
+                              {...provided.droppableProps}
+                              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-4"
                             >
-                              <X className="h-3 w-3 text-destructive-foreground" />
-                            </button>
-                          </div>)}
-                      </div>}
+                              {card.attachments!.map((attachment, idx) => (
+                                <Draggable 
+                                  key={attachment.url} 
+                                  draggableId={attachment.url} 
+                                  index={idx}
+                                >
+                                  {(provided, snapshot) => (
+                                    <div 
+                                      ref={provided.innerRef}
+                                      {...provided.draggableProps}
+                                      className={cn(
+                                        "group relative bg-muted/30 rounded-lg border border-border/50 overflow-hidden hover:border-primary/50 transition-colors",
+                                        snapshot.isDragging && "shadow-lg ring-2 ring-primary/50 z-50"
+                                      )}
+                                    >
+                                      {/* Drag Handle */}
+                                      <div 
+                                        {...provided.dragHandleProps}
+                                        className="absolute top-2 left-2 p-1 bg-background/80 rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <GripVertical className="h-3 w-3 text-muted-foreground" />
+                                      </div>
+                                      
+                                      <div 
+                                        className="cursor-pointer"
+                                        onClick={() => setPreviewAttachment(attachment)}
+                                      >
+                                        {isImageFile(attachment.type) ? (
+                                          <div className="block">
+                                            <div className="aspect-square">
+                                              <img 
+                                                src={attachment.url} 
+                                                alt={attachment.name} 
+                                                className="w-full h-full object-cover transition-transform group-hover:scale-105" 
+                                              />
+                                            </div>
+                                            <div className="p-2 bg-background/80 backdrop-blur-sm">
+                                              <p className="text-xs font-medium truncate">{attachment.name}</p>
+                                              <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <div className="flex flex-col items-center justify-center p-4 aspect-square hover:bg-muted/50 transition-colors">
+                                            <File className="h-10 w-10 text-muted-foreground mb-2" />
+                                            <p className="text-xs font-medium text-center truncate w-full">{attachment.name}</p>
+                                            <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                      
+                                      <button 
+                                        onClick={e => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setAttachmentToRemove(attachment);
+                                        }} 
+                                        className="absolute top-2 right-2 p-1.5 bg-destructive/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive shadow-lg"
+                                        aria-label={`Remover anexo ${attachment.name}`}
+                                      >
+                                        <X className="h-3 w-3 text-destructive-foreground" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </Draggable>
+                              ))}
+                              {provided.placeholder}
+                            </div>
+                          )}
+                        </Droppable>
+                      </DragDropContext>
+                    )}
 
                     {/* Upload Area */}
                     <label className="flex flex-col items-center justify-center gap-2 w-full py-6 px-4 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 hover:bg-muted/20 transition-colors" aria-label="Área de upload de arquivos">
