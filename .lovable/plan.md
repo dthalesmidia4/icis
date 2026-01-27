@@ -1,109 +1,174 @@
 
-# Plano de Correção: Salvamento de Status ao Mover Cards
+# Plano de Correção: Persistência de Anexos em Demandas
 
 ## Diagnóstico do Problema
 
-O sistema está com uma **inconsistência entre os valores de status usados no frontend e no banco de dados**:
+Identifiquei a **causa raiz** por que os anexos estão desaparecendo das demandas. O problema está nas funções de upload, remoção e reordenação de anexos em múltiplos arquivos:
 
-| Componente | Valor |
-|------------|-------|
-| Banco (`pipeline_statuses.name`) | "Produção", "Revisão", etc. |
-| Frontend (`STATUS_GROUPS.value`) | "em_producao", "revisao", etc. |
+### Problema Central
+As funções `handleFileUpload`, `handleRemoveAttachment` e `handleReorderAttachments` estão **sempre atualizando a tabela `cards`**, mesmo quando o item é uma **demanda** (que deve usar a tabela `demands`).
 
-### Consequências
+Quando você faz upload de um anexo em uma demanda:
+1. O arquivo é enviado para o storage corretamente
+2. O sistema tenta salvar na tabela `cards` com o ID da demanda
+3. Como não existe nenhum registro na tabela `cards` com esse ID, a atualização simplesmente não afeta nada
+4. Resultado: o anexo parece salvo localmente (estado da UI) mas **nunca foi persistido**
 
-1. **Ao carregar demandas**: A função `getColumnFromStatus("Produção")` não encontra o valor e retorna "Planejamento" como fallback
-2. **Ao mover cards**: A query `.eq("name", "em_producao")` não encontra resultado no banco (deveria ser "Produção")
+### Arquivos Afetados
+
+| Arquivo | Função | Status |
+|---------|--------|--------|
+| `src/pages/Schedule.tsx` | `handleFileUpload` | Sempre usa `cards` |
+| `src/pages/Schedule.tsx` | `handleRemoveAttachment` | Sempre usa `cards` |
+| `src/pages/Schedule.tsx` | `handleReorderAttachments` | Sempre usa `cards` |
+| `src/components/CentralKanban.tsx` | `handleFileUpload` | Sempre usa `cards` |
+| `src/components/CentralKanban.tsx` | `handleRemoveAttachment` | Sempre usa `cards` |
+| `src/components/CentralKanban.tsx` | `handleReorderAttachments` | Sempre usa `cards` |
+| `src/pages/KanbanCentralPage.tsx` | `handleFileUpload` | Sempre usa `cards` |
+| `src/pages/KanbanCentralPage.tsx` | `handleRemoveAttachment` | Sempre usa `cards` |
+| `src/pages/KanbanCentralPage.tsx` | `handleReorderAttachments` | Correto (já verifica source) |
 
 ---
 
-## Solução
+## Solução Proposta
 
-Modificar as funções de mapeamento para usar os **nomes de coluna** (que são iguais aos nomes do banco) ao invés dos valores internos do frontend.
+### Estratégia
+Adicionar verificação `selectedCard.source === 'demand'` em todas as funções de manipulação de anexos para usar a tabela correta (`demands` ou `cards`).
 
-### Alterações Necessárias
+### Alterações Detalhadas
 
-#### 1. Atualizar `handleDragEnd` em `Schedule.tsx`
+#### 1. `src/pages/Schedule.tsx`
 
-Modificar a query para buscar o status pelo **nome da coluna** (que corresponde ao nome no banco), não pelo valor interno:
+**handleFileUpload** (linhas ~747-753)
+```typescript
+// ANTES (errado)
+const { error: updateError } = await supabase
+  .from('cards')
+  .update({ attachments: ... })
+  .eq('id', selectedCard.id);
 
-```text
-ANTES:
-const newStatus = getStatusFromColumn(newColumnName);
-// newStatus = "em_producao"
-.eq("name", newStatus) // Não encontra!
-
-DEPOIS:
-// Usar diretamente o nome da coluna como nome do status
-.eq("name", newColumnName) // newColumnName = "Produção" - Encontra!
+// DEPOIS (correto)
+const tableName = selectedCard.source === 'demand' ? 'demands' : 'cards';
+const { error: updateError } = await supabase
+  .from(tableName)
+  .update({ 
+    attachments: updatedAttachments,
+    updated_at: new Date().toISOString()
+  })
+  .eq('id', selectedCard.id);
 ```
 
-#### 2. Atualizar mapeamento ao carregar demandas em `Schedule.tsx`
-
-O `status` da demanda deve ser o nome do status do banco, e a coluna é derivada diretamente:
-
-```text
-ANTES:
-const statusName = demand.pipeline_statuses?.name || "Planejamento";
-const columnName = getColumnFromStatus(statusName); // Falha!
-
-DEPOIS:
-const statusName = demand.pipeline_statuses?.name || "Planejamento";
-// O nome da coluna É o nome do status no novo modelo
-const columnName = statusName;
+**handleRemoveAttachment** (linhas ~836-842)
+```typescript
+// Mesma lógica: verificar source antes de escolher tabela
+const tableName = selectedCard.source === 'demand' ? 'demands' : 'cards';
 ```
 
-#### 3. Mesmas correções em `KanbanCentralPage.tsx` e `CentralKanban.tsx`
+**handleReorderAttachments** (linhas ~873-879)
+```typescript
+// Mesma lógica: verificar source antes de escolher tabela
+const tableName = selectedCard.source === 'demand' ? 'demands' : 'cards';
+```
 
-Aplicar as mesmas correções de mapeamento.
+#### 2. `src/components/CentralKanban.tsx`
 
----
+**handleFileUpload** (linhas ~497-501)
+```typescript
+// Adicionar verificação de source
+if (selectedCard.source === 'demand') {
+  await supabase.from('demands').update({ attachments: ... }).eq('id', ...);
+} else {
+  await supabase.from('cards').update({ attachments: ... }).eq('id', ...);
+}
+```
 
-## Detalhes Técnicos
+**handleRemoveAttachment** (linhas ~530-534)
+```typescript
+// Mesma correção
+```
 
-### Arquivo: `src/pages/Schedule.tsx`
+**handleReorderAttachments** (linhas ~557-563)
+```typescript
+// Mesma correção
+```
 
-**Linha ~165-177** - Mapeamento ao carregar demandas:
-- Substituir `getColumnFromStatus(statusName)` por usar diretamente `statusName` como nome da coluna
+#### 3. `src/pages/KanbanCentralPage.tsx`
 
-**Linha ~298-315** - handleDragEnd para demandas:
-- Alterar a query de `.eq("name", newStatus)` para `.eq("name", newColumnName)`
-- Adicionar filtro pelo `pipeline_id` da demanda para maior segurança
+**handleFileUpload** (linhas ~557-559)
+```typescript
+// Adicionar verificação de source (igual ao padrão já usado em handleReorderAttachments)
+```
 
-### Arquivo: `src/pages/KanbanCentralPage.tsx`
-
-**Linha ~293-307** - handleDragEnd:
-- Aplicar mesma correção da query de busca de status
-
-**Linha ~163-240** - fetchAllCards:
-- Corrigir mapeamento de demandas para usar nome do status diretamente
-
-### Arquivo: `src/components/CentralKanban.tsx`
-
-**Linha ~213-255** - fetchScheduledCards:
-- Corrigir mapeamento de demandas
-
-**Linha ~289-350** - handleSave:
-- Corrigir busca de status_id
-
----
-
-## Resumo das Mudanças
-
-| Arquivo | Função | Alteração |
-|---------|--------|-----------|
-| `Schedule.tsx` | Mapeamento de demandas | Usar nome do status diretamente como coluna |
-| `Schedule.tsx` | `handleDragEnd` | Buscar status por nome da coluna |
-| `KanbanCentralPage.tsx` | `handleDragEnd` | Buscar status por nome da coluna |
-| `KanbanCentralPage.tsx` | `fetchAllCards` | Corrigir mapeamento |
-| `CentralKanban.tsx` | `handleSave` | Buscar status por nome da coluna |
-| `CentralKanban.tsx` | `fetchScheduledCards` | Corrigir mapeamento |
+**handleRemoveAttachment** (linhas ~597-599)
+```typescript
+// Adicionar verificação de source
+```
 
 ---
 
-## Resultado Esperado
+## Impacto das Mudanças
 
-Após as correções:
-- Cards e demandas serão corretamente posicionados na coluna correspondente ao seu status no banco
-- Mover cards via drag-and-drop atualizará corretamente o `status_id` no banco
-- O status será persistido e mantido após recarregar a página
+### O que será corrigido:
+- Anexos em demandas serão persistidos corretamente na tabela `demands`
+- Anexos aparecerão em todas as telas (Schedule, Kanban Central, Kanban Geral)
+- Anexos permanecerão após recarregar a página
+- Anexos permanecerão após fechar e reabrir o card
+- Reordenação de anexos funcionará para demandas
+
+### Comportamento esperado após correção:
+1. Upload de anexo em demanda → Salva na tabela `demands.attachments`
+2. Upload de anexo em card → Salva na tabela `cards.attachments`
+3. Sincronização realtime → Já funciona (o hook já escuta ambas as tabelas)
+4. Visualização em todas as telas → Todas carregam corretamente de ambas as tabelas
+
+---
+
+## Seção Técnica
+
+### Padrão de Código a Seguir
+O padrão correto já existe no `KanbanCentralPage.tsx` na função `handleReorderAttachments`:
+
+```typescript
+if (selectedCard.source === 'demand') {
+  const { error } = await supabase
+    .from('demands')
+    .update({ 
+      attachments: attachments as unknown as any,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', selectedCard.id);
+  if (error) throw error;
+} else {
+  const { error } = await supabase
+    .from('cards')
+    .update({ 
+      attachments: attachments as unknown as any,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', selectedCard.id);
+  if (error) throw error;
+}
+```
+
+### Arquivos Modificados
+1. `src/pages/Schedule.tsx` - 3 funções
+2. `src/components/CentralKanban.tsx` - 3 funções
+3. `src/pages/KanbanCentralPage.tsx` - 2 funções (handleFileUpload, handleRemoveAttachment)
+
+### Total de Alterações
+~9 blocos de código a modificar para aplicar a mesma lógica de verificação de `source`.
+
+---
+
+## Validação Pós-Implementação
+
+Após implementar as mudanças, você deve testar:
+
+1. **Criar uma demanda** no /schedule
+2. **Anexar uma imagem** na demanda
+3. **Verificar no banco** se o anexo foi salvo na tabela `demands`
+4. **Recarregar a página** - o anexo deve permanecer
+5. **Abrir no Kanban Central** - o anexo deve estar visível
+6. **Abrir no Kanban Geral** - o anexo deve estar visível
+7. **Testar reordenação** - a nova ordem deve persistir
+8. **Testar remoção** - o anexo deve ser removido corretamente
