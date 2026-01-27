@@ -494,11 +494,16 @@ const CentralKanban = () => {
       });
       const newAttachments = await Promise.all(uploadPromises);
       const updatedAttachments = [...(selectedCard.attachments || []), ...newAttachments];
-      const {
-        error: updateError
-      } = await supabase.from('cards').update({
-        attachments: updatedAttachments as unknown as any
-      }).eq('id', selectedCard.id);
+      
+      // Usar tabela correta baseado no source
+      const tableName = selectedCard.source === 'demand' ? 'demands' : 'cards';
+      const { error: updateError } = await supabase
+        .from(tableName)
+        .update({
+          attachments: updatedAttachments as unknown as any,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedCard.id);
       if (updateError) throw updateError;
       setSelectedCard(prev => prev ? {
         ...prev,
@@ -527,11 +532,16 @@ const CentralKanban = () => {
         await supabase.storage.from('card-attachments').remove([attachment.storagePath]);
       }
       const updatedAttachments = (selectedCard.attachments || []).filter(a => a.url !== attachmentUrl);
-      const {
-        error
-      } = await supabase.from('cards').update({
-        attachments: updatedAttachments as unknown as any
-      }).eq('id', selectedCard.id);
+      
+      // Usar tabela correta baseado no source
+      const tableName = selectedCard.source === 'demand' ? 'demands' : 'cards';
+      const { error } = await supabase
+        .from(tableName)
+        .update({
+          attachments: updatedAttachments as unknown as any,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedCard.id);
       if (error) throw error;
       setSelectedCard(prev => prev ? {
         ...prev,
@@ -554,8 +564,10 @@ const CentralKanban = () => {
     if (!selectedCard) return;
     
     try {
+      // Usar tabela correta baseado no source
+      const tableName = selectedCard.source === 'demand' ? 'demands' : 'cards';
       const { error } = await supabase
-        .from('cards')
+        .from(tableName)
         .update({ 
           attachments: attachments as unknown as any,
           updated_at: new Date().toISOString()

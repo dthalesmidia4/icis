@@ -744,8 +744,10 @@ export default function Schedule() {
       const updatedAttachments = [...(selectedCard.attachments || []), ...newAttachments];
 
       // Salvar no banco de dados com metadados completos
+      // Usar a tabela correta: demands para demandas, cards para cards
+      const tableName = selectedCard.source === 'demand' ? 'demands' : 'cards';
       const { error: updateError } = await supabase
-        .from('cards')
+        .from(tableName)
         .update({ 
           attachments: updatedAttachments as unknown as any,
           updated_at: new Date().toISOString() // Atualizar timestamp para histórico
@@ -832,9 +834,10 @@ export default function Schedule() {
 
       const updatedAttachments = (selectedCard.attachments || []).filter(a => a.url !== attachmentUrl);
 
-      // Salvar no banco de dados
+      // Salvar no banco de dados - usar tabela correta
+      const tableName = selectedCard.source === 'demand' ? 'demands' : 'cards';
       const { error } = await supabase
-        .from('cards')
+        .from(tableName)
         .update({ 
           attachments: updatedAttachments as unknown as any,
           updated_at: new Date().toISOString()
@@ -870,8 +873,10 @@ export default function Schedule() {
     });
 
     try {
+      // Usar tabela correta baseado no source
+      const tableName = selectedCard.source === 'demand' ? 'demands' : 'cards';
       const { error } = await supabase
-        .from('cards')
+        .from(tableName)
         .update({ 
           attachments: attachments as unknown as any,
           updated_at: new Date().toISOString()
