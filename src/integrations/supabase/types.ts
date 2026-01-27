@@ -282,16 +282,24 @@ export type Database = {
           attachments: Json
           channel: string | null
           client_id: string
+          column_name: string | null
           created_at: string
           created_by: string | null
+          delivery_date: string | null
           demand_type: string | null
           description: string | null
           due_date: string | null
+          file_location: string | null
           id: string
+          instrucoes: string | null
           instructions: string | null
           objective: string | null
+          objetivo: string | null
+          observations: string | null
           period_plan_id: string | null
           pipeline_id: string
+          plan_id: string | null
+          publication_dates: Json | null
           publish_date: string | null
           publish_time: string | null
           source: string
@@ -305,16 +313,24 @@ export type Database = {
           attachments?: Json
           channel?: string | null
           client_id: string
+          column_name?: string | null
           created_at?: string
           created_by?: string | null
+          delivery_date?: string | null
           demand_type?: string | null
           description?: string | null
           due_date?: string | null
+          file_location?: string | null
           id?: string
+          instrucoes?: string | null
           instructions?: string | null
           objective?: string | null
+          objetivo?: string | null
+          observations?: string | null
           period_plan_id?: string | null
           pipeline_id: string
+          plan_id?: string | null
+          publication_dates?: Json | null
           publish_date?: string | null
           publish_time?: string | null
           source?: string
@@ -328,16 +344,24 @@ export type Database = {
           attachments?: Json
           channel?: string | null
           client_id?: string
+          column_name?: string | null
           created_at?: string
           created_by?: string | null
+          delivery_date?: string | null
           demand_type?: string | null
           description?: string | null
           due_date?: string | null
+          file_location?: string | null
           id?: string
+          instrucoes?: string | null
           instructions?: string | null
           objective?: string | null
+          objetivo?: string | null
+          observations?: string | null
           period_plan_id?: string | null
           pipeline_id?: string
+          plan_id?: string | null
+          publication_dates?: Json | null
           publish_date?: string | null
           publish_time?: string | null
           source?: string
@@ -367,6 +391,13 @@ export type Database = {
             columns: ["pipeline_id"]
             isOneToOne: false
             referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demands_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_plans"
             referencedColumns: ["id"]
           },
           {

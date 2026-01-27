@@ -216,58 +216,31 @@ const CentralKanban = () => {
     try {
       setLoading(true);
 
-      // Buscar cards e demands na coluna "Agendar Publicação" com informações do cliente e status do planejamento
-      const [cardsResult, demandsResult] = await Promise.all([
-        supabase.from("cards").select(`
-            *,
-            period_plans!cards_period_plan_id_fkey (
-              company_id,
-              operational_status,
-              tenant_companies!period_plans_company_id_fkey (
-                id,
-                fantasy_name,
-                name
-              )
-            )
-          `).eq("tenant_id", tenantId).eq("column_name", "Agendar Publicação"),
-        supabase.from("demands").select(`
-            *,
-            pipeline_statuses!demands_status_id_fkey (
-              name,
-              color,
-              position
-            ),
-            tenant_companies!demands_client_id_fkey (
-              id,
-              fantasy_name,
-              name
-            ),
-            period_plans!demands_period_plan_id_fkey (
-              operational_status
-            )
-          `).eq("tenant_id", tenantId)
-      ]);
+      // Buscar todas as demands em "Agendar Publicação" (tabela unificada)
+      const { data: demandsData, error } = await supabase
+        .from("demands")
+        .select(`
+          *,
+          pipeline_statuses!demands_status_id_fkey (
+            name,
+            color,
+            position
+          ),
+          tenant_companies!demands_client_id_fkey (
+            id,
+            fantasy_name,
+            name
+          ),
+          period_plans!demands_period_plan_id_fkey (
+            operational_status
+          )
+        `)
+        .eq("tenant_id", tenantId);
       
-      if (cardsResult.error) throw cardsResult.error;
-      if (demandsResult.error) throw demandsResult.error;
+      if (error) throw error;
 
-      // Mapear cards com nome do cliente e status de arquivamento
-      const mappedCards: CentralKanbanCard[] = (cardsResult.data || []).map(card => {
-        const company = card.period_plans?.tenant_companies;
-        const operationalStatus = card.period_plans?.operational_status;
-        return {
-          ...card,
-          attachments: card.attachments as unknown as Attachment[] | null || [],
-          publication_dates: card.publication_dates as unknown as PublicationDate[] | null || [],
-          clientName: company?.fantasy_name || company?.name || "Cliente",
-          clientId: company?.id || "",
-          isArchived: operationalStatus === "concluido",
-          source: 'card' as const
-        };
-      });
-      
-      // Mapear demands para o mesmo formato - filtrar apenas as que estão em "Agendar Publicação"
-      const mappedDemands: CentralKanbanCard[] = (demandsResult.data || [])
+      // Filtrar apenas as que estão em "Agendar Publicação"
+      const allMappedCards: CentralKanbanCard[] = (demandsData || [])
         .filter(demand => demand.pipeline_statuses?.name === "Agendar Publicação")
         .map(demand => {
           const company = demand.tenant_companies;
@@ -276,36 +249,33 @@ const CentralKanban = () => {
             id: demand.id,
             title: demand.title,
             description: demand.instructions || demand.description || null,
-            objetivo: demand.objective || null,
-            instrucoes: demand.instructions || null,
-            observations: null,
+            objetivo: demand.objective || (demand as any).objetivo || null,
+            instrucoes: demand.instructions || (demand as any).instrucoes || null,
+            observations: (demand as any).observations || null,
             status: demand.pipeline_statuses?.name || "Planejamento",
             column_name: "Agendar Publicação",
-            delivery_date: demand.due_date || demand.publish_date || new Date().toISOString().split('T')[0],
-            file_location: demand.channel || null,
+            delivery_date: demand.due_date || demand.publish_date || (demand as any).delivery_date || new Date().toISOString().split('T')[0],
+            file_location: demand.channel || (demand as any).file_location || null,
             attachments: (demand.attachments as unknown as Attachment[] | null) || [],
             publication_dates: demand.publish_date ? [{
               date: demand.publish_date,
-              time: (demand as any).publish_time || "09:00", // Usar publish_time do banco se existir
+              time: demand.publish_time || "09:00",
               platform: demand.channel || undefined
-            }] : [],
+            }] : ((demand as any).publication_dates as unknown as PublicationDate[] | null) || [],
             tenant_id: demand.tenant_id,
             period_plan_id: demand.period_plan_id,
-            plan_id: null,
+            plan_id: (demand as any).plan_id || null,
             created_at: demand.created_at,
             updated_at: demand.updated_at,
             clientName: company?.fantasy_name || company?.name || "Cliente",
             clientId: company?.id || demand.client_id || "",
             isArchived: operationalStatus === "concluido",
-            source: 'demand' as const,
+            source: demand.source as 'card' | 'demand',
             demand_id: demand.id,
             demand_type: demand.demand_type,
             channel: demand.channel
           };
         });
-      
-      // Combinar cards e demands
-      const allMappedCards = [...mappedCards, ...mappedDemands];
 
       // Ordenar por data de publicação mais próxima
       allMappedCards.sort((a, b) => {
@@ -355,56 +325,49 @@ const CentralKanban = () => {
         }
       }
       
-      // Choose table based on source
-      if (selectedCard.source === 'demand') {
-        // Map card fields to demand fields
-        const demandUpdateData: Record<string, any> = {};
-        
-        if (field === 'title') demandUpdateData.title = parsedValue;
-        else if (field === 'description' || field === 'instrucoes') demandUpdateData.instructions = parsedValue;
-        else if (field === 'objetivo') demandUpdateData.objective = parsedValue;
-        else if (field === 'observations') demandUpdateData.description = parsedValue;
-        else if (field === 'attachments') demandUpdateData.attachments = parsedValue;
-        else if (field === 'status') {
-          // Find status_id by name
-          const { data: statusData } = await supabase
-            .from("pipeline_statuses")
-            .select("id")
-            .eq("name", value)
-            .limit(1)
-            .maybeSingle();
-          if (statusData) demandUpdateData.status_id = statusData.id;
-        }
-        else if (field === 'publication_dates' && Array.isArray(parsedValue) && parsedValue.length > 0) {
-          demandUpdateData.publish_date = parsedValue[0].date;
-        }
-        else if (field === 'delivery_date') demandUpdateData.due_date = parsedValue;
-        else if (field === 'column_name') {
-          // Find status_id for the new column - usar value diretamente (é o nome do status no banco)
-          const { data: statusData } = await supabase
-            .from("pipeline_statuses")
-            .select("id")
-            .eq("name", value) // value já é o nome correto da coluna/status
-            .limit(1)
-            .maybeSingle();
-          if (statusData) demandUpdateData.status_id = statusData.id;
-        }
-        
-        if (Object.keys(demandUpdateData).length > 0) {
-          demandUpdateData.updated_at = new Date().toISOString();
-          const { error } = await supabase
-            .from("demands")
-            .update(demandUpdateData)
-            .eq("id", selectedCard.id);
-
-          if (error) throw error;
-        }
-      } else {
-        const { error } = await supabase.from("cards").update({
-          [field]: parsedValue
-        }).eq("id", selectedCard.id);
-        if (error) throw error;
+      // Map fields to demands table columns (unified table)
+      const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
+      
+      if (field === 'title') updateData.title = parsedValue;
+      else if (field === 'description' || field === 'instrucoes') updateData.instructions = parsedValue;
+      else if (field === 'objetivo') updateData.objective = parsedValue;
+      else if (field === 'observations') updateData.description = parsedValue;
+      else if (field === 'attachments') updateData.attachments = parsedValue;
+      else if (field === 'status') {
+        // Find status_id by name
+        const { data: statusData } = await supabase
+          .from("pipeline_statuses")
+          .select("id")
+          .eq("name", value)
+          .limit(1)
+          .maybeSingle();
+        if (statusData) updateData.status_id = statusData.id;
+        updateData.column_name = value;
       }
+      else if (field === 'publication_dates' && Array.isArray(parsedValue) && parsedValue.length > 0) {
+        updateData.publish_date = parsedValue[0].date;
+        updateData.publication_dates = parsedValue;
+      }
+      else if (field === 'delivery_date') updateData.due_date = parsedValue;
+      else if (field === 'column_name') {
+        // Find status_id for the new column
+        const { data: statusData } = await supabase
+          .from("pipeline_statuses")
+          .select("id")
+          .eq("name", value)
+          .limit(1)
+          .maybeSingle();
+        if (statusData) updateData.status_id = statusData.id;
+        updateData.column_name = value;
+      }
+      else updateData[field] = parsedValue;
+
+      const { error } = await supabase
+        .from("demands")
+        .update(updateData)
+        .eq("id", selectedCard.id);
+
+      if (error) throw error;
 
       // Atualizar estado local
       const updateCard = (c: CentralKanbanCard) => c.id === selectedCard.id ? {
@@ -416,14 +379,12 @@ const CentralKanban = () => {
 
       // Verificar se o card saiu da coluna "Agendar Publicação"
       if (field === 'column_name' && parsedValue !== 'Agendar Publicação') {
-        // Remover do kanban central
         setActiveCards(prev => prev.filter(c => c.id !== selectedCard.id));
         setAllCards(prev => prev.filter(c => c.id !== selectedCard.id));
         setIsTaskCardOpen(false);
         setSelectedCard(null);
         sonnerToast.info("Demanda removida de Agendar Publicação");
       } else if (field === 'status' && parsedValue !== 'Agendar Publicação') {
-        // Remover do kanban central se status mudou
         setActiveCards(prev => prev.filter(c => c.id !== selectedCard.id));
         setAllCards(prev => prev.filter(c => c.id !== selectedCard.id));
         setIsTaskCardOpen(false);
@@ -495,10 +456,9 @@ const CentralKanban = () => {
       const newAttachments = await Promise.all(uploadPromises);
       const updatedAttachments = [...(selectedCard.attachments || []), ...newAttachments];
       
-      // Usar tabela correta baseado no source
-      const tableName = selectedCard.source === 'demand' ? 'demands' : 'cards';
+      // Usar tabela unificada demands
       const { error: updateError } = await supabase
-        .from(tableName)
+        .from('demands')
         .update({
           attachments: updatedAttachments as unknown as any,
           updated_at: new Date().toISOString()
@@ -533,10 +493,9 @@ const CentralKanban = () => {
       }
       const updatedAttachments = (selectedCard.attachments || []).filter(a => a.url !== attachmentUrl);
       
-      // Usar tabela correta baseado no source
-      const tableName = selectedCard.source === 'demand' ? 'demands' : 'cards';
+      // Usar tabela unificada demands
       const { error } = await supabase
-        .from(tableName)
+        .from('demands')
         .update({
           attachments: updatedAttachments as unknown as any,
           updated_at: new Date().toISOString()
@@ -564,10 +523,9 @@ const CentralKanban = () => {
     if (!selectedCard) return;
     
     try {
-      // Usar tabela correta baseado no source
-      const tableName = selectedCard.source === 'demand' ? 'demands' : 'cards';
+      // Usar tabela unificada demands
       const { error } = await supabase
-        .from(tableName)
+        .from('demands')
         .update({ 
           attachments: attachments as unknown as any,
           updated_at: new Date().toISOString()

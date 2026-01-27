@@ -6,6 +6,8 @@ import { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 interface UseRealtimeAttachmentsOptions {
   tenantId: string | null;
   periodPlanId?: string | null;
+  onAttachmentUpdate?: (itemId: string, attachments: Attachment[]) => void;
+  // Legacy callbacks - kept for backward compatibility, both map to onAttachmentUpdate
   onCardUpdate?: (cardId: string, attachments: Attachment[]) => void;
   onDemandUpdate?: (demandId: string, attachments: Attachment[]) => void;
   enabled?: boolean;
@@ -14,27 +16,14 @@ interface UseRealtimeAttachmentsOptions {
 export function useRealtimeAttachments({
   tenantId,
   periodPlanId,
+  onAttachmentUpdate,
   onCardUpdate,
   onDemandUpdate,
   enabled = true
 }: UseRealtimeAttachmentsOptions) {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // Handle card updates from realtime
-  const handleCardChange = useCallback((
-    payload: RealtimePostgresChangesPayload<{ [key: string]: any }>
-  ) => {
-    if (payload.eventType === 'UPDATE' && payload.new) {
-      const newData = payload.new;
-      const cardId = newData.id as string;
-      const attachments = (newData.attachments as Attachment[]) || [];
-      
-      console.log('[Realtime] Card updated:', cardId, 'attachments:', attachments.length);
-      onCardUpdate?.(cardId, attachments);
-    }
-  }, [onCardUpdate]);
-
-  // Handle demand updates from realtime
+  // Unified handler for demand updates (now all items are in demands table)
   const handleDemandChange = useCallback((
     payload: RealtimePostgresChangesPayload<{ [key: string]: any }>
   ) => {
@@ -42,11 +31,21 @@ export function useRealtimeAttachments({
       const newData = payload.new;
       const demandId = newData.id as string;
       const attachments = (newData.attachments as Attachment[]) || [];
+      const source = newData.source as string;
       
-      console.log('[Realtime] Demand updated:', demandId, 'attachments:', attachments.length);
-      onDemandUpdate?.(demandId, attachments);
+      console.log('[Realtime] Demand updated:', demandId, 'source:', source, 'attachments:', attachments.length);
+      
+      // Use unified callback if available
+      onAttachmentUpdate?.(demandId, attachments);
+      
+      // Legacy support: call appropriate callback based on source
+      if (source === 'card') {
+        onCardUpdate?.(demandId, attachments);
+      } else {
+        onDemandUpdate?.(demandId, attachments);
+      }
     }
-  }, [onDemandUpdate]);
+  }, [onAttachmentUpdate, onCardUpdate, onDemandUpdate]);
 
   useEffect(() => {
     if (!enabled || !tenantId) {
@@ -63,20 +62,9 @@ export function useRealtimeAttachments({
     // Create the channel with subscriptions
     const channel = supabase.channel(channelName);
 
-    // Subscribe to cards table updates
+    // Subscribe to demands table updates (unified table now)
     if (periodPlanId) {
       // Filtered by period_plan_id for specific period views
-      channel.on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'cards',
-          filter: `period_plan_id=eq.${periodPlanId}`
-        },
-        handleCardChange
-      );
-
       channel.on(
         'postgres_changes',
         {
@@ -89,17 +77,6 @@ export function useRealtimeAttachments({
       );
     } else {
       // Subscribe to all updates for tenant (for central views)
-      channel.on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'cards',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        handleCardChange
-      );
-
       channel.on(
         'postgres_changes',
         {
@@ -127,7 +104,7 @@ export function useRealtimeAttachments({
         channelRef.current = null;
       }
     };
-  }, [tenantId, periodPlanId, enabled, handleCardChange, handleDemandChange]);
+  }, [tenantId, periodPlanId, enabled, handleDemandChange]);
 
   return {
     isSubscribed: !!channelRef.current

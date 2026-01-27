@@ -175,125 +175,79 @@ const KanbanCentralPage = () => {
     try {
       setLoading(true);
 
-      // Buscar cards e demands em paralelo
-      const [cardsResult, demandsResult] = await Promise.all([
-        supabase
-          .from("cards")
-          .select(`
-            *,
-            period_plans!cards_period_plan_id_fkey (
-              id,
-              operational_status,
-              company_id,
-              tenant_companies!period_plans_company_id_fkey (
-                id,
-                fantasy_name,
-                name
-              )
-            )
-          `)
-          .eq("tenant_id", tenantId)
-          .order("delivery_date", { ascending: true }),
-        supabase
-          .from("demands")
-          .select(`
-            *,
-            pipeline_statuses!demands_status_id_fkey (
-              name,
-              color,
-              position
-            ),
-            tenant_companies!demands_client_id_fkey (
-              id,
-              fantasy_name,
-              name
-            ),
-            period_plans!demands_period_plan_id_fkey (
-              id,
-              operational_status
-            )
-          `)
-          .eq("tenant_id", tenantId)
-          .order("created_at", { ascending: true })
-      ]);
+      // Buscar todas as demands (tabela unificada)
+      const { data: demandsData, error } = await supabase
+        .from("demands")
+        .select(`
+          *,
+          pipeline_statuses!demands_status_id_fkey (
+            name,
+            color,
+            position
+          ),
+          tenant_companies!demands_client_id_fkey (
+            id,
+            fantasy_name,
+            name
+          ),
+          period_plans!demands_period_plan_id_fkey (
+            id,
+            operational_status
+          )
+        `)
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: true });
 
-      if (cardsResult.error) throw cardsResult.error;
-      if (demandsResult.error) throw demandsResult.error;
+      if (error) throw error;
 
-      // Separar cards ativos (em_andamento) e arquivados (concluido)
+      // Separar cards ativos e arquivados
       const activeCards: CentralKanbanCard[] = [];
       const archived: CentralKanbanCard[] = [];
 
-      (cardsResult.data || []).forEach(card => {
-        const period = card.period_plans;
-        const company = period?.tenant_companies;
-        const mappedCard: CentralKanbanCard = {
-          ...card,
-          attachments: card.attachments as unknown as Attachment[] | null || [],
-          publication_dates: card.publication_dates as unknown as PublicationDate[] | null || [],
-          clientName: company?.fantasy_name || company?.name || "Cliente",
-          clientId: company?.id || "",
-          periodPlanId: period?.id || "",
-          isArchived: false,
-          source: 'card' as const
-        };
-
-        // Separar por status operacional do período
-        if (period?.operational_status === 'em_andamento') {
-          activeCards.push(mappedCard);
-        } else if (period?.operational_status === 'concluido') {
-          archived.push({ ...mappedCard, isArchived: true });
-        }
-        // Cards de períodos 'em_planejamento' não aparecem no kanban central
-      });
-      
-      // Mapear demands para o formato do kanban
-      // Incluir apenas as que NÃO estão em "Planejamento" (já passaram para produção)
-      (demandsResult.data || []).forEach(demand => {
+      (demandsData || []).forEach(demand => {
         const statusName = demand.pipeline_statuses?.name || "Planejamento";
-        // Pular demandas em Planejamento - elas não devem aparecer no kanban central
+        // Pular demandas em Planejamento
         if (statusName === "Planejamento") return;
         
         const company = demand.tenant_companies;
         const period = demand.period_plans;
-        const columnName = statusName; // O nome do status no banco É o nome da coluna
         
-        const mappedDemand: CentralKanbanCard = {
+        const mappedCard: CentralKanbanCard = {
           id: demand.id,
           title: demand.title,
           description: demand.instructions || demand.description || null,
-          objetivo: demand.objective || null,
-          instrucoes: demand.instructions || null,
-          observations: null,
+          objetivo: demand.objective || (demand as any).objetivo || null,
+          instrucoes: demand.instructions || (demand as any).instrucoes || null,
+          observations: (demand as any).observations || null,
           status: statusName,
-          column_name: columnName,
-          delivery_date: demand.due_date || demand.publish_date || new Date().toISOString().split('T')[0],
-          file_location: demand.channel || null,
+          column_name: statusName,
+          delivery_date: demand.due_date || demand.publish_date || (demand as any).delivery_date || new Date().toISOString().split('T')[0],
+          file_location: demand.channel || (demand as any).file_location || null,
           attachments: (demand.attachments as unknown as Attachment[] | null) || [],
           publication_dates: demand.publish_date ? [{
             date: demand.publish_date,
-            time: (demand as any).publish_time || "09:00", // Usar publish_time do banco se existir
+            time: demand.publish_time || "09:00",
             platform: demand.channel || undefined
-          }] : [],
+          }] : ((demand as any).publication_dates as unknown as PublicationDate[] | null) || [],
           tenant_id: demand.tenant_id,
           period_plan_id: demand.period_plan_id,
-          plan_id: null,
+          plan_id: (demand as any).plan_id || null,
           created_at: demand.created_at,
           updated_at: demand.updated_at,
           clientName: company?.fantasy_name || company?.name || "Cliente",
           clientId: company?.id || demand.client_id || "",
           periodPlanId: period?.id || "",
           isArchived: period?.operational_status === "concluido",
-          source: 'demand' as const,
+          source: demand.source as 'card' | 'demand',
           demand_id: demand.id,
           demand_type: demand.demand_type,
           channel: demand.channel
         };
-        
+
         if (period?.operational_status === 'concluido') {
-          archived.push(mappedDemand);
-        } else {
-          activeCards.push(mappedDemand);
+          archived.push(mappedCard);
+        } else if (period?.operational_status === 'em_andamento') {
+          activeCards.push(mappedCard);
         }
       });
 
@@ -342,34 +296,25 @@ const KanbanCentralPage = () => {
       )
     );
 
-    // Atualizar no banco (escolher tabela correta baseado no source)
+    // Atualizar no banco (tabela unificada demands)
     try {
-      if (card.source === 'demand') {
-        // Para demands, buscar status_id pelo NOME DA COLUNA (que é igual ao nome do status no banco)
-        const { data: statusData } = await supabase
-          .from("pipeline_statuses")
-          .select("id")
-          .eq("name", newColumnName) // Usar newColumnName, não newStatus
-          .limit(1)
-          .maybeSingle();
-        
-        const { error } = await supabase
-          .from("demands")
-          .update({ 
-            status_id: statusData?.id,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", card.id);
+      const { data: statusData } = await supabase
+        .from("pipeline_statuses")
+        .select("id")
+        .eq("name", newColumnName)
+        .limit(1)
+        .maybeSingle();
+      
+      const { error } = await supabase
+        .from("demands")
+        .update({ 
+          status_id: statusData?.id,
+          column_name: newColumnName,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", card.id);
 
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("cards")
-          .update({ column_name: newColumnName, status: newStatus })
-          .eq("id", card.id);
-
-        if (error) throw error;
-      }
+      if (error) throw error;
 
       sonnerToast.success(`Movida para "${newColumnName}"`);
     } catch (error) {
