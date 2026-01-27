@@ -736,17 +736,17 @@ export default function TaskCard({
                     {/* Attachments Grid with Drag and Drop */}
                     {card.attachments && card.attachments.length > 0 && (
                       <DragDropContext onDragEnd={handleAttachmentDragEnd}>
-                        <Droppable droppableId="attachments-grid" direction="horizontal">
+                        <Droppable droppableId="attachments-list">
                           {(provided) => (
                             <div 
                               ref={provided.innerRef}
                               {...provided.droppableProps}
-                              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-4"
+                              className="flex flex-col gap-2 mb-4"
                             >
                               {card.attachments!.map((attachment, idx) => (
                                 <Draggable 
-                                  key={attachment.url} 
-                                  draggableId={attachment.url} 
+                                  key={`attachment-${idx}-${attachment.url}`} 
+                                  draggableId={`attachment-${idx}-${attachment.url}`} 
                                   index={idx}
                                 >
                                   {(provided, snapshot) => (
@@ -754,56 +754,59 @@ export default function TaskCard({
                                       ref={provided.innerRef}
                                       {...provided.draggableProps}
                                       className={cn(
-                                        "group relative bg-muted/30 rounded-lg border border-border/50 overflow-hidden hover:border-primary/50 transition-colors",
-                                        snapshot.isDragging && "shadow-lg ring-2 ring-primary/50 z-50"
+                                        "group flex items-center gap-3 p-2 bg-muted/30 rounded-lg border border-border/50 hover:border-primary/50 transition-colors",
+                                        snapshot.isDragging && "shadow-lg ring-2 ring-primary/50 z-50 bg-background"
                                       )}
                                     >
                                       {/* Drag Handle */}
                                       <div 
                                         {...provided.dragHandleProps}
-                                        className="absolute top-2 left-2 p-1 bg-background/80 rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10"
-                                        onClick={(e) => e.stopPropagation()}
+                                        className="p-1.5 rounded hover:bg-muted cursor-grab active:cursor-grabbing flex-shrink-0"
+                                        title="Arraste para reordenar"
                                       >
-                                        <GripVertical className="h-3 w-3 text-muted-foreground" />
+                                        <GripVertical className="h-4 w-4 text-muted-foreground" />
                                       </div>
                                       
+                                      {/* Thumbnail */}
                                       <div 
-                                        className="cursor-pointer"
+                                        className="cursor-pointer flex-shrink-0"
                                         onClick={() => setPreviewAttachment(attachment)}
                                       >
                                         {isImageFile(attachment.type) ? (
-                                          <div className="block">
-                                            <div className="aspect-square">
-                                              <img 
-                                                src={attachment.url} 
-                                                alt={attachment.name} 
-                                                className="w-full h-full object-cover transition-transform group-hover:scale-105" 
-                                              />
-                                            </div>
-                                            <div className="p-2 bg-background/80 backdrop-blur-sm">
-                                              <p className="text-xs font-medium truncate">{attachment.name}</p>
-                                              <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
-                                            </div>
+                                          <div className="w-12 h-12 rounded overflow-hidden">
+                                            <img 
+                                              src={attachment.url} 
+                                              alt={attachment.name} 
+                                              className="w-full h-full object-cover" 
+                                            />
                                           </div>
                                         ) : (
-                                          <div className="flex flex-col items-center justify-center p-4 aspect-square hover:bg-muted/50 transition-colors">
-                                            <File className="h-10 w-10 text-muted-foreground mb-2" />
-                                            <p className="text-xs font-medium text-center truncate w-full">{attachment.name}</p>
-                                            <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                                          <div className="w-12 h-12 flex items-center justify-center bg-muted rounded">
+                                            <File className="h-6 w-6 text-muted-foreground" />
                                           </div>
                                         )}
                                       </div>
                                       
+                                      {/* File Info */}
+                                      <div 
+                                        className="flex-1 min-w-0 cursor-pointer"
+                                        onClick={() => setPreviewAttachment(attachment)}
+                                      >
+                                        <p className="text-sm font-medium truncate">{attachment.name}</p>
+                                        <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                                      </div>
+                                      
+                                      {/* Delete Button */}
                                       <button 
                                         onClick={e => {
                                           e.preventDefault();
                                           e.stopPropagation();
                                           setAttachmentToRemove(attachment);
                                         }} 
-                                        className="absolute top-2 right-2 p-1.5 bg-destructive/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive shadow-lg"
+                                        className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 flex-shrink-0"
                                         aria-label={`Remover anexo ${attachment.name}`}
                                       >
-                                        <X className="h-3 w-3 text-destructive-foreground" />
+                                        <X className="h-4 w-4 text-destructive" />
                                       </button>
                                     </div>
                                   )}
