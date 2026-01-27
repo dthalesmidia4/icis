@@ -12,6 +12,7 @@ import {
   Search
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
+import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
 import TaskCard, { getColumnFromStatus, getStatusFromColumn } from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PublicationDate } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
@@ -109,6 +110,59 @@ const KanbanCentralPage = () => {
       setHighlightedCardId(null);
     }, 3000);
   }, [selectedClientFilter]);
+
+  // Realtime handlers for attachments synchronization
+  const handleRealtimeCardUpdate = useCallback((cardId: string, attachments: Attachment[]) => {
+    setCards(prevCards => 
+      prevCards.map(card => 
+        card.id === cardId && card.source === 'card' 
+          ? { ...card, attachments } 
+          : card
+      )
+    );
+    setArchivedCards(prevCards => 
+      prevCards.map(card => 
+        card.id === cardId && card.source === 'card' 
+          ? { ...card, attachments } 
+          : card
+      )
+    );
+    setSelectedCard(prev => 
+      prev && prev.id === cardId && prev.source === 'card' 
+        ? { ...prev, attachments } 
+        : prev
+    );
+  }, []);
+
+  const handleRealtimeDemandUpdate = useCallback((demandId: string, attachments: Attachment[]) => {
+    setCards(prevCards => 
+      prevCards.map(card => 
+        card.id === demandId && card.source === 'demand' 
+          ? { ...card, attachments } 
+          : card
+      )
+    );
+    setArchivedCards(prevCards => 
+      prevCards.map(card => 
+        card.id === demandId && card.source === 'demand' 
+          ? { ...card, attachments } 
+          : card
+      )
+    );
+    setSelectedCard(prev => 
+      prev && prev.id === demandId && prev.source === 'demand' 
+        ? { ...prev, attachments } 
+        : prev
+    );
+  }, []);
+
+  // Setup realtime subscription
+  useRealtimeAttachments({
+    tenantId,
+    onCardUpdate: handleRealtimeCardUpdate,
+    onDemandUpdate: handleRealtimeDemandUpdate,
+    enabled: !!tenantId
+  });
 
   useEffect(() => {
     if (!tenantLoading && tenantId) {

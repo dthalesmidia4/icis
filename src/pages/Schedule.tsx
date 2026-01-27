@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useAgencyRole } from "@/hooks/useAgencyRole";
+import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
 import { ArrowLeft, Calendar, Filter, LayoutGrid, Loader2, History, Plus, ChevronRight, Paperclip, Sparkles } from "lucide-react";
 import { Json } from "@/integrations/supabase/types";
 import { Badge } from "@/components/ui/badge";
@@ -113,6 +114,48 @@ export default function Schedule() {
     // 4. Tentar do sessionStorage (backup)
     return sessionStorage.getItem('selected-period-id');
   }, [activePeriodId, location.state, searchParams]);
+
+  // Realtime handlers for attachments synchronization
+  const handleRealtimeCardUpdate = useCallback((cardId: string, attachments: Attachment[]) => {
+    setCards(prevCards => 
+      prevCards.map(card => 
+        card.id === cardId && card.source === 'card' 
+          ? { ...card, attachments } 
+          : card
+      )
+    );
+    // Update selected card if it's the one being updated
+    setSelectedCard(prev => 
+      prev && prev.id === cardId && prev.source === 'card' 
+        ? { ...prev, attachments } 
+        : prev
+    );
+  }, []);
+
+  const handleRealtimeDemandUpdate = useCallback((demandId: string, attachments: Attachment[]) => {
+    setCards(prevCards => 
+      prevCards.map(card => 
+        card.id === demandId && card.source === 'demand' 
+          ? { ...card, attachments } 
+          : card
+      )
+    );
+    // Update selected card if it's the one being updated
+    setSelectedCard(prev => 
+      prev && prev.id === demandId && prev.source === 'demand' 
+        ? { ...prev, attachments } 
+        : prev
+    );
+  }, []);
+
+  // Setup realtime subscription
+  useRealtimeAttachments({
+    tenantId,
+    periodPlanId,
+    onCardUpdate: handleRealtimeCardUpdate,
+    onDemandUpdate: handleRealtimeDemandUpdate,
+    enabled: !!tenantId && !!periodPlanId
+  });
 
   useEffect(() => {
     // Aguardar contextos inicializarem
