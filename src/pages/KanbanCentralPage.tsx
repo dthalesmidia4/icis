@@ -565,6 +565,49 @@ const KanbanCentralPage = () => {
     }
   };
 
+  const handleReorderAttachments = async (attachments: Attachment[]) => {
+    if (!selectedCard) return;
+    
+    console.log('[Attachment] Reordenando anexos:', {
+      cardId: selectedCard.id,
+      totalAnexos: attachments.length
+    });
+
+    try {
+      if (selectedCard.source === 'demand') {
+        const { error } = await supabase
+          .from('demands')
+          .update({ 
+            attachments: attachments as unknown as any,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedCard.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('cards')
+          .update({ 
+            attachments: attachments as unknown as any,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedCard.id);
+
+        if (error) throw error;
+      }
+
+      // Atualizar estado local
+      setCards(prev => prev.map(c => 
+        c.id === selectedCard.id ? { ...c, attachments } : c
+      ));
+
+      console.log('[Attachment] Ordem dos anexos salva com sucesso');
+    } catch (error) {
+      console.error("[Attachment] Error reordering attachments:", error);
+      sonnerToast.error("Erro ao reordenar anexos");
+    }
+  };
+
   const handleDelete = async () => {
     if (!selectedCard) return;
     try {
@@ -853,6 +896,7 @@ const KanbanCentralPage = () => {
           onSave={handleSave}
           onFileUpload={handleFileUpload}
           onRemoveAttachment={handleRemoveAttachment}
+          onReorderAttachments={handleReorderAttachments}
           onDelete={handleDelete}
           saving={saving}
           savingField={savingField}

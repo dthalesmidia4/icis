@@ -494,6 +494,33 @@ const CentralKanban = () => {
       sonnerToast.error("Erro ao remover anexo");
     }
   };
+
+  const handleReorderAttachments = async (attachments: Attachment[]) => {
+    if (!selectedCard) return;
+    
+    try {
+      const { error } = await supabase
+        .from('cards')
+        .update({ 
+          attachments: attachments as unknown as any,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedCard.id);
+
+      if (error) throw error;
+
+      const updateAttachments = (c: CentralKanbanCard) => c.id === selectedCard.id ? {
+        ...c,
+        attachments
+      } : c;
+      setActiveCards(prev => prev.map(updateAttachments));
+      setAllCards(prev => prev.map(updateAttachments));
+    } catch (error) {
+      console.error("[Attachment] Error reordering attachments:", error);
+      sonnerToast.error("Erro ao reordenar anexos");
+    }
+  };
+
   const handleDelete = async () => {
     if (!selectedCard) return;
     setActiveCards(prev => prev.filter(c => c.id !== selectedCard.id));
@@ -679,13 +706,26 @@ const CentralKanban = () => {
       </div>
 
       {/* TaskCard Modal */}
-      <TaskCard open={isTaskCardOpen} onOpenChange={open => {
-      setIsTaskCardOpen(open);
-      if (!open) {
-        setSelectedCard(null);
-        fetchScheduledCards();
-      }
-    }} card={selectedCard} onCardChange={handleCardChange} onSave={handleSave} onFileUpload={handleFileUpload} onRemoveAttachment={handleRemoveAttachment} onDelete={handleDelete} saving={saving} savingField={savingField} uploading={uploading} />
+      <TaskCard 
+        open={isTaskCardOpen} 
+        onOpenChange={open => {
+          setIsTaskCardOpen(open);
+          if (!open) {
+            setSelectedCard(null);
+            fetchScheduledCards();
+          }
+        }} 
+        card={selectedCard} 
+        onCardChange={handleCardChange} 
+        onSave={handleSave} 
+        onFileUpload={handleFileUpload} 
+        onRemoveAttachment={handleRemoveAttachment} 
+        onReorderAttachments={handleReorderAttachments}
+        onDelete={handleDelete} 
+        saving={saving} 
+        savingField={savingField} 
+        uploading={uploading} 
+      />
     </div>;
 };
 export default CentralKanban;
