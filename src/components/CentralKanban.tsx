@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive, Calendar, Sparkles, FileText } from "lucide-react";
+import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive, Calendar } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTenant } from "@/contexts/TenantContext";
 import TaskCard, { getColumnFromStatus } from "@/components/TaskCard";
@@ -618,24 +618,6 @@ const CentralKanban = () => {
           }} className={cn("flex items-center justify-between gap-4 px-4 py-3 bg-background rounded-lg border cursor-pointer hover:bg-muted/50 transition-all duration-300 group", isHighlighted ? "border-primary ring-2 ring-primary/30 bg-primary/5 shadow-lg scale-[1.02]" : "border-border/50")} onClick={() => handleCardClick(card)}>
               {/* Left side: Priority, Company, Content Type, Title */}
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                {/* Source Badge */}
-                {card.source === 'demand' ? (
-                  <Badge 
-                    variant="outline" 
-                    className="text-[10px] px-2 py-0.5 font-medium bg-amber-500/10 text-amber-600 border-amber-500/30 whitespace-nowrap"
-                  >
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    Manual
-                  </Badge>
-                ) : (
-                  <Badge 
-                    variant="outline" 
-                    className="text-[10px] px-2 py-0.5 font-medium bg-violet-500/10 text-violet-600 border-violet-500/30 whitespace-nowrap"
-                  >
-                    <FileText className="h-3 w-3 mr-1" />
-                    Planejado
-                  </Badge>
-                )}
                 {priority && <Badge className={cn("text-[10px] px-2 py-0.5 font-medium whitespace-nowrap", priority.className)}>
                     {priority.label}
                   </Badge>}
