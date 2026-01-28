@@ -1,21 +1,23 @@
-import { Home, Code, User, LogOut, Menu, Users, LayoutGrid } from "lucide-react";
+import { Home, Code, User, LogOut, Menu, Users, LayoutGrid, Target, FileText, Lightbulb, Calendar, ListTodo, ChevronDown, Building2 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { RoleBadge } from "@/components/RoleBadge";
+import { GlobalClientSelector } from "@/components/GlobalClientSelector";
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
-  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -28,9 +30,15 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useState, useMemo } from "react";
+import { cn } from "@/lib/utils";
 
 interface MenuItem {
   title: string;
@@ -39,11 +47,24 @@ interface MenuItem {
   adminOnly?: boolean;
 }
 
-// Definição de itens de menu com flag adminOnly
-const allMenuItems: MenuItem[] = [
+// Menu principal
+const mainMenuItems: MenuItem[] = [
   { title: "Home", url: "/home", icon: Home },
-  { title: "Kanban", url: "/kanban-central", icon: LayoutGrid },
+  { title: "Kanban Central", url: "/kanban-central", icon: LayoutGrid },
   { title: "Clientes", url: "/clientes", icon: Users, adminOnly: true },
+];
+
+// Menu do cliente atual
+const clientMenuItems: MenuItem[] = [
+  { title: "Hub", url: "/client-hub", icon: Target },
+  { title: "Perguntas", url: "/generate-questions", icon: FileText },
+  { title: "Estratégia", url: "/strategies", icon: Lightbulb },
+  { title: "Períodos", url: "/plan-period", icon: Calendar },
+  { title: "Demandas", url: "/schedule", icon: ListTodo },
+];
+
+// Menu developer
+const devMenuItems: MenuItem[] = [
   { title: "Developer", url: "/dev-hub", icon: Code, adminOnly: true },
 ];
 
@@ -54,10 +75,11 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
   const { signOut } = useAuth();
   const { tenantName } = useTenant();
   const { canAccessAdmin, role } = useUserRole();
+  const { selectedClient, clearSelectedClient } = useSelectedClient();
+  const [clientMenuOpen, setClientMenuOpen] = useState(true);
 
-  // Filtrar itens de menu baseado na role
   const menuItems = useMemo(() => {
-    return allMenuItems.filter(item => !item.adminOnly || canAccessAdmin);
+    return mainMenuItems.filter(item => !item.adminOnly || canAccessAdmin);
   }, [canAccessAdmin]);
 
   const isActive = (path: string) => location.pathname === path;
@@ -92,9 +114,17 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
+      {/* Seletor de Cliente (Mobile) */}
+      {canAccessAdmin && (
+        <div className="p-3 border-b">
+          <GlobalClientSelector className="w-full" />
+        </div>
+      )}
+
       {/* Menu Items */}
-      <div className="flex-1 py-4 px-2">
-        <nav className="space-y-2">
+      <div className="flex-1 py-4 px-2 overflow-auto">
+        <nav className="space-y-1">
+          {/* Menu Principal */}
           {menuItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.url);
@@ -102,20 +132,84 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
               <button
                 key={item.title}
                 onClick={() => handleNavigate(item.url)}
-                className={`
-                  w-full flex items-center gap-3 px-4 py-3 rounded-xl
-                  transition-all duration-200 text-left
-                  ${active 
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left",
+                  active 
                     ? 'bg-primary text-primary-foreground shadow-lg' 
                     : 'hover:bg-accent text-foreground'
-                  }
-                `}
+                )}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
                 <span className="font-medium">{item.title}</span>
               </button>
             );
           })}
+
+          {/* Menu Cliente Atual */}
+          {selectedClient && (
+            <Collapsible open={clientMenuOpen} onOpenChange={setClientMenuOpen} className="mt-4">
+              <CollapsibleTrigger className="w-full">
+                <div className="flex items-center justify-between px-4 py-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    <span className="truncate max-w-[150px]">
+                      {selectedClient.fantasy_name || selectedClient.name}
+                    </span>
+                  </div>
+                  <ChevronDown className={cn(
+                    "h-4 w-4 transition-transform",
+                    clientMenuOpen && "rotate-180"
+                  )} />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-1 mt-1">
+                {clientMenuItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.url);
+                  return (
+                    <button
+                      key={item.title}
+                      onClick={() => handleNavigate(item.url)}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-left ml-2",
+                        active 
+                          ? 'bg-primary/10 text-primary' 
+                          : 'hover:bg-accent text-foreground'
+                      )}
+                    >
+                      <Icon className="h-4 w-4 flex-shrink-0" />
+                      <span className="text-sm">{item.title}</span>
+                    </button>
+                  );
+                })}
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+
+          {/* Developer Menu */}
+          {canAccessAdmin && (
+            <div className="mt-4 pt-4 border-t">
+              {devMenuItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.url);
+                return (
+                  <button
+                    key={item.title}
+                    onClick={() => handleNavigate(item.url)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left",
+                      active 
+                        ? 'bg-primary text-primary-foreground shadow-lg' 
+                        : 'hover:bg-accent text-foreground'
+                    )}
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    <span className="font-medium">{item.title}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </nav>
       </div>
 
@@ -147,13 +241,15 @@ function DesktopSidebar() {
   const { signOut } = useAuth();
   const { tenantName } = useTenant();
   const { canAccessAdmin } = useUserRole();
+  const { selectedClient } = useSelectedClient();
+  const [clientMenuOpen, setClientMenuOpen] = useState(true);
 
-  // Filtrar itens de menu baseado na role
   const menuItems = useMemo(() => {
-    return allMenuItems.filter(item => !item.adminOnly || canAccessAdmin);
+    return mainMenuItems.filter(item => !item.adminOnly || canAccessAdmin);
   }, [canAccessAdmin]);
 
   const isActive = (path: string) => location.pathname === path;
+  const isClientRoute = clientMenuItems.some(item => location.pathname === item.url);
 
   const handleSignOut = async () => {
     await signOut();
@@ -191,10 +287,11 @@ function DesktopSidebar() {
         </DropdownMenu>
       </SidebarHeader>
 
-      <SidebarContent className="py-4">
+      <SidebarContent className="py-2">
+        {/* Menu Principal */}
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-2 px-2">
+            <SidebarMenu className="gap-1 px-2">
               {menuItems.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.url);
@@ -205,17 +302,14 @@ function DesktopSidebar() {
                         <SidebarMenuButton
                           onClick={() => navigate(item.url)}
                           isActive={active}
-                          className={`
-                            h-10 w-10 p-0 flex items-center justify-center mx-auto rounded-xl
-                            transition-all duration-300 ease-out
-                            hover:scale-110 hover:shadow-lg
-                            ${active 
+                          className={cn(
+                            "h-10 w-10 p-0 flex items-center justify-center mx-auto rounded-xl transition-all duration-300 ease-out hover:scale-110 hover:shadow-lg",
+                            active 
                               ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30' 
                               : 'hover:bg-accent hover:shadow-accent/20'
-                            }
-                          `}
+                          )}
                         >
-                          <Icon className={`h-5 w-5 transition-transform duration-300 ${active ? '' : 'group-hover:scale-110'}`} />
+                          <Icon className="h-5 w-5" />
                         </SidebarMenuButton>
                       </TooltipTrigger>
                       <TooltipContent side="right" sideOffset={10}>
@@ -228,6 +322,106 @@ function DesktopSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Menu Cliente Atual (se selecionado) */}
+        {selectedClient && (
+          <SidebarGroup className="mt-2 pt-2 border-t">
+            <Collapsible open={clientMenuOpen} onOpenChange={setClientMenuOpen}>
+              <CollapsibleTrigger asChild>
+                <div className="px-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button 
+                        className={cn(
+                          "h-10 w-10 p-0 flex items-center justify-center mx-auto rounded-xl transition-all duration-300 ease-out hover:scale-110",
+                          isClientRoute
+                            ? 'bg-primary/10 text-primary'
+                            : 'hover:bg-accent'
+                        )}
+                      >
+                        <Building2 className="h-5 w-5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" sideOffset={10}>
+                      <p className="font-semibold">{selectedClient.fantasy_name || selectedClient.name}</p>
+                      <p className="text-xs text-muted-foreground">Clique para expandir</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu className="gap-1 px-2 mt-1">
+                    {clientMenuItems.map((item) => {
+                      const Icon = item.icon;
+                      const active = isActive(item.url);
+                      return (
+                        <SidebarMenuItem key={item.title}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <SidebarMenuButton
+                                onClick={() => navigate(item.url)}
+                                isActive={active}
+                                className={cn(
+                                  "h-8 w-8 p-0 flex items-center justify-center mx-auto rounded-lg transition-all duration-300 ease-out hover:scale-110",
+                                  active 
+                                    ? 'bg-primary/20 text-primary' 
+                                    : 'hover:bg-accent'
+                                )}
+                              >
+                                <Icon className="h-4 w-4" />
+                              </SidebarMenuButton>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={10}>
+                              <p>{item.title}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </SidebarGroup>
+        )}
+
+        {/* Developer Menu */}
+        {canAccessAdmin && (
+          <SidebarGroup className="mt-auto pt-2 border-t">
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1 px-2">
+                {devMenuItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.url);
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <SidebarMenuButton
+                            onClick={() => navigate(item.url)}
+                            isActive={active}
+                            className={cn(
+                              "h-10 w-10 p-0 flex items-center justify-center mx-auto rounded-xl transition-all duration-300 ease-out hover:scale-110 hover:shadow-lg",
+                              active 
+                                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30' 
+                                : 'hover:bg-accent hover:shadow-accent/20'
+                            )}
+                          >
+                            <Icon className="h-5 w-5" />
+                          </SidebarMenuButton>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" sideOffset={10}>
+                          <p>{item.title}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       {/* Footer com botão de logout */}
@@ -255,6 +449,7 @@ function DesktopSidebar() {
 export function MobileHeader() {
   const [open, setOpen] = useState(false);
   const { tenantName } = useTenant();
+  const { selectedClient } = useSelectedClient();
 
   const getInitials = (name: string) => {
     return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
@@ -270,10 +465,20 @@ export function MobileHeader() {
               <span className="sr-only">Abrir menu</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-[280px] p-0">
+          <SheetContent side="left" className="w-[300px] p-0">
             <MobileSidebarContent onClose={() => setOpen(false)} />
           </SheetContent>
         </Sheet>
+
+        {/* Cliente selecionado (mobile) */}
+        {selectedClient && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full">
+            <Building2 className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-primary max-w-[120px] truncate">
+              {selectedClient.fantasy_name || selectedClient.name}
+            </span>
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           <Avatar className="h-8 w-8 border border-primary">
