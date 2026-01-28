@@ -6,7 +6,6 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { RoleBadge } from "@/components/RoleBadge";
-import { GlobalClientSelector } from "@/components/GlobalClientSelector";
 import {
   Sidebar,
   SidebarContent,
@@ -114,12 +113,6 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
-      {/* Seletor de Cliente (Mobile) */}
-      {canAccessAdmin && (
-        <div className="p-3 border-b">
-          <GlobalClientSelector className="w-full" />
-        </div>
-      )}
 
       {/* Menu Items */}
       <div className="flex-1 py-4 px-2 overflow-auto">
