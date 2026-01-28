@@ -2,16 +2,12 @@ import { ReactNode } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar, MobileHeader } from "@/components/AppSidebar";
 import { NavigationBreadcrumb, MobileBreadcrumb } from "@/components/NavigationBreadcrumb";
-import { GlobalClientSelector } from "@/components/GlobalClientSelector";
-import { useUserRole } from "@/hooks/useUserRole";
 
 interface LayoutProps {
   children: ReactNode;
 }
 
 export const Layout = ({ children }: LayoutProps) => {
-  const { canAccessAdmin } = useUserRole();
-
   return (
     <SidebarProvider>
       <div className="h-screen w-full flex flex-col md:flex-row overflow-hidden">
@@ -25,12 +21,9 @@ export const Layout = ({ children }: LayoutProps) => {
         
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Desktop Header with Client Selector and Breadcrumb */}
-          <header className="hidden md:flex items-center justify-between px-6 py-3 border-b bg-background/95 backdrop-blur-sm flex-shrink-0">
+          {/* Desktop Header with Breadcrumb */}
+          <header className="hidden md:flex items-center px-6 py-3 border-b bg-background/95 backdrop-blur-sm flex-shrink-0">
             <NavigationBreadcrumb />
-            {canAccessAdmin && (
-              <GlobalClientSelector className="ml-auto" />
-            )}
           </header>
 
           {/* Mobile Breadcrumb */}
