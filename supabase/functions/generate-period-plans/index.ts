@@ -20,7 +20,7 @@ serve(async (req) => {
     periodPlanId = body.periodPlanId;
     const tenantId = body.tenantId;
 
-    console.log('=== GENERATE-PERIOD-PLANS START ===');
+    console.log('=== GENERATE-PERIOD-PLANS START (ADAPTIVE) ===');
     console.log('periodPlanId:', periodPlanId);
     console.log('tenantId:', tenantId);
 
@@ -119,6 +119,105 @@ serve(async (req) => {
       console.log('Questions context loaded:', questions.length, 'questions');
     }
 
+    // ============================================
+    // NOVO: BUSCAR CONTEXTO ADAPTATIVO
+    // ============================================
+    console.log('Fetching adaptive context...');
+    const { data: adaptiveContextData, error: adaptiveError } = await (supabase as any)
+      .rpc('get_contextual_planning_input', {
+        p_client_id: periodPlan.company_id,
+        p_period_start: periodPlan.period_start,
+        p_period_end: periodPlan.period_end
+      });
+
+    let adaptiveContext: any = {
+      calendar_events: [],
+      successful_patterns: [],
+      failed_patterns: [],
+      recent_fingerprints: [],
+      top_demand_types: [],
+      avoid_fingerprints: []
+    };
+
+    if (adaptiveError) {
+      console.error('Error fetching adaptive context:', adaptiveError);
+    } else if (adaptiveContextData?.success) {
+      adaptiveContext = adaptiveContextData;
+      console.log('Adaptive context loaded:');
+      console.log('- Calendar events:', adaptiveContext.calendar_events?.length || 0);
+      console.log('- Successful patterns:', adaptiveContext.successful_patterns?.length || 0);
+      console.log('- Failed patterns:', adaptiveContext.failed_patterns?.length || 0);
+      console.log('- Recent fingerprints:', adaptiveContext.recent_fingerprints?.length || 0);
+    }
+
+    // ============================================
+    // FORMATAR CONTEXTO ADAPTATIVO PARA A IA
+    // ============================================
+    let calendarContext = '';
+    if (adaptiveContext.calendar_events && adaptiveContext.calendar_events.length > 0) {
+      calendarContext = `
+## 📅 DATAS COMEMORATIVAS NO PERÍODO (CONSIDERAR OBRIGATORIAMENTE)
+${(adaptiveContext.calendar_events as any[]).map((e: any) => 
+  `- ${e.date}: ${e.name} (${e.type}, prioridade: ${e.priority}/100)
+   Dica: ${e.tips || 'N/A'}`
+).join('\n')}
+
+⚠️ IMPORTANTE: Crie demandas específicas ou adaptadas para as datas comemorativas acima, especialmente as de alta prioridade.
+`;
+    }
+
+    let successPatternsContext = '';
+    if (adaptiveContext.successful_patterns && adaptiveContext.successful_patterns.length > 0) {
+      successPatternsContext = `
+## ✅ PADRÕES DE SUCESSO DESTE CLIENTE (PRIORIZAR)
+Os seguintes formatos/tipos tiveram bom desempenho e devem ser priorizados:
+${(adaptiveContext.successful_patterns as any[])
+  .filter((p: any) => p.type !== 'fingerprint')
+  .map((p: any) => `- ${p.type}: "${p.value}" (taxa de sucesso: ${p.success_rate}%)`)
+  .join('\n')}
+`;
+    }
+
+    let topDemandTypesContext = '';
+    if (adaptiveContext.top_demand_types && adaptiveContext.top_demand_types.length > 0) {
+      topDemandTypesContext = `
+## 🏆 TIPOS DE DEMANDA MAIS EFETIVOS
+${(adaptiveContext.top_demand_types as any[]).map((t: any) => 
+  `- ${t.demand_type} (${t.success_count} publicações bem-sucedidas)`
+).join('\n')}
+`;
+    }
+
+    let avoidPatternsContext = '';
+    if (adaptiveContext.failed_patterns && adaptiveContext.failed_patterns.length > 0) {
+      avoidPatternsContext = `
+## ❌ PADRÕES A EVITAR (NÃO REPETIR)
+Os seguintes padrões tiveram mau desempenho ou foram rejeitados pelo cliente:
+${(adaptiveContext.failed_patterns as any[])
+  .filter((p: any) => p.type !== 'fingerprint')
+  .map((p: any) => `- ${p.type}: "${p.value}" (taxa de rejeição: ${p.failure_rate}%)`)
+  .join('\n')}
+
+⚠️ NÃO gere demandas usando esses padrões problemáticos.
+`;
+    }
+
+    let recentIdeasContext = '';
+    if (adaptiveContext.recent_fingerprints && adaptiveContext.recent_fingerprints.length > 0) {
+      const recentTitles = (adaptiveContext.recent_fingerprints as any[])
+        .slice(0, 15)
+        .map((f: any) => `- "${f.title}"${f.was_successful ? ' ✓' : ''}`)
+        .join('\n');
+      
+      recentIdeasContext = `
+## 🔄 DEMANDAS RECENTES (EVITAR REPETIÇÃO DIRETA)
+Este cliente já teve as seguintes demandas nos últimos 6 meses:
+${recentTitles}
+
+⚠️ NÃO repita essas ideias exatamente. Você pode evoluir, variar ou criar abordagens diferentes sobre temas similares, mas NÃO copie títulos ou conceitos idênticos.
+`;
+    }
+
     // Fetch custom prompt from database - OBRIGATÓRIO
     console.log('Fetching custom prompt for tenant:', tenantId);
     const { data: customPromptData, error: promptError } = await supabase
@@ -157,7 +256,7 @@ serve(async (req) => {
     const apiKeyData = apiKeyDataResult as any;
     console.log('OpenAI API key found');
 
-    // Build comprehensive context with emphasis on priority channel
+    // Build comprehensive context with ADAPTIVE DATA
     const context = `
 ## DADOS DA EMPRESA
 - Razão Social: ${company.name}
@@ -189,12 +288,26 @@ ${questionsContext || 'Nenhuma pergunta respondida.'}
 ATENÇÃO: Todas as demandas devem ser EXCLUSIVAMENTE para "${periodPlan.priority_channel}". NÃO gere demandas para nenhum outro canal.
 
 - Observações/Restrições do Período: ${periodPlan.observations || 'Nenhuma'}
+
+${calendarContext}
+${successPatternsContext}
+${topDemandTypesContext}
+${avoidPatternsContext}
+${recentIdeasContext}
+
+## 🎯 INSTRUÇÕES DE ADAPTAÇÃO
+1. PRIORIZE os tipos de demanda que funcionam para este cliente
+2. CONSIDERE as datas comemorativas ao definir datas de publicação
+3. EVITE repetir ideias recentes ou padrões problemáticos
+4. VARIE e EVOLUA ideias que tiveram sucesso, não apenas copie
+5. CRIE conteúdo contextualizado para a temporada/período
 `;
 
-    console.log('Generating period plans for:', periodPlanId, 'using GPT-5 Mini');
+    console.log('Generating period plans for:', periodPlanId, 'using GPT-5 Mini (ADAPTIVE MODE)');
     console.log('Priority channel:', periodPlan.priority_channel);
+    console.log('Calendar events in period:', adaptiveContext.calendar_events?.length || 0);
 
-    // Append JSON instruction with VALIDATION RULES integrated (avoiding second API call)
+    // Append JSON instruction with VALIDATION RULES integrated
     const jsonInstruction = `
 
 ⚠️ INSTRUÇÕES OBRIGATÓRIAS DE FORMATO (SEGUIR EXATAMENTE):
@@ -213,7 +326,8 @@ ESTRUTURA DE CADA DEMANDA (campos obrigatórios):
   "instrucoes_de_producao": "Instruções específicas: cores, ícones, fotos, ângulos, cortes, CTAs visuais, tom",
   "cta_recomendado": "Chamada para ação específica da peça",
   "canal": "${periodPlan.priority_channel}",
-  "data_sugerida": "YYYY-MM-DD (dentro do período especificado)"
+  "data_sugerida": "YYYY-MM-DD (dentro do período especificado)",
+  "contexto_sazonal": "Se aplicável, mencione a data comemorativa relacionada"
 }
 
 IMPORTANTE: O campo "conteudo" DEVE conter o conteúdo COMPLETO E PRONTO PARA USO:
@@ -237,12 +351,14 @@ Antes de incluir qualquer demanda no resultado, valide internamente:
 3. COERÊNCIA: O objetivo declarado bate com o conteúdo? A peça cumpre exatamente a função proposta?
 4. REPETIÇÃO: Cada demanda deve ter ideia central ÚNICA. NÃO repita estruturas narrativas ou abordagens entre demandas da mesma geração. Varie os ângulos.
 5. VIABILIDADE: A demanda está clara, acionável e pronta para uma equipe de agência produzir?
+6. ORIGINALIDADE: A demanda NÃO é uma cópia de demandas recentes listadas acima?
+7. SAZONALIDADE: Se há datas comemorativas no período, pelo menos algumas demandas devem ser contextualizadas para elas?
 
 Se qualquer validação falhar, AJUSTE a demanda antes de incluir no JSON. Não inclua demandas que violem essas regras.
 
 FORMATO DE RESPOSTA FINAL:
 {
-  "default_plan": [{ "tipo": "...", "titulo": "...", "objetivo": "...", "conteudo": "...", "instrucoes_de_producao": "...", "cta_recomendado": "...", "canal": "${periodPlan.priority_channel}", "data_sugerida": "YYYY-MM-DD" }],
+  "default_plan": [{ "tipo": "...", "titulo": "...", "objetivo": "...", "conteudo": "...", "instrucoes_de_producao": "...", "cta_recomendado": "...", "canal": "${periodPlan.priority_channel}", "data_sugerida": "YYYY-MM-DD", "contexto_sazonal": "..." }],
   "ultra_plan": [...],
   "normal_summary": "...",
   "ultra_summary": "..."
@@ -334,8 +450,28 @@ FORMATO DE RESPOSTA FINAL:
       console.log('Ultra plan demands:', plans.ultra_plan.length);
     }
 
-    // Note: Checklist validation is now integrated into the main prompt above
-    // This eliminates the second OpenAI API call that was causing timeouts
+    // ============================================
+    // NOVO: REGISTRAR FINGERPRINTS DAS DEMANDAS GERADAS
+    // ============================================
+    console.log('Recording demand fingerprints...');
+    const allDemands = [...(plans.default_plan || []), ...(plans.ultra_plan || [])];
+    
+    for (const demand of allDemands) {
+      try {
+        await (supabase as any).from('demand_fingerprints').insert({
+          tenant_id: tenantId,
+          client_id: periodPlan.company_id,
+          period_plan_id: periodPlanId,
+          title: demand.titulo || demand.title || 'Sem título',
+          demand_type: demand.tipo || demand.demand_type,
+          channel: demand.canal || demand.channel || priorityChannel,
+          fingerprint: '' // Will be generated by trigger or we calculate here
+        });
+      } catch (fpError) {
+        console.error('Error recording fingerprint:', fpError);
+        // Don't fail the whole operation for fingerprint errors
+      }
+    }
 
     // Update period plan with generated plans
     console.log('Updating period plan with generated plans...');
@@ -354,14 +490,19 @@ FORMATO DE RESPOSTA FINAL:
       throw new Error('Erro ao salvar planos gerados no banco de dados');
     }
 
-    console.log('=== GENERATE-PERIOD-PLANS SUCCESS ===');
+    console.log('=== GENERATE-PERIOD-PLANS SUCCESS (ADAPTIVE) ===');
 
     return new Response(JSON.stringify({
       success: true,
       default_plan: plans.default_plan,
       ultra_plan: plans.ultra_plan,
       normal_summary: plans.normal_summary || 'Abordagem tradicional e segura com demandas operacionais.',
-      ultra_summary: plans.ultra_summary || 'Abordagem ousada e criativa com ideias inovadoras.'
+      ultra_summary: plans.ultra_summary || 'Abordagem ousada e criativa com ideias inovadoras.',
+      adaptive_info: {
+        calendar_events_count: adaptiveContext.calendar_events?.length || 0,
+        patterns_considered: (adaptiveContext.successful_patterns?.length || 0) + (adaptiveContext.failed_patterns?.length || 0),
+        avoided_repetitions: adaptiveContext.recent_fingerprints?.length || 0
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

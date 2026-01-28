@@ -38,6 +38,39 @@ export type Database = {
         }
         Relationships: []
       }
+      br_calendar_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_date: string
+          event_type: string
+          id: string
+          marketing_tips: string | null
+          name: string
+          priority: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_date: string
+          event_type: string
+          id?: string
+          marketing_tips?: string | null
+          name: string
+          priority?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_date?: string
+          event_type?: string
+          id?: string
+          marketing_tips?: string | null
+          name?: string
+          priority?: number
+        }
+        Relationships: []
+      }
       client_demand_template_stats: {
         Row: {
           last_matched_at: string | null
@@ -194,6 +227,204 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      demand_feedback_events: {
+        Row: {
+          channel: string | null
+          client_id: string
+          created_at: string
+          demand_fingerprint: string | null
+          demand_id: string | null
+          demand_type: string | null
+          event_type: Database["public"]["Enums"]["demand_feedback_event_type"]
+          id: string
+          publish_weekday: number | null
+          tenant_id: string
+          title: string | null
+        }
+        Insert: {
+          channel?: string | null
+          client_id: string
+          created_at?: string
+          demand_fingerprint?: string | null
+          demand_id?: string | null
+          demand_type?: string | null
+          event_type: Database["public"]["Enums"]["demand_feedback_event_type"]
+          id?: string
+          publish_weekday?: number | null
+          tenant_id: string
+          title?: string | null
+        }
+        Update: {
+          channel?: string | null
+          client_id?: string
+          created_at?: string
+          demand_fingerprint?: string | null
+          demand_id?: string | null
+          demand_type?: string | null
+          event_type?: Database["public"]["Enums"]["demand_feedback_event_type"]
+          id?: string
+          publish_weekday?: number | null
+          tenant_id?: string
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_feedback_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_feedback_events_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_feedback_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_fingerprints: {
+        Row: {
+          channel: string | null
+          client_id: string
+          created_at: string
+          demand_id: string | null
+          demand_type: string | null
+          fingerprint: string
+          id: string
+          period_plan_id: string | null
+          tenant_id: string
+          title: string
+          was_successful: boolean | null
+        }
+        Insert: {
+          channel?: string | null
+          client_id: string
+          created_at?: string
+          demand_id?: string | null
+          demand_type?: string | null
+          fingerprint: string
+          id?: string
+          period_plan_id?: string | null
+          tenant_id: string
+          title: string
+          was_successful?: boolean | null
+        }
+        Update: {
+          channel?: string | null
+          client_id?: string
+          created_at?: string
+          demand_id?: string | null
+          demand_type?: string | null
+          fingerprint?: string
+          id?: string
+          period_plan_id?: string | null
+          tenant_id?: string
+          title?: string
+          was_successful?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_fingerprints_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_fingerprints_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_fingerprints_period_plan_id_fkey"
+            columns: ["period_plan_id"]
+            isOneToOne: false
+            referencedRelation: "period_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_fingerprints_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demand_pattern_scores: {
+        Row: {
+          calculated_at: string
+          client_id: string
+          created_at: string
+          failure_score: number
+          id: string
+          last_used_at: string | null
+          pattern_type: string
+          pattern_value: string
+          success_score: number
+          successful_occurrences: number
+          tenant_id: string
+          total_occurrences: number
+          updated_at: string
+        }
+        Insert: {
+          calculated_at?: string
+          client_id: string
+          created_at?: string
+          failure_score?: number
+          id?: string
+          last_used_at?: string | null
+          pattern_type: string
+          pattern_value: string
+          success_score?: number
+          successful_occurrences?: number
+          tenant_id: string
+          total_occurrences?: number
+          updated_at?: string
+        }
+        Update: {
+          calculated_at?: string
+          client_id?: string
+          created_at?: string
+          failure_score?: number
+          id?: string
+          last_used_at?: string | null
+          pattern_type?: string
+          pattern_value?: string
+          success_score?: number
+          successful_occurrences?: number
+          tenant_id?: string
+          total_occurrences?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_pattern_scores_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_pattern_scores_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       demands: {
         Row: {
@@ -985,6 +1216,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_pattern_scores: { Args: { p_client_id: string }; Returns: Json }
       can_create_demands: { Args: { _tenant_id: string }; Returns: boolean }
       can_create_tenant: { Args: { _user_id: string }; Returns: boolean }
       create_demand_from_template: {
@@ -1004,9 +1236,21 @@ export type Database = {
         Returns: Json
       }
       debug_tenant_creation: { Args: { _user_id: string }; Returns: Json }
+      generate_demand_fingerprint: {
+        Args: { p_channel: string; p_demand_type: string; p_title: string }
+        Returns: string
+      }
       generate_invitation_code: { Args: never; Returns: string }
       get_client_demand_suggestions: {
         Args: { p_client_id: string; p_limit?: number }
+        Returns: Json
+      }
+      get_contextual_planning_input: {
+        Args: {
+          p_client_id: string
+          p_period_end: string
+          p_period_start: string
+        }
         Returns: Json
       }
       get_tenant_descendants: {
@@ -1045,6 +1289,13 @@ export type Database = {
       }
       is_agency_admin: { Args: { _tenant_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      record_demand_feedback: {
+        Args: {
+          p_demand_id: string
+          p_event_type: Database["public"]["Enums"]["demand_feedback_event_type"]
+        }
+        Returns: Json
+      }
       refresh_client_templates: { Args: { p_client_id: string }; Returns: Json }
       use_invitation: {
         Args: { _code: string; _user_id: string }
@@ -1068,6 +1319,13 @@ export type Database = {
         | "client_user"
         | "subclient_user"
         | "agency_manager"
+      demand_feedback_event_type:
+        | "deleted"
+        | "archived_without_publish"
+        | "published"
+        | "rescheduled"
+        | "created"
+        | "scheduled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1203,6 +1461,14 @@ export const Constants = {
         "client_user",
         "subclient_user",
         "agency_manager",
+      ],
+      demand_feedback_event_type: [
+        "deleted",
+        "archived_without_publish",
+        "published",
+        "rescheduled",
+        "created",
+        "scheduled",
       ],
     },
   },
