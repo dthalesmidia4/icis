@@ -1,249 +1,129 @@
 
-# Plano de Melhorias de Navegacao do Sistema
+# Plano: Corrigir Sistema de Geração Adaptativa
 
-## Visao Geral
+## Resumo dos Problemas Encontrados
 
-Este plano aborda 4 melhorias principais para reduzir a quantidade de cliques necessarios para acessar funcionalidades especificas do sistema:
-
-1. **Seletor Global de Cliente** - Permite trocar de cliente de qualquer pagina
-2. **Breadcrumbs de Navegacao** - Mostra a hierarquia atual e permite navegacao rapida
-3. **Sidebar Expandida** - Menu lateral com submenus contextuais
-4. **Unificacao dos Kanbans** - Consolidar /content-schedule e /kanban-central
+1. **Calendário de 2025 para planejamentos de 2026**: A tabela `br_calendar_events` só possui datas de 2025, mas os planejamentos são para 2026
+2. **Fingerprints vazios**: Os fingerprints estão sendo inseridos como strings vazias ao invés de calculados
+3. **Falta validação pós-geração**: Não há mecanismo que bloqueie demandas repetidas após a IA gerar
+4. **IA ignora instruções**: As instruções são apenas texto - a IA pode ignorar e repetir ideias
 
 ---
 
-## Fase 1: Seletor Global de Cliente
+## Solução Proposta
 
-### Objetivo
-Criar um componente de selecao de cliente persistente no header que permita trocar de cliente sem navegar de volta para a lista.
+### Fase 1: Atualizar Calendário para 2026
 
-### Componentes a Criar
+Adicionar datas comemorativas de 2026 à tabela `br_calendar_events`:
 
-**1.1 GlobalClientSelector.tsx**
-- Dropdown com lista de clientes do tenant
-- Exibe cliente atualmente selecionado (nome fantasia ou razao social)
-- Permite busca rapida dentro do dropdown
-- Mostra indicador visual quando nenhum cliente esta selecionado
-- Integrado com SelectedClientContext existente
-
-### Alteracoes Necessarias
-
-**Layout.tsx**
-- Adicionar header persistente com GlobalClientSelector
-- Manter header visivel em todas as paginas protegidas
-
-**AppSidebar.tsx**
-- Integrar GlobalClientSelector no header do sidebar (desktop)
-- Adicionar ao MobileHeader (mobile)
-
-### Fluxo de Usuario Melhorado
-```text
-ANTES: Home -> Clientes -> Selecionar Cliente -> Client Hub
-DEPOIS: Clicar no seletor de cliente (qualquer pagina) -> Selecionar -> Automaticamente no Client Hub
+```sql
+-- Feriados e datas de 2026
+INSERT INTO br_calendar_events VALUES
+('2026-01-01', 'Ano Novo', 'holiday', 90, ...),
+('2026-02-14', 'Carnaval', 'holiday', 95, ...),
+('2026-03-08', 'Dia Internacional da Mulher', 'marketing', 90, ...),
+...
 ```
 
----
-
-## Fase 2: Sistema de Breadcrumbs
-
-### Objetivo
-Implementar breadcrumbs dinamicos que mostrem a localizacao atual do usuario e permitam navegacao rapida para niveis superiores.
-
-### Componentes a Criar
-
-**2.1 NavigationBreadcrumb.tsx**
-- Componente reutilizavel que interpreta a rota atual
-- Mostra hierarquia: Home > Clientes > [Nome Cliente] > [Pagina Atual]
-- Links clicaveis para navegacao rapida
-- Responsivo (colapsa em mobile)
-
-**2.2 useBreadcrumb.tsx (hook)**
-- Logica para determinar breadcrumbs baseado em:
-  - Rota atual (useLocation)
-  - Cliente selecionado (useSelectedClient)
-  - Contexto da pagina
-
-### Mapeamento de Rotas para Breadcrumbs
-
-| Rota | Breadcrumb |
-|------|------------|
-| /home | Home |
-| /clientes | Home > Clientes |
-| /clientes/:id | Home > Clientes > [Nome Cliente] |
-| /client-hub | Home > Clientes > [Nome Cliente] > Hub |
-| /client-guide | Home > Clientes > [Nome Cliente] > Perguntas Guias |
-| /strategies | Home > Clientes > [Nome Cliente] > Estrategia |
-| /plan-period | Home > Clientes > [Nome Cliente] > Periodos |
-| /schedule | Home > Clientes > [Nome Cliente] > Demandas |
-| /kanban-central | Home > Kanban Central |
-
-### Alteracoes Necessarias
-
-**Layout.tsx**
-- Adicionar NavigationBreadcrumb abaixo do header
-- Renderizar condicionalmente (nao mostrar em /home)
+**Inclui**: Carnaval 2026, Dia das Mães 2026, Black Friday 2026, etc.
 
 ---
 
-## Fase 3: Sidebar Expandida com Submenus
+### Fase 2: Corrigir Geração de Fingerprints
 
-### Objetivo
-Redesenhar o sidebar para incluir mais itens de navegacao direta e submenus contextuais que aparecem quando um cliente esta selecionado.
+**Problema**: O código insere `fingerprint: ''` ao invés de calcular
 
-### Nova Estrutura do Menu
-
-```text
-Sidebar (Desktop - 64px icones, expandido 220px)
-|
-+-- Home (sempre visivel)
-+-- Kanban Central (sempre visivel)
-+-- Clientes (sempre visivel)
-|   +-- [Lista rapida dos ultimos 5 clientes]
-|   +-- Ver todos...
-|
-+-- Cliente Atual (visivel se cliente selecionado)
-|   +-- Hub do Cliente
-|   +-- Perguntas Guias
-|   +-- Estrategia
-|   +-- Periodos
-|   +-- Demandas
-|
-+-- Developer (admin only)
-```
-
-### Componentes a Modificar
-
-**AppSidebar.tsx**
-- Adicionar Collapsible para submenu de clientes
-- Adicionar secao "Cliente Atual" que aparece quando selectedClient existe
-- Usar SidebarGroup com estado controlado (open/onOpenChange)
-- Manter funcionalidade de tooltips no modo colapsado
-
-### Comportamento
-
-- **Desktop**: Sidebar sempre visivel (64px), expande ao hover ou clique
-- **Mobile**: Sheet lateral com todos os menus expandidos
-- **Submenu Cliente Atual**: Aparece automaticamente quando um cliente e selecionado
-
----
-
-## Secao Tecnica: Detalhes de Implementacao
-
-### 1. GlobalClientSelector
+**Solução**: Chamar a função `generate_demand_fingerprint` antes de inserir:
 
 ```typescript
-// Estrutura do componente
-interface GlobalClientSelectorProps {
-  className?: string;
-  compact?: boolean; // Para mobile
-}
+// ANTES (incorreto)
+await supabase.from('demand_fingerprints').insert({
+  fingerprint: '' // VAZIO!
+});
 
-// Integracao com contextos existentes
-const { selectedClient, setSelectedClient } = useSelectedClient();
-const { tenantId } = useTenant();
-
-// Query para buscar clientes
-const { data: clients } = useQuery({
-  queryKey: ['tenant-clients-selector', tenantId],
-  queryFn: async () => {
-    const { data } = await supabase
-      .from('tenant_companies')
-      .select('id, name, fantasy_name, cnpj_cpf, email')
-      .eq('tenant_id', tenantId)
-      .order('name');
-    return data;
-  }
+// DEPOIS (correto)  
+const fingerprint = await generateFingerprint(title, demand_type, channel);
+await supabase.from('demand_fingerprints').insert({
+  fingerprint: fingerprint
 });
 ```
 
-### 2. NavigationBreadcrumb
+**OU** criar um trigger no banco que calcule automaticamente o fingerprint no INSERT.
+
+---
+
+### Fase 3: Implementar Validação Pós-Geração
+
+Adicionar um passo de **deduplicação programática** após a IA gerar:
 
 ```typescript
-// Hook useBreadcrumb
-const breadcrumbMap: Record<string, BreadcrumbConfig> = {
-  '/home': { items: [{ label: 'Home', href: '/home' }] },
-  '/clientes': { 
-    items: [
-      { label: 'Home', href: '/home' },
-      { label: 'Clientes', href: '/clientes' }
-    ]
-  },
-  '/client-hub': {
-    items: [
-      { label: 'Home', href: '/home' },
-      { label: 'Clientes', href: '/clientes' },
-      { label: '{clientName}', href: '/client-hub' } // Dinamico
-    ]
-  }
-  // ...
-};
-```
+// Após receber resposta da IA
+const generatedDemands = plans.default_plan;
 
-### 3. Sidebar Expandida
+// Buscar fingerprints existentes
+const existingFingerprints = await supabase
+  .from('demand_fingerprints')
+  .select('fingerprint, title')
+  .eq('client_id', clientId);
 
-```typescript
-// Nova estrutura de menu items
-const menuStructure = {
-  main: [
-    { title: "Home", url: "/home", icon: Home },
-    { title: "Kanban Central", url: "/kanban-central", icon: LayoutGrid }
-  ],
-  clientManagement: {
-    title: "Clientes",
-    icon: Users,
-    items: [/* lista dinamica */],
-    adminOnly: true
-  },
-  currentClient: {
-    title: "Cliente Atual",
-    icon: Building2,
-    showWhen: (ctx) => !!ctx.selectedClient,
-    items: [
-      { title: "Hub", url: "/client-hub", icon: Target },
-      { title: "Perguntas", url: "/client-guide", icon: FileText },
-      { title: "Estrategia", url: "/strategies", icon: Lightbulb },
-      { title: "Periodos", url: "/plan-period", icon: Calendar },
-      { title: "Demandas", url: "/schedule", icon: ListTodo }
-    ]
+// Filtrar demandas duplicadas
+const uniqueDemands = generatedDemands.filter(demand => {
+  const fp = generateFingerprint(demand.titulo, demand.tipo, demand.canal);
+  const isDuplicate = existingFingerprints.some(e => e.fingerprint === fp);
+  if (isDuplicate) {
+    console.log(`⚠️ Demanda duplicada removida: ${demand.titulo}`);
   }
-};
+  return !isDuplicate;
+});
+
+// Substituir demandas removidas por novas (opcional)
+if (uniqueDemands.length < generatedDemands.length) {
+  // Pedir mais demandas à IA ou aceitar menos
+}
 ```
 
 ---
 
-## Ordem de Implementacao
+### Fase 4: Melhorar Contexto Enviado à IA
 
-1. **Fase 1**: GlobalClientSelector (1 sessao)
-   - Criar componente
-   - Integrar no Layout/Sidebar
+Tornar as instruções mais **imperativas** e incluir os títulos exatos a evitar:
 
-2. **Fase 2**: Breadcrumbs (1 sessao)
-   - Criar hook useBreadcrumb
-   - Criar componente NavigationBreadcrumb
-   - Integrar no Layout
+```typescript
+// Ao invés de sugestão vaga:
+"EVITAR demandas recentes..."
 
-3. **Fase 3**: Sidebar Expandida (1-2 sessoes)
-   - Refatorar AppSidebar com submenus
-   - Adicionar secao "Cliente Atual"
-   - Testar responsividade
+// Usar lista explícita e BLOQUEANTE:
+`
+⛔ TÍTULOS PROIBIDOS (NÃO USAR NENHUM DESTES):
+- "Fluxo de Caixa em 5 minutos" ← JÁ USADO
+- "5 perguntas que você não faz pro contador" ← JÁ USADO
+- "Transforme relatório em ação" ← JÁ USADO
+
+Se gerar qualquer demanda com título igual ou muito similar, 
+a demanda será AUTOMATICAMENTE REJEITADA.
+`
+```
 
 ---
 
-## Impacto na Experiencia do Usuario
+## Tarefas Técnicas
 
-### Antes (clicks para acessar demandas de um cliente):
-```text
-Home (1) -> Clientes (2) -> Selecionar Cliente (3) -> Client Hub (4) -> Demandas (5)
-Total: 5 cliques
-```
+| # | Tarefa | Arquivo |
+|---|--------|---------|
+| 1 | Criar migration para adicionar eventos do calendário 2026 | `supabase/migrations/` |
+| 2 | Adicionar trigger para calcular fingerprint automaticamente | `supabase/migrations/` |
+| 3 | Implementar validação pós-geração na Edge Function | `supabase/functions/generate-period-plans/index.ts` |
+| 4 | Melhorar prompt com lista explícita de títulos proibidos | `supabase/functions/generate-period-plans/index.ts` |
+| 5 | Adicionar fallback: se IA repetir, regenerar automaticamente | `supabase/functions/generate-period-plans/index.ts` |
 
-### Depois:
-```text
-Opcao A: Clicar no seletor de cliente (1) -> Selecionar (2) -> Menu Demandas (3)
-Total: 3 cliques
+---
 
-Opcao B: Submenu Cliente Atual no sidebar -> Demandas (1)
-Total: 1 clique (se cliente ja selecionado)
-```
+## Resultado Esperado
 
-### Reducao: 40-80% menos cliques para acoes frequentes
+Após as correções:
+
+1. ✅ Datas comemorativas de Fev/Mar 2026 aparecem (Carnaval, Dia da Mulher, etc.)
+2. ✅ Fingerprints são calculados corretamente ao inserir
+3. ✅ Demandas duplicadas são **removidas programaticamente** mesmo se a IA ignorar instruções
+4. ✅ Cada planejamento terá conteúdo genuinamente diferente
+5. ✅ Sistema aprende e melhora com cada iteração
