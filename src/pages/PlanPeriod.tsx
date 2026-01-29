@@ -449,10 +449,30 @@ const PlanPeriod = () => {
         };
       });
       if (demandsToInsert.length > 0 && pipelineId && statusId) {
-        const {
-          error
-        } = await supabase.from('demands').insert(demandsToInsert);
+        const { data: insertedDemands, error } = await supabase
+          .from('demands')
+          .insert(demandsToInsert)
+          .select('id, title, demand_type, channel');
         if (error) throw error;
+
+        // Update fingerprints with demand_id linkage
+        if (insertedDemands && insertedDemands.length > 0) {
+          for (const demand of insertedDemands) {
+            // Generate fingerprint hash to match
+            const titleClean = (demand.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const demandType = (demand.demand_type || '').toLowerCase();
+            const channel = (demand.channel || '').toLowerCase();
+            
+            // Update the fingerprint that matches this demand
+            await supabase
+              .from('demand_fingerprints')
+              .update({ demand_id: demand.id })
+              .eq('period_plan_id', periodPlanId)
+              .eq('demand_id', null)
+              .ilike('title', `%${demand.title?.split(' - ').pop() || ''}%`)
+              .limit(1);
+          }
+        }
       }
       toast.success(`${selectedDemands.length} demandas integradas ao Kanban!`);
 
