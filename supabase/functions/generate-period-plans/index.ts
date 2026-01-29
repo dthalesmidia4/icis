@@ -7,6 +7,19 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Função para gerar fingerprint (mesma lógica do banco)
+function generateFingerprint(title: string, demandType: string, channel: string): string {
+  const input = `${(title || '').toLowerCase().replace(/[^a-z0-9]/g, '')}|${(demandType || '').toLowerCase()}|${(channel || '').toLowerCase()}`;
+  // Simple hash for fingerprint (MD5 equivalent logic)
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    const char = input.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(16).padStart(8, '0');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -20,7 +33,7 @@ serve(async (req) => {
     periodPlanId = body.periodPlanId;
     const tenantId = body.tenantId;
 
-    console.log('=== GENERATE-PERIOD-PLANS START (ADAPTIVE) ===');
+    console.log('=== GENERATE-PERIOD-PLANS START (ADAPTIVE V2) ===');
     console.log('periodPlanId:', periodPlanId);
     console.log('tenantId:', tenantId);
 
@@ -120,7 +133,7 @@ serve(async (req) => {
     }
 
     // ============================================
-    // NOVO: BUSCAR CONTEXTO ADAPTATIVO
+    // BUSCAR CONTEXTO ADAPTATIVO
     // ============================================
     console.log('Fetching adaptive context...');
     const { data: adaptiveContextData, error: adaptiveError } = await (supabase as any)
@@ -151,18 +164,39 @@ serve(async (req) => {
     }
 
     // ============================================
+    // BUSCAR FINGERPRINTS EXISTENTES PARA DEDUPLICAÇÃO
+    // ============================================
+    console.log('Fetching existing fingerprints for deduplication...');
+    const { data: existingFingerprintsData } = await supabase
+      .from('demand_fingerprints')
+      .select('fingerprint, title')
+      .eq('client_id', periodPlan.company_id);
+    
+    const existingFingerprints = new Set(
+      (existingFingerprintsData || []).map((f: any) => f.fingerprint)
+    );
+    const existingTitles = (existingFingerprintsData || []).map((f: any) => f.title);
+    console.log('Existing fingerprints count:', existingFingerprints.size);
+
+    // ============================================
     // FORMATAR CONTEXTO ADAPTATIVO PARA A IA
     // ============================================
     let calendarContext = '';
     if (adaptiveContext.calendar_events && adaptiveContext.calendar_events.length > 0) {
       calendarContext = `
-## 📅 DATAS COMEMORATIVAS NO PERÍODO (CONSIDERAR OBRIGATORIAMENTE)
+## 📅 DATAS COMEMORATIVAS NO PERÍODO (USAR OBRIGATORIAMENTE)
 ${(adaptiveContext.calendar_events as any[]).map((e: any) => 
-  `- ${e.date}: ${e.name} (${e.type}, prioridade: ${e.priority}/100)
-   Dica: ${e.tips || 'N/A'}`
+  `- ${e.date}: **${e.name}** (${e.type}, prioridade: ${e.priority}/100)
+   Dica de marketing: ${e.tips || 'Aproveite a data para engajamento'}`
 ).join('\n')}
 
-⚠️ IMPORTANTE: Crie demandas específicas ou adaptadas para as datas comemorativas acima, especialmente as de alta prioridade.
+⚠️ OBRIGATÓRIO: Pelo menos 30% das demandas DEVEM ser relacionadas a essas datas comemorativas.
+`;
+    } else {
+      calendarContext = `
+## 📅 DATAS COMEMORATIVAS
+Nenhuma data comemorativa especial encontrada para este período.
+Foque em conteúdo evergreen e temas da estratégia do cliente.
 `;
     }
 
@@ -202,19 +236,26 @@ ${(adaptiveContext.failed_patterns as any[])
 `;
     }
 
-    let recentIdeasContext = '';
-    if (adaptiveContext.recent_fingerprints && adaptiveContext.recent_fingerprints.length > 0) {
-      const recentTitles = (adaptiveContext.recent_fingerprints as any[])
-        .slice(0, 15)
-        .map((f: any) => `- "${f.title}"${f.was_successful ? ' ✓' : ''}`)
-        .join('\n');
-      
-      recentIdeasContext = `
-## 🔄 DEMANDAS RECENTES (EVITAR REPETIÇÃO DIRETA)
-Este cliente já teve as seguintes demandas nos últimos 6 meses:
-${recentTitles}
+    // ============================================
+    // LISTA DE TÍTULOS PROIBIDOS (CRÍTICO PARA EVITAR REPETIÇÃO)
+    // ============================================
+    let prohibitedTitlesContext = '';
+    if (existingTitles.length > 0) {
+      const recentTitles = existingTitles.slice(0, 30);
+      prohibitedTitlesContext = `
+## ⛔ TÍTULOS PROIBIDOS - NÃO USAR NENHUM DESTES
 
-⚠️ NÃO repita essas ideias exatamente. Você pode evoluir, variar ou criar abordagens diferentes sobre temas similares, mas NÃO copie títulos ou conceitos idênticos.
+Os seguintes títulos JÁ FORAM USADOS para este cliente. Qualquer demanda com título idêntico ou muito similar será AUTOMATICAMENTE REJEITADA pelo sistema:
+
+${recentTitles.map((t: string) => `❌ "${t}"`).join('\n')}
+
+REGRAS DE ORIGINALIDADE:
+1. NÃO copie nenhum título acima literalmente
+2. NÃO faça variações mínimas (ex: "5 dicas" vs "6 dicas")
+3. Crie ideias COMPLETAMENTE NOVAS e DIFERENTES
+4. Use abordagens, ângulos e formatos que ainda não foram explorados
+5. Demandas duplicadas serão removidas automaticamente
+
 `;
     }
 
@@ -293,19 +334,21 @@ ${calendarContext}
 ${successPatternsContext}
 ${topDemandTypesContext}
 ${avoidPatternsContext}
-${recentIdeasContext}
+${prohibitedTitlesContext}
 
 ## 🎯 INSTRUÇÕES DE ADAPTAÇÃO
 1. PRIORIZE os tipos de demanda que funcionam para este cliente
-2. CONSIDERE as datas comemorativas ao definir datas de publicação
-3. EVITE repetir ideias recentes ou padrões problemáticos
+2. APROVEITE as datas comemorativas - inclua demandas específicas para elas
+3. EVITE ABSOLUTAMENTE repetir ideias dos títulos proibidos
 4. VARIE e EVOLUA ideias que tiveram sucesso, não apenas copie
 5. CRIE conteúdo contextualizado para a temporada/período
+6. CADA demanda deve ter uma ideia CENTRAL ÚNICA
 `;
 
-    console.log('Generating period plans for:', periodPlanId, 'using GPT-5 Mini (ADAPTIVE MODE)');
+    console.log('Generating period plans for:', periodPlanId, 'using GPT-5 Mini (ADAPTIVE V2)');
     console.log('Priority channel:', periodPlan.priority_channel);
     console.log('Calendar events in period:', adaptiveContext.calendar_events?.length || 0);
+    console.log('Prohibited titles count:', existingTitles.length);
 
     // Append JSON instruction with VALIDATION RULES integrated
     const jsonInstruction = `
@@ -320,14 +363,14 @@ NÃO use nenhum outro canal. TODAS as demandas são para ${periodPlan.priority_c
 ESTRUTURA DE CADA DEMANDA (campos obrigatórios):
 {
   "tipo": "Carrossel (X slides) | Reels (Xs) | Post estático | Story | Vídeo Comercial | etc",
-  "titulo": "Nome curto e objetivo da peça",
+  "titulo": "Nome curto e objetivo da peça - DEVE SER ÚNICO E DIFERENTE DOS TÍTULOS PROIBIDOS",
   "objetivo": "O que a peça quer alcançar (educar, vender, engajar, autoridade, etc)",
-  "conteudo": "CONTEÚDO FORMATADO COM MARKDOWN para facilitar leitura. Use ## para títulos de seções, - para listas, e linhas em branco para separar parágrafos. Exemplo:\n\n## SLIDE 1\nTexto completo do slide\n\n## SLIDE 2\nTexto completo do slide\n\nPara vídeos:\n\n## CENA 1\n**Visual:** descrição\n**Narração:** texto\n\n## CENA 2\n...",
+  "conteudo": "CONTEÚDO FORMATADO COM MARKDOWN para facilitar leitura. Use ## para títulos de seções, - para listas, e linhas em branco para separar parágrafos. Exemplo:\\n\\n## SLIDE 1\\nTexto completo do slide\\n\\n## SLIDE 2\\nTexto completo do slide\\n\\nPara vídeos:\\n\\n## CENA 1\\n**Visual:** descrição\\n**Narração:** texto\\n\\n## CENA 2\\n...",
   "instrucoes_de_producao": "Instruções específicas: cores, ícones, fotos, ângulos, cortes, CTAs visuais, tom",
   "cta_recomendado": "Chamada para ação específica da peça",
   "canal": "${periodPlan.priority_channel}",
   "data_sugerida": "YYYY-MM-DD (dentro do período especificado)",
-  "contexto_sazonal": "Se aplicável, mencione a data comemorativa relacionada"
+  "contexto_sazonal": "Se aplicável, mencione a data comemorativa relacionada (ex: 'Carnaval', 'Dia da Mulher')"
 }
 
 IMPORTANTE: O campo "conteudo" DEVE conter o conteúdo COMPLETO E PRONTO PARA USO:
@@ -349,10 +392,10 @@ Antes de incluir qualquer demanda no resultado, valide internamente:
 1. PLANEJAMENTO: A demanda respeita as observações/restrições do período "${periodPlan.observations || 'Nenhuma'}"?
 2. CTA: Se CTA comercial/vendas NÃO foi autorizado nas observações, use APENAS encerramentos neutros (ex: "Reflita sobre isso", "Salve para depois", "Comente sua opinião"). NUNCA prometa resultados, prazos ou promoções sem autorização.
 3. COERÊNCIA: O objetivo declarado bate com o conteúdo? A peça cumpre exatamente a função proposta?
-4. REPETIÇÃO: Cada demanda deve ter ideia central ÚNICA. NÃO repita estruturas narrativas ou abordagens entre demandas da mesma geração. Varie os ângulos.
+4. REPETIÇÃO: O título É DIFERENTE de todos os títulos proibidos listados acima? Se for similar, MUDE COMPLETAMENTE.
 5. VIABILIDADE: A demanda está clara, acionável e pronta para uma equipe de agência produzir?
-6. ORIGINALIDADE: A demanda NÃO é uma cópia de demandas recentes listadas acima?
-7. SAZONALIDADE: Se há datas comemorativas no período, pelo menos algumas demandas devem ser contextualizadas para elas?
+6. ORIGINALIDADE: A ideia central é DIFERENTE de todas as demandas anteriores?
+7. SAZONALIDADE: Se há datas comemorativas, inclua pelo menos 2-3 demandas relacionadas a elas.
 
 Se qualquer validação falhar, AJUSTE a demanda antes de incluir no JSON. Não inclua demandas que violem essas regras.
 
@@ -372,12 +415,12 @@ FORMATO DE RESPOSTA FINAL:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt + jsonInstruction },
           { role: 'user', content: context }
         ],
-        max_completion_tokens: 16000,
+        max_tokens: 16000,
       }),
     });
 
@@ -440,38 +483,113 @@ FORMATO DE RESPOSTA FINAL:
         ...demand,
         canal: priorityChannel
       }));
-      console.log('Default plan demands:', plans.default_plan.length);
+      console.log('Default plan demands before dedup:', plans.default_plan.length);
     }
     if (plans.ultra_plan && Array.isArray(plans.ultra_plan)) {
       plans.ultra_plan = plans.ultra_plan.map((demand: any) => ({
         ...demand,
         canal: priorityChannel
       }));
-      console.log('Ultra plan demands:', plans.ultra_plan.length);
+      console.log('Ultra plan demands before dedup:', plans.ultra_plan.length);
     }
 
     // ============================================
-    // NOVO: REGISTRAR FINGERPRINTS DAS DEMANDAS GERADAS
+    // DEDUPLICAÇÃO PROGRAMÁTICA PÓS-GERAÇÃO
+    // ============================================
+    console.log('=== STARTING DEDUPLICATION ===');
+    
+    const deduplicatePlan = (planDemands: any[], planName: string): any[] => {
+      const uniqueDemands: any[] = [];
+      const seenFingerprints = new Set<string>();
+      let duplicatesRemoved = 0;
+      
+      for (const demand of planDemands) {
+        const title = demand.titulo || demand.title || '';
+        const demandType = demand.tipo || demand.demand_type || '';
+        const channel = demand.canal || demand.channel || priorityChannel;
+        
+        const fingerprint = generateFingerprint(title, demandType, channel);
+        
+        // Check if fingerprint already exists in database OR in current batch
+        if (existingFingerprints.has(fingerprint)) {
+          console.log(`⚠️ DUPLICATE REMOVED (exists in DB): "${title}"`);
+          duplicatesRemoved++;
+          continue;
+        }
+        
+        if (seenFingerprints.has(fingerprint)) {
+          console.log(`⚠️ DUPLICATE REMOVED (in current batch): "${title}"`);
+          duplicatesRemoved++;
+          continue;
+        }
+        
+        // Check for similar titles (case-insensitive, stripped)
+        const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const isSimilarToExisting = existingTitles.some((existingTitle: string) => {
+          const normalizedExisting = existingTitle.toLowerCase().replace(/[^a-z0-9]/g, '');
+          // If 80% or more of characters match, consider similar
+          const similarity = normalizedTitle.length > 0 && normalizedExisting.length > 0
+            ? (normalizedTitle === normalizedExisting || 
+               normalizedTitle.includes(normalizedExisting) || 
+               normalizedExisting.includes(normalizedTitle))
+            : false;
+          return similarity;
+        });
+        
+        if (isSimilarToExisting) {
+          console.log(`⚠️ SIMILAR TITLE REMOVED: "${title}"`);
+          duplicatesRemoved++;
+          continue;
+        }
+        
+        seenFingerprints.add(fingerprint);
+        uniqueDemands.push(demand);
+      }
+      
+      console.log(`${planName}: ${duplicatesRemoved} duplicates removed, ${uniqueDemands.length} unique demands`);
+      return uniqueDemands;
+    };
+    
+    // Apply deduplication to both plans
+    if (plans.default_plan && Array.isArray(plans.default_plan)) {
+      plans.default_plan = deduplicatePlan(plans.default_plan, 'default_plan');
+    }
+    if (plans.ultra_plan && Array.isArray(plans.ultra_plan)) {
+      plans.ultra_plan = deduplicatePlan(plans.ultra_plan, 'ultra_plan');
+    }
+    
+    console.log('=== DEDUPLICATION COMPLETE ===');
+    console.log('Final default_plan count:', plans.default_plan?.length || 0);
+    console.log('Final ultra_plan count:', plans.ultra_plan?.length || 0);
+
+    // ============================================
+    // REGISTRAR FINGERPRINTS DAS DEMANDAS GERADAS
     // ============================================
     console.log('Recording demand fingerprints...');
     const allDemands = [...(plans.default_plan || []), ...(plans.ultra_plan || [])];
     
     for (const demand of allDemands) {
       try {
+        const title = demand.titulo || demand.title || 'Sem título';
+        const demandType = demand.tipo || demand.demand_type;
+        const channel = demand.canal || demand.channel || priorityChannel;
+        
+        // O trigger auto_generate_fingerprint vai calcular o fingerprint automaticamente
         await (supabase as any).from('demand_fingerprints').insert({
           tenant_id: tenantId,
           client_id: periodPlan.company_id,
           period_plan_id: periodPlanId,
-          title: demand.titulo || demand.title || 'Sem título',
-          demand_type: demand.tipo || demand.demand_type,
-          channel: demand.canal || demand.channel || priorityChannel,
-          fingerprint: '' // Will be generated by trigger or we calculate here
+          title: title,
+          demand_type: demandType,
+          channel: channel,
+          fingerprint: '' // Trigger will auto-calculate
         });
       } catch (fpError) {
         console.error('Error recording fingerprint:', fpError);
         // Don't fail the whole operation for fingerprint errors
       }
     }
+    console.log('Fingerprints recorded:', allDemands.length);
 
     // Update period plan with generated plans
     console.log('Updating period plan with generated plans...');
@@ -490,7 +608,7 @@ FORMATO DE RESPOSTA FINAL:
       throw new Error('Erro ao salvar planos gerados no banco de dados');
     }
 
-    console.log('=== GENERATE-PERIOD-PLANS SUCCESS (ADAPTIVE) ===');
+    console.log('=== GENERATE-PERIOD-PLANS SUCCESS (ADAPTIVE V2) ===');
 
     return new Response(JSON.stringify({
       success: true,
@@ -501,7 +619,8 @@ FORMATO DE RESPOSTA FINAL:
       adaptive_info: {
         calendar_events_count: adaptiveContext.calendar_events?.length || 0,
         patterns_considered: (adaptiveContext.successful_patterns?.length || 0) + (adaptiveContext.failed_patterns?.length || 0),
-        avoided_repetitions: adaptiveContext.recent_fingerprints?.length || 0
+        avoided_repetitions: adaptiveContext.recent_fingerprints?.length || 0,
+        duplicates_prevented: allDemands.length - (plans.default_plan?.length || 0) - (plans.ultra_plan?.length || 0)
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
