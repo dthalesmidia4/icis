@@ -7,19 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Função para gerar fingerprint (mesma lógica do banco)
-function generateFingerprint(title: string, demandType: string, channel: string): string {
-  const input = `${(title || '').toLowerCase().replace(/[^a-z0-9]/g, '')}|${(demandType || '').toLowerCase()}|${(channel || '').toLowerCase()}`;
-  // Simple hash for fingerprint (MD5 equivalent logic)
-  let hash = 0;
-  for (let i = 0; i < input.length; i++) {
-    const char = input.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash).toString(16).padStart(8, '0');
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -33,7 +20,7 @@ serve(async (req) => {
     periodPlanId = body.periodPlanId;
     const tenantId = body.tenantId;
 
-    console.log('=== GENERATE-PERIOD-PLANS START (ADAPTIVE V2) ===');
+    console.log('=== GENERATE-PERIOD-PLANS START (ADAPTIVE) ===');
     console.log('periodPlanId:', periodPlanId);
     console.log('tenantId:', tenantId);
 
@@ -133,7 +120,7 @@ serve(async (req) => {
     }
 
     // ============================================
-    // BUSCAR CONTEXTO ADAPTATIVO
+    // NOVO: BUSCAR CONTEXTO ADAPTATIVO
     // ============================================
     console.log('Fetching adaptive context...');
     const { data: adaptiveContextData, error: adaptiveError } = await (supabase as any)
@@ -164,39 +151,18 @@ serve(async (req) => {
     }
 
     // ============================================
-    // BUSCAR FINGERPRINTS EXISTENTES PARA DEDUPLICAÇÃO
-    // ============================================
-    console.log('Fetching existing fingerprints for deduplication...');
-    const { data: existingFingerprintsData } = await supabase
-      .from('demand_fingerprints')
-      .select('fingerprint, title')
-      .eq('client_id', periodPlan.company_id);
-    
-    const existingFingerprints = new Set(
-      (existingFingerprintsData || []).map((f: any) => f.fingerprint)
-    );
-    const existingTitles = (existingFingerprintsData || []).map((f: any) => f.title);
-    console.log('Existing fingerprints count:', existingFingerprints.size);
-
-    // ============================================
     // FORMATAR CONTEXTO ADAPTATIVO PARA A IA
     // ============================================
     let calendarContext = '';
     if (adaptiveContext.calendar_events && adaptiveContext.calendar_events.length > 0) {
       calendarContext = `
-## 📅 DATAS COMEMORATIVAS NO PERÍODO (USAR OBRIGATORIAMENTE)
+## 📅 DATAS COMEMORATIVAS NO PERÍODO (CONSIDERAR OBRIGATORIAMENTE)
 ${(adaptiveContext.calendar_events as any[]).map((e: any) => 
-  `- ${e.date}: **${e.name}** (${e.type}, prioridade: ${e.priority}/100)
-   Dica de marketing: ${e.tips || 'Aproveite a data para engajamento'}`
+  `- ${e.date}: ${e.name} (${e.type}, prioridade: ${e.priority}/100)
+   Dica: ${e.tips || 'N/A'}`
 ).join('\n')}
 
-⚠️ OBRIGATÓRIO: Pelo menos 30% das demandas DEVEM ser relacionadas a essas datas comemorativas.
-`;
-    } else {
-      calendarContext = `
-## 📅 DATAS COMEMORATIVAS
-Nenhuma data comemorativa especial encontrada para este período.
-Foque em conteúdo evergreen e temas da estratégia do cliente.
+⚠️ IMPORTANTE: Crie demandas específicas ou adaptadas para as datas comemorativas acima, especialmente as de alta prioridade.
 `;
     }
 
@@ -236,26 +202,19 @@ ${(adaptiveContext.failed_patterns as any[])
 `;
     }
 
-    // ============================================
-    // LISTA DE TÍTULOS PROIBIDOS (CRÍTICO PARA EVITAR REPETIÇÃO)
-    // ============================================
-    let prohibitedTitlesContext = '';
-    if (existingTitles.length > 0) {
-      const recentTitles = existingTitles.slice(0, 30);
-      prohibitedTitlesContext = `
-## ⛔ TÍTULOS PROIBIDOS - NÃO USAR NENHUM DESTES
+    let recentIdeasContext = '';
+    if (adaptiveContext.recent_fingerprints && adaptiveContext.recent_fingerprints.length > 0) {
+      const recentTitles = (adaptiveContext.recent_fingerprints as any[])
+        .slice(0, 15)
+        .map((f: any) => `- "${f.title}"${f.was_successful ? ' ✓' : ''}`)
+        .join('\n');
+      
+      recentIdeasContext = `
+## 🔄 DEMANDAS RECENTES (EVITAR REPETIÇÃO DIRETA)
+Este cliente já teve as seguintes demandas nos últimos 6 meses:
+${recentTitles}
 
-Os seguintes títulos JÁ FORAM USADOS para este cliente. Qualquer demanda com título idêntico ou muito similar será AUTOMATICAMENTE REJEITADA pelo sistema:
-
-${recentTitles.map((t: string) => `❌ "${t}"`).join('\n')}
-
-REGRAS DE ORIGINALIDADE:
-1. NÃO copie nenhum título acima literalmente
-2. NÃO faça variações mínimas (ex: "5 dicas" vs "6 dicas")
-3. Crie ideias COMPLETAMENTE NOVAS e DIFERENTES
-4. Use abordagens, ângulos e formatos que ainda não foram explorados
-5. Demandas duplicadas serão removidas automaticamente
-
+⚠️ NÃO repita essas ideias exatamente. Você pode evoluir, variar ou criar abordagens diferentes sobre temas similares, mas NÃO copie títulos ou conceitos idênticos.
 `;
     }
 
@@ -334,21 +293,19 @@ ${calendarContext}
 ${successPatternsContext}
 ${topDemandTypesContext}
 ${avoidPatternsContext}
-${prohibitedTitlesContext}
+${recentIdeasContext}
 
 ## 🎯 INSTRUÇÕES DE ADAPTAÇÃO
 1. PRIORIZE os tipos de demanda que funcionam para este cliente
-2. APROVEITE as datas comemorativas - inclua demandas específicas para elas
-3. EVITE ABSOLUTAMENTE repetir ideias dos títulos proibidos
+2. CONSIDERE as datas comemorativas ao definir datas de publicação
+3. EVITE repetir ideias recentes ou padrões problemáticos
 4. VARIE e EVOLUA ideias que tiveram sucesso, não apenas copie
 5. CRIE conteúdo contextualizado para a temporada/período
-6. CADA demanda deve ter uma ideia CENTRAL ÚNICA
 `;
 
-    console.log('Generating period plans for:', periodPlanId, 'using GPT-5 Mini (ADAPTIVE V2)');
+    console.log('Generating period plans for:', periodPlanId, 'using GPT-5 Mini (ADAPTIVE MODE)');
     console.log('Priority channel:', periodPlan.priority_channel);
     console.log('Calendar events in period:', adaptiveContext.calendar_events?.length || 0);
-    console.log('Prohibited titles count:', existingTitles.length);
 
     // Append JSON instruction with VALIDATION RULES integrated
     const jsonInstruction = `
@@ -363,14 +320,14 @@ NÃO use nenhum outro canal. TODAS as demandas são para ${periodPlan.priority_c
 ESTRUTURA DE CADA DEMANDA (campos obrigatórios):
 {
   "tipo": "Carrossel (X slides) | Reels (Xs) | Post estático | Story | Vídeo Comercial | etc",
-  "titulo": "Nome curto e objetivo da peça - DEVE SER ÚNICO E DIFERENTE DOS TÍTULOS PROIBIDOS",
+  "titulo": "Nome curto e objetivo da peça",
   "objetivo": "O que a peça quer alcançar (educar, vender, engajar, autoridade, etc)",
-  "conteudo": "CONTEÚDO FORMATADO COM MARKDOWN para facilitar leitura. Use ## para títulos de seções, - para listas, e linhas em branco para separar parágrafos. Exemplo:\\n\\n## SLIDE 1\\nTexto completo do slide\\n\\n## SLIDE 2\\nTexto completo do slide\\n\\nPara vídeos:\\n\\n## CENA 1\\n**Visual:** descrição\\n**Narração:** texto\\n\\n## CENA 2\\n...",
+  "conteudo": "CONTEÚDO FORMATADO COM MARKDOWN para facilitar leitura. Use ## para títulos de seções, - para listas, e linhas em branco para separar parágrafos. Exemplo:\n\n## SLIDE 1\nTexto completo do slide\n\n## SLIDE 2\nTexto completo do slide\n\nPara vídeos:\n\n## CENA 1\n**Visual:** descrição\n**Narração:** texto\n\n## CENA 2\n...",
   "instrucoes_de_producao": "Instruções específicas: cores, ícones, fotos, ângulos, cortes, CTAs visuais, tom",
   "cta_recomendado": "Chamada para ação específica da peça",
   "canal": "${periodPlan.priority_channel}",
   "data_sugerida": "YYYY-MM-DD (dentro do período especificado)",
-  "contexto_sazonal": "Se aplicável, mencione a data comemorativa relacionada (ex: 'Carnaval', 'Dia da Mulher')"
+  "contexto_sazonal": "Se aplicável, mencione a data comemorativa relacionada"
 }
 
 IMPORTANTE: O campo "conteudo" DEVE conter o conteúdo COMPLETO E PRONTO PARA USO:
@@ -392,10 +349,10 @@ Antes de incluir qualquer demanda no resultado, valide internamente:
 1. PLANEJAMENTO: A demanda respeita as observações/restrições do período "${periodPlan.observations || 'Nenhuma'}"?
 2. CTA: Se CTA comercial/vendas NÃO foi autorizado nas observações, use APENAS encerramentos neutros (ex: "Reflita sobre isso", "Salve para depois", "Comente sua opinião"). NUNCA prometa resultados, prazos ou promoções sem autorização.
 3. COERÊNCIA: O objetivo declarado bate com o conteúdo? A peça cumpre exatamente a função proposta?
-4. REPETIÇÃO: O título É DIFERENTE de todos os títulos proibidos listados acima? Se for similar, MUDE COMPLETAMENTE.
+4. REPETIÇÃO: Cada demanda deve ter ideia central ÚNICA. NÃO repita estruturas narrativas ou abordagens entre demandas da mesma geração. Varie os ângulos.
 5. VIABILIDADE: A demanda está clara, acionável e pronta para uma equipe de agência produzir?
-6. ORIGINALIDADE: A ideia central é DIFERENTE de todas as demandas anteriores?
-7. SAZONALIDADE: Se há datas comemorativas, inclua pelo menos 2-3 demandas relacionadas a elas.
+6. ORIGINALIDADE: A demanda NÃO é uma cópia de demandas recentes listadas acima?
+7. SAZONALIDADE: Se há datas comemorativas no período, pelo menos algumas demandas devem ser contextualizadas para elas?
 
 Se qualquer validação falhar, AJUSTE a demanda antes de incluir no JSON. Não inclua demandas que violem essas regras.
 
@@ -407,147 +364,57 @@ FORMATO DE RESPOSTA FINAL:
   "ultra_summary": "..."
 }`;
 
-    const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
-
-    const callOpenAI = async (params: {
-      messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
-      max_completion_tokens: number;
-      purpose: string;
-    }) => {
-      console.log(`Calling OpenAI API (${params.purpose})...`);
-      const response = await fetch(OPENAI_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKeyData.key_value}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-5-mini',
-          messages: params.messages,
-          max_completion_tokens: params.max_completion_tokens,
-          // Force the model to return parseable JSON.
-          // If unsupported, OpenAI will return 400 and we handle that at the caller.
-          response_format: { type: 'json_object' },
-        }),
-      });
-
-      const responseText = await response.text();
-      console.log(`OpenAI raw response status (${params.purpose}):`, response.status);
-      console.log(`OpenAI raw response preview (${params.purpose}):`, responseText.substring(0, 500));
-
-      if (!response.ok) {
-        console.error('OpenAI API error:', response.status, responseText);
-
-        if (response.status === 429) {
-          throw new Error('Rate limit excedido. Tente novamente em alguns segundos.');
-        }
-        if (response.status === 401) {
-          throw new Error('API Key inválida. Verifique a configuração do OPENAI_API_KEY.');
-        }
-
-        // If response_format isn't supported by the model/account, fall back by throwing a specific marker.
-        if (response.status === 400 && responseText.toLowerCase().includes('response_format')) {
-          throw new Error('OPENAI_UNSUPPORTED_RESPONSE_FORMAT');
-        }
-
-        throw new Error(`OpenAI API error: ${response.status} - ${responseText}`);
-      }
-
-      let aiResponse: any;
-      try {
-        aiResponse = JSON.parse(responseText);
-      } catch (parseErr) {
-        console.error('Failed to parse OpenAI response:', parseErr);
-        throw new Error('Erro ao processar resposta da API OpenAI');
-      }
-
-      const finishReason = aiResponse.choices?.[0]?.finish_reason;
-      if (finishReason === 'length') {
-        // This almost always produces truncated / invalid JSON. Better to fail fast with a clear message.
-        console.error('OpenAI response was truncated (finish_reason=length).');
-        throw new Error('Resposta da IA foi truncada (limite de tokens). Reduza o tamanho do prompt/saída e tente novamente.');
-      }
-
-      const content = aiResponse.choices?.[0]?.message?.content;
-      if (!content) {
-        console.error('Empty content. Full response:', JSON.stringify(aiResponse));
-        throw new Error('Resposta vazia da IA. Verifique o modelo e prompt.');
-      }
-
-      return { aiResponse, content };
-    };
-
-    // Primary generation call (tries to force JSON)
-    let content = '';
-    try {
-      const result = await callOpenAI({
-        purpose: 'generation',
+    console.log('Calling OpenAI API...');
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKeyData.key_value}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-5-mini',
         messages: [
           { role: 'system', content: systemPrompt + jsonInstruction },
-          { role: 'user', content: context },
+          { role: 'user', content: context }
         ],
         max_completion_tokens: 16000,
-      });
-      content = result.content;
-    } catch (err: any) {
-      // Fallback if response_format isn't supported: retry without it using the previous behavior.
-      if (String(err?.message || err).includes('OPENAI_UNSUPPORTED_RESPONSE_FORMAT')) {
-        console.log('response_format unsupported; retrying without response_format...');
-        const response = await fetch(OPENAI_URL, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKeyData.key_value}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'gpt-5-mini',
-            messages: [
-              { role: 'system', content: systemPrompt + jsonInstruction },
-              { role: 'user', content: context },
-            ],
-            max_completion_tokens: 16000,
-          }),
-        });
+      }),
+    });
 
-        const responseText = await response.text();
-        console.log('OpenAI raw response status (generation-fallback):', response.status);
-        console.log('OpenAI raw response preview (generation-fallback):', responseText.substring(0, 500));
+    const responseText = await response.text();
+    console.log('OpenAI raw response status:', response.status);
+    console.log('OpenAI raw response preview:', responseText.substring(0, 500));
 
-        if (!response.ok) {
-          console.error('OpenAI API error:', response.status, responseText);
-          throw new Error(`OpenAI API error: ${response.status} - ${responseText}`);
-        }
-
-        let aiResponse: any;
-        try {
-          aiResponse = JSON.parse(responseText);
-        } catch (parseErr) {
-          console.error('Failed to parse OpenAI response:', parseErr);
-          throw new Error('Erro ao processar resposta da API OpenAI');
-        }
-
-        const finishReason = aiResponse.choices?.[0]?.finish_reason;
-        if (finishReason === 'length') {
-          console.error('OpenAI response was truncated (finish_reason=length).');
-          throw new Error('Resposta da IA foi truncada (limite de tokens). Reduza o tamanho do prompt/saída e tente novamente.');
-        }
-
-        content = aiResponse.choices?.[0]?.message?.content;
-        if (!content) {
-          console.error('Empty content. Full response:', JSON.stringify(aiResponse));
-          throw new Error('Resposta vazia da IA. Verifique o modelo e prompt.');
-        }
-      } else {
-        throw err;
+    if (!response.ok) {
+      console.error('OpenAI API error:', response.status, responseText);
+      
+      if (response.status === 429) {
+        throw new Error('Rate limit excedido. Tente novamente em alguns segundos.');
       }
+      if (response.status === 401) {
+        throw new Error('API Key inválida. Verifique a configuração do OPENAI_API_KEY.');
+      }
+      throw new Error(`OpenAI API error: ${response.status} - ${responseText}`);
+    }
+
+    let aiResponse;
+    try {
+      aiResponse = JSON.parse(responseText);
+    } catch (parseErr) {
+      console.error('Failed to parse OpenAI response:', parseErr);
+      throw new Error('Erro ao processar resposta da API OpenAI');
+    }
+
+    const content = aiResponse.choices?.[0]?.message?.content;
+
+    if (!content) {
+      console.error('Empty content. Full response:', JSON.stringify(aiResponse));
+      throw new Error('Resposta vazia da IA. Verifique o modelo e prompt.');
     }
 
     console.log('AI content preview:', content.substring(0, 300));
 
-    // Used in parsing/repair and post-processing
-    const priorityChannel = periodPlan.priority_channel;
-
-    // Parse JSON response - try multiple extraction methods with robust sanitization
+    // Parse JSON response - try multiple extraction methods
     let plans;
     try {
       // Method 1: Try direct parse after cleaning markdown
@@ -559,213 +426,52 @@ FORMATO DE RESPOSTA FINAL:
         cleanContent = jsonMatch[0];
       }
       
-      // Method 3: Sanitize control characters that break JSON parsing
-      // Replace actual newlines inside strings with escaped newlines
-      // This regex finds strings and replaces control chars within them
-      cleanContent = cleanContent.replace(/[\x00-\x1F\x7F]/g, (char: string) => {
-        if (char === '\n') return '\\n';
-        if (char === '\r') return '\\r';
-        if (char === '\t') return '\\t';
-        return ''; // Remove other control characters
-      });
-      
       plans = JSON.parse(cleanContent);
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
       console.error('Raw content:', content.substring(0, 1000));
-
-      // Attempt model-based repair (keeps the same schema, but fixes broken/truncated strings)
-      try {
-        const repairPrompt = `\
-Você é um reparador de JSON.\n\n\
-Recebeu um conteúdo que DEVERIA ser um JSON com esta estrutura:\n\
-{\n\
-  "default_plan": [...],\n\
-  "ultra_plan": [...],\n\
-  "normal_summary": "...",\n\
-  "ultra_summary": "..."\n\
-}\n\n\
-Tarefa: devolva APENAS um JSON VÁLIDO seguindo a estrutura acima.\n\
-Regras:\n\
-- Preserve ao máximo o conteúdo fornecido, mas corrija strings quebradas, aspas faltando e escapes.\n\
-- Se o conteúdo estiver truncado, complete de forma coerente (sem inventar demais) para produzir JSON válido.\n\
-- Garanta que TODAS as demandas tenham "canal" = "${priorityChannel}".\n\n\
-Conteúdo a reparar (pode estar inválido):\n\n\
-${content}`;
-
-        const repaired = await callOpenAI({
-          purpose: 'json-repair',
-          messages: [
-            { role: 'system', content: 'Você responde apenas com JSON válido.' },
-            { role: 'user', content: repairPrompt },
-          ],
-          max_completion_tokens: 8000,
-        });
-
-        const repairedContent = repaired.content
-          .replace(/```json\n?/g, '')
-          .replace(/```\n?/g, '')
-          .trim();
-
-        plans = JSON.parse(repairedContent);
-        console.log('Model-based JSON repair successful!');
-      } catch (repairModelErr) {
-        console.error('Model-based JSON repair failed:', repairModelErr);
-      }
-      
-      // Method 4: Last resort - try to repair JSON by re-escaping
-      try {
-        console.log('Attempting JSON repair...');
-        let repairedContent = content
-          .replace(/```json\n?/g, '')
-          .replace(/```\n?/g, '')
-          .trim();
-        
-        // Find JSON boundaries
-        const startIdx = repairedContent.indexOf('{');
-        const endIdx = repairedContent.lastIndexOf('}');
-        if (startIdx !== -1 && endIdx !== -1) {
-          repairedContent = repairedContent.substring(startIdx, endIdx + 1);
-        }
-        
-        // More aggressive control char replacement
-        repairedContent = repairedContent
-          .replace(/\r\n/g, '\\n')
-          .replace(/\r/g, '\\n')
-          .replace(/\n/g, '\\n')
-          .replace(/\t/g, '\\t')
-          .replace(/[\x00-\x1F\x7F]/g, '');
-        
-        // Fix double-escaped newlines
-        repairedContent = repairedContent.replace(/\\\\n/g, '\\n');
-        
-        if (!plans) {
-          plans = JSON.parse(repairedContent);
-          console.log('JSON repair successful!');
-        }
-      } catch (repairError) {
-        console.error('JSON repair also failed:', repairError);
-        throw new Error('Erro ao processar resposta da IA. A resposta não está em formato JSON válido.');
-      }
-
-      if (!plans) {
-        throw new Error('Erro ao processar resposta da IA. A resposta não está em formato JSON válido.');
-      }
+      throw new Error('Erro ao processar resposta da IA. A resposta não está em formato JSON válido.');
     }
 
     // Ensure all demands have the correct priority channel (post-processing safety)
+    const priorityChannel = periodPlan.priority_channel;
     if (plans.default_plan && Array.isArray(plans.default_plan)) {
       plans.default_plan = plans.default_plan.map((demand: any) => ({
         ...demand,
         canal: priorityChannel
       }));
-      console.log('Default plan demands before dedup:', plans.default_plan.length);
+      console.log('Default plan demands:', plans.default_plan.length);
     }
     if (plans.ultra_plan && Array.isArray(plans.ultra_plan)) {
       plans.ultra_plan = plans.ultra_plan.map((demand: any) => ({
         ...demand,
         canal: priorityChannel
       }));
-      console.log('Ultra plan demands before dedup:', plans.ultra_plan.length);
+      console.log('Ultra plan demands:', plans.ultra_plan.length);
     }
 
     // ============================================
-    // DEDUPLICAÇÃO PROGRAMÁTICA PÓS-GERAÇÃO
-    // ============================================
-    console.log('=== STARTING DEDUPLICATION ===');
-    
-    const deduplicatePlan = (planDemands: any[], planName: string): any[] => {
-      const uniqueDemands: any[] = [];
-      const seenFingerprints = new Set<string>();
-      let duplicatesRemoved = 0;
-      
-      for (const demand of planDemands) {
-        const title = demand.titulo || demand.title || '';
-        const demandType = demand.tipo || demand.demand_type || '';
-        const channel = demand.canal || demand.channel || priorityChannel;
-        
-        const fingerprint = generateFingerprint(title, demandType, channel);
-        
-        // Check if fingerprint already exists in database OR in current batch
-        if (existingFingerprints.has(fingerprint)) {
-          console.log(`⚠️ DUPLICATE REMOVED (exists in DB): "${title}"`);
-          duplicatesRemoved++;
-          continue;
-        }
-        
-        if (seenFingerprints.has(fingerprint)) {
-          console.log(`⚠️ DUPLICATE REMOVED (in current batch): "${title}"`);
-          duplicatesRemoved++;
-          continue;
-        }
-        
-        // Check for similar titles (case-insensitive, stripped)
-        const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const isSimilarToExisting = existingTitles.some((existingTitle: string) => {
-          const normalizedExisting = existingTitle.toLowerCase().replace(/[^a-z0-9]/g, '');
-          // If 80% or more of characters match, consider similar
-          const similarity = normalizedTitle.length > 0 && normalizedExisting.length > 0
-            ? (normalizedTitle === normalizedExisting || 
-               normalizedTitle.includes(normalizedExisting) || 
-               normalizedExisting.includes(normalizedTitle))
-            : false;
-          return similarity;
-        });
-        
-        if (isSimilarToExisting) {
-          console.log(`⚠️ SIMILAR TITLE REMOVED: "${title}"`);
-          duplicatesRemoved++;
-          continue;
-        }
-        
-        seenFingerprints.add(fingerprint);
-        uniqueDemands.push(demand);
-      }
-      
-      console.log(`${planName}: ${duplicatesRemoved} duplicates removed, ${uniqueDemands.length} unique demands`);
-      return uniqueDemands;
-    };
-    
-    // Apply deduplication to both plans
-    if (plans.default_plan && Array.isArray(plans.default_plan)) {
-      plans.default_plan = deduplicatePlan(plans.default_plan, 'default_plan');
-    }
-    if (plans.ultra_plan && Array.isArray(plans.ultra_plan)) {
-      plans.ultra_plan = deduplicatePlan(plans.ultra_plan, 'ultra_plan');
-    }
-    
-    console.log('=== DEDUPLICATION COMPLETE ===');
-    console.log('Final default_plan count:', plans.default_plan?.length || 0);
-    console.log('Final ultra_plan count:', plans.ultra_plan?.length || 0);
-
-    // ============================================
-    // REGISTRAR FINGERPRINTS DAS DEMANDAS GERADAS
+    // NOVO: REGISTRAR FINGERPRINTS DAS DEMANDAS GERADAS
     // ============================================
     console.log('Recording demand fingerprints...');
     const allDemands = [...(plans.default_plan || []), ...(plans.ultra_plan || [])];
     
     for (const demand of allDemands) {
       try {
-        const title = demand.titulo || demand.title || 'Sem título';
-        const demandType = demand.tipo || demand.demand_type;
-        const channel = demand.canal || demand.channel || priorityChannel;
-        
-        // O trigger auto_generate_fingerprint vai calcular o fingerprint automaticamente
         await (supabase as any).from('demand_fingerprints').insert({
           tenant_id: tenantId,
           client_id: periodPlan.company_id,
           period_plan_id: periodPlanId,
-          title: title,
-          demand_type: demandType,
-          channel: channel,
-          fingerprint: '' // Trigger will auto-calculate
+          title: demand.titulo || demand.title || 'Sem título',
+          demand_type: demand.tipo || demand.demand_type,
+          channel: demand.canal || demand.channel || priorityChannel,
+          fingerprint: '' // Will be generated by trigger or we calculate here
         });
       } catch (fpError) {
         console.error('Error recording fingerprint:', fpError);
         // Don't fail the whole operation for fingerprint errors
       }
     }
-    console.log('Fingerprints recorded:', allDemands.length);
 
     // Update period plan with generated plans
     console.log('Updating period plan with generated plans...');
@@ -784,7 +490,7 @@ ${content}`;
       throw new Error('Erro ao salvar planos gerados no banco de dados');
     }
 
-    console.log('=== GENERATE-PERIOD-PLANS SUCCESS (ADAPTIVE V2) ===');
+    console.log('=== GENERATE-PERIOD-PLANS SUCCESS (ADAPTIVE) ===');
 
     return new Response(JSON.stringify({
       success: true,
@@ -795,8 +501,7 @@ ${content}`;
       adaptive_info: {
         calendar_events_count: adaptiveContext.calendar_events?.length || 0,
         patterns_considered: (adaptiveContext.successful_patterns?.length || 0) + (adaptiveContext.failed_patterns?.length || 0),
-        avoided_repetitions: adaptiveContext.recent_fingerprints?.length || 0,
-        duplicates_prevented: allDemands.length - (plans.default_plan?.length || 0) - (plans.ultra_plan?.length || 0)
+        avoided_repetitions: adaptiveContext.recent_fingerprints?.length || 0
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
