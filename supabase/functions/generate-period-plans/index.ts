@@ -407,55 +407,147 @@ FORMATO DE RESPOSTA FINAL:
   "ultra_summary": "..."
 }`;
 
-    console.log('Calling OpenAI API...');
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKeyData.key_value}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
+    const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
+
+    const callOpenAI = async (params: {
+      messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+      max_tokens: number;
+      purpose: string;
+    }) => {
+      console.log(`Calling OpenAI API (${params.purpose})...`);
+      const response = await fetch(OPENAI_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKeyData.key_value}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: params.messages,
+          max_tokens: params.max_tokens,
+          temperature: 0.3,
+          // Force the model to return parseable JSON.
+          // If unsupported, OpenAI will return 400 and we handle that at the caller.
+          response_format: { type: 'json_object' },
+        }),
+      });
+
+      const responseText = await response.text();
+      console.log(`OpenAI raw response status (${params.purpose}):`, response.status);
+      console.log(`OpenAI raw response preview (${params.purpose}):`, responseText.substring(0, 500));
+
+      if (!response.ok) {
+        console.error('OpenAI API error:', response.status, responseText);
+
+        if (response.status === 429) {
+          throw new Error('Rate limit excedido. Tente novamente em alguns segundos.');
+        }
+        if (response.status === 401) {
+          throw new Error('API Key inválida. Verifique a configuração do OPENAI_API_KEY.');
+        }
+
+        // If response_format isn't supported by the model/account, fall back by throwing a specific marker.
+        if (response.status === 400 && responseText.toLowerCase().includes('response_format')) {
+          throw new Error('OPENAI_UNSUPPORTED_RESPONSE_FORMAT');
+        }
+
+        throw new Error(`OpenAI API error: ${response.status} - ${responseText}`);
+      }
+
+      let aiResponse: any;
+      try {
+        aiResponse = JSON.parse(responseText);
+      } catch (parseErr) {
+        console.error('Failed to parse OpenAI response:', parseErr);
+        throw new Error('Erro ao processar resposta da API OpenAI');
+      }
+
+      const finishReason = aiResponse.choices?.[0]?.finish_reason;
+      if (finishReason === 'length') {
+        // This almost always produces truncated / invalid JSON. Better to fail fast with a clear message.
+        console.error('OpenAI response was truncated (finish_reason=length).');
+        throw new Error('Resposta da IA foi truncada (limite de tokens). Reduza o tamanho do prompt/saída e tente novamente.');
+      }
+
+      const content = aiResponse.choices?.[0]?.message?.content;
+      if (!content) {
+        console.error('Empty content. Full response:', JSON.stringify(aiResponse));
+        throw new Error('Resposta vazia da IA. Verifique o modelo e prompt.');
+      }
+
+      return { aiResponse, content };
+    };
+
+    // Primary generation call (tries to force JSON)
+    let content = '';
+    try {
+      const result = await callOpenAI({
+        purpose: 'generation',
         messages: [
           { role: 'system', content: systemPrompt + jsonInstruction },
-          { role: 'user', content: context }
+          { role: 'user', content: context },
         ],
         max_tokens: 16000,
-      }),
-    });
+      });
+      content = result.content;
+    } catch (err: any) {
+      // Fallback if response_format isn't supported: retry without it using the previous behavior.
+      if (String(err?.message || err).includes('OPENAI_UNSUPPORTED_RESPONSE_FORMAT')) {
+        console.log('response_format unsupported; retrying without response_format...');
+        const response = await fetch(OPENAI_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKeyData.key_value}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: systemPrompt + jsonInstruction },
+              { role: 'user', content: context },
+            ],
+            max_tokens: 16000,
+            temperature: 0.3,
+          }),
+        });
 
-    const responseText = await response.text();
-    console.log('OpenAI raw response status:', response.status);
-    console.log('OpenAI raw response preview:', responseText.substring(0, 500));
+        const responseText = await response.text();
+        console.log('OpenAI raw response status (generation-fallback):', response.status);
+        console.log('OpenAI raw response preview (generation-fallback):', responseText.substring(0, 500));
 
-    if (!response.ok) {
-      console.error('OpenAI API error:', response.status, responseText);
-      
-      if (response.status === 429) {
-        throw new Error('Rate limit excedido. Tente novamente em alguns segundos.');
+        if (!response.ok) {
+          console.error('OpenAI API error:', response.status, responseText);
+          throw new Error(`OpenAI API error: ${response.status} - ${responseText}`);
+        }
+
+        let aiResponse: any;
+        try {
+          aiResponse = JSON.parse(responseText);
+        } catch (parseErr) {
+          console.error('Failed to parse OpenAI response:', parseErr);
+          throw new Error('Erro ao processar resposta da API OpenAI');
+        }
+
+        const finishReason = aiResponse.choices?.[0]?.finish_reason;
+        if (finishReason === 'length') {
+          console.error('OpenAI response was truncated (finish_reason=length).');
+          throw new Error('Resposta da IA foi truncada (limite de tokens). Reduza o tamanho do prompt/saída e tente novamente.');
+        }
+
+        content = aiResponse.choices?.[0]?.message?.content;
+        if (!content) {
+          console.error('Empty content. Full response:', JSON.stringify(aiResponse));
+          throw new Error('Resposta vazia da IA. Verifique o modelo e prompt.');
+        }
+      } else {
+        throw err;
       }
-      if (response.status === 401) {
-        throw new Error('API Key inválida. Verifique a configuração do OPENAI_API_KEY.');
-      }
-      throw new Error(`OpenAI API error: ${response.status} - ${responseText}`);
-    }
-
-    let aiResponse;
-    try {
-      aiResponse = JSON.parse(responseText);
-    } catch (parseErr) {
-      console.error('Failed to parse OpenAI response:', parseErr);
-      throw new Error('Erro ao processar resposta da API OpenAI');
-    }
-
-    const content = aiResponse.choices?.[0]?.message?.content;
-
-    if (!content) {
-      console.error('Empty content. Full response:', JSON.stringify(aiResponse));
-      throw new Error('Resposta vazia da IA. Verifique o modelo e prompt.');
     }
 
     console.log('AI content preview:', content.substring(0, 300));
+
+    // Used in parsing/repair and post-processing
+    const priorityChannel = periodPlan.priority_channel;
 
     // Parse JSON response - try multiple extraction methods with robust sanitization
     let plans;
@@ -483,6 +575,45 @@ FORMATO DE RESPOSTA FINAL:
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
       console.error('Raw content:', content.substring(0, 1000));
+
+      // Attempt model-based repair (keeps the same schema, but fixes broken/truncated strings)
+      try {
+        const repairPrompt = `\
+Você é um reparador de JSON.\n\n\
+Recebeu um conteúdo que DEVERIA ser um JSON com esta estrutura:\n\
+{\n\
+  "default_plan": [...],\n\
+  "ultra_plan": [...],\n\
+  "normal_summary": "...",\n\
+  "ultra_summary": "..."\n\
+}\n\n\
+Tarefa: devolva APENAS um JSON VÁLIDO seguindo a estrutura acima.\n\
+Regras:\n\
+- Preserve ao máximo o conteúdo fornecido, mas corrija strings quebradas, aspas faltando e escapes.\n\
+- Se o conteúdo estiver truncado, complete de forma coerente (sem inventar demais) para produzir JSON válido.\n\
+- Garanta que TODAS as demandas tenham "canal" = "${priorityChannel}".\n\n\
+Conteúdo a reparar (pode estar inválido):\n\n\
+${content}`;
+
+        const repaired = await callOpenAI({
+          purpose: 'json-repair',
+          messages: [
+            { role: 'system', content: 'Você responde apenas com JSON válido.' },
+            { role: 'user', content: repairPrompt },
+          ],
+          max_tokens: 8000,
+        });
+
+        const repairedContent = repaired.content
+          .replace(/```json\n?/g, '')
+          .replace(/```\n?/g, '')
+          .trim();
+
+        plans = JSON.parse(repairedContent);
+        console.log('Model-based JSON repair successful!');
+      } catch (repairModelErr) {
+        console.error('Model-based JSON repair failed:', repairModelErr);
+      }
       
       // Method 4: Last resort - try to repair JSON by re-escaping
       try {
@@ -510,16 +641,21 @@ FORMATO DE RESPOSTA FINAL:
         // Fix double-escaped newlines
         repairedContent = repairedContent.replace(/\\\\n/g, '\\n');
         
-        plans = JSON.parse(repairedContent);
-        console.log('JSON repair successful!');
+        if (!plans) {
+          plans = JSON.parse(repairedContent);
+          console.log('JSON repair successful!');
+        }
       } catch (repairError) {
         console.error('JSON repair also failed:', repairError);
+        throw new Error('Erro ao processar resposta da IA. A resposta não está em formato JSON válido.');
+      }
+
+      if (!plans) {
         throw new Error('Erro ao processar resposta da IA. A resposta não está em formato JSON válido.');
       }
     }
 
     // Ensure all demands have the correct priority channel (post-processing safety)
-    const priorityChannel = periodPlan.priority_channel;
     if (plans.default_plan && Array.isArray(plans.default_plan)) {
       plans.default_plan = plans.default_plan.map((demand: any) => ({
         ...demand,
