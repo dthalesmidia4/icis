@@ -425,7 +425,6 @@ FORMATO DE RESPOSTA FINAL:
           model: 'gpt-5-mini',
           messages: params.messages,
           max_completion_tokens: params.max_completion_tokens,
-          temperature: 0.3,
           // Force the model to return parseable JSON.
           // If unsupported, OpenAI will return 400 and we handle that at the caller.
           response_format: { type: 'json_object' },
@@ -507,7 +506,6 @@ FORMATO DE RESPOSTA FINAL:
               { role: 'user', content: context },
             ],
             max_completion_tokens: 16000,
-            temperature: 0.3,
           }),
         });
 
