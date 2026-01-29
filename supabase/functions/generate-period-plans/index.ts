@@ -422,7 +422,7 @@ FORMATO DE RESPOSTA FINAL:
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'gpt-5-mini',
           messages: params.messages,
           max_tokens: params.max_tokens,
           temperature: 0.3,
@@ -501,7 +501,7 @@ FORMATO DE RESPOSTA FINAL:
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: 'gpt-5-mini',
             messages: [
               { role: 'system', content: systemPrompt + jsonInstruction },
               { role: 'user', content: context },
