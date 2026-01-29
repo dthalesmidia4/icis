@@ -457,7 +457,7 @@ FORMATO DE RESPOSTA FINAL:
 
     console.log('AI content preview:', content.substring(0, 300));
 
-    // Parse JSON response - try multiple extraction methods
+    // Parse JSON response - try multiple extraction methods with robust sanitization
     let plans;
     try {
       // Method 1: Try direct parse after cleaning markdown
@@ -469,11 +469,53 @@ FORMATO DE RESPOSTA FINAL:
         cleanContent = jsonMatch[0];
       }
       
+      // Method 3: Sanitize control characters that break JSON parsing
+      // Replace actual newlines inside strings with escaped newlines
+      // This regex finds strings and replaces control chars within them
+      cleanContent = cleanContent.replace(/[\x00-\x1F\x7F]/g, (char: string) => {
+        if (char === '\n') return '\\n';
+        if (char === '\r') return '\\r';
+        if (char === '\t') return '\\t';
+        return ''; // Remove other control characters
+      });
+      
       plans = JSON.parse(cleanContent);
     } catch (parseError) {
       console.error('JSON parse error:', parseError);
       console.error('Raw content:', content.substring(0, 1000));
-      throw new Error('Erro ao processar resposta da IA. A resposta não está em formato JSON válido.');
+      
+      // Method 4: Last resort - try to repair JSON by re-escaping
+      try {
+        console.log('Attempting JSON repair...');
+        let repairedContent = content
+          .replace(/```json\n?/g, '')
+          .replace(/```\n?/g, '')
+          .trim();
+        
+        // Find JSON boundaries
+        const startIdx = repairedContent.indexOf('{');
+        const endIdx = repairedContent.lastIndexOf('}');
+        if (startIdx !== -1 && endIdx !== -1) {
+          repairedContent = repairedContent.substring(startIdx, endIdx + 1);
+        }
+        
+        // More aggressive control char replacement
+        repairedContent = repairedContent
+          .replace(/\r\n/g, '\\n')
+          .replace(/\r/g, '\\n')
+          .replace(/\n/g, '\\n')
+          .replace(/\t/g, '\\t')
+          .replace(/[\x00-\x1F\x7F]/g, '');
+        
+        // Fix double-escaped newlines
+        repairedContent = repairedContent.replace(/\\\\n/g, '\\n');
+        
+        plans = JSON.parse(repairedContent);
+        console.log('JSON repair successful!');
+      } catch (repairError) {
+        console.error('JSON repair also failed:', repairError);
+        throw new Error('Erro ao processar resposta da IA. A resposta não está em formato JSON válido.');
+      }
     }
 
     // Ensure all demands have the correct priority channel (post-processing safety)
