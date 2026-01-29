@@ -411,7 +411,7 @@ FORMATO DE RESPOSTA FINAL:
 
     const callOpenAI = async (params: {
       messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
-      max_tokens: number;
+      max_completion_tokens: number;
       purpose: string;
     }) => {
       console.log(`Calling OpenAI API (${params.purpose})...`);
@@ -424,7 +424,7 @@ FORMATO DE RESPOSTA FINAL:
         body: JSON.stringify({
           model: 'gpt-5-mini',
           messages: params.messages,
-          max_tokens: params.max_tokens,
+          max_completion_tokens: params.max_completion_tokens,
           temperature: 0.3,
           // Force the model to return parseable JSON.
           // If unsupported, OpenAI will return 400 and we handle that at the caller.
@@ -487,7 +487,7 @@ FORMATO DE RESPOSTA FINAL:
           { role: 'system', content: systemPrompt + jsonInstruction },
           { role: 'user', content: context },
         ],
-        max_tokens: 16000,
+        max_completion_tokens: 16000,
       });
       content = result.content;
     } catch (err: any) {
@@ -506,7 +506,7 @@ FORMATO DE RESPOSTA FINAL:
               { role: 'system', content: systemPrompt + jsonInstruction },
               { role: 'user', content: context },
             ],
-            max_tokens: 16000,
+            max_completion_tokens: 16000,
             temperature: 0.3,
           }),
         });
@@ -601,7 +601,7 @@ ${content}`;
             { role: 'system', content: 'Você responde apenas com JSON válido.' },
             { role: 'user', content: repairPrompt },
           ],
-          max_tokens: 8000,
+          max_completion_tokens: 8000,
         });
 
         const repairedContent = repaired.content
