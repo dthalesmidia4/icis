@@ -29,6 +29,7 @@ import PlanPeriod from "./pages/PlanPeriod";
 import ProfileSettings from "./pages/ProfileSettings";
 import Kanban from "./pages/Kanban";
 import KanbanCentralPage from "./pages/KanbanCentralPage";
+import MyCompany from "./pages/MyCompany";
 
 import NotFound from "./pages/NotFound";
 
@@ -236,6 +237,15 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <KanbanCentralPage />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/minha-empresa" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <MyCompany />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>

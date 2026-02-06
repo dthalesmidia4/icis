@@ -1,39 +1,54 @@
 import { useNavigate } from "react-router-dom";
-import { UserPlus, Building2, CalendarDays, LayoutGrid } from "lucide-react";
+import { UserPlus, Building2, CalendarDays, LayoutGrid, Briefcase } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useAgency } from "@/contexts/AgencyContext";
 import { Card } from "@/components/ui/card";
+
 const Home = () => {
   const navigate = useNavigate();
-  const {
-    user
-  } = useAuth();
+  const { user } = useAuth();
+  const { agencyId } = useAgency();
+
   const getUserFirstName = () => {
     if (user?.user_metadata?.full_name) {
       return user.user_metadata.full_name.split(' ')[0];
     }
     return 'Usuário';
   };
-  const actionCards = [{
-    title: "Gerenciar Clientes",
-    icon: Building2,
-    gradient: "from-blue-500 to-indigo-600",
-    route: "/clientes"
-  }, {
-    title: "Cadastrar Cliente",
-    icon: UserPlus,
-    gradient: "from-green-500 to-emerald-600",
-    route: "/registration"
-  }, {
-    title: "Agendamento",
-    icon: CalendarDays,
-    gradient: "from-purple-500 to-violet-600",
-    route: "/content-schedule"
-  }, {
-    title: "Kanban Central",
-    icon: LayoutGrid,
-    gradient: "from-cyan-500 to-teal-600",
-    route: "/kanban-central"
-  }];
+
+  const actionCards = [
+    {
+      title: "Gerenciar Clientes",
+      icon: Building2,
+      gradient: "from-blue-500 to-indigo-600",
+      route: "/clientes"
+    },
+    {
+      title: "Cadastrar Cliente",
+      icon: UserPlus,
+      gradient: "from-green-500 to-emerald-600",
+      route: "/registration"
+    },
+    {
+      title: "Agendamento",
+      icon: CalendarDays,
+      gradient: "from-purple-500 to-violet-600",
+      route: "/content-schedule"
+    },
+    {
+      title: "Kanban Central",
+      icon: LayoutGrid,
+      gradient: "from-cyan-500 to-teal-600",
+      route: "/kanban-central"
+    },
+    // Botão Minha Empresa - só aparece se o usuário tem agência vinculada
+    ...(agencyId ? [{
+      title: "Minha Empresa",
+      icon: Briefcase,
+      gradient: "from-orange-500 to-amber-600",
+      route: "/minha-empresa"
+    }] : [])
+  ];
   return <div className="pb-8">
       <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
         {/* Header de Boas-vindas */}
