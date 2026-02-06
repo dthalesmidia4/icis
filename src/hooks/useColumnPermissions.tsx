@@ -45,6 +45,7 @@ export function useColumnPermissions() {
 
       if (error) throw error;
 
+      console.log('[Permissions] Column permissions loaded:', data?.length, 'entries');
       setPermissions(data || []);
     } catch (error) {
       console.error('Erro ao buscar permissões de colunas:', error);
@@ -95,7 +96,7 @@ export function useColumnPermissions() {
     // Se não encontrou permissão específica, assume que pode ver
     if (!permission) return true;
     
-    return permission.can_view;
+    return permission.can_view === true;
   }, [permissions, isAdmin]);
 
   // Filtrar uma lista de colunas baseado nas permissões
@@ -106,7 +107,9 @@ export function useColumnPermissions() {
     // Se não há permissões, retornar todas as colunas
     if (permissions.length === 0) return columns;
     
-    return columns.filter(col => canViewColumn(col.id));
+    const filtered = columns.filter(col => canViewColumn(col.id));
+    console.log('[Permissions] Visible columns:', filtered.length, 'of', columns.length);
+    return filtered;
   }, [permissions, isAdmin, canViewColumn]);
 
   return {
