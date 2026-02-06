@@ -310,17 +310,25 @@ const KanbanCentralPage = () => {
 
     // Atualizar no banco (tabela unificada demands)
     try {
+      // Buscar o status_id correto pelo nome da coluna e pipeline
       const { data: statusData } = await supabase
         .from("pipeline_statuses")
         .select("id")
         .eq("name", newColumnName)
-        .limit(1)
+        .eq("pipeline_id", pipelineId)
         .maybeSingle();
+      
+      if (!statusData) {
+        console.error("Status não encontrado:", newColumnName);
+        sonnerToast.error("Status não encontrado");
+        fetchAllCards();
+        return;
+      }
       
       const { error } = await supabase
         .from("demands")
         .update({ 
-          status_id: statusData?.id,
+          status_id: statusData.id,
           column_name: newColumnName,
           updated_at: new Date().toISOString()
         })
@@ -381,8 +389,8 @@ const KanbanCentralPage = () => {
       
       // If status changes, also update the column_name to sync with Kanban
       if (field === 'status') {
-        const newColumnName = getColumnFromStatus(value);
-        updateData.column_name = newColumnName;
+        // O novo status é o próprio nome da coluna (sincronizado com pipeline_statuses)
+        updateData.column_name = value;
       }
       
       // Map card fields to demand fields (unified table)
@@ -394,14 +402,17 @@ const KanbanCentralPage = () => {
       else if (field === 'observations') demandUpdateData.observations = parsedValue;
       else if (field === 'attachments') demandUpdateData.attachments = parsedValue;
       else if (field === 'status') {
-        // Find status_id by name
+        // Find status_id by name and pipeline
         const { data: statusData } = await supabase
           .from("pipeline_statuses")
           .select("id")
           .eq("name", value)
-          .limit(1)
+          .eq("pipeline_id", pipelineId)
           .maybeSingle();
-        if (statusData) demandUpdateData.status_id = statusData.id;
+        if (statusData) {
+          demandUpdateData.status_id = statusData.id;
+          demandUpdateData.column_name = value;
+        }
       }
       else if (field === 'publication_dates' && Array.isArray(parsedValue) && parsedValue.length > 0) {
         demandUpdateData.publish_date = parsedValue[0].date;
@@ -410,14 +421,18 @@ const KanbanCentralPage = () => {
       }
       else if (field === 'delivery_date') demandUpdateData.delivery_date = parsedValue;
       else if (field === 'column_name') {
-        // Find status_id for the new column
+        // Find status_id for the new column and pipeline
         const { data: statusData } = await supabase
           .from("pipeline_statuses")
           .select("id")
           .eq("name", value)
-          .limit(1)
+          .eq("pipeline_id", pipelineId)
           .maybeSingle();
-        if (statusData) demandUpdateData.status_id = statusData.id;
+        if (statusData) {
+          demandUpdateData.status_id = statusData.id;
+          // Também atualizar o status para manter sincronizado
+          updateData.status = value;
+        }
       }
       
       if (Object.keys(demandUpdateData).length > 0) {
@@ -430,12 +445,17 @@ const KanbanCentralPage = () => {
         if (error) throw error;
       }
 
-      // Atualizar estado local (include column_name if status changed)
+      // Atualizar estado local (sincronizar status e column_name)
       setCards(prev => prev.map(c => {
         if (c.id === selectedCard.id) {
           const updates: Partial<CentralKanbanCard> = { [field]: parsedValue };
           if (field === 'status') {
-            updates.column_name = getColumnFromStatus(value);
+            // O status agora é o próprio nome da coluna
+            updates.column_name = value;
+          }
+          if (field === 'column_name') {
+            // Se mudar a coluna, atualizar o status também
+            updates.status = value;
           }
           return { ...c, ...updates };
         }
@@ -447,7 +467,14 @@ const KanbanCentralPage = () => {
         setSelectedCard(prev => prev ? { 
           ...prev, 
           status: value, 
-          column_name: getColumnFromStatus(value) 
+          column_name: value 
+        } : null);
+      }
+      if (field === 'column_name') {
+        setSelectedCard(prev => prev ? { 
+          ...prev, 
+          status: value, 
+          column_name: value 
         } : null);
       }
 
