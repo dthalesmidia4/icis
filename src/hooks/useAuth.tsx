@@ -71,8 +71,25 @@ export const useAuth = () => {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    return { error };
+    try {
+      // Limpar localStorage e sessionStorage primeiro
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Tentar signOut no servidor (pode falhar se sessão já expirou)
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.log('[Auth] SignOut error (session may have expired):', error);
+    }
+    
+    // Forçar limpeza do estado local independente do resultado
+    setUser(null);
+    setSession(null);
+    
+    // Forçar reload para garantir estado limpo
+    window.location.href = '/auth';
+    
+    return { error: null };
   };
 
   return {
