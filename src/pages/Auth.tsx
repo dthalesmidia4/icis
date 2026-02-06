@@ -497,9 +497,9 @@ const Auth = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative">
+    <div className="min-h-screen flex items-start justify-center pt-8 md:pt-16 p-4 relative">
       <ShaderBackground />
-      <div className="flex flex-col items-center gap-6 w-full max-w-4xl z-10">
+      <div className="flex flex-col items-center gap-4 w-full max-w-4xl z-10">
         <img 
           src={logoIcis} 
           alt="ICIS Logo" 
