@@ -16,6 +16,7 @@ import { signupSchema } from '@/lib/validations/authSchemas';
 import { Building2, MapPin, Briefcase, Lock, Upload, UserPlus, Ticket, Loader2, CheckCircle, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 import { getRoleLabel } from '@/lib/constants/roles';
+import ShaderBackground from '@/components/ui/shader-background';
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -495,8 +496,9 @@ const Auth = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-4xl">
+    <div className="min-h-screen flex items-center justify-center p-4 relative">
+      <ShaderBackground />
+      <Card className="w-full max-w-4xl bg-card/90 backdrop-blur-sm border-border/50">
         <CardHeader>
           <CardTitle className="text-2xl text-center">Bem-vindo</CardTitle>
           <CardDescription className="text-center">
