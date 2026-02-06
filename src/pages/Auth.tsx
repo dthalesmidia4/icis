@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import logoIcis from '@/assets/logo-icis.png';
+import logoIcis from '@/assets/logo-icis-new.png';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
