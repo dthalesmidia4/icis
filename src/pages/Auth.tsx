@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import logoIcis from '@/assets/logo-icis.png';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -498,7 +499,13 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
       <ShaderBackground />
-      <Card className="w-full max-w-4xl bg-card/90 backdrop-blur-sm border-border/50">
+      <div className="flex flex-col items-center gap-6 w-full max-w-4xl z-10">
+        <img 
+          src={logoIcis} 
+          alt="ICIS Logo" 
+          className="h-20 w-auto"
+        />
+        <Card className="w-full bg-card/90 backdrop-blur-sm border-border/50">
         <CardHeader>
           <CardTitle className="text-2xl text-center">Bem-vindo</CardTitle>
           <CardDescription className="text-center">
@@ -1112,6 +1119,7 @@ const Auth = () => {
           </Tabs>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };
