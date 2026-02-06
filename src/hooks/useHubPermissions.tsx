@@ -26,16 +26,10 @@ export function useHubPermissions() {
   const [loading, setLoading] = useState(true);
 
   const fetchPermissions = useCallback(async () => {
-    console.log('[useHubPermissions] fetchPermissions called', { userId: user?.id, agencyId, agencyLoading });
-    
     // Aguardar o agencyId estar disponível
-    if (agencyLoading) {
-      console.log('[useHubPermissions] AgencyContext still loading, waiting...');
-      return;
-    }
+    if (agencyLoading) return;
     
     if (!user?.id || !agencyId) {
-      console.log('[useHubPermissions] Missing user or agencyId, skipping fetch');
       setPermissions([]);
       setLoading(false);
       return;
@@ -50,7 +44,7 @@ export function useHubPermissions() {
 
       if (error) throw error;
 
-      console.log('[useHubPermissions] Loaded permissions:', data);
+      console.log('[Permissions] Hub permissions loaded:', data?.length, 'entries');
       setPermissions(data || []);
     } catch (error) {
       console.error('Erro ao buscar permissões de hub:', error);
