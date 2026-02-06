@@ -26,6 +26,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { createPortal } from "react-dom";
+
+// Custom portal for draggable items to render correctly inside modal
+const DraggablePortal = ({ children }: { children: React.ReactNode }) => {
+  const element = document.body;
+  return createPortal(children, element);
+};
 
 interface PipelineStatus {
   id: string;
@@ -204,51 +211,64 @@ const ManageColumnsModal = ({
                         draggableId={column.id}
                         index={index}
                       >
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            className={`flex items-center gap-3 p-3 bg-muted/50 rounded-lg border transition-all ${
-                              snapshot.isDragging
-                                ? "shadow-lg border-primary"
-                                : "border-border/50"
-                            }`}
-                          >
+                        {(provided, snapshot) => {
+                          const draggableContent = (
                             <div
-                              {...provided.dragHandleProps}
-                              className="cursor-grab active:cursor-grabbing"
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                                snapshot.isDragging
+                                  ? "shadow-xl border-primary bg-background"
+                                  : "bg-muted/50 border-border/50"
+                              }`}
+                              style={{
+                                ...provided.draggableProps.style,
+                                zIndex: snapshot.isDragging ? 99999 : undefined,
+                              }}
                             >
-                              <GripVertical className="h-5 w-5 text-muted-foreground" />
+                              <div
+                                {...provided.dragHandleProps}
+                                className="cursor-grab active:cursor-grabbing"
+                              >
+                                <GripVertical className="h-5 w-5 text-muted-foreground" />
+                              </div>
+
+                              <div
+                                className="w-4 h-4 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: column.color }}
+                              />
+
+                              <span className="flex-1 font-medium text-sm text-foreground">
+                                {column.name}
+                              </span>
+
+                              <span className="text-xs text-muted-foreground">
+                                #{column.position}
+                              </span>
+
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={() => handleDeleteClick(column)}
+                                disabled={loading || checkingCards}
+                              >
+                                {checkingCards && columnToDelete?.id === column.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
                             </div>
+                          );
 
-                            <div
-                              className="w-4 h-4 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: column.color }}
-                            />
+                          // Use portal when dragging to ensure visibility above modal
+                          if (snapshot.isDragging) {
+                            return <DraggablePortal>{draggableContent}</DraggablePortal>;
+                          }
 
-                            <span className="flex-1 font-medium text-sm">
-                              {column.name}
-                            </span>
-
-                            <span className="text-xs text-muted-foreground">
-                              #{column.position}
-                            </span>
-
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                              onClick={() => handleDeleteClick(column)}
-                              disabled={loading || checkingCards}
-                            >
-                              {checkingCards && columnToDelete?.id === column.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </div>
-                        )}
+                          return draggableContent;
+                        }}
                       </Draggable>
                     ))}
                     {provided.placeholder}
