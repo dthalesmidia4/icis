@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { 
   ChevronRight, 
   Loader2, 
@@ -9,7 +10,8 @@ import {
   Paperclip, 
   LayoutGrid,
   Archive,
-  Search
+  Search,
+  Plus
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
@@ -22,14 +24,15 @@ import { cn } from "@/lib/utils";
 import BackButton from "@/components/BackButton";
 import KanbanCard from "@/components/KanbanCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import CreateColumnModal from "@/components/CreateColumnModal";
 
-// Colunas do Kanban (mesma estrutura do Schedule)
-const COLUMNS = [
-  { id: "Produção", title: "Produção", color: "bg-amber-500" },
-  { id: "Revisão", title: "Revisão", color: "bg-emerald-500" },
-  { id: "Aguardando Cliente", title: "Aguardando Cliente", color: "bg-yellow-500" },
-  { id: "Agendar Publicação", title: "Agendar Publicação", color: "bg-cyan-500" },
-];
+interface PipelineStatus {
+  id: string;
+  name: string;
+  color: string;
+  position: number;
+  pipeline_id: string;
+}
 
 interface CentralKanbanCard extends KanbanCardData {
   clientName: string;
@@ -51,6 +54,11 @@ const KanbanCentralPage = () => {
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>("all");
   const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  
+  // Estado para colunas dinâmicas e modal
+  const [columns, setColumns] = useState<PipelineStatus[]>([]);
+  const [pipelineId, setPipelineId] = useState<string>("");
+  const [isCreateColumnModalOpen, setIsCreateColumnModalOpen] = useState(false);
 
   // Extrair lista única de clientes (dos cards ativos)
   const clients = useMemo(() => {
@@ -137,9 +145,43 @@ const KanbanCentralPage = () => {
 
   useEffect(() => {
     if (!tenantLoading && tenantId) {
+      fetchColumns();
       fetchAllCards();
     }
   }, [tenantId, tenantLoading]);
+
+  // Buscar colunas/statuses do pipeline
+  const fetchColumns = async () => {
+    if (!tenantId) return;
+    try {
+      // Primeiro, buscar o pipeline padrão do tenant
+      const { data: pipelineData, error: pipelineError } = await supabase
+        .from("pipelines")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("is_default", true)
+        .maybeSingle();
+
+      if (pipelineError) throw pipelineError;
+
+      if (pipelineData) {
+        setPipelineId(pipelineData.id);
+
+        // Buscar os status do pipeline
+        const { data: statusData, error: statusError } = await supabase
+          .from("pipeline_statuses")
+          .select("id, name, color, position, pipeline_id")
+          .eq("pipeline_id", pipelineData.id)
+          .order("position", { ascending: true });
+
+        if (statusError) throw statusError;
+
+        setColumns(statusData || []);
+      }
+    } catch (error) {
+      console.error("Error fetching columns:", error);
+    }
+  };
 
   const fetchAllCards = async () => {
     if (!tenantId) return;
@@ -177,8 +219,7 @@ const KanbanCentralPage = () => {
 
       (demandsData || []).forEach(demand => {
         const statusName = demand.pipeline_statuses?.name || "Planejamento";
-        // Pular demandas em Planejamento
-        if (statusName === "Planejamento") return;
+        // Não pular mais demandas em Planejamento - agora elas aparecem no Kanban
         
         const company = demand.tenant_companies;
         const period = demand.period_plans;
@@ -675,22 +716,35 @@ const KanbanCentralPage = () => {
       
       <div className="mt-4">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-cyan-500/10 rounded-lg">
-            <LayoutGrid className="h-5 w-5 text-cyan-500" />
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-foreground">
-            Kanban Central
-          </h2>
-          <Badge variant="secondary">
-            {filteredCards.length} {filteredCards.length === 1 ? 'demanda' : 'demandas'}
-          </Badge>
-          {archivedCards.length > 0 && (
-            <Badge variant="outline" className="ml-2 gap-1">
-              <Archive className="h-3 w-3" />
-              {archivedCards.length} arquivado(s)
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <LayoutGrid className="h-5 w-5 text-primary" />
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground">
+              Kanban Central
+            </h2>
+            <Badge variant="secondary">
+              {filteredCards.length} {filteredCards.length === 1 ? 'demanda' : 'demandas'}
             </Badge>
-          )}
+            {archivedCards.length > 0 && (
+              <Badge variant="outline" className="ml-2 gap-1">
+                <Archive className="h-3 w-3" />
+                {archivedCards.length} arquivado(s)
+              </Badge>
+            )}
+          </div>
+          
+          {/* Botão Criar Coluna */}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setIsCreateColumnModalOpen(true)}
+            className="gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Criar Coluna
+          </Button>
         </div>
 
         {/* Search Bar and Filter */}
@@ -727,22 +781,30 @@ const KanbanCentralPage = () => {
 
         {/* Kanban Board with Drag & Drop */}
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-            {COLUMNS.map((column) => {
-              const columnCards = getCardsForColumn(column.id);
+          <div 
+            className="grid gap-3 lg:gap-4" 
+            style={{ 
+              gridTemplateColumns: `repeat(${Math.min(columns.length, 6)}, minmax(240px, 1fr))`,
+            }}
+          >
+            {columns.map((column) => {
+              const columnCards = getCardsForColumn(column.name);
               return (
                 <div key={column.id} className="bg-muted/30 rounded-xl p-4 border border-border/50 min-h-[500px] flex flex-col">
                   {/* Column Header */}
                   <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/50">
-                    <div className={cn("w-3 h-3 rounded-full", column.color)} />
-                    <span className="font-semibold text-foreground text-sm">{column.title}</span>
+                    <div 
+                      className="w-3 h-3 rounded-full" 
+                      style={{ backgroundColor: column.color }}
+                    />
+                    <span className="font-semibold text-foreground text-sm">{column.name}</span>
                     <Badge variant="outline" className="ml-auto text-xs">
                       {columnCards.length}
                     </Badge>
                   </div>
 
                   {/* Droppable Area */}
-                  <Droppable droppableId={column.id}>
+                  <Droppable droppableId={column.name}>
                     {(provided, snapshot) => (
                       <ScrollArea className="flex-1">
                         <div
@@ -760,7 +822,7 @@ const KanbanCentralPage = () => {
                           ) : (
                             columnCards.map((card, index) => {
                               const isHighlighted = highlightedCardId === card.id;
-                              const priority = column.id === "Agendar Publicação" ? getPublicationPriority(card) : null;
+                              const priority = column.name === "Agendar Publicação" ? getPublicationPriority(card) : null;
                               return (
                                 <Draggable key={card.id} draggableId={card.id} index={index}>
                                   {(provided, snapshot) => (
@@ -813,7 +875,7 @@ const KanbanCentralPage = () => {
                                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                                           <div className="flex items-center gap-1">
                                             <span>{formatDate(card.delivery_date)}</span>
-                                            {column.id === "Agendar Publicação" && card.publication_dates?.[0]?.time && (
+                                            {column.name === "Agendar Publicação" && card.publication_dates?.[0]?.time && (
                                               <span className="text-muted-foreground/70">• {card.publication_dates[0].time}</span>
                                             )}
                                           </div>
@@ -862,6 +924,15 @@ const KanbanCentralPage = () => {
           saving={saving}
           savingField={savingField}
           uploading={uploading}
+        />
+
+        {/* Modal para criar nova coluna */}
+        <CreateColumnModal
+          open={isCreateColumnModalOpen}
+          onOpenChange={setIsCreateColumnModalOpen}
+          pipelineId={pipelineId}
+          onSuccess={() => fetchColumns()}
+          existingPositions={columns.map(c => c.position)}
         />
       </div>
     </div>
