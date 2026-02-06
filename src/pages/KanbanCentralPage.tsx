@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
+import { useColumnPermissions } from "@/hooks/useColumnPermissions";
 import TaskCard, { getColumnFromStatus, getStatusFromColumn } from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PublicationDate } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
@@ -62,6 +63,14 @@ const KanbanCentralPage = () => {
   const [pipelineId, setPipelineId] = useState<string>("");
   const [isCreateColumnModalOpen, setIsCreateColumnModalOpen] = useState(false);
   const [isManageColumnsModalOpen, setIsManageColumnsModalOpen] = useState(false);
+
+  // Hook de permissões de colunas
+  const { filterColumns, loading: permissionsLoading } = useColumnPermissions();
+
+  // Filtrar colunas baseado nas permissões do usuário
+  const visibleColumns = useMemo(() => {
+    return filterColumns(columns);
+  }, [columns, filterColumns]);
 
   // Extrair lista única de clientes (dos cards ativos)
   const clients = useMemo(() => {
@@ -732,7 +741,7 @@ const KanbanCentralPage = () => {
     return columnCards;
   };
 
-  if (tenantLoading || loading) {
+  if (tenantLoading || loading || permissionsLoading) {
     return (
       <div className="flex items-center justify-center py-12 mt-8">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -828,7 +837,7 @@ const KanbanCentralPage = () => {
               minWidth: 'fit-content',
             }}
           >
-            {columns.map((column) => {
+            {visibleColumns.map((column) => {
               const columnCards = getCardsForColumn(column.name);
               return (
                 <div 
