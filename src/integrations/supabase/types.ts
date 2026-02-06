@@ -1179,6 +1179,51 @@ export type Database = {
           },
         ]
       }
+      user_column_permissions: {
+        Row: {
+          can_view: boolean
+          created_at: string
+          id: string
+          status_id: string
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          can_view?: boolean
+          created_at?: string
+          id?: string
+          status_id: string
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          can_view?: boolean
+          created_at?: string
+          id?: string
+          status_id?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_column_permissions_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_statuses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_column_permissions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string | null

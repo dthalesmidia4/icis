@@ -31,6 +31,9 @@ import Kanban from "./pages/Kanban";
 import KanbanCentralPage from "./pages/KanbanCentralPage";
 import MyCompany from "./pages/MyCompany";
 import CompanyProfile from "./pages/CompanyProfile";
+import TeamMembers from "./pages/TeamMembers";
+import InviteMember from "./pages/InviteMember";
+import RemoveMember from "./pages/RemoveMember";
 
 import NotFound from "./pages/NotFound";
 
@@ -256,6 +259,33 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <CompanyProfile />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/minha-empresa/colaboradores" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <TeamMembers />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/minha-empresa/convidar" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <InviteMember />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/minha-empresa/remover" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <RemoveMember />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>
