@@ -30,6 +30,7 @@ import ProfileSettings from "./pages/ProfileSettings";
 import Kanban from "./pages/Kanban";
 import KanbanCentralPage from "./pages/KanbanCentralPage";
 import MyCompany from "./pages/MyCompany";
+import CompanyProfile from "./pages/CompanyProfile";
 
 import NotFound from "./pages/NotFound";
 
@@ -246,6 +247,15 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <MyCompany />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/minha-empresa/cadastro" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <CompanyProfile />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>
