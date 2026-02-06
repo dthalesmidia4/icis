@@ -764,7 +764,7 @@ const KanbanCentralPage = () => {
           
           {/* Botão Criar Coluna */}
           <Button 
-            variant="outline" 
+            variant="default" 
             size="sm" 
             onClick={() => setIsCreateColumnModalOpen(true)}
             className="gap-2"
