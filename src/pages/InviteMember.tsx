@@ -63,27 +63,7 @@ export default function InviteMember() {
       if (insertError) throw insertError;
 
       setGeneratedCode(code);
-      toast.success('Convite gerado com sucesso!');
-
-      // Tentar enviar email se tiver a função configurada
-      if (email) {
-        try {
-          const { error: emailError } = await supabase.functions.invoke('send-invitation-email', {
-            body: {
-              email,
-              code,
-              role,
-            },
-          });
-
-          if (!emailError) {
-            toast.success(`Email de convite enviado para ${email}`);
-          }
-        } catch (emailErr) {
-          // Email não configurado, apenas mostra o código
-          console.log('Serviço de email não configurado');
-        }
-      }
+      toast.success('Convite gerado com sucesso! Compartilhe o código com o colaborador.');
     } catch (error: any) {
       console.error('Erro ao gerar convite:', error);
       toast.error(error.message || 'Erro ao gerar convite');
