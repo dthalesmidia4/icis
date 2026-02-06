@@ -21,12 +21,22 @@ interface HubPermission {
 
 export function useHubPermissions() {
   const { user } = useAuth();
-  const { agencyId } = useAgency();
+  const { agencyId, isLoading: agencyLoading } = useAgency();
   const [permissions, setPermissions] = useState<HubPermission[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchPermissions = useCallback(async () => {
+    console.log('[useHubPermissions] fetchPermissions called', { userId: user?.id, agencyId, agencyLoading });
+    
+    // Aguardar o agencyId estar disponível
+    if (agencyLoading) {
+      console.log('[useHubPermissions] AgencyContext still loading, waiting...');
+      return;
+    }
+    
     if (!user?.id || !agencyId) {
+      console.log('[useHubPermissions] Missing user or agencyId, skipping fetch');
+      setPermissions([]);
       setLoading(false);
       return;
     }
@@ -40,13 +50,14 @@ export function useHubPermissions() {
 
       if (error) throw error;
 
+      console.log('[useHubPermissions] Loaded permissions:', data);
       setPermissions(data || []);
     } catch (error) {
       console.error('Erro ao buscar permissões de hub:', error);
     } finally {
       setLoading(false);
     }
-  }, [user?.id, agencyId]);
+  }, [user?.id, agencyId, agencyLoading]);
 
   useEffect(() => {
     fetchPermissions();
@@ -84,15 +95,16 @@ export function useHubPermissions() {
     if (permissions.length === 0) return true;
     
     const permission = permissions.find(p => p.hub_section === sectionId);
-    // Se não encontrou permissão específica, assume que pode acessar
+    // Se não encontrou permissão específica para esta seção, assume que pode acessar
     if (!permission) return true;
     
-    return permission.can_access;
+    // Retorna o valor de can_access (true = pode acessar, false = bloqueado)
+    return permission.can_access === true;
   }, [permissions]);
 
   return {
     permissions,
-    loading,
+    loading: loading || agencyLoading,
     canAccess,
     refetch: fetchPermissions
   };

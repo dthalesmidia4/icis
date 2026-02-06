@@ -11,7 +11,7 @@ interface ColumnPermission {
 
 export function useColumnPermissions() {
   const { user } = useAuth();
-  const { agencyId } = useAgency();
+  const { agencyId, isLoading: agencyLoading } = useAgency();
   const { role, isLoading: roleLoading } = useAgencyRole();
   const [permissions, setPermissions] = useState<ColumnPermission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,8 +20,8 @@ export function useColumnPermissions() {
   const isAdmin = role === 'super_admin' || role === 'agency_admin' || role === 'agency_manager';
 
   const fetchPermissions = useCallback(async () => {
-    // Aguardar role carregar
-    if (roleLoading) return;
+    // Aguardar agencyId e role carregarem
+    if (agencyLoading || roleLoading) return;
 
     // Admins veem tudo - não precisa buscar permissões
     if (isAdmin) {
@@ -31,6 +31,7 @@ export function useColumnPermissions() {
     }
 
     if (!user?.id || !agencyId) {
+      setPermissions([]);
       setLoading(false);
       return;
     }
@@ -50,7 +51,7 @@ export function useColumnPermissions() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, agencyId, isAdmin, roleLoading]);
+  }, [user?.id, agencyId, isAdmin, roleLoading, agencyLoading]);
 
   useEffect(() => {
     fetchPermissions();
@@ -110,7 +111,7 @@ export function useColumnPermissions() {
 
   return {
     permissions,
-    loading: loading || roleLoading,
+    loading: loading || roleLoading || agencyLoading,
     canViewColumn,
     filterColumns,
     refetch: fetchPermissions,
