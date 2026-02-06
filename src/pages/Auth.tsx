@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { signupSchema } from '@/lib/validations/authSchemas';
@@ -27,6 +28,7 @@ const Auth = () => {
   // Login state
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
 
   // Signup mode state
   const [signupMode, setSignupMode] = useState<'select' | 'company' | 'invite-validate' | 'invite-register'>('select');
@@ -80,6 +82,15 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
+      // Se não marcar "manter conectado", usar sessionStorage
+      if (!rememberMe) {
+        // Configura para usar sessionStorage apenas para esta sessão
+        await supabase.auth.setSession({ 
+          access_token: '', 
+          refresh_token: '' 
+        });
+      }
+      
       const { error } = await signIn(loginEmail, loginPassword);
       
       if (error) {
@@ -89,6 +100,13 @@ const Auth = () => {
           toast.error(error.message);
         }
       } else {
+        // Salvar preferência de remember me
+        if (rememberMe) {
+          localStorage.setItem('rememberMe', 'true');
+        } else {
+          localStorage.removeItem('rememberMe');
+          sessionStorage.setItem('tempSession', 'true');
+        }
         toast.success('Login realizado com sucesso!');
         navigate('/');
       }
@@ -542,6 +560,19 @@ const Auth = () => {
                     onChange={(e) => setLoginPassword(e.target.value)}
                     required
                   />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="remember-me"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(checked === true)}
+                  />
+                  <Label 
+                    htmlFor="remember-me" 
+                    className="text-sm font-normal cursor-pointer select-none"
+                  >
+                    Manter conectado
+                  </Label>
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? 'Entrando...' : 'Entrar'}

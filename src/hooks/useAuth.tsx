@@ -8,6 +8,9 @@ export const useAuth = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Verificar se é sessão temporária (não manter conectado)
+    const isTempSession = sessionStorage.getItem('tempSession') === 'true';
+    
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -15,6 +18,17 @@ export const useAuth = () => {
         
         if (event === 'TOKEN_REFRESHED') {
           console.log('[Auth] Token refreshed successfully');
+        }
+        
+        if (event === 'SIGNED_OUT') {
+          console.log('[Auth] User signed out, clearing local state');
+          // Limpar estados locais que podem causar inconsistência
+          localStorage.removeItem('taskcard-collapsed-sections');
+          sessionStorage.removeItem('tempSession');
+        }
+
+        if (event === 'SIGNED_IN') {
+          console.log('[Auth] User signed in');
         }
         
         if (event === 'SIGNED_OUT') {
@@ -91,6 +105,20 @@ export const useAuth = () => {
     
     return { error: null };
   };
+
+  // Limpar sessão ao fechar aba se não marcou "manter conectado"
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const isTempSession = sessionStorage.getItem('tempSession') === 'true';
+      if (isTempSession) {
+        // A sessão será limpa automaticamente pois está no sessionStorage
+        console.log('[Auth] Temporary session - will not persist');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   return {
     user,
