@@ -88,14 +88,15 @@ export function useColumnPermissions() {
   const canViewColumn = useCallback((statusId: string): boolean => {
     // Admins podem ver tudo
     if (isAdmin) return true;
-    
-    // Se não há permissões salvas, o usuário pode ver tudo (comportamento padrão)
-    if (permissions.length === 0) return true;
-    
+
+    // Importante: modo "deny by default".
+    // Se não há permissões carregadas/salvas para este usuário, não exibe a coluna.
+    if (permissions.length === 0) return false;
+
     const permission = permissions.find(p => p.status_id === statusId);
-    // Se não encontrou permissão específica, assume que pode ver
-    if (!permission) return true;
-    
+    // Se não encontrou permissão específica, assume bloqueado
+    if (!permission) return false;
+
     return permission.can_view === true;
   }, [permissions, isAdmin]);
 
@@ -103,10 +104,10 @@ export function useColumnPermissions() {
   const filterColumns = useCallback(<T extends { id: string }>(columns: T[]): T[] => {
     // Admins veem todas as colunas
     if (isAdmin) return columns;
-    
-    // Se não há permissões, retornar todas as colunas
-    if (permissions.length === 0) return columns;
-    
+
+    // Se não há permissões, não retornar colunas
+    if (permissions.length === 0) return [];
+
     const filtered = columns.filter(col => canViewColumn(col.id));
     console.log('[Permissions] Visible columns:', filtered.length, 'of', columns.length);
     return filtered;
