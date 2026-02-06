@@ -85,13 +85,14 @@ export function useHubPermissions() {
 
   // Função para verificar se o usuário pode acessar uma seção específica
   const canAccess = useCallback((sectionId: HubSectionId | string): boolean => {
-    // Se não há permissões salvas, o usuário pode acessar tudo (comportamento padrão)
-    if (permissions.length === 0) return true;
-    
+    // Importante: modo "deny by default".
+    // Se não há permissões carregadas/salvas para este usuário, não exibe a seção.
+    if (permissions.length === 0) return false;
+
     const permission = permissions.find(p => p.hub_section === sectionId);
-    // Se não encontrou permissão específica para esta seção, assume que pode acessar
-    if (!permission) return true;
-    
+    // Se não encontrou permissão específica para esta seção, assume bloqueado
+    if (!permission) return false;
+
     // Retorna o valor de can_access (true = pode acessar, false = bloqueado)
     return permission.can_access === true;
   }, [permissions]);
