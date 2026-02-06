@@ -71,9 +71,31 @@ export const AgencyProvider = ({ children }: AgencyProviderProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const retryCount = useRef(0);
+  const isMountedRef = useRef(false);
+  const retryTimeoutRef = useRef<number | null>(null);
+
   // Um pouco mais alto para cobrir o caso de cadastro via convite,
   // onde o tenant_id pode demorar alguns segundos para ser preenchido pelo RPC.
   const maxRetries = 5;
+
+  const clearRetryTimeout = useCallback(() => {
+    if (retryTimeoutRef.current !== null) {
+      window.clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+  }, []);
+
+  const safeSetLoading = useCallback((value: boolean) => {
+    if (!isMountedRef.current) return;
+    setIsLoading(value);
+  }, []);
+
+  const safeClearAgencyState = useCallback(() => {
+    if (!isMountedRef.current) return;
+    setAgencyId(null);
+    setAgencyName(null);
+    setAgencySlug(null);
+  }, []);
 
   const loadAgency = useCallback(async () => {
     // Aguardar auth terminar de carregar
@@ -81,19 +103,29 @@ export const AgencyProvider = ({ children }: AgencyProviderProps) => {
       return;
     }
 
+    // Se o provider já desmontou (ex: StrictMode/dev), aborta
+    if (!isMountedRef.current) {
+      return;
+    }
+
+    // Cancela qualquer retry pendente antes de decidir novo estado
+    clearRetryTimeout();
+
     if (!user) {
       console.log('[AgencyContext] No user, clearing agency state');
-      setAgencyId(null);
-      setAgencyName(null);
-      setAgencySlug(null);
-      setError(null);
-      setIsLoading(false);
+      safeClearAgencyState();
+      if (isMountedRef.current) {
+        setError(null);
+      }
+      safeSetLoading(false);
       retryCount.current = 0;
       return;
     }
 
     try {
-      setError(null);
+      if (isMountedRef.current) {
+        setError(null);
+      }
       console.log('[AgencyContext] Loading agency for user:', user.id);
 
       // Primeiro, tentar buscar apenas tenant_id (sempre existe na tabela profiles)
@@ -120,17 +152,19 @@ export const AgencyProvider = ({ children }: AgencyProviderProps) => {
           console.log(
             `[AgencyContext] tenant_id ainda não disponível. Re-tentando em ${delay}ms (attempt ${retryCount.current}/${maxRetries})`
           );
-          setTimeout(() => {
+
+          retryTimeoutRef.current = window.setTimeout(() => {
+            // Evita callbacks atrasados após unmount
+            if (!isMountedRef.current) return;
             loadAgency();
           }, delay);
+
           return;
         }
 
         console.log('[AgencyContext] User has no tenant_id after retries, no agency assigned');
-        setAgencyId(null);
-        setAgencyName(null);
-        setAgencySlug(null);
-        setIsLoading(false);
+        safeClearAgencyState();
+        safeSetLoading(false);
         retryCount.current = 0;
         return;
       }
@@ -149,60 +183,64 @@ export const AgencyProvider = ({ children }: AgencyProviderProps) => {
 
       if (tenant) {
         console.log('[AgencyContext] Using tenant as agency:', tenant);
-        setAgencyId(tenant.id);
-        setAgencyName(tenant.name);
-        setAgencySlug(tenant.slug);
+        if (isMountedRef.current) {
+          setAgencyId(tenant.id);
+          setAgencyName(tenant.name);
+          setAgencySlug(tenant.slug);
+        }
         retryCount.current = 0;
-        setIsLoading(false);
+        safeSetLoading(false);
         return;
       }
 
-      setAgencyId(null);
-      setAgencyName(null);
-      setAgencySlug(null);
-      setIsLoading(false);
-      retryCount.current = 0;
-      return;
-
-      // Este bloco não será alcançado com o código atual, mas mantemos para quando
-      // a migração completa for aplicada e agency_id existir
-      console.log('[AgencyContext] Unexpected state - no agency found');
-      setAgencyId(null);
-      setAgencyName(null);
-      setAgencySlug(null);
+      safeClearAgencyState();
+      safeSetLoading(false);
       retryCount.current = 0;
     } catch (err) {
       console.error('[AgencyContext] Error loading agency:', err);
-      setError(err as Error);
+      if (isMountedRef.current) {
+        setError(err as Error);
+      }
 
       // Retry automático até maxRetries vezes
       if (retryCount.current < maxRetries) {
         retryCount.current += 1;
         const delay = 1000 * retryCount.current;
         console.log(`[AgencyContext] Retrying in ${delay}ms (attempt ${retryCount.current}/${maxRetries})`);
-        setTimeout(() => {
+
+        retryTimeoutRef.current = window.setTimeout(() => {
+          if (!isMountedRef.current) return;
           loadAgency();
         }, delay);
+
         return;
       }
     } finally {
       if (retryCount.current === 0 || retryCount.current >= maxRetries) {
-        setIsLoading(false);
+        safeSetLoading(false);
       }
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, clearRetryTimeout, safeClearAgencyState, safeSetLoading]);
 
   useEffect(() => {
+    isMountedRef.current = true;
     loadAgency();
-  }, [loadAgency]);
+
+    return () => {
+      isMountedRef.current = false;
+      clearRetryTimeout();
+    };
+  }, [loadAgency, clearRetryTimeout]);
 
   const refreshAgency = useCallback(async () => {
     console.log('[AgencyContext] Refreshing agency...');
     retryCount.current = 0;
-    setIsLoading(true);
-    setError(null);
+    safeSetLoading(true);
+    if (isMountedRef.current) {
+      setError(null);
+    }
     await loadAgency();
-  }, [loadAgency]);
+  }, [loadAgency, safeSetLoading]);
 
   return (
     <AgencyContext.Provider value={{ 
