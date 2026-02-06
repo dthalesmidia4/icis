@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -44,7 +44,7 @@ export const useAuth = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = useCallback(async (email: string, password: string, fullName: string) => {
     const redirectUrl = `${window.location.origin}/`;
     
     const { error } = await supabase.auth.signUp({
@@ -59,18 +59,18 @@ export const useAuth = () => {
     });
     
     return { error };
-  };
+  }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password
     });
     
     return { error };
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       // Limpar localStorage e sessionStorage primeiro
       localStorage.clear();
@@ -90,14 +90,15 @@ export const useAuth = () => {
     window.location.href = '/auth';
     
     return { error: null };
-  };
+  }, []);
 
-  return {
+  // Return a stable object reference using useMemo
+  return useMemo(() => ({
     user,
     session,
     isLoading,
     signUp,
     signIn,
     signOut
-  };
+  }), [user, session, isLoading, signUp, signIn, signOut]);
 };
