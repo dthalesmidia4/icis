@@ -5,10 +5,9 @@ import { useAgency } from '@/contexts/AgencyContext';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, UserPlus, Mail, Copy, Check } from 'lucide-react';
+import { Loader2, UserPlus, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import BackButton from '@/components/BackButton';
 
@@ -18,7 +17,6 @@ export default function InviteMember() {
   const navigate = useNavigate();
   const { agencyId } = useAgency();
   const { user } = useAuth();
-  const [email, setEmail] = useState('');
   const [role, setRole] = useState<InviteRole>('agency_user');
   const [isLoading, setIsLoading] = useState(false);
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
@@ -55,7 +53,6 @@ export default function InviteMember() {
           code: code,
           tenant_id: agencyId,
           role: role,
-          email: email || null,
           created_by: user.id,
           expires_at: expiresAt.toISOString(),
         });
@@ -63,7 +60,7 @@ export default function InviteMember() {
       if (insertError) throw insertError;
 
       setGeneratedCode(code);
-      toast.success('Convite gerado com sucesso! Compartilhe o código com o colaborador.');
+      toast.success('Convite gerado com sucesso!');
     } catch (error: any) {
       console.error('Erro ao gerar convite:', error);
       toast.error(error.message || 'Erro ao gerar convite');
@@ -87,7 +84,6 @@ export default function InviteMember() {
 
   const handleNewInvite = () => {
     setGeneratedCode(null);
-    setEmail('');
     setRole('agency_user');
   };
 
@@ -110,23 +106,6 @@ export default function InviteMember() {
         <CardContent>
           {!generatedCode ? (
             <div className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="email">
-                  <Mail className="h-4 w-4 inline mr-1" />
-                  E-mail do colaborador <span className="text-muted-foreground">(opcional)</span>
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="colaborador@email.com"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Se informado, o convite será exclusivo para este email
-                </p>
-              </div>
-
               <div className="space-y-2">
                 <Label>Nível de acesso</Label>
                 <Select value={role} onValueChange={(v) => setRole(v as InviteRole)}>
@@ -165,7 +144,7 @@ export default function InviteMember() {
                       Gerando...
                     </>
                   ) : (
-                    'Gerar Convite'
+                    'Gerar Código'
                   )}
                 </Button>
               </div>
@@ -190,9 +169,6 @@ export default function InviteMember() {
 
               <div className="text-sm text-muted-foreground">
                 <p>Este código expira em <strong>7 dias</strong></p>
-                {email && (
-                  <p className="mt-1">Exclusivo para: <strong>{email}</strong></p>
-                )}
                 <p className="mt-1">
                   Nível de acesso: <strong>{roles.find(r => r.value === role)?.label}</strong>
                 </p>
@@ -200,7 +176,7 @@ export default function InviteMember() {
 
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 text-sm">
                 <p className="text-amber-700 dark:text-amber-300">
-                  📧 Compartilhe este código com o colaborador para que ele possa se cadastrar na plataforma.
+                  📋 Compartilhe este código com o colaborador. Ele deve usá-lo na tela de cadastro.
                 </p>
               </div>
 
