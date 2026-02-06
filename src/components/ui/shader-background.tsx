@@ -229,7 +229,7 @@ const ShaderBackground = () => {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 w-full h-full -z-10"
+      className="fixed inset-0 w-full h-full -z-10 opacity-30"
       style={{ background: 'linear-gradient(135deg, #0a0a1a 0%, #1a0a2a 100%)' }}
     />
   );
