@@ -1224,6 +1224,44 @@ export type Database = {
           },
         ]
       }
+      user_hub_permissions: {
+        Row: {
+          can_access: boolean
+          created_at: string
+          hub_section: string
+          id: string
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          can_access?: boolean
+          created_at?: string
+          hub_section: string
+          id?: string
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          can_access?: boolean
+          created_at?: string
+          hub_section?: string
+          id?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_hub_permissions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string | null

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useAgency } from '@/contexts/AgencyContext';
+import { useAgencyRole } from './useAgencyRole';
 
 interface ColumnPermission {
   status_id: string;
@@ -11,10 +12,24 @@ interface ColumnPermission {
 export function useColumnPermissions() {
   const { user } = useAuth();
   const { agencyId } = useAgency();
+  const { role, isLoading: roleLoading } = useAgencyRole();
   const [permissions, setPermissions] = useState<ColumnPermission[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Admins e managers não têm restrições de colunas
+  const isAdmin = role === 'super_admin' || role === 'agency_admin' || role === 'agency_manager';
+
   const fetchPermissions = useCallback(async () => {
+    // Aguardar role carregar
+    if (roleLoading) return;
+
+    // Admins veem tudo - não precisa buscar permissões
+    if (isAdmin) {
+      setPermissions([]);
+      setLoading(false);
+      return;
+    }
+
     if (!user?.id || !agencyId) {
       setLoading(false);
       return;
@@ -35,7 +50,7 @@ export function useColumnPermissions() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, agencyId]);
+  }, [user?.id, agencyId, isAdmin, roleLoading]);
 
   useEffect(() => {
     fetchPermissions();
@@ -43,7 +58,7 @@ export function useColumnPermissions() {
 
   // Setup realtime subscription para atualizar permissões em tempo real
   useEffect(() => {
-    if (!user?.id || !agencyId) return;
+    if (!user?.id || !agencyId || isAdmin) return;
 
     const channel = supabase
       .channel(`column-permissions-${user.id}`)
@@ -65,10 +80,13 @@ export function useColumnPermissions() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, agencyId, fetchPermissions]);
+  }, [user?.id, agencyId, isAdmin, fetchPermissions]);
 
   // Função para verificar se o usuário pode ver uma coluna específica
   const canViewColumn = useCallback((statusId: string): boolean => {
+    // Admins podem ver tudo
+    if (isAdmin) return true;
+    
     // Se não há permissões salvas, o usuário pode ver tudo (comportamento padrão)
     if (permissions.length === 0) return true;
     
@@ -77,21 +95,25 @@ export function useColumnPermissions() {
     if (!permission) return true;
     
     return permission.can_view;
-  }, [permissions]);
+  }, [permissions, isAdmin]);
 
   // Filtrar uma lista de colunas baseado nas permissões
   const filterColumns = useCallback(<T extends { id: string }>(columns: T[]): T[] => {
+    // Admins veem todas as colunas
+    if (isAdmin) return columns;
+    
     // Se não há permissões, retornar todas as colunas
     if (permissions.length === 0) return columns;
     
     return columns.filter(col => canViewColumn(col.id));
-  }, [permissions, canViewColumn]);
+  }, [permissions, isAdmin, canViewColumn]);
 
   return {
     permissions,
-    loading,
+    loading: loading || roleLoading,
     canViewColumn,
     filterColumns,
-    refetch: fetchPermissions
+    refetch: fetchPermissions,
+    isAdmin
   };
 }

@@ -8,9 +8,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Loader2, Users, Settings2, X } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Loader2, Users, Settings2, LayoutGrid, Home } from 'lucide-react';
 import { toast } from 'sonner';
 import BackButton from '@/components/BackButton';
+import { HUB_SECTIONS } from '@/hooks/useHubPermissions';
 
 interface TeamMember {
   id: string;
@@ -32,6 +34,11 @@ interface ColumnPermission {
   can_view: boolean;
 }
 
+interface HubPermission {
+  hub_section: string;
+  can_access: boolean;
+}
+
 export default function TeamMembers() {
   const navigate = useNavigate();
   const { agencyId, isLoading: agencyLoading } = useAgency();
@@ -39,8 +46,10 @@ export default function TeamMembers() {
   const [columns, setColumns] = useState<PipelineStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
-  const [permissions, setPermissions] = useState<ColumnPermission[]>([]);
+  const [columnPermissions, setColumnPermissions] = useState<ColumnPermission[]>([]);
+  const [hubPermissions, setHubPermissions] = useState<HubPermission[]>([]);
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
+  const [activeTab, setActiveTab] = useState<'columns' | 'hub'>('columns');
 
   useEffect(() => {
     if (!agencyLoading && agencyId) {
@@ -130,17 +139,32 @@ export default function TeamMembers() {
     if (!agencyId) return;
 
     try {
-      const { data } = await supabase
+      // Carregar permissões de colunas
+      const { data: colPerms } = await supabase
         .from('user_column_permissions')
         .select('status_id, can_view')
         .eq('user_id', userId)
         .eq('tenant_id', agencyId);
 
-      if (data && data.length > 0) {
-        setPermissions(data);
+      if (colPerms && colPerms.length > 0) {
+        setColumnPermissions(colPerms);
       } else {
         // Se não tem permissões, assume que pode ver tudo
-        setPermissions(columns.map(col => ({ status_id: col.id, can_view: true })));
+        setColumnPermissions(columns.map(col => ({ status_id: col.id, can_view: true })));
+      }
+
+      // Carregar permissões de hub
+      const { data: hubPerms } = await supabase
+        .from('user_hub_permissions')
+        .select('hub_section, can_access')
+        .eq('user_id', userId)
+        .eq('tenant_id', agencyId);
+
+      if (hubPerms && hubPerms.length > 0) {
+        setHubPermissions(hubPerms);
+      } else {
+        // Se não tem permissões, assume que pode acessar tudo
+        setHubPermissions(HUB_SECTIONS.map(s => ({ hub_section: s.id, can_access: true })));
       }
     } catch (error) {
       console.error('Erro ao carregar permissões:', error);
@@ -149,16 +173,28 @@ export default function TeamMembers() {
 
   const handleOpenPermissions = async (member: TeamMember) => {
     setSelectedMember(member);
+    setActiveTab('columns');
     await loadMemberPermissions(member.id);
   };
 
-  const togglePermission = (statusId: string) => {
-    setPermissions(prev => {
+  const toggleColumnPermission = (statusId: string) => {
+    setColumnPermissions(prev => {
       const existing = prev.find(p => p.status_id === statusId);
       if (existing) {
         return prev.map(p => p.status_id === statusId ? { ...p, can_view: !p.can_view } : p);
       } else {
         return [...prev, { status_id: statusId, can_view: false }];
+      }
+    });
+  };
+
+  const toggleHubPermission = (sectionId: string) => {
+    setHubPermissions(prev => {
+      const existing = prev.find(p => p.hub_section === sectionId);
+      if (existing) {
+        return prev.map(p => p.hub_section === sectionId ? { ...p, can_access: !p.can_access } : p);
+      } else {
+        return [...prev, { hub_section: sectionId, can_access: false }];
       }
     });
   };
@@ -169,26 +205,47 @@ export default function TeamMembers() {
     setIsSavingPermissions(true);
 
     try {
-      // Deletar permissões existentes
+      // Salvar permissões de colunas
       await supabase
         .from('user_column_permissions')
         .delete()
         .eq('user_id', selectedMember.id)
         .eq('tenant_id', agencyId);
 
-      // Inserir novas permissões
-      const permissionsToInsert = permissions.map(p => ({
+      const columnPermsToInsert = columnPermissions.map(p => ({
         user_id: selectedMember.id,
         tenant_id: agencyId,
         status_id: p.status_id,
         can_view: p.can_view,
       }));
 
-      const { error } = await supabase
-        .from('user_column_permissions')
-        .insert(permissionsToInsert);
+      if (columnPermsToInsert.length > 0) {
+        const { error: colError } = await supabase
+          .from('user_column_permissions')
+          .insert(columnPermsToInsert);
+        if (colError) throw colError;
+      }
 
-      if (error) throw error;
+      // Salvar permissões de hub
+      await supabase
+        .from('user_hub_permissions')
+        .delete()
+        .eq('user_id', selectedMember.id)
+        .eq('tenant_id', agencyId);
+
+      const hubPermsToInsert = hubPermissions.map(p => ({
+        user_id: selectedMember.id,
+        tenant_id: agencyId,
+        hub_section: p.hub_section,
+        can_access: p.can_access,
+      }));
+
+      if (hubPermsToInsert.length > 0) {
+        const { error: hubError } = await supabase
+          .from('user_hub_permissions')
+          .insert(hubPermsToInsert);
+        if (hubError) throw hubError;
+      }
 
       toast.success('Permissões salvas com sucesso!');
       setSelectedMember(null);
@@ -283,47 +340,96 @@ export default function TeamMembers() {
         </div>
       )}
 
-      {/* Modal de Permissões de Colunas */}
+      {/* Modal de Permissões */}
       <Dialog open={!!selectedMember} onOpenChange={() => setSelectedMember(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings2 className="h-5 w-5" />
-              Permissões de Colunas
+              Permissões de {selectedMember?.full_name}
             </DialogTitle>
             <DialogDescription>
-              Selecione quais colunas do Kanban <strong>{selectedMember?.full_name}</strong> pode visualizar
+              Configure as permissões de acesso para este colaborador
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-4">
-            {columns.map(column => {
-              const permission = permissions.find(p => p.status_id === column.id);
-              const canView = permission?.can_view ?? true;
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'columns' | 'hub')} className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="columns" className="gap-2">
+                <LayoutGrid className="h-4 w-4" />
+                Colunas Kanban
+              </TabsTrigger>
+              <TabsTrigger value="hub" className="gap-2">
+                <Home className="h-4 w-4" />
+                Botões do Hub
+              </TabsTrigger>
+            </TabsList>
 
-              return (
-                <div
-                  key={column.id}
-                  className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                >
-                  <Checkbox
-                    id={column.id}
-                    checked={canView}
-                    onCheckedChange={() => togglePermission(column.id)}
-                  />
-                  <div
-                    className="w-4 h-4 rounded-full"
-                    style={{ backgroundColor: column.color }}
-                  />
-                  <label htmlFor={column.id} className="flex-1 cursor-pointer font-medium">
-                    {column.name}
-                  </label>
-                </div>
-              );
-            })}
-          </div>
+            <div className="flex-1 overflow-y-auto py-4">
+              <TabsContent value="columns" className="mt-0 space-y-3">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Selecione quais colunas do Kanban este colaborador pode visualizar:
+                </p>
+                {columns.map(column => {
+                  const permission = columnPermissions.find(p => p.status_id === column.id);
+                  const canView = permission?.can_view ?? true;
 
-          <div className="flex gap-3 justify-end">
+                  return (
+                    <div
+                      key={column.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                    >
+                      <Checkbox
+                        id={`col-${column.id}`}
+                        checked={canView}
+                        onCheckedChange={() => toggleColumnPermission(column.id)}
+                      />
+                      <div
+                        className="w-4 h-4 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: column.color }}
+                      />
+                      <label htmlFor={`col-${column.id}`} className="flex-1 cursor-pointer font-medium">
+                        {column.name}
+                      </label>
+                    </div>
+                  );
+                })}
+              </TabsContent>
+
+              <TabsContent value="hub" className="mt-0 space-y-3">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Selecione quais seções do Hub este colaborador pode acessar:
+                </p>
+                {HUB_SECTIONS.map(section => {
+                  const permission = hubPermissions.find(p => p.hub_section === section.id);
+                  const canAccess = permission?.can_access ?? true;
+
+                  return (
+                    <div
+                      key={section.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                    >
+                      <Checkbox
+                        id={`hub-${section.id}`}
+                        checked={canAccess}
+                        onCheckedChange={() => toggleHubPermission(section.id)}
+                      />
+                      <div className="flex-1">
+                        <label htmlFor={`hub-${section.id}`} className="cursor-pointer font-medium block">
+                          {section.label}
+                        </label>
+                        <span className="text-xs text-muted-foreground">
+                          {section.description}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </TabsContent>
+            </div>
+          </Tabs>
+
+          <div className="flex gap-3 justify-end pt-4 border-t">
             <Button variant="outline" onClick={() => setSelectedMember(null)}>
               Cancelar
             </Button>
