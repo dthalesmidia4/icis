@@ -11,7 +11,8 @@ import {
   LayoutGrid,
   Archive,
   Search,
-  Plus
+  Plus,
+  Settings2
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
@@ -25,6 +26,7 @@ import BackButton from "@/components/BackButton";
 import KanbanCard from "@/components/KanbanCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import CreateColumnModal from "@/components/CreateColumnModal";
+import ManageColumnsModal from "@/components/ManageColumnsModal";
 
 interface PipelineStatus {
   id: string;
@@ -59,6 +61,7 @@ const KanbanCentralPage = () => {
   const [columns, setColumns] = useState<PipelineStatus[]>([]);
   const [pipelineId, setPipelineId] = useState<string>("");
   const [isCreateColumnModalOpen, setIsCreateColumnModalOpen] = useState(false);
+  const [isManageColumnsModalOpen, setIsManageColumnsModalOpen] = useState(false);
 
   // Extrair lista única de clientes (dos cards ativos)
   const clients = useMemo(() => {
@@ -762,16 +765,27 @@ const KanbanCentralPage = () => {
             )}
           </div>
           
-          {/* Botão Criar Coluna */}
-          <Button 
-            variant="default" 
-            size="sm" 
-            onClick={() => setIsCreateColumnModalOpen(true)}
-            className="gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Criar Coluna
-          </Button>
+          {/* Botões Criar e Gerenciar Colunas */}
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setIsManageColumnsModalOpen(true)}
+              className="gap-2"
+            >
+              <Settings2 className="h-4 w-4" />
+              Gerenciar
+            </Button>
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={() => setIsCreateColumnModalOpen(true)}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Criar Coluna
+            </Button>
+          </div>
         </div>
 
         {/* Search Bar and Filter */}
@@ -965,6 +979,15 @@ const KanbanCentralPage = () => {
           pipelineId={pipelineId}
           onSuccess={() => fetchColumns()}
           existingPositions={columns.map(c => c.position)}
+        />
+
+        {/* Modal para gerenciar colunas */}
+        <ManageColumnsModal
+          open={isManageColumnsModalOpen}
+          onOpenChange={setIsManageColumnsModalOpen}
+          columns={columns}
+          pipelineId={pipelineId}
+          onSuccess={() => fetchColumns()}
         />
       </div>
     </div>
