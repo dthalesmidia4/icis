@@ -82,6 +82,15 @@ export interface KanbanCardData {
   demand_type?: string | null;
   channel?: string | null;
 }
+// Dynamic pipeline status from database
+export interface PipelineStatus {
+  id: string;
+  name: string;
+  color: string;
+  position: number;
+  pipeline_id: string;
+}
+
 interface TaskCardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -95,6 +104,7 @@ interface TaskCardProps {
   saving?: boolean;
   savingField?: string | null;
   uploading?: boolean;
+  pipelineStatuses?: PipelineStatus[]; // Dynamic statuses from database
 }
 const isImageFile = (type: string) => type.startsWith('image/');
 const formatFileSize = (bytes: number) => {
@@ -263,7 +273,8 @@ export default function TaskCard({
   onDelete,
   saving = false,
   savingField = null,
-  uploading = false
+  uploading = false,
+  pipelineStatuses = []
 }: TaskCardProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [openDatePickerIndex, setOpenDatePickerIndex] = useState<number | null>(null);
@@ -432,8 +443,43 @@ export default function TaskCard({
   // Normalize legacy status values
   const normalizedStatus = LEGACY_STATUS_MAP[card?.status || ''] || card?.status || 'nao_iniciado';
 
+  // Dynamic status config based on pipelineStatuses
+  const getDynamicStatusConfig = (statusValue: string) => {
+    // First check if we have dynamic pipeline statuses
+    if (pipelineStatuses.length > 0) {
+      // Match by column_name (the status value should match the column name)
+      const dynamicStatus = pipelineStatuses.find(ps => 
+        ps.name.toLowerCase() === statusValue.toLowerCase() ||
+        ps.name.toLowerCase().replace(/\s+/g, '_') === statusValue.toLowerCase() ||
+        statusValue.toLowerCase() === ps.name.toLowerCase().replace(/\s+/g, '_')
+      );
+      if (dynamicStatus) {
+        return {
+          value: dynamicStatus.name,
+          label: dynamicStatus.name.toUpperCase(),
+          color: dynamicStatus.color,
+          bgColor: `bg-[${dynamicStatus.color}]/10`,
+          textColor: `text-[${dynamicStatus.color}]`,
+          borderColor: `border-[${dynamicStatus.color}]/30`,
+          column: dynamicStatus.name
+        };
+      }
+    }
+    // Fallback to static config
+    return getStatusConfig(statusValue);
+  };
+
+  // Get current status display value (column name)
+  const getCurrentStatusDisplay = () => {
+    if (card?.column_name) {
+      return card.column_name;
+    }
+    const config = getDynamicStatusConfig(normalizedStatus);
+    return config.column || config.label;
+  };
+
   if (!card || !open) return null;
-  const statusConfig = getStatusConfig(normalizedStatus);
+  const statusConfig = getDynamicStatusConfig(card.column_name || normalizedStatus);
   const modalContent = <>
       {/* Full-screen modal container - respects sidebar */}
       <div className="fixed inset-0 z-50 md:left-16 flex flex-col" role="dialog" aria-modal="true" aria-labelledby="task-card-title">
@@ -467,10 +513,9 @@ export default function TaskCard({
               {/* Status - ClickUp inspired */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</span>
-                <Select value={normalizedStatus} onValueChange={async (value) => {
+                <Select value={card.column_name || normalizedStatus} onValueChange={async (value) => {
                   // Validação: exigir data de publicação para mover para "Agendar Publicação"
-                  const targetColumn = getColumnFromStatus(value);
-                  if (targetColumn === "Agendar Publicação") {
+                  if (value === "Agendar Publicação") {
                     const hasValidPublicationDate = publicationDates.some(pd => pd.date && pd.time);
                     const hasDeliveryDate = !!card.delivery_date;
                     
@@ -485,33 +530,69 @@ export default function TaskCard({
                   
                   onCardChange({
                     ...card,
-                    status: value
+                    status: value,
+                    column_name: value
                   });
                   handleFieldSave('status', value);
                 }}>
-                  <SelectTrigger className={cn("h-9 w-auto min-w-[180px] gap-2 border font-medium text-xs", statusConfig.bgColor, statusConfig.textColor, statusConfig.borderColor)} aria-label="Selecionar status da tarefa">
+                  <SelectTrigger 
+                    className="h-9 w-auto min-w-[180px] gap-2 border font-medium text-xs"
+                    style={{
+                      backgroundColor: `${statusConfig.color}15`,
+                      color: statusConfig.color,
+                      borderColor: `${statusConfig.color}40`
+                    }}
+                    aria-label="Selecionar status da tarefa"
+                  >
                     <div className="flex items-center gap-2">
                       <span className="h-3 w-3 rounded-full flex-shrink-0" style={{
-                      backgroundColor: statusConfig.color
-                    }} />
+                        backgroundColor: statusConfig.color
+                      }} />
                       <span className="truncate">{statusConfig.label}</span>
                     </div>
                   </SelectTrigger>
                   <SelectContent className="min-w-[220px] max-h-[320px]">
                     <ScrollArea className="max-h-[300px]">
-                      {STATUS_GROUPS.map((group, groupIdx) => <div key={group.label}>
-                          {groupIdx > 0 && <Separator className="my-1" />}
-                          {group.statuses.map(status => <SelectItem key={status.value} value={status.value} className="cursor-pointer">
+                      {/* Use dynamic pipeline statuses if available */}
+                      {pipelineStatuses.length > 0 ? (
+                        pipelineStatuses.map((status, idx) => (
+                          <div key={status.id}>
+                            {idx > 0 && <Separator className="my-1" />}
+                            <SelectItem value={status.name} className="cursor-pointer">
                               <div className="flex items-center gap-2">
-                                <span className={cn("h-3 w-3 rounded-full flex-shrink-0 flex items-center justify-center", status.value === 'concluido' && "ring-1 ring-inset ring-white/30")} style={{
-                            backgroundColor: status.color
-                          }}>
-                                  {status.value === 'concluido' && <Check className="h-2 w-2 text-white" />}
-                                </span>
-                                <span className="text-xs font-medium">{status.label}</span>
+                                <span 
+                                  className="h-3 w-3 rounded-full flex-shrink-0" 
+                                  style={{ backgroundColor: status.color }}
+                                />
+                                <span className="text-xs font-medium">{status.name.toUpperCase()}</span>
                               </div>
-                            </SelectItem>)}
-                        </div>)}
+                            </SelectItem>
+                          </div>
+                        ))
+                      ) : (
+                        /* Fallback to static STATUS_GROUPS */
+                        STATUS_GROUPS.map((group, groupIdx) => (
+                          <div key={group.label}>
+                            {groupIdx > 0 && <Separator className="my-1" />}
+                            {group.statuses.map(status => (
+                              <SelectItem key={status.value} value={status.column} className="cursor-pointer">
+                                <div className="flex items-center gap-2">
+                                  <span 
+                                    className={cn(
+                                      "h-3 w-3 rounded-full flex-shrink-0 flex items-center justify-center", 
+                                      status.value === 'concluido' && "ring-1 ring-inset ring-white/30"
+                                    )} 
+                                    style={{ backgroundColor: status.color }}
+                                  >
+                                    {status.value === 'concluido' && <Check className="h-2 w-2 text-white" />}
+                                  </span>
+                                  <span className="text-xs font-medium">{status.label}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </div>
+                        ))
+                      )}
                     </ScrollArea>
                   </SelectContent>
                 </Select>

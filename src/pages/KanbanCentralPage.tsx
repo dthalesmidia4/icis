@@ -809,15 +809,19 @@ const KanbanCentralPage = () => {
         {/* Kanban Board with Drag & Drop */}
         <DragDropContext onDragEnd={handleDragEnd}>
           <div 
-            className="grid gap-3 lg:gap-4" 
+            className="flex gap-3 lg:gap-4 overflow-x-auto pb-4" 
             style={{ 
-              gridTemplateColumns: `repeat(${Math.min(columns.length, 6)}, minmax(240px, 1fr))`,
+              minWidth: 'fit-content',
             }}
           >
             {columns.map((column) => {
               const columnCards = getCardsForColumn(column.name);
               return (
-                <div key={column.id} className="bg-muted/30 rounded-xl p-4 border border-border/50 min-h-[500px] flex flex-col">
+                <div 
+                  key={column.id} 
+                  className="bg-muted/30 rounded-xl p-4 border border-border/50 min-h-[500px] flex flex-col flex-shrink-0"
+                  style={{ width: '280px', minWidth: '280px' }}
+                >
                   {/* Column Header */}
                   <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/50">
                     <div 
@@ -951,6 +955,7 @@ const KanbanCentralPage = () => {
           saving={saving}
           savingField={savingField}
           uploading={uploading}
+          pipelineStatuses={columns}
         />
 
         {/* Modal para criar nova coluna */}
