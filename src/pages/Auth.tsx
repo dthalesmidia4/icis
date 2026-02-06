@@ -503,7 +503,7 @@ const Auth = () => {
         <img 
           src={logoIcis} 
           alt="ICIS Logo" 
-          className="h-32 md:h-40 w-auto"
+          className="h-48 md:h-56 w-auto"
         />
         <Card className="w-full bg-card/90 backdrop-blur-sm border-border/50">
         <CardHeader>
