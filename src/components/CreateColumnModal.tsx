@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { ColorPicker } from "@/components/ui/color-picker";
 
 interface CreateColumnModalProps {
   open: boolean;
@@ -22,17 +23,6 @@ interface CreateColumnModalProps {
   existingPositions: number[];
 }
 
-const PRESET_COLORS = [
-  { name: "Roxo", value: "#8b5cf6" },
-  { name: "Azul", value: "#3b82f6" },
-  { name: "Ciano", value: "#06b6d4" },
-  { name: "Verde", value: "#22c55e" },
-  { name: "Amarelo", value: "#eab308" },
-  { name: "Laranja", value: "#f97316" },
-  { name: "Vermelho", value: "#ef4444" },
-  { name: "Rosa", value: "#ec4899" },
-];
-
 const CreateColumnModal = ({
   open,
   onOpenChange,
@@ -41,7 +31,7 @@ const CreateColumnModal = ({
   existingPositions,
 }: CreateColumnModalProps) => {
   const [name, setName] = useState("");
-  const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0].value);
+  const [selectedColor, setSelectedColor] = useState("#8b5cf6");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,7 +71,7 @@ const CreateColumnModal = ({
 
       toast.success(`Coluna "${name}" criada com sucesso!`);
       setName("");
-      setSelectedColor(PRESET_COLORS[0].value);
+      setSelectedColor("#8b5cf6");
       onOpenChange(false);
       onSuccess();
     } catch (error) {
@@ -116,22 +106,10 @@ const CreateColumnModal = ({
 
           <div className="space-y-2">
             <Label>Cor da Coluna</Label>
-            <div className="flex flex-wrap gap-2">
-              {PRESET_COLORS.map((color) => (
-                <button
-                  key={color.value}
-                  type="button"
-                  onClick={() => setSelectedColor(color.value)}
-                  className={`w-8 h-8 rounded-full transition-all ${
-                    selectedColor === color.value
-                      ? "ring-2 ring-offset-2 ring-primary scale-110"
-                      : "hover:scale-105"
-                  }`}
-                  style={{ backgroundColor: color.value }}
-                  title={color.name}
-                />
-              ))}
-            </div>
+            <ColorPicker
+              value={selectedColor}
+              onChange={setSelectedColor}
+            />
           </div>
 
           <DialogFooter>
