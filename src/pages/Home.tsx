@@ -29,6 +29,7 @@ const Home = () => {
       title: "Kanban Central",
       icon: LayoutGrid,
       gradient: "from-cyan-500 to-teal-600",
+      titleColor: "text-teal-600 dark:text-teal-400",
       route: "/kanban-central"
     },
     {
@@ -36,6 +37,7 @@ const Home = () => {
       title: "Gerenciar Clientes",
       icon: Building2,
       gradient: "from-blue-500 to-indigo-600",
+      titleColor: "text-indigo-600 dark:text-indigo-400",
       route: "/clientes"
     },
     {
@@ -43,6 +45,7 @@ const Home = () => {
       title: "Agendamento",
       icon: CalendarDays,
       gradient: "from-purple-500 to-violet-600",
+      titleColor: "text-violet-600 dark:text-violet-400",
       route: "/content-schedule"
     },
     ...(agencyId ? [{
@@ -50,6 +53,7 @@ const Home = () => {
       title: "Minha Empresa",
       icon: Briefcase,
       gradient: "from-orange-500 to-amber-600",
+      titleColor: "text-amber-600 dark:text-amber-400",
       route: "/minha-empresa"
     }] : []),
     {
@@ -57,6 +61,7 @@ const Home = () => {
       title: "Cadastrar Cliente",
       icon: UserPlus,
       gradient: "from-green-500 to-emerald-600",
+      titleColor: "text-emerald-600 dark:text-emerald-400",
       route: "/registration"
     },
   ];
@@ -103,12 +108,7 @@ const Home = () => {
                   <card.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </div>
                 
-                <h3 className={`text-base sm:text-xl font-bold transition-colors ${
-                  index === 0 ? 'text-indigo-600 dark:text-indigo-400' : 
-                  index === 1 ? 'text-emerald-600 dark:text-emerald-400' : 
-                  index === 2 ? 'text-violet-600 dark:text-violet-400' : 
-                  'text-teal-600 dark:text-teal-400'
-                }`}>
+                <h3 className={`text-base sm:text-xl font-bold transition-colors ${card.titleColor}`}>
                   {card.title}
                 </h3>
               </div>
