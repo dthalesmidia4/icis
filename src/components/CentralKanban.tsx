@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive, Calendar } from "lucide-react";
+import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive, Calendar, Plus } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
@@ -11,6 +11,7 @@ import type { KanbanCardData, Attachment, PublicationDate } from "@/components/T
 import { toast as sonnerToast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SmartSearchBar from "@/components/SmartSearchBar";
+import { CreateDemandModal } from "@/components/CreateDemandModal";
 import { cn } from "@/lib/utils";
 interface CentralKanbanCard extends KanbanCardData {
   clientName: string;
@@ -32,6 +33,7 @@ const CentralKanban = () => {
   const [uploading, setUploading] = useState(false);
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>("all");
   const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Extrair lista única de clientes (apenas de cards ativos)
@@ -619,6 +621,12 @@ const CentralKanban = () => {
         <Badge variant="secondary">
           {filteredCards.length} {filteredCards.length === 1 ? 'item' : 'itens'}
         </Badge>
+        <div className="ml-auto">
+          <Button size="sm" onClick={() => setIsCreateModalOpen(true)} className="gap-1.5">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Criar Demanda</span>
+          </Button>
+        </div>
       </div>
 
       {/* Search Bar and Filter */}
@@ -750,6 +758,12 @@ const CentralKanban = () => {
         saving={saving} 
         savingField={savingField} 
         uploading={uploading} 
+      />
+      {/* Create Demand Modal */}
+      <CreateDemandModal
+        open={isCreateModalOpen}
+        onOpenChange={setIsCreateModalOpen}
+        onDemandCreated={fetchScheduledCards}
       />
     </div>;
 };
