@@ -18,7 +18,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
 import { useColumnPermissions } from "@/hooks/useColumnPermissions";
 import TaskCard, { getColumnFromStatus, getStatusFromColumn } from "@/components/TaskCard";
-import type { KanbanCardData, Attachment, PublicationDate } from "@/components/TaskCard";
+import type { KanbanCardData, Attachment } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SmartSearchBar from "@/components/SmartSearchBar";
@@ -100,26 +100,21 @@ const KanbanCentralPage = () => {
     return [...cards, ...archivedWithFlag];
   }, [cards, archivedCards]);
 
-  // Handle search result selection - scroll to and highlight card
+  // Handle search result selection
   const handleSearchResultSelect = useCallback((card: CentralKanbanCard) => {
-    // Se for um card arquivado, mostrar toast informativo
     if (card.isArchived) {
-      sonnerToast.info(
-        "Card de período concluído",
-        { description: `Este card pertence a um período já concluído. Ele não aparece no kanban mas está salvo no banco de dados.` }
-      );
+      sonnerToast.info("Card de período concluído", {
+        description: `Este card pertence a um período já concluído.`
+      });
       return;
     }
 
-    // If card is filtered out, clear the filter first
     if (selectedClientFilter !== "all" && card.clientId !== selectedClientFilter) {
       setSelectedClientFilter("all");
     }
     
-    // Highlight the card
     setHighlightedCardId(card.id);
     
-    // Scroll to the card after a short delay to allow filter change
     setTimeout(() => {
       const cardElement = cardRefs.current.get(card.id);
       if (cardElement) {
@@ -127,13 +122,12 @@ const KanbanCentralPage = () => {
       }
     }, 100);
     
-    // Remove highlight after 3 seconds
     setTimeout(() => {
       setHighlightedCardId(null);
     }, 3000);
   }, [selectedClientFilter]);
 
-  // Unified realtime handler for attachments synchronization
+  // Unified realtime handler
   const handleRealtimeUpdate = useCallback((itemId: string, attachments: Attachment[]) => {
     setCards(prevCards => 
       prevCards.map(card => 
@@ -150,7 +144,6 @@ const KanbanCentralPage = () => {
     );
   }, []);
 
-  // Setup realtime subscription (unified)
   useRealtimeAttachments({
     tenantId,
     onAttachmentUpdate: handleRealtimeUpdate,
@@ -164,11 +157,9 @@ const KanbanCentralPage = () => {
     }
   }, [tenantId, tenantLoading]);
 
-  // Buscar colunas/statuses do pipeline
   const fetchColumns = async () => {
     if (!tenantId) return;
     try {
-      // Primeiro, buscar o pipeline padrão do tenant
       const { data: pipelineData, error: pipelineError } = await supabase
         .from("pipelines")
         .select("id")
@@ -181,7 +172,6 @@ const KanbanCentralPage = () => {
       if (pipelineData) {
         setPipelineId(pipelineData.id);
 
-        // Buscar os status do pipeline
         const { data: statusData, error: statusError } = await supabase
           .from("pipeline_statuses")
           .select("id, name, color, position, pipeline_id")
@@ -202,7 +192,6 @@ const KanbanCentralPage = () => {
     try {
       setLoading(true);
 
-      // Buscar todas as demands (tabela unificada)
       const { data: demandsData, error } = await supabase
         .from("demands")
         .select(`
@@ -227,14 +216,11 @@ const KanbanCentralPage = () => {
 
       if (error) throw error;
 
-      // Separar cards ativos e arquivados
       const activeCards: CentralKanbanCard[] = [];
       const archived: CentralKanbanCard[] = [];
 
       (demandsData || []).forEach(demand => {
         const statusName = demand.pipeline_statuses?.name || "Planejamento";
-        // Não pular mais demandas em Planejamento - agora elas aparecem no Kanban
-        
         const company = demand.tenant_companies;
         const period = demand.period_plans;
         
@@ -242,32 +228,26 @@ const KanbanCentralPage = () => {
           id: demand.id,
           title: demand.title,
           description: demand.instructions || demand.description || null,
-          objetivo: demand.objective || (demand as any).objetivo || null,
-          instrucoes: demand.instructions || (demand as any).instrucoes || null,
-          observations: (demand as any).observations || null,
+          objective: demand.objective || null,
+          instructions: demand.instructions || null,
+          observations: demand.observations || null,
           status: statusName,
-          column_name: statusName,
-          delivery_date: demand.due_date || demand.publish_date || (demand as any).delivery_date || new Date().toISOString().split('T')[0],
-          file_location: demand.channel || (demand as any).file_location || null,
+          due_date: demand.due_date || demand.publish_date || new Date().toISOString().split('T')[0],
+          channel: demand.channel || null,
           attachments: (demand.attachments as unknown as Attachment[] | null) || [],
-          publication_dates: demand.publish_date ? [{
-            date: demand.publish_date,
-            time: demand.publish_time || "09:00",
-            platform: demand.channel || undefined
-          }] : ((demand as any).publication_dates as unknown as PublicationDate[] | null) || [],
+          publish_date: demand.publish_date || null,
+          publish_time: demand.publish_time || null,
           tenant_id: demand.tenant_id,
           period_plan_id: demand.period_plan_id,
-          plan_id: (demand as any).plan_id || null,
           created_at: demand.created_at,
           updated_at: demand.updated_at,
           clientName: company?.fantasy_name || company?.name || "Cliente",
           clientId: company?.id || demand.client_id || "",
           periodPlanId: period?.id || "",
           isArchived: period?.operational_status === "concluido",
-          source: demand.source as 'card' | 'demand',
+          source: demand.source,
           demand_id: demand.id,
-          demand_type: demand.demand_type,
-          channel: demand.channel
+          demand_type: demand.demand_type
         };
 
         if (period?.operational_status === 'concluido') {
@@ -302,10 +282,7 @@ const KanbanCentralPage = () => {
 
     // Validação: exigir data de publicação para mover para "Agendar Publicação"
     if (newColumnName === "Agendar Publicação") {
-      const hasValidPublicationDate = card.publication_dates?.some(pd => pd.date && pd.time) || false;
-      const hasDeliveryDate = !!card.delivery_date;
-      
-      if (!hasValidPublicationDate && !hasDeliveryDate) {
+      if (!card.publish_date) {
         sonnerToast.error("Defina uma data de publicação", {
           description: "Para mover para 'Agendar Publicação', defina data e horário primeiro."
         });
@@ -313,18 +290,15 @@ const KanbanCentralPage = () => {
       }
     }
 
-    // Atualizar localmente
     setCards((prev) =>
       prev.map((c) =>
         c.id === draggableId
-          ? { ...c, column_name: newColumnName, status: newStatus }
+          ? { ...c, status: newColumnName }
           : c
       )
     );
 
-    // Atualizar no banco (tabela unificada demands)
     try {
-      // Buscar o status_id correto pelo nome da coluna e pipeline
       const { data: statusData } = await supabase
         .from("pipeline_statuses")
         .select("id")
@@ -343,7 +317,6 @@ const KanbanCentralPage = () => {
         .from("demands")
         .update({ 
           status_id: statusData.id,
-          column_name: newColumnName,
           updated_at: new Date().toISOString()
         })
         .eq("id", card.id);
@@ -379,44 +352,29 @@ const KanbanCentralPage = () => {
     setSavingField(field);
     try {
       let parsedValue: any = value;
-      if (field === 'publication_dates' || field === 'attachments') {
+      if (field === 'attachments') {
         try {
           parsedValue = JSON.parse(value);
-          // PROTEÇÃO: Nunca sobrescrever attachments com array vazio acidentalmente via handleSave
           if (field === 'attachments' && (!Array.isArray(parsedValue) || parsedValue.length === 0)) {
-            console.warn('[Attachment] Proteção ativada: tentativa de sobrescrever attachments com valor vazio via handleSave', {
-              cardId: selectedCard.id,
-              currentAttachments: selectedCard.attachments?.length,
-              attemptedValue: value
-            });
+            console.warn('[Attachment] Proteção ativada: tentativa de sobrescrever attachments com valor vazio via handleSave');
             setSaving(false);
             setSavingField(null);
             return;
           }
         } catch {
-          console.warn('[Attachment] JSON parse falhou para field:', field, value);
           parsedValue = value;
         }
       }
       
-      const updateData: Record<string, any> = { [field]: parsedValue };
-      
-      // If status changes, also update the column_name to sync with Kanban
-      if (field === 'status') {
-        // O novo status é o próprio nome da coluna (sincronizado com pipeline_statuses)
-        updateData.column_name = value;
-      }
-      
       // Map card fields to demand fields (unified table)
-      const demandUpdateData: Record<string, any> = {};
+      const demandUpdateData: Record<string, any> = { updated_at: new Date().toISOString() };
       
       if (field === 'title') demandUpdateData.title = parsedValue;
-      else if (field === 'description' || field === 'instrucoes') demandUpdateData.instructions = parsedValue;
-      else if (field === 'objetivo') demandUpdateData.objective = parsedValue;
+      else if (field === 'description') demandUpdateData.instructions = parsedValue;
+      else if (field === 'objective') demandUpdateData.objective = parsedValue;
       else if (field === 'observations') demandUpdateData.observations = parsedValue;
       else if (field === 'attachments') demandUpdateData.attachments = parsedValue;
       else if (field === 'status') {
-        // Find status_id by name and pipeline
         const { data: statusData } = await supabase
           .from("pipeline_statuses")
           .select("id")
@@ -425,50 +383,24 @@ const KanbanCentralPage = () => {
           .maybeSingle();
         if (statusData) {
           demandUpdateData.status_id = statusData.id;
-          demandUpdateData.column_name = value;
         }
       }
-      else if (field === 'publication_dates' && Array.isArray(parsedValue) && parsedValue.length > 0) {
-        demandUpdateData.publish_date = parsedValue[0].date;
-        demandUpdateData.publish_time = parsedValue[0].time;
-        demandUpdateData.publication_dates = parsedValue;
-      }
-      else if (field === 'delivery_date') demandUpdateData.delivery_date = parsedValue;
-      else if (field === 'column_name') {
-        // Find status_id for the new column and pipeline
-        const { data: statusData } = await supabase
-          .from("pipeline_statuses")
-          .select("id")
-          .eq("name", value)
-          .eq("pipeline_id", pipelineId)
-          .maybeSingle();
-        if (statusData) {
-          demandUpdateData.status_id = statusData.id;
-          // Também atualizar o status para manter sincronizado
-          updateData.status = value;
-        }
-      }
+      else if (field === 'publish_date') demandUpdateData.publish_date = parsedValue;
+      else if (field === 'publish_time') demandUpdateData.publish_time = parsedValue;
+      else demandUpdateData[field] = parsedValue;
       
-      if (Object.keys(demandUpdateData).length > 0) {
-        demandUpdateData.updated_at = new Date().toISOString();
-        const { error } = await supabase
-          .from("demands")
-          .update(demandUpdateData)
-          .eq("id", selectedCard.id);
+      const { error } = await supabase
+        .from("demands")
+        .update(demandUpdateData)
+        .eq("id", selectedCard.id);
 
-        if (error) throw error;
-      }
+      if (error) throw error;
 
-      // Atualizar estado local (sincronizar status e column_name)
+      // Atualizar estado local
       setCards(prev => prev.map(c => {
         if (c.id === selectedCard.id) {
           const updates: Partial<CentralKanbanCard> = { [field]: parsedValue };
           if (field === 'status') {
-            // O status agora é o próprio nome da coluna
-            updates.column_name = value;
-          }
-          if (field === 'column_name') {
-            // Se mudar a coluna, atualizar o status também
             updates.status = value;
           }
           return { ...c, ...updates };
@@ -476,19 +408,10 @@ const KanbanCentralPage = () => {
         return c;
       }));
 
-      // Also update selectedCard to keep modal in sync
       if (field === 'status') {
         setSelectedCard(prev => prev ? { 
           ...prev, 
-          status: value, 
-          column_name: value 
-        } : null);
-      }
-      if (field === 'column_name') {
-        setSelectedCard(prev => prev ? { 
-          ...prev, 
-          status: value, 
-          column_name: value 
+          status: value
         } : null);
       }
 
@@ -549,7 +472,6 @@ const KanbanCentralPage = () => {
       const newAttachments = await Promise.all(uploadPromises);
       const updatedAttachments = [...(selectedCard.attachments || []), ...newAttachments];
       
-      // Atualizar na tabela unificada demands
       const { error: updateError } = await supabase
         .from('demands')
         .update({
@@ -579,15 +501,7 @@ const KanbanCentralPage = () => {
   const handleRemoveAttachment = async (attachmentUrl: string) => {
     if (!selectedCard) return;
     
-    // Log de auditoria para debugging
     const attachment = (selectedCard.attachments || []).find(a => a.url === attachmentUrl);
-    console.log('[Attachment] Iniciando remoção de anexo:', {
-      cardId: selectedCard.id,
-      cardTitle: selectedCard.title,
-      attachmentName: attachment?.name,
-      attachmentUrl: attachmentUrl,
-      totalAnexosAntes: selectedCard.attachments?.length || 0
-    });
     
     try {
       if (attachment?.storagePath) {
@@ -595,7 +509,6 @@ const KanbanCentralPage = () => {
       }
       const updatedAttachments = (selectedCard.attachments || []).filter(a => a.url !== attachmentUrl);
       
-      // Atualizar na tabela unificada demands
       const { error } = await supabase
         .from('demands')
         .update({
@@ -604,11 +517,6 @@ const KanbanCentralPage = () => {
         })
         .eq('id', selectedCard.id);
       if (error) throw error;
-      
-      console.log('[Attachment] Anexo removido com sucesso:', {
-        cardId: selectedCard.id,
-        totalAnexosDepois: updatedAttachments.length
-      });
       
       setSelectedCard(prev => prev ? {
         ...prev,
@@ -620,18 +528,13 @@ const KanbanCentralPage = () => {
       } : c));
       sonnerToast.success("Anexo removido");
     } catch (error) {
-      console.error("[Attachment] Error removing attachment:", error);
+      console.error("Error removing attachment:", error);
       sonnerToast.error("Erro ao remover anexo");
     }
   };
 
   const handleReorderAttachments = async (attachments: Attachment[]) => {
     if (!selectedCard) return;
-    
-    console.log('[Attachment] Reordenando anexos:', {
-      cardId: selectedCard.id,
-      totalAnexos: attachments.length
-    });
 
     try {
       const { error } = await supabase
@@ -644,14 +547,11 @@ const KanbanCentralPage = () => {
 
       if (error) throw error;
 
-      // Atualizar estado local
       setCards(prev => prev.map(c => 
         c.id === selectedCard.id ? { ...c, attachments } : c
       ));
-
-      console.log('[Attachment] Ordem dos anexos salva com sucesso');
     } catch (error) {
-      console.error("[Attachment] Error reordering attachments:", error);
+      console.error("Error reordering attachments:", error);
       sonnerToast.error("Erro ao reordenar anexos");
     }
   };
@@ -676,346 +576,252 @@ const KanbanCentralPage = () => {
     return new Date(dateString + 'T00:00:00').toLocaleDateString("pt-BR");
   };
 
-  // Função auxiliar para obter a próxima data de publicação de um card
+  // Função auxiliar para obter a próxima data de publicação
   const getNextPublicationDateTime = (card: CentralKanbanCard): Date | null => {
-    const pubDates = card.publication_dates;
-    if (!pubDates || pubDates.length === 0) {
-      if (card.delivery_date) {
-        return new Date(card.delivery_date + 'T09:00:00');
-      }
-      return null;
+    if (card.publish_date) {
+      return new Date(`${card.publish_date}T${card.publish_time || '09:00'}:00`);
     }
-    
-    const now = new Date();
-    const sortedDates = [...pubDates]
-      .filter(pd => pd.date)
-      .map(pd => new Date(`${pd.date}T${pd.time || '09:00'}:00`))
-      .sort((a, b) => a.getTime() - b.getTime());
-    
-    const futureDate = sortedDates.find(d => d.getTime() >= now.getTime());
-    return futureDate || sortedDates[0] || null;
+    if (card.due_date) {
+      return new Date(card.due_date + 'T09:00:00');
+    }
+    return null;
   };
 
   // Função para calcular a prioridade baseada na data de publicação
   const getPublicationPriority = (card: CentralKanbanCard): { label: string; className: string } | null => {
-    const pubDate = getNextPublicationDateTime(card);
-    if (!pubDate) return null;
-    
+    const pubDateTime = getNextPublicationDateTime(card);
+    if (!pubDateTime) return null;
+
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
     const in3Days = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
-    const pubDateDay = new Date(pubDate.getFullYear(), pubDate.getMonth(), pubDate.getDate());
-    
-    if (pubDateDay.getTime() < today.getTime()) {
+    const pubDate = new Date(pubDateTime.getFullYear(), pubDateTime.getMonth(), pubDateTime.getDate());
+
+    if (pubDate.getTime() < today.getTime() || (pubDate.getTime() === today.getTime() && pubDateTime < now)) {
       return { label: "Atrasado", className: "bg-destructive/10 text-destructive border-destructive/30" };
     }
-    if (pubDateDay.getTime() === today.getTime()) {
+    if (pubDate.getTime() === today.getTime()) {
       return { label: "Hoje", className: "bg-orange-500/10 text-orange-600 border-orange-500/30" };
     }
-    if (pubDateDay.getTime() === tomorrow.getTime()) {
+    if (pubDate.getTime() === tomorrow.getTime()) {
       return { label: "Amanhã", className: "bg-amber-500/10 text-amber-600 border-amber-500/30" };
     }
-    if (pubDateDay.getTime() < in3Days.getTime()) {
+    if (pubDate.getTime() < in3Days.getTime()) {
       return { label: "Próximos dias", className: "bg-cyan-500/10 text-cyan-600 border-cyan-500/30" };
     }
     return null;
   };
 
-  // Agrupar cards por coluna com ordenação especial para "Agendar Publicação"
-  const getCardsForColumn = (columnId: string) => {
-    let columnCards = filteredCards.filter(card => card.column_name === columnId);
-    
-    // Ordenar cards da coluna "Agendar Publicação" por data/hora de publicação
-    if (columnId === "Agendar Publicação") {
-      columnCards = columnCards.sort((a, b) => {
-        const dateA = getNextPublicationDateTime(a);
-        const dateB = getNextPublicationDateTime(b);
-        
-        if (!dateA && !dateB) return 0;
-        if (!dateA) return 1;
-        if (!dateB) return -1;
-        
-        return dateA.getTime() - dateB.getTime();
-      });
-    }
-    
-    return columnCards;
+  // Handle new demand created
+  const handleDemandCreated = () => {
+    fetchAllCards();
+  };
+
+  // Handle column created
+  const handleColumnCreated = () => {
+    fetchColumns();
   };
 
   if (tenantLoading || loading || permissionsLoading) {
     return (
-      <div className="flex items-center justify-center py-12 mt-8">
+      <div className="flex items-center justify-center py-12">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      <BackButton to="/home" />
-      
-      <div className="mt-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <LayoutGrid className="h-5 w-5 text-primary" />
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground">
-              Kanban Central
-            </h2>
-            <Badge variant="secondary">
-              {filteredCards.length} {filteredCards.length === 1 ? 'demanda' : 'demandas'}
-            </Badge>
-            {archivedCards.length > 0 && (
-              <Badge variant="outline" className="ml-2 gap-1">
-                <Archive className="h-3 w-3" />
-                {archivedCards.length} arquivado(s)
-              </Badge>
-            )}
+    <div className="mt-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <LayoutGrid className="h-5 w-5 text-primary" />
           </div>
-          
-          {/* Botões Criar e Gerenciar Colunas */}
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setIsManageColumnsModalOpen(true)}
-              className="gap-2"
-            >
-              <Settings2 className="h-4 w-4" />
-              Gerenciar
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setIsCreateColumnModalOpen(true)}
-              className="gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Criar Coluna
-            </Button>
-            <Button 
-              size="sm" 
-              onClick={() => setIsCreateDemandModalOpen(true)}
-              className="gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Criar Demanda
-            </Button>
-          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">
+            Kanban Central
+          </h2>
+          <Badge variant="secondary">
+            {filteredCards.length} {filteredCards.length === 1 ? 'demanda' : 'demandas'}
+          </Badge>
         </div>
 
-        {/* Search Bar and Filter */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
-          <div className="flex-1">
-            <SmartSearchBar
-              items={allSearchableCards}
-              onResultSelect={handleSearchResultSelect}
-              placeholder="Pesquisar demandas (inclui arquivados)..."
-              maxResults={10}
-            />
-          </div>
-
-          {/* Client Filter */}
-          {clients.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={selectedClientFilter} onValueChange={setSelectedClientFilter}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Filtrar por cliente" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os clientes</SelectItem>
-                  {clients.map(client => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-        </div>
-
-        {/* Kanban Board with Drag & Drop */}
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <div 
-            className="flex gap-3 lg:gap-4 overflow-x-auto pb-4" 
-            style={{ 
-              minWidth: 'fit-content',
-            }}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsManageColumnsModalOpen(true)}
           >
-            {visibleColumns.map((column) => {
-              const columnCards = getCardsForColumn(column.name);
-              return (
-                <div 
-                  key={column.id} 
-                  className="bg-muted/30 rounded-xl p-4 border border-border/50 min-h-[500px] flex flex-col flex-shrink-0"
-                  style={{ width: '280px', minWidth: '280px' }}
-                >
-                  {/* Column Header */}
-                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/50">
-                    <div 
-                      className="w-3 h-3 rounded-full" 
-                      style={{ backgroundColor: column.color }}
-                    />
-                    <span className="font-semibold text-foreground text-sm">{column.name}</span>
-                    <Badge variant="outline" className="ml-auto text-xs">
-                      {columnCards.length}
-                    </Badge>
-                  </div>
-
-                  {/* Droppable Area */}
-                  <Droppable droppableId={column.name}>
-                    {(provided, snapshot) => (
-                      <ScrollArea className="flex-1">
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={cn(
-                            "min-h-[300px] transition-colors rounded-lg p-1",
-                            snapshot.isDraggingOver && "bg-primary/5"
-                          )}
-                        >
-                          {columnCards.length === 0 ? (
-                            <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-                              Nenhuma demanda
-                            </div>
-                          ) : (
-                            columnCards.map((card, index) => {
-                              const isHighlighted = highlightedCardId === card.id;
-                              const priority = column.name === "Agendar Publicação" ? getPublicationPriority(card) : null;
-                              return (
-                                <Draggable key={card.id} draggableId={card.id} index={index}>
-                                  {(provided, snapshot) => (
-                                    <div
-                                      ref={(el) => {
-                                        provided.innerRef(el);
-                                        if (el) cardRefs.current.set(card.id, el);
-                                        else cardRefs.current.delete(card.id);
-                                      }}
-                                      {...provided.draggableProps}
-                                      {...provided.dragHandleProps}
-                                      className={cn(
-                                        "mb-2 transition-all duration-300",
-                                        isHighlighted && "ring-2 ring-primary ring-offset-2 scale-[1.02]"
-                                      )}
-                                      onClick={() => handleCardClick(card)}
-                                    >
-                                      {/* Card Content */}
-                                      <div className={cn(
-                                        "p-3 bg-background rounded-lg border cursor-pointer hover:shadow-md transition-all",
-                                        snapshot.isDragging ? "shadow-xl rotate-1 scale-105 border-primary" : "border-border/50",
-                                        isHighlighted && "border-primary bg-primary/5"
-                                      )}>
-                                        {/* Priority Badge (only for Agendar Publicação column) */}
-                                        {priority && (
-                                          <div className="mb-2">
-                                            <Badge 
-                                              variant="outline" 
-                                              className={cn("text-[10px] px-2 py-0.5 font-semibold", priority.className)}
-                                            >
-                                              {priority.label}
-                                            </Badge>
-                                          </div>
-                                        )}
-                                        
-                                        {/* Client Badge */}
-                                        <Badge 
-                                          variant="secondary" 
-                                          className="text-[10px] px-2 py-0.5 mb-2 bg-primary/10 text-primary border-primary/20 font-medium"
-                                        >
-                                          {card.clientName}
-                                        </Badge>
-                                        
-                                        {/* Title */}
-                                        <h4 className="text-sm font-semibold leading-snug line-clamp-2 text-foreground mb-2">
-                                          {card.title}
-                                        </h4>
-                                        
-                                        {/* Footer: Date + Time + Attachments */}
-                                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                          <div className="flex items-center gap-1">
-                                            <span>{formatDate(card.delivery_date)}</span>
-                                            {column.name === "Agendar Publicação" && card.publication_dates?.[0]?.time && (
-                                              <span className="text-muted-foreground/70">• {card.publication_dates[0].time}</span>
-                                            )}
-                                          </div>
-                                          {card.attachments && card.attachments.length > 0 && (
-                                            <div className="flex items-center gap-1">
-                                              <Paperclip className="h-3 w-3" />
-                                              {card.attachments.length}
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-                                </Draggable>
-                              );
-                            })
-                          )}
-                          {provided.placeholder}
-                        </div>
-                      </ScrollArea>
-                    )}
-                  </Droppable>
-                </div>
-              );
-            })}
-          </div>
-        </DragDropContext>
-
-        {/* TaskCard Modal */}
-        <TaskCard
-          open={isTaskCardOpen}
-          onOpenChange={(open) => {
-            setIsTaskCardOpen(open);
-            if (!open) {
-              setSelectedCard(null);
-              fetchAllCards();
-            }
-          }}
-          card={selectedCard}
-          onCardChange={handleCardChange}
-          onSave={handleSave}
-          onFileUpload={handleFileUpload}
-          onRemoveAttachment={handleRemoveAttachment}
-          onReorderAttachments={handleReorderAttachments}
-          onDelete={handleDelete}
-          saving={saving}
-          savingField={savingField}
-          uploading={uploading}
-          pipelineStatuses={columns}
-        />
-
-        {/* Modal para criar nova coluna */}
-        <CreateColumnModal
-          open={isCreateColumnModalOpen}
-          onOpenChange={setIsCreateColumnModalOpen}
-          pipelineId={pipelineId}
-          onSuccess={() => fetchColumns()}
-          existingPositions={columns.map(c => c.position)}
-        />
-
-        {/* Modal para gerenciar colunas */}
-        <ManageColumnsModal
-          open={isManageColumnsModalOpen}
-          onOpenChange={setIsManageColumnsModalOpen}
-          columns={columns}
-          pipelineId={pipelineId}
-          onSuccess={() => fetchColumns()}
-        />
-
-        {/* Modal para criar demanda */}
-        <CreateDemandModal
-          open={isCreateDemandModalOpen}
-          onOpenChange={setIsCreateDemandModalOpen}
-          onDemandCreated={fetchAllCards}
-        />
+            <Settings2 className="h-4 w-4 mr-1" />
+            Colunas
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setIsCreateDemandModalOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Nova Demanda
+          </Button>
+        </div>
       </div>
+
+      {/* Search and Filter */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
+        <div className="flex-1">
+          <SmartSearchBar
+            items={allSearchableCards}
+            onResultSelect={handleSearchResultSelect}
+            placeholder="Pesquisar demandas..."
+            maxResults={8}
+          />
+        </div>
+
+        {clients.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={selectedClientFilter} onValueChange={setSelectedClientFilter}>
+              <SelectTrigger className="w-[200px]" aria-label="Filtrar por cliente">
+                <SelectValue placeholder="Filtrar por cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os clientes</SelectItem>
+                {clients.map(client => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </div>
+
+      {/* Kanban Board */}
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {visibleColumns.map((column) => {
+            const columnCards = filteredCards.filter(
+              (card) => card.status === column.name
+            );
+
+            return (
+              <Droppable key={column.name} droppableId={column.name}>
+                {(provided, snapshot) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={cn(
+                      "flex-shrink-0 w-[280px] bg-muted/30 rounded-xl border border-border/50 flex flex-col",
+                      snapshot.isDraggingOver && "border-primary/50 bg-primary/5"
+                    )}
+                  >
+                    {/* Column Header */}
+                    <div className="px-3 py-3 flex items-center justify-between border-b border-border/30">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-3 w-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: column.color }}
+                        />
+                        <span className="text-sm font-semibold text-foreground">
+                          {column.name}
+                        </span>
+                        <Badge variant="secondary" className="text-xs">
+                          {columnCards.length}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Column Content */}
+                    <ScrollArea className="flex-1 p-2 min-h-[200px] max-h-[calc(100vh-280px)]">
+                      <div className="space-y-0">
+                        {columnCards.map((card, index) => (
+                          <Draggable
+                            key={card.id}
+                            draggableId={card.id}
+                            index={index}
+                          >
+                            {(provided, snapshot) => (
+                              <div
+                                ref={(el) => {
+                                  provided.innerRef(el);
+                                  if (el) cardRefs.current.set(card.id, el);
+                                  else cardRefs.current.delete(card.id);
+                                }}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                className={cn(
+                                  highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
+                                )}
+                              >
+                                <KanbanCard
+                                  title={card.title}
+                                  platforms={[card.clientName, card.demand_type || card.channel || ''].filter(Boolean)}
+                                  deliveryDate={card.publish_date || card.due_date}
+                                  isDragging={snapshot.isDragging}
+                                  onClick={() => handleCardClick(card)}
+                                />
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
+              </Droppable>
+            );
+          })}
+        </div>
+      </DragDropContext>
+
+      {/* TaskCard Modal */}
+      <TaskCard
+        open={isTaskCardOpen}
+        onOpenChange={(open) => {
+          setIsTaskCardOpen(open);
+          if (!open) {
+            setSelectedCard(null);
+            fetchAllCards();
+          }
+        }}
+        card={selectedCard}
+        onCardChange={handleCardChange}
+        onSave={handleSave}
+        onFileUpload={handleFileUpload}
+        onRemoveAttachment={handleRemoveAttachment}
+        onReorderAttachments={handleReorderAttachments}
+        onDelete={handleDelete}
+        saving={saving}
+        savingField={savingField}
+        uploading={uploading}
+        pipelineStatuses={columns}
+      />
+
+      {/* Create Column Modal */}
+      <CreateColumnModal
+        open={isCreateColumnModalOpen}
+        onOpenChange={setIsCreateColumnModalOpen}
+        pipelineId={pipelineId}
+        onColumnCreated={handleColumnCreated}
+      />
+
+      {/* Manage Columns Modal */}
+      <ManageColumnsModal
+        open={isManageColumnsModalOpen}
+        onOpenChange={setIsManageColumnsModalOpen}
+        pipelineId={pipelineId}
+        columns={columns}
+        onColumnsUpdated={handleColumnCreated}
+      />
+
+      {/* Create Demand Modal */}
+      <CreateDemandModal
+        open={isCreateDemandModalOpen}
+        onOpenChange={setIsCreateDemandModalOpen}
+        onDemandCreated={handleDemandCreated}
+      />
     </div>
   );
 };
