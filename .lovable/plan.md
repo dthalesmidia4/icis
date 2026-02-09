@@ -1,27 +1,38 @@
 
 
-## Mover o botao "Criar Demanda" para os lugares corretos
+## Renomear pagina CentralKanban para Scheduled e URL para /scheduled
 
-### Situacao atual
-- `/content-schedule` (CentralKanban.tsx): TEM o botao "Criar Demanda" -- **errado**
-- `/schedule` (Schedule.tsx): TEM o botao "Criar Demanda" -- **correto**
-- `/kanban-central` (KanbanCentralPage.tsx): NAO tem o botao -- **falta adicionar**
+### Resumo
+Renomear o componente da pagina `/content-schedule` (que exibe demandas agendadas) de `CentralKanban.tsx` para `Scheduled.tsx`, e atualizar a URL de `/content-schedule` para `/scheduled` em todos os lugares do sistema.
 
-### O que sera feito
+### Alteracoes
 
-1. **Remover "Criar Demanda" do `/content-schedule`** (CentralKanban.tsx)
-   - Remover o import do `CreateDemandModal`
-   - Remover o state `isCreateModalOpen`
-   - Remover o botao e o modal do JSX
+**1. Renomear o arquivo do componente**
+- `src/components/CentralKanban.tsx` -> `src/components/Scheduled.tsx`
+- Renomear o componente interno de `CentralKanban` para `Scheduled`
+- Manter export default
 
-2. **Adicionar "Criar Demanda" no `/kanban-central`** (KanbanCentralPage.tsx)
-   - Importar o `CreateDemandModal`
-   - Adicionar state para controlar a abertura do modal
-   - Adicionar o botao "Criar Demanda" ao lado dos botoes existentes ("Gerenciar" e "Criar Coluna")
-   - Adicionar o componente `CreateDemandModal` no JSX
-   - Ao criar uma demanda, atualizar a lista de cards automaticamente
+**2. Atualizar `src/pages/Kanban.tsx`**
+- Trocar o import de `CentralKanban` para `Scheduled` (de `@/components/Scheduled`)
+- Trocar `<CentralKanban />` para `<Scheduled />`
 
-### Resultado final
-- `/schedule` -- botao "Criar Demanda" presente
-- `/kanban-central` -- botao "Criar Demanda" presente
-- `/content-schedule` -- sem botao "Criar Demanda" (apenas exibe demandas agendadas)
+**3. Atualizar `src/App.tsx`**
+- Trocar a rota de `/content-schedule` para `/scheduled`
+- (O import de `Kanban` da pagina nao muda, pois `Kanban.tsx` continua como wrapper)
+
+**4. Atualizar `src/pages/Home.tsx`**
+- Trocar `route: "/content-schedule"` para `route: "/scheduled"` no card de Agendamento
+
+**5. Atualizar `src/pages/Schedule.tsx`**
+- Trocar `href="/content-schedule"` para `href="/scheduled"`
+- Trocar `navigate("/content-schedule")` para `navigate("/scheduled")`
+
+### Arquivos que NAO precisam mudar
+- `src/pages/KanbanCentralPage.tsx` - usa sua propria interface `CentralKanbanCard` independente (nao importa de `CentralKanban.tsx`)
+- `src/components/AppSidebar.tsx` - nao referencia `/content-schedule`
+
+### Resultado
+- URL `/scheduled` funcional
+- Componente com nome `Scheduled.tsx` mais descritivo
+- Nenhum fluxo quebrado
+
