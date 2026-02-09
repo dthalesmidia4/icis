@@ -227,7 +227,7 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
-      <Route path="/content-schedule" element={
+      <Route path="/scheduled" element={
         <ProtectedRoute>
           <RequireTenant>
             <Layout>

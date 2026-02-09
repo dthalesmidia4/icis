@@ -18,7 +18,7 @@ interface CentralKanbanCard extends KanbanCardData {
   clientId: string;
   isArchived: boolean;
 }
-const CentralKanban = () => {
+const Scheduled = () => {
   const {
     tenantId,
     isLoading: tenantLoading
@@ -755,4 +755,4 @@ const CentralKanban = () => {
       />
     </div>;
 };
-export default CentralKanban;
+export default Scheduled;

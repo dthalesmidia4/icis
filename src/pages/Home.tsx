@@ -46,7 +46,7 @@ const Home = () => {
       icon: CalendarDays,
       gradient: "from-purple-500 to-violet-600",
       titleColor: "text-violet-600 dark:text-violet-400",
-      route: "/content-schedule"
+      route: "/scheduled"
     },
     ...(agencyId ? [{
       id: 'minha-empresa' as HubSectionId,
