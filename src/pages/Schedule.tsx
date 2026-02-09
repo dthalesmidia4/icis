@@ -422,11 +422,11 @@ export default function Schedule() {
         <div className="flex flex-col gap-1">
           <span>Conteúdo agendado para {dayOfWeek}, {dateExtenso} às {time}.</span>
           <a 
-            href="/content-schedule" 
+            href="/scheduled" 
             className="text-primary underline hover:no-underline text-sm font-medium"
             onClick={(e) => {
               e.preventDefault();
-              navigate("/content-schedule");
+              navigate("/scheduled");
             }}
           >
             Ver Agendamentos
