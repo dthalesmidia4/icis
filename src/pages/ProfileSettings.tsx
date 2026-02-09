@@ -1,6 +1,6 @@
 // Profile Settings Page
 import { useState, useRef, useEffect } from 'react';
-import { Sun, Moon, Monitor, Upload, Building2, Palette, Image, Check, Loader2, UserPlus, Copy } from 'lucide-react';
+import { Sun, Moon, Monitor, Upload, Building2, Palette, Image, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/PageHeader';
 import { Input } from '@/components/ui/input';
@@ -15,8 +15,7 @@ import { useUserRole, useAgencyRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { InvitationList } from '@/components/InvitationList';
-import { INVITE_ROLE_OPTIONS, ValidAgencyRole } from '@/lib/constants/roles';
+
 
 const themeOptions: { value: ThemeMode; label: string; icon: React.ElementType; description: string }[] = [
   { value: 'light', label: 'Claro', icon: Sun, description: 'Tema claro para ambientes bem iluminados' },
@@ -49,13 +48,7 @@ export default function ProfileSettings() {
   const [previewLogo, setPreviewLogo] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
 
-  // Invitation states
-  const [selectedRole, setSelectedRole] = useState<ValidAgencyRole | ''>('');
-  const [generatedCode, setGeneratedCode] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [invitationRefresh, setInvitationRefresh] = useState(0);
 
-  const canInvite = isAgencyAdmin || isSuperAdmin;
 
   // Sync local state with context when loaded
   // Usar agencyName com fallback para tenantName (compatibilidade)
@@ -131,59 +124,7 @@ export default function ProfileSettings() {
     }
   };
 
-  const handleGenerateInvite = async () => {
-    // Usar agencyId com fallback para tenantId
-    const currentId = agencyId || tenantId;
-    if (!selectedRole || !currentId) return;
-    
-    setIsGenerating(true);
-    try {
-      // Get user id for created_by
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
 
-      // Generate code via RPC
-      const { data: code, error: codeError } = await supabase.rpc('generate_invitation_code');
-      if (codeError) throw codeError;
-
-      // Calculate expiration (7 days)
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-
-      // Insert invitation usando tenant_id (schema atual)
-      // A coluna agency_id ainda não existe na tabela invitations
-      const { error: insertError } = await supabase
-        .from('invitations')
-        .insert({
-          code,
-          tenant_id: currentId, // Usar tenant_id que existe
-          role: selectedRole,
-          created_by: user.id,
-          expires_at: expiresAt.toISOString(),
-        });
-
-      if (insertError) throw insertError;
-
-      setGeneratedCode(code);
-      setInvitationRefresh(prev => prev + 1); // Trigger list refresh
-      toast({ title: 'Convite gerado', description: 'O código de convite foi criado com sucesso.' });
-    } catch (error) {
-      console.error('Error generating invite:', error);
-      toast({ title: 'Erro', description: 'Não foi possível gerar o convite.', variant: 'destructive' });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const copyCode = async () => {
-    if (!generatedCode) return;
-    try {
-      await navigator.clipboard.writeText(generatedCode);
-      toast({ title: 'Copiado!', description: 'Código copiado para a área de transferência.' });
-    } catch {
-      toast({ title: 'Erro', description: 'Não foi possível copiar o código.', variant: 'destructive' });
-    }
-  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -409,72 +350,8 @@ export default function ProfileSettings() {
               </div>
           </FormSection>
 
-          {/* Invitation Section - Only for agency_admin or super_admin */}
-          {canInvite && (
-            <FormSection 
-              title="Convidar" 
-              icon={UserPlus}
-              description="Gere códigos de convite para novos membros da equipe"
-            >
-              <div className="flex items-center gap-3 flex-wrap">
-                <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as ValidAgencyRole)}>
-                  <SelectTrigger className="w-[220px]">
-                    <SelectValue placeholder="Nível de acesso" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INVITE_ROLE_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        <div className="flex flex-col items-start">
-                          <span>{option.label}</span>
-                          <span className="text-xs text-muted-foreground">{option.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
 
-                <Button 
-                  onClick={handleGenerateInvite} 
-                  disabled={!selectedRole || isGenerating}
-                >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Gerando...
-                    </>
-                  ) : (
-                    'Gerar convite'
-                  )}
-                </Button>
 
-                <div className="relative flex-1 min-w-[180px] max-w-[220px]">
-                  <Input 
-                    value={generatedCode} 
-                    readOnly 
-                    placeholder="--------"
-                    className="font-mono pr-16 text-center tracking-wider"
-                  />
-                  {generatedCode && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs px-2"
-                      onClick={copyCode}
-                    >
-                      <Copy className="h-3 w-3 mr-1" />
-                      Copiar
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {/* Invitation History */}
-              <div className="mt-6 pt-6 border-t">
-                <h4 className="text-sm font-medium mb-4">Histórico de Convites</h4>
-                <InvitationList agencyId={agencyId || undefined} tenantId={tenantId || undefined} refreshTrigger={invitationRefresh} />
-              </div>
-            </FormSection>
-          )}
         </div>
       </div>
   );
