@@ -25,8 +25,10 @@ import {
   Video, 
   Image, 
   FileText,
-  Repeat
+  Repeat,
+  MoreHorizontal
 } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface Pipeline {
   id: string;
@@ -79,6 +81,7 @@ const DEMAND_TYPES = [
   { value: "Stories", label: "Stories", icon: Image },
   { value: "Landing", label: "Landing Page", icon: FileText },
   { value: "Roteiro", label: "Roteiro", icon: FileText },
+  { value: "Outro", label: "Outro", icon: FileText },
 ];
 
 const CHANNELS = [
@@ -436,90 +439,98 @@ export function CreateDemandModal({
             
             {/* Suggestions Section */}
             {clientId && (
-              <div className="space-y-3 p-4 rounded-lg border bg-muted/30">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-amber-500" />
-                    Sugestões para este cliente
-                  </h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleRefreshSuggestions}
-                    disabled={refreshingSuggestions}
-                  >
-                    {refreshingSuggestions ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
+              <Accordion type="single" collapsible className="rounded-lg border bg-muted/30">
+                <AccordionItem value="suggestions" className="border-none">
+                  <div className="flex items-center justify-between px-4 pt-2">
+                    <AccordionTrigger className="py-2 hover:no-underline flex-1">
+                      <span className="font-medium flex items-center gap-2 text-sm">
+                        <Sparkles className="h-4 w-4 text-amber-500" />
+                        Sugestões para este cliente
+                        {suggestions.length > 0 && (
+                          <Badge variant="secondary" className="text-xs ml-1">{suggestions.length}</Badge>
+                        )}
+                      </span>
+                    </AccordionTrigger>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); handleRefreshSuggestions(); }}
+                      disabled={refreshingSuggestions}
+                      className="ml-2"
+                    >
+                      {refreshingSuggestions ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <AccordionContent className="px-4 pb-4">
+                    {strategySnippet && (
+                      <p className="text-xs text-muted-foreground italic border-l-2 border-primary/30 pl-2 mb-3">
+                        Estratégia: {strategySnippet}...
+                      </p>
                     )}
-                    <span className="ml-1">Atualizar</span>
-                  </Button>
-                </div>
-                
-                {strategySnippet && (
-                  <p className="text-xs text-muted-foreground italic border-l-2 border-primary/30 pl-2">
-                    Estratégia: {strategySnippet}...
-                  </p>
-                )}
-                
-                {loadingSuggestions ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : suggestions.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {suggestions.map(suggestion => {
-                      const ChannelIcon = getChannelIcon(suggestion.channel);
-                      const isSelected = selectedTemplateId === suggestion.id;
-                      
-                      return (
-                        <button
-                          key={suggestion.id}
-                          onClick={() => handleSelectSuggestion(suggestion)}
-                          className={cn(
-                            "p-3 rounded-lg border text-left transition-all hover:border-primary/50",
-                            isSelected 
-                              ? "border-primary bg-primary/5 ring-1 ring-primary/20" 
-                              : "border-border bg-background"
-                          )}
-                        >
-                          <div className="flex items-start gap-2">
-                            <ChannelIcon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">
-                                {suggestion.title_template}
-                              </p>
-                              <div className="flex items-center gap-1 mt-1 flex-wrap">
-                                {suggestion.demand_type && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    {suggestion.demand_type}
-                                  </Badge>
-                                )}
-                                {suggestion.recurrence_hint && (
-                                  <Badge variant="outline" className="text-xs">
-                                    <Repeat className="h-3 w-3 mr-1" />
-                                    {getRecurrenceLabel(suggestion.recurrence_hint)}
-                                  </Badge>
-                                )}
-                              </div>
-                              {suggestion.default_publish_weekday !== undefined && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  Normalmente: {WEEKDAY_NAMES[suggestion.default_publish_weekday]}
-                                </p>
+                    
+                    {loadingSuggestions ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : suggestions.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        {suggestions.map(suggestion => {
+                          const ChannelIcon = getChannelIcon(suggestion.channel);
+                          const isSelected = selectedTemplateId === suggestion.id;
+                          
+                          return (
+                            <button
+                              key={suggestion.id}
+                              onClick={() => handleSelectSuggestion(suggestion)}
+                              className={cn(
+                                "p-3 rounded-lg border text-left transition-all hover:border-primary/50",
+                                isSelected 
+                                  ? "border-primary bg-primary/5 ring-1 ring-primary/20" 
+                                  : "border-border bg-background"
                               )}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-2">
-                    Nenhuma sugestão disponível ainda.
-                  </p>
-                )}
-              </div>
+                            >
+                              <div className="flex items-start gap-2">
+                                <ChannelIcon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm truncate">
+                                    {suggestion.title_template}
+                                  </p>
+                                  <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                    {suggestion.demand_type && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        {suggestion.demand_type}
+                                      </Badge>
+                                    )}
+                                    {suggestion.recurrence_hint && (
+                                      <Badge variant="outline" className="text-xs">
+                                        <Repeat className="h-3 w-3 mr-1" />
+                                        {getRecurrenceLabel(suggestion.recurrence_hint)}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {suggestion.default_publish_weekday !== undefined && (
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      Normalmente: {WEEKDAY_NAMES[suggestion.default_publish_weekday]}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-2">
+                        Nenhuma sugestão disponível ainda.
+                      </p>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             )}
             
             {/* Pipeline & Status */}
