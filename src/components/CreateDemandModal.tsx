@@ -441,30 +441,29 @@ export function CreateDemandModal({
             {clientId && (
               <Accordion type="single" collapsible className="rounded-lg border bg-muted/30">
                 <AccordionItem value="suggestions" className="border-none">
-                  <div className="flex items-center justify-between px-4 pt-2">
-                    <AccordionTrigger className="py-2 hover:no-underline flex-1">
-                      <span className="font-medium flex items-center gap-2 text-sm">
-                        <Sparkles className="h-4 w-4 text-amber-500" />
-                        Sugestões para este cliente
-                        {suggestions.length > 0 && (
-                          <Badge variant="secondary" className="text-xs ml-1">{suggestions.length}</Badge>
-                        )}
-                      </span>
-                    </AccordionTrigger>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => { e.stopPropagation(); handleRefreshSuggestions(); }}
-                      disabled={refreshingSuggestions}
-                      className="ml-2"
-                    >
-                      {refreshingSuggestions ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-4 w-4" />
+                  <AccordionTrigger className="px-4 pt-2 pb-2 hover:no-underline">
+                    <span className="font-medium flex items-center gap-2 text-sm">
+                      <Sparkles className="h-4 w-4 text-amber-500" />
+                      Sugestões para este cliente
+                      {suggestions.length > 0 && (
+                        <Badge variant="secondary" className="text-xs ml-1">{suggestions.length}</Badge>
                       )}
-                    </Button>
-                  </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRefreshSuggestions(); }}
+                        disabled={refreshingSuggestions}
+                        className="ml-auto"
+                        asChild={false}
+                      >
+                        {refreshingSuggestions ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </span>
+                  </AccordionTrigger>
                   <AccordionContent className="px-4 pb-4">
                     {strategySnippet && (
                       <p className="text-xs text-muted-foreground italic border-l-2 border-primary/30 pl-2 mb-3">
