@@ -28,6 +28,7 @@ import KanbanCard from "@/components/KanbanCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import CreateColumnModal from "@/components/CreateColumnModal";
 import ManageColumnsModal from "@/components/ManageColumnsModal";
+import { CreateDemandModal } from "@/components/CreateDemandModal";
 
 interface PipelineStatus {
   id: string;
@@ -63,6 +64,7 @@ const KanbanCentralPage = () => {
   const [pipelineId, setPipelineId] = useState<string>("");
   const [isCreateColumnModalOpen, setIsCreateColumnModalOpen] = useState(false);
   const [isManageColumnsModalOpen, setIsManageColumnsModalOpen] = useState(false);
+  const [isCreateDemandModalOpen, setIsCreateDemandModalOpen] = useState(false);
 
   // Hook de permissões de colunas
   const { filterColumns, loading: permissionsLoading } = useColumnPermissions();
@@ -786,13 +788,21 @@ const KanbanCentralPage = () => {
               Gerenciar
             </Button>
             <Button 
-              variant="default" 
+              variant="outline" 
               size="sm" 
               onClick={() => setIsCreateColumnModalOpen(true)}
               className="gap-2"
             >
               <Plus className="h-4 w-4" />
               Criar Coluna
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={() => setIsCreateDemandModalOpen(true)}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Criar Demanda
             </Button>
           </div>
         </div>
@@ -997,6 +1007,13 @@ const KanbanCentralPage = () => {
           columns={columns}
           pipelineId={pipelineId}
           onSuccess={() => fetchColumns()}
+        />
+
+        {/* Modal para criar demanda */}
+        <CreateDemandModal
+          open={isCreateDemandModalOpen}
+          onOpenChange={setIsCreateDemandModalOpen}
+          onDemandCreated={fetchAllCards}
         />
       </div>
     </div>
