@@ -25,18 +25,18 @@ const Home = () => {
 
   const allActionCards = [
     {
+      id: 'kanban' as HubSectionId,
+      title: "Kanban Central",
+      icon: LayoutGrid,
+      gradient: "from-cyan-500 to-teal-600",
+      route: "/kanban-central"
+    },
+    {
       id: 'clientes' as HubSectionId,
       title: "Gerenciar Clientes",
       icon: Building2,
       gradient: "from-blue-500 to-indigo-600",
       route: "/clientes"
-    },
-    {
-      id: 'clientes' as HubSectionId, // Cadastrar cliente usa a mesma permissão de clientes
-      title: "Cadastrar Cliente",
-      icon: UserPlus,
-      gradient: "from-green-500 to-emerald-600",
-      route: "/registration"
     },
     {
       id: 'schedule' as HubSectionId,
@@ -45,21 +45,20 @@ const Home = () => {
       gradient: "from-purple-500 to-violet-600",
       route: "/content-schedule"
     },
-    {
-      id: 'kanban' as HubSectionId,
-      title: "Kanban Central",
-      icon: LayoutGrid,
-      gradient: "from-cyan-500 to-teal-600",
-      route: "/kanban-central"
-    },
-    // Botão Minha Empresa - só aparece se o usuário tem agência vinculada
     ...(agencyId ? [{
       id: 'minha-empresa' as HubSectionId,
       title: "Minha Empresa",
       icon: Briefcase,
       gradient: "from-orange-500 to-amber-600",
       route: "/minha-empresa"
-    }] : [])
+    }] : []),
+    {
+      id: 'clientes' as HubSectionId,
+      title: "Cadastrar Cliente",
+      icon: UserPlus,
+      gradient: "from-green-500 to-emerald-600",
+      route: "/registration"
+    },
   ];
 
   // Filtrar cards baseado nas permissões (admins veem tudo)
