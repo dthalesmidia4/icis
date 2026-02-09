@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Clock, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical } from "lucide-react";
+import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import { BlockEditor } from "@/components/BlockEditor";
@@ -598,16 +598,6 @@ export default function TaskCard({
                 </Select>
               </div>
 
-              <div className="h-4 w-px bg-border" />
-
-              {/* Tempo de Atividade (placeholder) */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Tempo</span>
-                <Badge variant="outline" className="h-8 gap-1.5 font-normal text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5" />
-                  --:--
-                </Badge>
-              </div>
 
               <div className="h-4 w-px bg-border" />
 
