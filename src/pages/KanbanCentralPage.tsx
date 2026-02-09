@@ -804,7 +804,8 @@ const KanbanCentralPage = () => {
         open={isCreateColumnModalOpen}
         onOpenChange={setIsCreateColumnModalOpen}
         pipelineId={pipelineId}
-        onColumnCreated={handleColumnCreated}
+        onSuccess={handleColumnCreated}
+        existingPositions={columns.map(c => c.position)}
       />
 
       {/* Manage Columns Modal */}
@@ -813,7 +814,7 @@ const KanbanCentralPage = () => {
         onOpenChange={setIsManageColumnsModalOpen}
         pipelineId={pipelineId}
         columns={columns}
-        onColumnsUpdated={handleColumnCreated}
+        onSuccess={handleColumnCreated}
       />
 
       {/* Create Demand Modal */}
