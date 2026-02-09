@@ -41,15 +41,7 @@ const routeConfig: Record<string, BreadcrumbConfig> = {
     ],
     requiresClient: true
   },
-  '/generate-questions': {
-    items: [
-      { label: 'Home', href: '/home', icon: Home },
-      { label: 'Clientes', href: '/clientes', icon: Users },
-      { label: '{clientName}', href: '/client-hub' },
-      { label: 'Gerar Perguntas', icon: FileText }
-    ],
-    requiresClient: true
-  },
+  
   '/strategies': {
     items: [
       { label: 'Home', href: '/home', icon: Home },

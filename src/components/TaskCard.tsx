@@ -27,13 +27,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-// Publication date interface
-export interface PublicationDate {
-  date: string; // YYYY-MM-DD
-  time: string; // HH:MM
-  platform?: string; // Optional platform (e.g., Instagram, LinkedIn)
-}
-
 // Enhanced Attachment interface with full traceability
 export interface Attachment {
   // Identificação do arquivo
@@ -62,26 +55,28 @@ export interface KanbanCardData {
   id: string;
   title: string;
   status: string;
-  column_name: string | null;
-  delivery_date: string;
-  file_location: string | null;
-  objetivo: string | null;
+  due_date: string;
+  channel: string | null;
+  objective: string | null;
   description: string | null;
-  instrucoes: string | null;
+  instructions: string | null;
   observations: string | null;
   period_plan_id: string | null;
-  plan_id?: string | null;
   tenant_id: string;
   created_at: string;
   updated_at: string;
   attachments: Attachment[] | null;
-  publication_dates?: PublicationDate[] | null;
+  publish_date: string | null;
+  publish_time: string | null;
   // Fields for demands mapped to cards
-  source?: 'card' | 'demand';
+  source?: string;
   demand_id?: string;
   demand_type?: string | null;
-  channel?: string | null;
+  // Computed/display fields (not in DB)
+  clientId?: string;
+  clientName?: string;
 }
+
 // Dynamic pipeline status from database
 export interface PipelineStatus {
   id: string;
@@ -124,34 +119,26 @@ const convertToHtml = (text: string): string => {
   
   // Converter Markdown básico para HTML
   let html = text
-    // Escapar caracteres HTML perigosos
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    // Converter títulos Markdown
     .replace(/^### (.+)$/gm, '</p><h3>$1</h3><p>')
     .replace(/^## (.+)$/gm, '</p><h2>$1</h2><p>')
     .replace(/^# (.+)$/gm, '</p><h1>$1</h1><p>')
-    // Converter negrito e itálico
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Converter padrões SLIDE/FRAME/CENA em títulos
     .replace(/^(SLIDE|FRAME|CENA|IMAGEM|LEGENDA|ROTEIRO|NARRAÇÃO|VISUAL)\s*(\d*)[\s—:-]*/gim, '</p><h3>$1 $2</h3><p>');
   
-  // Dividir por quebras de linha duplas para criar parágrafos
   const paragraphs = html.split(/\n\n+/).filter(p => p.trim());
   
   html = paragraphs.map(paragraph => {
-    // Se já tem tags de título, não envolver em <p>
     if (paragraph.includes('<h1>') || paragraph.includes('<h2>') || paragraph.includes('<h3>')) {
       return paragraph.replace(/\n/g, '<br>');
     }
-    // Converter quebras de linha simples em <br>
     const content = paragraph.replace(/\n/g, '<br>').trim();
     return content ? `<p>${content}</p>` : '';
   }).join('');
   
-  // Limpar tags vazias
   html = html
     .replace(/<p><\/p>/g, '')
     .replace(/<p>\s*<\/p>/g, '')
@@ -256,11 +243,12 @@ export const LEGACY_STATUS_MAP: Record<string, string> = {
   desenvolvimento_pausado: "agendar_publicacao",
   implantacao_pausada: "agendar_publicacao",
   a_fazer: "agendar_publicacao",
-  pendente: "agendar_publicacao", // Migração: pendente -> agendar_publicacao
+  pendente: "agendar_publicacao",
   completed: "revisao",
   concluido: "revisao",
   conteudo_programado: "agendar_publicacao"
 };
+
 export default function TaskCard({
   open,
   onOpenChange,
@@ -277,7 +265,7 @@ export default function TaskCard({
   pipelineStatuses = []
 }: TaskCardProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
-  const [openDatePickerIndex, setOpenDatePickerIndex] = useState<number | null>(null);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [attachmentToRemove, setAttachmentToRemove] = useState<Attachment | null>(null);
   
@@ -329,24 +317,15 @@ export default function TaskCard({
     const [removed] = newAttachments.splice(sourceIndex, 1);
     newAttachments.splice(destIndex, 0, removed);
     
-    // Update local state immediately for responsiveness
     onCardChange({
       ...card,
       attachments: newAttachments
     });
     
-    // Persist to database
     if (onReorderAttachments) {
       await onReorderAttachments(newAttachments);
     }
   }, [card, onCardChange, onReorderAttachments]);
-
-  // Get publication dates from card or use default with one empty date
-  const publicationDates: PublicationDate[] = card?.publication_dates?.length 
-    ? card.publication_dates 
-    : [{ date: card?.delivery_date || '', time: '09:00' }];
-
-  const MAX_PUBLICATION_DATES = 5;
 
   // Handle ESC key to close modal
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -358,7 +337,6 @@ export default function TaskCard({
   useEffect(() => {
     if (open) {
       document.addEventListener('keydown', handleKeyDown);
-      // Prevent body scroll when modal is open
       document.body.style.overflow = 'hidden';
     }
     return () => {
@@ -372,59 +350,28 @@ export default function TaskCard({
     setEditingField(null);
   };
 
-  // Publication dates handlers
-  const handlePublicationDateChange = async (index: number, newDate: Date | undefined) => {
+  // Publication date handler (single date + time)
+  const handlePublishDateChange = async (newDate: Date | undefined) => {
     if (!newDate || !card) return;
     
     const dateStr = format(newDate, "yyyy-MM-dd");
-    const newDates = [...publicationDates];
-    newDates[index] = { ...newDates[index], date: dateStr };
     
     onCardChange({
       ...card,
-      publication_dates: newDates,
-      delivery_date: newDates[0]?.date || card.delivery_date // Keep delivery_date synced with first date
+      publish_date: dateStr
     });
-    await onSave('publication_dates', JSON.stringify(newDates));
-    setOpenDatePickerIndex(null);
+    await onSave('publish_date', dateStr);
+    setIsDatePickerOpen(false);
   };
 
-  const handlePublicationTimeChange = async (index: number, time: string) => {
+  const handlePublishTimeChange = async (time: string) => {
     if (!card) return;
     
-    const newDates = [...publicationDates];
-    newDates[index] = { ...newDates[index], time };
-    
     onCardChange({
       ...card,
-      publication_dates: newDates
+      publish_time: time
     });
-    await onSave('publication_dates', JSON.stringify(newDates));
-  };
-
-  const addPublicationDate = async () => {
-    if (!card || publicationDates.length >= MAX_PUBLICATION_DATES) return;
-    
-    const newDates = [...publicationDates, { date: '', time: '09:00' }];
-    
-    onCardChange({
-      ...card,
-      publication_dates: newDates
-    });
-    await onSave('publication_dates', JSON.stringify(newDates));
-  };
-
-  const removePublicationDate = async (index: number) => {
-    if (!card || publicationDates.length <= 1) return;
-    
-    const newDates = publicationDates.filter((_, i) => i !== index);
-    
-    onCardChange({
-      ...card,
-      publication_dates: newDates,
-      delivery_date: newDates[0]?.date || card.delivery_date
-    });
-    await onSave('publication_dates', JSON.stringify(newDates));
+    await onSave('publish_time', time);
   };
 
   // Format date for display
@@ -445,9 +392,7 @@ export default function TaskCard({
 
   // Dynamic status config based on pipelineStatuses
   const getDynamicStatusConfig = (statusValue: string) => {
-    // First check if we have dynamic pipeline statuses
     if (pipelineStatuses.length > 0) {
-      // Match by column_name (the status value should match the column name)
       const dynamicStatus = pipelineStatuses.find(ps => 
         ps.name.toLowerCase() === statusValue.toLowerCase() ||
         ps.name.toLowerCase().replace(/\s+/g, '_') === statusValue.toLowerCase() ||
@@ -465,21 +410,17 @@ export default function TaskCard({
         };
       }
     }
-    // Fallback to static config
     return getStatusConfig(statusValue);
   };
 
-  // Get current status display value (column name)
+  // Get current status display value
   const getCurrentStatusDisplay = () => {
-    if (card?.column_name) {
-      return card.column_name;
-    }
     const config = getDynamicStatusConfig(normalizedStatus);
     return config.column || config.label;
   };
 
   if (!card || !open) return null;
-  const statusConfig = getDynamicStatusConfig(card.column_name || normalizedStatus);
+  const statusConfig = getDynamicStatusConfig(card.status || normalizedStatus);
   const modalContent = <>
       {/* Full-screen modal container - respects sidebar */}
       <div className="fixed inset-0 z-50 md:left-16 flex flex-col" role="dialog" aria-modal="true" aria-labelledby="task-card-title">
@@ -513,13 +454,12 @@ export default function TaskCard({
               {/* Status - ClickUp inspired */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</span>
-                <Select value={card.column_name || normalizedStatus} onValueChange={async (value) => {
+                <Select value={card.status || normalizedStatus} onValueChange={async (value) => {
                   // Validação: exigir data de publicação para mover para "Agendar Publicação"
                   if (value === "Agendar Publicação") {
-                    const hasValidPublicationDate = publicationDates.some(pd => pd.date && pd.time);
-                    const hasDeliveryDate = !!card.delivery_date;
+                    const hasPublishDate = !!card.publish_date;
                     
-                    if (!hasValidPublicationDate && !hasDeliveryDate) {
+                    if (!hasPublishDate) {
                       const { toast } = await import("sonner");
                       toast.error("Defina uma data de publicação", {
                         description: "Para mover para 'Agendar Publicação', defina data e horário primeiro."
@@ -530,8 +470,7 @@ export default function TaskCard({
                   
                   onCardChange({
                     ...card,
-                    status: value,
-                    column_name: value
+                    status: value
                   });
                   handleFieldSave('status', value);
                 }}>
@@ -553,7 +492,6 @@ export default function TaskCard({
                   </SelectTrigger>
                   <SelectContent className="min-w-[220px] max-h-[320px]">
                     <ScrollArea className="max-h-[300px]">
-                      {/* Use dynamic pipeline statuses if available */}
                       {pipelineStatuses.length > 0 ? (
                         pipelineStatuses.map((status, idx) => (
                           <div key={status.id}>
@@ -570,7 +508,6 @@ export default function TaskCard({
                           </div>
                         ))
                       ) : (
-                        /* Fallback to static STATUS_GROUPS */
                         STATUS_GROUPS.map((group, groupIdx) => (
                           <div key={group.label}>
                             {groupIdx > 0 && <Separator className="my-1" />}
@@ -601,84 +538,54 @@ export default function TaskCard({
 
               <div className="h-4 w-px bg-border" />
 
-              {/* Datas de Publicação */}
+              {/* Data de Publicação (single date + time) */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Publicação</span>
                 <TooltipProvider delayDuration={200}>
-                  <div className="flex items-center gap-1.5 flex-wrap justify-center">
-                    {publicationDates.map((pubDate, index) => (
-                      <div key={index} className="flex items-center gap-1">
-                        {/* Date Picker */}
-                        <Popover 
-                          open={openDatePickerIndex === index} 
-                          onOpenChange={(open) => setOpenDatePickerIndex(open ? index : null)}
-                        >
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <PopoverTrigger asChild>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="h-7 px-2 gap-1.5 font-normal text-xs"
-                                >
-                                  <CalendarIcon className="h-3 w-3" />
-                                  {pubDate.date ? formatShortDate(pubDate.date) : <span className="text-muted-foreground">Data {index + 1}</span>}
-                                </Button>
-                              </PopoverTrigger>
-                            </TooltipTrigger>
-                            {pubDate.date && (
-                              <TooltipContent side="top">
-                                <span className="capitalize">{formatFullDate(pubDate.date)}</span>
-                              </TooltipContent>
-                            )}
-                          </Tooltip>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar 
-                              mode="single" 
-                              selected={pubDate.date ? new Date(pubDate.date + 'T00:00:00') : undefined} 
-                              onSelect={(date) => handlePublicationDateChange(index, date)} 
-                              initialFocus 
-                              className="p-3 pointer-events-auto" 
-                            />
-                          </PopoverContent>
-                        </Popover>
-
-                        {/* Time Input */}
-                        <Input
-                          type="time"
-                          value={pubDate.time || '09:00'}
-                          onChange={(e) => handlePublicationTimeChange(index, e.target.value)}
-                          className="h-7 w-[80px] text-xs px-2"
-                          aria-label={`Horário de publicação ${index + 1}`}
+                  <div className="flex items-center gap-1.5">
+                    {/* Date Picker */}
+                    <Popover 
+                      open={isDatePickerOpen} 
+                      onOpenChange={setIsDatePickerOpen}
+                    >
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <PopoverTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-7 px-2 gap-1.5 font-normal text-xs"
+                            >
+                              <CalendarIcon className="h-3 w-3" />
+                              {card.publish_date ? formatShortDate(card.publish_date) : <span className="text-muted-foreground">Definir data</span>}
+                            </Button>
+                          </PopoverTrigger>
+                        </TooltipTrigger>
+                        {card.publish_date && (
+                          <TooltipContent side="top">
+                            <span className="capitalize">{formatFullDate(card.publish_date)}</span>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar 
+                          mode="single" 
+                          selected={card.publish_date ? new Date(card.publish_date + 'T00:00:00') : undefined} 
+                          onSelect={handlePublishDateChange} 
+                          initialFocus 
+                          className="p-3 pointer-events-auto" 
                         />
+                      </PopoverContent>
+                    </Popover>
 
-                        {/* Remove button (only if more than 1 date) */}
-                        {publicationDates.length > 1 && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                            onClick={() => removePublicationDate(index)}
-                            aria-label="Remover data de publicação"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        )}
-
-                        {/* Add button (only on last item and if under max) */}
-                        {index === publicationDates.length - 1 && publicationDates.length < MAX_PUBLICATION_DATES && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-primary"
-                            onClick={addPublicationDate}
-                            aria-label="Adicionar data de publicação"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
+                    {/* Time Input */}
+                    <Input
+                      type="time"
+                      value={card.publish_time || '09:00'}
+                      onChange={(e) => handlePublishTimeChange(e.target.value)}
+                      className="h-7 w-[80px] text-xs px-2"
+                      aria-label="Horário de publicação"
+                    />
                   </div>
                 </TooltipProvider>
               </div>
@@ -712,15 +619,15 @@ export default function TaskCard({
                     <Target className="h-4 w-4 text-primary" />
                   </div>
                   <h3 className="font-semibold text-foreground uppercase tracking-wide text-xl">Objetivo</h3>
-                  {saving && savingField === 'objetivo' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
+                  {saving && savingField === 'objective' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
                 </button>
                 {!collapsedSections.objetivo && (
-                  <BlockEditor content={convertToHtml(card.objetivo || "")} onChange={value => {
+                  <BlockEditor content={convertToHtml(card.objective || "")} onChange={value => {
                     onCardChange({
                       ...card,
-                      objetivo: value
+                      objective: value
                     });
-                  }} onBlur={() => handleFieldSave('objetivo', card.objetivo || '')} placeholder="Qual é a finalidade estratégica deste material?" minHeight="80px" />
+                  }} onBlur={() => handleFieldSave('objective', card.objective || '')} placeholder="Qual é a finalidade estratégica deste material?" minHeight="80px" />
                 )}
               </section>
 
@@ -833,52 +740,37 @@ export default function TaskCard({
                                       <div 
                                         {...provided.dragHandleProps}
                                         className="p-1.5 rounded hover:bg-muted cursor-grab active:cursor-grabbing flex-shrink-0"
-                                        title="Arraste para reordenar"
                                       >
                                         <GripVertical className="h-4 w-4 text-muted-foreground" />
                                       </div>
                                       
                                       {/* Thumbnail */}
                                       <div 
-                                        className="cursor-pointer flex-shrink-0"
+                                        className="h-12 w-12 rounded-md bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
                                         onClick={() => setPreviewAttachment(attachment)}
                                       >
                                         {isImageFile(attachment.type) ? (
-                                          <div className="w-12 h-12 rounded overflow-hidden">
-                                            <img 
-                                              src={attachment.url} 
-                                              alt={attachment.name} 
-                                              className="w-full h-full object-cover" 
-                                            />
-                                          </div>
+                                          <img src={attachment.url} alt={attachment.name} className="h-full w-full object-cover" />
                                         ) : (
-                                          <div className="w-12 h-12 flex items-center justify-center bg-muted rounded">
-                                            <File className="h-6 w-6 text-muted-foreground" />
-                                          </div>
+                                          <File className="h-5 w-5 text-muted-foreground" />
                                         )}
                                       </div>
-                                      
+
                                       {/* File Info */}
-                                      <div 
-                                        className="flex-1 min-w-0 cursor-pointer"
-                                        onClick={() => setPreviewAttachment(attachment)}
-                                      >
-                                        <p className="text-sm font-medium truncate">{attachment.name}</p>
+                                      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setPreviewAttachment(attachment)}>
+                                        <p className="text-sm font-medium truncate text-foreground">{attachment.name}</p>
                                         <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
                                       </div>
-                                      
-                                      {/* Delete Button */}
-                                      <button 
-                                        onClick={e => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          setAttachmentToRemove(attachment);
-                                        }} 
-                                        className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 flex-shrink-0"
-                                        aria-label={`Remover anexo ${attachment.name}`}
+
+                                      {/* Remove button */}
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive" 
+                                        onClick={() => setAttachmentToRemove(attachment)}
                                       >
-                                        <X className="h-4 w-4 text-destructive" />
-                                      </button>
+                                        <X className="h-4 w-4" />
+                                      </Button>
                                     </div>
                                   )}
                                 </Draggable>
@@ -890,63 +782,50 @@ export default function TaskCard({
                       </DragDropContext>
                     )}
 
-                    {/* Upload Area */}
-                    <label className="flex flex-col items-center justify-center gap-2 w-full py-6 px-4 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 hover:bg-muted/20 transition-colors" aria-label="Área de upload de arquivos">
-                      <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.mp4,.mov,.avi" onChange={onFileUpload} className="sr-only" disabled={uploading} aria-label="Selecionar arquivos para anexar" />
-                      {uploading ? <>
-                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                          <span className="text-sm text-muted-foreground">Enviando arquivos...</span>
-                        </> : <>
-                          <Upload className="h-6 w-6 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">
-                            Clique ou arraste arquivos para anexar
-                          </span>
-                          <span className="text-xs text-muted-foreground/60">
-                            Imagens, PDFs, documentos, vídeos • Máximo 50MB
-                          </span>
-                        </>}
+                    {/* Upload Button */}
+                    <label className={cn(
+                      "flex items-center gap-2 px-4 py-3 border-2 border-dashed border-border/60 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all",
+                      uploading && "opacity-50 cursor-not-allowed"
+                    )}>
+                      <input 
+                        type="file" 
+                        multiple 
+                        className="hidden" 
+                        onChange={onFileUpload}
+                        disabled={uploading}
+                      />
+                      {uploading ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      ) : (
+                        <Upload className="h-5 w-5 text-muted-foreground" />
+                      )}
+                      <span className="text-sm text-muted-foreground">
+                        {uploading ? 'Fazendo upload...' : 'Clique para anexar arquivos (máx. 50MB)'}
+                      </span>
                     </label>
                   </>
                 )}
               </section>
-
-              {/* Timestamps */}
-              <div className="flex items-center gap-4 pt-4 border-t border-border text-xs text-muted-foreground">
-                <span>Criado: {card.created_at ? format(new Date(card.created_at), "dd/MM/yyyy HH:mm", {
-                  locale: ptBR
-                }) : "-"}</span>
-                <span>Atualizado: {card.updated_at ? format(new Date(card.updated_at), "dd/MM/yyyy HH:mm", {
-                  locale: ptBR
-                }) : "-"}</span>
-              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Attachment Preview Modal - isolated to prevent transform leaking */}
-      <div style={{ isolation: 'isolate', contain: 'layout' }}>
-        <AttachmentPreviewModal 
-          isOpen={!!previewAttachment} 
-          onClose={() => setPreviewAttachment(null)} 
-          fileUrl={previewAttachment?.url || ""} 
-          fileName={previewAttachment?.name || ""} 
-          onDelete={previewAttachment ? () => {
-            setAttachmentToRemove(previewAttachment);
-            setPreviewAttachment(null);
-          } : undefined} 
-        />
-      </div>
+      {/* Attachment Preview Modal */}
+      <AttachmentPreviewModal
+        isOpen={!!previewAttachment}
+        onClose={() => setPreviewAttachment(null)}
+        fileUrl={previewAttachment?.url || ''}
+        fileName={previewAttachment?.name || ''}
+      />
 
-      {/* Attachment Removal Confirmation Modal */}
+      {/* Confirmation Dialog for Attachment Removal */}
       <AlertDialog open={!!attachmentToRemove} onOpenChange={(open) => !open && setAttachmentToRemove(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remover anexo?</AlertDialogTitle>
             <AlertDialogDescription>
-              Você está prestes a remover o anexo "<strong>{attachmentToRemove?.name}</strong>".
-              <br /><br />
-              Esta ação não pode ser desfeita. O arquivo será permanentemente removido do sistema.
+              O arquivo "{attachmentToRemove?.name}" será removido permanentemente. Essa ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -955,11 +834,6 @@ export default function TaskCard({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
                 if (attachmentToRemove) {
-                  console.log('[Attachment] Usuário confirmou remoção:', {
-                    cardId: card.id,
-                    attachmentName: attachmentToRemove.name,
-                    attachmentUrl: attachmentToRemove.url
-                  });
                   onRemoveAttachment(attachmentToRemove.url);
                   setAttachmentToRemove(null);
                 }
@@ -972,6 +846,5 @@ export default function TaskCard({
       </AlertDialog>
     </>;
 
-  // Render using portal to document.body
   return createPortal(modalContent, document.body);
 }

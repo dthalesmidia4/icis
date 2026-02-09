@@ -172,17 +172,7 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
-      <Route path="/generate-questions" element={
-        <ProtectedRoute>
-          <RequireTenant>
-            <RequireRole allowedRoles={['agency_admin']}>
-              <Layout>
-                <GenerateQuestions />
-              </Layout>
-            </RequireRole>
-          </RequireTenant>
-        </ProtectedRoute>
-      } />
+      
       <Route path="/dev-hub" element={
         <ProtectedRoute>
           <RequireTenant>

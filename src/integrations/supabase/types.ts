@@ -189,45 +189,6 @@ export type Database = {
           },
         ]
       }
-      companies: {
-        Row: {
-          cnpj_cpf: string
-          created_at: string
-          email: string
-          id: string
-          name: string
-          phone: string
-          products_services: string
-          sector: string
-          size: string
-          updated_at: string
-        }
-        Insert: {
-          cnpj_cpf: string
-          created_at?: string
-          email: string
-          id?: string
-          name: string
-          phone: string
-          products_services: string
-          sector: string
-          size: string
-          updated_at?: string
-        }
-        Update: {
-          cnpj_cpf?: string
-          created_at?: string
-          email?: string
-          id?: string
-          name?: string
-          phone?: string
-          products_services?: string
-          sector?: string
-          size?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       demand_feedback_events: {
         Row: {
           channel: string | null
@@ -431,24 +392,17 @@ export type Database = {
           attachments: Json
           channel: string | null
           client_id: string
-          column_name: string | null
           created_at: string
           created_by: string | null
-          delivery_date: string | null
           demand_type: string | null
           description: string | null
           due_date: string | null
-          file_location: string | null
           id: string
-          instrucoes: string | null
           instructions: string | null
           objective: string | null
-          objetivo: string | null
           observations: string | null
           period_plan_id: string | null
           pipeline_id: string
-          plan_id: string | null
-          publication_dates: Json | null
           publish_date: string | null
           publish_time: string | null
           source: string
@@ -462,24 +416,17 @@ export type Database = {
           attachments?: Json
           channel?: string | null
           client_id: string
-          column_name?: string | null
           created_at?: string
           created_by?: string | null
-          delivery_date?: string | null
           demand_type?: string | null
           description?: string | null
           due_date?: string | null
-          file_location?: string | null
           id?: string
-          instrucoes?: string | null
           instructions?: string | null
           objective?: string | null
-          objetivo?: string | null
           observations?: string | null
           period_plan_id?: string | null
           pipeline_id: string
-          plan_id?: string | null
-          publication_dates?: Json | null
           publish_date?: string | null
           publish_time?: string | null
           source?: string
@@ -493,24 +440,17 @@ export type Database = {
           attachments?: Json
           channel?: string | null
           client_id?: string
-          column_name?: string | null
           created_at?: string
           created_by?: string | null
-          delivery_date?: string | null
           demand_type?: string | null
           description?: string | null
           due_date?: string | null
-          file_location?: string | null
           id?: string
-          instrucoes?: string | null
           instructions?: string | null
           objective?: string | null
-          objetivo?: string | null
           observations?: string | null
           period_plan_id?: string | null
           pipeline_id?: string
-          plan_id?: string | null
-          publication_dates?: Json | null
           publish_date?: string | null
           publish_time?: string | null
           source?: string
@@ -540,13 +480,6 @@ export type Database = {
             columns: ["pipeline_id"]
             isOneToOne: false
             referencedRelation: "pipelines"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "demands_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "marketing_plans"
             referencedColumns: ["id"]
           },
           {
@@ -608,82 +541,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "invitations_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      marketing_plans: {
-        Row: {
-          approved: boolean
-          approved_at: string | null
-          company_id: string
-          created_at: string
-          id: string
-          periodo_data_fim: string | null
-          periodo_data_inicio: string | null
-          periodo_status: string | null
-          periodo_titulo: string | null
-          plan_content: string | null
-          plan_data: Json
-          selected_month: string | null
-          strategy_id: string | null
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          approved?: boolean
-          approved_at?: string | null
-          company_id: string
-          created_at?: string
-          id?: string
-          periodo_data_fim?: string | null
-          periodo_data_inicio?: string | null
-          periodo_status?: string | null
-          periodo_titulo?: string | null
-          plan_content?: string | null
-          plan_data: Json
-          selected_month?: string | null
-          strategy_id?: string | null
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          approved?: boolean
-          approved_at?: string | null
-          company_id?: string
-          created_at?: string
-          id?: string
-          periodo_data_fim?: string | null
-          periodo_data_inicio?: string | null
-          periodo_status?: string | null
-          periodo_titulo?: string | null
-          plan_content?: string | null
-          plan_data?: Json
-          selected_month?: string | null
-          strategy_id?: string | null
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "marketing_plans_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "tenant_companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "marketing_plans_strategy_id_fkey"
-            columns: ["strategy_id"]
-            isOneToOne: false
-            referencedRelation: "strategies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "marketing_plans_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
