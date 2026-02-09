@@ -26,7 +26,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getRoleLabel, isLegacyRole } from '@/lib/constants/roles';
+import { getRoleLabel } from '@/lib/constants/roles';
 
 interface Invitation {
   id: string;
@@ -200,7 +200,7 @@ export function InvitationList({ tenantId, agencyId, refreshTrigger }: Invitatio
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={isLegacyRole(invitation.role) ? 'destructive' : 'secondary'}>
+                  <Badge variant="secondary">
                     {getRoleLabel(invitation.role)}
                   </Badge>
                 </TableCell>
