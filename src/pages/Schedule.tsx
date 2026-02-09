@@ -605,7 +605,7 @@ export default function Schedule() {
   }, [cards, contentTypeFilter]);
 
   if (tenantLoading || !isInitialized) {
-    return <LoadingScreen />;
+    return <LoadingScreen title="Carregando agenda..." />;
   }
 
   if (loading) {
@@ -834,23 +834,22 @@ export default function Schedule() {
 
       {/* Delete Confirmation Modal */}
       <ConfirmationModal
-        isOpen={!!cardToDelete}
-        onClose={() => setCardToDelete(null)}
+        open={!!cardToDelete}
+        onOpenChange={(open) => { if (!open) setCardToDelete(null); }}
         onConfirm={handleDeleteCard}
         title="Excluir demanda"
         description="Tem certeza que deseja excluir esta demanda? Esta ação não pode ser desfeita."
-        confirmLabel="Excluir"
-        isLoading={isDeleting}
+        loading={isDeleting}
       />
 
       {/* Schedule Publication Modal */}
       <SchedulePublicationModal
-        isOpen={showScheduleModal}
-        onClose={handleCancelSchedule}
+        open={showScheduleModal}
+        onOpenChange={(open) => { if (!open) handleCancelSchedule(); }}
         onConfirm={handleConfirmSchedule}
-        cardTitle={pendingScheduleCard?.card.title || ''}
-        initialDate={pendingScheduleCard?.card.publish_date || ''}
-        initialTime={pendingScheduleCard?.card.publish_time || '09:00'}
+        onCancel={handleCancelSchedule}
+        existingDate={pendingScheduleCard?.card.publish_date}
+        existingTime={pendingScheduleCard?.card.publish_time || '09:00'}
       />
 
       {/* History Modal */}
