@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle2, XCircle, Loader2, Ticket } from 'lucide-react';
-import { getRoleLabel, isLegacyRole } from '@/lib/constants/roles';
+import { getRoleLabel } from '@/lib/constants/roles';
 
 interface InviteCodeInputProps {
   onValidCode: (code: string, agencyId: string, role: string) => void;
@@ -13,9 +13,8 @@ interface InviteCodeInputProps {
 }
 
 interface InvitationInfo {
-  agency_name: string;
+  tenant_name: string;
   role: string;
-  is_legacy_role?: boolean;
 }
 
 export const InviteCodeInput = ({ onValidCode, onInvalidCode }: InviteCodeInputProps) => {
@@ -32,7 +31,6 @@ export const InviteCodeInput = ({ onValidCode, onInvalidCode }: InviteCodeInputP
     setInvitationInfo(null);
 
     try {
-      // Use edge function to validate (bypasses RLS restrictions)
       const { data, error } = await supabase.functions.invoke('validate-invitation', {
         body: { code: code.trim() }
       });
@@ -42,12 +40,10 @@ export const InviteCodeInput = ({ onValidCode, onInvalidCode }: InviteCodeInputP
       if (data.valid) {
         setValidationResult('valid');
         setInvitationInfo({
-          agency_name: data.agency_name || data.tenant_name,
+          tenant_name: data.tenant_name,
           role: data.role,
-          is_legacy_role: data.is_legacy_role,
         });
-        // Preferir agency_id, fallback para tenant_id
-        onValidCode(code.toUpperCase().trim(), data.agency_id || data.tenant_id, data.role);
+        onValidCode(code.toUpperCase().trim(), data.tenant_id, data.role);
       } else {
         setValidationResult('invalid');
         onInvalidCode();
@@ -111,8 +107,8 @@ export const InviteCodeInput = ({ onValidCode, onInvalidCode }: InviteCodeInputP
               Convite válido!
             </p>
             <p className="text-xs text-muted-foreground">
-              Você será adicionado à <strong>{invitationInfo.agency_name}</strong> como{' '}
-              <Badge variant={isLegacyRole(invitationInfo.role) ? 'destructive' : 'outline'} className="ml-1">
+              Você será adicionado à <strong>{invitationInfo.tenant_name}</strong> como{' '}
+              <Badge variant="outline" className="ml-1">
                 {getRoleLabel(invitationInfo.role)}
               </Badge>
             </p>

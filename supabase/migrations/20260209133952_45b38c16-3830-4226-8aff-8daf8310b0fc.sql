@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.use_invitation_v2(text, uuid);

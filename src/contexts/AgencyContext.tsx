@@ -1,10 +1,9 @@
 /**
  * AgencyContext - Contexto para gerenciar informações da agência do usuário
  * 
- * NOVO MODELO (substitui TenantContext):
  * - Tenant = Agency (sem hierarquia pai/filho)
- * - Apenas 3 roles: SUPER_ADMIN, AGENCY_ADMIN, AGENCY_USER
- * - Vínculo via agency_memberships
+ * - Roles: SUPER_ADMIN, AGENCY_ADMIN, AGENCY_MANAGER, AGENCY_USER
+ * - Vínculo via profiles.tenant_id + user_roles
  */
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';

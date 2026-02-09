@@ -1,11 +1,8 @@
 /**
  * validate-invitation Edge Function
  * 
- * SCHEMA ATUAL: Usa tenants e tenant_id (tabela invitations)
- * As tabelas agencies/agency_memberships ainda não existem
- * 
+ * Valida um código de convite e retorna informações da organização e role.
  * ROLES VÁLIDAS: agency_admin, agency_manager, agency_user
- * ROLES LEGADAS (deprecated): client_admin, client_user, subclient_user
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -14,12 +11,6 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// Roles válidas para o produto atual
-const VALID_AGENCY_ROLES = ['agency_admin', 'agency_manager', 'agency_user'];
-
-// Roles legadas (deprecated)
-const LEGACY_ROLES = ['client_admin', 'client_user', 'subclient_user'];
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -41,8 +32,6 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Query invitation using service role (bypasses RLS)
-    // Usar apenas tenant_id que existe no schema atual
     const { data: invitation, error } = await supabase
       .from("invitations")
       .select("id, code, tenant_id, role, expires_at")
@@ -73,30 +62,18 @@ serve(async (req) => {
       );
     }
 
-    // Buscar tenant (schema atual)
     const { data: tenant } = await supabase
       .from("tenants")
-      .select("id, name, tenant_type")
+      .select("id, name")
       .eq("id", invitation.tenant_id)
       .maybeSingle();
-
-    // Determinar se é role legada
-    const isLegacyRole = LEGACY_ROLES.includes(invitation.role);
-    const isValidRole = VALID_AGENCY_ROLES.includes(invitation.role);
 
     return new Response(
       JSON.stringify({
         valid: true,
         tenant_id: invitation.tenant_id,
-        // Compatibilidade: retornar também como agency_id para código que espera o novo modelo
-        agency_id: invitation.tenant_id,
         role: invitation.role,
         tenant_name: tenant?.name || "Organização",
-        agency_name: tenant?.name || "Organização",
-        tenant_type: tenant?.tenant_type || "agency",
-        // Flags para o frontend
-        is_legacy_role: isLegacyRole,
-        is_valid_role: isValidRole,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

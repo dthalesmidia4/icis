@@ -1,14 +1,10 @@
 /**
  * useAgencyRole - Hook para gerenciar roles no modelo atual
  * 
- * SCHEMA ATUAL (usando tenants/user_roles):
  * - SUPER_ADMIN: via tabela super_admins (RPC is_super_admin)
  * - AGENCY_ADMIN: via user_roles.role = 'agency_admin'
  * - AGENCY_MANAGER: via user_roles.role = 'agency_manager'
  * - AGENCY_USER: via user_roles.role = 'agency_user'
- * 
- * NOTA: O código foi preparado para usar agency_memberships no futuro,
- * mas a tabela ainda não existe. Usando user_roles como fonte de verdade.
  */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
