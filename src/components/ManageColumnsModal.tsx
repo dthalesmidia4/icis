@@ -294,11 +294,18 @@ const ManageColumnsModal = ({
                                 />
                               ) : (
                                 <span
-                                  className="flex-1 font-medium text-sm text-foreground cursor-pointer flex items-center gap-1.5 group/name"
-                                  onClick={() => handleStartEditing(column)}
+                                  className={cn(
+                                    "flex-1 font-medium text-sm text-foreground flex items-center gap-1.5 group/name",
+                                    !column.is_fixed && "cursor-pointer"
+                                  )}
+                                  onClick={() => !column.is_fixed && handleStartEditing(column)}
                                 >
                                   {column.name}
-                                  <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity" />
+                                  {column.is_fixed ? (
+                                    <span className="text-muted-foreground text-xs ml-1">🔒</span>
+                                  ) : (
+                                    <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity" />
+                                  )}
                                 </span>
                               )}
 
