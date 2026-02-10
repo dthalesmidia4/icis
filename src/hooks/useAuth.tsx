@@ -8,6 +8,23 @@ export const useAuth = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Se é sessão temporária (não marcou "manter conectado"), limpar ao fechar aba
+    const handleBeforeUnload = () => {
+      if (sessionStorage.getItem('tempSession') === 'true') {
+        // Limpar dados de auth do localStorage para que ao reabrir não tenha sessão
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -41,7 +58,10 @@ export const useAuth = () => {
       setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, []);
 
   const signUp = useCallback(async (email: string, password: string, fullName: string) => {

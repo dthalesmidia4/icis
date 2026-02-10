@@ -82,15 +82,6 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      // Se não marcar "manter conectado", usar sessionStorage
-      if (!rememberMe) {
-        // Configura para usar sessionStorage apenas para esta sessão
-        await supabase.auth.setSession({ 
-          access_token: '', 
-          refresh_token: '' 
-        });
-      }
-      
       const { error } = await signIn(loginEmail, loginPassword);
       
       if (error) {
@@ -103,6 +94,7 @@ const Auth = () => {
         // Salvar preferência de remember me
         if (rememberMe) {
           localStorage.setItem('rememberMe', 'true');
+          sessionStorage.removeItem('tempSession');
         } else {
           localStorage.removeItem('rememberMe');
           sessionStorage.setItem('tempSession', 'true');
