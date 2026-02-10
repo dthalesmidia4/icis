@@ -317,26 +317,26 @@ export default function ProfileSettings() {
               <SelectTrigger className="max-w-md">
                 <div className="flex items-center gap-2">
                   {(() => {
-                    const selected = themeOptions.find(o => o.value === localSettings.mode);
-                    if (!selected) return <SelectValue placeholder="Selecione o tema" />;
-                    const Icon = selected.icon;
-                    return <>
+                  const selected = themeOptions.find(o => o.value === localSettings.mode);
+                  if (!selected) return <SelectValue placeholder="Selecione o tema" />;
+                  const Icon = selected.icon;
+                  return <>
                       <Icon className="h-4 w-4" />
                       <span>{selected.label}</span>
                     </>;
-                  })()}
+                })()}
                 </div>
               </SelectTrigger>
               <SelectContent>
                 {themeOptions.map(option => {
-                  const Icon = option.icon;
-                  return <SelectItem key={option.value} value={option.value}>
+                const Icon = option.icon;
+                return <SelectItem key={option.value} value={option.value}>
                     <div className="flex items-center gap-2">
                       <Icon className="h-4 w-4" />
                       <span>{option.label}</span>
                     </div>
                   </SelectItem>;
-                })}
+              })}
               </SelectContent>
             </Select>
 
@@ -345,7 +345,7 @@ export default function ProfileSettings() {
             {/* Color Picker */}
             <div className="space-y-3">
               <Label className="text-sm font-medium">Cor Primária</Label>
-              <p className="text-xs text-muted-foreground">Aplicada a botões, links e destaques visuais da sua interface.</p>
+              
               <div className="flex flex-wrap gap-2">
                 {colorOptions.map(color => <button key={color.value} onClick={() => handleColorChange(color.value)} className={`relative flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all text-sm ${localSettings.primaryColor === color.value ? 'border-foreground shadow-sm' : 'border-border hover:border-foreground/50'}`}>
                     <div className="w-4 h-4 rounded-full shrink-0" style={{
