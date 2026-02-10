@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { UserPlus, Building2, CalendarDays, LayoutGrid, Briefcase, Loader2 } from "lucide-react";
+import { UserPlus, Building2, CalendarDays, LayoutGrid, Briefcase, Loader2, ClipboardList } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useHubPermissions, type HubSectionId } from "@/hooks/useHubPermissions";
