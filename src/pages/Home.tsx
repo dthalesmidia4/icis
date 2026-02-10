@@ -25,37 +25,13 @@ const Home = () => {
 
   const allActionCards = [
     {
-      id: 'kanban' as HubSectionId,
-      title: "Kanban Central",
-      icon: LayoutGrid,
-      gradient: "from-cyan-500 to-teal-600",
-      titleColor: "text-teal-600 dark:text-teal-400",
-      route: "/kanban-central"
-    },
-    {
       id: 'clientes' as HubSectionId,
-      title: "Gerenciar Clientes",
-      icon: Building2,
-      gradient: "from-blue-500 to-indigo-600",
-      titleColor: "text-indigo-600 dark:text-indigo-400",
-      route: "/clientes"
+      title: "Cadastrar Cliente",
+      icon: UserPlus,
+      gradient: "from-green-500 to-emerald-600",
+      titleColor: "text-emerald-600 dark:text-emerald-400",
+      route: "/registration"
     },
-    {
-      id: 'schedule' as HubSectionId,
-      title: "Agendamento",
-      icon: CalendarDays,
-      gradient: "from-purple-500 to-violet-600",
-      titleColor: "text-violet-600 dark:text-violet-400",
-      route: "/scheduled"
-    },
-    ...(agencyId ? [{
-      id: 'minha-empresa' as HubSectionId,
-      title: "Minha Empresa",
-      icon: Briefcase,
-      gradient: "from-orange-500 to-amber-600",
-      titleColor: "text-amber-600 dark:text-amber-400",
-      route: "/minha-empresa"
-    }] : []),
     {
       id: 'clientes' as HubSectionId,
       title: "Cadastros de Clientes",
@@ -66,12 +42,37 @@ const Home = () => {
     },
     {
       id: 'clientes' as HubSectionId,
-      title: "Cadastrar Cliente",
-      icon: UserPlus,
-      gradient: "from-green-500 to-emerald-600",
-      titleColor: "text-emerald-600 dark:text-emerald-400",
-      route: "/registration"
+      title: "Gerenciar Clientes",
+      icon: Building2,
+      gradient: "from-blue-500 to-indigo-600",
+      titleColor: "text-indigo-600 dark:text-indigo-400",
+      route: "/clientes"
     },
+    {
+      id: 'kanban' as HubSectionId,
+      title: "Kanban Central",
+      icon: LayoutGrid,
+      gradient: "from-cyan-500 to-teal-600",
+      titleColor: "text-teal-600 dark:text-teal-400",
+      route: "/kanban-central"
+    },
+    ...(agencyId ? [{
+      id: 'minha-empresa' as HubSectionId,
+      title: "Minha Empresa",
+      icon: Briefcase,
+      gradient: "from-orange-500 to-amber-600",
+      titleColor: "text-amber-600 dark:text-amber-400",
+      route: "/minha-empresa"
+    }] : []),
+    {
+      id: 'schedule' as HubSectionId,
+      title: "Agendamento de Conteúdos",
+      icon: CalendarDays,
+      gradient: "from-purple-500 to-violet-600",
+      titleColor: "text-violet-600 dark:text-violet-400",
+      route: "/scheduled"
+    },
+  ];
   ];
 
   // Filtrar cards baseado nas permissões (admins veem tudo)
