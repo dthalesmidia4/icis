@@ -71,8 +71,9 @@ const devMenuItems: MenuItem[] = [
 function MobileSidebarContent({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const { tenantName } = useTenant();
+  const userName = user?.user_metadata?.full_name as string | undefined;
   const { canAccessAdmin, role } = useUserRole();
   const { selectedClient, clearSelectedClient } = useSelectedClient();
   const [clientMenuOpen, setClientMenuOpen] = useState(true);
@@ -104,11 +105,11 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
       <div className="border-b p-4 flex items-center gap-3">
         <Avatar className="h-12 w-12 border-2 border-primary">
           <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-base font-bold">
-            {tenantName ? getInitials(tenantName) : 'EM'}
+            {userName ? getInitials(userName) : 'U'}
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-foreground truncate">{tenantName || 'Minha Empresa'}</p>
+          <p className="font-semibold text-foreground truncate">{userName || 'Usuário'}</p>
           <RoleBadge role={role} className="mt-1" />
         </div>
       </div>
@@ -231,8 +232,9 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
 function DesktopSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const { tenantName } = useTenant();
+  const userName = user?.user_metadata?.full_name as string | undefined;
   const { canAccessAdmin } = useUserRole();
   const { selectedClient } = useSelectedClient();
   const [clientMenuOpen, setClientMenuOpen] = useState(true);
@@ -262,7 +264,7 @@ function DesktopSidebar() {
             <button className="flex items-center justify-center w-full p-1 hover:bg-accent rounded-lg transition-all duration-300 hover:scale-110 group" aria-label="Menu do perfil">
               <Avatar className="h-10 w-10 border-2 border-primary transition-all duration-300 group-hover:border-primary/80 group-hover:shadow-lg group-hover:shadow-primary/20">
                 <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-sm font-bold">
-                  {tenantName ? getInitials(tenantName) : 'EM'}
+                  {userName ? getInitials(userName) : 'U'}
                 </AvatarFallback>
               </Avatar>
             </button>
@@ -441,7 +443,8 @@ function DesktopSidebar() {
 // Mobile Header with Hamburger
 export function MobileHeader() {
   const [open, setOpen] = useState(false);
-  const { tenantName } = useTenant();
+  const { user } = useAuth();
+  const userName = user?.user_metadata?.full_name as string | undefined;
   const { selectedClient } = useSelectedClient();
 
   const getInitials = (name: string) => {
@@ -476,7 +479,7 @@ export function MobileHeader() {
         <div className="flex items-center gap-2">
           <Avatar className="h-8 w-8 border border-primary">
             <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-xs font-bold">
-              {tenantName ? getInitials(tenantName) : 'EM'}
+              {userName ? getInitials(userName) : 'U'}
             </AvatarFallback>
           </Avatar>
         </div>
