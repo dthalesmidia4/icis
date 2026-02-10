@@ -268,9 +268,6 @@ const ClientList = () => {
                       <Button variant="secondary" size="icon" onClick={() => openLogoModal(client)} className="h-8 w-8" aria-label="Editar logo">
                         <Image className="h-4 w-4" />
                       </Button>
-                      <Button variant="secondary" size="icon" onClick={() => navigate(`/clientes/${client.id}`)} className="h-8 w-8" aria-label="Editar cliente">
-                        <Edit className="h-4 w-4" />
-                      </Button>
                       <Button variant="secondary" size="icon" onClick={() => setDeleteId(client.id)} className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" aria-label="Excluir cliente">
                         <Trash2 className="h-4 w-4" />
                       </Button>
