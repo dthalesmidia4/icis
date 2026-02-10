@@ -458,6 +458,19 @@ export default function TaskCard({
               {/* Status - ClickUp inspired */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</span>
+                {readOnly ? (
+                  <div 
+                    className="h-9 px-3 flex items-center gap-2 rounded-md border font-medium text-xs"
+                    style={{
+                      backgroundColor: `${statusConfig.color}15`,
+                      color: statusConfig.color,
+                      borderColor: `${statusConfig.color}40`
+                    }}
+                  >
+                    <span className="h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: statusConfig.color }} />
+                    <span>{statusConfig.label}</span>
+                  </div>
+                ) : (
                 <Select value={card.status || normalizedStatus} onValueChange={async (value) => {
                   // Validação: exigir data de publicação para mover para "Agendar Publicação"
                   if (value === "Agendar Publicação") {
