@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { UserPlus, Building2, CalendarDays, LayoutGrid, Briefcase, Loader2, ClipboardList } from "lucide-react";
+import { UserPlus, Building2, CalendarDays, LayoutGrid, Briefcase, Loader2, ClipboardList, FileText } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useHubPermissions, type HubSectionId } from "@/hooks/useHubPermissions";
@@ -64,6 +64,14 @@ const Home = () => {
       titleColor: "text-amber-600 dark:text-amber-400",
       route: "/minha-empresa"
     }] : []),
+    {
+      id: 'clientes' as HubSectionId,
+      title: "Perguntas Guias",
+      icon: FileText,
+      gradient: "from-blue-400 to-cyan-500",
+      titleColor: "text-cyan-600 dark:text-cyan-400",
+      route: "/guide"
+    },
     {
       id: 'schedule' as HubSectionId,
       title: "Agendamento de Conteúdos",
