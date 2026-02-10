@@ -640,12 +640,16 @@ export default function TaskCard({
                   {saving && savingField === 'objective' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
                 </button>
                 {!collapsedSections.objetivo && (
+                  readOnly ? (
+                    <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.objective || "") }} />
+                  ) : (
                   <BlockEditor content={convertToHtml(card.objective || "")} onChange={value => {
                     onCardChange({
                       ...card,
                       objective: value
                     });
                   }} onBlur={() => handleFieldSave('objective', card.objective || '')} placeholder="Qual é a finalidade estratégica deste material?" minHeight="80px" />
+                  )
                 )}
               </section>
 
