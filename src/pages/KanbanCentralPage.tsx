@@ -176,7 +176,7 @@ const KanbanCentralPage = () => {
 
         const { data: statusData, error: statusError } = await supabase
           .from("pipeline_statuses")
-          .select("id, name, color, position, pipeline_id")
+          .select("id, name, color, position, pipeline_id, is_fixed, parent_status_id")
           .eq("pipeline_id", pipelineData.id)
           .order("position", { ascending: true });
 
