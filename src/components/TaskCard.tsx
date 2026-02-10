@@ -781,6 +781,7 @@ export default function TaskCard({
                                       </div>
 
                                       {/* Remove button */}
+                                      {!readOnly && (
                                       <Button 
                                         variant="ghost" 
                                         size="icon" 
@@ -789,6 +790,7 @@ export default function TaskCard({
                                       >
                                         <X className="h-4 w-4" />
                                       </Button>
+                                      )}
                                     </div>
                                   )}
                                 </Draggable>
@@ -801,6 +803,7 @@ export default function TaskCard({
                     )}
 
                     {/* Upload Button */}
+                    {!readOnly && (
                     <label className={cn(
                       "flex items-center gap-2 px-4 py-3 border-2 border-dashed border-border/60 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all",
                       uploading && "opacity-50 cursor-not-allowed"
@@ -821,6 +824,7 @@ export default function TaskCard({
                         {uploading ? 'Fazendo upload...' : 'Clique para anexar arquivos (máx. 50MB)'}
                       </span>
                     </label>
+                    )}
                   </>
                 )}
               </section>
