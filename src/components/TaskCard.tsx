@@ -265,7 +265,8 @@ export default function TaskCard({
   saving = false,
   savingField = null,
   uploading = false,
-  pipelineStatuses = []
+  pipelineStatuses = [],
+  readOnly = false
 }: TaskCardProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
