@@ -550,6 +550,7 @@ export default function TaskCard({
                     </ScrollArea>
                   </SelectContent>
                 </Select>
+                )}
               </div>
 
 
