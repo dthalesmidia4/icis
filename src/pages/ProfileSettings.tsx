@@ -346,15 +346,13 @@ export default function ProfileSettings() {
             <div className="space-y-3">
               <Label className="text-sm font-medium">Cor Primária</Label>
               <p className="text-xs text-muted-foreground">Aplicada a botões, links e destaques visuais da sua interface.</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                {colorOptions.map(color => <button key={color.value} onClick={() => handleColorChange(color.value)} className={`relative p-4 rounded-xl border-2 transition-all ${localSettings.primaryColor === color.value ? 'border-foreground shadow-lg scale-105' : 'border-border hover:border-foreground/50 hover:scale-102'}`}>
-                    <div className="w-full aspect-square rounded-lg mb-2" style={{
+              <div className="flex flex-wrap gap-2">
+                {colorOptions.map(color => <button key={color.value} onClick={() => handleColorChange(color.value)} className={`relative flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all text-sm ${localSettings.primaryColor === color.value ? 'border-foreground shadow-sm' : 'border-border hover:border-foreground/50'}`}>
+                    <div className="w-4 h-4 rounded-full shrink-0" style={{
                   backgroundColor: color.preview
                 }} />
-                    <p className="text-sm font-medium text-center">{color.label}</p>
-                    {localSettings.primaryColor === color.value && <div className="absolute -top-1 -right-1 bg-foreground text-background rounded-full p-1">
-                        <Check className="h-3 w-3" />
-                      </div>}
+                    <span className="font-medium">{color.label}</span>
+                    {localSettings.primaryColor === color.value && <Check className="h-3.5 w-3.5 text-foreground" />}
                   </button>)}
               </div>
 
