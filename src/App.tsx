@@ -129,6 +129,15 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      <Route path="/cadastros-clientes" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <ClientRegistrations />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
       <Route path="/clientes" element={
         <ProtectedRoute>
           <RequireTenant>

@@ -58,6 +58,14 @@ const Home = () => {
     }] : []),
     {
       id: 'clientes' as HubSectionId,
+      title: "Cadastros de Clientes",
+      icon: ClipboardList,
+      gradient: "from-rose-500 to-pink-600",
+      titleColor: "text-pink-600 dark:text-pink-400",
+      route: "/cadastros-clientes"
+    },
+    {
+      id: 'clientes' as HubSectionId,
       title: "Cadastrar Cliente",
       icon: UserPlus,
       gradient: "from-green-500 to-emerald-600",
