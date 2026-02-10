@@ -126,6 +126,43 @@ const ManageColumnsModal = ({
     }
   };
 
+  const handleStartEditing = (column: PipelineStatus) => {
+    setEditingColumnId(column.id);
+    setEditingName(column.name);
+  };
+
+  const handleSaveName = async (columnId: string) => {
+    const trimmed = editingName.trim();
+    if (!trimmed) {
+      toast.error("O nome da coluna não pode ser vazio");
+      return;
+    }
+    const original = columns.find((c) => c.id === columnId);
+    if (original && original.name === trimmed) {
+      setEditingColumnId(null);
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("pipeline_statuses")
+        .update({ name: trimmed })
+        .eq("id", columnId);
+      if (error) throw error;
+      setColumns((prev) =>
+        prev.map((c) => (c.id === columnId ? { ...c, name: trimmed } : c))
+      );
+      toast.success("Nome da coluna atualizado");
+      onSuccess();
+    } catch (error) {
+      console.error("Error renaming column:", error);
+      toast.error("Erro ao renomear coluna");
+    } finally {
+      setLoading(false);
+      setEditingColumnId(null);
+    }
+  };
+
   const handleDeleteClick = async (column: PipelineStatus) => {
     setColumnToDelete(column);
     setCheckingCards(true);
