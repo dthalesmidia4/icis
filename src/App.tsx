@@ -35,6 +35,7 @@ import TeamMembers from "./pages/TeamMembers";
 import InviteMember from "./pages/InviteMember";
 import RemoveMember from "./pages/RemoveMember";
 import ClientRegistrations from "./pages/ClientRegistrations";
+import GuideClientList from "./pages/GuideClientList";
 
 import NotFound from "./pages/NotFound";
 
@@ -134,6 +135,15 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <ClientRegistrations />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/guide" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <GuideClientList />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>
