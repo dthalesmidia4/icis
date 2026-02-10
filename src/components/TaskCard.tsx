@@ -559,6 +559,19 @@ export default function TaskCard({
               {/* Data de Publicação (single date + time) */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Publicação</span>
+                {readOnly ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-7 px-2 flex items-center gap-1.5 text-xs border rounded-md bg-muted/30">
+                      <CalendarIcon className="h-3 w-3" />
+                      {card.publish_date ? formatShortDate(card.publish_date) : <span className="text-muted-foreground">Sem data</span>}
+                    </span>
+                    {card.publish_time && (
+                      <span className="h-7 px-2 flex items-center text-xs border rounded-md bg-muted/30">
+                        {card.publish_time}
+                      </span>
+                    )}
+                  </div>
+                ) : (
                 <TooltipProvider delayDuration={200}>
                   <div className="flex items-center gap-1.5">
                     {/* Date Picker */}
@@ -606,14 +619,19 @@ export default function TaskCard({
                     />
                   </div>
                 </TooltipProvider>
+                )}
               </div>
 
+              {!readOnly && (
+              <>
               <div className="h-4 w-px bg-border" />
 
               {/* Delete button */}
               <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={onDelete} aria-label="Excluir tarefa">
                 <Trash2 className="h-4 w-4" />
               </Button>
+              </>
+              )}
             </div>
           </div>
 
