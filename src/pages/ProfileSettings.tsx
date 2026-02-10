@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { FormSection } from '@/components/ui/form-section';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useTheme, ThemeMode, PrimaryColor } from '@/contexts/ThemeContext';
@@ -313,22 +313,32 @@ export default function ProfileSettings() {
 
           {/* BLOCO 2: Aparência */}
           <FormSection title="Aparência" icon={Sun} description="Escolha como a interface deve ser exibida. Esta configuração afeta apenas o seu usuário.">
-            <RadioGroup value={localSettings.mode} onValueChange={v => handleThemeChange(v as ThemeMode)} className="grid gap-4">
-              {themeOptions.map(option => {
-              const Icon = option.icon;
-              return <Label key={option.value} htmlFor={`theme-${option.value}`} className={`flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${localSettings.mode === option.value ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-accent/50'}`}>
-                    <RadioGroupItem value={option.value} id={`theme-${option.value}`} className="sr-only" />
-                    <div className={`p-2 rounded-lg ${localSettings.mode === option.value ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                      <Icon className="h-5 w-5" />
+            <Select value={localSettings.mode} onValueChange={v => handleThemeChange(v as ThemeMode)}>
+              <SelectTrigger className="max-w-md">
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const selected = themeOptions.find(o => o.value === localSettings.mode);
+                    if (!selected) return <SelectValue placeholder="Selecione o tema" />;
+                    const Icon = selected.icon;
+                    return <>
+                      <Icon className="h-4 w-4" />
+                      <span>{selected.label}</span>
+                    </>;
+                  })()}
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                {themeOptions.map(option => {
+                  const Icon = option.icon;
+                  return <SelectItem key={option.value} value={option.value}>
+                    <div className="flex items-center gap-2">
+                      <Icon className="h-4 w-4" />
+                      <span>{option.label}</span>
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium">{option.label}</p>
-                      <p className="text-sm text-muted-foreground">{option.description}</p>
-                    </div>
-                    {localSettings.mode === option.value && <Check className="h-5 w-5 text-primary" />}
-                  </Label>;
-            })}
-            </RadioGroup>
+                  </SelectItem>;
+                })}
+              </SelectContent>
+            </Select>
 
             <Separator className="my-4" />
 
