@@ -9,7 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, GripVertical, Trash2, AlertTriangle } from "lucide-react";
+import { Loader2, GripVertical, Trash2, AlertTriangle, Pencil } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import {
   DragDropContext,
   Droppable,
@@ -63,6 +64,8 @@ const ManageColumnsModal = ({
   const [columnToDelete, setColumnToDelete] = useState<PipelineStatus | null>(null);
   const [cardCount, setCardCount] = useState<number>(0);
   const [checkingCards, setCheckingCards] = useState(false);
+  const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -120,6 +123,43 @@ const ManageColumnsModal = ({
       setColumns([...initialColumns].sort((a, b) => a.position - b.position));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStartEditing = (column: PipelineStatus) => {
+    setEditingColumnId(column.id);
+    setEditingName(column.name);
+  };
+
+  const handleSaveName = async (columnId: string) => {
+    const trimmed = editingName.trim();
+    if (!trimmed) {
+      toast.error("O nome da coluna não pode ser vazio");
+      return;
+    }
+    const original = columns.find((c) => c.id === columnId);
+    if (original && original.name === trimmed) {
+      setEditingColumnId(null);
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("pipeline_statuses")
+        .update({ name: trimmed })
+        .eq("id", columnId);
+      if (error) throw error;
+      setColumns((prev) =>
+        prev.map((c) => (c.id === columnId ? { ...c, name: trimmed } : c))
+      );
+      toast.success("Nome da coluna atualizado");
+      onSuccess();
+    } catch (error) {
+      console.error("Error renaming column:", error);
+      toast.error("Erro ao renomear coluna");
+    } finally {
+      setLoading(false);
+      setEditingColumnId(null);
     }
   };
 
@@ -238,9 +278,27 @@ const ManageColumnsModal = ({
                                 style={{ backgroundColor: column.color }}
                               />
 
-                              <span className="flex-1 font-medium text-sm text-foreground">
-                                {column.name}
-                              </span>
+                              {editingColumnId === column.id ? (
+                                <Input
+                                  value={editingName}
+                                  onChange={(e) => setEditingName(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleSaveName(column.id);
+                                    if (e.key === "Escape") setEditingColumnId(null);
+                                  }}
+                                  onBlur={() => handleSaveName(column.id)}
+                                  autoFocus
+                                  className="flex-1 h-8 text-sm"
+                                />
+                              ) : (
+                                <span
+                                  className="flex-1 font-medium text-sm text-foreground cursor-pointer flex items-center gap-1.5 group/name"
+                                  onClick={() => handleStartEditing(column)}
+                                >
+                                  {column.name}
+                                  <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity" />
+                                </span>
+                              )}
 
                               <span className="text-xs text-muted-foreground">
                                 #{column.position}
