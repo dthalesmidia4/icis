@@ -41,6 +41,8 @@ interface PipelineStatus {
   color: string;
   position: number;
   pipeline_id: string;
+  is_fixed?: boolean;
+  parent_status_id?: string | null;
 }
 
 interface ManageColumnsModalProps {
