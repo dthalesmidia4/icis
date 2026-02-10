@@ -443,12 +443,12 @@ export default function TaskCard({
 
             {/* Title - Centered */}
             <div className="mb-4 px-12 text-center">
-              {editingField === 'title' ? <Input autoFocus value={card.title || ""} onChange={e => onCardChange({
+              {!readOnly && editingField === 'title' ? <Input autoFocus value={card.title || ""} onChange={e => onCardChange({
               ...card,
               title: e.target.value
             })} onBlur={() => handleFieldSave('title', card.title || '')} onKeyDown={e => {
               if (e.key === 'Enter') handleFieldSave('title', card.title || '');
-            }} className="text-2xl font-semibold border-primary text-center" /> : <h1 id="task-card-title" onClick={() => setEditingField('title')} className="font-semibold cursor-pointer hover:text-primary transition-colors text-4xl">
+            }} className="text-2xl font-semibold border-primary text-center" /> : <h1 id="task-card-title" onClick={() => !readOnly && setEditingField('title')} className={cn("font-semibold text-4xl", !readOnly && "cursor-pointer hover:text-primary transition-colors")}>
                   {card.title}
                 </h1>}
             </div>
