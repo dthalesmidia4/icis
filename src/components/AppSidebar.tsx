@@ -274,10 +274,6 @@ function DesktopSidebar() {
               <User className="h-4 w-4 mr-2" />
               Editar Perfil
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
-              <LogOut className="h-4 w-4 mr-2" />
-              Sair
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarHeader>
