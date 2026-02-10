@@ -672,12 +672,16 @@ export default function TaskCard({
                   {saving && savingField === 'description' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
                 </button>
                 {!collapsedSections.atividade && (
+                  readOnly ? (
+                    <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.description || "") }} />
+                  ) : (
                   <BlockEditor content={convertToHtml(card.description || "")} onChange={value => {
                     onCardChange({
                       ...card,
                       description: value
                     });
                   }} onBlur={() => handleFieldSave('description', card.description || '')} placeholder="Copy, roteiros, frames, instruções de produção..." minHeight="200px" />
+                  )
                 )}
               </section>
 
