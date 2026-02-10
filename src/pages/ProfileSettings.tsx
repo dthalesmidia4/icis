@@ -255,7 +255,7 @@ export default function ProfileSettings() {
       </div>;
   }
   return <div className="pb-8">
-      <PageHeader title="Editar Perfil" subtitle={hasChanges ? 'Você tem alterações não salvas' : 'Todas as alterações foram salvas'} onBack={() => window.history.back()} actions={[{
+      <PageHeader title="Editar Perfil" onBack={() => window.history.back()} actions={[{
       label: isSaving ? 'Salvando...' : 'Salvar Alterações',
       onClick: handleSave,
       disabled: !hasChanges || isSaving,
