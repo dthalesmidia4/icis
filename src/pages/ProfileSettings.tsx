@@ -60,6 +60,7 @@ export default function ProfileSettings() {
   const [isUploading, setIsUploading] = useState(false);
   const [previewLogo, setPreviewLogo] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [activeSection, setActiveSection] = useState<'user' | 'agency'>('user');
 
   // Load profile name
   useEffect(() => {
@@ -215,22 +216,40 @@ export default function ProfileSettings() {
         ]}
       />
 
-      <div className="max-w-3xl mx-auto p-6 space-y-8">
+      <div className="max-w-3xl mx-auto p-6 space-y-6">
 
-        {/* ═══════════════════════════════════════════ */}
-        {/* SEÇÃO 1 — PERFIL DO USUÁRIO                */}
-        {/* ═══════════════════════════════════════════ */}
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <User className="h-5 w-5 text-primary" />
-            Perfil do Usuário
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Informações pessoais e preferências de uso
-          </p>
-        </div>
+        {/* Tab-style section switcher */}
+        {canManageAgency && (
+          <div className="flex items-center justify-center">
+            <div className="inline-flex items-center rounded-lg border bg-muted/50 p-1 gap-1">
+              <button
+                onClick={() => setActiveSection('user')}
+                className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all ${
+                  activeSection === 'user'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <User className="h-4 w-4" />
+                Perfil do Usuário
+              </button>
+              <button
+                onClick={() => setActiveSection('agency')}
+                className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all ${
+                  activeSection === 'agency'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Building2 className="h-4 w-4" />
+                Configurações da Agência
+              </button>
+            </div>
+          </div>
+        )}
 
-        <div className="space-y-6">
+        {/* USER SECTION */}
+        {activeSection === 'user' && <div className="space-y-6">
           {/* BLOCO 1: Informações Pessoais */}
           <FormSection
             title="Informações Pessoais"
@@ -402,121 +421,104 @@ export default function ProfileSettings() {
               </Button>
             </div>
           </FormSection>
-        </div>
+        </div>}
 
-        {/* ═══════════════════════════════════════════ */}
-        {/* SEÇÃO 2 — CONFIGURAÇÕES DA AGÊNCIA         */}
-        {/* (Somente AGENCY_ADMIN / SUPER_ADMIN)       */}
-        {/* ═══════════════════════════════════════════ */}
-        {canManageAgency && (
-          <>
-            <Separator className="my-2" />
+        {/* AGENCY SECTION */}
+        {canManageAgency && activeSection === 'agency' && (
+          <div className="space-y-6">
+            {/* BLOCO A: Identidade da Agência */}
+            <FormSection
+              title="Identidade da Agência"
+              icon={Building2}
+              description="Nome e logotipo que representam sua agência na plataforma."
+            >
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="companyName">Nome Público da Empresa</Label>
+                  <Input
+                    id="companyName"
+                    placeholder="Ex: Minha Agência"
+                    value={localSettings.companyName}
+                    onChange={(e) => setLocalSettings(prev => ({ ...prev, companyName: e.target.value }))}
+                    className="max-w-md"
+                  />
+                </div>
 
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-primary" />
-                Configurações da Agência
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Dados visíveis para toda a equipe e clientes da agência
-              </p>
-            </div>
-
-            <div className="space-y-6">
-              {/* BLOCO A: Identidade da Agência */}
-              <FormSection
-                title="Identidade da Agência"
-                icon={Building2}
-                description="Nome e logotipo que representam sua agência na plataforma."
-              >
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="companyName">Nome Público da Empresa</Label>
-                    <Input
-                      id="companyName"
-                      placeholder="Ex: Minha Agência"
-                      value={localSettings.companyName}
-                      onChange={(e) => setLocalSettings(prev => ({ ...prev, companyName: e.target.value }))}
-                      className="max-w-md"
-                    />
-                  </div>
-
-                  {/* Logo */}
-                  <div className="space-y-3">
-                    <Label>Logotipo da Empresa</Label>
-                    <div className="flex items-start gap-6">
-                      <div className="shrink-0">
-                        <div className="w-24 h-24 rounded-xl border-2 border-dashed border-border flex items-center justify-center bg-muted/50 overflow-hidden">
-                          {previewLogo ? (
-                            <img src={previewLogo} alt="Logo preview" className="w-full h-full object-contain" />
-                          ) : (
-                            <Building2 className="h-8 w-8 text-muted-foreground" />
-                          )}
-                        </div>
+                {/* Logo */}
+                <div className="space-y-3">
+                  <Label>Logotipo da Empresa</Label>
+                  <div className="flex items-start gap-6">
+                    <div className="shrink-0">
+                      <div className="w-24 h-24 rounded-xl border-2 border-dashed border-border flex items-center justify-center bg-muted/50 overflow-hidden">
+                        {previewLogo ? (
+                          <img src={previewLogo} alt="Logo preview" className="w-full h-full object-contain" />
+                        ) : (
+                          <Building2 className="h-8 w-8 text-muted-foreground" />
+                        )}
                       </div>
+                    </div>
 
-                      <div className="flex-1 space-y-3">
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleLogoUpload}
-                          className="hidden"
-                        />
-                        <Button
-                          variant="outline"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={isUploading}
-                          className="w-full sm:w-auto"
-                        >
-                          {isUploading ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Enviando...
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="h-4 w-4 mr-2" />
-                              Enviar Logo
-                            </>
-                          )}
-                        </Button>
-                        <p className="text-xs text-muted-foreground">
-                          Formatos: PNG, JPG, SVG, WEBP · Máx: 2MB · Recomendado: 256×256px
-                        </p>
-                      </div>
+                    <div className="flex-1 space-y-3">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleLogoUpload}
+                        className="hidden"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="w-full sm:w-auto"
+                      >
+                        {isUploading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Enviando...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4 mr-2" />
+                            Enviar Logo
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        Formatos: PNG, JPG, SVG, WEBP · Máx: 2MB · Recomendado: 256×256px
+                      </p>
                     </div>
                   </div>
                 </div>
-              </FormSection>
+              </div>
+            </FormSection>
 
-              {/* BLOCO C: Informações Administrativas */}
-              <FormSection
-                title="Informações Administrativas"
-                icon={Shield}
-                description="Dados técnicos da agência (somente leitura)."
-              >
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">ID da Agência</Label>
-                    <Input
-                      value={agencyId || tenantId || '—'}
-                      disabled
-                      className="max-w-md bg-muted/50 font-mono text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Nome Registrado</Label>
-                    <Input
-                      value={agencyName || tenantName || '—'}
-                      disabled
-                      className="max-w-md bg-muted/50"
-                    />
-                  </div>
+            {/* BLOCO C: Informações Administrativas */}
+            <FormSection
+              title="Informações Administrativas"
+              icon={Shield}
+              description="Dados técnicos da agência (somente leitura)."
+            >
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">ID da Agência</Label>
+                  <Input
+                    value={agencyId || tenantId || '—'}
+                    disabled
+                    className="max-w-md bg-muted/50 font-mono text-xs"
+                  />
                 </div>
-              </FormSection>
-            </div>
-          </>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Nome Registrado</Label>
+                  <Input
+                    value={agencyName || tenantName || '—'}
+                    disabled
+                    className="max-w-md bg-muted/50"
+                  />
+                </div>
+              </div>
+            </FormSection>
+          </div>
         )}
       </div>
     </div>
