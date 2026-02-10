@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { UserPlus, Building2, CalendarDays, LayoutGrid, Briefcase, Loader2 } from "lucide-react";
+import { UserPlus, Building2, CalendarDays, LayoutGrid, Briefcase, Loader2, ClipboardList } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useHubPermissions, type HubSectionId } from "@/hooks/useHubPermissions";
@@ -56,6 +56,14 @@ const Home = () => {
       titleColor: "text-amber-600 dark:text-amber-400",
       route: "/minha-empresa"
     }] : []),
+    {
+      id: 'clientes' as HubSectionId,
+      title: "Cadastros de Clientes",
+      icon: ClipboardList,
+      gradient: "from-rose-500 to-pink-600",
+      titleColor: "text-pink-600 dark:text-pink-400",
+      route: "/cadastros-clientes"
+    },
     {
       id: 'clientes' as HubSectionId,
       title: "Cadastrar Cliente",
