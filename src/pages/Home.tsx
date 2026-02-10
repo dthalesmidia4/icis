@@ -73,7 +73,6 @@ const Home = () => {
       route: "/scheduled"
     },
   ];
-  ];
 
   // Filtrar cards baseado nas permissões (admins veem tudo)
   const actionCards = allActionCards.filter(card => 
