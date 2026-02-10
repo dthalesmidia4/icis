@@ -7,7 +7,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Search, Plus, Edit, Trash2, Building2, Upload, X, Image, Crop } from "lucide-react";
+import { Search, Plus, Trash2, Building2, Upload, X, Image, Crop } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import BackButton from "@/components/BackButton";
