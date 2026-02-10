@@ -84,6 +84,8 @@ export interface PipelineStatus {
   color: string;
   position: number;
   pipeline_id: string;
+  is_fixed?: boolean;
+  parent_status_id?: string | null;
 }
 
 interface TaskCardProps {
@@ -100,6 +102,7 @@ interface TaskCardProps {
   savingField?: string | null;
   uploading?: boolean;
   pipelineStatuses?: PipelineStatus[]; // Dynamic statuses from database
+  readOnly?: boolean;
 }
 const isImageFile = (type: string) => type.startsWith('image/');
 const formatFileSize = (bytes: number) => {
