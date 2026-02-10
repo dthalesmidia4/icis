@@ -64,6 +64,8 @@ const ManageColumnsModal = ({
   const [columnToDelete, setColumnToDelete] = useState<PipelineStatus | null>(null);
   const [cardCount, setCardCount] = useState<number>(0);
   const [checkingCards, setCheckingCards] = useState(false);
+  const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
 
   useEffect(() => {
     if (open) {
