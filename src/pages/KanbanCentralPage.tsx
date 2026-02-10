@@ -254,7 +254,8 @@ const KanbanCentralPage = () => {
 
         if (period?.operational_status === 'concluido') {
           archived.push(mappedCard);
-        } else if (period?.operational_status === 'em_andamento') {
+        } else {
+          // Include demands without a period plan (manual) and those with em_andamento
           activeCards.push(mappedCard);
         }
       });
