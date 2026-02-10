@@ -33,6 +33,22 @@ const CreateColumnModal = ({
   const [name, setName] = useState("");
   const [selectedColor, setSelectedColor] = useState("#8b5cf6");
   const [loading, setLoading] = useState(false);
+  const [producaoStatusId, setProducaoStatusId] = useState<string | null>(null);
+
+  // Fetch Produção status ID when modal opens
+  useEffect(() => {
+    if (open && pipelineId) {
+      supabase
+        .from("pipeline_statuses")
+        .select("id")
+        .eq("pipeline_id", pipelineId)
+        .eq("name", "Produção")
+        .maybeSingle()
+        .then(({ data }) => {
+          setProducaoStatusId(data?.id || null);
+        });
+    }
+  }, [open, pipelineId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +81,8 @@ const CreateColumnModal = ({
           is_initial: false,
           is_final: false,
           requires_fields: [],
+          is_fixed: false,
+          parent_status_id: producaoStatusId,
         });
 
       if (error) throw error;

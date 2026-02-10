@@ -727,19 +727,28 @@ const KanbanCentralPage = () => {
                     )}
                   >
                     {/* Column Header */}
-                    <div className="px-3 py-3 flex items-center justify-between border-b border-border/30">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="h-3 w-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: column.color }}
-                        />
-                        <span className="text-sm font-semibold text-foreground">
-                          {column.name}
-                        </span>
-                        <Badge variant="secondary" className="text-xs">
-                          {columnCards.length}
-                        </Badge>
+                    <div className="px-3 py-3 flex flex-col border-b border-border/30">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="h-3 w-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: column.color }}
+                          />
+                          <span className="text-sm font-semibold text-foreground">
+                            {column.name}
+                          </span>
+                          <Badge variant="secondary" className="text-xs">
+                            {columnCards.length}
+                          </Badge>
+                        </div>
                       </div>
+                      {column.parent_status_id && (
+                        <div className="mt-1 ml-5">
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium text-amber-600 border-amber-500/30 bg-amber-500/10">
+                            Em Produção
+                          </Badge>
+                        </div>
+                      )}
                     </div>
 
                     {/* Column Content */}

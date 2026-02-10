@@ -696,12 +696,16 @@ export default function TaskCard({
                   {saving && savingField === 'observations' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
                 </button>
                 {!collapsedSections.observacoes && (
+                  readOnly ? (
+                    <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.observations || "") }} />
+                  ) : (
                   <BlockEditor content={convertToHtml(card.observations || "")} onChange={value => {
                     onCardChange({
                       ...card,
                       observations: value
                     });
                   }} onBlur={() => handleFieldSave('observations', card.observations || '')} placeholder="Feedbacks, ajustes, observações internas..." minHeight="100px" />
+                  )
                 )}
               </section>
 

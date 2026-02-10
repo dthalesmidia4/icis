@@ -313,6 +313,7 @@ const ManageColumnsModal = ({
                                 #{column.position}
                               </span>
 
+                              {!column.is_fixed && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -326,6 +327,7 @@ const ManageColumnsModal = ({
                                   <Trash2 className="h-4 w-4" />
                                 )}
                               </Button>
+                              )}
                             </div>
                           );
 
