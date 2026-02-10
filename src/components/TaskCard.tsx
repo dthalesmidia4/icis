@@ -84,6 +84,8 @@ export interface PipelineStatus {
   color: string;
   position: number;
   pipeline_id: string;
+  is_fixed?: boolean;
+  parent_status_id?: string | null;
 }
 
 interface TaskCardProps {
@@ -100,6 +102,7 @@ interface TaskCardProps {
   savingField?: string | null;
   uploading?: boolean;
   pipelineStatuses?: PipelineStatus[]; // Dynamic statuses from database
+  readOnly?: boolean;
 }
 const isImageFile = (type: string) => type.startsWith('image/');
 const formatFileSize = (bytes: number) => {
@@ -262,7 +265,8 @@ export default function TaskCard({
   saving = false,
   savingField = null,
   uploading = false,
-  pipelineStatuses = []
+  pipelineStatuses = [],
+  readOnly = false
 }: TaskCardProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -439,12 +443,12 @@ export default function TaskCard({
 
             {/* Title - Centered */}
             <div className="mb-4 px-12 text-center">
-              {editingField === 'title' ? <Input autoFocus value={card.title || ""} onChange={e => onCardChange({
+              {!readOnly && editingField === 'title' ? <Input autoFocus value={card.title || ""} onChange={e => onCardChange({
               ...card,
               title: e.target.value
             })} onBlur={() => handleFieldSave('title', card.title || '')} onKeyDown={e => {
               if (e.key === 'Enter') handleFieldSave('title', card.title || '');
-            }} className="text-2xl font-semibold border-primary text-center" /> : <h1 id="task-card-title" onClick={() => setEditingField('title')} className="font-semibold cursor-pointer hover:text-primary transition-colors text-4xl">
+            }} className="text-2xl font-semibold border-primary text-center" /> : <h1 id="task-card-title" onClick={() => !readOnly && setEditingField('title')} className={cn("font-semibold text-4xl", !readOnly && "cursor-pointer hover:text-primary transition-colors")}>
                   {card.title}
                 </h1>}
             </div>
@@ -454,6 +458,19 @@ export default function TaskCard({
               {/* Status - ClickUp inspired */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</span>
+                {readOnly ? (
+                  <div 
+                    className="h-9 px-3 flex items-center gap-2 rounded-md border font-medium text-xs"
+                    style={{
+                      backgroundColor: `${statusConfig.color}15`,
+                      color: statusConfig.color,
+                      borderColor: `${statusConfig.color}40`
+                    }}
+                  >
+                    <span className="h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: statusConfig.color }} />
+                    <span>{statusConfig.label}</span>
+                  </div>
+                ) : (
                 <Select value={card.status || normalizedStatus} onValueChange={async (value) => {
                   // Validação: exigir data de publicação para mover para "Agendar Publicação"
                   if (value === "Agendar Publicação") {
@@ -533,6 +550,7 @@ export default function TaskCard({
                     </ScrollArea>
                   </SelectContent>
                 </Select>
+                )}
               </div>
 
 
@@ -541,6 +559,19 @@ export default function TaskCard({
               {/* Data de Publicação (single date + time) */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Publicação</span>
+                {readOnly ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-7 px-2 flex items-center gap-1.5 text-xs border rounded-md bg-muted/30">
+                      <CalendarIcon className="h-3 w-3" />
+                      {card.publish_date ? formatShortDate(card.publish_date) : <span className="text-muted-foreground">Sem data</span>}
+                    </span>
+                    {card.publish_time && (
+                      <span className="h-7 px-2 flex items-center text-xs border rounded-md bg-muted/30">
+                        {card.publish_time}
+                      </span>
+                    )}
+                  </div>
+                ) : (
                 <TooltipProvider delayDuration={200}>
                   <div className="flex items-center gap-1.5">
                     {/* Date Picker */}
@@ -588,14 +619,19 @@ export default function TaskCard({
                     />
                   </div>
                 </TooltipProvider>
+                )}
               </div>
 
+              {!readOnly && (
+              <>
               <div className="h-4 w-px bg-border" />
 
               {/* Delete button */}
               <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={onDelete} aria-label="Excluir tarefa">
                 <Trash2 className="h-4 w-4" />
               </Button>
+              </>
+              )}
             </div>
           </div>
 
@@ -622,12 +658,16 @@ export default function TaskCard({
                   {saving && savingField === 'objective' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
                 </button>
                 {!collapsedSections.objetivo && (
+                  readOnly ? (
+                    <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.objective || "") }} />
+                  ) : (
                   <BlockEditor content={convertToHtml(card.objective || "")} onChange={value => {
                     onCardChange({
                       ...card,
                       objective: value
                     });
                   }} onBlur={() => handleFieldSave('objective', card.objective || '')} placeholder="Qual é a finalidade estratégica deste material?" minHeight="80px" />
+                  )
                 )}
               </section>
 
@@ -650,12 +690,16 @@ export default function TaskCard({
                   {saving && savingField === 'description' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
                 </button>
                 {!collapsedSections.atividade && (
+                  readOnly ? (
+                    <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.description || "") }} />
+                  ) : (
                   <BlockEditor content={convertToHtml(card.description || "")} onChange={value => {
                     onCardChange({
                       ...card,
                       description: value
                     });
                   }} onBlur={() => handleFieldSave('description', card.description || '')} placeholder="Copy, roteiros, frames, instruções de produção..." minHeight="200px" />
+                  )
                 )}
               </section>
 
@@ -678,12 +722,16 @@ export default function TaskCard({
                   {saving && savingField === 'observations' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
                 </button>
                 {!collapsedSections.observacoes && (
+                  readOnly ? (
+                    <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.observations || "") }} />
+                  ) : (
                   <BlockEditor content={convertToHtml(card.observations || "")} onChange={value => {
                     onCardChange({
                       ...card,
                       observations: value
                     });
                   }} onBlur={() => handleFieldSave('observations', card.observations || '')} placeholder="Feedbacks, ajustes, observações internas..." minHeight="100px" />
+                  )
                 )}
               </section>
 
@@ -763,6 +811,7 @@ export default function TaskCard({
                                       </div>
 
                                       {/* Remove button */}
+                                      {!readOnly && (
                                       <Button 
                                         variant="ghost" 
                                         size="icon" 
@@ -771,6 +820,7 @@ export default function TaskCard({
                                       >
                                         <X className="h-4 w-4" />
                                       </Button>
+                                      )}
                                     </div>
                                   )}
                                 </Draggable>
@@ -783,6 +833,7 @@ export default function TaskCard({
                     )}
 
                     {/* Upload Button */}
+                    {!readOnly && (
                     <label className={cn(
                       "flex items-center gap-2 px-4 py-3 border-2 border-dashed border-border/60 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all",
                       uploading && "opacity-50 cursor-not-allowed"
@@ -803,6 +854,7 @@ export default function TaskCard({
                         {uploading ? 'Fazendo upload...' : 'Clique para anexar arquivos (máx. 50MB)'}
                       </span>
                     </label>
+                    )}
                   </>
                 )}
               </section>

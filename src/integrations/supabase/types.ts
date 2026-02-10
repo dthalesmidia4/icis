@@ -654,8 +654,10 @@ export type Database = {
           created_at: string
           id: string
           is_final: boolean
+          is_fixed: boolean
           is_initial: boolean
           name: string
+          parent_status_id: string | null
           pipeline_id: string
           position: number
           requires_fields: Json
@@ -666,8 +668,10 @@ export type Database = {
           created_at?: string
           id?: string
           is_final?: boolean
+          is_fixed?: boolean
           is_initial?: boolean
           name: string
+          parent_status_id?: string | null
           pipeline_id: string
           position?: number
           requires_fields?: Json
@@ -678,14 +682,23 @@ export type Database = {
           created_at?: string
           id?: string
           is_final?: boolean
+          is_fixed?: boolean
           is_initial?: boolean
           name?: string
+          parent_status_id?: string | null
           pipeline_id?: string
           position?: number
           requires_fields?: Json
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pipeline_statuses_parent_status_id_fkey"
+            columns: ["parent_status_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_statuses"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pipeline_statuses_pipeline_id_fkey"
             columns: ["pipeline_id"]

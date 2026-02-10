@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, GripVertical, Trash2, AlertTriangle, Pencil } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   DragDropContext,
@@ -41,6 +42,8 @@ interface PipelineStatus {
   color: string;
   position: number;
   pipeline_id: string;
+  is_fixed?: boolean;
+  parent_status_id?: string | null;
 }
 
 interface ManageColumnsModalProps {
@@ -292,11 +295,18 @@ const ManageColumnsModal = ({
                                 />
                               ) : (
                                 <span
-                                  className="flex-1 font-medium text-sm text-foreground cursor-pointer flex items-center gap-1.5 group/name"
-                                  onClick={() => handleStartEditing(column)}
+                                  className={cn(
+                                    "flex-1 font-medium text-sm text-foreground flex items-center gap-1.5 group/name",
+                                    !column.is_fixed && "cursor-pointer"
+                                  )}
+                                  onClick={() => !column.is_fixed && handleStartEditing(column)}
                                 >
                                   {column.name}
-                                  <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity" />
+                                  {column.is_fixed ? (
+                                    <span className="text-muted-foreground text-xs ml-1">🔒</span>
+                                  ) : (
+                                    <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity" />
+                                  )}
                                 </span>
                               )}
 
@@ -304,6 +314,7 @@ const ManageColumnsModal = ({
                                 #{column.position}
                               </span>
 
+                              {!column.is_fixed && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -317,6 +328,7 @@ const ManageColumnsModal = ({
                                   <Trash2 className="h-4 w-4" />
                                 )}
                               </Button>
+                              )}
                             </div>
                           );
 
