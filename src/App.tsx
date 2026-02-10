@@ -34,6 +34,7 @@ import CompanyProfile from "./pages/CompanyProfile";
 import TeamMembers from "./pages/TeamMembers";
 import InviteMember from "./pages/InviteMember";
 import RemoveMember from "./pages/RemoveMember";
+import ClientRegistrations from "./pages/ClientRegistrations";
 
 import NotFound from "./pages/NotFound";
 
