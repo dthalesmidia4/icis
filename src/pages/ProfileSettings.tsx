@@ -231,7 +231,7 @@ export default function ProfileSettings() {
                 }`}
               >
                 <User className="h-4 w-4" />
-                Perfil do Usuário
+                Usuário
               </button>
               <button
                 onClick={() => setActiveSection('agency')}
@@ -242,7 +242,7 @@ export default function ProfileSettings() {
                 }`}
               >
                 <Building2 className="h-4 w-4" />
-                Configurações da Agência
+                Agência
               </button>
             </div>
           </div>
