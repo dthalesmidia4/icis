@@ -359,7 +359,7 @@ const ClientDetails = () => {
               <Button 
                 variant="ghost" 
                 size="icon"
-                onClick={() => navigate("/clientes")}
+                onClick={() => navigate("/cadastros-clientes")}
                 aria-label="Voltar para lista de clientes"
               >
                 <ArrowLeft className="h-5 w-5" />
