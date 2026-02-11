@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { UserPlus, Building2, CalendarDays, LayoutGrid, Briefcase, Loader2, ClipboardList, FileText } from "lucide-react";
+import { UserPlus, Building2, CalendarDays, LayoutGrid, Briefcase, Loader2, ClipboardList, FileText, Lightbulb } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useHubPermissions, type HubSectionId } from "@/hooks/useHubPermissions";
@@ -59,6 +59,12 @@ const Home = () => {
       title: "Perguntas Guias",
       icon: FileText,
       route: "/guide"
+    },
+    {
+      id: 'clientes' as HubSectionId,
+      title: "Estratégias",
+      icon: Lightbulb,
+      route: "/strategies"
     },
     {
       id: 'schedule' as HubSectionId,
