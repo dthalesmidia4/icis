@@ -12,7 +12,8 @@ import {
   Archive,
   Search,
   Plus,
-  Settings2
+  Settings2,
+  CalendarDays
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
@@ -58,6 +59,16 @@ const KanbanCentralPage = () => {
   const [savingField, setSavingField] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>("all");
+  const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<string>("active");
+  const [periods, setPeriods] = useState<Array<{
+    id: string;
+    period_title: string;
+    operational_status: string;
+    period_start: string;
+    period_end: string;
+    company_id: string;
+    companyName?: string;
+  }>>([]);
   const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   
@@ -90,11 +101,19 @@ const KanbanCentralPage = () => {
     }));
   }, [cards]);
 
-  // Filtrar cards por cliente (apenas os ativos - em_andamento)
+  // Filtrar cards por cliente e período
   const filteredCards = useMemo(() => {
-    if (selectedClientFilter === "all") return cards;
-    return cards.filter(card => card.clientId === selectedClientFilter);
-  }, [cards, selectedClientFilter]);
+    // When "all" periods selected, show both active and archived
+    let baseCards = selectedPeriodFilter === "all" ? [...cards, ...archivedCards] : cards;
+    
+    if (selectedClientFilter !== "all") {
+      baseCards = baseCards.filter(card => card.clientId === selectedClientFilter);
+    }
+    if (selectedPeriodFilter !== "active" && selectedPeriodFilter !== "all") {
+      baseCards = baseCards.filter(card => card.periodPlanId === selectedPeriodFilter);
+    }
+    return baseCards;
+  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter]);
 
   // Todos os cards para busca (incluindo arquivados)
   const allSearchableCards = useMemo(() => {
@@ -156,6 +175,7 @@ const KanbanCentralPage = () => {
     if (!tenantLoading && tenantId) {
       fetchColumns();
       fetchAllCards();
+      fetchPeriods();
     }
   }, [tenantId, tenantLoading]);
 
@@ -186,6 +206,42 @@ const KanbanCentralPage = () => {
       }
     } catch (error) {
       console.error("Error fetching columns:", error);
+    }
+  };
+
+  const fetchPeriods = async () => {
+    if (!tenantId) return;
+    try {
+      const { data, error } = await supabase
+        .from("period_plans")
+        .select(`
+          id,
+          period_title,
+          operational_status,
+          period_start,
+          period_end,
+          company_id,
+          tenant_companies!period_plans_company_id_fkey (
+            fantasy_name,
+            name
+          )
+        `)
+        .eq("tenant_id", tenantId)
+        .order("period_start", { ascending: false });
+
+      if (error) throw error;
+
+      setPeriods((data || []).map((p: any) => ({
+        id: p.id,
+        period_title: p.period_title,
+        operational_status: p.operational_status,
+        period_start: p.period_start,
+        period_end: p.period_end,
+        company_id: p.company_id,
+        companyName: p.tenant_companies?.fantasy_name || p.tenant_companies?.name || ""
+      })));
+    } catch (error) {
+      console.error("Error fetching periods:", error);
     }
   };
 
@@ -252,9 +308,12 @@ const KanbanCentralPage = () => {
           demand_type: demand.demand_type
         };
 
+        // Cards without period (manual) or with active period → active
+        // Cards with completed period → archived
         if (period?.operational_status === 'concluido') {
           archived.push(mappedCard);
-        } else if (period?.operational_status === 'em_andamento') {
+        } else {
+          // em_andamento, or no period (manual demands)
           activeCards.push(mappedCard);
         }
       });
@@ -701,6 +760,45 @@ const KanbanCentralPage = () => {
                     {client.name}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {periods.length > 0 && (
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            <Select value={selectedPeriodFilter} onValueChange={setSelectedPeriodFilter}>
+              <SelectTrigger className="w-[280px]" aria-label="Filtrar por período">
+                <SelectValue placeholder="Filtrar por período" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">
+                  <span className="flex items-center gap-2">
+                    Períodos ativos
+                  </span>
+                </SelectItem>
+                <SelectItem value="all">Todos os períodos</SelectItem>
+                {periods.map(period => {
+                  const statusConfig: Record<string, { label: string; className: string }> = {
+                    em_andamento: { label: "Em andamento", className: "bg-blue-500/10 text-blue-600 border-blue-500/30" },
+                    concluido: { label: "Concluído", className: "bg-green-500/10 text-green-600 border-green-500/30" },
+                    pausado: { label: "Pausado", className: "bg-amber-500/10 text-amber-600 border-amber-500/30" },
+                  };
+                  const status = statusConfig[period.operational_status] || { label: period.operational_status, className: "bg-muted text-muted-foreground" };
+                  return (
+                    <SelectItem key={period.id} value={period.id}>
+                      <span className="flex items-center gap-2">
+                        <span className="truncate max-w-[140px]">
+                          {period.companyName ? `${period.companyName} – ` : ""}{period.period_title}
+                        </span>
+                        <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 font-medium shrink-0", status.className)}>
+                          {status.label}
+                        </Badge>
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
