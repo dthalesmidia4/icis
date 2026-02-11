@@ -37,13 +37,6 @@ const Home = () => {
       route: "/cadastros-clientes"
     },
     {
-      id: 'clientes' as HubSectionId,
-      title: "Gerenciar (Legado)",
-      icon: Building2,
-      route: "/clientes",
-      adminOnly: true
-    },
-    {
       id: 'kanban' as HubSectionId,
       title: "Kanban Central",
       icon: LayoutGrid,
@@ -78,6 +71,13 @@ const Home = () => {
       title: "Agendamento de Conteúdos",
       icon: CalendarDays,
       route: "/scheduled"
+    },
+    {
+      id: 'clientes' as HubSectionId,
+      title: "Gerenciar (Legado)",
+      icon: Building2,
+      route: "/clientes",
+      adminOnly: true
     },
   ];
 
