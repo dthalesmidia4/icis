@@ -201,7 +201,6 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
           { role: 'user', content: context }
         ],
         max_completion_tokens: 32000,
-        reasoning: { effort: 'low' },
         response_format: { type: 'json_object' },
       }),
     });
