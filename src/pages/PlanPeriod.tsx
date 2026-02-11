@@ -89,8 +89,6 @@ const PlanPeriod = () => {
   const [excludedFormats, setExcludedFormats] = useState<string[]>([]);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   
-  const [paidTrafficBudget, setPaidTrafficBudget] = useState("");
-  const [budgetCurrency, setBudgetCurrency] = useState<'BRL' | 'USD'>('BRL');
   
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
@@ -293,7 +291,7 @@ const PlanPeriod = () => {
         priority_channel: priorityChannel,
         observations: fullObservations,
         client_acquisition: null,
-        paid_traffic_budget: paidTrafficBudget ? `${budgetCurrency === 'BRL' ? 'R$' : '$'} ${paidTrafficBudget}` : null,
+        paid_traffic_budget: null,
         status: 'draft'
       }).select().single();
       if (createError) throw createError;
@@ -669,40 +667,6 @@ const PlanPeriod = () => {
               </div>
             </div>
 
-
-            {/* Paid Traffic Budget */}
-            <div className="space-y-2">
-              <Label htmlFor="paidTrafficBudget" className="text-sm">Orçamento para campanhas (opcional)</Label>
-              
-              <div className="flex gap-2">
-                <Select value={budgetCurrency} onValueChange={(value: 'BRL' | 'USD') => setBudgetCurrency(value)}>
-                  <SelectTrigger className="w-[100px]" aria-label="Selecionar moeda">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    <SelectItem value="BRL">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">R$</span>
-                        <span className="text-muted-foreground text-xs">Reais</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="USD">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">$</span>
-                        <span className="text-muted-foreground text-xs">Dólar</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input id="paidTrafficBudget" placeholder={budgetCurrency === 'BRL' ? "Ex: 2.000,00" : "Ex: 500.00"} value={paidTrafficBudget} onChange={e => {
-                const value = e.target.value.replace(/[^0-9.,]/g, '');
-                setPaidTrafficBudget(value);
-              }} className="flex-1" />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {budgetCurrency === 'BRL' ? '💵 Moeda selecionada: Real Brasileiro (BRL)' : '💵 Moeda selecionada: Dólar Americano (USD)'}
-              </p>
-            </div>
           </div>
         </Card>
 
