@@ -65,25 +65,21 @@ const ClientHub = () => {
   const actionCards = [{
     title: "Perguntas Guias",
     icon: FileText,
-    gradient: "from-blue-400 to-cyan-500",
     route: "/client-guide",
     action: () => navigate("/client-guide")
   }, {
     title: "Estratégia Geral",
     icon: Lightbulb,
-    gradient: "from-yellow-400 to-orange-500",
     route: "/strategies",
     action: () => navigate("/strategies")
   }, {
     title: "Períodos",
     icon: Sparkles,
-    gradient: "from-violet-400 to-fuchsia-500",
     route: "/plan-period",
     action: () => navigate("/plan-period")
   }, {
     title: loadingDemandas ? "Carregando..." : "Demandas",
     icon: ListTodo,
-    gradient: "from-green-400 to-emerald-500",
     route: "/schedule",
     action: handleDemandasClick
   }];
@@ -115,14 +111,14 @@ const ClientHub = () => {
               className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]" 
               onClick={card.action}
             >
-              <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-5 group-hover:opacity-10 transition-opacity`} />
+              <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
               
               <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
-                <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br ${card.gradient} flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                  <card.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <card.icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
                 </div>
                 
-                <h3 className={`text-base sm:text-xl font-bold transition-colors ${index === 0 ? 'text-cyan-600 dark:text-cyan-400' : index === 1 ? 'text-orange-600 dark:text-orange-400' : index === 2 ? 'text-fuchsia-600 dark:text-fuchsia-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                <h3 className="text-base sm:text-xl font-bold transition-colors text-primary">
                   {card.title}
                 </h3>
               </div>
