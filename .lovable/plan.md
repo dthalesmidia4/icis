@@ -1,33 +1,56 @@
 
 
-# Preservar "Gerenciar Clientes" apenas para Admins
+# Remover rota /schedule e redirecionar para Kanban Central
 
-## Objetivo
-Manter o fluxo legado de "Gerenciar Clientes" (lista de clientes -> Hub do Cliente -> sub-páginas) funcional, mas restrito apenas a administradores. Usuários comuns e gestores usarao os novos fluxos diretos (Cadastros, Guias, Estrategias, Periodos).
+## Contexto
+
+A rota `/schedule` e uma visualizacao read-only de demandas por cliente/periodo, separada do Kanban Central (`/kanban-central`). O Kanban Central ja possui filtro por cliente e todas as funcionalidades de gestao. O objetivo e eliminar `/schedule` e redirecionar tudo para o Kanban Central.
 
 ## Mudancas
 
-### 1. Home - Esconder o card para nao-admins
-No arquivo `src/pages/Home.tsx`, adicionar uma flag `adminOnly: true` ao card "Gerenciar Clientes" e filtrar na renderizacao para que apenas `super_admin` e `agency_admin` vejam esse card.
+### 1. Redirecionar navegacoes de /schedule para /kanban-central
 
-### 2. Rotas - Restringir acesso
-No `src/App.tsx`, ajustar as rotas `/clientes`, `/clientes/:id` e `/client-hub` para permitir apenas `agency_admin` (removendo `agency_manager` onde aplicavel):
-- `/clientes` - de `['agency_admin', 'agency_manager']` para `['agency_admin']`
-- `/clientes/:id` - de `['agency_admin', 'agency_manager']` para `['agency_admin']`
-- `/client-hub` - adicionar `RequireRole` com `['agency_admin']`
+**`src/pages/PlanPeriod.tsx`** - 3 locais onde navega para `/schedule?periodPlanId=...`:
+- Apos confirmar planejamento (linha ~475): redirecionar para `/kanban-central`
+- Botao "Ver Demandas" (linha ~971): redirecionar para `/kanban-central`
+- Botao "Ver no Kanban" no historico (linha ~1165): redirecionar para `/kanban-central`
+- Nota: o `periodPlanId` nao sera mais passado como query param, pois o Kanban Central ja mostra todas as demandas e tem filtro por cliente
 
-### 3. ClientHub - Padronizar cores
-Aproveitar para atualizar os cards do ClientHub para usar `bg-primary` em vez de gradientes hardcoded, mantendo consistencia visual com o resto do app.
+### 2. Atualizar ClientHub
 
-## Detalhes tecnicos
+**`src/pages/ClientHub.tsx`**:
+- O card "Demandas" (linha ~82) aponta para `/schedule` - redirecionar para `/kanban-central`
+- A funcao `handleDemandasClick` (linha ~49) navega para `/schedule` com state - simplificar para navegar para `/kanban-central`
 
-**Arquivos modificados:**
-- `src/pages/Home.tsx` - Adicionar propriedade `adminOnly` ao card e logica de filtragem
-- `src/App.tsx` - Ajustar `RequireRole` nas 3 rotas
-- `src/pages/ClientHub.tsx` - Atualizar estilos para usar cores do tema
+### 3. Remover a rota /schedule
 
-**Impacto:**
-- Gestores (`agency_manager`) perdem acesso ao fluxo legado mas continuam usando os novos fluxos diretos
-- Super admins e agency admins mantem acesso total
+**`src/App.tsx`**:
+- Remover a rota `/schedule` (linhas 128-136)
+- Remover o import de `Schedule` (linha 27)
+
+### 4. Atualizar sidebar
+
+**`src/components/AppSidebar.tsx`**:
+- Mudar o item "Demandas" de `/schedule` para `/kanban-central` (linha 62)
+
+### 5. Atualizar breadcrumbs
+
+**`src/hooks/useBreadcrumb.tsx`**:
+- Remover a entrada `/schedule` (linha ~72)
+
+### 6. Limpar main.tsx
+
+**`src/main.tsx`**:
+- Remover o fix de URL encoded para `/schedule%3F` (linhas ~5-7 e logica associada)
+
+### 7. Excluir arquivo
+
+**`src/pages/Schedule.tsx`** - pode ser deletado, pois nao sera mais utilizado
+
+## Impacto
+
+- Todas as demandas passam a ser gerenciadas exclusivamente pelo Kanban Central
+- O filtro por cliente ja existente no Kanban Central substitui a filtragem por periodo que existia no `/schedule`
 - Nenhuma mudanca no banco de dados
+- O `/scheduled` (Agendamento de Conteudos) permanece intacto
 
