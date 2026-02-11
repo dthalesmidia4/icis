@@ -36,6 +36,7 @@ import InviteMember from "./pages/InviteMember";
 import RemoveMember from "./pages/RemoveMember";
 import ClientRegistrations from "./pages/ClientRegistrations";
 import GuideClientList from "./pages/GuideClientList";
+import StrategyClientList from "./pages/StrategyClientList";
 
 import NotFound from "./pages/NotFound";
 
@@ -165,6 +166,17 @@ function AppRoutes() {
             <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
               <Layout>
                 <ClientDetails />
+              </Layout>
+            </RequireRole>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/strategy-clients" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <RequireRole allowedRoles={['agency_admin']}>
+              <Layout>
+                <StrategyClientList />
               </Layout>
             </RequireRole>
           </RequireTenant>
