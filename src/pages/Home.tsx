@@ -70,7 +70,7 @@ const Home = () => {
       id: 'schedule' as HubSectionId,
       title: "Demandas",
       icon: ClipboardList,
-      route: "/scheduled"
+      route: "/schedule"
     },
     {
       id: 'clientes' as HubSectionId,
