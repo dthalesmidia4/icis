@@ -133,7 +133,7 @@ export default function StrategyCreation() {
   };
 
   const handleBack = () => {
-    navigate('/client-hub');
+    navigate('/strategy-clients');
   };
 
   const handleDeleteStrategy = async () => {
@@ -152,7 +152,7 @@ export default function StrategyCreation() {
       setStrategyText('');
       setExistingStrategy(null);
       setIsEditMode(false);
-      navigate('/client-hub');
+      navigate('/strategy-clients');
     } catch (error) {
       console.error('Erro ao remover estratégia:', error);
       toast.error('Erro ao remover estratégia. Tente novamente.');

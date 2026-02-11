@@ -64,7 +64,7 @@ const Home = () => {
       id: 'clientes' as HubSectionId,
       title: "Estratégias",
       icon: Lightbulb,
-      route: "/strategies"
+      route: "/strategy-clients"
     },
     {
       id: 'schedule' as HubSectionId,
