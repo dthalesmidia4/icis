@@ -28,10 +28,18 @@ import { cn } from "@/lib/utils";
 
 interface PlanItem {
   titulo: string;
-  descricao: string;
-  tipo_conteudo: string;
   canal: string;
-  data_sugerida: string;
+  data_sugerida?: string;
+  // Campos reais retornados pela IA
+  tipo?: string;
+  objetivo?: string;
+  conteudo?: string;
+  instrucoes_de_producao?: string;
+  cta_recomendado?: string;
+  contexto_sazonal?: string;
+  // Campos legados (retrocompatibilidade)
+  descricao?: string;
+  tipo_conteudo?: string;
 }
 
 interface PeriodPlanHistory {
@@ -196,19 +204,33 @@ const PlanPeriod = () => {
     }
   };
 
-  // Generate a single plan type and poll for its completion
+  // Generate a single plan type - use direct response, polling as fallback
   const generateSinglePlan = async (planId: string, planType: 'default' | 'ultra'): Promise<{ success: boolean; plan?: any[]; error?: string }> => {
     try {
-      const { error } = await supabase.functions.invoke('generate-period-plans', {
+      const { data, error } = await supabase.functions.invoke('generate-period-plans', {
         body: { periodPlanId: planId, tenantId, planType }
       });
-      if (error) console.error(`Edge function error (${planType}):`, error);
+      
+      console.log(`[PlanPeriod] Edge function response (${planType}):`, { data, error });
+
+      // Use direct response if available
+      if (!error && data?.success && data?.plan && Array.isArray(data.plan) && data.plan.length > 0) {
+        console.log(`[PlanPeriod] Direct response: ${data.plan.length} demands for ${planType}`);
+        return { success: true, plan: data.plan };
+      }
+
+      if (error) {
+        console.error(`[PlanPeriod] Edge function error (${planType}):`, error);
+      }
     } catch (err) {
-      console.error(`Edge function invocation failed (${planType}):`, err);
+      console.error(`[PlanPeriod] Edge function invocation failed (${planType}):`, err);
     }
 
+    // Fallback: polling
+    console.warn('[PlanPeriod] Direct response failed, falling back to polling');
     const fieldName = planType === 'default' ? 'default_plan' : 'ultra_plan';
     for (let attempt = 0; attempt < 40; attempt++) {
+      setPollingProgress(Math.min(10 + attempt * 2, 90));
       await new Promise(resolve => setTimeout(resolve, 4000));
       const { data, error } = await supabase
         .from('period_plans')
@@ -223,6 +245,7 @@ const PlanPeriod = () => {
 
       const planData = (data as any)[fieldName];
       if (planData && Array.isArray(planData) && planData.length > 0) {
+        console.log(`[PlanPeriod] Polling success: ${planData.length} demands for ${planType}`);
         return { success: true, plan: planData };
       }
     }
