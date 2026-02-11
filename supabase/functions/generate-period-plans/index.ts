@@ -250,41 +250,19 @@ ${recentTitles}
     const apiKeyData = apiKeyDataResult as any;
     console.log('OpenAI API key found');
 
-    // Build comprehensive context with ADAPTIVE DATA
-    const context = `
-## DADOS DA EMPRESA
-- Razão Social: ${company.name}
-- Nome Fantasia: ${company.fantasy_name || 'Não informado'}
-- Setor: ${company.sector}
-- Tamanho: ${company.size}
-- Produtos/Serviços: ${company.products_services}
-- Email: ${company.email}
-- Telefone: ${company.phone}
-
-## ESTRATÉGIA GLOBAL
-${strategyText || 'Estratégia não definida ainda.'}
-
-## CONTEXTO DAS PERGUNTAS GUIAS
-${questionsContext || 'Nenhuma pergunta respondida.'}
-
-## INFORMAÇÕES ESTRATÉGICAS DO PERÍODO
-- Como a empresa atrai clientes: ${periodPlan.client_acquisition || 'Não informado'}
-- Investimento em tráfego pago: ${periodPlan.paid_traffic_budget || 'Não especificado'}
-
-## PERÍODO SELECIONADO
-- Título: ${periodPlan.period_title}
-- Data Início: ${periodPlan.period_start}
-- Data Fim: ${periodPlan.period_end}
-- Orçamento: ${periodPlan.budget || 'Não especificado'}
-- Objetivo: ${periodPlan.objective}
-
-⚠️ CANAL PRIORITÁRIO (OBRIGATÓRIO PARA TODAS AS DEMANDAS): ${periodPlan.priority_channel}
-ATENÇÃO: Todas as demandas devem ser EXCLUSIVAMENTE para "${periodPlan.priority_channel}". NÃO gere demandas para nenhum outro canal.
-
-- Observações/Restrições do Período: ${periodPlan.observations || 'Nenhuma'}
-
-${calendarContext}${successPatternsContext}${topDemandTypesContext}${avoidPatternsContext}${recentIdeasContext}
-`;
+    // Build COMPACT context to avoid worker limits
+    const strategySnippet = strategyText ? strategyText.substring(0, 800) : '';
+    const questionsSnippet = questionsContext ? questionsContext.substring(0, 600) : '';
+    
+    const context = `Empresa: ${company.name} (${company.fantasy_name || ''}) | Setor: ${company.sector} | Porte: ${company.size}
+Produtos: ${company.products_services}
+Estratégia: ${strategySnippet || 'Não definida'}
+${questionsSnippet ? `Perguntas Guia: ${questionsSnippet}` : ''}
+Período: ${periodPlan.period_title} (${periodPlan.period_start} a ${periodPlan.period_end})
+Objetivo: ${periodPlan.objective}
+Canal OBRIGATÓRIO: ${periodPlan.priority_channel}
+Observações: ${periodPlan.observations || 'Nenhuma'}
+${calendarContext}${successPatternsContext}${avoidPatternsContext}${recentIdeasContext}`;
 
     console.log('Generating period plans for:', periodPlanId, 'using GPT-5 Mini (ADAPTIVE MODE)');
     console.log('Priority channel:', periodPlan.priority_channel);
@@ -316,7 +294,7 @@ Formato:
           { role: 'system', content: systemPrompt + jsonInstruction },
           { role: 'user', content: context }
         ],
-        max_completion_tokens: 10000,
+        max_completion_tokens: 6000,
         response_format: { type: 'json_object' },
       }),
     });
