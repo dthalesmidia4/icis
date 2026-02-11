@@ -181,10 +181,12 @@ Observações: ${periodPlan.observations || 'Nenhuma'}${calendarCtx}${successCtx
     }
     const apiKeyData = apiKeyDataResult as any;
 
-    // JSON instruction - request only ONE plan based on planType
+    // JSON instruction - request only ONE plan based on planType with strict limits
     const planLabel = planType === 'ultra' ? 'ultra (ousado, criativo, inovador)' : 'normal (seguro, operacional)';
+    const demandLimit = planType === 'ultra' ? 3 : 6;
     const jsonInstruction = `
 Responda APENAS JSON. Canal: "${periodPlan.priority_channel}". Plano ${planLabel}.
+IMPORTANTE: Gere exatamente ${demandLimit} demandas, nem mais nem menos.
 Cada demanda: {"tipo":"...","titulo":"...","objetivo":"...","conteudo":"conteúdo markdown","instrucoes_de_producao":"...","cta_recomendado":"...","canal":"${periodPlan.priority_channel}","data_sugerida":"YYYY-MM-DD"}
 Formato: {"plan":[...],"summary":"resumo curto"}`;
     console.log('Calling OpenAI for planType:', planType);
