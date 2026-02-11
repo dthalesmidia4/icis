@@ -91,7 +91,7 @@ const PlanPeriod = () => {
   
   const [paidTrafficBudget, setPaidTrafficBudget] = useState("");
   const [budgetCurrency, setBudgetCurrency] = useState<'BRL' | 'USD'>('BRL');
-  const [periodLimitations, setPeriodLimitations] = useState("");
+  
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
 
@@ -278,7 +278,7 @@ const PlanPeriod = () => {
       const priorityChannel = selectedChannels.length === 0 ? 'Multi-canal' : selectedChannels.length === 1 ? selectedChannels[0].charAt(0).toUpperCase() + selectedChannels[0].slice(1) : selectedChannels.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ');
 
       // Build comprehensive observations including period limitations
-      const fullObservations = [periodLimitations && `LIMITAÇÕES DO PERÍODO: ${periodLimitations}`, observations && observations].filter(Boolean).join('\n\n') || null;
+      const fullObservations = observations || null;
       const {
         data: periodPlan,
         error: createError
@@ -669,11 +669,6 @@ const PlanPeriod = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="periodLimitations" className="text-sm">Quais limitações considerar neste período?</Label>
-              <p className="text-xs text-muted-foreground">Tempo, equipe, estoque, gravação, orçamento, restrições internas, legislação</p>
-              <Textarea id="periodLimitations" placeholder="Descreva as limitações e restrições específicas para este período..." value={periodLimitations} onChange={e => setPeriodLimitations(e.target.value)} rows={2} />
-            </div>
 
             {/* Paid Traffic Budget */}
             <div className="space-y-2">
