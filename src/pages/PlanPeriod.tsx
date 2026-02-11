@@ -472,7 +472,7 @@ const PlanPeriod = () => {
       toast.success(`${selectedDemands.length} demandas integradas ao Kanban!`);
 
       // Navigate to schedule
-      navigate(`/schedule?periodPlanId=${periodPlanId}`);
+      navigate('/kanban-central');
     } catch (error) {
       console.error('Error confirming plan:', error);
       toast.error('Erro ao confirmar planejamento');
@@ -968,7 +968,7 @@ const PlanPeriod = () => {
           <Button variant="outline" onClick={() => navigate('/client-hub')}>
             Voltar ao Hub
           </Button>
-          <Button onClick={() => navigate(`/schedule?periodPlanId=${periodPlanId}`)}>
+          <Button onClick={() => navigate('/kanban-central')}>
             Ver Demandas
           </Button>
         </div>
@@ -1162,7 +1162,7 @@ const PlanPeriod = () => {
               </p>
               <div className="flex gap-2">
                 
-                {selectedHistoryPlan.status === 'completed' && <Button onClick={() => navigate(`/schedule?periodPlanId=${selectedHistoryPlan.id}`)}>
+                {selectedHistoryPlan.status === 'completed' && <Button onClick={() => navigate('/kanban-central')}>
                     <LayoutGrid className="w-4 h-4 mr-2" />
                     Ver no Kanban
                   </Button>}

@@ -24,7 +24,7 @@ import DevHub from "./pages/DevHub";
 import DevPrompts from "./pages/DevPrompts";
 import DevApis from "./pages/DevApis";
 import DevWebhooks from "./pages/DevWebhooks";
-import Schedule from "./pages/Schedule";
+
 import PlanPeriod from "./pages/PlanPeriod";
 import ProfileSettings from "./pages/ProfileSettings";
 import Kanban from "./pages/Kanban";
@@ -125,15 +125,7 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
-      <Route path="/schedule" element={
-        <ProtectedRoute>
-          <RequireTenant>
-            <Layout>
-              <Schedule />
-            </Layout>
-          </RequireTenant>
-        </ProtectedRoute>
-      } />
+      
       <Route path="/cadastros-clientes" element={
         <ProtectedRoute>
           <RequireTenant>

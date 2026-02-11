@@ -69,15 +69,7 @@ const routeConfig: Record<string, BreadcrumbConfig> = {
     ],
     requiresClient: true
   },
-  '/schedule': {
-    items: [
-      { label: 'Home', href: '/home', icon: Home },
-      { label: 'Clientes', href: '/clientes', icon: Users },
-      { label: '{clientName}', href: '/client-hub' },
-      { label: 'Demandas', icon: ListTodo }
-    ],
-    requiresClient: true
-  },
+  
   '/kanban-central': {
     items: [
       { label: 'Home', href: '/home', icon: Home },

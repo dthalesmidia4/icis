@@ -48,7 +48,7 @@ const ClientHub = () => {
 
       if (latestPeriod) {
         // Navegar para o schedule com o período encontrado
-        navigate('/schedule', { state: { periodPlanId: latestPeriod.id } });
+        navigate('/kanban-central');
       } else {
         // Nenhum período encontrado, ir para plan-period para criar um
         toast.info("Nenhum período encontrado. Crie um novo período primeiro.");
@@ -80,7 +80,7 @@ const ClientHub = () => {
   }, {
     title: loadingDemandas ? "Carregando..." : "Demandas",
     icon: ListTodo,
-    route: "/schedule",
+    route: "/kanban-central",
     action: handleDemandasClick
   }];
   return (
