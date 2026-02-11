@@ -106,8 +106,8 @@ const Home = () => {
               <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
               
               <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
-                  <card.icon className="w-6 h-6 sm:w-8 sm:h-8 text-primary-foreground" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <card.icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
                 </div>
                 
                 <h3 className="text-base sm:text-xl font-bold transition-colors text-primary">
