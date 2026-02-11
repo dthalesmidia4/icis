@@ -28,56 +28,42 @@ const Home = () => {
       id: 'clientes' as HubSectionId,
       title: "Cadastrar Cliente",
       icon: UserPlus,
-      gradient: "from-green-500 to-emerald-600",
-      titleColor: "text-emerald-600 dark:text-emerald-400",
       route: "/registration"
     },
     {
       id: 'clientes' as HubSectionId,
       title: "Cadastros de Clientes",
       icon: ClipboardList,
-      gradient: "from-rose-500 to-pink-600",
-      titleColor: "text-pink-600 dark:text-pink-400",
       route: "/cadastros-clientes"
     },
     {
       id: 'clientes' as HubSectionId,
       title: "Gerenciar Clientes",
       icon: Building2,
-      gradient: "from-blue-500 to-indigo-600",
-      titleColor: "text-indigo-600 dark:text-indigo-400",
       route: "/clientes"
     },
     {
       id: 'kanban' as HubSectionId,
       title: "Kanban Central",
       icon: LayoutGrid,
-      gradient: "from-cyan-500 to-teal-600",
-      titleColor: "text-teal-600 dark:text-teal-400",
       route: "/kanban-central"
     },
     ...(agencyId ? [{
       id: 'minha-empresa' as HubSectionId,
       title: "Minha Empresa",
       icon: Briefcase,
-      gradient: "from-orange-500 to-amber-600",
-      titleColor: "text-amber-600 dark:text-amber-400",
       route: "/minha-empresa"
     }] : []),
     {
       id: 'clientes' as HubSectionId,
       title: "Perguntas Guias",
       icon: FileText,
-      gradient: "from-blue-400 to-cyan-500",
-      titleColor: "text-cyan-600 dark:text-cyan-400",
       route: "/guide"
     },
     {
       id: 'schedule' as HubSectionId,
       title: "Agendamento de Conteúdos",
       icon: CalendarDays,
-      gradient: "from-purple-500 to-violet-600",
-      titleColor: "text-violet-600 dark:text-violet-400",
       route: "/scheduled"
     },
   ];
@@ -117,14 +103,14 @@ const Home = () => {
               className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]" 
               onClick={() => navigate(card.route)}
             >
-              <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-5 group-hover:opacity-10 transition-opacity`} />
+              <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
               
               <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
-                <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br ${card.gradient} flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                  <card.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <card.icon className="w-6 h-6 sm:w-8 sm:h-8 text-primary-foreground" />
                 </div>
                 
-                <h3 className={`text-base sm:text-xl font-bold transition-colors ${card.titleColor}`}>
+                <h3 className="text-base sm:text-xl font-bold transition-colors text-primary">
                   {card.title}
                 </h3>
               </div>
