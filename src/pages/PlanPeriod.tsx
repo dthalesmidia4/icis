@@ -103,6 +103,7 @@ const PlanPeriod = () => {
   const [selectedMode, setSelectedMode] = useState<'normal' | 'ultra' | null>(null);
   const [optionalPackage, setOptionalPackage] = useState<PlanItem[]>([]);
   const [pollingProgress, setPollingProgress] = useState(0);
+  const [loadingMessage, setLoadingMessage] = useState("Gerando demandas...");
 
   // Fetch period history and check for incomplete periods
   useEffect(() => {
@@ -224,41 +225,42 @@ const PlanPeriod = () => {
     }
   };
 
-  // Polling function to check generation status
-  const pollForCompletion = async (planId: string, maxAttempts = 60, intervalMs = 5000) => {
-    setPollingProgress(0);
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // Update progress (0-100%)
-      const progress = Math.min((attempt + 1) / maxAttempts * 100, 99);
-      setPollingProgress(progress);
-      await new Promise(resolve => setTimeout(resolve, intervalMs));
-      const {
-        data,
-        error
-      } = await supabase.from('period_plans').select('status, default_plan, ultra_plan').eq('id', planId).single();
-      if (error) {
-        console.error('Error polling status:', error);
-        continue;
-      }
-      if (data.status === 'generated' || data.status === 'mode_selected' || data.status === 'completed') {
-        setPollingProgress(100);
-        return {
-          success: true,
-          default_plan: data.default_plan,
-          ultra_plan: data.ultra_plan
-        };
-      }
+  // Generate plans sequentially (Normal then Ultra)
+
+  // Generate a single plan type and poll for its completion
+  const generateSinglePlan = async (planId: string, planType: 'default' | 'ultra'): Promise<{ success: boolean; plan?: any[]; error?: string }> => {
+    // Fire edge function
+    try {
+      const { error } = await supabase.functions.invoke('generate-period-plans', {
+        body: { periodPlanId: planId, tenantId, planType }
+      });
+      if (error) console.error(`Edge function error (${planType}):`, error);
+    } catch (err) {
+      console.error(`Edge function invocation failed (${planType}):`, err);
+    }
+
+    // Poll for this specific plan to be populated
+    const fieldName = planType === 'default' ? 'default_plan' : 'ultra_plan';
+    for (let attempt = 0; attempt < 40; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 4000));
+      const { data, error } = await supabase
+        .from('period_plans')
+        .select(`status, ${fieldName}`)
+        .eq('id', planId)
+        .single();
+      
+      if (error) continue;
+      
       if (data.status === 'error') {
-        return {
-          success: false,
-          error: 'Erro na geração. Verifique se o prompt de demandas está configurado em /dev/prompts'
-        };
+        return { success: false, error: 'Erro na geração. Verifique o prompt em /dev/prompts' };
+      }
+
+      const planData = (data as any)[fieldName];
+      if (planData && Array.isArray(planData) && planData.length > 0) {
+        return { success: true, plan: planData };
       }
     }
-    return {
-      success: false,
-      error: 'Tempo limite excedido'
-    };
+    return { success: false, error: 'Tempo limite excedido' };
   };
   const handleSubmit = async () => {
     if (!periodTitle || !periodStart || !periodEnd) {
@@ -297,33 +299,28 @@ const PlanPeriod = () => {
       if (createError) throw createError;
       setPeriodPlanId(periodPlan.id);
 
-      // Fire edge function without waiting - log errors for debugging
-      void (async () => {
-        try {
-          const { error } = await supabase.functions.invoke('generate-period-plans', {
-            body: {
-              periodPlanId: periodPlan.id,
-              tenantId
-            }
-          });
-          if (error) {
-            console.error('Edge function returned error:', error);
-          }
-        } catch (err) {
-          console.error('Edge function invocation failed:', err);
-        }
-      })();
-
-      // Small delay to ensure edge function started before polling
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Poll for completion
-      const result = await pollForCompletion(periodPlan.id);
-      if (!result.success) {
-        throw new Error(result.error || 'Erro ao gerar planos');
+      // Step 1: Generate default plan
+      setLoadingMessage("Gerando plano Normal...");
+      setPollingProgress(10);
+      const defaultResult = await generateSinglePlan(periodPlan.id, 'default');
+      if (!defaultResult.success) {
+        throw new Error(defaultResult.error || 'Erro ao gerar plano Normal');
       }
-      setDefaultPlan(result.default_plan as unknown as PlanItem[] || []);
-      setUltraPlan(result.ultra_plan as unknown as PlanItem[] || []);
+      setDefaultPlan(defaultResult.plan as PlanItem[] || []);
+      setPollingProgress(50);
+
+      // Step 2: Generate ultra plan
+      setLoadingMessage("Plano Normal pronto! Gerando plano Ultra...");
+      const ultraResult = await generateSinglePlan(periodPlan.id, 'ultra');
+      if (!ultraResult.success) {
+        throw new Error(ultraResult.error || 'Erro ao gerar plano Ultra');
+      }
+      setUltraPlan(ultraResult.plan as PlanItem[] || []);
+      setPollingProgress(100);
+
+      // Mark as generated
+      await supabase.from('period_plans').update({ status: 'generated' }).eq('id', periodPlan.id);
+
       setCurrentStep('mode-selection');
     } catch (error) {
       console.error('Error creating period plan:', error);
@@ -493,26 +490,24 @@ const PlanPeriod = () => {
       }).eq('id', periodPlanId);
       setCurrentStep('loading');
 
-      // Fire edge function
-      void (async () => {
-        try {
-          await supabase.functions.invoke('generate-period-plans', {
-            body: {
-              periodPlanId,
-              tenantId
-            }
-          });
-        } catch {
-          // Silently ignore
-        }
-      })();
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const result = await pollForCompletion(periodPlanId);
-      if (!result.success) {
-        throw new Error(result.error || 'Erro ao regenerar planos');
-      }
-      setDefaultPlan(result.default_plan as unknown as PlanItem[] || []);
-      setUltraPlan(result.ultra_plan as unknown as PlanItem[] || []);
+      // Step 1: Generate default plan
+      setLoadingMessage("Regenerando plano Normal...");
+      setPollingProgress(10);
+      const defaultResult = await generateSinglePlan(periodPlanId, 'default');
+      if (!defaultResult.success) throw new Error(defaultResult.error || 'Erro ao regenerar plano Normal');
+      setDefaultPlan(defaultResult.plan as PlanItem[] || []);
+      setPollingProgress(50);
+
+      // Step 2: Generate ultra plan
+      setLoadingMessage("Plano Normal pronto! Regenerando plano Ultra...");
+      const ultraResult = await generateSinglePlan(periodPlanId, 'ultra');
+      if (!ultraResult.success) throw new Error(ultraResult.error || 'Erro ao regenerar plano Ultra');
+      setUltraPlan(ultraResult.plan as PlanItem[] || []);
+      setPollingProgress(100);
+
+      // Mark as generated
+      await supabase.from('period_plans').update({ status: 'generated' }).eq('id', periodPlanId);
+
       setCurrentStep('mode-selection');
       toast.success('Demandas regeneradas com sucesso!');
     } catch (error) {
@@ -1255,9 +1250,13 @@ const PlanPeriod = () => {
                 <Sparkles className="h-16 w-16 text-primary animate-pulse" />
               </div>
               <div className="text-center space-y-2">
-                <h2 className="text-2xl font-bold">Gerando Demandas</h2>
+                <h2 className="text-2xl font-bold">{loadingMessage}</h2>
                 <p className="text-muted-foreground max-w-md">
-                  A IA está criando duas linhas de demandas personalizadas: Normal e Ultra.
+                  {pollingProgress < 50 
+                    ? 'Gerando plano Normal...' 
+                    : pollingProgress < 100 
+                    ? 'Plano Normal pronto! Gerando plano Ultra...' 
+                    : 'Finalizando...'}
                 </p>
               </div>
               <div className="w-full max-w-md space-y-2">

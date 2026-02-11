@@ -19,10 +19,10 @@ serve(async (req) => {
     const body = await req.json();
     periodPlanId = body.periodPlanId;
     const tenantId = body.tenantId;
+    const planType: 'default' | 'ultra' = body.planType || 'default';
 
-    console.log('=== GENERATE-PERIOD-PLANS START (ADAPTIVE) ===');
-    console.log('periodPlanId:', periodPlanId);
-    console.log('tenantId:', tenantId);
+    console.log('=== GENERATE-PERIOD-PLANS START ===');
+    console.log('periodPlanId:', periodPlanId, '| planType:', planType);
 
     if (!periodPlanId || !tenantId) {
       throw new Error('periodPlanId e tenantId são obrigatórios');
@@ -33,7 +33,6 @@ serve(async (req) => {
     supabase = createClient(supabaseUrl, supabaseKey);
 
     // Fetch period plan data
-    console.log('Fetching period plan...');
     const { data: periodPlanData, error: periodError } = await supabase
       .from('period_plans')
       .select('*')
@@ -41,15 +40,12 @@ serve(async (req) => {
       .single();
 
     if (periodError || !periodPlanData) {
-      console.error('Period plan not found:', periodError);
       throw new Error('Plano de período não encontrado');
     }
     
     const periodPlan = periodPlanData as any;
-    console.log('Period plan found:', periodPlan.period_title);
 
     // Fetch company data
-    console.log('Fetching company...');
     const { data: companyData, error: companyError } = await supabase
       .from('tenant_companies')
       .select('*')
@@ -57,46 +53,34 @@ serve(async (req) => {
       .single();
 
     if (companyError || !companyData) {
-      console.error('Company not found:', companyError);
       throw new Error('Empresa não encontrada');
     }
     
     const company = companyData as any;
-    console.log('Company found:', company.name);
 
-    // Fetch strategy if exists
+    // Fetch strategy (truncated)
     let strategyText = '';
     if (periodPlan.strategy_id) {
       const { data: strategyData } = await supabase
         .from('strategies')
-        .select('strategy_text, name')
+        .select('strategy_text')
         .eq('id', periodPlan.strategy_id)
         .single();
-      
-      const strategy = strategyData as any;
-      if (strategy) {
-        strategyText = strategy.strategy_text;
-        console.log('Strategy found by ID');
-      }
+      if (strategyData) strategyText = (strategyData as any).strategy_text || '';
     } else {
-      // Try to get latest strategy for the company
       const { data: latestStrategyData } = await supabase
         .from('strategies')
-        .select('strategy_text, name')
+        .select('strategy_text')
         .eq('company_id', periodPlan.company_id)
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      
-      const latestStrategy = latestStrategyData as any;
-      if (latestStrategy) {
-        strategyText = latestStrategy.strategy_text;
-        console.log('Latest strategy found');
-      }
+      if (latestStrategyData) strategyText = (latestStrategyData as any).strategy_text || '';
     }
 
-    // Fetch guide questions answers
+    // Fetch guide questions answers (compact)
+    let questionsSnippet = '';
     const { data: questionSessionData } = await supabase
       .from('question_sessions')
       .select('questions, answers')
@@ -106,114 +90,69 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    const questionSession = questionSessionData as any;
-    let questionsContext = '';
-    if (questionSession?.questions && questionSession?.answers) {
-      const questions = questionSession.questions as string[];
-      const answers = questionSession.answers as Record<string, string>;
-      
-      questionsContext = questions.map((q: string, i: number) => {
-        const answer = answers[i.toString()] || 'Não respondido';
-        return `Pergunta: ${q}\nResposta: ${answer}`;
-      }).join('\n\n');
-      console.log('Questions context loaded:', questions.length, 'questions');
+    if (questionSessionData) {
+      const qs = questionSessionData as any;
+      if (qs.questions && qs.answers) {
+        const questions = qs.questions as string[];
+        const answers = qs.answers as Record<string, string>;
+        questionsSnippet = questions.map((q: string, i: number) => {
+          const answer = answers[i.toString()] || '';
+          return answer ? `${q}: ${answer}` : '';
+        }).filter(Boolean).join(' | ').substring(0, 600);
+      }
     }
 
-    // ============================================
-    // NOVO: BUSCAR CONTEXTO ADAPTATIVO
-    // ============================================
-    console.log('Fetching adaptive context...');
-    const { data: adaptiveContextData, error: adaptiveError } = await (supabase as any)
+    // Fetch adaptive context
+    const { data: adaptiveContextData } = await (supabase as any)
       .rpc('get_contextual_planning_input', {
         p_client_id: periodPlan.company_id,
         p_period_start: periodPlan.period_start,
         p_period_end: periodPlan.period_end
       });
 
-    let adaptiveContext: any = {
-      calendar_events: [],
-      successful_patterns: [],
-      failed_patterns: [],
-      recent_fingerprints: [],
-      top_demand_types: [],
-      avoid_fingerprints: []
+    const ac = adaptiveContextData?.success ? adaptiveContextData : {
+      calendar_events: [], successful_patterns: [], failed_patterns: [],
+      recent_fingerprints: [], avoid_fingerprints: []
     };
 
-    if (adaptiveError) {
-      console.error('Error fetching adaptive context:', adaptiveError);
-    } else if (adaptiveContextData?.success) {
-      adaptiveContext = adaptiveContextData;
-      console.log('Adaptive context loaded:');
-      console.log('- Calendar events:', adaptiveContext.calendar_events?.length || 0);
-      console.log('- Successful patterns:', adaptiveContext.successful_patterns?.length || 0);
-      console.log('- Failed patterns:', adaptiveContext.failed_patterns?.length || 0);
-      console.log('- Recent fingerprints:', adaptiveContext.recent_fingerprints?.length || 0);
+    // Build compact context sections
+    let calendarCtx = '';
+    if (ac.calendar_events?.length > 0) {
+      calendarCtx = '\nDatas comemorativas: ' + (ac.calendar_events as any[]).slice(0, 5)
+        .map((e: any) => `${e.date}: ${e.name}`).join('; ');
     }
 
-    // ============================================
-    // FORMATAR CONTEXTO ADAPTATIVO PARA A IA
-    // ============================================
-    let calendarContext = '';
-    if (adaptiveContext.calendar_events && adaptiveContext.calendar_events.length > 0) {
-      calendarContext = `
-## DATAS COMEMORATIVAS NO PERÍODO
-${(adaptiveContext.calendar_events as any[]).map((e: any) => 
-  `- ${e.date}: ${e.name} (prioridade: ${e.priority}/100)`
-).join('\n')}
-`;
+    let successCtx = '';
+    if (ac.successful_patterns?.length > 0) {
+      successCtx = '\nPadrões de sucesso: ' + (ac.successful_patterns as any[])
+        .filter((p: any) => p.type !== 'fingerprint').slice(0, 5)
+        .map((p: any) => `${p.value}(${p.success_rate}%)`).join(', ');
     }
 
-    let successPatternsContext = '';
-    if (adaptiveContext.successful_patterns && adaptiveContext.successful_patterns.length > 0) {
-      successPatternsContext = `
-## ✅ PADRÕES DE SUCESSO DESTE CLIENTE (PRIORIZAR)
-Os seguintes formatos/tipos tiveram bom desempenho e devem ser priorizados:
-${(adaptiveContext.successful_patterns as any[])
-  .filter((p: any) => p.type !== 'fingerprint')
-  .map((p: any) => `- ${p.type}: "${p.value}" (taxa de sucesso: ${p.success_rate}%)`)
-  .join('\n')}
-`;
+    let avoidCtx = '';
+    if (ac.failed_patterns?.length > 0) {
+      avoidCtx = '\nEvitar: ' + (ac.failed_patterns as any[])
+        .filter((p: any) => p.type !== 'fingerprint').slice(0, 5)
+        .map((p: any) => p.value).join(', ');
     }
 
-    let topDemandTypesContext = '';
-    if (adaptiveContext.top_demand_types && adaptiveContext.top_demand_types.length > 0) {
-      topDemandTypesContext = `
-## 🏆 TIPOS DE DEMANDA MAIS EFETIVOS
-${(adaptiveContext.top_demand_types as any[]).map((t: any) => 
-  `- ${t.demand_type} (${t.success_count} publicações bem-sucedidas)`
-).join('\n')}
-`;
+    let recentCtx = '';
+    if (ac.recent_fingerprints?.length > 0) {
+      recentCtx = '\nNão repetir: ' + (ac.recent_fingerprints as any[]).slice(0, 6)
+        .map((f: any) => f.title).join('; ');
     }
 
-    let avoidPatternsContext = '';
-    if (adaptiveContext.failed_patterns && adaptiveContext.failed_patterns.length > 0) {
-      avoidPatternsContext = `
-## ❌ PADRÕES A EVITAR (NÃO REPETIR)
-Os seguintes padrões tiveram mau desempenho ou foram rejeitados pelo cliente:
-${(adaptiveContext.failed_patterns as any[])
-  .filter((p: any) => p.type !== 'fingerprint')
-  .map((p: any) => `- ${p.type}: "${p.value}" (taxa de rejeição: ${p.failure_rate}%)`)
-  .join('\n')}
+    // Build COMPACT context
+    const context = `Empresa: ${company.name} (${company.fantasy_name || ''}) | Setor: ${company.sector} | Porte: ${company.size}
+Produtos: ${company.products_services}
+Estratégia: ${strategyText.substring(0, 800) || 'Não definida'}
+${questionsSnippet ? `Contexto: ${questionsSnippet}` : ''}
+Período: ${periodPlan.period_title} (${periodPlan.period_start} a ${periodPlan.period_end})
+Objetivo: ${periodPlan.objective}
+Canal OBRIGATÓRIO: ${periodPlan.priority_channel}
+Observações: ${periodPlan.observations || 'Nenhuma'}${calendarCtx}${successCtx}${avoidCtx}${recentCtx}`;
 
-⚠️ NÃO gere demandas usando esses padrões problemáticos.
-`;
-    }
-
-    let recentIdeasContext = '';
-    if (adaptiveContext.recent_fingerprints && adaptiveContext.recent_fingerprints.length > 0) {
-      const recentTitles = (adaptiveContext.recent_fingerprints as any[])
-        .slice(0, 8)
-        .map((f: any) => `- "${f.title}"`)
-        .join('\n');
-      
-      recentIdeasContext = `
-## DEMANDAS RECENTES (NÃO REPETIR)
-${recentTitles}
-`;
-    }
-
-    // Fetch custom prompt from database - OBRIGATÓRIO
-    console.log('Fetching custom prompt for tenant:', tenantId);
+    // Fetch custom prompt - truncate to save tokens
     const { data: customPromptData, error: promptError } = await supabase
       .from('system_prompts')
       .select('prompt_content')
@@ -221,21 +160,16 @@ ${recentTitles}
       .eq('prompt_key', 'generate_demandas_prompt')
       .maybeSingle();
 
-    if (promptError) {
-      console.error('Error fetching prompt:', promptError);
-      throw new Error('Erro ao buscar prompt de demandas no banco de dados');
-    }
-
+    if (promptError) throw new Error('Erro ao buscar prompt');
     const customPrompt = customPromptData as any;
     if (!customPrompt?.prompt_content) {
-      console.error('Prompt not found for tenant:', tenantId);
-      throw new Error('Prompt de demandas não configurado. Acesse /dev/prompts para configurar o prompt "generate_demandas_prompt".');
+      throw new Error('Prompt de demandas não configurado. Acesse /dev/prompts para configurar.');
     }
 
-    const systemPrompt = customPrompt.prompt_content;
-    console.log('Custom prompt loaded, length:', systemPrompt.length);
+    // Truncate system prompt to save worker resources
+    const systemPrompt = customPrompt.prompt_content.substring(0, 2000);
 
-    // Fetch OpenAI API key from api_keys table
+    // Fetch OpenAI API key
     const { data: apiKeyDataResult, error: apiKeyError } = await supabase
       .from('api_keys')
       .select('key_value')
@@ -243,35 +177,16 @@ ${recentTitles}
       .single();
 
     if (apiKeyError || !apiKeyDataResult) {
-      console.error('OpenAI API key not found:', apiKeyError);
       throw new Error('OPENAI_API_KEY não configurada na tabela api_keys');
     }
-    
     const apiKeyData = apiKeyDataResult as any;
-    console.log('OpenAI API key found');
 
-    // Build COMPACT context to avoid worker limits
-    const strategySnippet = strategyText ? strategyText.substring(0, 800) : '';
-    const questionsSnippet = questionsContext ? questionsContext.substring(0, 600) : '';
-    
-    const context = `Empresa: ${company.name} (${company.fantasy_name || ''}) | Setor: ${company.sector} | Porte: ${company.size}
-Produtos: ${company.products_services}
-Estratégia: ${strategySnippet || 'Não definida'}
-${questionsSnippet ? `Perguntas Guia: ${questionsSnippet}` : ''}
-Período: ${periodPlan.period_title} (${periodPlan.period_start} a ${periodPlan.period_end})
-Objetivo: ${periodPlan.objective}
-Canal OBRIGATÓRIO: ${periodPlan.priority_channel}
-Observações: ${periodPlan.observations || 'Nenhuma'}
-${calendarContext}${successPatternsContext}${avoidPatternsContext}${recentIdeasContext}`;
-
-    console.log('Generating period plans for:', periodPlanId, 'using GPT-5 Mini (ADAPTIVE MODE)');
-    console.log('Priority channel:', periodPlan.priority_channel);
-    console.log('Calendar events in period:', adaptiveContext.calendar_events?.length || 0);
-
-    // Append JSON instruction - COMPACT version to reduce token usage
+    // JSON instruction - request only ONE plan based on planType
+    const planLabel = planType === 'ultra' ? 'ultra (ousado, criativo, inovador)' : 'normal (seguro, operacional)';
     const jsonInstruction = `
 
 Responda APENAS com JSON válido. Canal OBRIGATÓRIO: "${periodPlan.priority_channel}".
+Gere APENAS o plano ${planLabel}.
 
 Estrutura de cada demanda:
 { "tipo": "Carrossel|Reels|Post estático|Story|Vídeo", "titulo": "...", "objetivo": "...", "conteudo": "Conteúdo COMPLETO em markdown", "instrucoes_de_producao": "...", "cta_recomendado": "...", "canal": "${periodPlan.priority_channel}", "data_sugerida": "YYYY-MM-DD", "contexto_sazonal": "..." }
@@ -279,9 +194,9 @@ Estrutura de cada demanda:
 Regras: conteudo NUNCA vazio, ideias únicas, respeitar restrições: "${periodPlan.observations || 'Nenhuma'}". Considerar datas comemorativas.
 
 Formato:
-{ "default_plan": [...], "ultra_plan": [...], "normal_summary": "...", "ultra_summary": "..." }`;
+{ "plan": [...], "summary": "..." }`;
 
-    console.log('Calling OpenAI API...');
+    console.log('Calling OpenAI for planType:', planType);
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -294,152 +209,112 @@ Formato:
           { role: 'system', content: systemPrompt + jsonInstruction },
           { role: 'user', content: context }
         ],
-        max_completion_tokens: 6000,
+        max_completion_tokens: 4000,
         response_format: { type: 'json_object' },
       }),
     });
 
     const responseText = await response.text();
-    console.log('OpenAI raw response status:', response.status);
-    console.log('OpenAI raw response preview:', responseText.substring(0, 500));
+    console.log('OpenAI response status:', response.status);
 
     if (!response.ok) {
-      console.error('OpenAI API error:', response.status, responseText);
-      
-      if (response.status === 429) {
-        throw new Error('Rate limit excedido. Tente novamente em alguns segundos.');
-      }
-      if (response.status === 401) {
-        throw new Error('API Key inválida. Verifique a configuração do OPENAI_API_KEY.');
-      }
-      throw new Error(`OpenAI API error: ${response.status} - ${responseText}`);
+      if (response.status === 429) throw new Error('Rate limit excedido. Tente novamente.');
+      if (response.status === 401) throw new Error('API Key inválida.');
+      throw new Error(`OpenAI API error: ${response.status}`);
     }
 
     let aiResponse;
     try {
       aiResponse = JSON.parse(responseText);
-    } catch (parseErr) {
-      console.error('Failed to parse OpenAI response:', parseErr);
+    } catch {
       throw new Error('Erro ao processar resposta da API OpenAI');
     }
 
     const content = aiResponse.choices?.[0]?.message?.content;
+    if (!content) throw new Error('Resposta vazia da IA.');
 
-    if (!content) {
-      console.error('Empty content. Full response:', JSON.stringify(aiResponse));
-      throw new Error('Resposta vazia da IA. Verifique o modelo e prompt.');
-    }
-
-    console.log('AI content preview:', content.substring(0, 300));
-
-    // Parse JSON response - try multiple extraction methods
-    let plans;
+    // Parse JSON response
+    let parsed;
     try {
-      // Method 1: Try direct parse after cleaning markdown
       let cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      
-      // Method 2: Try to find JSON object in the response
-      const jsonMatch = cleanContent.match(/\{[\s\S]*"default_plan"[\s\S]*"ultra_plan"[\s\S]*\}/);
-      if (jsonMatch) {
-        cleanContent = jsonMatch[0];
-      }
-      
-      plans = JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError);
-      console.error('Raw content:', content.substring(0, 1000));
-      throw new Error('Erro ao processar resposta da IA. A resposta não está em formato JSON válido.');
+      const jsonMatch = cleanContent.match(/\{[\s\S]*"plan"[\s\S]*\}/);
+      if (jsonMatch) cleanContent = jsonMatch[0];
+      parsed = JSON.parse(cleanContent);
+    } catch {
+      throw new Error('Resposta da IA não está em formato JSON válido.');
     }
 
-    // Ensure all demands have the correct priority channel (post-processing safety)
+    // Ensure correct channel
     const priorityChannel = periodPlan.priority_channel;
-    if (plans.default_plan && Array.isArray(plans.default_plan)) {
-      plans.default_plan = plans.default_plan.map((demand: any) => ({
-        ...demand,
-        canal: priorityChannel
-      }));
-      console.log('Default plan demands:', plans.default_plan.length);
-    }
-    if (plans.ultra_plan && Array.isArray(plans.ultra_plan)) {
-      plans.ultra_plan = plans.ultra_plan.map((demand: any) => ({
-        ...demand,
-        canal: priorityChannel
-      }));
-      console.log('Ultra plan demands:', plans.ultra_plan.length);
-    }
+    const planDemands = (parsed.plan || []).map((d: any) => ({ ...d, canal: priorityChannel }));
+    const summary = parsed.summary || '';
 
-    // ============================================
-    // NOVO: REGISTRAR FINGERPRINTS DAS DEMANDAS GERADAS
-    // ============================================
-    console.log('Recording demand fingerprints...');
-    const allDemands = [...(plans.default_plan || []), ...(plans.ultra_plan || [])];
-    
-    for (const demand of allDemands) {
+    console.log(`${planType} plan demands:`, planDemands.length);
+
+    // Batch insert fingerprints
+    if (planDemands.length > 0) {
+      const fingerprints = planDemands.map((demand: any) => ({
+        tenant_id: tenantId,
+        client_id: periodPlan.company_id,
+        period_plan_id: periodPlanId,
+        title: (demand.titulo || demand.title || 'Sem título').substring(0, 200),
+        demand_type: demand.tipo || demand.demand_type || '',
+        channel: demand.canal || demand.channel || priorityChannel,
+        fingerprint: ''
+      }));
       try {
-        await (supabase as any).from('demand_fingerprints').insert({
-          tenant_id: tenantId,
-          client_id: periodPlan.company_id,
-          period_plan_id: periodPlanId,
-          title: demand.titulo || demand.title || 'Sem título',
-          demand_type: demand.tipo || demand.demand_type,
-          channel: demand.canal || demand.channel || priorityChannel,
-          fingerprint: '' // Will be generated by trigger or we calculate here
-        });
-      } catch (fpError) {
-        console.error('Error recording fingerprint:', fpError);
-        // Don't fail the whole operation for fingerprint errors
+        await (supabase as any).from('demand_fingerprints').insert(fingerprints);
+      } catch (fpErr) {
+        console.error('Fingerprint batch error:', fpErr);
       }
     }
 
-    // Update period plan with generated plans
-    console.log('Updating period plan with generated plans...');
-    const { error: updateError } = await (supabase as any)
-      .from('period_plans')
-      .update({
-        default_plan: plans.default_plan || [],
-        ultra_plan: plans.ultra_plan || [],
-        status: 'generated',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', periodPlanId);
-
-    if (updateError) {
-      console.error('Update error:', updateError);
-      throw new Error('Erro ao salvar planos gerados no banco de dados');
+    // Update the specific plan field
+    const updateData: any = { updated_at: new Date().toISOString() };
+    if (planType === 'default') {
+      updateData.default_plan = planDemands;
+      // Check if ultra already exists to set status
+      const currentPlan = periodPlan;
+      if (currentPlan.ultra_plan && Array.isArray(currentPlan.ultra_plan) && currentPlan.ultra_plan.length > 0) {
+        updateData.status = 'generated';
+      } else {
+        updateData.status = 'generating_ultra';
+      }
+    } else {
+      updateData.ultra_plan = planDemands;
+      // Check if default already exists
+      const currentPlan = periodPlan;
+      if (currentPlan.default_plan && Array.isArray(currentPlan.default_plan) && currentPlan.default_plan.length > 0) {
+        updateData.status = 'generated';
+      } else {
+        updateData.status = 'generating_default';
+      }
     }
 
-    console.log('=== GENERATE-PERIOD-PLANS SUCCESS (ADAPTIVE) ===');
+    await (supabase as any).from('period_plans').update(updateData).eq('id', periodPlanId);
+
+    console.log(`=== GENERATE-PERIOD-PLANS SUCCESS (${planType}) ===`);
 
     return new Response(JSON.stringify({
       success: true,
-      default_plan: plans.default_plan,
-      ultra_plan: plans.ultra_plan,
-      normal_summary: plans.normal_summary || 'Abordagem tradicional e segura com demandas operacionais.',
-      ultra_summary: plans.ultra_summary || 'Abordagem ousada e criativa com ideias inovadoras.',
-      adaptive_info: {
-        calendar_events_count: adaptiveContext.calendar_events?.length || 0,
-        patterns_considered: (adaptiveContext.successful_patterns?.length || 0) + (adaptiveContext.failed_patterns?.length || 0),
-        avoided_repetitions: adaptiveContext.recent_fingerprints?.length || 0
-      }
+      planType,
+      plan: planDemands,
+      summary,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('=== GENERATE-PERIOD-PLANS ERROR ===');
-    console.error('Error:', error);
+    console.error('=== GENERATE-PERIOD-PLANS ERROR ===', error);
 
-    // Try to update status to error so polling knows it failed
     if (periodPlanId && supabase) {
       try {
-        console.log('Updating period plan status to error...');
         await (supabase as any)
           .from('period_plans')
           .update({ status: 'error' })
           .eq('id', periodPlanId);
-        console.log('Status updated to error');
-      } catch (updateErr) {
-        console.error('Failed to update status to error:', updateErr);
+      } catch {
+        // ignore
       }
     }
 
