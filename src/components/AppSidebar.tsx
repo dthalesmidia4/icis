@@ -139,46 +139,6 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
             );
           })}
 
-          {/* Menu Cliente Atual */}
-          {selectedClient && (
-            <Collapsible open={clientMenuOpen} onOpenChange={setClientMenuOpen} className="mt-4">
-              <CollapsibleTrigger className="w-full">
-                <div className="flex items-center justify-between px-4 py-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4" />
-                    <span className="truncate max-w-[150px]">
-                      {selectedClient.fantasy_name || selectedClient.name}
-                    </span>
-                  </div>
-                  <ChevronDown className={cn(
-                    "h-4 w-4 transition-transform",
-                    clientMenuOpen && "rotate-180"
-                  )} />
-                </div>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-1 mt-1">
-                {clientMenuItems.map((item) => {
-                  const Icon = item.icon;
-                  const active = isActive(item.url);
-                  return (
-                    <button
-                      key={item.title}
-                      onClick={() => handleNavigate(item.url)}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-left ml-2",
-                        active 
-                          ? 'bg-primary/10 text-primary' 
-                          : 'hover:bg-accent text-foreground'
-                      )}
-                    >
-                      <Icon className="h-4 w-4 flex-shrink-0" />
-                      <span className="text-sm">{item.title}</span>
-                    </button>
-                  );
-                })}
-              </CollapsibleContent>
-            </Collapsible>
-          )}
 
           {/* Developer Menu */}
           {canAccessAdmin && (
@@ -314,68 +274,6 @@ function DesktopSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Menu Cliente Atual (se selecionado) */}
-        {selectedClient && (
-          <SidebarGroup className="mt-2 pt-2 border-t">
-            <Collapsible open={clientMenuOpen} onOpenChange={setClientMenuOpen}>
-              <CollapsibleTrigger asChild>
-                <div className="px-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button 
-                        className={cn(
-                          "h-10 w-10 p-0 flex items-center justify-center mx-auto rounded-xl transition-all duration-300 ease-out hover:scale-110",
-                          isClientRoute
-                            ? 'bg-primary/10 text-primary'
-                            : 'hover:bg-accent'
-                        )}
-                      >
-                        <Building2 className="h-5 w-5" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" sideOffset={10}>
-                      <p className="font-semibold">{selectedClient.fantasy_name || selectedClient.name}</p>
-                      <p className="text-xs text-muted-foreground">Clique para expandir</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <SidebarMenu className="gap-1 px-2 mt-1">
-                    {clientMenuItems.map((item) => {
-                      const Icon = item.icon;
-                      const active = isActive(item.url);
-                      return (
-                        <SidebarMenuItem key={item.title}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <SidebarMenuButton
-                                onClick={() => navigate(item.url)}
-                                isActive={active}
-                                className={cn(
-                                  "h-8 w-8 p-0 flex items-center justify-center mx-auto rounded-lg transition-all duration-300 ease-out hover:scale-110",
-                                  active 
-                                    ? 'bg-primary/20 text-primary' 
-                                    : 'hover:bg-accent'
-                                )}
-                              >
-                                <Icon className="h-4 w-4" />
-                              </SidebarMenuButton>
-                            </TooltipTrigger>
-                            <TooltipContent side="right" sideOffset={10}>
-                              <p>{item.title}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </SidebarMenuItem>
-                      );
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </Collapsible>
-          </SidebarGroup>
-        )}
 
         {/* Developer Menu */}
         {canAccessAdmin && (
