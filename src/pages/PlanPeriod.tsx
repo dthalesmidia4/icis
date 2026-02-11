@@ -435,14 +435,11 @@ const PlanPeriod = () => {
           period_plan_id: periodPlanId,
           title,
           objective: objetivo || null,
-          instructions: descricao,
-          instrucoes: instrucoesParts.length > 0 ? instrucoesParts.join('\n\n') : null,
-          delivery_date: publicationDate,
+          instructions: [descricao, instrucoesParts.length > 0 ? instrucoesParts.join('\n\n') : ''].filter(Boolean).join('\n\n') || null,
           publish_date: publicationDate,
           channel: channel || null,
           demand_type: tipo || null,
           source: 'card',
-          column_name: 'Planejamento',
           observations: null
         };
       });
