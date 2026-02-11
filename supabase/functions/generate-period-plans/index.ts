@@ -156,13 +156,10 @@ serve(async (req) => {
     let calendarContext = '';
     if (adaptiveContext.calendar_events && adaptiveContext.calendar_events.length > 0) {
       calendarContext = `
-## 📅 DATAS COMEMORATIVAS NO PERÍODO (CONSIDERAR OBRIGATORIAMENTE)
+## DATAS COMEMORATIVAS NO PERÍODO
 ${(adaptiveContext.calendar_events as any[]).map((e: any) => 
-  `- ${e.date}: ${e.name} (${e.type}, prioridade: ${e.priority}/100)
-   Dica: ${e.tips || 'N/A'}`
+  `- ${e.date}: ${e.name} (prioridade: ${e.priority}/100)`
 ).join('\n')}
-
-⚠️ IMPORTANTE: Crie demandas específicas ou adaptadas para as datas comemorativas acima, especialmente as de alta prioridade.
 `;
     }
 
@@ -205,16 +202,13 @@ ${(adaptiveContext.failed_patterns as any[])
     let recentIdeasContext = '';
     if (adaptiveContext.recent_fingerprints && adaptiveContext.recent_fingerprints.length > 0) {
       const recentTitles = (adaptiveContext.recent_fingerprints as any[])
-        .slice(0, 15)
-        .map((f: any) => `- "${f.title}"${f.was_successful ? ' ✓' : ''}`)
+        .slice(0, 8)
+        .map((f: any) => `- "${f.title}"`)
         .join('\n');
       
       recentIdeasContext = `
-## 🔄 DEMANDAS RECENTES (EVITAR REPETIÇÃO DIRETA)
-Este cliente já teve as seguintes demandas nos últimos 6 meses:
+## DEMANDAS RECENTES (NÃO REPETIR)
 ${recentTitles}
-
-⚠️ NÃO repita essas ideias exatamente. Você pode evoluir, variar ou criar abordagens diferentes sobre temas similares, mas NÃO copie títulos ou conceitos idênticos.
 `;
     }
 
@@ -289,80 +283,25 @@ ATENÇÃO: Todas as demandas devem ser EXCLUSIVAMENTE para "${periodPlan.priorit
 
 - Observações/Restrições do Período: ${periodPlan.observations || 'Nenhuma'}
 
-${calendarContext}
-${successPatternsContext}
-${topDemandTypesContext}
-${avoidPatternsContext}
-${recentIdeasContext}
-
-## 🎯 INSTRUÇÕES DE ADAPTAÇÃO
-1. PRIORIZE os tipos de demanda que funcionam para este cliente
-2. CONSIDERE as datas comemorativas ao definir datas de publicação
-3. EVITE repetir ideias recentes ou padrões problemáticos
-4. VARIE e EVOLUA ideias que tiveram sucesso, não apenas copie
-5. CRIE conteúdo contextualizado para a temporada/período
+${calendarContext}${successPatternsContext}${topDemandTypesContext}${avoidPatternsContext}${recentIdeasContext}
 `;
 
     console.log('Generating period plans for:', periodPlanId, 'using GPT-5 Mini (ADAPTIVE MODE)');
     console.log('Priority channel:', periodPlan.priority_channel);
     console.log('Calendar events in period:', adaptiveContext.calendar_events?.length || 0);
 
-    // Append JSON instruction with VALIDATION RULES integrated
+    // Append JSON instruction - COMPACT version to reduce token usage
     const jsonInstruction = `
 
-⚠️ INSTRUÇÕES OBRIGATÓRIAS DE FORMATO (SEGUIR EXATAMENTE):
+Responda APENAS com JSON válido. Canal OBRIGATÓRIO: "${periodPlan.priority_channel}".
 
-Responda APENAS com JSON válido, sem texto adicional antes ou depois.
+Estrutura de cada demanda:
+{ "tipo": "Carrossel|Reels|Post estático|Story|Vídeo", "titulo": "...", "objetivo": "...", "conteudo": "Conteúdo COMPLETO em markdown", "instrucoes_de_producao": "...", "cta_recomendado": "...", "canal": "${periodPlan.priority_channel}", "data_sugerida": "YYYY-MM-DD", "contexto_sazonal": "..." }
 
-⚠️ LEMBRETE CRÍTICO: O campo "canal" de TODAS as demandas DEVE ser EXATAMENTE: "${periodPlan.priority_channel}"
-NÃO use nenhum outro canal. TODAS as demandas são para ${periodPlan.priority_channel}.
+Regras: conteudo NUNCA vazio, ideias únicas, respeitar restrições: "${periodPlan.observations || 'Nenhuma'}". Considerar datas comemorativas.
 
-ESTRUTURA DE CADA DEMANDA (campos obrigatórios):
-{
-  "tipo": "Carrossel (X slides) | Reels (Xs) | Post estático | Story | Vídeo Comercial | etc",
-  "titulo": "Nome curto e objetivo da peça",
-  "objetivo": "O que a peça quer alcançar (educar, vender, engajar, autoridade, etc)",
-  "conteudo": "CONTEÚDO FORMATADO COM MARKDOWN para facilitar leitura. Use ## para títulos de seções, - para listas, e linhas em branco para separar parágrafos. Exemplo:\n\n## SLIDE 1\nTexto completo do slide\n\n## SLIDE 2\nTexto completo do slide\n\nPara vídeos:\n\n## CENA 1\n**Visual:** descrição\n**Narração:** texto\n\n## CENA 2\n...",
-  "instrucoes_de_producao": "Instruções específicas: cores, ícones, fotos, ângulos, cortes, CTAs visuais, tom",
-  "cta_recomendado": "Chamada para ação específica da peça",
-  "canal": "${periodPlan.priority_channel}",
-  "data_sugerida": "YYYY-MM-DD (dentro do período especificado)",
-  "contexto_sazonal": "Se aplicável, mencione a data comemorativa relacionada"
-}
-
-IMPORTANTE: O campo "conteudo" DEVE conter o conteúdo COMPLETO E PRONTO PARA USO:
-- Para carrosséis: todos os slides com texto exato de cada um
-- Para reels/vídeos: roteiro completo cena por cena com falas e descrição visual
-- Para posts estáticos: texto completo da legenda + texto que vai na imagem
-- Para stories: sequência completa de frames com texto de cada um
-- Para depoimentos: texto completo do depoimento/citação do cliente
-- Para vídeos comerciais: roteiro completo com cada cena, VO (voz off) e texto na tela
-- Para posts LinkedIn: texto completo do artigo/post
-
-⚠️ NUNCA deixe "conteudo" vazio. TODA demanda DEVE ter conteúdo pronto para uso.
-⚠️ TODAS as demandas DEVEM ter canal = "${periodPlan.priority_channel}"
-
-## ⚠️ AUTO-VALIDAÇÃO OBRIGATÓRIA (aplicar ANTES de finalizar cada demanda):
-
-Antes de incluir qualquer demanda no resultado, valide internamente:
-
-1. PLANEJAMENTO: A demanda respeita as observações/restrições do período "${periodPlan.observations || 'Nenhuma'}"?
-2. CTA: Se CTA comercial/vendas NÃO foi autorizado nas observações, use APENAS encerramentos neutros (ex: "Reflita sobre isso", "Salve para depois", "Comente sua opinião"). NUNCA prometa resultados, prazos ou promoções sem autorização.
-3. COERÊNCIA: O objetivo declarado bate com o conteúdo? A peça cumpre exatamente a função proposta?
-4. REPETIÇÃO: Cada demanda deve ter ideia central ÚNICA. NÃO repita estruturas narrativas ou abordagens entre demandas da mesma geração. Varie os ângulos.
-5. VIABILIDADE: A demanda está clara, acionável e pronta para uma equipe de agência produzir?
-6. ORIGINALIDADE: A demanda NÃO é uma cópia de demandas recentes listadas acima?
-7. SAZONALIDADE: Se há datas comemorativas no período, pelo menos algumas demandas devem ser contextualizadas para elas?
-
-Se qualquer validação falhar, AJUSTE a demanda antes de incluir no JSON. Não inclua demandas que violem essas regras.
-
-FORMATO DE RESPOSTA FINAL:
-{
-  "default_plan": [{ "tipo": "...", "titulo": "...", "objetivo": "...", "conteudo": "...", "instrucoes_de_producao": "...", "cta_recomendado": "...", "canal": "${periodPlan.priority_channel}", "data_sugerida": "YYYY-MM-DD", "contexto_sazonal": "..." }],
-  "ultra_plan": [...],
-  "normal_summary": "...",
-  "ultra_summary": "..."
-}`;
+Formato:
+{ "default_plan": [...], "ultra_plan": [...], "normal_summary": "...", "ultra_summary": "..." }`;
 
     console.log('Calling OpenAI API...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -377,7 +316,8 @@ FORMATO DE RESPOSTA FINAL:
           { role: 'system', content: systemPrompt + jsonInstruction },
           { role: 'user', content: context }
         ],
-        max_completion_tokens: 16000,
+        max_completion_tokens: 10000,
+        response_format: { type: 'json_object' },
       }),
     });
 
