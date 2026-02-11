@@ -27,6 +27,8 @@ interface DemandReviewModalProps {
   onConfirm: (selectedDemands: DemandItem[], smartSelections: DemandItem[]) => void;
   onRegenerate: () => void;
   isRegenerating?: boolean;
+  hideSmartSuggestions?: boolean;
+  confirmLabel?: string;
 }
 
 export const DemandReviewModal = ({
@@ -37,24 +39,19 @@ export const DemandReviewModal = ({
   smartSuggestions = [],
   onConfirm,
   onRegenerate,
-  isRegenerating = false
+  isRegenerating = false,
+  hideSmartSuggestions = false,
+  confirmLabel,
 }: DemandReviewModalProps) => {
-  // Step 1 = demands, Step 2 = smart suggestions
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   
-  // Track selected demands by index
   const [selectedIndexes, setSelectedIndexes] = useState<Set<number>>(() => 
     new Set(demands.map((_, idx) => idx))
   );
-  
-  // Track removed demands
   const [removedIndexes, setRemovedIndexes] = useState<Set<number>>(new Set());
-
-  // Track selected smart suggestions
   const [selectedSmartIndexes, setSelectedSmartIndexes] = useState<Set<number>>(new Set());
   const [removedSmartIndexes, setRemovedSmartIndexes] = useState<Set<number>>(new Set());
 
-  // Reset state when modal opens with new demands
   useMemo(() => {
     if (open) {
       setSelectedIndexes(new Set(demands.map((_, idx) => idx)));
@@ -87,7 +84,6 @@ export const DemandReviewModal = ({
     const newRemoved = new Set(removedIndexes);
     newRemoved.add(originalIndex);
     setRemovedIndexes(newRemoved);
-    
     const newSelected = new Set(selectedIndexes);
     newSelected.delete(originalIndex);
     setSelectedIndexes(newSelected);
@@ -107,7 +103,6 @@ export const DemandReviewModal = ({
     const newRemoved = new Set(removedSmartIndexes);
     newRemoved.add(originalIndex);
     setRemovedSmartIndexes(newRemoved);
-    
     const newSelected = new Set(selectedSmartIndexes);
     newSelected.delete(originalIndex);
     setSelectedSmartIndexes(newSelected);
@@ -117,7 +112,7 @@ export const DemandReviewModal = ({
     const selectedDemands = demands.filter((_, idx) => 
       selectedIndexes.has(idx) && !removedIndexes.has(idx)
     );
-    const smartSelections = smartSuggestions.filter((_, idx) =>
+    const smartSelections = hideSmartSuggestions ? [] : smartSuggestions.filter((_, idx) =>
       selectedSmartIndexes.has(idx) && !removedSmartIndexes.has(idx)
     );
     onConfirm(selectedDemands, smartSelections);
@@ -133,14 +128,15 @@ export const DemandReviewModal = ({
   const accentColor = isNormal ? 'blue' : 'pink';
   const smartAccentColor = isNormal ? 'pink' : 'blue';
 
-  const totalSelected = selectedCount + selectedSmartCount;
+  const totalSelected = selectedCount + (hideSmartSuggestions ? 0 : selectedSmartCount);
+  const totalSteps = hideSmartSuggestions ? 1 : 2;
 
   const renderDemandCard = (
     demand: DemandItem, 
     originalIndex: number, 
     isSelected: boolean,
     onToggle: (idx: number) => void,
-    onRemove: (idx: number) => void,
+    onRemoveItem: (idx: number) => void,
     isSmart: boolean = false
   ) => {
     const tipo = demand.tipo || demand.tipo_conteudo || '';
@@ -158,7 +154,6 @@ export const DemandReviewModal = ({
         )}
       >
         <div className="flex gap-3">
-          {/* Selection checkbox */}
           <button 
             onClick={() => onToggle(originalIndex)}
             type="button"
@@ -174,7 +169,6 @@ export const DemandReviewModal = ({
             {isSelected && <Check className="w-3 h-3" />}
           </button>
 
-          {/* Content */}
           <div className="flex-1 min-w-0">
             <h4 className="font-semibold text-base mb-2">
               {tipo ? `${tipo} - ${demand.titulo}` : demand.titulo}
@@ -218,7 +212,6 @@ export const DemandReviewModal = ({
             )}
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-1 shrink-0">
             <Button
               size="sm"
@@ -245,7 +238,7 @@ export const DemandReviewModal = ({
               size="icon"
               variant="ghost"
               className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-              onClick={() => onRemove(originalIndex)}
+              onClick={() => onRemoveItem(originalIndex)}
               aria-label={`Remover ${demand.titulo}`}
             >
               <Trash2 className="w-4 h-4" />
@@ -271,7 +264,6 @@ export const DemandReviewModal = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0">
-        {/* Header */}
         <DialogHeader className="p-6 pb-4 border-b shrink-0">
           <div className="flex items-center gap-4">
             <div className={cn(
@@ -298,12 +290,11 @@ export const DemandReviewModal = ({
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Badge 
-                variant="outline" 
-                className="text-xs"
-              >
-                Etapa {currentStep}/2
-              </Badge>
+              {!hideSmartSuggestions && (
+                <Badge variant="outline" className="text-xs">
+                  Etapa {currentStep}/{totalSteps}
+                </Badge>
+              )}
               <Badge 
                 variant="secondary" 
                 className={cn(
@@ -319,7 +310,6 @@ export const DemandReviewModal = ({
           </div>
         </DialogHeader>
 
-        {/* Content */}
         <div className="flex-1 min-h-0 overflow-hidden">
           {currentStep === 1 ? (
             <ScrollArea className="h-[calc(90vh-250px)]">
@@ -328,12 +318,8 @@ export const DemandReviewModal = ({
                   if (removedIndexes.has(originalIndex)) return null;
                   const isSelected = selectedIndexes.has(originalIndex);
                   return renderDemandCard(
-                    demand, 
-                    originalIndex, 
-                    isSelected,
-                    handleToggleSelect,
-                    handleRemove,
-                    false
+                    demand, originalIndex, isSelected,
+                    handleToggleSelect, handleRemove, false
                   );
                 })}
 
@@ -341,12 +327,7 @@ export const DemandReviewModal = ({
                   <div className="text-center py-12">
                     <LayoutGrid className="w-12 h-12 mx-auto text-muted-foreground/70 mb-3" aria-hidden="true" />
                     <p className="text-muted-foreground">Nenhuma demanda disponível</p>
-                    <Button 
-                      variant="outline" 
-                      className="mt-4"
-                      onClick={onRegenerate}
-                      disabled={isRegenerating}
-                    >
+                    <Button variant="outline" className="mt-4" onClick={onRegenerate} disabled={isRegenerating}>
                       <RefreshCw className={cn("w-4 h-4 mr-2", isRegenerating && "animate-spin")} />
                       Gerar Novamente
                     </Button>
@@ -357,7 +338,6 @@ export const DemandReviewModal = ({
           ) : (
             <ScrollArea className="h-[calc(90vh-250px)]">
               <div className="p-6">
-                {/* Smart package header */}
                 <Card className={cn(
                   "p-4 mb-4 border-dashed",
                   isNormal 
@@ -394,21 +374,15 @@ export const DemandReviewModal = ({
                     if (removedSmartIndexes.has(originalIndex)) return null;
                     const isSelected = selectedSmartIndexes.has(originalIndex);
                     return renderDemandCard(
-                      demand, 
-                      originalIndex, 
-                      isSelected,
-                      handleToggleSmartSelect,
-                      handleRemoveSmart,
-                      true
+                      demand, originalIndex, isSelected,
+                      handleToggleSmartSelect, handleRemoveSmart, true
                     );
                   })}
 
                   {totalSmartVisible === 0 && (
                     <div className="text-center py-12">
                       <Lightbulb className="w-12 h-12 mx-auto text-muted-foreground/70 mb-3" aria-hidden="true" />
-                      <p className="text-muted-foreground">
-                        Nenhuma sugestão inteligente disponível
-                      </p>
+                      <p className="text-muted-foreground">Nenhuma sugestão inteligente disponível</p>
                       <p className="text-xs text-muted-foreground mt-1">
                         As sugestões são baseadas no plano alternativo ({isNormal ? 'Ultra' : 'Normal'})
                       </p>
@@ -420,7 +394,6 @@ export const DemandReviewModal = ({
           )}
         </div>
 
-        {/* Footer */}
         <div className="p-6 pt-4 border-t shrink-0 bg-muted/30">
           <div className="flex items-center justify-between gap-4">
             <Button
@@ -435,17 +408,13 @@ export const DemandReviewModal = ({
 
             <div className="flex items-center gap-2">
               {currentStep === 2 && (
-                <Button
-                  variant="outline"
-                  onClick={handleBack}
-                  className="gap-2"
-                >
+                <Button variant="outline" onClick={handleBack} className="gap-2">
                   <ArrowLeft className="w-4 h-4" />
                   Voltar
                 </Button>
               )}
               
-              {currentStep === 1 ? (
+              {currentStep === 1 && !hideSmartSuggestions ? (
                 <Button
                   onClick={handleNext}
                   className={cn(
@@ -465,7 +434,7 @@ export const DemandReviewModal = ({
                   )}
                 >
                   <Check className="w-4 h-4" />
-                  Confirmar Planejamento ({totalSelected})
+                  {confirmLabel || `Confirmar Planejamento (${totalSelected})`}
                 </Button>
               )}
             </div>
