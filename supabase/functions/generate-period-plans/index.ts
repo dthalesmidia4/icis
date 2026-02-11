@@ -216,11 +216,12 @@ Formato:
 
     const responseText = await response.text();
     console.log('OpenAI response status:', response.status);
+    console.log('OpenAI response preview:', responseText.substring(0, 500));
 
     if (!response.ok) {
       if (response.status === 429) throw new Error('Rate limit excedido. Tente novamente.');
       if (response.status === 401) throw new Error('API Key inválida.');
-      throw new Error(`OpenAI API error: ${response.status}`);
+      throw new Error(`OpenAI API error: ${response.status} - ${responseText.substring(0, 200)}`);
     }
 
     let aiResponse;
@@ -230,8 +231,14 @@ Formato:
       throw new Error('Erro ao processar resposta da API OpenAI');
     }
 
+    const finishReason = aiResponse.choices?.[0]?.finish_reason;
     const content = aiResponse.choices?.[0]?.message?.content;
-    if (!content) throw new Error('Resposta vazia da IA.');
+    console.log('finish_reason:', finishReason, '| content length:', content?.length || 0);
+
+    if (!content) {
+      console.error('Full AI response:', JSON.stringify(aiResponse).substring(0, 1000));
+      throw new Error(`Resposta vazia da IA (finish_reason: ${finishReason}). Tente novamente.`);
+    }
 
     // Parse JSON response
     let parsed;
