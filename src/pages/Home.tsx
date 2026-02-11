@@ -40,7 +40,8 @@ const Home = () => {
       id: 'clientes' as HubSectionId,
       title: "Gerenciar Clientes",
       icon: Building2,
-      route: "/clientes"
+      route: "/clientes",
+      adminOnly: true
     },
     {
       id: 'kanban' as HubSectionId,
@@ -80,10 +81,13 @@ const Home = () => {
     },
   ];
 
+  const isAdminOnly = role === 'super_admin' || role === 'agency_admin';
+
   // Filtrar cards baseado nas permissões (admins veem tudo)
-  const actionCards = allActionCards.filter(card => 
-    isAdmin || canAccess(card.id)
-  );
+  const actionCards = allActionCards.filter(card => {
+    if ((card as any).adminOnly) return isAdminOnly;
+    return isAdmin || canAccess(card.id);
+  });
 
   // Loading state
   if (permissionsLoading || roleLoading) {

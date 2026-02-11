@@ -94,9 +94,11 @@ function AppRoutes() {
       <Route path="/client-hub" element={
         <ProtectedRoute>
           <RequireTenant>
-            <Layout>
-              <ClientHub />
-            </Layout>
+            <RequireRole allowedRoles={['agency_admin']}>
+              <Layout>
+                <ClientHub />
+              </Layout>
+            </RequireRole>
           </RequireTenant>
         </ProtectedRoute>
       } />
@@ -153,7 +155,7 @@ function AppRoutes() {
       <Route path="/clientes" element={
         <ProtectedRoute>
           <RequireTenant>
-            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
+              <RequireRole allowedRoles={['agency_admin']}>
               <Layout>
                 <ClientList />
               </Layout>
@@ -164,7 +166,7 @@ function AppRoutes() {
       <Route path="/clientes/:id" element={
         <ProtectedRoute>
           <RequireTenant>
-            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
+              <RequireRole allowedRoles={['agency_admin']}>
               <Layout>
                 <ClientDetails />
               </Layout>
