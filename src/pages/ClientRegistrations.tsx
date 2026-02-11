@@ -84,7 +84,7 @@ const ClientRegistrations = () => {
                 className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
                 onClick={() => navigate(`/clientes/${client.id}`)}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-rose-500 to-pink-600 opacity-5 group-hover:opacity-10 transition-opacity" />
+                <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
 
                 <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
                   {client.logo_url ? (
@@ -99,12 +99,12 @@ const ClientRegistrations = () => {
                       />
                     </div>
                   ) : (
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
-                      <Building2 className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <Building2 className="w-6 h-6 sm:w-8 sm:h-8 text-primary-foreground" />
                     </div>
                   )}
 
-                  <h3 className="text-base sm:text-xl font-bold transition-colors text-pink-600 dark:text-pink-400 line-clamp-2">
+                  <h3 className="text-base sm:text-xl font-bold transition-colors text-primary line-clamp-2">
                     {client.fantasy_name || client.name}
                   </h3>
                   <p className="text-xs text-muted-foreground mt-1">{client.cnpj_cpf}</p>
