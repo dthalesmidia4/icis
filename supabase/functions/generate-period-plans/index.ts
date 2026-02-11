@@ -184,18 +184,9 @@ Observações: ${periodPlan.observations || 'Nenhuma'}${calendarCtx}${successCtx
     // JSON instruction - request only ONE plan based on planType
     const planLabel = planType === 'ultra' ? 'ultra (ousado, criativo, inovador)' : 'normal (seguro, operacional)';
     const jsonInstruction = `
-
-Responda APENAS com JSON válido. Canal OBRIGATÓRIO: "${periodPlan.priority_channel}".
-Gere APENAS o plano ${planLabel}.
-
-Estrutura de cada demanda:
-{ "tipo": "Carrossel|Reels|Post estático|Story|Vídeo", "titulo": "...", "objetivo": "...", "conteudo": "Conteúdo COMPLETO em markdown", "instrucoes_de_producao": "...", "cta_recomendado": "...", "canal": "${periodPlan.priority_channel}", "data_sugerida": "YYYY-MM-DD", "contexto_sazonal": "..." }
-
-Regras: conteudo NUNCA vazio, ideias únicas, respeitar restrições: "${periodPlan.observations || 'Nenhuma'}". Considerar datas comemorativas.
-
-Formato:
-{ "plan": [...], "summary": "..." }`;
-
+Responda APENAS JSON. Canal: "${periodPlan.priority_channel}". Plano ${planLabel}.
+Cada demanda: {"tipo":"...","titulo":"...","objetivo":"...","conteudo":"conteúdo markdown","instrucoes_de_producao":"...","cta_recomendado":"...","canal":"${periodPlan.priority_channel}","data_sugerida":"YYYY-MM-DD"}
+Formato: {"plan":[...],"summary":"resumo curto"}`;
     console.log('Calling OpenAI for planType:', planType);
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -209,7 +200,7 @@ Formato:
           { role: 'developer', content: systemPrompt + jsonInstruction },
           { role: 'user', content: context }
         ],
-        max_completion_tokens: 16000,
+        max_completion_tokens: 32000,
         reasoning: { effort: 'low' },
         response_format: { type: 'json_object' },
       }),
