@@ -1,56 +1,99 @@
 
+# Fluxo Sequencial de Geracao de Demandas
 
-# Remover rota /schedule e redirecionar para Kanban Central
+## Resumo
 
-## Contexto
+Reestruturar o fluxo de geracao de demandas para ser sequencial e interativo:
 
-A rota `/schedule` e uma visualizacao read-only de demandas por cliente/periodo, separada do Kanban Central (`/kanban-central`). O Kanban Central ja possui filtro por cliente e todas as funcionalidades de gestao. O objetivo e eliminar `/schedule` e redirecionar tudo para o Kanban Central.
+1. Gerar apenas as demandas **Normais** (limite de 6)
+2. Mostrar para o usuario avaliar e selecionar
+3. Salvar as demandas normais selecionadas no Kanban
+4. Gerar as demandas **Ultra** (limite de 3)
+5. Mostrar para o usuario avaliar e selecionar
+6. Salvar as demandas ultra selecionadas no Kanban
+7. Tela de conclusao
 
-## Mudancas
+## Mudancas no Fluxo (Steps)
 
-### 1. Redirecionar navegacoes de /schedule para /kanban-central
+O tipo `Step` atual e: `'form' | 'loading' | 'mode-selection' | 'optional-package' | 'completed'`
 
-**`src/pages/PlanPeriod.tsx`** - 3 locais onde navega para `/schedule?periodPlanId=...`:
-- Apos confirmar planejamento (linha ~475): redirecionar para `/kanban-central`
-- Botao "Ver Demandas" (linha ~971): redirecionar para `/kanban-central`
-- Botao "Ver no Kanban" no historico (linha ~1165): redirecionar para `/kanban-central`
-- Nota: o `periodPlanId` nao sera mais passado como query param, pois o Kanban Central ja mostra todas as demandas e tem filtro por cliente
+Sera alterado para: `'form' | 'loading-normal' | 'review-normal' | 'loading-ultra' | 'review-ultra' | 'completed'`
 
-### 2. Atualizar ClientHub
+```text
+[Formulario] 
+    |
+    v
+[Loading Normal] --> Gera 6 demandas normais
+    |
+    v
+[Review Normal] --> Usuario avalia/seleciona --> Salva no Kanban
+    |
+    v
+[Loading Ultra] --> Gera 3 demandas ultra
+    |
+    v
+[Review Ultra] --> Usuario avalia/seleciona --> Salva no Kanban
+    |
+    v
+[Concluido]
+```
 
-**`src/pages/ClientHub.tsx`**:
-- O card "Demandas" (linha ~82) aponta para `/schedule` - redirecionar para `/kanban-central`
-- A funcao `handleDemandasClick` (linha ~49) navega para `/schedule` com state - simplificar para navegar para `/kanban-central`
+## Detalhes Tecnicos
 
-### 3. Remover a rota /schedule
+### 1. Edge Function (`supabase/functions/generate-period-plans/index.ts`)
 
-**`src/App.tsx`**:
-- Remover a rota `/schedule` (linhas 128-136)
-- Remover o import de `Schedule` (linha 27)
+- Adicionar instrucao de limite no prompt JSON:
+  - Para `planType === 'default'`: "Gere exatamente 6 demandas"
+  - Para `planType === 'ultra'`: "Gere exatamente 3 demandas"
+- O resto da logica permanece igual
 
-### 4. Atualizar sidebar
+### 2. Frontend (`src/pages/PlanPeriod.tsx`)
 
-**`src/components/AppSidebar.tsx`**:
-- Mudar o item "Demandas" de `/schedule` para `/kanban-central` (linha 62)
+**Novos Steps:**
+- Alterar o tipo `Step` para os novos estados
+- Remover a logica de `mode-selection` e `optional-package`
 
-### 5. Atualizar breadcrumbs
+**handleSubmit (formulario):**
+- Criar o `period_plan` no banco
+- Chamar `generateSinglePlan(id, 'default')`
+- Ao completar, ir para `'review-normal'`
 
-**`src/hooks/useBreadcrumb.tsx`**:
-- Remover a entrada `/schedule` (linha ~72)
+**handleReviewNormalConfirm (novo):**
+- Receber as demandas normais selecionadas
+- Salvar imediatamente no Kanban (inserir na tabela `demands`)
+- Iniciar geracao ultra: ir para `'loading-ultra'`
+- Chamar `generateSinglePlan(id, 'ultra')`
+- Ao completar, ir para `'review-ultra'`
 
-### 6. Limpar main.tsx
+**handleReviewUltraConfirm (novo):**
+- Receber as demandas ultra selecionadas
+- Salvar no Kanban
+- Marcar `period_plan` como `status: 'completed'`
+- Ir para `'completed'`
 
-**`src/main.tsx`**:
-- Remover o fix de URL encoded para `/schedule%3F` (linhas ~5-7 e logica associada)
+**Funcao auxiliar `saveDemandToKanban`:**
+- Extrair a logica de insercao de demandas que ja existe em `handleReviewConfirm` para uma funcao reutilizavel
+- Reutilizar nos dois fluxos (normal e ultra)
 
-### 7. Excluir arquivo
+**UI Rendering:**
+- Reutilizar o `DemandReviewModal` existente, mas sem o step 2 de "smart suggestions" (cada modal mostra apenas as demandas do seu tipo)
+- Na tela de review normal, o botao de confirmar diz "Salvar e Gerar Ultra"
+- Na tela de review ultra, o botao de confirmar diz "Confirmar Planejamento"
+- Remover `renderModeSelection` e `renderOptionalPackage`
+- Ajustar `renderCompleted` para mostrar totais combinados
 
-**`src/pages/Schedule.tsx`** - pode ser deletado, pois nao sera mais utilizado
+**handleRegenerate:**
+- Adaptar para regenerar apenas o plano do step atual (normal ou ultra)
 
-## Impacto
+### 3. DemandReviewModal (`src/components/DemandReviewModal.tsx`)
 
-- Todas as demandas passam a ser gerenciadas exclusivamente pelo Kanban Central
-- O filtro por cliente ja existente no Kanban Central substitui a filtragem por periodo que existia no `/schedule`
-- Nenhuma mudanca no banco de dados
-- O `/scheduled` (Agendamento de Conteudos) permanece intacto
+- Adicionar prop opcional `hideSmartSuggestions?: boolean` para pular o step 2
+- Quando `hideSmartSuggestions` for true, o botao "Proximo" vira o botao de confirmacao diretamente
+- Adicionar prop `confirmLabel?: string` para customizar o texto do botao de confirmar
 
+### 4. Remocoes
+
+- Remover estado `selectedMode`, `optionalPackage`, `reviewMode`
+- Remover funcoes `handleModeSelection`, `handlePackageDecision`
+- Remover `renderModeSelection` e `renderOptionalPackage`
+- Simplificar `renderCompleted` removendo referencia a pacotes extras
