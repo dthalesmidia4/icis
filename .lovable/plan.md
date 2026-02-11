@@ -1,99 +1,89 @@
 
-# Fluxo Sequencial de Geracao de Demandas
+# Fix: Demandas Nao Sendo Exibidas
 
-## Resumo
+## Problema Identificado
 
-Reestruturar o fluxo de geracao de demandas para ser sequencial e interativo:
+A edge function gera as demandas com sucesso (confirmado nos logs: 5 demandas retornadas, status 200). Porem, o frontend **ignora a resposta direta** da edge function e tenta buscar os dados via polling no banco de dados. Essa abordagem e fragil e esta falhando silenciosamente.
 
-1. Gerar apenas as demandas **Normais** (limite de 6)
-2. Mostrar para o usuario avaliar e selecionar
-3. Salvar as demandas normais selecionadas no Kanban
-4. Gerar as demandas **Ultra** (limite de 3)
-5. Mostrar para o usuario avaliar e selecionar
-6. Salvar as demandas ultra selecionadas no Kanban
-7. Tela de conclusao
+Alem disso, a interface `PlanItem` nao corresponde aos campos reais retornados pela IA (`tipo`, `objetivo`, `conteudo` vs `descricao`, `tipo_conteudo`).
 
-## Mudancas no Fluxo (Steps)
+## Solucao
 
-O tipo `Step` atual e: `'form' | 'loading' | 'mode-selection' | 'optional-package' | 'completed'`
+### 1. Usar a resposta direta da Edge Function (principal)
 
-Sera alterado para: `'form' | 'loading-normal' | 'review-normal' | 'loading-ultra' | 'review-ultra' | 'completed'`
+**Arquivo:** `src/pages/PlanPeriod.tsx`
+
+Modificar `generateSinglePlan` para usar os dados retornados diretamente pela `supabase.functions.invoke` em vez de polling:
 
 ```text
-[Formulario] 
-    |
-    v
-[Loading Normal] --> Gera 6 demandas normais
-    |
-    v
-[Review Normal] --> Usuario avalia/seleciona --> Salva no Kanban
-    |
-    v
-[Loading Ultra] --> Gera 3 demandas ultra
-    |
-    v
-[Review Ultra] --> Usuario avalia/seleciona --> Salva no Kanban
-    |
-    v
-[Concluido]
+ANTES:
+  1. Chama edge function (ignora resposta)
+  2. Faz polling 40x no banco
+  3. Nunca encontra ou demora muito
+
+DEPOIS:
+  1. Chama edge function
+  2. Usa o campo 'plan' da resposta direta
+  3. Polling apenas como fallback se resposta direta falhar
 ```
+
+### 2. Corrigir a interface PlanItem
+
+**Arquivo:** `src/pages/PlanPeriod.tsx`
+
+Atualizar a interface `PlanItem` para incluir os campos reais retornados pela IA:
+
+- Adicionar: `tipo`, `objetivo`, `conteudo`, `instrucoes_de_producao`, `cta_recomendado`
+- Manter campos antigos como opcionais para retrocompatibilidade
+
+### 3. Adicionar logs de debug
+
+Adicionar `console.log` nos pontos criticos para facilitar depuracao futura:
+- Resposta da edge function
+- Dados recebidos antes de setar no state
+- Quantidade de demandas no review
 
 ## Detalhes Tecnicos
 
-### 1. Edge Function (`supabase/functions/generate-period-plans/index.ts`)
+### generateSinglePlan (refatorado)
 
-- Adicionar instrucao de limite no prompt JSON:
-  - Para `planType === 'default'`: "Gere exatamente 6 demandas"
-  - Para `planType === 'ultra'`: "Gere exatamente 3 demandas"
-- O resto da logica permanece igual
+```typescript
+const generateSinglePlan = async (planId, planType) => {
+  const { data, error } = await supabase.functions.invoke('generate-period-plans', {
+    body: { periodPlanId: planId, tenantId, planType }
+  });
 
-### 2. Frontend (`src/pages/PlanPeriod.tsx`)
+  // Usar resposta direta se disponivel
+  if (!error && data?.success && data?.plan?.length > 0) {
+    console.log(`[PlanPeriod] Direct response: ${data.plan.length} demands`);
+    return { success: true, plan: data.plan };
+  }
 
-**Novos Steps:**
-- Alterar o tipo `Step` para os novos estados
-- Remover a logica de `mode-selection` e `optional-package`
+  // Fallback: polling (caso a resposta direta falhe)
+  console.warn('[PlanPeriod] Direct response failed, falling back to polling');
+  // ... polling existente como fallback ...
+};
+```
 
-**handleSubmit (formulario):**
-- Criar o `period_plan` no banco
-- Chamar `generateSinglePlan(id, 'default')`
-- Ao completar, ir para `'review-normal'`
+### PlanItem interface (atualizada)
 
-**handleReviewNormalConfirm (novo):**
-- Receber as demandas normais selecionadas
-- Salvar imediatamente no Kanban (inserir na tabela `demands`)
-- Iniciar geracao ultra: ir para `'loading-ultra'`
-- Chamar `generateSinglePlan(id, 'ultra')`
-- Ao completar, ir para `'review-ultra'`
+```typescript
+interface PlanItem {
+  titulo: string;
+  tipo?: string;
+  objetivo?: string;
+  conteudo?: string;
+  instrucoes_de_producao?: string;
+  cta_recomendado?: string;
+  canal: string;
+  data_sugerida?: string;
+  // Campos legados
+  descricao?: string;
+  tipo_conteudo?: string;
+}
+```
 
-**handleReviewUltraConfirm (novo):**
-- Receber as demandas ultra selecionadas
-- Salvar no Kanban
-- Marcar `period_plan` como `status: 'completed'`
-- Ir para `'completed'`
+### Arquivos Modificados
 
-**Funcao auxiliar `saveDemandToKanban`:**
-- Extrair a logica de insercao de demandas que ja existe em `handleReviewConfirm` para uma funcao reutilizavel
-- Reutilizar nos dois fluxos (normal e ultra)
-
-**UI Rendering:**
-- Reutilizar o `DemandReviewModal` existente, mas sem o step 2 de "smart suggestions" (cada modal mostra apenas as demandas do seu tipo)
-- Na tela de review normal, o botao de confirmar diz "Salvar e Gerar Ultra"
-- Na tela de review ultra, o botao de confirmar diz "Confirmar Planejamento"
-- Remover `renderModeSelection` e `renderOptionalPackage`
-- Ajustar `renderCompleted` para mostrar totais combinados
-
-**handleRegenerate:**
-- Adaptar para regenerar apenas o plano do step atual (normal ou ultra)
-
-### 3. DemandReviewModal (`src/components/DemandReviewModal.tsx`)
-
-- Adicionar prop opcional `hideSmartSuggestions?: boolean` para pular o step 2
-- Quando `hideSmartSuggestions` for true, o botao "Proximo" vira o botao de confirmacao diretamente
-- Adicionar prop `confirmLabel?: string` para customizar o texto do botao de confirmar
-
-### 4. Remocoes
-
-- Remover estado `selectedMode`, `optionalPackage`, `reviewMode`
-- Remover funcoes `handleModeSelection`, `handlePackageDecision`
-- Remover `renderModeSelection` e `renderOptionalPackage`
-- Simplificar `renderCompleted` removendo referencia a pacotes extras
+- `src/pages/PlanPeriod.tsx` - Refatorar generateSinglePlan + corrigir PlanItem
+- Nenhuma alteracao na edge function (ja funciona corretamente)
