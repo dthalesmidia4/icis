@@ -206,10 +206,11 @@ Formato:
       body: JSON.stringify({
         model: 'gpt-5-mini',
         messages: [
-          { role: 'system', content: systemPrompt + jsonInstruction },
+          { role: 'developer', content: systemPrompt + jsonInstruction },
           { role: 'user', content: context }
         ],
-        max_completion_tokens: 4000,
+        max_completion_tokens: 16000,
+        reasoning: { effort: 'low' },
         response_format: { type: 'json_object' },
       }),
     });
