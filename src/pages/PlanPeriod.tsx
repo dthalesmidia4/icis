@@ -88,7 +88,7 @@ const PlanPeriod = () => {
   const [observations, setObservations] = useState("");
   const [excludedFormats, setExcludedFormats] = useState<string[]>([]);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
-  const [clientAcquisition, setClientAcquisition] = useState("");
+  
   const [paidTrafficBudget, setPaidTrafficBudget] = useState("");
   const [budgetCurrency, setBudgetCurrency] = useState<'BRL' | 'USD'>('BRL');
   const [periodLimitations, setPeriodLimitations] = useState("");
@@ -292,7 +292,7 @@ const PlanPeriod = () => {
         objective: 'Gerado automaticamente',
         priority_channel: priorityChannel,
         observations: fullObservations,
-        client_acquisition: clientAcquisition || null,
+        client_acquisition: null,
         paid_traffic_budget: paidTrafficBudget ? `${budgetCurrency === 'BRL' ? 'R$' : '$'} ${paidTrafficBudget}` : null,
         status: 'draft'
       }).select().single();
@@ -615,12 +615,7 @@ const PlanPeriod = () => {
               </div>
             </div>
 
-            {/* Perguntas estratégicas do período */}
-            <div className="space-y-2">
-              <Label htmlFor="clientAcquisition" className="text-sm">Como a empresa atrai clientes hoje?</Label>
-              <p className="text-xs text-muted-foreground">Fontes atuais: redes sociais, indicações, anúncios, Google, WhatsApp</p>
-              <Textarea id="clientAcquisition" placeholder="Descreva as principais formas de aquisição de clientes da empresa..." value={clientAcquisition} onChange={e => setClientAcquisition(e.target.value)} rows={2} />
-            </div>
+            {/* Channel Selection */}
 
             {/* Channel Selection */}
             <div className="space-y-3">
