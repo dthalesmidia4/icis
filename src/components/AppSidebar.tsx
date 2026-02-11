@@ -59,7 +59,7 @@ const clientMenuItems: MenuItem[] = [
   { title: "Perguntas", url: "/client-guide", icon: FileText },
   { title: "Estratégia", url: "/strategies", icon: Lightbulb },
   { title: "Períodos", url: "/plan-period", icon: Calendar },
-  { title: "Demandas", url: "/schedule", icon: ListTodo },
+  { title: "Demandas", url: "/kanban-central", icon: ListTodo },
 ];
 
 // Menu developer
