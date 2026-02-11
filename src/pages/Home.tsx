@@ -38,7 +38,7 @@ const Home = () => {
     },
     {
       id: 'clientes' as HubSectionId,
-      title: "Gerenciar Clientes",
+      title: "Gerenciar (Legado)",
       icon: Building2,
       route: "/clientes",
       adminOnly: true
