@@ -5,282 +5,444 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Loader2, CalendarDays, ChevronRight, ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Search, Loader2, CalendarDays, ChevronRight, ChevronDown,
+  Plus, ArrowLeft, Paperclip, Building2
+} from "lucide-react";
 import BackButton from "@/components/BackButton";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
-interface PeriodData {
+// ─── Types ───────────────────────────────────────────────────────
+
+interface SelectedClientLocal {
+  id: string;
+  name: string;
+  fantasy_name: string | null;
+  cnpj_cpf: string;
+  email: string;
+}
+
+interface PeriodItem {
   id: string;
   period_title: string;
   period_start: string;
   period_end: string;
   operational_status: string;
-  total_demands: number;
-  executed_demands: number;
 }
 
-interface ClientGroup {
-  company_id: string;
-  client_name: string;
-  client_fantasy_name: string | null;
-  client_logo_url: string | null;
-  client_cnpj_cpf: string;
-  client_email: string;
-  periods: PeriodData[];
+interface DemandRow {
+  id: string;
+  title: string;
+  publish_date: string | null;
+  attachments: any;
+  status_id: string;
+  period_plan_id: string | null;
 }
+
+interface StatusGroup {
+  id: string;
+  name: string;
+  color: string;
+  position: number;
+  is_final: boolean;
+  is_initial: boolean;
+  demands: DemandRow[];
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────
+
+const formatDate = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("pt-BR");
+
+const getStatusBadge = (status: string) => {
+  if (status === "concluido") return { label: "Concluído", className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" };
+  if (status === "em_andamento") return { label: "Em andamento", className: "bg-amber-500/10 text-amber-600 border-amber-500/30" };
+  return { label: "Em planejamento", className: "bg-blue-500/10 text-blue-600 border-blue-500/30" };
+};
+
+const hasAttachments = (att: any) => {
+  if (!att) return false;
+  if (Array.isArray(att)) return att.length > 0;
+  return false;
+};
+
+// ─── Component ───────────────────────────────────────────────────
 
 const PeriodClientList = () => {
   const navigate = useNavigate();
   const { tenantId } = useTenant();
   const { setSelectedClient } = useSelectedClient();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
 
-  const { data: clientGroups, isLoading } = useQuery({
-    queryKey: ['schedules-periods-grouped', tenantId],
+  // Local navigation state: client → period → detail
+  const [selectedClientLocal, setSelectedClientLocal] = useState<SelectedClientLocal | null>(null);
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // ── Step 1: Fetch clients ──
+  const { data: clients, isLoading: loadingClients } = useQuery({
+    queryKey: ["schedules-clients", tenantId, searchTerm],
     queryFn: async () => {
       if (!tenantId) return [];
-
-      const { data: plansData, error: plansError } = await supabase
-        .from('period_plans')
-        .select(`
-          id, period_title, period_start, period_end, operational_status, company_id,
-          tenant_companies!period_plans_company_id_fkey (
-            id, name, fantasy_name, logo_url, cnpj_cpf, email
-          )
-        `)
-        .eq('tenant_id', tenantId)
-        .order('period_end', { ascending: false });
-
-      if (plansError) throw plansError;
-      if (!plansData || plansData.length === 0) return [];
-
-      // Fetch demands for execution count
-      const planIds = plansData.map(p => p.id);
-      const { data: demandsData } = await supabase
-        .from('demands')
-        .select(`id, period_plan_id, pipeline_statuses!demands_status_id_fkey ( is_final )`)
-        .eq('tenant_id', tenantId)
-        .in('period_plan_id', planIds);
-
-      const demandCounts = new Map<string, { total: number; executed: number }>();
-      (demandsData || []).forEach(d => {
-        if (!d.period_plan_id) return;
-        const current = demandCounts.get(d.period_plan_id) || { total: 0, executed: 0 };
-        current.total++;
-        if (d.pipeline_statuses?.is_final) current.executed++;
-        demandCounts.set(d.period_plan_id, current);
-      });
-
-      // Group by client
-      const groupMap = new Map<string, ClientGroup>();
-      plansData.forEach(plan => {
-        const company = plan.tenant_companies as any;
-        const companyId = plan.company_id;
-        if (!groupMap.has(companyId)) {
-          groupMap.set(companyId, {
-            company_id: companyId,
-            client_name: company?.name || '',
-            client_fantasy_name: company?.fantasy_name || null,
-            client_logo_url: company?.logo_url || null,
-            client_cnpj_cpf: company?.cnpj_cpf || '',
-            client_email: company?.email || '',
-            periods: [],
-          });
-        }
-        const counts = demandCounts.get(plan.id) || { total: 0, executed: 0 };
-        groupMap.get(companyId)!.periods.push({
-          id: plan.id,
-          period_title: plan.period_title,
-          period_start: plan.period_start,
-          period_end: plan.period_end,
-          operational_status: plan.operational_status,
-          total_demands: counts.total,
-          executed_demands: counts.executed,
-        });
-      });
-
-      return Array.from(groupMap.values()).sort((a, b) => {
-        const nameA = (a.client_fantasy_name || a.client_name).toLowerCase();
-        const nameB = (b.client_fantasy_name || b.client_name).toLowerCase();
-        return nameA.localeCompare(nameB);
-      });
+      let query = supabase
+        .from("tenant_companies")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .order("name", { ascending: true });
+      if (searchTerm) {
+        query = query.or(`name.ilike.%${searchTerm}%,fantasy_name.ilike.%${searchTerm}%`);
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
     },
-    enabled: !!tenantId
+    enabled: !!tenantId && !selectedClientLocal,
   });
 
-  const filteredGroups = useMemo(() => {
-    if (!clientGroups) return [];
-    if (!searchTerm) return clientGroups;
-    const term = searchTerm.toLowerCase();
-    return clientGroups
-      .map(group => {
-        const clientMatch = (group.client_fantasy_name || group.client_name).toLowerCase().includes(term);
-        if (clientMatch) return group;
-        const matchingPeriods = group.periods.filter(p => p.period_title.toLowerCase().includes(term));
-        if (matchingPeriods.length > 0) return { ...group, periods: matchingPeriods };
-        return null;
-      })
-      .filter(Boolean) as ClientGroup[];
-  }, [clientGroups, searchTerm]);
+  // ── Step 2: Fetch periods for selected client ──
+  const { data: periods, isLoading: loadingPeriods } = useQuery({
+    queryKey: ["schedules-periods", tenantId, selectedClientLocal?.id],
+    queryFn: async () => {
+      if (!tenantId || !selectedClientLocal) return [];
+      const { data, error } = await supabase
+        .from("period_plans")
+        .select("id, period_title, period_start, period_end, operational_status")
+        .eq("tenant_id", tenantId)
+        .eq("company_id", selectedClientLocal.id)
+        .order("period_end", { ascending: false });
+      if (error) throw error;
+      return data as PeriodItem[];
+    },
+    enabled: !!tenantId && !!selectedClientLocal && !selectedPeriodId,
+  });
 
-  const toggleClient = (companyId: string) => {
-    setExpandedClients(prev => {
-      const next = new Set(prev);
-      if (next.has(companyId)) next.delete(companyId);
-      else next.add(companyId);
-      return next;
-    });
+  // ── Step 3: Fetch demands + statuses for selected period ──
+  const { data: statusGroups, isLoading: loadingDetail } = useQuery({
+    queryKey: ["schedules-detail", tenantId, selectedPeriodId],
+    queryFn: async () => {
+      if (!tenantId || !selectedPeriodId || !selectedClientLocal) return [];
+
+      // Get pipeline for tenant
+      const { data: pipeline } = await supabase
+        .from("pipelines")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("is_default", true)
+        .single();
+
+      if (!pipeline) return [];
+
+      // Fetch statuses
+      const { data: statuses } = await supabase
+        .from("pipeline_statuses")
+        .select("id, name, color, position, is_final, is_initial")
+        .eq("pipeline_id", pipeline.id)
+        .order("position", { ascending: true });
+
+      if (!statuses) return [];
+
+      // Fetch demands
+      const { data: demands } = await supabase
+        .from("demands")
+        .select("id, title, publish_date, attachments, status_id, period_plan_id")
+        .eq("tenant_id", tenantId)
+        .eq("client_id", selectedClientLocal.id)
+        .eq("period_plan_id", selectedPeriodId);
+
+      const demandsList = (demands || []) as DemandRow[];
+
+      // Group demands by status
+      const groups: StatusGroup[] = statuses.map((s) => ({
+        id: s.id,
+        name: s.name,
+        color: s.color,
+        position: s.position,
+        is_final: s.is_final,
+        is_initial: s.is_initial,
+        demands: demandsList.filter((d) => d.status_id === s.id),
+      }));
+
+      return groups;
+    },
+    enabled: !!tenantId && !!selectedPeriodId && !!selectedClientLocal,
+  });
+
+  const selectedPeriod = useMemo(
+    () => periods?.find((p) => p.id === selectedPeriodId) || null,
+    [periods, selectedPeriodId]
+  );
+
+  // ── Handlers ──
+  const handleSelectClient = (client: any) => {
+    const c: SelectedClientLocal = {
+      id: client.id,
+      name: client.name,
+      fantasy_name: client.fantasy_name,
+      cnpj_cpf: client.cnpj_cpf,
+      email: client.email,
+    };
+    setSelectedClientLocal(c);
+    setSearchTerm("");
   };
 
-  const handleClientClick = (group: ClientGroup) => {
-    setSelectedClient({
-      id: group.company_id,
-      name: group.client_name,
-      fantasy_name: group.client_fantasy_name,
-      cnpj_cpf: group.client_cnpj_cpf,
-      email: group.client_email,
-    });
-    navigate('/plan-period');
+  const handleBack = () => {
+    if (selectedPeriodId) {
+      setSelectedPeriodId(null);
+    } else if (selectedClientLocal) {
+      setSelectedClientLocal(null);
+      setSearchTerm("");
+    }
   };
 
-  const formatDate = (dateStr: string) => new Date(dateStr + 'T00:00:00').toLocaleDateString('pt-BR');
+  // ─── RENDER: Step 3 — Detail (status-grouped demands) ───
+  if (selectedPeriodId && selectedClientLocal) {
+    const clientDisplay = selectedClientLocal.fantasy_name || selectedClientLocal.name;
 
-  const getStatusBadge = (status: string) => {
-    if (status === 'concluido') return { label: 'Concluído', className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30' };
-    if (status === 'em_andamento') return { label: 'Em andamento', className: 'bg-amber-500/10 text-amber-600 border-amber-500/30' };
-    return { label: 'Em planejamento', className: 'bg-blue-500/10 text-blue-600 border-blue-500/30' };
-  };
+    return (
+      <div className="pb-8">
+        <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
+          {/* Header */}
+          <div className="mb-8">
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </button>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1">
+              {selectedPeriod?.period_title || "Cronograma"}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {clientDisplay}
+              {selectedPeriod && (
+                <> · {formatDate(selectedPeriod.period_start)} – {formatDate(selectedPeriod.period_end)}</>
+              )}
+            </p>
+          </div>
 
-  const getInitials = (name: string) => name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+          {/* Status groups */}
+          {loadingDetail ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : !statusGroups || statusGroups.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-12">Nenhum status encontrado</p>
+          ) : (
+            <div className="flex flex-col gap-6">
+              {statusGroups.map((group) => (
+                <div key={group.id}>
+                  {/* Status header */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <div
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: group.color }}
+                    />
+                    <span className="text-sm font-semibold text-foreground">{group.name}</span>
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                      {group.demands.length}
+                    </Badge>
+                  </div>
 
-  const totalPeriods = filteredGroups.reduce((sum, g) => sum + g.periods.length, 0);
+                  {/* Demands list */}
+                  {group.demands.length === 0 ? (
+                    <div className="pl-5 py-3">
+                      <p className="text-xs text-muted-foreground italic">Nenhuma demanda neste status</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1 pl-5">
+                      {group.demands.map((demand) => (
+                        <div
+                          key={demand.id}
+                          className="flex items-center justify-between gap-3 px-3 py-2 rounded-md bg-muted/30 border border-border/40 hover:bg-muted/50 transition-colors"
+                        >
+                          <span className="text-sm text-foreground truncate flex-1">
+                            {demand.title}
+                          </span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {hasAttachments(demand.attachments) && (
+                              <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
+                            {demand.publish_date && (
+                              <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                {formatDate(demand.publish_date)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
+  // ─── RENDER: Step 2 — Period list for selected client ───
+  if (selectedClientLocal) {
+    const clientDisplay = selectedClientLocal.fantasy_name || selectedClientLocal.name;
+
+    return (
+      <div className="pb-8">
+        <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
+          {/* Header */}
+          <div className="mb-8">
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </button>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1">
+                  Cronogramas de {clientDisplay}
+                </h1>
+                <p className="text-sm text-muted-foreground">Selecione um período para ver a execução</p>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setSelectedClient({
+                    id: selectedClientLocal.id,
+                    name: selectedClientLocal.name,
+                    fantasy_name: selectedClientLocal.fantasy_name,
+                    cnpj_cpf: selectedClientLocal.cnpj_cpf,
+                    email: selectedClientLocal.email,
+                  });
+                  navigate("/plan-period");
+                }}
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Novo Período
+              </Button>
+            </div>
+          </div>
+
+          {/* Periods */}
+          {loadingPeriods ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : !periods || periods.length === 0 ? (
+            <div className="text-center py-12">
+              <CalendarDays className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-30" />
+              <p className="text-sm text-muted-foreground">Nenhum período cadastrado para este cliente</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {periods.map((period) => {
+                const statusBadge = getStatusBadge(period.operational_status);
+                return (
+                  <div
+                    key={period.id}
+                    className="flex items-center justify-between gap-4 px-4 py-3 bg-muted/30 rounded-lg border border-border/50 cursor-pointer hover:bg-muted/50 transition-colors group"
+                    onClick={() => setSelectedPeriodId(period.id)}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm font-medium text-foreground block truncate">
+                        {period.period_title}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDate(period.period_start)} – {formatDate(period.period_end)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge className={cn("text-[10px] px-2 py-0.5 font-medium border", statusBadge.className)}>
+                        {statusBadge.label}
+                      </Badge>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ─── RENDER: Step 1 — Client selection (big cards) ───
   return (
     <div className="pb-8">
       <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
         {/* Header */}
-        <div className="mb-8 sm:mb-10">
-          <div className="mb-4">
+        <div className="mb-8 sm:mb-12 text-center relative">
+          <div className="absolute left-0 top-0">
             <BackButton to="/home" />
           </div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="p-2 bg-violet-500/10 rounded-lg">
-              <CalendarDays className="h-5 w-5 text-violet-500" />
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-              Cronogramas
-            </h1>
-            {totalPeriods > 0 && (
-              <Badge variant="secondary">
-                {filteredGroups.length} {filteredGroups.length === 1 ? 'cliente' : 'clientes'} · {totalPeriods} {totalPeriods === 1 ? 'período' : 'períodos'}
-              </Badge>
-            )}
-          </div>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3">
+            Cronogramas
+          </h1>
+          <p className="text-sm sm:text-lg text-muted-foreground">
+            Selecione um cliente para ver os cronogramas
+          </p>
         </div>
 
         {/* Search */}
-        <div className="mb-6 flex items-center gap-3">
-          <div className="relative flex-1 max-w-md">
+        <div className="mb-6">
+          <div className="relative max-w-md mx-auto">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por cliente ou período..."
+              placeholder="Buscar por nome ou fantasia..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
           </div>
-          <Button onClick={() => navigate('/plan-period')} size="sm">
-            <Plus className="h-4 w-4 mr-1.5" />
-            Novo Período
-          </Button>
         </div>
 
-        {/* List */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        {/* Client grid */}
+        {loadingClients ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-        ) : filteredGroups.length === 0 ? (
-          <div className="bg-muted/30 rounded-xl p-4 border border-border/50 min-h-[300px] flex flex-col items-center justify-center">
-            <CalendarDays className="h-12 w-12 mb-4 opacity-30 text-muted-foreground" />
+        ) : !clients || clients.length === 0 ? (
+          <div className="text-center py-12 sm:py-20 px-4">
+            <CalendarDays className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+            <p className="text-base sm:text-lg font-medium mb-2">Nenhum cliente encontrado</p>
             <p className="text-sm text-muted-foreground">
-              {searchTerm ? "Nenhum resultado encontrado" : "Nenhum período cadastrado"}
-            </p>
-            <p className="text-xs mt-1 text-muted-foreground/70">
-              {searchTerm ? "Tente buscar por outro termo" : "Crie períodos para seus clientes"}
+              Cadastre clientes para acessar os cronogramas
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {filteredGroups.map(group => {
-              const displayName = group.client_fantasy_name || group.client_name;
-              const isExpanded = expandedClients.has(group.company_id);
-
-              return (
-                <div key={group.company_id} className="bg-muted/30 rounded-xl border border-border/50 overflow-hidden">
-                  {/* Client header row */}
-                  <div
-                    className="flex items-center justify-between gap-4 px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => toggleClient(group.company_id)}
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <Avatar className="h-9 w-9 shrink-0">
-                        {group.client_logo_url ? <AvatarImage src={group.client_logo_url} alt={displayName} /> : null}
-                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-                          {getInitials(displayName)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm font-semibold text-foreground truncate">{displayName}</span>
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
-                        {group.periods.length} {group.periods.length === 1 ? 'período' : 'períodos'}
-                      </Badge>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {clients.map((client) => (
+              <Card
+                key={client.id}
+                className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
+                onClick={() => handleSelectClient(client)}
+              >
+                <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
+                <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
+                  {client.logo_url ? (
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl overflow-hidden mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300 bg-muted flex items-center justify-center">
+                      <img
+                        src={client.logo_url}
+                        alt={client.fantasy_name || client.name}
+                        className="w-full h-full object-contain"
+                        onError={(e) => { e.currentTarget.style.display = "none"; }}
+                      />
                     </div>
-                    <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isExpanded && "rotate-180")} />
-                  </div>
-
-                  {/* Periods list (expanded) */}
-                  {isExpanded && (
-                    <div className="px-4 pb-3 flex flex-col gap-1.5">
-                      {group.periods.map(period => {
-                        const statusBadge = getStatusBadge(period.operational_status);
-                        const execPercent = period.total_demands > 0 ? Math.round((period.executed_demands / period.total_demands) * 100) : 0;
-
-                        return (
-                          <div
-                            key={period.id}
-                            className="flex items-center justify-between gap-4 px-4 py-2.5 bg-background rounded-lg border border-border/50 cursor-pointer hover:bg-muted/50 transition-all duration-200 group"
-                            onClick={() => handleClientClick(group)}
-                          >
-                            <div className="min-w-0 flex-1">
-                              <span className="text-sm font-medium text-foreground truncate block">{period.period_title}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {formatDate(period.period_start)} – {formatDate(period.period_end)}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-3 shrink-0">
-                              {period.total_demands > 0 && (
-                                <span className="text-xs text-muted-foreground whitespace-nowrap hidden sm:inline">
-                                  {period.executed_demands}/{period.total_demands} · {execPercent}%
-                                </span>
-                              )}
-                              <Badge className={cn("text-[10px] px-2 py-0.5 font-medium whitespace-nowrap border", statusBadge.className)}>
-                                {statusBadge.label}
-                              </Badge>
-                              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-                            </div>
-                          </div>
-                        );
-                      })}
+                  ) : (
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <CalendarDays className="w-6 h-6 sm:w-8 sm:h-8 text-primary-foreground" />
                     </div>
                   )}
+                  <h3 className="text-base sm:text-xl font-bold text-primary line-clamp-2">
+                    {client.fantasy_name || client.name}
+                  </h3>
                 </div>
-              );
-            })}
+              </Card>
+            ))}
           </div>
         )}
       </div>
