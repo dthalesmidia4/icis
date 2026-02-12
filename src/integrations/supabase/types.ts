@@ -71,38 +71,6 @@ export type Database = {
         }
         Relationships: []
       }
-      client_demand_template_stats: {
-        Row: {
-          last_matched_at: string | null
-          last_used_at: string | null
-          template_id: string
-          times_matched: number
-          times_used: number
-        }
-        Insert: {
-          last_matched_at?: string | null
-          last_used_at?: string | null
-          template_id: string
-          times_matched?: number
-          times_used?: number
-        }
-        Update: {
-          last_matched_at?: string | null
-          last_used_at?: string | null
-          template_id?: string
-          times_matched?: number
-          times_used?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "client_demand_template_stats_template_id_fkey"
-            columns: ["template_id"]
-            isOneToOne: true
-            referencedRelation: "client_demand_templates"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       client_demand_templates: {
         Row: {
           channel: string | null
@@ -329,69 +297,6 @@ export type Database = {
           },
           {
             foreignKeyName: "demand_fingerprints_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      demand_pattern_scores: {
-        Row: {
-          calculated_at: string
-          client_id: string
-          created_at: string
-          failure_score: number
-          id: string
-          last_used_at: string | null
-          pattern_type: string
-          pattern_value: string
-          success_score: number
-          successful_occurrences: number
-          tenant_id: string
-          total_occurrences: number
-          updated_at: string
-        }
-        Insert: {
-          calculated_at?: string
-          client_id: string
-          created_at?: string
-          failure_score?: number
-          id?: string
-          last_used_at?: string | null
-          pattern_type: string
-          pattern_value: string
-          success_score?: number
-          successful_occurrences?: number
-          tenant_id: string
-          total_occurrences?: number
-          updated_at?: string
-        }
-        Update: {
-          calculated_at?: string
-          client_id?: string
-          created_at?: string
-          failure_score?: number
-          id?: string
-          last_used_at?: string | null
-          pattern_type?: string
-          pattern_value?: string
-          success_score?: number
-          successful_occurrences?: number
-          tenant_id?: string
-          total_occurrences?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "demand_pattern_scores_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "tenant_companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "demand_pattern_scores_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1181,7 +1086,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      calculate_pattern_scores: { Args: { p_client_id: string }; Returns: Json }
       can_create_demands: { Args: { _tenant_id: string }; Returns: boolean }
       can_create_tenant: { Args: { _user_id: string }; Returns: boolean }
       create_demand_from_template: {
