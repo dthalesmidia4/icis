@@ -7,7 +7,8 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Loader2, CalendarDays, ChevronRight, ChevronDown } from "lucide-react";
+import { Search, Loader2, CalendarDays, ChevronRight, ChevronDown, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import BackButton from "@/components/BackButton";
 import { cn } from "@/lib/utils";
 
@@ -182,8 +183,8 @@ const PeriodClientList = () => {
         </div>
 
         {/* Search */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
+        <div className="mb-6 flex items-center gap-3">
+          <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por cliente ou período..."
@@ -192,6 +193,10 @@ const PeriodClientList = () => {
               className="pl-10"
             />
           </div>
+          <Button onClick={() => navigate('/plan-period')} size="sm">
+            <Plus className="h-4 w-4 mr-1.5" />
+            Novo Período
+          </Button>
         </div>
 
         {/* List */}
