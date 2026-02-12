@@ -941,6 +941,24 @@ const KanbanCentralPage = () => {
         onRemoveAttachment={handleRemoveAttachment}
         onReorderAttachments={handleReorderAttachments}
         onDelete={handleDelete}
+        onArchive={async (archive: boolean) => {
+          if (!selectedCard) return;
+          try {
+            const newArchivedAt = archive ? new Date().toISOString() : null;
+            const { error } = await supabase
+              .from("demands")
+              .update({ archived_at: newArchivedAt })
+              .eq("id", selectedCard.id);
+            if (error) throw error;
+            setIsTaskCardOpen(false);
+            setSelectedCard(null);
+            fetchAllCards();
+            sonnerToast.success(archive ? "Demanda arquivada" : "Demanda desarquivada");
+          } catch (error) {
+            console.error("Error archiving/unarchiving:", error);
+            sonnerToast.error("Erro ao alterar status de arquivo");
+          }
+        }}
         saving={saving}
         savingField={savingField}
         uploading={uploading}

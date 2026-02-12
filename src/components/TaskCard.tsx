@@ -100,6 +100,7 @@ interface TaskCardProps {
   onRemoveAttachment: (url: string) => Promise<void>;
   onReorderAttachments?: (attachments: Attachment[]) => Promise<void>;
   onDelete: () => void;
+  onArchive?: (archived: boolean) => Promise<void>;
   saving?: boolean;
   savingField?: string | null;
   uploading?: boolean;
@@ -265,6 +266,7 @@ export default function TaskCard({
   onRemoveAttachment,
   onReorderAttachments,
   onDelete,
+  onArchive,
   saving = false,
   savingField = null,
   uploading = false,
@@ -700,6 +702,33 @@ export default function TaskCard({
               {!readOnly && (
               <>
               <div className="h-4 w-px bg-border" />
+
+              {/* Archive/Unarchive button */}
+              {onArchive && (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className={cn(
+                          "h-8 text-muted-foreground",
+                          card.archived_at 
+                            ? "hover:text-primary hover:bg-primary/10" 
+                            : "hover:text-amber-600 hover:bg-amber-500/10"
+                        )}
+                        onClick={() => onArchive(!card.archived_at)}
+                        aria-label={card.archived_at ? "Desarquivar" : "Arquivar"}
+                      >
+                        {card.archived_at ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {card.archived_at ? "Desarquivar demanda" : "Arquivar demanda"}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
 
               {/* Delete button */}
               <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={onDelete} aria-label="Excluir tarefa">
