@@ -57,7 +57,7 @@ const PeriodClientList = () => {
             <BackButton to="/home" />
           </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3 break-words px-2">
-            Períodos
+            Cronogramas
           </h1>
           <p className="text-sm sm:text-lg text-muted-foreground">
             Selecione um cliente para gerenciar os períodos
