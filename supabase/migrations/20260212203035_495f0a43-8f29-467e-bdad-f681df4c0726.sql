@@ -1,0 +1,1 @@
+DELETE FROM demands WHERE publish_date < '2024-01-01' AND publish_date >= '2023-01-01';
