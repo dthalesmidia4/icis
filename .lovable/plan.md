@@ -1,38 +1,91 @@
 
 
-# Vincular Demandas Manuais a Periodos
+# Controle Explicito de Visibilidade com archived_at
 
-## Contexto
-Demandas criadas manualmente pelo Kanban Central nao sao vinculadas a nenhum periodo (`period_plan_id = NULL`), fazendo com que nao aparecam nos cronogramas.
+## Por que este plano e valido
 
-## Alteracoes
+O problema atual: a visibilidade das demandas depende do `operational_status` do periodo vinculado. Demandas sem periodo (`period_plan_id = NULL`) nunca sao arquivadas, independente de quao antigas sejam. A coluna `archived_at` resolve isso ao dar controle explicito e independente de periodo.
 
-### 1. CreateDemandModal - Adicionar seletor de periodo
+## Etapas
 
-**Arquivo**: `src/components/CreateDemandModal.tsx`
+### 1. Migracao de banco de dados
 
-- Adicionar estado `selectedPeriodPlanId` ao formulario
-- Apos selecionar um cliente, buscar os periodos ativos desse cliente (`period_plans` com `company_id = clientId` e `operational_status = 'em_andamento'`)
-- Exibir um Select opcional "Periodo" logo abaixo do seletor de cliente, listando os periodos com titulo e datas
-- Passar o `selectedPeriodPlanId` para a RPC `create_demand_from_template` no campo `p_period_plan_id`
-- Quando o modal receber `periodPlanId` via props (uso existente nos cronogramas), esconder o seletor e usar o valor da prop
+Adicionar coluna `archived_at` na tabela `demands`:
 
-### 2. KanbanCentralPage - Nenhuma alteracao necessaria
+```text
+ALTER TABLE demands ADD COLUMN archived_at TIMESTAMPTZ NULL;
+CREATE INDEX idx_demands_tenant_archived ON demands (tenant_id, archived_at);
+```
 
-O `CreateDemandModal` ja e renderizado sem `periodPlanId`. Com a alteracao acima, o seletor de periodo aparecera automaticamente.
+### 2. Backfill do legado
 
-### 3. TaskCard - Permitir mover demanda solta para um periodo
+Arquivar demandas antigas que nao fazem sentido no Kanban ativo. Criterios:
+- Demandas sem periodo (`period_plan_id IS NULL`) criadas ha mais de 90 dias
+- Demandas vinculadas a periodos ja concluidos (`operational_status = 'concluido'`)
 
-**Arquivo**: `src/components/TaskCard.tsx`
+```text
+-- Arquivar demandas de periodos concluidos
+UPDATE demands SET archived_at = NOW()
+WHERE period_plan_id IN (
+  SELECT id FROM period_plans WHERE operational_status = 'concluido'
+) AND archived_at IS NULL;
 
-- Quando a demanda aberta nao tiver `period_plan_id`, exibir um Select "Vincular a periodo" no topo do card
-- Buscar periodos ativos do mesmo `client_id` da demanda
-- Ao selecionar, fazer update na tabela `demands` setando `period_plan_id`
-- Mostrar toast de confirmacao
+-- Arquivar demandas soltas antigas (mais de 90 dias)
+UPDATE demands SET archived_at = NOW()
+WHERE period_plan_id IS NULL
+  AND created_at < NOW() - INTERVAL '90 days'
+  AND archived_at IS NULL;
+```
 
-## Detalhes Tecnicos
+A data de corte (90 dias) pode ser ajustada. Este script sera executado uma unica vez.
 
-- Query de periodos: `supabase.from('period_plans').select('id, period_title, period_start, period_end').eq('company_id', clientId).eq('operational_status', 'em_andamento').order('period_start', { ascending: false })`
-- O seletor de periodo e opcional -- a demanda pode continuar sem vinculo se o usuario preferir
-- Limpar o seletor de periodo quando o cliente mudar no CreateDemandModal
+### 3. Refatorar fetchAllCards no KanbanCentralPage
+
+**Antes**: A query busca TODAS as demandas e separa ativo/arquivado no frontend baseado em `operational_status` do periodo.
+
+**Depois**: Duas queries separadas:
+- Kanban ativo: `WHERE tenant_id = ? AND archived_at IS NULL`
+- Aba arquivados: `WHERE tenant_id = ? AND archived_at IS NOT NULL`
+
+Remover o join com `period_plans` como criterio de visibilidade. Manter apenas como informacao exibida no card.
+
+### 4. Refatorar Scheduled.tsx
+
+Mesma logica: filtrar por `archived_at IS NULL` em vez de depender do status do periodo.
+
+### 5. Arquivamento automatico ao concluir periodo
+
+No `PlanPeriod.tsx`, quando o status do periodo muda para `concluido`, executar:
+
+```text
+UPDATE demands SET archived_at = NOW()
+WHERE period_plan_id = :periodId AND archived_at IS NULL;
+```
+
+### 6. Acoes manuais de arquivar/desarquivar
+
+No TaskCard:
+- Demanda ativa: botao "Arquivar" que seta `archived_at = NOW()`
+- Demanda arquivada: botao "Desarquivar" que seta `archived_at = NULL`
+
+### 7. Atualizar tipos TypeScript
+
+Adicionar `archived_at` a interface `CentralKanbanCard` e ao mapeamento de dados.
+
+## Arquivos afetados
+
+| Arquivo | Alteracao |
+|---------|-----------|
+| Migracao SQL | Adicionar coluna + indice |
+| KanbanCentralPage.tsx | Refatorar queries e logica de separacao ativo/arquivado |
+| Scheduled.tsx | Filtrar por archived_at |
+| TaskCard.tsx | Botoes arquivar/desarquivar |
+| PlanPeriod.tsx | Arquivar demandas ao concluir periodo |
+
+## Resultado
+
+- Kanban mostra apenas demandas com `archived_at IS NULL`
+- Demandas antigas desaparecem automaticamente apos o backfill
+- Periodo vira atributo organizacional, nao regra de visibilidade
+- Controle explicito via `archived_at` em vez de heuristica por data
 
