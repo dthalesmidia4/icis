@@ -518,58 +518,6 @@ const ClientDetails = () => {
             </div>
           </div>
 
-          {/* Seção 0: Logotipo do Cliente */}
-          <FormSection title="Logotipo" icon={Image} contentClassName="space-y-3">
-            <div className="flex items-start gap-6">
-              <div className="shrink-0">
-                <div className="w-24 h-24 rounded-xl border-2 border-dashed border-border flex items-center justify-center bg-muted/50 overflow-hidden">
-                  {previewLogo ? (
-                    <img src={previewLogo} alt="Logo preview" className="w-full h-full object-contain" />
-                  ) : (
-                    <Building2 className="h-8 w-8 text-muted-foreground" />
-                  )}
-                </div>
-              </div>
-              <div className="flex-1 space-y-3">
-                <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/jpg" onChange={handleLogoFileSelect} className="hidden" />
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" onClick={() => logoInputRef.current?.click()} disabled={isUploading}>
-                    {isUploading ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enviando...</>
-                    ) : (
-                      <><Upload className="h-4 w-4 mr-2" />Escolher Imagem</>
-                    )}
-                  </Button>
-                  {croppedBlob && (
-                    <Button size="sm" onClick={handleUploadLogo} disabled={isUploading}>
-                      <Save className="h-4 w-4 mr-2" />
-                      Salvar Logo
-                    </Button>
-                  )}
-                  {previewLogo && !croppedBlob && (
-                    <Button variant="outline" size="sm" onClick={handleRemoveLogo} disabled={isUploading} className="text-destructive hover:text-destructive">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Remover
-                    </Button>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Formatos: PNG, JPG · Máx: 5MB · Recomendado: 256×256px
-                </p>
-              </div>
-            </div>
-          </FormSection>
-
-          {/* Image Cropper */}
-          {rawImageSrc && (
-            <ImageCropper
-              open={cropperOpen}
-              onClose={() => { setCropperOpen(false); setRawImageSrc(null); }}
-              imageSrc={rawImageSrc}
-              onCropComplete={handleCropComplete}
-              aspectRatio={1}
-            />
-          )}
 
           {/* Seção 1: Identificação da Empresa */}
           <FormSection title="Identificação da Empresa" icon={Building2} contentClassName="space-y-5">
@@ -1094,6 +1042,59 @@ const ClientDetails = () => {
                 </div>
               </div>
           </FormSection>
+
+          {/* Seção: Logotipo do Cliente */}
+          <FormSection title="Logotipo" icon={Image} contentClassName="space-y-3">
+            <div className="flex items-start gap-6">
+              <div className="shrink-0">
+                <div className="w-24 h-24 rounded-xl border-2 border-dashed border-border flex items-center justify-center bg-muted/50 overflow-hidden">
+                  {previewLogo ? (
+                    <img src={previewLogo} alt="Logo preview" className="w-full h-full object-contain" />
+                  ) : (
+                    <Building2 className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </div>
+              </div>
+              <div className="flex-1 space-y-3">
+                <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/jpg" onChange={handleLogoFileSelect} className="hidden" />
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => logoInputRef.current?.click()} disabled={isUploading}>
+                    {isUploading ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enviando...</>
+                    ) : (
+                      <><Upload className="h-4 w-4 mr-2" />Escolher Imagem</>
+                    )}
+                  </Button>
+                  {croppedBlob && (
+                    <Button size="sm" onClick={handleUploadLogo} disabled={isUploading}>
+                      <Save className="h-4 w-4 mr-2" />
+                      Salvar Logo
+                    </Button>
+                  )}
+                  {previewLogo && !croppedBlob && (
+                    <Button variant="outline" size="sm" onClick={handleRemoveLogo} disabled={isUploading} className="text-destructive hover:text-destructive">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Remover
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Formatos: PNG, JPG · Máx: 5MB · Recomendado: 256×256px
+                </p>
+              </div>
+            </div>
+          </FormSection>
+
+          {/* Image Cropper */}
+          {rawImageSrc && (
+            <ImageCropper
+              open={cropperOpen}
+              onClose={() => { setCropperOpen(false); setRawImageSrc(null); }}
+              imageSrc={rawImageSrc}
+              onCropComplete={handleCropComplete}
+              aspectRatio={1}
+            />
+          )}
 
           {/* Informações do Sistema */}
           <FormSection title="Informações do Sistema" icon={Calendar}>
