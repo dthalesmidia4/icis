@@ -1,42 +1,38 @@
 
 
-# Integrar SchedulePublicationModal no Kanban Central e Cronogramas
+# Vincular Demandas Manuais a Periodos
 
-## Objetivo
-Quando uma demanda for movida para "Agendar Publicacao" (via drag-and-drop no Kanban ou via seletor de status no TaskCard), em vez de bloquear com erro, abrir o SchedulePublicationModal para o usuario selecionar data e horario. Se cancelar, reverter o card para a posicao original.
+## Contexto
+Demandas criadas manualmente pelo Kanban Central nao sao vinculadas a nenhum periodo (`period_plan_id = NULL`), fazendo com que nao aparecam nos cronogramas.
 
 ## Alteracoes
 
-### 1. KanbanCentralPage.tsx - Interceptar drag-and-drop
+### 1. CreateDemandModal - Adicionar seletor de periodo
 
-- Importar `SchedulePublicationModal`
-- Adicionar estados: `scheduleModalOpen`, `pendingScheduleCard` (card sendo movido), `pendingScheduleSourceColumn` (coluna original)
-- No `handleDragEnd`: quando destino for "Agendar Publicacao", em vez de bloquear, salvar o card e coluna original no estado e abrir o modal
-- `onConfirm` do modal: atualizar `publish_date`, `publish_time` e `status_id` no banco, atualizar estado local, mover o card
-- `onCancel` do modal: reverter o card para a coluna original no estado local
+**Arquivo**: `src/components/CreateDemandModal.tsx`
 
-### 2. TaskCard.tsx - Interceptar seletor de status
+- Adicionar estado `selectedPeriodPlanId` ao formulario
+- Apos selecionar um cliente, buscar os periodos ativos desse cliente (`period_plans` com `company_id = clientId` e `operational_status = 'em_andamento'`)
+- Exibir um Select opcional "Periodo" logo abaixo do seletor de cliente, listando os periodos com titulo e datas
+- Passar o `selectedPeriodPlanId` para a RPC `create_demand_from_template` no campo `p_period_plan_id`
+- Quando o modal receber `periodPlanId` via props (uso existente nos cronogramas), esconder o seletor e usar o valor da prop
 
-- Adicionar prop `onScheduleRequest?: (card: KanbanCardData) => void` para delegar ao componente pai
-- No `onValueChange` do Select de status: quando o valor for "Agendar Publicacao", chamar `onScheduleRequest` em vez de bloquear com toast
-- Se `onScheduleRequest` nao estiver disponivel, manter o fallback atual (toast de erro)
+### 2. KanbanCentralPage - Nenhuma alteracao necessaria
 
-### 3. KanbanCentralPage.tsx - Conectar TaskCard ao modal
+O `CreateDemandModal` ja e renderizado sem `periodPlanId`. Com a alteracao acima, o seletor de periodo aparecera automaticamente.
 
-- Passar `onScheduleRequest` ao TaskCard aberto
-- Quando chamado, salvar o card no estado pendente e abrir o SchedulePublicationModal
-- No confirm: salvar data/hora, atualizar status para "Agendar Publicacao"
-- No cancel: nao fazer nada (card continua no status atual)
+### 3. TaskCard - Permitir mover demanda solta para um periodo
 
-### 4. PeriodClientList.tsx - Mesma integracao
+**Arquivo**: `src/components/TaskCard.tsx`
 
-- Importar `SchedulePublicationModal`
-- Adicionar mesmos estados pendentes
-- Passar `onScheduleRequest` ao TaskCard
-- Conectar confirm/cancel do modal
+- Quando a demanda aberta nao tiver `period_plan_id`, exibir um Select "Vincular a periodo" no topo do card
+- Buscar periodos ativos do mesmo `client_id` da demanda
+- Ao selecionar, fazer update na tabela `demands` setando `period_plan_id`
+- Mostrar toast de confirmacao
 
 ## Detalhes Tecnicos
 
-- O modal ja existe completo em `src/components/SchedulePublicationModal.tsx` com date picker e time selector (intervalos de 15 min)
-- Campos atualizados no banco: `publish_date` (YYYY-MM-DD), `publish_time` (HH:MM), `status_id` (id do status "Agendar Publicacao")
-- A atualizacao de estado local garante que o card apareca imediatamente na coluna correta sem precisar refetch
+- Query de periodos: `supabase.from('period_plans').select('id, period_title, period_start, period_end').eq('company_id', clientId).eq('operational_status', 'em_andamento').order('period_start', { ascending: false })`
+- O seletor de periodo e opcional -- a demanda pode continuar sem vinculo se o usuario preferir
+- Limpar o seletor de periodo quando o cliente mudar no CreateDemandModal
+
