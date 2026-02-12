@@ -80,6 +80,7 @@ const PeriodClientList = () => {
   const [selectedClientLocal, setSelectedClientLocal] = useState<SelectedClientLocal | null>(null);
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
   // ── Step 1: Fetch clients ──
   const { data: clients, isLoading: loadingClients } = useQuery({
@@ -346,37 +347,47 @@ const PeriodClientList = () => {
                 const sectionPeriods = periods.filter((p) => p.operational_status === section.key);
                 return (
                   <div key={section.key}>
-                    <div className="flex items-center gap-2 mb-3">
+                    <button
+                      onClick={() => setExpandedSections((prev) => ({ ...prev, [section.key]: !prev[section.key] }))}
+                      className="flex items-center gap-2 mb-2 w-full text-left"
+                    >
+                      {expandedSections[section.key] ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                      )}
                       <div className={cn("w-3 h-3 rounded-full shrink-0", section.color)} />
                       <span className="text-sm font-semibold text-foreground">{section.label}</span>
                       <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                         {sectionPeriods.length}
                       </Badge>
-                    </div>
-                    {sectionPeriods.length === 0 ? (
-                      <div className="pl-5 py-3">
-                        <p className="text-xs text-muted-foreground italic">Nenhum período neste status</p>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-2 pl-5">
-                        {sectionPeriods.map((period) => (
-                          <div
-                            key={period.id}
-                            className="flex items-center justify-between gap-4 px-4 py-3 bg-muted/30 rounded-lg border border-border/50 cursor-pointer hover:bg-muted/50 transition-colors group"
-                            onClick={() => setSelectedPeriodId(period.id)}
-                          >
-                            <div className="min-w-0 flex-1">
-                              <span className="text-sm font-medium text-foreground block truncate">
-                                {period.period_title}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {formatDate(period.period_start)} – {formatDate(period.period_end)}
-                              </span>
+                    </button>
+                    {expandedSections[section.key] && (
+                      sectionPeriods.length === 0 ? (
+                        <div className="pl-9 py-3">
+                          <p className="text-xs text-muted-foreground italic">Nenhum período neste status</p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-2 pl-9">
+                          {sectionPeriods.map((period) => (
+                            <div
+                              key={period.id}
+                              className="flex items-center justify-between gap-4 px-4 py-3 bg-muted/30 rounded-lg border border-border/50 cursor-pointer hover:bg-muted/50 transition-colors group"
+                              onClick={() => setSelectedPeriodId(period.id)}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <span className="text-sm font-medium text-foreground block truncate">
+                                  {period.period_title}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDate(period.period_start)} – {formatDate(period.period_end)}
+                                </span>
+                              </div>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
                             </div>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      )
                     )}
                   </div>
                 );
