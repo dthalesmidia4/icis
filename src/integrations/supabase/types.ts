@@ -113,12 +113,16 @@ export type Database = {
           demand_type: string | null
           id: string
           instructions_template: string | null
+          last_matched_at: string | null
+          last_used_at: string | null
           pipeline_id: string
           recurrence_hint: string | null
           score: number
           source: string
           status_id: string
           tenant_id: string
+          times_matched: number
+          times_used: number
           title_template: string
           updated_at: string
         }
@@ -131,12 +135,16 @@ export type Database = {
           demand_type?: string | null
           id?: string
           instructions_template?: string | null
+          last_matched_at?: string | null
+          last_used_at?: string | null
           pipeline_id: string
           recurrence_hint?: string | null
           score?: number
           source?: string
           status_id: string
           tenant_id: string
+          times_matched?: number
+          times_used?: number
           title_template: string
           updated_at?: string
         }
@@ -149,12 +157,16 @@ export type Database = {
           demand_type?: string | null
           id?: string
           instructions_template?: string | null
+          last_matched_at?: string | null
+          last_used_at?: string | null
           pipeline_id?: string
           recurrence_hint?: string | null
           score?: number
           source?: string
           status_id?: string
           tenant_id?: string
+          times_matched?: number
+          times_used?: number
           title_template?: string
           updated_at?: string
         }
