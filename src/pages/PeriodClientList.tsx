@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,8 @@ import {
 import BackButton from "@/components/BackButton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import TaskCard, { getColumnFromStatus } from "@/components/TaskCard";
+import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -38,9 +40,22 @@ interface DemandRow {
   id: string;
   title: string;
   publish_date: string | null;
+  publish_time: string | null;
   attachments: any;
   status_id: string;
   period_plan_id: string | null;
+  channel: string | null;
+  objective: string | null;
+  description: string | null;
+  instructions: string | null;
+  observations: string | null;
+  tenant_id: string;
+  created_at: string;
+  updated_at: string;
+  source: string;
+  demand_type: string | null;
+  client_id: string;
+  due_date: string | null;
 }
 
 interface StatusGroup {
@@ -69,6 +84,36 @@ const hasAttachments = (att: any) => {
   return false;
 };
 
+const getAttachmentCount = (att: any): number => {
+  if (!att) return 0;
+  if (Array.isArray(att)) return att.length;
+  return 0;
+};
+
+// Convert DemandRow to KanbanCardData for TaskCard
+const demandToCardData = (demand: DemandRow, statusName: string, clientName: string): KanbanCardData => ({
+  id: demand.id,
+  title: demand.title,
+  status: statusName,
+  due_date: demand.due_date || "",
+  channel: demand.channel,
+  objective: demand.objective,
+  description: demand.instructions,
+  instructions: demand.instructions,
+  observations: demand.observations,
+  period_plan_id: demand.period_plan_id,
+  tenant_id: demand.tenant_id,
+  created_at: demand.created_at,
+  updated_at: demand.updated_at,
+  attachments: Array.isArray(demand.attachments) ? demand.attachments : [],
+  publish_date: demand.publish_date,
+  publish_time: demand.publish_time,
+  source: demand.source,
+  demand_type: demand.demand_type,
+  clientId: demand.client_id,
+  clientName: clientName,
+});
+
 // ─── Component ───────────────────────────────────────────────────
 
 const PeriodClientList = () => {
@@ -81,6 +126,13 @@ const PeriodClientList = () => {
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+
+  // TaskCard modal state
+  const [selectedCard, setSelectedCard] = useState<KanbanCardData | null>(null);
+  const [isTaskCardOpen, setIsTaskCardOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savingField, setSavingField] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   // ── Step 1: Fetch clients ──
   const { data: clients, isLoading: loadingClients } = useQuery({
@@ -120,10 +172,10 @@ const PeriodClientList = () => {
   });
 
   // ── Step 3: Fetch demands + statuses for selected period ──
-  const { data: statusGroups, isLoading: loadingDetail } = useQuery({
+  const { data: detailData, isLoading: loadingDetail, refetch: refetchDetail } = useQuery({
     queryKey: ["schedules-detail", tenantId, selectedPeriodId],
     queryFn: async () => {
-      if (!tenantId || !selectedPeriodId || !selectedClientLocal) return [];
+      if (!tenantId || !selectedPeriodId || !selectedClientLocal) return null;
 
       // Get pipeline for tenant
       const { data: pipeline } = await supabase
@@ -133,21 +185,21 @@ const PeriodClientList = () => {
         .eq("is_default", true)
         .single();
 
-      if (!pipeline) return [];
+      if (!pipeline) return null;
 
       // Fetch statuses
       const { data: statuses } = await supabase
         .from("pipeline_statuses")
-        .select("id, name, color, position, is_final, is_initial")
+        .select("id, name, color, position, is_final, is_initial, pipeline_id, is_fixed, parent_status_id")
         .eq("pipeline_id", pipeline.id)
         .order("position", { ascending: true });
 
-      if (!statuses) return [];
+      if (!statuses) return null;
 
-      // Fetch demands
+      // Fetch demands with ALL fields
       const { data: demands } = await supabase
         .from("demands")
-        .select("id, title, publish_date, attachments, status_id, period_plan_id")
+        .select("id, title, publish_date, publish_time, attachments, status_id, period_plan_id, channel, objective, description, instructions, observations, tenant_id, created_at, updated_at, source, demand_type, client_id, due_date")
         .eq("tenant_id", tenantId)
         .eq("client_id", selectedClientLocal.id)
         .eq("period_plan_id", selectedPeriodId);
@@ -165,10 +217,18 @@ const PeriodClientList = () => {
         demands: demandsList.filter((d) => d.status_id === s.id),
       }));
 
-      return groups;
+      return {
+        groups,
+        pipelineStatuses: statuses as PipelineStatus[],
+        pipelineId: pipeline.id,
+      };
     },
     enabled: !!tenantId && !!selectedPeriodId && !!selectedClientLocal,
   });
+
+  const statusGroups = detailData?.groups || [];
+  const pipelineStatuses = detailData?.pipelineStatuses || [];
+  const pipelineId = detailData?.pipelineId || "";
 
   const selectedPeriod = useMemo(
     () => periods?.find((p) => p.id === selectedPeriodId) || null,
@@ -196,6 +256,187 @@ const PeriodClientList = () => {
       setSearchTerm("");
     }
   };
+
+  // ── TaskCard handlers ──
+  const handleDemandClick = (demand: DemandRow) => {
+    const statusName = pipelineStatuses.find(s => s.id === demand.status_id)?.name || "";
+    const clientName = selectedClientLocal?.fantasy_name || selectedClientLocal?.name || "";
+    const cardData = demandToCardData(demand, statusName, clientName);
+    setSelectedCard(cardData);
+    setIsTaskCardOpen(true);
+  };
+
+  const handleCardChange = useCallback((updatedCard: KanbanCardData) => {
+    setSelectedCard(updatedCard);
+  }, []);
+
+  const handleSave = useCallback(async (field: string, value: string) => {
+    if (!selectedCard) return;
+    setSaving(true);
+    setSavingField(field);
+    try {
+      let parsedValue: any = value;
+      if (field === 'attachments') {
+        try {
+          parsedValue = JSON.parse(value);
+          if (!Array.isArray(parsedValue) || parsedValue.length === 0) {
+            setSaving(false);
+            setSavingField(null);
+            return;
+          }
+        } catch { parsedValue = value; }
+      }
+
+      const demandUpdateData: Record<string, any> = { updated_at: new Date().toISOString() };
+
+      if (field === 'title') demandUpdateData.title = parsedValue;
+      else if (field === 'description') demandUpdateData.instructions = parsedValue;
+      else if (field === 'objective') demandUpdateData.objective = parsedValue;
+      else if (field === 'observations') demandUpdateData.observations = parsedValue;
+      else if (field === 'attachments') demandUpdateData.attachments = parsedValue;
+      else if (field === 'status') {
+        const { data: statusData } = await supabase
+          .from("pipeline_statuses")
+          .select("id")
+          .eq("name", value)
+          .eq("pipeline_id", pipelineId)
+          .maybeSingle();
+        if (statusData) demandUpdateData.status_id = statusData.id;
+      }
+      else if (field === 'publish_date') demandUpdateData.publish_date = parsedValue;
+      else if (field === 'publish_time') demandUpdateData.publish_time = parsedValue;
+      else demandUpdateData[field] = parsedValue;
+
+      const { error } = await supabase
+        .from("demands")
+        .update(demandUpdateData)
+        .eq("id", selectedCard.id);
+
+      if (error) throw error;
+
+      if (field === 'status') {
+        setSelectedCard(prev => prev ? { ...prev, status: value } : null);
+      }
+
+      toast.success("Salvo automaticamente");
+    } catch (error) {
+      console.error("Error saving:", error);
+      toast.error("Erro ao salvar");
+    } finally {
+      setSaving(false);
+      setSavingField(null);
+    }
+  }, [selectedCard, pipelineId]);
+
+  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedCard || !event.target.files || event.target.files.length === 0) return;
+    const files = Array.from(event.target.files);
+    const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
+    if (files.some(f => f.size > MAX_FILE_SIZE)) {
+      toast.error("Arquivo muito grande. Limite de 50MB.");
+      event.target.value = '';
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { toast.error("Usuário não autenticado."); return; }
+
+    setUploading(true);
+    try {
+      const uploadPromises = files.map(async file => {
+        const fileExt = file.name.split('.').pop()?.toLowerCase() || 'bin';
+        const timestamp = Date.now();
+        const uniqueId = Math.random().toString(36).substring(2, 9);
+        const storagePath = `${tenantId}/${selectedCard.clientId}/${selectedCard.period_plan_id}/${selectedCard.id}/${timestamp}-${uniqueId}.${fileExt}`;
+        const { error } = await supabase.storage.from('card-attachments').upload(storagePath, file);
+        if (error) throw error;
+        const { data: urlData } = supabase.storage.from('card-attachments').getPublicUrl(storagePath);
+        const attachment: Attachment = {
+          url: urlData.publicUrl,
+          name: file.name,
+          type: file.type || 'application/octet-stream',
+          size: file.size,
+          storagePath,
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: { id: user.id, email: user.email || '' },
+          cardId: selectedCard.id,
+          tenantId: tenantId || '',
+          clientId: selectedCard.clientId,
+          periodPlanId: selectedCard.period_plan_id || undefined,
+        };
+        return attachment;
+      });
+
+      const newAttachments = await Promise.all(uploadPromises);
+      const updatedAttachments = [...(selectedCard.attachments || []), ...newAttachments];
+
+      const { error: updateError } = await supabase
+        .from('demands')
+        .update({ attachments: updatedAttachments as unknown as any, updated_at: new Date().toISOString() })
+        .eq('id', selectedCard.id);
+      if (updateError) throw updateError;
+
+      setSelectedCard(prev => prev ? { ...prev, attachments: updatedAttachments } : null);
+      toast.success(`${newAttachments.length} arquivo(s) anexado(s)`);
+    } catch (error) {
+      console.error("Error uploading:", error);
+      toast.error("Erro ao fazer upload");
+    } finally {
+      setUploading(false);
+      event.target.value = '';
+    }
+  }, [selectedCard, tenantId]);
+
+  const handleRemoveAttachment = useCallback(async (attachmentUrl: string) => {
+    if (!selectedCard) return;
+    const attachment = (selectedCard.attachments || []).find(a => a.url === attachmentUrl);
+    try {
+      if (attachment?.storagePath) {
+        await supabase.storage.from('card-attachments').remove([attachment.storagePath]);
+      }
+      const updatedAttachments = (selectedCard.attachments || []).filter(a => a.url !== attachmentUrl);
+      const { error } = await supabase
+        .from('demands')
+        .update({ attachments: updatedAttachments as unknown as any, updated_at: new Date().toISOString() })
+        .eq('id', selectedCard.id);
+      if (error) throw error;
+      setSelectedCard(prev => prev ? { ...prev, attachments: updatedAttachments } : null);
+      toast.success("Anexo removido");
+    } catch (error) {
+      console.error("Error removing attachment:", error);
+      toast.error("Erro ao remover anexo");
+    }
+  }, [selectedCard]);
+
+  const handleReorderAttachments = useCallback(async (attachments: Attachment[]) => {
+    if (!selectedCard) return;
+    try {
+      const { error } = await supabase
+        .from('demands')
+        .update({ attachments: attachments as unknown as any, updated_at: new Date().toISOString() })
+        .eq('id', selectedCard.id);
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error reordering:", error);
+      toast.error("Erro ao reordenar anexos");
+    }
+  }, [selectedCard]);
+
+  const handleDelete = useCallback(async () => {
+    if (!selectedCard) return;
+    try {
+      const { error } = await supabase.from("demands").delete().eq("id", selectedCard.id);
+      if (error) throw error;
+      setIsTaskCardOpen(false);
+      setSelectedCard(null);
+      refetchDetail();
+      toast.success("Demanda excluída");
+    } catch (error) {
+      console.error("Error deleting:", error);
+      toast.error("Erro ao excluir demanda");
+    }
+  }, [selectedCard, refetchDetail]);
 
   // ─── RENDER: Step 3 — Detail (status-grouped demands) ───
   if (selectedPeriodId && selectedClientLocal) {
@@ -229,7 +470,7 @@ const PeriodClientList = () => {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
-          ) : !statusGroups || statusGroups.length === 0 ? (
+          ) : statusGroups.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-12">Nenhum status encontrado</p>
           ) : (
             <div className="flex flex-col gap-6">
@@ -254,26 +495,34 @@ const PeriodClientList = () => {
                     </div>
                   ) : (
                     <div className="flex flex-col gap-1 pl-5">
-                      {group.demands.map((demand) => (
-                        <div
-                          key={demand.id}
-                          className="flex items-center justify-between gap-3 px-3 py-2 rounded-md bg-muted/30 border border-border/40 hover:bg-muted/50 transition-colors"
-                        >
-                          <span className="text-sm text-foreground truncate flex-1">
-                            {demand.title}
-                          </span>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {hasAttachments(demand.attachments) && (
-                              <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-                            )}
-                            {demand.publish_date && (
-                              <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                                {formatDate(demand.publish_date)}
-                              </span>
-                            )}
+                      {group.demands.map((demand) => {
+                        const attCount = getAttachmentCount(demand.attachments);
+                        return (
+                          <div
+                            key={demand.id}
+                            className="flex items-center justify-between gap-3 px-3 py-2 rounded-md bg-muted/30 border border-border/40 hover:bg-muted/50 transition-colors cursor-pointer"
+                            onClick={() => handleDemandClick(demand)}
+                          >
+                            <span className="text-sm text-foreground truncate flex-1">
+                              {demand.title}
+                            </span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {attCount > 0 && (
+                                <div className="flex items-center gap-0.5 text-muted-foreground">
+                                  <Paperclip className="h-3.5 w-3.5" />
+                                  <span className="text-[11px]">{attCount}</span>
+                                </div>
+                              )}
+                              {demand.publish_date && (
+                                <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                  {formatDate(demand.publish_date)}
+                                </span>
+                              )}
+                              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -281,6 +530,29 @@ const PeriodClientList = () => {
             </div>
           )}
         </div>
+
+        {/* TaskCard Modal */}
+        <TaskCard
+          open={isTaskCardOpen}
+          onOpenChange={(open) => {
+            setIsTaskCardOpen(open);
+            if (!open) {
+              setSelectedCard(null);
+              refetchDetail();
+            }
+          }}
+          card={selectedCard}
+          onCardChange={handleCardChange}
+          onSave={handleSave}
+          onFileUpload={handleFileUpload}
+          onRemoveAttachment={handleRemoveAttachment}
+          onReorderAttachments={handleReorderAttachments}
+          onDelete={handleDelete}
+          saving={saving}
+          savingField={savingField}
+          uploading={uploading}
+          pipelineStatuses={pipelineStatuses}
+        />
       </div>
     );
   }
