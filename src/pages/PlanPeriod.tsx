@@ -6,7 +6,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Eye, Instagram, Facebook, Youtube, Linkedin, Clock } from "lucide-react";
+import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Eye, Instagram, Facebook, Youtube, Linkedin, Clock, ChevronDown, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose, DrawerFooter } from "@/components/ui/drawer";
 import { DemandaCard, DemandaItem } from "@/components/DemandaCard";
 import { DemandReviewModal } from "@/components/DemandReviewModal";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -75,6 +77,11 @@ const PlanPeriod = () => {
   const [historyViewTab, setHistoryViewTab] = useState<'final' | 'normal' | 'ultra'>('final');
   const [periodToDelete, setPeriodToDelete] = useState<PeriodPlanHistory | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [generationHistoryOpen, setGenerationHistoryOpen] = useState(false);
+
+  // Demand execution metrics per period
+  const [periodDemandMetrics, setPeriodDemandMetrics] = useState<Record<string, { total: number; published: number; demands: any[] }>>({});
+  const [loadingMetrics, setLoadingMetrics] = useState(false);
 
   // Review modal state
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
@@ -120,6 +127,39 @@ const PlanPeriod = () => {
         const incomplete = historyData.find(p => p.status === 'generating_default' || p.status === 'generating_ultra' || p.status === 'review_normal');
         if (incomplete) {
           setIncompletePeriod(incomplete);
+        }
+
+        // Fetch demand metrics for all periods
+        if (historyData.length > 0) {
+          setLoadingMetrics(true);
+          const periodIds = historyData.map(p => p.id);
+          const { data: demandsData, error: demandsError } = await supabase
+            .from('demands')
+            .select(`
+              id, title, period_plan_id, channel, demand_type, publish_date, publish_time,
+              pipeline_statuses!demands_status_id_fkey (
+                name, is_final, color
+              )
+            `)
+            .eq('tenant_id', tenantId)
+            .in('period_plan_id', periodIds);
+
+          if (!demandsError && demandsData) {
+            const metrics: Record<string, { total: number; published: number; demands: any[] }> = {};
+            demandsData.forEach(d => {
+              if (!d.period_plan_id) return;
+              if (!metrics[d.period_plan_id]) {
+                metrics[d.period_plan_id] = { total: 0, published: 0, demands: [] };
+              }
+              metrics[d.period_plan_id].total++;
+              metrics[d.period_plan_id].demands.push(d);
+              if (d.pipeline_statuses?.is_final) {
+                metrics[d.period_plan_id].published++;
+              }
+            });
+            setPeriodDemandMetrics(metrics);
+          }
+          setLoadingMetrics(false);
         }
       } catch (error) {
         console.error('Error fetching period history:', error);
@@ -638,201 +678,307 @@ const PlanPeriod = () => {
     </div>;
   };
 
-  const renderHistory = () => <div className="max-w-4xl mx-auto">
-    {loadingHistory ? <div className="flex items-center justify-center py-12">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-    </div> : periodHistory.length === 0 ? <Card className="p-8 text-center">
-      <History className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-      <h3 className="text-lg font-semibold mb-2">Nenhum período planejado</h3>
-      <p className="text-muted-foreground mb-4">Você ainda não criou nenhum planejamento de período para este cliente.</p>
-      <Button onClick={() => setActiveTab('new')}>
-        <Plus className="w-4 h-4 mr-2" />
-        Criar Primeiro Período
-      </Button>
-    </Card> : <div className="space-y-3">
-      {periodHistory.map(period => {
-        const demandCount = period.final_plan?.length || 0;
-        const isCompleted = period.operational_status === 'concluido';
-        return <Card key={period.id} className="p-4 hover:shadow-md transition-shadow cursor-pointer group" onClick={() => setSelectedHistoryPlan(period)}>
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <h3 className="text-base sm:text-lg font-semibold truncate">{period.period_title}</h3>
-              {period.primary_mode && <Badge variant="outline" className={`shrink-0 ${period.primary_mode === 'ultra' ? 'border-pink-500 text-pink-500' : ''}`}>
-                {period.primary_mode === 'ultra' ? 'Ultra' : 'Normal'}
-              </Badge>}
+  const renderHistory = () => {
+    return <div className="max-w-4xl mx-auto">
+      {loadingHistory ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      ) : periodHistory.length === 0 ? (
+        <Card className="p-8 text-center">
+          <History className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Nenhum período planejado</h3>
+          <p className="text-muted-foreground mb-4">Você ainda não criou nenhum planejamento de período para este cliente.</p>
+          <Button onClick={() => setActiveTab('new')}>
+            <Plus className="w-4 h-4 mr-2" />
+            Criar Primeiro Período
+          </Button>
+        </Card>
+      ) : (
+        <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
+          <div className="flex flex-col gap-2">
+            {periodHistory.map(period => {
+              const metrics = periodDemandMetrics[period.id] || { total: 0, published: 0, demands: [] };
+              const executionPercent = metrics.total > 0 ? Math.round((metrics.published / metrics.total) * 100) : 0;
+              const isCompleted = period.operational_status === 'concluido';
+              const isInProgress = period.operational_status === 'em_andamento';
+
+              return (
+                <div
+                  key={period.id}
+                  className="flex items-center justify-between gap-4 px-4 py-3 bg-background rounded-lg border border-border/50 cursor-pointer hover:bg-muted/50 transition-all duration-200 group"
+                  onClick={() => setSelectedHistoryPlan(period)}
+                >
+                  {/* Left side */}
+                  <div className="min-w-0 flex-1">
+                    <span className="text-sm font-semibold text-foreground truncate block">
+                      {period.period_title}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(period.period_start + 'T00:00:00'), "dd/MM/yyyy")} – {format(new Date(period.period_end + 'T00:00:00'), "dd/MM/yyyy")}
+                    </span>
+                  </div>
+
+                  {/* Right side */}
+                  <div className="flex items-center gap-3 shrink-0">
+                    {metrics.total > 0 && (
+                      <div className="hidden sm:flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          ✔ {metrics.total} aprovadas
+                        </span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          🚀 {metrics.published} publicadas
+                        </span>
+                        <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-semibold whitespace-nowrap">
+                          📊 {executionPercent}%
+                        </Badge>
+                      </div>
+                    )}
+
+                    <Badge
+                      className={cn(
+                        "text-[10px] px-2 py-0.5 font-medium whitespace-nowrap border cursor-pointer",
+                        isCompleted
+                          ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                          : isInProgress
+                            ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                            : "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                      )}
+                      onClick={(e) => handleToggleOperationalStatus(period, e)}
+                    >
+                      {isCompleted ? 'Concluído' : isInProgress ? 'Em andamento' : 'Em planejamento'}
+                    </Badge>
+
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={e => { e.stopPropagation(); setPeriodToDelete(period); }} aria-label="Excluir período">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+
+                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ===== DETAIL MODAL ===== */}
+      {selectedHistoryPlan && (() => {
+        const metrics = periodDemandMetrics[selectedHistoryPlan.id] || { total: 0, published: 0, demands: [] };
+        const pending = metrics.total - metrics.published;
+        const executionPercent = metrics.total > 0 ? Math.round((metrics.published / metrics.total) * 100) : 0;
+
+        // Executed demands (is_final = true), sorted by publish_date
+        const executedDemands = metrics.demands
+          .filter((d: any) => d.pipeline_statuses?.is_final)
+          .sort((a: any, b: any) => {
+            const dateA = a.publish_date || '';
+            const dateB = b.publish_date || '';
+            return dateA.localeCompare(dateB);
+          });
+
+        // Pending demands (not final)
+        const pendingDemands = metrics.demands
+          .filter((d: any) => !d.pipeline_statuses?.is_final)
+          .sort((a: any, b: any) => {
+            const dateA = a.publish_date || '';
+            const dateB = b.publish_date || '';
+            return dateA.localeCompare(dateB);
+          });
+
+        return (
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedHistoryPlan(null)}>
+            <Card className="max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+              {/* Modal header */}
+              <div className="p-6 border-b bg-muted/30">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-bold">{selectedHistoryPlan.period_title}</h2>
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1.5">
+                        <CalendarIcon className="w-4 h-4" />
+                        {format(new Date(selectedHistoryPlan.period_start + 'T00:00:00'), "dd/MM/yyyy")} – {format(new Date(selectedHistoryPlan.period_end + 'T00:00:00'), "dd/MM/yyyy")}
+                      </span>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedHistoryPlan(null)} className="shrink-0" aria-label="Fechar detalhes">
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* BLOCO 1 — RESUMO EXECUTIVO */}
+                <Card className="p-5 border-primary/20 bg-primary/5">
+                  <h3 className="text-sm font-semibold text-primary mb-4 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" />
+                    Resumo Executivo
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-foreground">{metrics.total}</p>
+                      <p className="text-xs text-muted-foreground">Aprovadas</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-emerald-600">{metrics.published}</p>
+                      <p className="text-xs text-muted-foreground">Publicadas</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-amber-600">{pending}</p>
+                      <p className="text-xs text-muted-foreground">Pendentes</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-foreground">{executionPercent}%</p>
+                      <p className="text-xs text-muted-foreground">Execução</p>
+                    </div>
+                  </div>
+                  <Progress value={executionPercent} className="h-2" />
+                </Card>
+
+                {/* BLOCO 2 — LINHA DO TEMPO DE EXECUÇÃO */}
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <Rocket className="w-4 h-4 text-primary" />
+                    Linha do Tempo de Execução
+                  </h3>
+                  {executedDemands.length === 0 && pendingDemands.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <CalendarIcon className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">Nenhuma demanda vinculada a este período</p>
+                    </div>
+                  ) : (
+                    <div className="bg-muted/30 rounded-xl border border-border/50">
+                      {/* Executed */}
+                      {executedDemands.length > 0 && (
+                        <div className="p-4">
+                          <p className="text-xs font-medium text-emerald-600 mb-2 uppercase tracking-wide">Publicadas ({executedDemands.length})</p>
+                          <div className="flex flex-col gap-1.5">
+                            {executedDemands.map((d: any) => (
+                              <div key={d.id} className="flex items-center gap-3 px-3 py-2 bg-background rounded-md border border-border/50 text-sm">
+                                <span className="text-xs text-muted-foreground whitespace-nowrap w-20">
+                                  {d.publish_date ? format(new Date(d.publish_date + 'T00:00:00'), "dd/MM") : '—'}
+                                </span>
+                                {d.demand_type && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">{d.demand_type}</Badge>}
+                                {d.channel && <span className="text-xs text-muted-foreground shrink-0">{d.channel}</span>}
+                                <span className="text-xs font-medium truncate flex-1">{d.title}</span>
+                                <Badge className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/30">Publicado</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Pending */}
+                      {pendingDemands.length > 0 && (
+                        <div className={cn("p-4", executedDemands.length > 0 && "border-t border-border/50")}>
+                          <p className="text-xs font-medium text-amber-600 mb-2 uppercase tracking-wide">Pendentes ({pendingDemands.length})</p>
+                          <div className="flex flex-col gap-1.5">
+                            {pendingDemands.map((d: any) => (
+                              <div key={d.id} className="flex items-center gap-3 px-3 py-2 bg-background rounded-md border border-border/50 text-sm opacity-70">
+                                <span className="text-xs text-muted-foreground whitespace-nowrap w-20">
+                                  {d.publish_date ? format(new Date(d.publish_date + 'T00:00:00'), "dd/MM") : '—'}
+                                </span>
+                                {d.demand_type && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">{d.demand_type}</Badge>}
+                                {d.channel && <span className="text-xs text-muted-foreground shrink-0">{d.channel}</span>}
+                                <span className="text-xs font-medium truncate flex-1">{d.title}</span>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">{d.pipeline_statuses?.name || 'Pendente'}</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* BLOCO 3 — HISTÓRICO DE GERAÇÃO (Colapsado) */}
+                <Collapsible open={generationHistoryOpen} onOpenChange={setGenerationHistoryOpen}>
+                  <CollapsibleTrigger className="flex items-center gap-2 w-full text-left py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                    <ChevronDown className={cn("w-4 h-4 transition-transform", generationHistoryOpen && "rotate-180")} />
+                    Histórico Técnico de Geração
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-4 mt-3">
+                    {/* Final Plan */}
+                    {selectedHistoryPlan.final_plan && selectedHistoryPlan.final_plan.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Plano Final ({selectedHistoryPlan.final_plan.length})</p>
+                        <div className="grid gap-2">
+                          {selectedHistoryPlan.final_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} />)}
+                        </div>
+                      </div>
+                    )}
+                    {/* Normal */}
+                    {selectedHistoryPlan.default_plan && selectedHistoryPlan.default_plan.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Modo Normal ({selectedHistoryPlan.default_plan.length})</p>
+                        <div className="grid gap-2">
+                          {selectedHistoryPlan.default_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="normal" />)}
+                        </div>
+                      </div>
+                    )}
+                    {/* Ultra */}
+                    {selectedHistoryPlan.ultra_plan && selectedHistoryPlan.ultra_plan.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Modo Ultra ({selectedHistoryPlan.ultra_plan.length})</p>
+                        <div className="grid gap-2">
+                          {selectedHistoryPlan.ultra_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="ultra" />)}
+                        </div>
+                      </div>
+                    )}
+                    {!selectedHistoryPlan.final_plan?.length && !selectedHistoryPlan.default_plan?.length && !selectedHistoryPlan.ultra_plan?.length && (
+                      <p className="text-sm text-muted-foreground text-center py-4">Nenhum dado de geração disponível</p>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+
+              {/* Modal footer */}
+              <div className="p-4 border-t bg-muted/30 flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {metrics.published} de {metrics.total} demandas executadas ({executionPercent}%)
+                </p>
+                <div className="flex gap-2">
+                  {selectedHistoryPlan.status === 'completed' && (
+                    <Button onClick={() => navigate('/kanban-central')}>
+                      <LayoutGrid className="w-4 h-4 mr-2" />
+                      Ver no Kanban
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Card>
+          </div>
+        );
+      })()}
+
+      {/* Delete Confirmation Modal */}
+      {periodToDelete && <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => !isDeleting && setPeriodToDelete(null)}>
+        <Card className="max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-6 h-6 text-destructive" />
             </div>
-            
-            <div className="flex items-center gap-4 text-sm text-muted-foreground shrink-0">
-              <span>{format(new Date(period.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
-              <span>{demandCount} demandas</span>
-            </div>
-            
-            <div className="flex items-center gap-2 shrink-0">
-              <Badge 
-                variant={isCompleted ? "default" : "secondary"}
-                className={cn(
-                  "cursor-pointer transition-all hover:scale-105",
-                  isCompleted 
-                    ? "bg-green-500 hover:bg-green-600 text-white" 
-                    : period.operational_status === 'em_planejamento'
-                      ? "bg-blue-500/20 text-blue-700 dark:text-blue-400 hover:bg-blue-500/30"
-                      : "bg-amber-500/20 text-amber-700 dark:text-amber-400 hover:bg-amber-500/30"
-                )}
-                onClick={(e) => handleToggleOperationalStatus(period, e)}
-              >
-                {isCompleted ? (
-                  <><Check className="w-3 h-3 mr-1" />Concluído</>
-                ) : period.operational_status === 'em_planejamento' ? (
-                  <><Clock className="w-3 h-3 mr-1" />Em Planejamento</>
-                ) : (
-                  <><PlayCircle className="w-3 h-3 mr-1" />Em andamento</>
-                )}
-              </Badge>
-              
-              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={e => { e.stopPropagation(); setPeriodToDelete(period); }} aria-label="Excluir período">
-                <Trash2 className="w-4 h-4" />
-              </Button>
-              <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+            <div>
+              <h2 className="text-lg font-semibold">Excluir Período</h2>
+              <p className="text-sm text-muted-foreground">Esta ação não pode ser desfeita</p>
             </div>
           </div>
-        </Card>;
-      })}
-    </div>}
-
-    {/* Detail Modal with Tabs */}
-    {selectedHistoryPlan && <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedHistoryPlan(null)}>
-      <Card className="max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="p-6 border-b bg-muted/30">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <h2 className="text-2xl font-bold">{selectedHistoryPlan.period_title}</h2>
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <CalendarIcon className="w-4 h-4" />
-                  {format(new Date(selectedHistoryPlan.period_start), "dd/MM/yyyy")} - {format(new Date(selectedHistoryPlan.period_end), "dd/MM/yyyy")}
-                </span>
-                <span>•</span>
-                <span>Criado em {format(new Date(selectedHistoryPlan.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
-              </div>
-            </div>
-            <Button variant="ghost" size="icon" onClick={() => setSelectedHistoryPlan(null)} className="shrink-0" aria-label="Fechar detalhes">
-              <X className="w-5 h-5" />
+          <div className="mb-6 p-4 bg-muted/50 rounded-lg">
+            <p className="font-medium">{periodToDelete.period_title}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {format(new Date(periodToDelete.period_start + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })} - {format(new Date(periodToDelete.period_end + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={() => setPeriodToDelete(null)} disabled={isDeleting}>Cancelar</Button>
+            <Button variant="destructive" className="flex-1" onClick={handleDeletePeriod} disabled={isDeleting}>
+              {isDeleting ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Excluindo...</> : <><Trash2 className="w-4 h-4 mr-2" />Excluir Período</>}
             </Button>
           </div>
-
-          <div className="grid grid-cols-3 gap-3 mt-5">
-            <Card className={cn("p-4 cursor-pointer transition-all border-2", historyViewTab === 'final' ? "border-primary bg-primary/5" : "border-transparent hover:border-border hover:bg-muted/50")} onClick={() => setHistoryViewTab('final')}>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center"><Check className="w-4 h-4 text-green-500" /></div>
-                  <span className="font-semibold">Plano Final</span>
-                </div>
-                {historyViewTab === 'final' && <Check className="w-4 h-4 text-primary" />}
-              </div>
-              <p className="text-2xl font-bold">{selectedHistoryPlan.final_plan?.length || 0}</p>
-              <p className="text-xs text-muted-foreground">demandas aprovadas</p>
-            </Card>
-
-            <Card className={cn("p-4 cursor-pointer transition-all border-2", historyViewTab === 'normal' ? "border-blue-500 bg-blue-500/5" : "border-transparent hover:border-border hover:bg-muted/50")} onClick={() => setHistoryViewTab('normal')}>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center"><Shield className="w-4 h-4 text-blue-500" /></div>
-                  <span className="font-semibold">Normal</span>
-                </div>
-              </div>
-              <p className="text-2xl font-bold">{selectedHistoryPlan.default_plan?.length || 0}</p>
-              <p className="text-xs text-muted-foreground">demandas geradas</p>
-            </Card>
-
-            <Card className={cn("p-4 cursor-pointer transition-all border-2", historyViewTab === 'ultra' ? "border-pink-500 bg-pink-500/5" : "border-transparent hover:border-border hover:bg-muted/50")} onClick={() => setHistoryViewTab('ultra')}>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center"><Zap className="w-4 h-4 text-pink-500" /></div>
-                  <span className="font-semibold">Ultra</span>
-                </div>
-              </div>
-              <p className="text-2xl font-bold">{selectedHistoryPlan.ultra_plan?.length || 0}</p>
-              <p className="text-xs text-muted-foreground">demandas geradas</p>
-            </Card>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6">
-          {historyViewTab === 'final' && <>
-            {selectedHistoryPlan.final_plan && selectedHistoryPlan.final_plan.length > 0 ? <div className="grid gap-3">
-              {selectedHistoryPlan.final_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} />)}
-            </div> : <div className="text-center py-12 text-muted-foreground">
-              <LayoutGrid className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p className="font-medium">Nenhuma demanda no plano final</p>
-              <p className="text-sm mt-1">O planejamento pode não ter sido finalizado</p>
-            </div>}
-          </>}
-
-          {historyViewTab === 'normal' && <>
-            {selectedHistoryPlan.default_plan && selectedHistoryPlan.default_plan.length > 0 ? <div className="grid gap-3">
-              {selectedHistoryPlan.default_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="normal" />)}
-            </div> : <div className="text-center py-12 text-muted-foreground">
-              <Shield className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p className="font-medium">Nenhuma demanda no plano Normal</p>
-            </div>}
-          </>}
-
-          {historyViewTab === 'ultra' && <>
-            {selectedHistoryPlan.ultra_plan && selectedHistoryPlan.ultra_plan.length > 0 ? <div className="grid gap-3">
-              {selectedHistoryPlan.ultra_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="ultra" />)}
-            </div> : <div className="text-center py-12 text-muted-foreground">
-              <Zap className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p className="font-medium">Nenhuma demanda no plano Ultra</p>
-            </div>}
-          </>}
-        </div>
-
-        <div className="p-4 border-t bg-muted/30 flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            {historyViewTab === 'final' && `${selectedHistoryPlan.final_plan?.length || 0} demandas finalizadas`}
-            {historyViewTab === 'normal' && `${selectedHistoryPlan.default_plan?.length || 0} demandas no modo Normal`}
-            {historyViewTab === 'ultra' && `${selectedHistoryPlan.ultra_plan?.length || 0} demandas no modo Ultra`}
-          </p>
-          <div className="flex gap-2">
-            {selectedHistoryPlan.status === 'completed' && <Button onClick={() => navigate('/kanban-central')}>
-              <LayoutGrid className="w-4 h-4 mr-2" />
-              Ver no Kanban
-            </Button>}
-          </div>
-        </div>
-      </Card>
-    </div>}
-
-    {/* Delete Confirmation Modal */}
-    {periodToDelete && <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => !isDeleting && setPeriodToDelete(null)}>
-      <Card className="max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center gap-4 mb-4">
-          <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
-            <AlertTriangle className="w-6 h-6 text-destructive" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold">Excluir Período</h2>
-            <p className="text-sm text-muted-foreground">Esta ação não pode ser desfeita</p>
-          </div>
-        </div>
-        <div className="mb-6 p-4 bg-muted/50 rounded-lg">
-          <p className="font-medium">{periodToDelete.period_title}</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            {format(new Date(periodToDelete.period_start), "dd/MM/yyyy", { locale: ptBR })} - {format(new Date(periodToDelete.period_end), "dd/MM/yyyy", { locale: ptBR })}
-          </p>
-          {periodToDelete.final_plan && periodToDelete.final_plan.length > 0 && <p className="text-sm text-destructive mt-2">
-            ⚠️ {periodToDelete.final_plan.length} demandas associadas também serão excluídas
-          </p>}
-        </div>
-        <div className="flex gap-3">
-          <Button variant="outline" className="flex-1" onClick={() => setPeriodToDelete(null)} disabled={isDeleting}>Cancelar</Button>
-          <Button variant="destructive" className="flex-1" onClick={handleDeletePeriod} disabled={isDeleting}>
-            {isDeleting ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Excluindo...</> : <><Trash2 className="w-4 h-4 mr-2" />Excluir Período</>}
-          </Button>
-        </div>
-      </Card>
-    </div>}
-  </div>;
+        </Card>
+      </div>}
+    </div>;
+  };
 
   const renderLoading = (message: string) => (
     <div className="flex flex-col items-center justify-center py-20 space-y-6">
