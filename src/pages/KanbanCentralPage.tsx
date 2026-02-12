@@ -30,6 +30,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import CreateColumnModal from "@/components/CreateColumnModal";
 import ManageColumnsModal from "@/components/ManageColumnsModal";
 import { CreateDemandModal } from "@/components/CreateDemandModal";
+import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 
 interface PipelineStatus {
   id: string;
@@ -78,6 +79,11 @@ const KanbanCentralPage = () => {
   const [isCreateColumnModalOpen, setIsCreateColumnModalOpen] = useState(false);
   const [isManageColumnsModalOpen, setIsManageColumnsModalOpen] = useState(false);
   const [isCreateDemandModalOpen, setIsCreateDemandModalOpen] = useState(false);
+
+  // Schedule modal state
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [pendingScheduleCard, setPendingScheduleCard] = useState<CentralKanbanCard | null>(null);
+  const [pendingScheduleSourceColumn, setPendingScheduleSourceColumn] = useState<string | null>(null);
 
   // Hook de permissões de colunas
   const { filterColumns, loading: permissionsLoading } = useColumnPermissions();
@@ -341,14 +347,18 @@ const KanbanCentralPage = () => {
     const newColumnName = destination.droppableId;
     const newStatus = getStatusFromColumn(newColumnName);
 
-    // Validação: exigir data de publicação para mover para "Agendar Publicação"
+    // Interceptar "Agendar Publicação" → abrir modal de agendamento
     if (newColumnName === "Agendar Publicação") {
-      if (!card.publish_date) {
-        sonnerToast.error("Defina uma data de publicação", {
-          description: "Para mover para 'Agendar Publicação', defina data e horário primeiro."
-        });
-        return;
-      }
+      setPendingScheduleCard(card);
+      setPendingScheduleSourceColumn(card.status);
+      // Mover visualmente para a coluna destino
+      setCards((prev) =>
+        prev.map((c) =>
+          c.id === draggableId ? { ...c, status: newColumnName } : c
+        )
+      );
+      setScheduleModalOpen(true);
+      return;
     }
 
     setCards((prev) =>
@@ -914,6 +924,96 @@ const KanbanCentralPage = () => {
         savingField={savingField}
         uploading={uploading}
         pipelineStatuses={columns}
+        onScheduleRequest={(card) => {
+          setPendingScheduleCard(card as CentralKanbanCard);
+          setPendingScheduleSourceColumn(card.status);
+          setScheduleModalOpen(true);
+        }}
+      />
+
+      {/* Schedule Publication Modal */}
+      <SchedulePublicationModal
+        open={scheduleModalOpen}
+        onOpenChange={setScheduleModalOpen}
+        existingDate={pendingScheduleCard?.publish_date}
+        existingTime={pendingScheduleCard?.publish_time}
+        onConfirm={async (date, time) => {
+          if (!pendingScheduleCard) return;
+          try {
+            const { data: statusData } = await supabase
+              .from("pipeline_statuses")
+              .select("id")
+              .eq("name", "Agendar Publicação")
+              .eq("pipeline_id", pipelineId)
+              .maybeSingle();
+
+            if (!statusData) {
+              sonnerToast.error("Status 'Agendar Publicação' não encontrado");
+              return;
+            }
+
+            const { error } = await supabase
+              .from("demands")
+              .update({
+                publish_date: date,
+                publish_time: time,
+                status_id: statusData.id,
+                updated_at: new Date().toISOString()
+              })
+              .eq("id", pendingScheduleCard.id);
+
+            if (error) throw error;
+
+            // Update local state
+            setCards(prev => prev.map(c =>
+              c.id === pendingScheduleCard.id
+                ? { ...c, status: "Agendar Publicação", publish_date: date, publish_time: time }
+                : c
+            ));
+
+            // Update selected card if open
+            if (selectedCard?.id === pendingScheduleCard.id) {
+              setSelectedCard(prev => prev ? {
+                ...prev,
+                status: "Agendar Publicação",
+                publish_date: date,
+                publish_time: time
+              } : null);
+            }
+
+            sonnerToast.success("Publicação agendada", {
+              description: `${date} às ${time}`
+            });
+          } catch (error) {
+            console.error("Error scheduling:", error);
+            sonnerToast.error("Erro ao agendar publicação");
+            // Revert
+            if (pendingScheduleSourceColumn) {
+              setCards(prev => prev.map(c =>
+                c.id === pendingScheduleCard.id
+                  ? { ...c, status: pendingScheduleSourceColumn }
+                  : c
+              ));
+            }
+          } finally {
+            setScheduleModalOpen(false);
+            setPendingScheduleCard(null);
+            setPendingScheduleSourceColumn(null);
+          }
+        }}
+        onCancel={() => {
+          // Revert card to original column
+          if (pendingScheduleCard && pendingScheduleSourceColumn) {
+            setCards(prev => prev.map(c =>
+              c.id === pendingScheduleCard.id
+                ? { ...c, status: pendingScheduleSourceColumn }
+                : c
+            ));
+          }
+          setScheduleModalOpen(false);
+          setPendingScheduleCard(null);
+          setPendingScheduleSourceColumn(null);
+        }}
       />
 
       {/* Create Column Modal */}
