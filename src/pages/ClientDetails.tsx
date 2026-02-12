@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, X, Loader2, Trash2, Pencil, Building2, Mail, Phone, Calendar, MapPin } from "lucide-react";
+import { ArrowLeft, Save, X, Loader2, Trash2, Pencil, Building2, Mail, Phone, Calendar, MapPin, Upload, Image } from "lucide-react";
 import { toast } from "sonner";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { ImageCropper } from "@/components/ImageCropper";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -127,6 +128,14 @@ const ClientDetails = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
+
+  // Logo upload states
+  const [isUploading, setIsUploading] = useState(false);
+  const [previewLogo, setPreviewLogo] = useState<string | null>(null);
+  const [rawImageSrc, setRawImageSrc] = useState<string | null>(null);
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [croppedBlob, setCroppedBlob] = useState<Blob | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<ClientFormData>({
     name: "",
     fantasy_name: "",
@@ -181,8 +190,97 @@ const ClientDetails = () => {
   useEffect(() => {
     if (client) {
       setFormData(parseStoredData(client));
+      setPreviewLogo(client.logo_url || null);
     }
   }, [client]);
+
+  // Logo upload handlers
+  const handleLogoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Formato inválido. Use PNG, JPG ou JPEG.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Arquivo muito grande. Máximo 5MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setRawImageSrc(reader.result as string);
+      setCropperOpen(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropComplete = (blob: Blob) => {
+    setCroppedBlob(blob);
+    setPreviewLogo(URL.createObjectURL(blob));
+    setCropperOpen(false);
+  };
+
+  const handleUploadLogo = async () => {
+    if (!id || !croppedBlob) return;
+    setIsUploading(true);
+    try {
+      if (client?.logo_url) {
+        const pathParts = client.logo_url.split('/company-logos/');
+        if (pathParts[1]) {
+          await supabase.storage.from('company-logos').remove([pathParts[1]]);
+        }
+      }
+      const fileName = `${Date.now()}.png`;
+      const filePath = `${id}/${fileName}`;
+      const { error: uploadError } = await supabase.storage
+        .from('company-logos')
+        .upload(filePath, croppedBlob, { upsert: true, contentType: 'image/png' });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(filePath);
+      const { error: updateError } = await supabase
+        .from('tenant_companies')
+        .update({ logo_url: urlData.publicUrl })
+        .eq('id', id);
+      if (updateError) throw updateError;
+      toast.success("Logo atualizada com sucesso!");
+      setCroppedBlob(null);
+      queryClient.invalidateQueries({ queryKey: ['client-details', id] });
+      queryClient.invalidateQueries({ queryKey: ['tenant-clients'] });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast.error(error.message || "Erro ao fazer upload da logo");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    if (!id) return;
+    setIsUploading(true);
+    try {
+      if (client?.logo_url) {
+        const pathParts = client.logo_url.split('/company-logos/');
+        if (pathParts[1]) {
+          await supabase.storage.from('company-logos').remove([pathParts[1]]);
+        }
+      }
+      const { error } = await supabase
+        .from('tenant_companies')
+        .update({ logo_url: null })
+        .eq('id', id);
+      if (error) throw error;
+      setPreviewLogo(null);
+      setCroppedBlob(null);
+      toast.success("Logo removida com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ['client-details', id] });
+      queryClient.invalidateQueries({ queryKey: ['tenant-clients'] });
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao remover logo");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   // CEP auto-fill
   const fetchAddressByCep = async (cep: string) => {
@@ -419,6 +517,59 @@ const ClientDetails = () => {
               )}
             </div>
           </div>
+
+          {/* Seção 0: Logotipo do Cliente */}
+          <FormSection title="Logotipo" icon={Image} contentClassName="space-y-3">
+            <div className="flex items-start gap-6">
+              <div className="shrink-0">
+                <div className="w-24 h-24 rounded-xl border-2 border-dashed border-border flex items-center justify-center bg-muted/50 overflow-hidden">
+                  {previewLogo ? (
+                    <img src={previewLogo} alt="Logo preview" className="w-full h-full object-contain" />
+                  ) : (
+                    <Building2 className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </div>
+              </div>
+              <div className="flex-1 space-y-3">
+                <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/jpg" onChange={handleLogoFileSelect} className="hidden" />
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => logoInputRef.current?.click()} disabled={isUploading}>
+                    {isUploading ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enviando...</>
+                    ) : (
+                      <><Upload className="h-4 w-4 mr-2" />Escolher Imagem</>
+                    )}
+                  </Button>
+                  {croppedBlob && (
+                    <Button size="sm" onClick={handleUploadLogo} disabled={isUploading}>
+                      <Save className="h-4 w-4 mr-2" />
+                      Salvar Logo
+                    </Button>
+                  )}
+                  {previewLogo && !croppedBlob && (
+                    <Button variant="outline" size="sm" onClick={handleRemoveLogo} disabled={isUploading} className="text-destructive hover:text-destructive">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Remover
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Formatos: PNG, JPG · Máx: 5MB · Recomendado: 256×256px
+                </p>
+              </div>
+            </div>
+          </FormSection>
+
+          {/* Image Cropper */}
+          {rawImageSrc && (
+            <ImageCropper
+              open={cropperOpen}
+              onClose={() => { setCropperOpen(false); setRawImageSrc(null); }}
+              imageSrc={rawImageSrc}
+              onCropComplete={handleCropComplete}
+              aspectRatio={1}
+            />
+          )}
 
           {/* Seção 1: Identificação da Empresa */}
           <FormSection title="Identificação da Empresa" icon={Building2} contentClassName="space-y-5">

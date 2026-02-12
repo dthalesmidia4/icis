@@ -264,14 +264,11 @@ const ClientList = () => {
               </Button>
             </div> : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {clients.map(client => <div key={client.id} className="relative">
-                  {editMode && <div className="absolute top-2 right-2 z-10 flex gap-1" onClick={e => e.stopPropagation()}>
-                      <Button variant="secondary" size="icon" onClick={() => openLogoModal(client)} className="h-8 w-8" aria-label="Editar logo">
-                        <Image className="h-4 w-4" />
-                      </Button>
-                      <Button variant="secondary" size="icon" onClick={() => setDeleteId(client.id)} className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" aria-label="Excluir cliente">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>}
+                   {editMode && <div className="absolute top-2 right-2 z-10 flex gap-1" onClick={e => e.stopPropagation()}>
+                       <Button variant="secondary" size="icon" onClick={() => setDeleteId(client.id)} className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" aria-label="Excluir cliente">
+                         <Trash2 className="h-4 w-4" />
+                       </Button>
+                     </div>}
                   <Card className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]" onClick={() => !editMode && handleClientSelect(client)}>
                     <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 opacity-5 group-hover:opacity-10 transition-opacity" />
                     
