@@ -213,6 +213,27 @@ const PlanPeriod = () => {
     try {
       const { error } = await supabase.from('period_plans').update({ operational_status: newStatus }).eq('id', period.id);
       if (error) throw error;
+
+      // Auto-archive demands when period is completed
+      if (newStatus === 'concluido') {
+        const { error: archiveError } = await supabase
+          .from('demands')
+          .update({ archived_at: new Date().toISOString() })
+          .eq('period_plan_id', period.id)
+          .is('archived_at', null);
+        if (archiveError) console.error('Error archiving demands:', archiveError);
+      }
+
+      // Unarchive demands when period is reopened from concluido
+      if (currentStatus === 'concluido' && newStatus === 'em_planejamento') {
+        const { error: unarchiveError } = await supabase
+          .from('demands')
+          .update({ archived_at: null })
+          .eq('period_plan_id', period.id)
+          .not('archived_at', 'is', null);
+        if (unarchiveError) console.error('Error unarchiving demands:', unarchiveError);
+      }
+
       setPeriodHistory(prev => prev.map(p => p.id === period.id ? { ...p, operational_status: newStatus } : p));
       const statusMessages: Record<string, string> = {
         'em_planejamento': 'Período marcado como em planejamento',

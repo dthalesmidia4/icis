@@ -134,6 +134,7 @@ const Scheduled = () => {
     try {
       setLoading(true);
 
+      // Only fetch non-archived demands in "Agendar Publicação" status
       const { data: demandsData, error } = await supabase
         .from("demands")
         .select(`
@@ -147,12 +148,10 @@ const Scheduled = () => {
             id,
             fantasy_name,
             name
-          ),
-          period_plans!demands_period_plan_id_fkey (
-            operational_status
           )
         `)
-        .eq("tenant_id", tenantId);
+        .eq("tenant_id", tenantId)
+        .is("archived_at", null);
       
       if (error) throw error;
 
@@ -160,7 +159,6 @@ const Scheduled = () => {
         .filter(demand => demand.pipeline_statuses?.name === "Agendar Publicação")
         .map(demand => {
           const company = demand.tenant_companies;
-          const operationalStatus = demand.period_plans?.operational_status;
           return {
             id: demand.id,
             title: demand.title,
@@ -180,7 +178,7 @@ const Scheduled = () => {
             updated_at: demand.updated_at,
             clientName: company?.fantasy_name || company?.name || "Cliente",
             clientId: company?.id || demand.client_id || "",
-            isArchived: operationalStatus === "concluido",
+            isArchived: false,
             source: demand.source,
             demand_id: demand.id,
             demand_type: demand.demand_type
@@ -197,8 +195,7 @@ const Scheduled = () => {
         return dateA.getTime() - dateB.getTime();
       });
 
-      const active = allMappedCards.filter(card => !card.isArchived);
-      setActiveCards(active);
+      setActiveCards(allMappedCards);
       setAllCards(allMappedCards);
     } catch (error) {
       console.error("Error fetching scheduled cards:", error);
