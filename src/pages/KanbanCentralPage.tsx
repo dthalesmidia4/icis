@@ -47,6 +47,7 @@ interface CentralKanbanCard extends KanbanCardData {
   clientId: string;
   periodPlanId: string;
   isArchived?: boolean;
+  archived_at?: string | null;
 }
 
 const KanbanCentralPage = () => {
@@ -256,7 +257,8 @@ const KanbanCentralPage = () => {
     try {
       setLoading(true);
 
-      const { data: demandsData, error } = await supabase
+      // Fetch active demands (archived_at IS NULL)
+      const { data: activeData, error: activeError } = await supabase
         .from("demands")
         .select(`
           *,
@@ -276,19 +278,43 @@ const KanbanCentralPage = () => {
           )
         `)
         .eq("tenant_id", tenantId)
+        .is("archived_at", null)
         .order("created_at", { ascending: true });
 
-      if (error) throw error;
+      if (activeError) throw activeError;
 
-      const activeCards: CentralKanbanCard[] = [];
-      const archived: CentralKanbanCard[] = [];
+      // Fetch archived demands (archived_at IS NOT NULL)
+      const { data: archivedData, error: archivedError } = await supabase
+        .from("demands")
+        .select(`
+          *,
+          pipeline_statuses!demands_status_id_fkey (
+            name,
+            color,
+            position
+          ),
+          tenant_companies!demands_client_id_fkey (
+            id,
+            fantasy_name,
+            name
+          ),
+          period_plans!demands_period_plan_id_fkey (
+            id,
+            operational_status
+          )
+        `)
+        .eq("tenant_id", tenantId)
+        .not("archived_at", "is", null)
+        .order("created_at", { ascending: true });
 
-      (demandsData || []).forEach(demand => {
+      if (archivedError) throw archivedError;
+
+      const mapDemand = (demand: any, isArchived: boolean): CentralKanbanCard => {
         const statusName = demand.pipeline_statuses?.name || "Planejamento";
         const company = demand.tenant_companies;
         const period = demand.period_plans;
         
-        const mappedCard: CentralKanbanCard = {
+        return {
           id: demand.id,
           title: demand.title,
           description: demand.instructions || demand.description || null,
@@ -308,21 +334,16 @@ const KanbanCentralPage = () => {
           clientName: company?.fantasy_name || company?.name || "Cliente",
           clientId: company?.id || demand.client_id || "",
           periodPlanId: period?.id || "",
-          isArchived: period?.operational_status === "concluido",
+          isArchived,
+          archived_at: demand.archived_at,
           source: demand.source,
           demand_id: demand.id,
           demand_type: demand.demand_type
         };
+      };
 
-        // Cards without period (manual) or with active period → active
-        // Cards with completed period → archived
-        if (period?.operational_status === 'concluido') {
-          archived.push(mappedCard);
-        } else {
-          // em_andamento, or no period (manual demands)
-          activeCards.push(mappedCard);
-        }
-      });
+      const activeCards = (activeData || []).map(d => mapDemand(d, false));
+      const archived = (archivedData || []).map(d => mapDemand(d, true));
 
       setCards(activeCards);
       setArchivedCards(archived);
