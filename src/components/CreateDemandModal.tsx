@@ -112,6 +112,7 @@ export function CreateDemandModal({
   const [channel, setChannel] = useState("");
   const [publishDate, setPublishDate] = useState<Date | undefined>();
   const [dueDate, setDueDate] = useState<Date | undefined>();
+  const [selectedPeriodPlanId, setSelectedPeriodPlanId] = useState<string>("");
   
   // Data state
   const [clients, setClients] = useState<Client[]>([]);
@@ -120,6 +121,7 @@ export function CreateDemandModal({
   const [suggestions, setSuggestions] = useState<DemandSuggestion[]>([]);
   const [strategySnippet, setStrategySnippet] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
   
   // Loading states
   const [loading, setLoading] = useState(false);
@@ -128,6 +130,7 @@ export function CreateDemandModal({
   const [loadingStatuses, setLoadingStatuses] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [refreshingSuggestions, setRefreshingSuggestions] = useState(false);
+  const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
   // Load clients on mount
@@ -148,13 +151,18 @@ export function CreateDemandModal({
     }
   }, [pipelineId]);
   
-  // Load suggestions when client changes
+  // Load suggestions and period plans when client changes
   useEffect(() => {
     if (clientId) {
       fetchSuggestions(clientId);
+      if (!periodPlanId) {
+        fetchPeriodPlans(clientId);
+      }
     } else {
       setSuggestions([]);
       setStrategySnippet("");
+      setPeriodPlans([]);
+      setSelectedPeriodPlanId("");
     }
   }, [clientId]);
   
@@ -178,6 +186,27 @@ export function CreateDemandModal({
     setSuggestions([]);
     setStrategySnippet("");
     setSelectedTemplateId(null);
+    setPeriodPlans([]);
+    setSelectedPeriodPlanId("");
+  };
+
+  const fetchPeriodPlans = async (clientId: string) => {
+    setLoadingPeriodPlans(true);
+    try {
+      const { data, error } = await supabase
+        .from("period_plans")
+        .select("id, period_title, period_start, period_end")
+        .eq("company_id", clientId)
+        .eq("operational_status", "em_andamento")
+        .order("period_start", { ascending: false });
+      
+      if (error) throw error;
+      setPeriodPlans(data || []);
+    } catch (error) {
+      console.error("Error fetching period plans:", error);
+    } finally {
+      setLoadingPeriodPlans(false);
+    }
   };
   
   const fetchClients = async () => {
@@ -372,7 +401,7 @@ export function CreateDemandModal({
         p_channel: channel || null,
         p_publish_date: publishDate ? format(publishDate, "yyyy-MM-dd") : null,
         p_due_date: dueDate ? format(dueDate, "yyyy-MM-dd") : null,
-        p_period_plan_id: periodPlanId || null
+        p_period_plan_id: periodPlanId || selectedPeriodPlanId || null
       });
       
       if (error) throw error;
@@ -530,6 +559,25 @@ export function CreateDemandModal({
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
+            )}
+            
+            {/* Período (only when not provided via props) */}
+            {!periodPlanId && clientId && (
+              <div className="space-y-2">
+                <Label>Período</Label>
+                <Select value={selectedPeriodPlanId} onValueChange={setSelectedPeriodPlanId} disabled={loadingPeriodPlans}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={loadingPeriodPlans ? "Carregando..." : periodPlans.length === 0 ? "Nenhum período ativo" : "Selecione (opcional)"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50">
+                    {periodPlans.map(pp => (
+                      <SelectItem key={pp.id} value={pp.id}>
+                        {pp.period_title} ({format(new Date(pp.period_start + 'T00:00:00'), "dd/MM", { locale: ptBR })} - {format(new Date(pp.period_end + 'T00:00:00'), "dd/MM", { locale: ptBR })})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
             
             {/* Pipeline & Status */}

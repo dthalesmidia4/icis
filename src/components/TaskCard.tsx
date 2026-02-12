@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { createPortal } from "react-dom";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical } from "lucide-react";
+import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import { BlockEditor } from "@/components/BlockEditor";
@@ -274,6 +275,8 @@ export default function TaskCard({
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [attachmentToRemove, setAttachmentToRemove] = useState<Attachment | null>(null);
+  const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
+  const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
   
   // Section collapse states - persisted in localStorage
   const STORAGE_KEY = 'taskcard-collapsed-sections';
@@ -354,6 +357,49 @@ export default function TaskCard({
   const handleFieldSave = async (field: string, value: string) => {
     await onSave(field, value);
     setEditingField(null);
+  };
+
+  // Fetch period plans for unlinked demands
+  useEffect(() => {
+    if (open && card && !card.period_plan_id && card.clientId) {
+      fetchPeriodPlansForCard(card.clientId);
+    }
+  }, [open, card?.id, card?.period_plan_id, card?.clientId]);
+
+  const fetchPeriodPlansForCard = async (clientId: string) => {
+    setLoadingPeriodPlans(true);
+    try {
+      const { data, error } = await supabase
+        .from("period_plans")
+        .select("id, period_title, period_start, period_end")
+        .eq("company_id", clientId)
+        .eq("operational_status", "em_andamento")
+        .order("period_start", { ascending: false });
+      if (error) throw error;
+      setPeriodPlans(data || []);
+    } catch (error) {
+      console.error("Error fetching period plans:", error);
+    } finally {
+      setLoadingPeriodPlans(false);
+    }
+  };
+
+  const handleLinkPeriod = async (periodPlanId: string) => {
+    if (!card) return;
+    try {
+      const { error } = await supabase
+        .from("demands")
+        .update({ period_plan_id: periodPlanId })
+        .eq("id", card.id);
+      if (error) throw error;
+      onCardChange({ ...card, period_plan_id: periodPlanId });
+      const { toast } = await import("sonner");
+      toast.success("Demanda vinculada ao período!");
+    } catch (error) {
+      console.error("Error linking period:", error);
+      const { toast } = await import("sonner");
+      toast.error("Erro ao vincular período");
+    }
   };
 
   // Publication date handler (single date + time)
@@ -627,6 +673,28 @@ export default function TaskCard({
                 </TooltipProvider>
                 )}
               </div>
+
+              {/* Period linking for unlinked demands */}
+              {!readOnly && !card.period_plan_id && periodPlans.length > 0 && (
+                <>
+                  <div className="h-4 w-px bg-border" />
+                  <div className="flex items-center gap-2">
+                    <Link className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Select onValueChange={handleLinkPeriod}>
+                      <SelectTrigger className="h-7 w-auto min-w-[160px] text-xs">
+                        <SelectValue placeholder="Vincular a período" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        {periodPlans.map(pp => (
+                          <SelectItem key={pp.id} value={pp.id}>
+                            <span className="text-xs">{pp.period_title} ({format(new Date(pp.period_start + 'T00:00:00'), "dd/MM", { locale: ptBR })} - {format(new Date(pp.period_end + 'T00:00:00'), "dd/MM", { locale: ptBR })})</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
 
               {!readOnly && (
               <>
