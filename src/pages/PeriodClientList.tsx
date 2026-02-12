@@ -326,7 +326,7 @@ const PeriodClientList = () => {
             </div>
           </div>
 
-          {/* Periods */}
+          {/* Periods grouped by operational status */}
           {loadingPeriods ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -337,29 +337,47 @@ const PeriodClientList = () => {
               <p className="text-sm text-muted-foreground">Nenhum período cadastrado para este cliente</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
-              {periods.map((period) => {
-                const statusBadge = getStatusBadge(period.operational_status);
+            <div className="flex flex-col gap-8">
+              {[
+                { key: "em_andamento", label: "Em andamento", color: "bg-amber-500" },
+                { key: "analise", label: "Análise", color: "bg-blue-500" },
+                { key: "concluido", label: "Concluído", color: "bg-emerald-500" },
+              ].map((section) => {
+                const sectionPeriods = periods.filter((p) => p.operational_status === section.key);
                 return (
-                  <div
-                    key={period.id}
-                    className="flex items-center justify-between gap-4 px-4 py-3 bg-muted/30 rounded-lg border border-border/50 cursor-pointer hover:bg-muted/50 transition-colors group"
-                    onClick={() => setSelectedPeriodId(period.id)}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <span className="text-sm font-medium text-foreground block truncate">
-                        {period.period_title}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(period.period_start)} – {formatDate(period.period_end)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Badge className={cn("text-[10px] px-2 py-0.5 font-medium border", statusBadge.className)}>
-                        {statusBadge.label}
+                  <div key={section.key}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className={cn("w-3 h-3 rounded-full shrink-0", section.color)} />
+                      <span className="text-sm font-semibold text-foreground">{section.label}</span>
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                        {sectionPeriods.length}
                       </Badge>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                     </div>
+                    {sectionPeriods.length === 0 ? (
+                      <div className="pl-5 py-3">
+                        <p className="text-xs text-muted-foreground italic">Nenhum período neste status</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2 pl-5">
+                        {sectionPeriods.map((period) => (
+                          <div
+                            key={period.id}
+                            className="flex items-center justify-between gap-4 px-4 py-3 bg-muted/30 rounded-lg border border-border/50 cursor-pointer hover:bg-muted/50 transition-colors group"
+                            onClick={() => setSelectedPeriodId(period.id)}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <span className="text-sm font-medium text-foreground block truncate">
+                                {period.period_title}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {formatDate(period.period_start)} – {formatDate(period.period_end)}
+                              </span>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
