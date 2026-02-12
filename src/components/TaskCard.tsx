@@ -103,6 +103,7 @@ interface TaskCardProps {
   uploading?: boolean;
   pipelineStatuses?: PipelineStatus[]; // Dynamic statuses from database
   readOnly?: boolean;
+  onScheduleRequest?: (card: KanbanCardData) => void;
 }
 const isImageFile = (type: string) => type.startsWith('image/');
 const formatFileSize = (bytes: number) => {
@@ -266,7 +267,8 @@ export default function TaskCard({
   savingField = null,
   uploading = false,
   pipelineStatuses = [],
-  readOnly = false
+  readOnly = false,
+  onScheduleRequest
 }: TaskCardProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -472,10 +474,14 @@ export default function TaskCard({
                   </div>
                 ) : (
                 <Select value={card.status || normalizedStatus} onValueChange={async (value) => {
-                  // Validação: exigir data de publicação para mover para "Agendar Publicação"
+                  // Interceptar "Agendar Publicação" para abrir modal de agendamento
                   if (value === "Agendar Publicação") {
+                    if (onScheduleRequest) {
+                      onScheduleRequest(card);
+                      return;
+                    }
+                    // Fallback: bloquear se não há handler
                     const hasPublishDate = !!card.publish_date;
-                    
                     if (!hasPublishDate) {
                       const { toast } = await import("sonner");
                       toast.error("Defina uma data de publicação", {

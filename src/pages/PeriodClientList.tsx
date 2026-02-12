@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import TaskCard, { getColumnFromStatus } from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
+import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -134,6 +135,10 @@ const PeriodClientList = () => {
   const [savingField, setSavingField] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  // Schedule modal state
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [pendingScheduleCard, setPendingScheduleCard] = useState<KanbanCardData | null>(null);
+  const [pendingScheduleSourceStatus, setPendingScheduleSourceStatus] = useState<string | null>(null);
   // ── Step 1: Fetch clients ──
   const { data: clients, isLoading: loadingClients } = useQuery({
     queryKey: ["schedules-clients", tenantId, searchTerm],
@@ -532,7 +537,7 @@ const PeriodClientList = () => {
         </div>
 
         {/* TaskCard Modal */}
-        <TaskCard
+          <TaskCard
           open={isTaskCardOpen}
           onOpenChange={(open) => {
             setIsTaskCardOpen(open);
@@ -552,6 +557,73 @@ const PeriodClientList = () => {
           savingField={savingField}
           uploading={uploading}
           pipelineStatuses={pipelineStatuses}
+          onScheduleRequest={(card) => {
+            setPendingScheduleCard(card);
+            setPendingScheduleSourceStatus(card.status);
+            setScheduleModalOpen(true);
+          }}
+        />
+
+        {/* Schedule Publication Modal */}
+        <SchedulePublicationModal
+          open={scheduleModalOpen}
+          onOpenChange={setScheduleModalOpen}
+          existingDate={pendingScheduleCard?.publish_date}
+          existingTime={pendingScheduleCard?.publish_time}
+          onConfirm={async (date, time) => {
+            if (!pendingScheduleCard) return;
+            try {
+              const { data: statusData } = await supabase
+                .from("pipeline_statuses")
+                .select("id")
+                .eq("name", "Agendar Publicação")
+                .eq("pipeline_id", pipelineId)
+                .maybeSingle();
+
+              if (!statusData) {
+                toast.error("Status 'Agendar Publicação' não encontrado");
+                return;
+              }
+
+              const { error } = await supabase
+                .from("demands")
+                .update({
+                  publish_date: date,
+                  publish_time: time,
+                  status_id: statusData.id,
+                  updated_at: new Date().toISOString()
+                })
+                .eq("id", pendingScheduleCard.id);
+
+              if (error) throw error;
+
+              if (selectedCard?.id === pendingScheduleCard.id) {
+                setSelectedCard(prev => prev ? {
+                  ...prev,
+                  status: "Agendar Publicação",
+                  publish_date: date,
+                  publish_time: time
+                } : null);
+              }
+
+              toast.success("Publicação agendada", {
+                description: `${date} às ${time}`
+              });
+              refetchDetail();
+            } catch (error) {
+              console.error("Error scheduling:", error);
+              toast.error("Erro ao agendar publicação");
+            } finally {
+              setScheduleModalOpen(false);
+              setPendingScheduleCard(null);
+              setPendingScheduleSourceStatus(null);
+            }
+          }}
+          onCancel={() => {
+            setScheduleModalOpen(false);
+            setPendingScheduleCard(null);
+            setPendingScheduleSourceStatus(null);
+          }}
         />
       </div>
     );
