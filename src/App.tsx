@@ -166,7 +166,7 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
-      <Route path="/period-clients" element={
+      <Route path="/schedules" element={
         <ProtectedRoute>
           <RequireTenant>
             <RequireRole allowedRoles={['agency_admin']}>
