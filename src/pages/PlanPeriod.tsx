@@ -864,7 +864,7 @@ const PlanPeriod = () => {
     : `Confirmar Planejamento`;
 
   return <div className="pb-8">
-    <PageHeader title="Planejar Período" subtitle={displayName} backTo="/period-clients" actions={currentStep === 'form' && activeTab === 'new' ? [{
+    <PageHeader title="Planejar Período" subtitle={displayName} backTo="/schedules" actions={currentStep === 'form' && activeTab === 'new' ? [{
       label: "Gerar Demandas",
       onClick: handleSubmit,
       icon: <Rocket className="w-4 h-4" />,

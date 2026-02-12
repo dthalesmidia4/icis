@@ -64,7 +64,7 @@ const Home = () => {
       id: 'clientes' as HubSectionId,
       title: "Períodos",
       icon: CalendarDays,
-      route: "/period-clients"
+      route: "/schedules"
     },
     {
       id: 'schedule' as HubSectionId,
