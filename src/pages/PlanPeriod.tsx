@@ -99,7 +99,7 @@ const PlanPeriod = () => {
   const [excludedFormats, setExcludedFormats] = useState<string[]>([]);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [productionLine, setProductionLine] = useState<{ type: string; quantity: number }[]>([
-    { type: 'Reels', quantity: 0 },
+    { type: 'Vídeos Curtos', quantity: 0 },
     { type: 'Carrossel', quantity: 0 },
     { type: 'Post Estático', quantity: 0 },
     { type: 'Stories', quantity: 0 },
