@@ -41,6 +41,9 @@ interface ClientFormData {
   street: string;
   number: string;
   complement: string;
+  brand_primary_color: string;
+  brand_secondary_color: string;
+  brand_font: string;
 }
 
 const SECTOR_OPTIONS = [
@@ -113,7 +116,10 @@ const parseStoredData = (client: any): ClientFormData => {
     state: "",
     street: "",
     number: "",
-    complement: ""
+    complement: "",
+    brand_primary_color: client.brand_primary_color || "",
+    brand_secondary_color: client.brand_secondary_color || "",
+    brand_font: client.brand_font || ""
   };
 };
 
@@ -158,7 +164,10 @@ const ClientDetails = () => {
     state: "",
     street: "",
     number: "",
-    complement: ""
+    complement: "",
+    brand_primary_color: "",
+    brand_secondary_color: "",
+    brand_font: ""
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -381,6 +390,9 @@ const ClientDetails = () => {
           products_services: formData.products_services.trim(),
           email: formData.email.trim(),
           phone: formData.phone.trim(),
+          brand_primary_color: formData.brand_primary_color.trim() || null,
+          brand_secondary_color: formData.brand_secondary_color.trim() || null,
+          brand_font: formData.brand_font.trim() || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
@@ -1081,6 +1093,92 @@ const ClientDetails = () => {
                 <p className="text-xs text-muted-foreground">
                   Formatos: PNG, JPG · Máx: 5MB · Recomendado: 256×256px
                 </p>
+              </div>
+            </div>
+          </FormSection>
+
+          {/* Seção: Identidade Visual / Branding */}
+          <FormSection title="Identidade Visual" icon={Building2} contentClassName="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="brand_primary_color" className="text-xs font-medium text-muted-foreground">Cor Primária</Label>
+                {isEditing ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={formData.brand_primary_color || "#000000"}
+                      onChange={(e) => handleInputChange('brand_primary_color', e.target.value)}
+                      className="h-10 w-10 rounded border border-border/60 cursor-pointer"
+                    />
+                    <Input
+                      id="brand_primary_color"
+                      value={formData.brand_primary_color}
+                      onChange={(e) => handleInputChange('brand_primary_color', e.target.value)}
+                      placeholder="#000000"
+                      className="h-10 border-border/60 flex-1"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40">
+                    {formData.brand_primary_color ? (
+                      <>
+                        <span className="h-5 w-5 rounded-full border border-border/60 flex-shrink-0" style={{ backgroundColor: formData.brand_primary_color }} />
+                        {formData.brand_primary_color}
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">Não informado</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="brand_secondary_color" className="text-xs font-medium text-muted-foreground">Cor Secundária</Label>
+                {isEditing ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={formData.brand_secondary_color || "#000000"}
+                      onChange={(e) => handleInputChange('brand_secondary_color', e.target.value)}
+                      className="h-10 w-10 rounded border border-border/60 cursor-pointer"
+                    />
+                    <Input
+                      id="brand_secondary_color"
+                      value={formData.brand_secondary_color}
+                      onChange={(e) => handleInputChange('brand_secondary_color', e.target.value)}
+                      placeholder="#000000"
+                      className="h-10 border-border/60 flex-1"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40">
+                    {formData.brand_secondary_color ? (
+                      <>
+                        <span className="h-5 w-5 rounded-full border border-border/60 flex-shrink-0" style={{ backgroundColor: formData.brand_secondary_color }} />
+                        {formData.brand_secondary_color}
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">Não informado</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="brand_font" className="text-xs font-medium text-muted-foreground">Tipografia</Label>
+                {isEditing ? (
+                  <Input
+                    id="brand_font"
+                    value={formData.brand_font}
+                    onChange={(e) => handleInputChange('brand_font', e.target.value)}
+                    placeholder="Ex: Montserrat, Roboto"
+                    className="h-10 border-border/60"
+                  />
+                ) : (
+                  <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40">
+                    {formData.brand_font || <span className="text-muted-foreground">Não informado</span>}
+                  </p>
+                )}
               </div>
             </div>
           </FormSection>
