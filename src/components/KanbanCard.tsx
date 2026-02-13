@@ -30,7 +30,7 @@ const KanbanCard = ({
         {subtitle && (
           <p className="text-xs text-muted-foreground mb-1 line-clamp-1">{subtitle}</p>
         )}
-        <CardTitle className="text-sm font-semibold leading-snug line-clamp-2 text-foreground">
+        <CardTitle className="text-xs font-semibold leading-snug line-clamp-1 text-foreground">
           {title}
         </CardTitle>
       </CardHeader>
