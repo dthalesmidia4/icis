@@ -1225,12 +1225,8 @@ const PlanPeriod = () => {
           </div>
 
           <Card className="p-6 mb-6">
-            <div className="flex justify-between items-center mb-4">
+            <div className="mb-4">
               <h3 className="font-semibold">{currentReviewDemands.length} demandas geradas</h3>
-              <Button variant="outline" size="sm" onClick={() => setReviewModalOpen(true)}>
-                <Eye className="w-4 h-4 mr-2" />
-                Revisar e Selecionar
-              </Button>
             </div>
             <div className="space-y-2">
               {currentReviewDemands.slice(0, 3).map((item, idx) => {
@@ -1254,7 +1250,7 @@ const PlanPeriod = () => {
               currentStep === 'review-ultra' && "bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
             )}>
               <Eye className="w-5 h-5 mr-2" />
-              Abrir Revisão Completa
+              Revisar Conteúdo
             </Button>
           </div>
 
