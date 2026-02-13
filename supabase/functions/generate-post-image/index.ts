@@ -38,10 +38,10 @@ function getImageSize(demandType: string | null, channel: string | null): { size
   const type = (demandType || "").toLowerCase();
 
   if (type.includes("reel") || type.includes("stories") || type.includes("story") || type.includes("video curto")) {
-    return { size: "1024x1792", label: "9:16" };
+    return { size: "1024x1536", label: "9:16" };
   }
   if (type.includes("cover") || type.includes("banner") || type.includes("capa")) {
-    return { size: "1792x1024", label: "16:9" };
+    return { size: "1536x1024", label: "16:9" };
   }
   return { size: "1024x1024", label: "1:1" };
 }
@@ -157,7 +157,7 @@ serve(async (req) => {
     const existingAttachments = demand.attachments || [];
     const errors: string[] = [];
 
-    // 7. Generate images for each slide using DALL-E 3
+    // 7. Generate images for each slide using gpt-image-1
     for (const slide of slidesToGenerate) {
       const imagePrompt = `
 ${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}Crie uma imagem profissional para post de rede social.
@@ -180,7 +180,7 @@ ESTILO:
 - Formato: ${imageSize.label}
 `.trim();
 
-      console.log(`Generating DALL-E 3 image for slide ${slide.slideNumber}...`);
+      console.log(`Generating gpt-image-1 image for slide ${slide.slideNumber}...`);
 
       try {
         const dalleResponse = await fetch("https://api.openai.com/v1/images/generations", {
@@ -190,18 +190,17 @@ ESTILO:
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "dall-e-3",
+            model: "gpt-image-1",
             prompt: imagePrompt,
             n: 1,
             size: imageSize.size,
-            quality: "standard",
-            response_format: "url",
+            quality: "medium",
           }),
         });
 
         if (!dalleResponse.ok) {
           const errorText = await dalleResponse.text();
-          console.error(`DALL-E 3 error for slide ${slide.slideNumber}:`, dalleResponse.status, errorText);
+          console.error(`gpt-image-1 error for slide ${slide.slideNumber}:`, dalleResponse.status, errorText);
 
           if (dalleResponse.status === 429) {
             errors.push(`Slide ${slide.slideNumber}: Rate limit excedido`);
@@ -219,24 +218,20 @@ ESTILO:
         }
 
         const dalleData = await dalleResponse.json();
-        const imageUrl = dalleData.data?.[0]?.url;
+        const b64Image = dalleData.data?.[0]?.b64_json;
 
-        if (!imageUrl) {
-          console.error(`No image URL in DALL-E response for slide ${slide.slideNumber}:`, JSON.stringify(dalleData).substring(0, 300));
+        if (!b64Image) {
+          console.error(`No image data in gpt-image-1 response for slide ${slide.slideNumber}:`, JSON.stringify(dalleData).substring(0, 300));
           errors.push(`Slide ${slide.slideNumber}: Nenhuma imagem retornada`);
           continue;
         }
 
-        // 8. Download the generated image
-        const imageResponse = await fetch(imageUrl);
-        if (!imageResponse.ok) {
-          console.error(`Failed to download image for slide ${slide.slideNumber}`);
-          errors.push(`Slide ${slide.slideNumber}: Erro ao baixar imagem`);
-          continue;
+        // 8. Decode base64 image directly (no download needed)
+        const binaryString = atob(b64Image);
+        const imageBytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          imageBytes[i] = binaryString.charCodeAt(i);
         }
-
-        const imageBlob = await imageResponse.blob();
-        const imageBytes = new Uint8Array(await imageBlob.arrayBuffer());
 
         const fileName = `ai-generated-slide-${slide.slideNumber}-${Date.now()}.png`;
         const storagePath = `${demand.client_id}/${demand.id}/${fileName}`;
