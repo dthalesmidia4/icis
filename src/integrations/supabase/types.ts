@@ -856,6 +856,9 @@ export type Database = {
       }
       tenant_companies: {
         Row: {
+          brand_font: string | null
+          brand_primary_color: string | null
+          brand_secondary_color: string | null
           cnpj_cpf: string
           created_at: string | null
           email: string
@@ -871,6 +874,9 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          brand_font?: string | null
+          brand_primary_color?: string | null
+          brand_secondary_color?: string | null
           cnpj_cpf: string
           created_at?: string | null
           email: string
@@ -886,6 +892,9 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          brand_font?: string | null
+          brand_primary_color?: string | null
+          brand_secondary_color?: string | null
           cnpj_cpf?: string
           created_at?: string | null
           email?: string

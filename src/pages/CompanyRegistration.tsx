@@ -38,7 +38,10 @@ const CompanyRegistration = () => {
     state: "",
     street: "",
     number: "",
-    complement: ""
+    complement: "",
+    brand_primary_color: "",
+    brand_secondary_color: "",
+    brand_font: ""
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loadingCep, setLoadingCep] = useState(false);
@@ -206,7 +209,10 @@ const CompanyRegistration = () => {
         products_services: formData.products_services,
         email: formData.email,
         phone: formData.phone,
-        tenant_id: profile.tenant_id
+        tenant_id: profile.tenant_id,
+        brand_primary_color: formData.brand_primary_color || null,
+        brand_secondary_color: formData.brand_secondary_color || null,
+        brand_font: formData.brand_font || null
       }]).select().single();
 
       if (error) {
@@ -485,6 +491,59 @@ const CompanyRegistration = () => {
                     className={`min-h-[100px] resize-none ${errors.products_services ? "border-destructive" : "border-border/60"}`}
                   />
                   {errors.products_services && <p className="text-xs text-destructive">{errors.products_services}</p>}
+                </div>
+
+                {/* Branding */}
+                <div className="space-y-3 pt-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Identidade Visual (opcional)</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="brand_primary_color" className="text-xs font-medium text-muted-foreground">Cor Primária</Label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={formData.brand_primary_color || "#000000"}
+                          onChange={e => handleChange("brand_primary_color", e.target.value)}
+                          className="h-10 w-10 rounded border border-border/60 cursor-pointer"
+                        />
+                        <Input
+                          id="brand_primary_color"
+                          value={formData.brand_primary_color}
+                          onChange={e => handleChange("brand_primary_color", e.target.value)}
+                          placeholder="#000000"
+                          className="h-10 border-border/60 flex-1"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="brand_secondary_color" className="text-xs font-medium text-muted-foreground">Cor Secundária</Label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={formData.brand_secondary_color || "#000000"}
+                          onChange={e => handleChange("brand_secondary_color", e.target.value)}
+                          className="h-10 w-10 rounded border border-border/60 cursor-pointer"
+                        />
+                        <Input
+                          id="brand_secondary_color"
+                          value={formData.brand_secondary_color}
+                          onChange={e => handleChange("brand_secondary_color", e.target.value)}
+                          placeholder="#000000"
+                          className="h-10 border-border/60 flex-1"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="brand_font" className="text-xs font-medium text-muted-foreground">Tipografia</Label>
+                      <Input
+                        id="brand_font"
+                        value={formData.brand_font}
+                        onChange={e => handleChange("brand_font", e.target.value)}
+                        placeholder="Ex: Montserrat, Roboto"
+                        className="h-10 border-border/60"
+                      />
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { createPortal } from "react-dom";
+import { toast } from "sonner";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore } from "lucide-react";
+import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import { BlockEditor } from "@/components/BlockEditor";
@@ -280,6 +281,7 @@ export default function TaskCard({
   const [attachmentToRemove, setAttachmentToRemove] = useState<Attachment | null>(null);
   const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
+  const [generatingImages, setGeneratingImages] = useState(false);
   
   // Section collapse states - persisted in localStorage
   const STORAGE_KEY = 'taskcard-collapsed-sections';
@@ -405,7 +407,35 @@ export default function TaskCard({
     }
   };
 
-  // Publication date handler (single date + time)
+  const handleGenerateImages = async () => {
+    if (!card) return;
+    setGeneratingImages(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-post-image", {
+        body: { demandId: card.id },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+      toast.success(data?.message || "Imagens geradas com sucesso!");
+      // Refetch demand to get updated attachments
+      const { data: updatedDemand } = await supabase
+        .from("demands")
+        .select("attachments")
+        .eq("id", card.id)
+        .single();
+      if (updatedDemand) {
+        onCardChange({ ...card, attachments: updatedDemand.attachments as unknown as Attachment[] });
+      }
+    } catch (error: any) {
+      console.error("Error generating images:", error);
+      toast.error(error.message || "Erro ao gerar imagens");
+    } finally {
+      setGeneratingImages(false);
+    }
+  };
   const handlePublishDateChange = async (newDate: Date | undefined) => {
     if (!newDate || !card) return;
     
@@ -938,26 +968,46 @@ export default function TaskCard({
 
                     {/* Upload Button */}
                     {!readOnly && (
-                    <label className={cn(
-                      "flex items-center gap-2 px-4 py-3 border-2 border-dashed border-border/60 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all",
-                      uploading && "opacity-50 cursor-not-allowed"
-                    )}>
-                      <input 
-                        type="file" 
-                        multiple 
-                        className="hidden" 
-                        onChange={onFileUpload}
-                        disabled={uploading}
-                      />
-                      {uploading ? (
-                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                      ) : (
-                        <Upload className="h-5 w-5 text-muted-foreground" />
+                    <div className="flex flex-col gap-2">
+                      <label className={cn(
+                        "flex items-center gap-2 px-4 py-3 border-2 border-dashed border-border/60 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all",
+                        uploading && "opacity-50 cursor-not-allowed"
+                      )}>
+                        <input 
+                          type="file" 
+                          multiple 
+                          className="hidden" 
+                          onChange={onFileUpload}
+                          disabled={uploading}
+                        />
+                        {uploading ? (
+                          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        ) : (
+                          <Upload className="h-5 w-5 text-muted-foreground" />
+                        )}
+                        <span className="text-sm text-muted-foreground">
+                          {uploading ? 'Fazendo upload...' : 'Clique para anexar arquivos (máx. 50MB)'}
+                        </span>
+                      </label>
+
+                      {/* Generate Images AI Button */}
+                      {card.description && card.description.trim().length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleGenerateImages}
+                          disabled={generatingImages}
+                          className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                        >
+                          {generatingImages ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Wand2 className="h-4 w-4" />
+                          )}
+                          {generatingImages ? 'Gerando imagens...' : 'Gerar Imagens com IA'}
+                        </Button>
                       )}
-                      <span className="text-sm text-muted-foreground">
-                        {uploading ? 'Fazendo upload...' : 'Clique para anexar arquivos (máx. 50MB)'}
-                      </span>
-                    </label>
+                    </div>
                     )}
                   </>
                 )}
