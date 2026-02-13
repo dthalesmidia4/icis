@@ -1,43 +1,42 @@
 
 
-## Trocar DALL-E 3 pelo gpt-image-1 (melhor modelo de imagem da OpenAI)
+## Incluir `instructions` e `observations` no prompt de geração de imagens
 
-### Pesquisa realizada
+### O que muda
 
-O modelo mais recente e poderoso da OpenAI para geracao de imagens e o **gpt-image-1** (lancado em abril 2025). Existe tambem o **gpt-image-1.5** (state of the art), porem e mais caro. O gpt-image-1 ja e significativamente superior ao DALL-E 3 em todos os aspectos: fidelidade ao prompt, qualidade visual, renderizacao de texto e realismo.
+Apenas o arquivo `supabase/functions/generate-post-image/index.ts`, na construção do `imagePrompt` (por volta da linha 165).
 
-### Diferencas tecnicas entre DALL-E 3 e gpt-image-1
+### Situação atual
 
-| Aspecto | DALL-E 3 (atual) | gpt-image-1 (novo) |
-|---------|------------------|---------------------|
-| Qualidade | Boa | Muito superior |
-| Texto em imagens | Ruim | Excelente |
-| Tamanhos | 1024x1024, 1024x1792, 1792x1024 | 1024x1024, 1024x1536, 1536x1024, auto |
-| Parametro quality | "standard", "hd" | "low", "medium", "high" |
-| Resposta padrao | URL temporaria | base64 (b64_json) |
-| Preco | Mais barato | Um pouco mais caro, mas muito melhor |
+Os campos `instructions` e `observations` da demanda já são buscados do banco (o select usa `"*"`), mas **não são incluídos** no prompt enviado ao modelo gpt-image-1.
 
-### Mudancas no arquivo `supabase/functions/generate-post-image/index.ts`
+### Mudança
 
-1. **Trocar modelo**: de `dall-e-3` para `gpt-image-1`
+Adicionar dois blocos condicionais no prompt, entre o conteúdo do slide e a seção BRANDING:
 
-2. **Atualizar tamanhos de imagem** (funcao `getImageSize`):
-   - Stories/Reels: de `1024x1792` para `1024x1536` (portrait)
-   - Banner/Cover: de `1792x1024` para `1536x1024` (landscape)
-   - Padrao: `1024x1024` (sem mudanca)
+```
+CONTEÚDO DO SLIDE ...
+Texto principal: "..."
+Texto complementar: "..."
 
-3. **Atualizar parametro quality**: de `"standard"` para `"medium"`
+INSTRUÇÕES DA DEMANDA:
+{demand.instructions}
 
-4. **Atualizar response_format**: de `"url"` para `"b64_json"` (padrao do gpt-image-1)
+OBSERVAÇÕES ADICIONAIS:
+{demand.observations}
 
-5. **Ajustar extracao da imagem**: em vez de baixar de uma URL temporaria, extrair o base64 direto da resposta (`data[0].b64_json`) e converter para `Uint8Array`
+BRANDING:
+...
+```
 
-6. **Remover etapa de download**: nao precisa mais fazer fetch da URL, a imagem ja vem na resposta
+Cada bloco só aparece se o campo tiver valor (não nulo/vazio), evitando poluir o prompt quando não houver informação.
 
-### Impacto
+### Detalhes técnicos
 
-- Apenas 1 arquivo alterado
-- Nenhuma mudanca no frontend
-- Imagens geradas com qualidade muito superior
-- Melhor renderizacao de texto nas imagens (importante para posts de redes sociais)
+- Arquivo: `supabase/functions/generate-post-image/index.ts`
+- Local: linhas 165-169 do `imagePrompt` template literal
+- Inserir após a linha do `slide.body` e antes de `BRANDING:`
+- Lógica condicional com template literals: `${demand.instructions ? ... : ""}`
+- Nenhuma mudança no frontend
+- Nenhuma mudança no banco de dados
 
