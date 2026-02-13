@@ -1,50 +1,124 @@
-## Adicionar Botoes da Home na Sidebar
 
-### Objetivo
 
-Centralizar os itens de navegacao da Home e da Sidebar em uma unica fonte de dados, garantindo que qualquer novo botao adicionado na Home automaticamente apareca na sidebar.
+## Geracao de Posts Estaticos com IA (Imagens)
 
-### Abordagem
+### Visao Geral
 
-**1. Criar arquivo centralizado de navegacao**
+Criar um fluxo que, a partir de cada demanda no Kanban, gere imagens estaticas usando GPT-5 (via OpenAI API) com base no prompt de Posts configurado em `/dev/prompts`, no conteudo da demanda (slides/descricao) e nas informacoes de branding do cliente. As imagens geradas serao salvas no storage e adicionadas como anexos da demanda automaticamente.
 
-Novo arquivo `src/lib/constants/navigation.ts` que exporta a lista de itens principais (os mesmos cards da Home):
+---
+
+### Etapa 1: Armazenar Branding do Cliente
+
+**Onde guardar as informacoes de marca?**
+
+Recomendo adicionar colunas diretamente na tabela `tenant_companies`, ja que e o cadastro do cliente e mantem tudo centralizado:
+
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| `brand_primary_color` | text | Cor primaria hex (ex: #1A2B3C) |
+| `brand_secondary_color` | text | Cor secundaria hex |
+| `brand_font` | text | Tipografia principal (ex: "Montserrat", "Roboto") |
+| `brand_logo_url` | text | URL do logo (ja existe `logo_url`) |
+
+**Alternativa considerada**: criar uma tabela separada `client_branding`. Porem, como sao poucos campos e estao 1:1 com o cliente, manter em `tenant_companies` e mais simples e evita JOINs desnecessarios.
+
+**Impacto**: Atualizar o formulario de cadastro/edicao do cliente (CompanyRegistration / ClientDetails) para incluir os campos de cor primaria, secundaria e tipografia.
+
+---
+
+### Etapa 2: Edge Function `generate-post-image`
+
+Nova edge function que:
+
+1. Recebe: `demandId`, `tenantId`, `slideNumber` (opcional, para gerar slide especifico ou todos)
+2. Busca a demanda (titulo, descricao, demand_type, channel)
+3. Busca o prompt de posts (`generate_posts_prompt` da tabela `system_prompts`)
+4. Busca dados de branding do cliente (`tenant_companies`)
+5. Busca a estrategia ativa do cliente (tom de voz)
+6. Monta o prompt de geracao de imagem combinando:
+   - Prompt base de posts
+   - Slide N: texto principal extraido da descricao da demanda
+   - Aspect ratio baseado no tipo de conteudo (1:1 para estatico, 9:16 para reels/stories)
+   - Branding: cores primaria/secundaria + tipografia
+   - Layout: padrao consistente para todos os clientes
+   - Logo/marca do cliente
+7. Chama a API OpenAI GPT-5 com capacidade de geracao de imagem
+8. Recebe a imagem base64
+9. Faz upload no bucket `card-attachments` do Supabase Storage
+10. Atualiza o campo `attachments` (JSONB) da demanda com o novo anexo
+
+**Modelo**: `openai/gpt-5` (via API direta OpenAI, ja configurada com `OPENAI_API_KEY` na tabela `api_keys`)
+
+**Aspect Ratio por tipo de conteudo**:
+- Estatico / Post / Carrossel -> 1:1 (1024x1024)
+- Reels / Stories / Video Curto -> 9:16 (1024x1792)
+- Cover / Banner -> 16:9 (1792x1024)
+
+---
+
+### Etapa 3: Parsing dos Slides da Descricao
+
+A descricao da demanda contem slides no formato markdown (ex: "SLIDE 1 — ...", "SLIDE 2 — ..."). A edge function precisa:
+
+1. Fazer parse da descricao para extrair cada slide
+2. Para cada slide, identificar o texto principal (titulo + corpo)
+3. Gerar uma imagem por slide
+4. Cada imagem vira um anexo separado na demanda
+
+---
+
+### Etapa 4: Botao "Gerar Imagens" no TaskCard
+
+Adicionar um botao na interface do TaskCard (na secao de Anexos ou no header) que:
+
+1. Dispara a geracao de imagens para aquela demanda
+2. Mostra estado de loading (pode demorar 10-30s por imagem)
+3. Ao concluir, as imagens aparecem nos anexos automaticamente (via realtime ou refetch)
+
+O botao so aparece quando:
+- A demanda tem `description` preenchida
+- O tipo de conteudo e compativel (estatico, carrossel, etc.)
+- Nao esta em modo readOnly
+
+---
+
+### Etapa 5: Configuracao do config.toml
+
+Adicionar a nova edge function:
 
 ```
-- Cadastrar Cliente (UserPlus, /registration)
-- Cadastros de Clientes (ClipboardList, /cadastros-clientes)
-- Kanban Central (LayoutGrid, /kanban-central)
-- Minha Empresa (Briefcase, /minha-empresa) -- condicional a agencyId
-- Perguntas Guias (FileText, /guide)
-- Estrategias (Lightbulb, /strategy-clients)
-- Cronograma (CalendarDays, /schedules)
-- Agendamento de Conteudos (CalendarDays, /scheduled)
-- Gerenciar Legado (Building2, /clientes) -- adminOnly
+[functions.generate-post-image]
+verify_jwt = false
 ```
 
-Cada item tera: `id` (HubSectionId), `title`, `icon`, `route`, `adminOnly?`, `requiresAgency?`.
+---
 
-**2. Atualizar `Home.tsx**`
+### Resumo de Arquivos Alterados/Criados
 
-Importar a lista centralizada em vez de definir `allActionCards` localmente. A logica de filtragem por permissoes permanece igual.
+| Arquivo | Acao |
+|---------|------|
+| **Migration SQL** | Adicionar colunas `brand_primary_color`, `brand_secondary_color`, `brand_font` em `tenant_companies` |
+| **supabase/functions/generate-post-image/index.ts** | Nova edge function |
+| **supabase/config.toml** | Registrar nova function |
+| **src/components/TaskCard.tsx** | Botao "Gerar Imagens" |
+| **src/pages/CompanyRegistration.tsx** | Campos de branding no cadastro |
+| **src/pages/ClientDetails.tsx** | Campos de branding na edicao |
 
-**3. Atualizar `AppSidebar.tsx**`
+---
 
-- Substituir o array `mainMenuItems` fixo pela lista centralizada.
-- Manter "Home" como primeiro item fixo (nao e um card da Home, e o proprio link para ela).
-- Adicionar os itens da lista centralizada logo abaixo.
-- No desktop (sidebar icon-only de 64px), cada item aparece como icone com tooltip.
-- No mobile, cada item aparece com icone + texto.
-- Aplicar a mesma logica de filtragem: `adminOnly` so para admins, `requiresAgency` so quando ha agencyId.
+### Riscos e Consideracoes
 
-**4. Padrao automatico**
+- **Custo**: Geracao de imagens via GPT-5 tem custo por chamada. Cada carrossel de 5 slides = 5 chamadas.
+- **Tempo**: Cada imagem pode levar 10-30s. Para carrosseis, considerar geracao sequencial com feedback de progresso.
+- **Qualidade**: A qualidade depende muito do prompt. O prompt de posts em `/dev/prompts` sera a base editavel para ajustar resultados.
+- **Storage**: Imagens geradas serao armazenadas no bucket `card-attachments` (ja existente e publico).
 
-Como Home e Sidebar consomem a mesma lista, adicionar um novo item ou remover em `navigation.ts` faz ele aparecer ou deseparecer em ambos automaticamente -- sem precisar editar dois arquivos.
+### Proximos Passos Apos Aprovacao
 
-### Detalhes Tecnicos
+1. Criar migration para colunas de branding
+2. Atualizar formularios de cadastro
+3. Criar edge function `generate-post-image`
+4. Integrar botao no TaskCard
+5. Testar end-to-end com uma demanda real
 
-- O arquivo `navigation.ts` exporta um array tipado e uma funcao helper `getNavigationItems(options: { agencyId?, role? })` que retorna os itens filtrados.
-- Os hooks de permissao (`useHubPermissions`, `useAgencyRole`) continuam sendo chamados nos componentes, nao na constante.
-- O item "Home" permanece hardcoded na sidebar (nao faz sentido como card na Home).
-- O menu Developer permanece separado na sidebar.
-- Arquivos alterados: `src/lib/constants/navigation.ts` (novo), `src/pages/Home.tsx`, `src/components/AppSidebar.tsx`.
