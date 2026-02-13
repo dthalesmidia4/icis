@@ -1,17 +1,20 @@
-import { Home, Code, User, LogOut, Menu, Users, LayoutGrid, Target, FileText, Lightbulb, Calendar, ListTodo, ChevronDown, Building2 } from "lucide-react";
+import { Home, Code, User, LogOut, Menu, Building2 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenant } from "@/contexts/TenantContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
+import { useAgency } from "@/contexts/AgencyContext";
+import { useHubPermissions } from "@/hooks/useHubPermissions";
+import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { RoleBadge } from "@/components/RoleBadge";
+import { getFilteredNavigationItems, type NavigationItem } from "@/lib/constants/navigation";
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -29,41 +32,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
-interface MenuItem {
-  title: string;
-  url: string;
-  icon: React.ElementType;
-  adminOnly?: boolean;
-}
-
-// Menu principal
-const mainMenuItems: MenuItem[] = [
-  { title: "Home", url: "/home", icon: Home },
-  { title: "Kanban Central", url: "/kanban-central", icon: LayoutGrid },
-  { title: "Clientes", url: "/clientes", icon: Users, adminOnly: true },
-];
-
-// Menu do cliente atual
-const clientMenuItems: MenuItem[] = [
-  { title: "Hub", url: "/client-hub", icon: Target },
-  { title: "Perguntas", url: "/client-guide", icon: FileText },
-  { title: "Estratégia", url: "/strategies", icon: Lightbulb },
-  { title: "Períodos", url: "/plan-period", icon: Calendar },
-  { title: "Demandas", url: "/kanban-central", icon: ListTodo },
-];
-
 // Menu developer
-const devMenuItems: MenuItem[] = [
+const devMenuItems = [
   { title: "Developer", url: "/dev-hub", icon: Code, adminOnly: true },
 ];
 
@@ -72,15 +47,18 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut, user } = useAuth();
-  const { tenantName } = useTenant();
   const userName = user?.user_metadata?.full_name as string | undefined;
   const { canAccessAdmin, role } = useUserRole();
-  const { selectedClient, clearSelectedClient } = useSelectedClient();
-  const [clientMenuOpen, setClientMenuOpen] = useState(true);
+  const { agencyId } = useAgency();
+  const { canAccess } = useHubPermissions();
+  const { role: agencyRole } = useAgencyRole();
 
-  const menuItems = useMemo(() => {
-    return mainMenuItems.filter(item => !item.adminOnly || canAccessAdmin);
-  }, [canAccessAdmin]);
+  const isAdmin = agencyRole === 'super_admin' || agencyRole === 'agency_admin' || agencyRole === 'agency_manager';
+  const isAdminOnly = agencyRole === 'super_admin' || agencyRole === 'agency_admin';
+
+  const navItems = useMemo(() => {
+    return getFilteredNavigationItems({ agencyId, isAdmin, isAdminOnly, canAccess });
+  }, [agencyId, isAdmin, isAdminOnly, canAccess]);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -114,22 +92,35 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
-
       {/* Menu Items */}
       <div className="flex-1 py-4 px-2 overflow-auto">
         <nav className="space-y-1">
-          {/* Menu Principal */}
-          {menuItems.map((item) => {
+          {/* Home (fixo) */}
+          <button
+            onClick={() => handleNavigate('/home')}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left",
+              isActive('/home')
+                ? 'bg-primary text-primary-foreground shadow-lg'
+                : 'hover:bg-accent text-foreground'
+            )}
+          >
+            <Home className="h-5 w-5 flex-shrink-0" />
+            <span className="font-medium">Home</span>
+          </button>
+
+          {/* Itens centralizados */}
+          {navItems.map((item) => {
             const Icon = item.icon;
-            const active = isActive(item.url);
+            const active = isActive(item.route);
             return (
               <button
-                key={item.title}
-                onClick={() => handleNavigate(item.url)}
+                key={item.route}
+                onClick={() => handleNavigate(item.route)}
                 className={cn(
                   "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left",
-                  active 
-                    ? 'bg-primary text-primary-foreground shadow-lg' 
+                  active
+                    ? 'bg-primary text-primary-foreground shadow-lg'
                     : 'hover:bg-accent text-foreground'
                 )}
               >
@@ -138,7 +129,6 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
               </button>
             );
           })}
-
 
           {/* Developer Menu */}
           {canAccessAdmin && (
@@ -152,8 +142,8 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
                     onClick={() => handleNavigate(item.url)}
                     className={cn(
                       "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left",
-                      active 
-                        ? 'bg-primary text-primary-foreground shadow-lg' 
+                      active
+                        ? 'bg-primary text-primary-foreground shadow-lg'
                         : 'hover:bg-accent text-foreground'
                     )}
                   >
@@ -193,18 +183,20 @@ function DesktopSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut, user } = useAuth();
-  const { tenantName } = useTenant();
   const userName = user?.user_metadata?.full_name as string | undefined;
   const { canAccessAdmin } = useUserRole();
-  const { selectedClient } = useSelectedClient();
-  const [clientMenuOpen, setClientMenuOpen] = useState(true);
+  const { agencyId } = useAgency();
+  const { canAccess } = useHubPermissions();
+  const { role: agencyRole } = useAgencyRole();
 
-  const menuItems = useMemo(() => {
-    return mainMenuItems.filter(item => !item.adminOnly || canAccessAdmin);
-  }, [canAccessAdmin]);
+  const isAdmin = agencyRole === 'super_admin' || agencyRole === 'agency_admin' || agencyRole === 'agency_manager';
+  const isAdminOnly = agencyRole === 'super_admin' || agencyRole === 'agency_admin';
+
+  const navItems = useMemo(() => {
+    return getFilteredNavigationItems({ agencyId, isAdmin, isAdminOnly, canAccess });
+  }, [agencyId, isAdmin, isAdminOnly, canAccess]);
 
   const isActive = (path: string) => location.pathname === path;
-  const isClientRoute = clientMenuItems.some(item => location.pathname === item.url);
 
   const handleSignOut = async () => {
     await signOut();
@@ -239,24 +231,47 @@ function DesktopSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="py-2">
-        {/* Menu Principal */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="gap-1 px-2">
-              {menuItems.map((item) => {
+              {/* Home (fixo) */}
+              <SidebarMenuItem>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <SidebarMenuButton
+                      onClick={() => navigate('/home')}
+                      isActive={isActive('/home')}
+                      className={cn(
+                        "h-10 w-10 p-0 flex items-center justify-center mx-auto rounded-xl transition-all duration-300 ease-out hover:scale-110 hover:shadow-lg",
+                        isActive('/home')
+                          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                          : 'hover:bg-accent hover:shadow-accent/20'
+                      )}
+                    >
+                      <Home className="h-5 w-5" />
+                    </SidebarMenuButton>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={10}>
+                    <p>Home</p>
+                  </TooltipContent>
+                </Tooltip>
+              </SidebarMenuItem>
+
+              {/* Itens centralizados */}
+              {navItems.map((item) => {
                 const Icon = item.icon;
-                const active = isActive(item.url);
+                const active = isActive(item.route);
                 return (
-                  <SidebarMenuItem key={item.title}>
+                  <SidebarMenuItem key={item.route}>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <SidebarMenuButton
-                          onClick={() => navigate(item.url)}
+                          onClick={() => navigate(item.route)}
                           isActive={active}
                           className={cn(
                             "h-10 w-10 p-0 flex items-center justify-center mx-auto rounded-xl transition-all duration-300 ease-out hover:scale-110 hover:shadow-lg",
-                            active 
-                              ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30' 
+                            active
+                              ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
                               : 'hover:bg-accent hover:shadow-accent/20'
                           )}
                         >
@@ -273,7 +288,6 @@ function DesktopSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
 
         {/* Developer Menu */}
         {canAccessAdmin && (
@@ -292,8 +306,8 @@ function DesktopSidebar() {
                             isActive={active}
                             className={cn(
                               "h-10 w-10 p-0 flex items-center justify-center mx-auto rounded-xl transition-all duration-300 ease-out hover:scale-110 hover:shadow-lg",
-                              active 
-                                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30' 
+                              active
+                                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
                                 : 'hover:bg-accent hover:shadow-accent/20'
                             )}
                           >
@@ -360,7 +374,6 @@ export function MobileHeader() {
           </SheetContent>
         </Sheet>
 
-        {/* Cliente selecionado (mobile) */}
         {selectedClient && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-full">
             <Building2 className="h-4 w-4 text-primary" />
