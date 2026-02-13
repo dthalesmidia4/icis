@@ -181,12 +181,34 @@ Observações: ${periodPlan.observations || 'Nenhuma'}${calendarCtx}${successCtx
     }
     const apiKeyData = apiKeyDataResult as any;
 
-    // JSON instruction - request only ONE plan based on planType with strict limits
+    // JSON instruction - use production_line if available, otherwise fallback to fixed limits
     const planLabel = planType === 'ultra' ? 'ultra (ousado, criativo, inovador)' : 'normal (seguro, operacional)';
-    const demandLimit = planType === 'ultra' ? 3 : 6;
+    
+    // Check for production_line
+    const productionLine = periodPlan.production_line as { type: string; quantity: number }[] | null;
+    const hasProductionLine = productionLine && Array.isArray(productionLine) && productionLine.some((item: any) => item.quantity > 0);
+    
+    let volumeInstruction = '';
+    let demandLimit: number;
+    
+    if (hasProductionLine && planType === 'default') {
+      // Use production line for normal plan
+      const activeItems = productionLine!.filter((item: any) => item.quantity > 0);
+      demandLimit = activeItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
+      const distribution = activeItems.map((item: any) => `${item.quantity} ${item.type}`).join(', ');
+      volumeInstruction = `
+REGRA OBRIGATÓRIA DE VOLUME:
+Gere exatamente: ${distribution}.
+Total: ${demandLimit} demandas. O campo "tipo" de cada demanda DEVE corresponder exatamente ao tipo definido.
+NÃO gere formatos não listados. NÃO compense quantidade de um formato com outro.`;
+    } else {
+      // Fallback: fixed limits (ultra always 3, default 6)
+      demandLimit = planType === 'ultra' ? 3 : 6;
+    }
+    
     const jsonInstruction = `
 Responda APENAS JSON. Canal: "${periodPlan.priority_channel}". Plano ${planLabel}.
-IMPORTANTE: Gere exatamente ${demandLimit} demandas, nem mais nem menos.
+IMPORTANTE: Gere exatamente ${demandLimit} demandas, nem mais nem menos.${volumeInstruction}
 Cada demanda: {"tipo":"...","titulo":"...","objetivo":"...","conteudo":"conteúdo markdown","instrucoes_de_producao":"...","cta_recomendado":"...","canal":"${periodPlan.priority_channel}","data_sugerida":"YYYY-MM-DD"}
 Formato: {"plan":[...],"summary":"resumo curto"}`;
     console.log('Calling OpenAI for planType:', planType);
@@ -250,6 +272,89 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
     const summary = parsed.summary || '';
 
     console.log(`${planType} plan demands:`, planDemands.length);
+
+    // Validate production line compliance (only for default plan with production_line)
+    if (hasProductionLine && planType === 'default') {
+      const activeItems = productionLine!.filter((item: any) => item.quantity > 0);
+      const typeCounts: Record<string, number> = {};
+      planDemands.forEach((d: any) => {
+        const tipo = (d.tipo || '').trim();
+        typeCounts[tipo] = (typeCounts[tipo] || 0) + 1;
+      });
+      
+      let isCompliant = true;
+      for (const item of activeItems) {
+        if ((typeCounts[item.type] || 0) !== item.quantity) {
+          isCompliant = false;
+          break;
+        }
+      }
+      
+      if (!isCompliant) {
+        console.warn('[ProductionLine] First attempt divergent. Expected:', JSON.stringify(activeItems), 'Got:', JSON.stringify(typeCounts));
+        console.warn('[ProductionLine] Attempting retry...');
+        
+        // Retry once
+        try {
+          const retryResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKeyData.key_value}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'gpt-5-mini',
+              messages: [
+                { role: 'developer', content: systemPrompt + jsonInstruction },
+                { role: 'user', content: context }
+              ],
+              max_completion_tokens: 32000,
+              response_format: { type: 'json_object' },
+            }),
+          });
+          
+          if (retryResponse.ok) {
+            const retryText = await retryResponse.text();
+            const retryAi = JSON.parse(retryText);
+            const retryContent = retryAi.choices?.[0]?.message?.content;
+            if (retryContent) {
+              let cleanRetry = retryContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+              const retryMatch = cleanRetry.match(/\{[\s\S]*"plan"[\s\S]*\}/);
+              if (retryMatch) cleanRetry = retryMatch[0];
+              const retryParsed = JSON.parse(cleanRetry);
+              const retryDemands = (retryParsed.plan || []).map((d: any) => ({ ...d, canal: priorityChannel }));
+              
+              // Check retry compliance
+              const retryTypeCounts: Record<string, number> = {};
+              retryDemands.forEach((d: any) => {
+                const tipo = (d.tipo || '').trim();
+                retryTypeCounts[tipo] = (retryTypeCounts[tipo] || 0) + 1;
+              });
+              
+              let retryCompliant = true;
+              for (const item of activeItems) {
+                if ((retryTypeCounts[item.type] || 0) !== item.quantity) {
+                  retryCompliant = false;
+                  break;
+                }
+              }
+              
+              if (retryCompliant) {
+                console.log('[ProductionLine] Retry succeeded with correct distribution');
+                planDemands.length = 0;
+                retryDemands.forEach((d: any) => planDemands.push(d));
+              } else {
+                console.warn('[ProductionLine] Retry also divergent. Proceeding with best effort. Expected:', JSON.stringify(activeItems), 'Got:', JSON.stringify(retryTypeCounts));
+              }
+            }
+          }
+        } catch (retryErr) {
+          console.error('[ProductionLine] Retry failed:', retryErr);
+        }
+      } else {
+        console.log('[ProductionLine] First attempt compliant ✓');
+      }
+    }
 
     // Batch insert fingerprints
     if (planDemands.length > 0) {
