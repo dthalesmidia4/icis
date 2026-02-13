@@ -333,7 +333,7 @@ const DevPrompts = () => {
                 ) : (
                   <>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Este prompt é usado para gerar as demandas do período, combinando estratégia geral, informações do período e dados cadastrais da empresa. Utiliza GPT-5 Mini.
+                      Este prompt é usado para gerar as demandas do período, combinando estratégia geral, informações do período e dados cadastrais da empresa. O prompt completo é enviado sem truncamento.
                     </p>
                     <Textarea
                       value={demandasPromptContent}
