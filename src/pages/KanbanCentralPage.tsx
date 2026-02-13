@@ -891,10 +891,9 @@ const KanbanCentralPage = () => {
                                   highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
                                 )}
                               >
-                                <KanbanCard
-                                  title={card.title}
-                                  platforms={[card.clientName, card.demand_type || card.channel || ''].filter(Boolean)}
-                                  deliveryDate={card.publish_date || card.due_date}
+                                 <KanbanCard
+                                   title={card.title}
+                                   deliveryDate={card.publish_date || card.due_date}
                                   isDragging={snapshot.isDragging}
                                   onClick={() => handleCardClick(card)}
                                 />

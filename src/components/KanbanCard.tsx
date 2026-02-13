@@ -1,10 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Calendar } from "lucide-react";
 
 interface KanbanCardProps {
   title: string;
-  platforms: string[];
   deliveryDate: string;
   isDragging?: boolean;
   onClick?: () => void;
@@ -12,7 +10,6 @@ interface KanbanCardProps {
 
 const KanbanCard = ({
   title,
-  platforms,
   deliveryDate,
   isDragging = false,
   onClick
@@ -34,18 +31,7 @@ const KanbanCard = ({
       </CardHeader>
       
       {/* Footer: Platform Badges + Date */}
-      <CardContent className="px-3 pb-3 pt-0 space-y-2">
-        <div className="flex flex-wrap gap-1.5">
-          {platforms.slice(0, 3).map((platform) => (
-            <Badge 
-              key={platform} 
-              variant="outline" 
-              className="text-[10px] px-2 py-0.5 font-medium border-border/60 text-muted-foreground"
-            >
-              {platform}
-            </Badge>
-          ))}
-        </div>
+      <CardContent className="px-3 pb-3 pt-0">
         <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md w-fit">
           <Calendar className="h-3 w-3" />
           {formattedDate}
