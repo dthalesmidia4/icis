@@ -11,7 +11,6 @@ const corsHeaders = {
 function parseSlides(description: string): { slideNumber: number; title: string; body: string }[] {
   if (!description) return [];
 
-  // Remove HTML tags
   const text = description.replace(/<[^>]*>/g, "\n").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
 
   const slideRegex = /(?:SLIDE|FRAME|CENA|IMAGEM)\s*(\d+)\s*[—\-:]\s*(.*?)(?=(?:SLIDE|FRAME|CENA|IMAGEM)\s*\d+|$)/gis;
@@ -27,7 +26,6 @@ function parseSlides(description: string): { slideNumber: number; title: string;
     slides.push({ slideNumber, title, body });
   }
 
-  // If no slides found, treat entire description as single slide
   if (slides.length === 0 && text.trim()) {
     slides.push({ slideNumber: 1, title: text.trim().substring(0, 100), body: text.trim() });
   }
@@ -35,10 +33,9 @@ function parseSlides(description: string): { slideNumber: number; title: string;
   return slides;
 }
 
-// Determine aspect ratio based on demand type/channel
-function getAspectRatio(demandType: string | null, channel: string | null): { size: string; label: string } {
+// Determine image size based on demand type/channel
+function getImageSize(demandType: string | null, channel: string | null): { size: string; label: string } {
   const type = (demandType || "").toLowerCase();
-  const ch = (channel || "").toLowerCase();
 
   if (type.includes("reel") || type.includes("stories") || type.includes("story") || type.includes("video curto")) {
     return { size: "1024x1792", label: "9:16" };
@@ -46,7 +43,6 @@ function getAspectRatio(demandType: string | null, channel: string | null): { si
   if (type.includes("cover") || type.includes("banner") || type.includes("capa")) {
     return { size: "1792x1024", label: "16:9" };
   }
-  // Default: static / post / carousel
   return { size: "1024x1024", label: "1:1" };
 }
 
@@ -67,11 +63,27 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY")!;
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1. Fetch the demand
+    // 1. Fetch OpenAI API key from api_keys table
+    const { data: apiKeyRow, error: apiKeyError } = await supabase
+      .from("api_keys")
+      .select("key_value")
+      .eq("key_name", "OPENAI_API_KEY")
+      .single();
+
+    if (apiKeyError || !apiKeyRow?.key_value) {
+      console.error("OpenAI API key not found in api_keys table:", apiKeyError);
+      return new Response(
+        JSON.stringify({ error: "Chave da API OpenAI não encontrada. Configure em /dev/apis." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const openaiApiKey = apiKeyRow.key_value;
+
+    // 2. Fetch the demand
     const { data: demand, error: demandError } = await supabase
       .from("demands")
       .select("*")
@@ -85,14 +97,14 @@ serve(async (req) => {
       });
     }
 
-    // 2. Fetch client branding
+    // 3. Fetch client branding
     const { data: client } = await supabase
       .from("tenant_companies")
       .select("name, fantasy_name, logo_url, brand_primary_color, brand_secondary_color, brand_font")
       .eq("id", demand.client_id)
       .single();
 
-    // 3. Fetch posts prompt
+    // 4. Fetch posts prompt
     const { data: promptData } = await supabase
       .from("system_prompts")
       .select("prompt_content")
@@ -100,7 +112,7 @@ serve(async (req) => {
       .eq("prompt_key", "generate_posts_prompt")
       .single();
 
-    // 4. Fetch active strategy for tone of voice
+    // 5. Fetch active strategy for tone of voice
     const { data: strategy } = await supabase
       .from("strategies")
       .select("strategy_text")
@@ -110,16 +122,15 @@ serve(async (req) => {
       .limit(1)
       .single();
 
-    // 5. Parse slides from description, fallback to title
+    // 6. Parse slides
     let allSlides = parseSlides(demand.description || "");
-    
-    // If no slides found in description, create a single slide from title
+
     if (allSlides.length === 0) {
       const fallbackText = demand.title || "Post";
       const fallbackBody = demand.description?.replace(/<[^>]*>/g, "").trim() || demand.objective || "";
       allSlides = [{ slideNumber: 1, title: fallbackText, body: fallbackBody }];
     }
-    
+
     const slidesToGenerate = slideNumber
       ? allSlides.filter((s) => s.slideNumber === slideNumber)
       : allSlides;
@@ -131,7 +142,7 @@ serve(async (req) => {
       );
     }
 
-    const aspectRatio = getAspectRatio(demand.demand_type, demand.channel);
+    const imageSize = getImageSize(demand.demand_type, demand.channel);
     const brandName = client?.fantasy_name || client?.name || "Marca";
     const primaryColor = client?.brand_primary_color || "#000000";
     const secondaryColor = client?.brand_secondary_color || "#FFFFFF";
@@ -139,173 +150,160 @@ serve(async (req) => {
 
     const basePrompt = promptData?.prompt_content || "";
     const strategySnippet = strategy?.strategy_text
-      ? `\nTOM DE VOZ DA MARCA (extraído da estratégia):\n${strategy.strategy_text.substring(0, 500)}\n`
+      ? `Tom de voz: ${strategy.strategy_text.substring(0, 300)}`
       : "";
 
     const generatedAttachments: any[] = [];
     const existingAttachments = demand.attachments || [];
+    const errors: string[] = [];
 
-    // 6. Generate images for each slide
+    // 7. Generate images for each slide using DALL-E 3
     for (const slide of slidesToGenerate) {
       const imagePrompt = `
-${basePrompt}
+${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}Crie uma imagem profissional para post de rede social.
 
-${strategySnippet}
+CONTEÚDO DO SLIDE ${slide.slideNumber}/${allSlides.length}:
+Texto principal: "${slide.title}"
+${slide.body ? `Texto complementar: "${slide.body}"` : ""}
 
-INSTRUÇÕES DE GERAÇÃO DE IMAGEM:
+BRANDING:
+- Marca: "${brandName}"
+- Cor primária: ${primaryColor}
+- Cor secundária: ${secondaryColor}
+- Tipografia: ${brandFont}
+- Incluir nome da marca sutilmente no canto inferior
 
-Gere uma imagem profissional para o slide ${slide.slideNumber}/${allSlides.length}.
-
-TEXTO PRINCIPAL A INCLUIR NA IMAGEM:
-"${slide.title}"
-${slide.body ? `\nTexto complementar: "${slide.body}"` : ""}
-
-ESPECIFICAÇÕES TÉCNICAS:
-- ASPECTRATIO: ${aspectRatio.label}
-- BRANDING: Tipografia "${brandFont}", Cor primária ${primaryColor}, Cor secundária ${secondaryColor}
-- LAYOUT: Design limpo e profissional, consistente para todos os clientes. Texto centralizado com hierarquia visual clara. Fundo com gradiente sutil ou textura usando as cores da marca.
-- MARCA: "${brandName}" - incluir nome da marca de forma sutil no canto inferior.
-- ESTILO: Moderno, profissional, adequado para redes sociais. Manter consistência visual entre todos os slides do carrossel.
-
-Gere a imagem diretamente sem texto adicional.
+ESTILO:
+- Design limpo, moderno e profissional para redes sociais
+- Texto centralizado com hierarquia visual clara
+- Fundo com gradiente sutil usando as cores da marca
+- Formato: ${imageSize.label}
 `.trim();
 
-      console.log(`Generating image for slide ${slide.slideNumber}...`);
+      console.log(`Generating DALL-E 3 image for slide ${slide.slideNumber}...`);
 
-      // Call Lovable AI Gateway (GPT-5 with image generation)
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${lovableApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "openai/gpt-5",
-          messages: [
-            {
-              role: "user",
-              content: imagePrompt,
-            },
-          ],
-        }),
-      });
-
-      if (!aiResponse.ok) {
-        const errorText = await aiResponse.text();
-        console.error(`AI gateway error for slide ${slide.slideNumber}:`, aiResponse.status, errorText);
-        
-        if (aiResponse.status === 429) {
-          return new Response(JSON.stringify({ error: "Rate limit excedido. Tente novamente em alguns minutos." }), {
-            status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        if (aiResponse.status === 402) {
-          return new Response(JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao workspace." }), {
-            status: 402,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        continue; // Skip this slide on error
-      }
-
-      const aiData = await aiResponse.json();
-      
-      // Extract image URL from response
-      const choice = aiData.choices?.[0];
-      const content = choice?.message?.content;
-      
-      // GPT-5 image generation returns inline images or URLs
-      // Check for image_url in content parts
-      let imageUrl: string | null = null;
-      
-      if (typeof content === "string") {
-        // Try to extract image URL from markdown
-        const urlMatch = content.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/);
-        if (urlMatch) {
-          imageUrl = urlMatch[1];
-        } else {
-          // Try plain URL
-          const plainUrl = content.match(/(https?:\/\/[^\s]+\.(png|jpg|jpeg|webp))/i);
-          if (plainUrl) {
-            imageUrl = plainUrl[1];
-          }
-        }
-      } else if (Array.isArray(content)) {
-        // Content might be array of parts
-        for (const part of content) {
-          if (part.type === "image_url" && part.image_url?.url) {
-            imageUrl = part.image_url.url;
-            break;
-          }
-        }
-      }
-
-      if (!imageUrl) {
-        console.error(`No image URL found in response for slide ${slide.slideNumber}`, JSON.stringify(aiData).substring(0, 500));
-        continue;
-      }
-
-      // 7. Download and upload to storage
-      const imageResponse = await fetch(imageUrl);
-      if (!imageResponse.ok) {
-        console.error(`Failed to download image for slide ${slide.slideNumber}`);
-        continue;
-      }
-      const imageBlob = await imageResponse.blob();
-      const imageBytes = new Uint8Array(await imageBlob.arrayBuffer());
-
-      const fileName = `ai-generated-slide-${slide.slideNumber}-${Date.now()}.png`;
-      const storagePath = `${demand.client_id}/${demand.id}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("card-attachments")
-        .upload(storagePath, imageBytes, {
-          contentType: "image/png",
-          upsert: true,
+      try {
+        const dalleResponse = await fetch("https://api.openai.com/v1/images/generations", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${openaiApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "dall-e-3",
+            prompt: imagePrompt,
+            n: 1,
+            size: imageSize.size,
+            quality: "standard",
+            response_format: "url",
+          }),
         });
 
-      if (uploadError) {
-        console.error(`Upload error for slide ${slide.slideNumber}:`, uploadError);
-        continue;
+        if (!dalleResponse.ok) {
+          const errorText = await dalleResponse.text();
+          console.error(`DALL-E 3 error for slide ${slide.slideNumber}:`, dalleResponse.status, errorText);
+
+          if (dalleResponse.status === 429) {
+            errors.push(`Slide ${slide.slideNumber}: Rate limit excedido`);
+            continue;
+          }
+          if (dalleResponse.status === 401) {
+            return new Response(
+              JSON.stringify({ error: "Chave da API OpenAI inválida ou expirada. Atualize em /dev/apis." }),
+              { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          errors.push(`Slide ${slide.slideNumber}: Erro ${dalleResponse.status}`);
+          continue;
+        }
+
+        const dalleData = await dalleResponse.json();
+        const imageUrl = dalleData.data?.[0]?.url;
+
+        if (!imageUrl) {
+          console.error(`No image URL in DALL-E response for slide ${slide.slideNumber}:`, JSON.stringify(dalleData).substring(0, 300));
+          errors.push(`Slide ${slide.slideNumber}: Nenhuma imagem retornada`);
+          continue;
+        }
+
+        // 8. Download the generated image
+        const imageResponse = await fetch(imageUrl);
+        if (!imageResponse.ok) {
+          console.error(`Failed to download image for slide ${slide.slideNumber}`);
+          errors.push(`Slide ${slide.slideNumber}: Erro ao baixar imagem`);
+          continue;
+        }
+
+        const imageBlob = await imageResponse.blob();
+        const imageBytes = new Uint8Array(await imageBlob.arrayBuffer());
+
+        const fileName = `ai-generated-slide-${slide.slideNumber}-${Date.now()}.png`;
+        const storagePath = `${demand.client_id}/${demand.id}/${fileName}`;
+
+        // 9. Upload to storage
+        const { error: uploadError } = await supabase.storage
+          .from("card-attachments")
+          .upload(storagePath, imageBytes, {
+            contentType: "image/png",
+            upsert: true,
+          });
+
+        if (uploadError) {
+          console.error(`Upload error for slide ${slide.slideNumber}:`, uploadError);
+          errors.push(`Slide ${slide.slideNumber}: Erro ao fazer upload`);
+          continue;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("card-attachments")
+          .getPublicUrl(storagePath);
+
+        const attachment = {
+          url: urlData.publicUrl,
+          name: `Slide ${slide.slideNumber} - ${brandName}`,
+          type: "image/png",
+          size: imageBytes.length,
+          storagePath,
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: { id: "ai-generator", email: "system@ai", name: "IA - Gerador de Posts" },
+          cardId: demand.id,
+          tenantId: demand.tenant_id,
+          clientId: demand.client_id,
+        };
+
+        generatedAttachments.push(attachment);
+        console.log(`✅ Slide ${slide.slideNumber} generated and uploaded successfully`);
+      } catch (slideError) {
+        console.error(`Exception generating slide ${slide.slideNumber}:`, slideError);
+        errors.push(`Slide ${slide.slideNumber}: ${slideError instanceof Error ? slideError.message : "Erro desconhecido"}`);
       }
-
-      const { data: urlData } = supabase.storage
-        .from("card-attachments")
-        .getPublicUrl(storagePath);
-
-      const attachment = {
-        url: urlData.publicUrl,
-        name: `Slide ${slide.slideNumber} - ${brandName}`,
-        type: "image/png",
-        size: imageBytes.length,
-        storagePath,
-        uploadedAt: new Date().toISOString(),
-        uploadedBy: { id: "ai-generator", email: "system@ai", name: "IA - Gerador de Posts" },
-        cardId: demand.id,
-        tenantId: demand.tenant_id,
-        clientId: demand.client_id,
-      };
-
-      generatedAttachments.push(attachment);
-      console.log(`✅ Slide ${slide.slideNumber} generated and uploaded successfully`);
     }
 
-    // 8. Update demand attachments
-    if (generatedAttachments.length > 0) {
-      const updatedAttachments = [...existingAttachments, ...generatedAttachments];
-      const { error: updateError } = await supabase
-        .from("demands")
-        .update({ attachments: updatedAttachments })
-        .eq("id", demandId);
+    // 10. If no images were generated, return error
+    if (generatedAttachments.length === 0) {
+      return new Response(
+        JSON.stringify({
+          error: "Nenhuma imagem foi gerada. Verifique a configuração da API OpenAI.",
+          details: errors,
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-      if (updateError) {
-        console.error("Error updating demand attachments:", updateError);
-        return new Response(
-          JSON.stringify({ error: "Imagens geradas mas erro ao salvar nos anexos" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+    // 11. Update demand attachments
+    const updatedAttachments = [...existingAttachments, ...generatedAttachments];
+    const { error: updateError } = await supabase
+      .from("demands")
+      .update({ attachments: updatedAttachments })
+      .eq("id", demandId);
+
+    if (updateError) {
+      console.error("Error updating demand attachments:", updateError);
+      return new Response(
+        JSON.stringify({ error: "Imagens geradas mas erro ao salvar nos anexos" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     return new Response(
@@ -314,6 +312,7 @@ Gere a imagem diretamente sem texto adicional.
         generated: generatedAttachments.length,
         total_slides: allSlides.length,
         message: `${generatedAttachments.length} imagem(ns) gerada(s) com sucesso`,
+        errors: errors.length > 0 ? errors : undefined,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
