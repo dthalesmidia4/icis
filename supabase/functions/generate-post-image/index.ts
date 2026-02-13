@@ -165,6 +165,8 @@ ${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\
 CONTEÚDO DO SLIDE ${slide.slideNumber}/${allSlides.length}:
 Texto principal: "${slide.title}"
 ${slide.body ? `Texto complementar: "${slide.body}"` : ""}
+${demand.instructions ? `\nINSTRUÇÕES DA DEMANDA:\n${demand.instructions}` : ""}
+${demand.observations ? `\nOBSERVAÇÕES ADICIONAIS:\n${demand.observations}` : ""}
 
 BRANDING:
 - Marca: "${brandName}"
