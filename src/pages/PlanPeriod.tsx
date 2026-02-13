@@ -667,9 +667,21 @@ const PlanPeriod = () => {
                 >
                   <span className="text-lg font-medium">−</span>
                 </Button>
-                <div className="h-9 w-12 flex items-center justify-center border border-input bg-background text-sm font-semibold tabular-nums">
-                  {item.quantity}
-                </div>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={item.quantity}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^[0-9]$/.test(val)) {
+                      const newLine = [...productionLine];
+                      newLine[index] = { ...item, quantity: val === '' ? 0 : parseInt(val) };
+                      setProductionLine(newLine);
+                    }
+                  }}
+                  className="h-9 w-12 text-center border border-input bg-background text-sm font-semibold tabular-nums outline-none focus:ring-2 focus:ring-ring"
+                  maxLength={1}
+                />
                 <Button
                   type="button"
                   variant="outline"
@@ -677,7 +689,7 @@ const PlanPeriod = () => {
                   className="h-9 w-9 rounded-l-none border-l-0"
                   onClick={() => {
                     const newLine = [...productionLine];
-                    newLine[index] = { ...item, quantity: item.quantity + 1 };
+                    newLine[index] = { ...item, quantity: Math.min(9, item.quantity + 1) };
                     setProductionLine(newLine);
                   }}
                 >
