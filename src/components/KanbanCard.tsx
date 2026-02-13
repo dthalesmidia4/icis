@@ -3,6 +3,7 @@ import { Calendar } from "lucide-react";
 
 interface KanbanCardProps {
   title: string;
+  subtitle?: string;
   deliveryDate: string;
   isDragging?: boolean;
   onClick?: () => void;
@@ -10,6 +11,7 @@ interface KanbanCardProps {
 
 const KanbanCard = ({
   title,
+  subtitle,
   deliveryDate,
   isDragging = false,
   onClick
@@ -28,6 +30,9 @@ const KanbanCard = ({
         <CardTitle className="text-sm font-semibold leading-snug line-clamp-2 text-foreground">
           {title}
         </CardTitle>
+        {subtitle && (
+          <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{subtitle}</p>
+        )}
       </CardHeader>
       
       {/* Footer: Platform Badges + Date */}
