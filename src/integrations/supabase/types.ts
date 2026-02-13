@@ -488,6 +488,7 @@ export type Database = {
           period_title: string
           primary_mode: string | null
           priority_channel: string
+          production_line: Json | null
           status: string
           strategy_id: string | null
           tenant_id: string
@@ -513,6 +514,7 @@ export type Database = {
           period_title: string
           primary_mode?: string | null
           priority_channel: string
+          production_line?: Json | null
           status?: string
           strategy_id?: string | null
           tenant_id: string
@@ -538,6 +540,7 @@ export type Database = {
           period_title?: string
           primary_mode?: string | null
           priority_channel?: string
+          production_line?: Json | null
           status?: string
           strategy_id?: string | null
           tenant_id?: string

@@ -98,6 +98,13 @@ const PlanPeriod = () => {
   const [observations, setObservations] = useState("");
   const [excludedFormats, setExcludedFormats] = useState<string[]>([]);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
+  const [productionLine, setProductionLine] = useState<{ type: string; quantity: number }[]>([
+    { type: 'Reels', quantity: 0 },
+    { type: 'Carrossel', quantity: 0 },
+    { type: 'Post Estático', quantity: 0 },
+    { type: 'Stories', quantity: 0 },
+  ]);
+  const productionLineTotal = productionLine.reduce((sum, item) => sum + item.quantity, 0);
   
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
@@ -389,11 +396,16 @@ const PlanPeriod = () => {
       toast.error("A data final deve ser posterior à data inicial");
       return;
     }
+    if (productionLineTotal === 0) {
+      toast.error("Defina a linha de produção antes de gerar demandas");
+      return;
+    }
     setCurrentStep('loading-normal');
     try {
       const priorityChannel = selectedChannels.length === 0 ? 'Multi-canal' : selectedChannels.length === 1 ? selectedChannels[0].charAt(0).toUpperCase() + selectedChannels[0].slice(1) : selectedChannels.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ');
       const fullObservations = observations || null;
 
+      const activeProductionLine = productionLine.filter(item => item.quantity > 0);
       const { data: periodPlan, error: createError } = await supabase.from('period_plans').insert({
         tenant_id: tenantId,
         company_id: selectedClient.id,
@@ -406,8 +418,9 @@ const PlanPeriod = () => {
         observations: fullObservations,
         client_acquisition: null,
         paid_traffic_budget: null,
+        production_line: activeProductionLine,
         status: 'draft'
-      }).select().single();
+      } as any).select().single();
       if (createError) throw createError;
       setPeriodPlanId(periodPlan.id);
 
@@ -623,6 +636,43 @@ const PlanPeriod = () => {
               })}
             </div>
           </div>
+        </div>
+      </Card>
+
+      {/* Production Line */}
+      <Card className="p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+          <List className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+          Linha de Produção *
+        </h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Defina a quantidade exata de cada formato de conteúdo para este período.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          {productionLine.map((item, index) => (
+            <div key={item.type} className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-muted/30">
+              <Label className="text-sm font-medium flex-1">{item.type}</Label>
+              <Input
+                type="number"
+                min={0}
+                value={item.quantity}
+                onChange={(e) => {
+                  const newLine = [...productionLine];
+                  newLine[index] = { ...item, quantity: Math.max(0, parseInt(e.target.value) || 0) };
+                  setProductionLine(newLine);
+                }}
+                className="w-20 text-center"
+              />
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 flex items-center justify-between px-1">
+          <span className="text-sm font-semibold">
+            Total: {productionLineTotal} conteúdo{productionLineTotal !== 1 ? 's' : ''}
+          </span>
+          {productionLineTotal === 0 && (
+            <span className="text-xs text-destructive">Preencha ao menos 1 formato</span>
+          )}
         </div>
       </Card>
 
@@ -1035,7 +1085,8 @@ const PlanPeriod = () => {
       label: "Gerar Demandas",
       onClick: handleSubmit,
       icon: <Rocket className="w-4 h-4" />,
-      className: "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+      className: "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600",
+      disabled: productionLineTotal === 0 || !periodTitle || !periodStart || !periodEnd
     }] : []} rightContent={currentStep !== 'form' && currentStep !== 'loading-normal' && currentStep !== 'loading-ultra' ? <Badge variant="outline" className="text-xs">
       {currentStep === 'review-normal' && 'Etapa 1/2: Demandas Normais'}
       {currentStep === 'review-ultra' && 'Etapa 2/2: Demandas Ultra'}
