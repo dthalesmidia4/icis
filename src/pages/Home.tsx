@@ -1,10 +1,11 @@
 import { useNavigate } from "react-router-dom";
-import { UserPlus, Building2, CalendarDays, LayoutGrid, Briefcase, Loader2, ClipboardList, FileText, Lightbulb } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAgency } from "@/contexts/AgencyContext";
-import { useHubPermissions, type HubSectionId } from "@/hooks/useHubPermissions";
+import { useHubPermissions } from "@/hooks/useHubPermissions";
 import { Card } from "@/components/ui/card";
 import { useAgencyRole } from "@/hooks/useAgencyRole";
+import { getFilteredNavigationItems } from "@/lib/constants/navigation";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -13,8 +14,8 @@ const Home = () => {
   const { canAccess, loading: permissionsLoading } = useHubPermissions();
   const { role, isLoading: roleLoading } = useAgencyRole();
 
-  // Admins e gestores ignoram as restrições de permissões
   const isAdmin = role === 'super_admin' || role === 'agency_admin' || role === 'agency_manager';
+  const isAdminOnly = role === 'super_admin' || role === 'agency_admin';
 
   const getUserFirstName = () => {
     if (user?.user_metadata?.full_name) {
@@ -23,73 +24,13 @@ const Home = () => {
     return 'Usuário';
   };
 
-  const allActionCards = [
-    {
-      id: 'clientes' as HubSectionId,
-      title: "Cadastrar Cliente",
-      icon: UserPlus,
-      route: "/registration"
-    },
-    {
-      id: 'clientes' as HubSectionId,
-      title: "Cadastros de Clientes",
-      icon: ClipboardList,
-      route: "/cadastros-clientes"
-    },
-    {
-      id: 'kanban' as HubSectionId,
-      title: "Kanban Central",
-      icon: LayoutGrid,
-      route: "/kanban-central"
-    },
-    ...(agencyId ? [{
-      id: 'minha-empresa' as HubSectionId,
-      title: "Minha Empresa",
-      icon: Briefcase,
-      route: "/minha-empresa"
-    }] : []),
-    {
-      id: 'clientes' as HubSectionId,
-      title: "Perguntas Guias",
-      icon: FileText,
-      route: "/guide"
-    },
-    {
-      id: 'clientes' as HubSectionId,
-      title: "Estratégias",
-      icon: Lightbulb,
-      route: "/strategy-clients"
-    },
-    {
-      id: 'clientes' as HubSectionId,
-      title: "Cronograma",
-      icon: CalendarDays,
-      route: "/schedules"
-    },
-    {
-      id: 'schedule' as HubSectionId,
-      title: "Agendamento de Conteúdos",
-      icon: CalendarDays,
-      route: "/scheduled"
-    },
-    {
-      id: 'clientes' as HubSectionId,
-      title: "Gerenciar (Legado)",
-      icon: Building2,
-      route: "/clientes",
-      adminOnly: true
-    },
-  ];
-
-  const isAdminOnly = role === 'super_admin' || role === 'agency_admin';
-
-  // Filtrar cards baseado nas permissões (admins veem tudo)
-  const actionCards = allActionCards.filter(card => {
-    if ((card as any).adminOnly) return isAdminOnly;
-    return isAdmin || canAccess(card.id);
+  const actionCards = getFilteredNavigationItems({
+    agencyId,
+    isAdmin,
+    isAdminOnly,
+    canAccess,
   });
 
-  // Loading state
   if (permissionsLoading || roleLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -101,7 +42,6 @@ const Home = () => {
   return (
     <div className="pb-8">
       <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
-        {/* Header de Boas-vindas */}
         <div className="mb-8 sm:mb-12 text-center">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3 break-words px-2">
             Olá, {getUserFirstName()}! 👋
@@ -111,7 +51,6 @@ const Home = () => {
           </p>
         </div>
 
-        {/* Cards de Ação */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {actionCards.map((card, index) => (
             <Card 
