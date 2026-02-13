@@ -51,6 +51,28 @@ Escreva em português brasileiro, de forma profissional mas acessível.
 Seja específico e evite generalizações vazias.
 Baseie todas as recomendações nas informações fornecidas pelo cliente.`;
 
+const DEFAULT_POSTS_PROMPT = `Você é um redator e criador de conteúdo especializado em marketing digital com foco em redes sociais.
+
+Sua tarefa é gerar o CONTEÚDO COMPLETO de um post para publicação, com base nas informações da demanda, estratégia do cliente e dados cadastrais da empresa.
+
+CONTEXTO DISPONÍVEL:
+- Dados cadastrais da empresa (razão social, nome fantasia, setor, tamanho, produtos/serviços)
+- Estratégia global de marketing previamente definida
+- Informações da demanda (título, descrição, tipo de conteúdo, canal, objetivo)
+
+REGRAS OBRIGATÓRIAS:
+1. O texto deve ser adequado ao canal especificado (Instagram, LinkedIn, Facebook, etc.)
+2. Respeite o tom de voz definido na estratégia do cliente
+3. Inclua chamadas para ação (CTAs) quando apropriado
+4. Use hashtags relevantes quando o canal permitir
+5. Adapte o tamanho do texto ao formato do canal
+6. Seja criativo, engajante e alinhado à marca do cliente
+7. Considere o objetivo específico da demanda
+
+FORMATO DE RESPOSTA:
+Retorne o texto do post pronto para publicação, sem formatação JSON.
+Se necessário, inclua sugestões de imagem/visual entre colchetes [descrição da imagem sugerida].`;
+
 const DEFAULT_DEMANDAS_PROMPT = `Você é um estrategista de marketing digital premium. Sua tarefa é gerar DUAS linhas de demandas para um período de campanha.
 
 CONTEXTO DISPONÍVEL:
@@ -101,6 +123,7 @@ const DevPrompts = () => {
   const queryClient = useQueryClient();
   const [strategyPromptContent, setStrategyPromptContent] = useState("");
   const [demandasPromptContent, setDemandasPromptContent] = useState("");
+  const [postsPromptContent, setPostsPromptContent] = useState("");
 
   // Buscar o prompt de geração de estratégia
   const { data: strategyPromptData, isLoading: isLoadingStrategy } = useQuery({
@@ -153,6 +176,31 @@ const DevPrompts = () => {
       setDemandasPromptContent(DEFAULT_DEMANDAS_PROMPT);
     }
   }, [demandasPromptData]);
+
+  // Buscar o prompt de geração de posts
+  const { data: postsPromptData, isLoading: isLoadingPosts } = useQuery({
+    queryKey: ["system-prompt", "generate_posts_prompt", tenantId],
+    queryFn: async () => {
+      if (!tenantId) return null;
+      const { data, error } = await supabase
+        .from("system_prompts")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("prompt_key", "generate_posts_prompt")
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!tenantId,
+  });
+
+  useEffect(() => {
+    if (postsPromptData) {
+      setPostsPromptContent(postsPromptData.prompt_content);
+    } else {
+      setPostsPromptContent(DEFAULT_POSTS_PROMPT);
+    }
+  }, [postsPromptData]);
 
   // Mutation para salvar o prompt de estratégia
   const saveStrategyPromptMutation = useMutation({
@@ -258,6 +306,54 @@ const DevPrompts = () => {
     toast.success("Prompt de demandas restaurado para a versão padrão!");
   };
 
+  // Mutation para salvar o prompt de posts
+  const savePostsPromptMutation = useMutation({
+    mutationFn: async (content: string) => {
+      if (!tenantId) throw new Error("Tenant ID não encontrado");
+      const { data: existing } = await supabase
+        .from("system_prompts")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("prompt_key", "generate_posts_prompt")
+        .maybeSingle();
+      if (existing) {
+        const { error } = await supabase
+          .from("system_prompts")
+          .update({ prompt_content: content })
+          .eq("tenant_id", tenantId)
+          .eq("prompt_key", "generate_posts_prompt");
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("system_prompts")
+          .insert({
+            tenant_id: tenantId,
+            prompt_key: "generate_posts_prompt",
+            prompt_title: "Prompt de Geração de Posts",
+            prompt_content: content,
+          });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["system-prompt"] });
+      toast.success("Prompt de posts salvo com sucesso!");
+    },
+    onError: (error) => {
+      console.error("Erro ao salvar prompt:", error);
+      toast.error("Erro ao salvar o prompt");
+    },
+  });
+
+  const handleSavePosts = () => {
+    savePostsPromptMutation.mutate(postsPromptContent);
+  };
+
+  const handleRestorePostsDefault = () => {
+    setPostsPromptContent(DEFAULT_POSTS_PROMPT);
+    toast.success("Prompt de posts restaurado para a versão padrão!");
+  };
+
   return (
     <div className="container max-w-5xl mx-auto px-6 py-8">
       <div className="mb-8">
@@ -272,9 +368,10 @@ const DevPrompts = () => {
 
       <div className="space-y-6">
         <Tabs defaultValue="strategy" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="strategy">Estratégia</TabsTrigger>
             <TabsTrigger value="demandas">Demandas</TabsTrigger>
+            <TabsTrigger value="posts">Posts</TabsTrigger>
           </TabsList>
           
           <TabsContent value="strategy">
@@ -355,6 +452,49 @@ const DevPrompts = () => {
                       >
                         <Save className="h-4 w-4 mr-2" />
                         {saveDemandasPromptMutation.isPending ? "Salvando..." : "Salvar"}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="posts">
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {postsPromptData?.prompt_title || "Prompt de Geração de Posts"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isLoadingPosts ? (
+                  <div className="text-muted-foreground">Carregando...</div>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Este prompt é usado como base para gerar o conteúdo dos posts a partir das informações da demanda e estratégia do cliente.
+                    </p>
+                    <Textarea
+                      value={postsPromptContent}
+                      onChange={(e) => setPostsPromptContent(e.target.value)}
+                      placeholder="Digite o prompt de geração de posts aqui..."
+                      className="min-h-[400px] font-mono text-sm"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={handleRestorePostsDefault}
+                      >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Restaurar Padrão
+                      </Button>
+                      <Button
+                        onClick={handleSavePosts}
+                        disabled={savePostsPromptMutation.isPending}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        {savePostsPromptMutation.isPending ? "Salvando..." : "Salvar"}
                       </Button>
                     </div>
                   </>
