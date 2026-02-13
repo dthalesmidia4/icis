@@ -650,19 +650,40 @@ const PlanPeriod = () => {
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           {productionLine.map((item, index) => (
-            <div key={item.type} className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-muted/30">
-              <Label className="text-sm font-medium flex-1">{item.type}</Label>
-              <Input
-                type="number"
-                min={0}
-                value={item.quantity}
-                onChange={(e) => {
-                  const newLine = [...productionLine];
-                  newLine[index] = { ...item, quantity: Math.max(0, parseInt(e.target.value) || 0) };
-                  setProductionLine(newLine);
-                }}
-                className="w-20 text-center"
-              />
+            <div key={item.type} className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border/50 bg-muted/30">
+              <Label className="text-sm font-medium">{item.type}</Label>
+              <div className="flex items-center gap-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-r-none border-r-0"
+                  onClick={() => {
+                    const newLine = [...productionLine];
+                    newLine[index] = { ...item, quantity: Math.max(0, item.quantity - 1) };
+                    setProductionLine(newLine);
+                  }}
+                  disabled={item.quantity === 0}
+                >
+                  <span className="text-lg font-medium">−</span>
+                </Button>
+                <div className="h-9 w-12 flex items-center justify-center border border-input bg-background text-sm font-semibold tabular-nums">
+                  {item.quantity}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-l-none border-l-0"
+                  onClick={() => {
+                    const newLine = [...productionLine];
+                    newLine[index] = { ...item, quantity: item.quantity + 1 };
+                    setProductionLine(newLine);
+                  }}
+                >
+                  <span className="text-lg font-medium">+</span>
+                </Button>
+              </div>
             </div>
           ))}
         </div>
