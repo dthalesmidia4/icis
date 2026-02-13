@@ -110,15 +110,23 @@ serve(async (req) => {
       .limit(1)
       .single();
 
-    // 5. Parse slides
-    const allSlides = parseSlides(demand.description || "");
+    // 5. Parse slides from description, fallback to title
+    let allSlides = parseSlides(demand.description || "");
+    
+    // If no slides found in description, create a single slide from title
+    if (allSlides.length === 0) {
+      const fallbackText = demand.title || "Post";
+      const fallbackBody = demand.description?.replace(/<[^>]*>/g, "").trim() || demand.objective || "";
+      allSlides = [{ slideNumber: 1, title: fallbackText, body: fallbackBody }];
+    }
+    
     const slidesToGenerate = slideNumber
       ? allSlides.filter((s) => s.slideNumber === slideNumber)
       : allSlides;
 
     if (slidesToGenerate.length === 0) {
       return new Response(
-        JSON.stringify({ error: "Nenhum slide encontrado na descrição da demanda" }),
+        JSON.stringify({ error: "Slide específico não encontrado" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
