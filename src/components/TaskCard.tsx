@@ -282,6 +282,7 @@ export default function TaskCard({
   const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
   const [generatingImages, setGeneratingImages] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
   
   // Section collapse states - persisted in localStorage
   const STORAGE_KEY = 'taskcard-collapsed-sections';
@@ -407,19 +408,62 @@ export default function TaskCard({
     }
   };
 
+  // Parse slides from description (mirrors edge function logic)
+  const parseClientSlides = (description: string): number => {
+    if (!description) return 1;
+    const text = description.replace(/<[^>]*>/g, "\n").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
+    const slideRegex = /(?:SLIDE|FRAME|CENA|IMAGEM)\s*(\d+)\s*[—\-:]/gi;
+    const matches = [...text.matchAll(slideRegex)];
+    return matches.length > 0 ? matches.length : 1;
+  };
+
   const handleGenerateImages = async () => {
     if (!card) return;
     setGeneratingImages(true);
+
+    const totalSlides = parseClientSlides(card.description || "");
+    let successCount = 0;
+    const errors: string[] = [];
+
     try {
-      const { data, error } = await supabase.functions.invoke("generate-post-image", {
-        body: { demandId: card.id },
-      });
-      if (error) throw error;
-      if (data?.error) {
-        toast.error(data.error);
-        return;
+      if (totalSlides === 1) {
+        // Single slide — one call, simple progress
+        setGenerationProgress({ current: 1, total: 1 });
+        const { data, error } = await supabase.functions.invoke("generate-post-image", {
+          body: { demandId: card.id },
+        });
+        if (error) throw error;
+        if (data?.error) {
+          toast.error(data.error, { description: data.details?.join(", ") });
+          return;
+        }
+        successCount = data?.generated || 1;
+      } else {
+        // Multiple slides — call per slide for real progress
+        for (let i = 1; i <= totalSlides; i++) {
+          setGenerationProgress({ current: i, total: totalSlides });
+          try {
+            const { data, error } = await supabase.functions.invoke("generate-post-image", {
+              body: { demandId: card.id, slideNumber: i },
+            });
+            if (error) throw error;
+            if (data?.error) {
+              errors.push(`Slide ${i}: ${data.error}`);
+              continue;
+            }
+            successCount += (data?.generated || 0);
+          } catch (slideErr: any) {
+            errors.push(`Slide ${i}: ${slideErr.message || "Erro"}`);
+          }
+        }
       }
-      toast.success(data?.message || "Imagens geradas com sucesso!");
+
+      if (successCount > 0) {
+        toast.success(`${successCount} imagem(ns) gerada(s) com sucesso!`);
+      } else {
+        toast.error("Nenhuma imagem foi gerada", { description: errors.join("; ") });
+      }
+
       // Refetch demand to get updated attachments
       const { data: updatedDemand } = await supabase
         .from("demands")
@@ -434,6 +478,7 @@ export default function TaskCard({
       toast.error(error.message || "Erro ao gerar imagens");
     } finally {
       setGeneratingImages(false);
+      setGenerationProgress(null);
     }
   };
   const handlePublishDateChange = async (newDate: Date | undefined) => {
@@ -991,22 +1036,24 @@ export default function TaskCard({
                       </label>
 
                       {/* Generate Images AI Button */}
-                      {card.description && card.description.trim().length > 0 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleGenerateImages}
-                          disabled={generatingImages}
-                          className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
-                        >
-                          {generatingImages ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Wand2 className="h-4 w-4" />
-                          )}
-                          {generatingImages ? 'Gerando imagens...' : 'Gerar Imagens com IA'}
-                        </Button>
-                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGenerateImages}
+                        disabled={generatingImages}
+                        className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                      >
+                        {generatingImages ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Wand2 className="h-4 w-4" />
+                        )}
+                        {generatingImages && generationProgress
+                          ? `Gerando slide ${generationProgress.current}/${generationProgress.total}...`
+                          : generatingImages
+                            ? 'Gerando imagens...'
+                            : 'Gerar Imagens com IA'}
+                      </Button>
                     </div>
                     )}
                   </>
