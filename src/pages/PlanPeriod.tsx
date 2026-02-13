@@ -60,7 +60,7 @@ interface PeriodPlanHistory {
   ultra_plan: PlanItem[] | null;
 }
 
-type Step = 'form' | 'loading-normal' | 'review-normal' | 'loading-ultra' | 'review-ultra' | 'completed';
+type Step = 'form' | 'loading-normal' | 'review-normal' | 'choose-ultra' | 'loading-ultra' | 'review-ultra' | 'completed';
 
 const PlanPeriod = () => {
   const navigate = useNavigate();
@@ -444,15 +444,38 @@ const PlanPeriod = () => {
     }
   };
 
-  // Handle confirm from normal review - save to kanban, then generate ultra
+  // Handle confirm from normal review - save to kanban, then show ultra choice
   const handleReviewNormalConfirm = async (selectedDemands: PlanItem[], _smartSelections: PlanItem[]) => {
     setReviewModalOpen(false);
     try {
       const savedCount = await saveDemandToKanban(selectedDemands);
       setNormalSavedCount(savedCount);
       toast.success(`${savedCount} demandas normais salvas no Kanban!`);
+      setCurrentStep('choose-ultra');
+    } catch (error) {
+      console.error('Error in normal confirm flow:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao processar');
+      setCurrentStep('review-normal');
+    }
+  };
 
-      // Now generate ultra
+  // Finalize planning without ultra
+  const handleFinalizePlanning = async () => {
+    try {
+      await supabase.from('period_plans').update({
+        status: 'completed',
+        final_plan: defaultPlan as unknown as null
+      }).eq('id', periodPlanId!);
+      setCurrentStep('completed');
+    } catch (error) {
+      console.error('Error finalizing planning:', error);
+      toast.error('Erro ao finalizar planejamento');
+    }
+  };
+
+  // Generate ultra plans
+  const handleGenerateUltra = async () => {
+    try {
       setCurrentStep('loading-ultra');
       setLoadingMessage("Gerando demandas ultra...");
       setPollingProgress(10);
@@ -463,12 +486,11 @@ const PlanPeriod = () => {
       }
       setUltraPlan(ultraResult.plan as PlanItem[] || []);
       setPollingProgress(100);
-
       setCurrentStep('review-ultra');
     } catch (error) {
-      console.error('Error in normal confirm flow:', error);
-      toast.error(error instanceof Error ? error.message : 'Erro ao processar');
-      setCurrentStep('review-normal');
+      console.error('Error generating ultra:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao gerar planos ultra');
+      setCurrentStep('choose-ultra');
     }
   };
 
@@ -1110,7 +1132,7 @@ const PlanPeriod = () => {
   const currentReviewDemands = currentStep === 'review-normal' ? defaultPlan : ultraPlan;
   const currentReviewHandler = currentStep === 'review-normal' ? handleReviewNormalConfirm : handleReviewUltraConfirm;
   const currentConfirmLabel = currentStep === 'review-normal' 
-    ? `Salvar e Gerar Ultra (${defaultPlan.length})` 
+    ? `Salvar Demandas (${defaultPlan.length})` 
     : `Confirmar Planejamento`;
 
   return <div className="pb-8">
@@ -1120,7 +1142,7 @@ const PlanPeriod = () => {
       icon: <Rocket className="w-4 h-4" />,
       className: "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600",
       disabled: productionLineTotal === 0 || !periodTitle || !periodStart || !periodEnd
-    }] : []} rightContent={currentStep !== 'form' && currentStep !== 'loading-normal' && currentStep !== 'loading-ultra' ? <Badge variant="outline" className="text-xs">
+    }] : []} rightContent={currentStep !== 'form' && currentStep !== 'loading-normal' && currentStep !== 'loading-ultra' && currentStep !== 'choose-ultra' ? <Badge variant="outline" className="text-xs">
       {currentStep === 'review-normal' && 'Etapa 1/2: Demandas Normais'}
       {currentStep === 'review-ultra' && 'Etapa 2/2: Demandas Ultra'}
       {currentStep === 'completed' && 'Concluído'}
@@ -1144,6 +1166,44 @@ const PlanPeriod = () => {
 
       {currentStep === 'loading-normal' && renderLoading(loadingMessage)}
       {currentStep === 'loading-ultra' && renderLoading(loadingMessage)}
+
+      {currentStep === 'choose-ultra' && (
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center mb-4">
+            <Check className="w-8 h-8 text-white" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Demandas Normais Salvas!</h2>
+          <p className="text-muted-foreground mb-8">
+            {normalSavedCount} demandas foram salvas no Kanban. O que deseja fazer agora?
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Card 
+              className="p-6 cursor-pointer hover:border-primary/50 hover:shadow-md transition-all text-left"
+              onClick={handleFinalizePlanning}
+            >
+              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Check className="w-6 h-6 text-foreground" />
+              </div>
+              <h3 className="font-semibold text-lg mb-2">Finalizar Planejamento</h3>
+              <p className="text-sm text-muted-foreground">
+                Salvar as demandas geradas e concluir o planejamento do período.
+              </p>
+            </Card>
+            <Card 
+              className="p-6 cursor-pointer hover:border-primary/50 hover:shadow-md transition-all text-left border-primary/20 bg-primary/5"
+              onClick={handleGenerateUltra}
+            >
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center mb-4">
+                <Zap className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="font-semibold text-lg mb-2">Gerar Planos Ultra</h3>
+              <p className="text-sm text-muted-foreground">
+                Criar 3 demandas extras de alto impacto com ideias criativas e diferenciadas.
+              </p>
+            </Card>
+          </div>
+        </div>
+      )}
 
       {(currentStep === 'review-normal' || currentStep === 'review-ultra') && (
         <div className="max-w-5xl mx-auto">
