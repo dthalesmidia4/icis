@@ -804,32 +804,21 @@ const KanbanCentralPage = () => {
                 <SelectValue placeholder="Filtrar por período" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="active">
-                  <span className="flex items-center gap-2">
-                    Períodos ativos
-                  </span>
-                </SelectItem>
-                <SelectItem value="all">Todos os períodos</SelectItem>
-                {periods.map(period => {
-                  const statusConfig: Record<string, { label: string; className: string }> = {
-                    em_andamento: { label: "Em andamento", className: "bg-blue-500/10 text-blue-600 border-blue-500/30" },
-                    concluido: { label: "Concluído", className: "bg-green-500/10 text-green-600 border-green-500/30" },
-                    pausado: { label: "Pausado", className: "bg-amber-500/10 text-amber-600 border-amber-500/30" },
-                  };
-                  const status = statusConfig[period.operational_status] || { label: period.operational_status, className: "bg-muted text-muted-foreground" };
-                  return (
+                <SelectItem value="active">Todos em andamento</SelectItem>
+                {periods
+                  .filter(period => period.operational_status === 'em_andamento')
+                  .map(period => (
                     <SelectItem key={period.id} value={period.id}>
                       <span className="flex items-center gap-2">
-                        <span className="truncate max-w-[140px]">
+                        <span className="truncate max-w-[180px]">
                           {period.companyName ? `${period.companyName} – ` : ""}{period.period_title}
                         </span>
-                        <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 font-medium shrink-0", status.className)}>
-                          {status.label}
+                        <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 font-medium shrink-0 bg-blue-500/10 text-blue-600 border-blue-500/30")}>
+                          Em andamento
                         </Badge>
                       </span>
                     </SelectItem>
-                  );
-                })}
+                  ))}
               </SelectContent>
             </Select>
           </div>
