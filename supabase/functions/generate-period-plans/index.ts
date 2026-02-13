@@ -166,8 +166,7 @@ Observações: ${periodPlan.observations || 'Nenhuma'}${calendarCtx}${successCtx
       throw new Error('Prompt de demandas não configurado. Acesse /dev/prompts para configurar.');
     }
 
-    // Truncate system prompt to save worker resources
-    const systemPrompt = customPrompt.prompt_content.substring(0, 2000);
+    const systemPrompt = customPrompt.prompt_content;
 
     // Fetch OpenAI API key
     const { data: apiKeyDataResult, error: apiKeyError } = await supabase
