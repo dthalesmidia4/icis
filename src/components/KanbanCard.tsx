@@ -27,12 +27,12 @@ const KanbanCard = ({
     >
       {/* Title */}
       <CardHeader className="px-3 pt-3 pb-2">
+        {subtitle && (
+          <p className="text-xs text-muted-foreground mb-1 line-clamp-1">{subtitle}</p>
+        )}
         <CardTitle className="text-sm font-semibold leading-snug line-clamp-2 text-foreground">
           {title}
         </CardTitle>
-        {subtitle && (
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{subtitle}</p>
-        )}
       </CardHeader>
       
       {/* Footer: Platform Badges + Date */}
