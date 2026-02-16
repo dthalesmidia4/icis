@@ -449,3 +449,49 @@ All colors MUST be HSL.
 .ProseMirror pre code {
   @apply bg-transparent p-0;
 }
+
+/* Drag handle for list items and task items */
+.ProseMirror li {
+  position: relative;
+}
+
+.ProseMirror li::before {
+  content: '⠿';
+  position: absolute;
+  left: -1.5rem;
+  top: 0.15rem;
+  font-size: 0.85rem;
+  color: hsl(var(--muted-foreground) / 0.3);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  user-select: none;
+  line-height: 1.5;
+}
+
+.ProseMirror li:hover::before {
+  opacity: 1;
+}
+
+.ProseMirror li::before:active {
+  cursor: grabbing;
+}
+
+.ProseMirror ul[data-type="taskList"] li::before {
+  top: 0.2rem;
+}
+
+/* Dragging state */
+.ProseMirror .ProseMirror-selectednode {
+  outline: 2px solid hsl(var(--primary) / 0.4);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.ProseMirror [draggable="true"] {
+  cursor: grab;
+}
+
+.ProseMirror [draggable="true"]:active {
+  cursor: grabbing;
+}
