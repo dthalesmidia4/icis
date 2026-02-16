@@ -376,6 +376,11 @@ export function CreateDemandModal({
       return;
     }
     
+    if (!periodPlanId && !selectedPeriodPlanId) {
+      toast.error("Selecione um período");
+      return;
+    }
+    
     if (!title.trim()) {
       toast.error("Informe um título");
       return;
@@ -449,21 +454,41 @@ export function CreateDemandModal({
         
         <div className="flex-1 overflow-y-auto min-h-0 pr-2">
           <div className="space-y-6 pb-4">
-            {/* Cliente Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="client">Cliente *</Label>
-              <Select value={clientId} onValueChange={setClientId} disabled={loadingClients}>
-                <SelectTrigger>
-                  <SelectValue placeholder={loadingClients ? "Carregando..." : "Selecione o cliente"} />
-                </SelectTrigger>
-                <SelectContent className="bg-background z-50">
-                  {clients.map(client => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.fantasy_name || client.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Cliente & Período Selection */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="client">Cliente *</Label>
+                <Select value={clientId} onValueChange={setClientId} disabled={loadingClients}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={loadingClients ? "Carregando..." : "Selecione o cliente"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50">
+                    {clients.map(client => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.fantasy_name || client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {!periodPlanId && (
+                <div className="space-y-2">
+                  <Label>Período *</Label>
+                  <Select value={selectedPeriodPlanId} onValueChange={setSelectedPeriodPlanId} disabled={loadingPeriodPlans || !clientId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={!clientId ? "Selecione o cliente primeiro" : loadingPeriodPlans ? "Carregando..." : periodPlans.length === 0 ? "Nenhum período ativo" : "Selecione o período *"} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      {periodPlans.map(pp => (
+                        <SelectItem key={pp.id} value={pp.id}>
+                          {pp.period_title} ({format(new Date(pp.period_start + 'T00:00:00'), "dd/MM", { locale: ptBR })} - {format(new Date(pp.period_end + 'T00:00:00'), "dd/MM", { locale: ptBR })})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
             
             {/* Suggestions Section */}
@@ -561,24 +586,7 @@ export function CreateDemandModal({
               </Accordion>
             )}
             
-            {/* Período (only when not provided via props) */}
-            {!periodPlanId && clientId && (
-              <div className="space-y-2">
-                <Label>Período</Label>
-                <Select value={selectedPeriodPlanId} onValueChange={setSelectedPeriodPlanId} disabled={loadingPeriodPlans}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={loadingPeriodPlans ? "Carregando..." : periodPlans.length === 0 ? "Nenhum período ativo" : "Selecione (opcional)"} />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    {periodPlans.map(pp => (
-                      <SelectItem key={pp.id} value={pp.id}>
-                        {pp.period_title} ({format(new Date(pp.period_start + 'T00:00:00'), "dd/MM", { locale: ptBR })} - {format(new Date(pp.period_end + 'T00:00:00'), "dd/MM", { locale: ptBR })})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            {/* Período section removed - now inline with client */}
             
             {/* Pipeline & Status */}
             <div className="grid grid-cols-2 gap-4">
