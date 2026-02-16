@@ -1,42 +1,33 @@
 
+## Tornar Período Obrigatório e Permitir Vinculação em Demandas Existentes
 
-## Incluir `instructions` e `observations` no prompt de geração de imagens
+### Objetivo
+1. Tornar o select de período **obrigatório** ao criar demandas manuais (não permitir criar sem período)
+2. Reposicionar o select de período ao lado do cliente (lado direito, mesma linha)
+3. Manter a funcionalidade no TaskCard para vincular demandas antigas sem período (já existe parcialmente)
+4. Filtrar apenas períodos com status `em_andamento`
 
-### O que muda
+### Alterações
 
-Apenas o arquivo `supabase/functions/generate-post-image/index.ts`, na construção do `imagePrompt` (por volta da linha 165).
+#### 1. CreateDemandModal.tsx - Período obrigatório e layout lado a lado
 
-### Situação atual
+- Mover o select de Período para dentro da mesma linha do select de Cliente, usando `grid grid-cols-2`
+- Remover o texto "(opcional)" do placeholder -- trocar para "Selecione o período *"
+- Adicionar validação no `handleSubmit`: se não há `periodPlanId` (via props) nem `selectedPeriodPlanId`, bloquear com `toast.error("Selecione um período")`
+- O select aparece assim que um cliente é selecionado (comportamento atual mantido)
+- Filtro `em_andamento` já está implementado corretamente
 
-Os campos `instructions` e `observations` da demanda já são buscados do banco (o select usa `"*"`), mas **não são incluídos** no prompt enviado ao modelo gpt-image-1.
+#### 2. TaskCard.tsx - Manter seletor de período para demandas sem vínculo
 
-### Mudança
+- A funcionalidade já existe (linhas 369-409): quando `card.period_plan_id` é null, busca períodos ativos e mostra um seletor
+- Confirmar que está visível e funcional no render do card (verificar se o seletor aparece no layout)
 
-Adicionar dois blocos condicionais no prompt, entre o conteúdo do slide e a seção BRANDING:
+### Detalhes Técnicos
 
-```
-CONTEÚDO DO SLIDE ...
-Texto principal: "..."
-Texto complementar: "..."
+**CreateDemandModal.tsx:**
+- Linhas 452-467 (select do cliente): transformar em `grid grid-cols-2 gap-4`, com cliente na esquerda e período na direita
+- Linhas 564-581 (select do período atual separado): remover este bloco e integrar ao grid do cliente
+- Linha 374-377 (validação do submit): adicionar check para `selectedPeriodPlanId` quando `periodPlanId` não é fornecido via props e há períodos disponíveis
+- O select de período ficará desabilitado até um cliente ser selecionado
 
-INSTRUÇÕES DA DEMANDA:
-{demand.instructions}
-
-OBSERVAÇÕES ADICIONAIS:
-{demand.observations}
-
-BRANDING:
-...
-```
-
-Cada bloco só aparece se o campo tiver valor (não nulo/vazio), evitando poluir o prompt quando não houver informação.
-
-### Detalhes técnicos
-
-- Arquivo: `supabase/functions/generate-post-image/index.ts`
-- Local: linhas 165-169 do `imagePrompt` template literal
-- Inserir após a linha do `slide.body` e antes de `BRANDING:`
-- Lógica condicional com template literals: `${demand.instructions ? ... : ""}`
-- Nenhuma mudança no frontend
-- Nenhuma mudança no banco de dados
-
+**Nenhuma alteração de banco de dados necessária** -- o campo `period_plan_id` na tabela `demands` já aceita null (para compatibilidade), e o filtro `em_andamento` já está no código.
