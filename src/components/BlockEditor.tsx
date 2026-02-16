@@ -7,7 +7,7 @@ import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-detai
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Bold, Italic, Heading1, Heading2, Heading3, 
-  List, ListOrdered, Minus, Type, Quote, Code, CheckSquare, ChevronRight
+  List, ListOrdered, Minus, Type, Quote, Code, CheckSquare, ChevronRight, GripVertical
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -51,12 +51,12 @@ export function BlockEditor({
         },
         bulletList: {
           HTMLAttributes: {
-            class: 'list-disc ml-4 space-y-1',
+            class: 'list-disc ml-6 space-y-1',
           },
         },
         orderedList: {
           HTMLAttributes: {
-            class: 'list-decimal ml-4 space-y-1',
+            class: 'list-decimal ml-6 space-y-1',
           },
         },
         horizontalRule: {
@@ -82,7 +82,7 @@ export function BlockEditor({
       }),
       TaskItem.configure({
         HTMLAttributes: {
-          class: 'flex items-start gap-2',
+          class: 'flex items-start gap-2 group/task',
         },
         nested: true,
       }),
@@ -134,12 +134,14 @@ export function BlockEditor({
           '[&_.is-editor-empty:first-child::before]:pointer-events-none',
           // TaskList styles
           '[&_ul[data-type="taskList"]]:list-none [&_ul[data-type="taskList"]]:pl-0',
-          '[&_ul[data-type="taskList"]_li]:flex [&_ul[data-type="taskList"]_li]:items-start [&_ul[data-type="taskList"]_li]:gap-2',
+          '[&_ul[data-type="taskList"]_li]:flex [&_ul[data-type="taskList"]_li]:items-start [&_ul[data-type="taskList"]_li]:gap-2 [&_ul[data-type="taskList"]_li]:relative [&_ul[data-type="taskList"]_li]:group',
           '[&_ul[data-type="taskList"]_li_label]:flex [&_ul[data-type="taskList"]_li_label]:items-center',
           '[&_ul[data-type="taskList"]_li_label_input]:w-4 [&_ul[data-type="taskList"]_li_label_input]:h-4',
           '[&_ul[data-type="taskList"]_li_label_input]:accent-primary',
           '[&_ul[data-type="taskList"]_li_div]:flex-1',
           '[&_ul[data-type="taskList"]_li[data-checked="true"]_div]:line-through [&_ul[data-type="taskList"]_li[data-checked="true"]_div]:text-muted-foreground',
+          // List item drag styles
+          '[&_li]:relative [&_li]:group/item',
           // Details/Toggle styles
           '[&_details]:border [&_details]:border-border [&_details]:rounded-lg [&_details]:my-3 [&_details]:overflow-hidden',
           '[&_details_summary]:px-3 [&_details_summary]:py-2 [&_details_summary]:bg-muted/40 [&_details_summary]:font-medium [&_details_summary]:cursor-pointer [&_details_summary]:hover:bg-muted/60 [&_details_summary]:transition-colors',
