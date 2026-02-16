@@ -3,10 +3,11 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
+import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Bold, Italic, Heading1, Heading2, Heading3, 
-  List, ListOrdered, Minus, Type, Quote, Code, CheckSquare
+  List, ListOrdered, Minus, Type, Quote, Code, CheckSquare, ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -85,6 +86,21 @@ export function BlockEditor({
         },
         nested: true,
       }),
+      Details.configure({
+        HTMLAttributes: {
+          class: 'border border-border rounded-lg my-3 overflow-hidden',
+        },
+      }),
+      DetailsSummary.configure({
+        HTMLAttributes: {
+          class: 'px-3 py-2 bg-muted/40 font-medium cursor-pointer hover:bg-muted/60 transition-colors',
+        },
+      }),
+      DetailsContent.configure({
+        HTMLAttributes: {
+          class: 'px-3 py-2',
+        },
+      }),
       Placeholder.configure({
         placeholder: ({ node }) => {
           if (node.type.name === 'heading') {
@@ -124,6 +140,10 @@ export function BlockEditor({
           '[&_ul[data-type="taskList"]_li_label_input]:accent-primary',
           '[&_ul[data-type="taskList"]_li_div]:flex-1',
           '[&_ul[data-type="taskList"]_li[data-checked="true"]_div]:line-through [&_ul[data-type="taskList"]_li[data-checked="true"]_div]:text-muted-foreground',
+          // Details/Toggle styles
+          '[&_details]:border [&_details]:border-border [&_details]:rounded-lg [&_details]:my-3 [&_details]:overflow-hidden',
+          '[&_details_summary]:px-3 [&_details_summary]:py-2 [&_details_summary]:bg-muted/40 [&_details_summary]:font-medium [&_details_summary]:cursor-pointer [&_details_summary]:hover:bg-muted/60 [&_details_summary]:transition-colors',
+          '[&_details_div[data-type="detailsContent"]]:px-3 [&_details_div[data-type="detailsContent"]]:py-2',
         ),
       },
       handleKeyDown: (view, event) => {
@@ -265,6 +285,12 @@ export function BlockEditor({
       command: () => editor.chain().focus().toggleTaskList().run(),
     },
     {
+      title: 'Toggle',
+      description: 'Bloco colapsável',
+      icon: <ChevronRight className="h-4 w-4" />,
+      command: () => editor.chain().focus().setDetails().run(),
+    },
+    {
       title: 'Citação',
       description: 'Bloco de citação',
       icon: <Quote className="h-4 w-4" />,
@@ -327,6 +353,77 @@ export function BlockEditor({
         className
       )}
     >
+      {/* Fixed Quick Toolbar */}
+      <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border bg-muted/30">
+        <button
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          className={cn(
+            "p-1.5 rounded hover:bg-muted transition-colors",
+            editor.isActive('bulletList') && "bg-muted text-primary"
+          )}
+          type="button"
+          title="Lista com marcadores"
+        >
+          <List className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          className={cn(
+            "p-1.5 rounded hover:bg-muted transition-colors",
+            editor.isActive('orderedList') && "bg-muted text-primary"
+          )}
+          type="button"
+          title="Lista numerada"
+        >
+          <ListOrdered className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => editor.chain().focus().toggleTaskList().run()}
+          className={cn(
+            "p-1.5 rounded hover:bg-muted transition-colors",
+            editor.isActive('taskList') && "bg-muted text-primary"
+          )}
+          type="button"
+          title="Checklist"
+        >
+          <CheckSquare className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => editor.chain().focus().setDetails().run()}
+          className={cn(
+            "p-1.5 rounded hover:bg-muted transition-colors",
+            editor.isActive('details') && "bg-muted text-primary"
+          )}
+          type="button"
+          title="Toggle (colapsável)"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+        <div className="w-px h-4 bg-border mx-1" />
+        <button
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          className={cn(
+            "p-1.5 rounded hover:bg-muted transition-colors",
+            editor.isActive('bold') && "bg-muted text-primary"
+          )}
+          type="button"
+          title="Negrito"
+        >
+          <Bold className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          className={cn(
+            "p-1.5 rounded hover:bg-muted transition-colors",
+            editor.isActive('italic') && "bg-muted text-primary"
+          )}
+          type="button"
+          title="Itálico"
+        >
+          <Italic className="h-4 w-4" />
+        </button>
+      </div>
+
       {/* Floating Toolbar for text formatting */}
       {showToolbar && (
         <div
