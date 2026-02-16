@@ -616,27 +616,7 @@ export function CreateDemandModal({
             </div>
             
             {/* Type & Channel */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Tipo de Demanda</Label>
-                <Select value={demandType} onValueChange={setDemandType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    {DEMAND_TYPES.map((type) =>
-                    <SelectItem key={type.value} value={type.value}>
-                        <div className="flex items-center gap-2">
-                          <type.icon className="h-4 w-4" />
-                          {type.label}
-                        </div>
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              
+            
 
 
 
@@ -654,7 +634,27 @@ export function CreateDemandModal({
 
 
 
-            </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             
             {/* Dates */}
             <div className="grid grid-cols-2 gap-4">
