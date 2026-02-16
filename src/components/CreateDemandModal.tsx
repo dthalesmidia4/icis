@@ -283,12 +283,17 @@ export function CreateDemandModal({
       
       setStatuses(statusesData);
       
-      // Auto-select initial status
-      const initialStatus = statusesData.find(s => s.is_initial);
-      if (initialStatus) {
-        setStatusId(initialStatus.id);
-      } else if (statusesData.length > 0) {
-        setStatusId(statusesData[0].id);
+      // Auto-select "Produção" status for manual demands, fallback to initial
+      const productionStatus = statusesData.find(s => s.name.toLowerCase().includes('produção') || s.name.toLowerCase().includes('producao'));
+      if (productionStatus) {
+        setStatusId(productionStatus.id);
+      } else {
+        const initialStatus = statusesData.find(s => s.is_initial);
+        if (initialStatus) {
+          setStatusId(initialStatus.id);
+        } else if (statusesData.length > 0) {
+          setStatusId(statusesData[0].id);
+        }
       }
     } catch (error) {
       console.error("Error fetching statuses:", error);
@@ -586,50 +591,6 @@ export function CreateDemandModal({
               </Accordion>
             )}
             
-            {/* Período section removed - now inline with client */}
-            
-            {/* Pipeline & Status */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="pipeline">Pipeline *</Label>
-                <Select value={pipelineId} onValueChange={setPipelineId} disabled={loadingPipelines}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    {pipelines.map(pipeline => (
-                      <SelectItem key={pipeline.id} value={pipeline.id}>
-                        {pipeline.name}
-                        {pipeline.is_default && " (Padrão)"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="status">Status Inicial *</Label>
-                <Select value={statusId} onValueChange={setStatusId} disabled={loadingStatuses || !pipelineId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    {statuses.map(status => (
-                      <SelectItem key={status.id} value={status.id}>
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: status.color }}
-                          />
-                          {status.name}
-                          {status.is_initial && " (Inicial)"}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
             
             {/* Title */}
             <div className="space-y-2">
