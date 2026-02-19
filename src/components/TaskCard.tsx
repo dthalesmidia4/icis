@@ -283,6 +283,7 @@ export default function TaskCard({
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
+  const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
   
   // Section collapse states - persisted in localStorage
   const STORAGE_KEY = 'taskcard-collapsed-sections';
@@ -936,6 +937,26 @@ export default function TaskCard({
                   {uploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
                 </button>
 
+                {/* Generate AI Images Button - below Anexos title */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => generatingImages ? null : setShowGenerateConfirm(true)}
+                  disabled={generatingImages}
+                  className="gap-2 border-primary/30 text-primary hover:bg-primary/10 mb-3"
+                >
+                  {generatingImages ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="h-4 w-4" />
+                  )}
+                  {generatingImages && generationProgress
+                    ? `Gerando slide ${generationProgress.current}/${generationProgress.total}...`
+                    : generatingImages
+                      ? 'Gerando imagens...'
+                      : 'Gerar estáticos com IA'}
+                </Button>
+
                 {!collapsedSections.anexos && (
                   <>
                     {/* Attachments Grid with Drag and Drop */}
@@ -1035,25 +1056,7 @@ export default function TaskCard({
                         </span>
                       </label>
 
-                      {/* Generate Images AI Button */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleGenerateImages}
-                        disabled={generatingImages}
-                        className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
-                      >
-                        {generatingImages ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Wand2 className="h-4 w-4" />
-                        )}
-                        {generatingImages && generationProgress
-                          ? `Gerando slide ${generationProgress.current}/${generationProgress.total}...`
-                          : generatingImages
-                            ? 'Gerando imagens...'
-                            : 'Gerar Imagens com IA'}
-                      </Button>
+                      {/* Old AI button location removed - moved to below Anexos title */}
                     </div>
                     )}
                   </>
@@ -1093,6 +1096,30 @@ export default function TaskCard({
               }}
             >
               Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for AI Image Generation */}
+      <AlertDialog open={showGenerateConfirm} onOpenChange={setShowGenerateConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gerar estáticos com IA?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A IA irá analisar o conteúdo da atividade e gerar imagens para cada slide identificado. Isso pode levar alguns minutos dependendo da quantidade de slides.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowGenerateConfirm(false);
+                handleGenerateImages();
+              }}
+            >
+              <Wand2 className="h-4 w-4 mr-2" />
+              Gerar estáticos
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
