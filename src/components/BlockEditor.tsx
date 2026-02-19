@@ -19,7 +19,7 @@ import {
   List, ListOrdered, Minus, Type, Quote, Code, 
   CheckSquare, ChevronRight, GripVertical,
   Link as LinkIcon, Highlighter, Indent, Outdent,
-  ExternalLink, X
+  ExternalLink, X, Undo2, Redo2, Check, Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -53,10 +53,12 @@ export function BlockEditor({
   const [filterText, setFilterText] = useState('');
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const editorRef = useRef<HTMLDivElement>(null);
   const linkInputRef = useRef<HTMLInputElement>(null);
   const lastEmittedHtml = useRef(content || '');
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
+  const savedTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const editor = useEditor({
     extensions: [
@@ -240,10 +242,14 @@ export function BlockEditor({
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
       if (html === lastEmittedHtml.current) return;
+      setSaveStatus('saving');
       clearTimeout(debounceTimer.current);
       debounceTimer.current = setTimeout(() => {
         lastEmittedHtml.current = html;
         onChange(html);
+        setSaveStatus('saved');
+        clearTimeout(savedTimer.current);
+        savedTimer.current = setTimeout(() => setSaveStatus('idle'), 2000);
       }, 300);
     },
     onBlur: () => {
@@ -383,7 +389,10 @@ export function BlockEditor({
 
   // Cleanup debounce timer
   useEffect(() => {
-    return () => clearTimeout(debounceTimer.current);
+    return () => {
+      clearTimeout(debounceTimer.current);
+      clearTimeout(savedTimer.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -419,6 +428,21 @@ export function BlockEditor({
     >
       {/* Fixed Toolbar */}
       <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-border bg-muted/30 flex-wrap">
+        {/* Undo/Redo */}
+        <ToolbarButton 
+          onClick={() => editor.chain().focus().undo().run()} 
+          title="Desfazer (Ctrl+Z)"
+        >
+          <Undo2 className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton 
+          onClick={() => editor.chain().focus().redo().run()} 
+          title="Refazer (Ctrl+Y)"
+        >
+          <Redo2 className="h-4 w-4" />
+        </ToolbarButton>
+
+        <div className="w-px h-4 bg-border mx-1" />
         {/* Text formatting */}
         <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} title="Negrito (Ctrl+B)">
           <Bold className="h-4 w-4" />
@@ -612,9 +636,25 @@ export function BlockEditor({
         </div>
       )}
 
-      {/* Helper text */}
-      <div className="absolute bottom-2 right-3 text-[10px] text-muted-foreground/80 pointer-events-none">
-        / comandos • Ctrl+B/I/U • Ctrl+K link • Tab recuar
+      {/* Helper text + save indicator */}
+      <div className="flex items-center justify-between px-3 py-1 border-t border-border bg-muted/20">
+        <div className="text-[10px] text-muted-foreground/70">
+          / comandos • Ctrl+B/I/U • Ctrl+K link • Ctrl+Z/Y desfazer
+        </div>
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground/70">
+          {saveStatus === 'saving' && (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Salvando...</span>
+            </>
+          )}
+          {saveStatus === 'saved' && (
+            <>
+              <Check className="h-3 w-3 text-primary" />
+              <span className="text-primary">Salvo</span>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
