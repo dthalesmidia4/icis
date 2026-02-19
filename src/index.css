@@ -493,26 +493,47 @@ All colors MUST be HSL.
 .ProseMirror ul[data-type="taskList"] li label {
   display: flex;
   align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  margin-top: 0.15rem;
+  min-width: 24px;
+  min-height: 24px;
+  cursor: pointer;
+  margin-top: 0;
 }
 
 .ProseMirror ul[data-type="taskList"] li label input[type="checkbox"] {
-  width: 1rem;
-  height: 1rem;
-  border-radius: 3px;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
   border: 2px solid hsl(var(--border));
   cursor: pointer;
-  accent-color: hsl(var(--primary));
   transition: all 0.15s ease;
+  position: relative;
+  flex-shrink: 0;
 }
 
 .ProseMirror ul[data-type="taskList"] li label input[type="checkbox"]:checked {
+  background-color: hsl(var(--primary));
   border-color: hsl(var(--primary));
 }
 
+.ProseMirror ul[data-type="taskList"] li label input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 6px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
 .ProseMirror ul[data-type="taskList"] li label input[type="checkbox"]:hover {
-  border-color: hsl(var(--primary) / 0.7);
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
 }
 
 /* Task item content */
@@ -546,12 +567,14 @@ All colors MUST be HSL.
   border-left-color: hsl(var(--border) / 0.2);
 }
 
-/* Drag handle for list items */
-.ProseMirror li {
+/* Drag handle for list items - exclude taskList items */
+.ProseMirror ul:not([data-type="taskList"]) > li,
+.ProseMirror ol > li {
   position: relative;
 }
 
-.ProseMirror li::before {
+.ProseMirror ul:not([data-type="taskList"]) > li::before,
+.ProseMirror ol > li::before {
   content: '⠿';
   position: absolute;
   left: -1.5rem;
@@ -565,11 +588,13 @@ All colors MUST be HSL.
   line-height: 1.5;
 }
 
-.ProseMirror li:hover::before {
+.ProseMirror ul:not([data-type="taskList"]) > li:hover::before,
+.ProseMirror ol > li:hover::before {
   opacity: 1;
 }
 
-.ProseMirror li::before:active {
+.ProseMirror ul:not([data-type="taskList"]) > li:active::before,
+.ProseMirror ol > li:active::before {
   cursor: grabbing;
 }
 

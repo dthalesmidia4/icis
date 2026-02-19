@@ -12,7 +12,7 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Dropcursor from '@tiptap/extension-dropcursor';
 import Gapcursor from '@tiptap/extension-gapcursor';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { 
   Bold, Italic, Underline as UnderlineIcon, Strikethrough,
   Heading1, Heading2, Heading3, 
@@ -55,6 +55,8 @@ export function BlockEditor({
   const [linkUrl, setLinkUrl] = useState('');
   const editorRef = useRef<HTMLDivElement>(null);
   const linkInputRef = useRef<HTMLInputElement>(null);
+  const lastEmittedHtml = useRef(content || '');
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const editor = useEditor({
     extensions: [
@@ -236,7 +238,13 @@ export function BlockEditor({
       },
     },
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      const html = editor.getHTML();
+      if (html === lastEmittedHtml.current) return;
+      clearTimeout(debounceTimer.current);
+      debounceTimer.current = setTimeout(() => {
+        lastEmittedHtml.current = html;
+        onChange(html);
+      }, 300);
     },
     onBlur: () => {
       setTimeout(() => {
@@ -367,10 +375,16 @@ export function BlockEditor({
   }, [editor, filteredItems, filterText]);
 
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content || '');
+    if (editor && content !== lastEmittedHtml.current) {
+      lastEmittedHtml.current = content || '';
+      editor.commands.setContent(content || '', { emitUpdate: false });
     }
   }, [content, editor]);
+
+  // Cleanup debounce timer
+  useEffect(() => {
+    return () => clearTimeout(debounceTimer.current);
+  }, []);
 
   useEffect(() => {
     setSelectedIndex(0);
