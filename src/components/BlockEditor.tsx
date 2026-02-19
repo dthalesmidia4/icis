@@ -1,13 +1,25 @@
 import { useEditor, EditorContent } from '@tiptap/react';
+import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
+import Underline from '@tiptap/extension-underline';
+import Link from '@tiptap/extension-link';
+import Highlight from '@tiptap/extension-highlight';
+import { TextStyle } from '@tiptap/extension-text-style';
+import Color from '@tiptap/extension-color';
+import Dropcursor from '@tiptap/extension-dropcursor';
+import Gapcursor from '@tiptap/extension-gapcursor';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
-  Bold, Italic, Heading1, Heading2, Heading3, 
-  List, ListOrdered, Minus, Type, Quote, Code, CheckSquare, ChevronRight, GripVertical
+  Bold, Italic, Underline as UnderlineIcon, Strikethrough,
+  Heading1, Heading2, Heading3, 
+  List, ListOrdered, Minus, Type, Quote, Code, 
+  CheckSquare, ChevronRight, GripVertical,
+  Link as LinkIcon, Highlighter, Indent, Outdent,
+  ExternalLink, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -39,73 +51,66 @@ export function BlockEditor({
   const [slashMenuPosition, setSlashMenuPosition] = useState({ top: 0, left: 0 });
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [filterText, setFilterText] = useState('');
-  const [showToolbar, setShowToolbar] = useState(false);
-  const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 });
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
   const editorRef = useRef<HTMLDivElement>(null);
+  const linkInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: {
-          levels: [1, 2, 3],
-        },
+        heading: { levels: [1, 2, 3] },
         bulletList: {
-          HTMLAttributes: {
-            class: 'list-disc ml-6 space-y-1',
-          },
+          HTMLAttributes: { class: 'list-disc ml-6 space-y-1' },
         },
         orderedList: {
-          HTMLAttributes: {
-            class: 'list-decimal ml-6 space-y-1',
-          },
+          HTMLAttributes: { class: 'list-decimal ml-6 space-y-1' },
         },
         horizontalRule: {
-          HTMLAttributes: {
-            class: 'my-4 border-t border-border',
-          },
+          HTMLAttributes: { class: 'my-4 border-t border-border' },
         },
         blockquote: {
-          HTMLAttributes: {
-            class: 'border-l-4 border-primary/50 pl-4 italic text-muted-foreground my-3',
-          },
+          HTMLAttributes: { class: 'border-l-4 border-primary/50 pl-4 italic text-muted-foreground my-3' },
         },
         codeBlock: {
-          HTMLAttributes: {
-            class: 'bg-muted rounded-lg p-4 font-mono text-sm my-3 overflow-x-auto',
-          },
+          HTMLAttributes: { class: 'bg-muted rounded-lg p-4 font-mono text-sm my-3 overflow-x-auto' },
         },
+        dropcursor: false,
+        gapcursor: false,
       }),
+      Dropcursor.configure({ color: 'hsl(var(--primary))', width: 2 }),
+      Gapcursor,
       TaskList.configure({
-        HTMLAttributes: {
-          class: 'not-prose space-y-2 my-3',
-        },
+        HTMLAttributes: { class: 'not-prose task-list-root' },
       }),
       TaskItem.configure({
-        HTMLAttributes: {
-          class: 'flex items-start gap-2 group/task',
-        },
+        HTMLAttributes: { class: 'task-item' },
         nested: true,
       }),
       Details.configure({
-        HTMLAttributes: {
-          class: 'border border-border rounded-lg my-3 overflow-hidden',
-        },
+        HTMLAttributes: { class: 'border border-border rounded-lg my-3 overflow-hidden' },
       }),
       DetailsSummary.configure({
-        HTMLAttributes: {
-          class: 'px-3 py-2 bg-muted/40 font-medium cursor-pointer hover:bg-muted/60 transition-colors',
-        },
+        HTMLAttributes: { class: 'px-3 py-2 bg-muted/40 font-medium cursor-pointer hover:bg-muted/60 transition-colors' },
       }),
       DetailsContent.configure({
+        HTMLAttributes: { class: 'px-3 py-2' },
+      }),
+      Underline,
+      TextStyle,
+      Color,
+      Highlight.configure({ multicolor: false }),
+      Link.configure({
+        openOnClick: false,
         HTMLAttributes: {
-          class: 'px-3 py-2',
+          class: 'text-primary underline decoration-primary/50 hover:decoration-primary cursor-pointer',
+          target: '_blank',
+          rel: 'noopener noreferrer',
         },
       }),
       Placeholder.configure({
         placeholder: ({ node }) => {
-          if (node.type.name === 'heading') {
-            return 'Título...';
-          }
+          if (node.type.name === 'heading') return 'Título...';
           return placeholder;
         },
         emptyEditorClass: 'is-editor-empty',
@@ -132,16 +137,6 @@ export function BlockEditor({
           '[&_.is-editor-empty:first-child::before]:float-left',
           '[&_.is-editor-empty:first-child::before]:h-0',
           '[&_.is-editor-empty:first-child::before]:pointer-events-none',
-          // TaskList styles
-          '[&_ul[data-type="taskList"]]:list-none [&_ul[data-type="taskList"]]:pl-0',
-          '[&_ul[data-type="taskList"]_li]:flex [&_ul[data-type="taskList"]_li]:items-start [&_ul[data-type="taskList"]_li]:gap-2 [&_ul[data-type="taskList"]_li]:relative [&_ul[data-type="taskList"]_li]:group',
-          '[&_ul[data-type="taskList"]_li_label]:flex [&_ul[data-type="taskList"]_li_label]:items-center',
-          '[&_ul[data-type="taskList"]_li_label_input]:w-4 [&_ul[data-type="taskList"]_li_label_input]:h-4',
-          '[&_ul[data-type="taskList"]_li_label_input]:accent-primary',
-          '[&_ul[data-type="taskList"]_li_div]:flex-1',
-          '[&_ul[data-type="taskList"]_li[data-checked="true"]_div]:line-through [&_ul[data-type="taskList"]_li[data-checked="true"]_div]:text-muted-foreground',
-          // List item drag styles
-          '[&_li]:relative [&_li]:group/item',
           // Details/Toggle styles
           '[&_details]:border [&_details]:border-border [&_details]:rounded-lg [&_details]:my-3 [&_details]:overflow-hidden',
           '[&_details_summary]:px-3 [&_details_summary]:py-2 [&_details_summary]:bg-muted/40 [&_details_summary]:font-medium [&_details_summary]:cursor-pointer [&_details_summary]:hover:bg-muted/60 [&_details_summary]:transition-colors',
@@ -149,12 +144,41 @@ export function BlockEditor({
         ),
       },
       handleKeyDown: (view, event) => {
+        // Tab/Shift+Tab for task list nesting
+        if (event.key === 'Tab' && editor) {
+          const { state } = editor;
+          const { $from } = state.selection;
+          // Check if we're inside a taskItem or listItem
+          const isInTaskItem = $from.parent.type.name === 'taskItem' || 
+            state.selection.$from.node(-1)?.type.name === 'taskItem' ||
+            state.selection.$from.node(-1)?.type.name === 'taskList';
+          const isInListItem = $from.parent.type.name === 'listItem' ||
+            state.selection.$from.node(-1)?.type.name === 'listItem';
+
+          if (isInTaskItem || isInListItem) {
+            event.preventDefault();
+            if (event.shiftKey) {
+              editor.chain().focus().liftListItem('taskItem').run() ||
+              editor.chain().focus().liftListItem('listItem').run();
+            } else {
+              editor.chain().focus().sinkListItem('taskItem').run() ||
+              editor.chain().focus().sinkListItem('listItem').run();
+            }
+            return true;
+          }
+        }
+
+        // Ctrl+K for link
+        if ((event.ctrlKey || event.metaKey) && event.key === 'k' && editor) {
+          event.preventDefault();
+          openLinkInput();
+          return true;
+        }
+
         // Handle slash command
         if (event.key === '/' && !showSlashMenu) {
           const { selection } = view.state;
           const { $from } = selection;
-          
-          // Only show menu at the start of a line or after whitespace
           const textBefore = $from.parent.textContent.slice(0, $from.parentOffset);
           if (textBefore === '' || textBefore.endsWith(' ')) {
             setTimeout(() => {
@@ -196,7 +220,6 @@ export function BlockEditor({
             }
             return true;
           }
-          // Filter by typing
           if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
             setFilterText(prev => prev + event.key);
           }
@@ -215,33 +238,41 @@ export function BlockEditor({
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
-    onSelectionUpdate: ({ editor }) => {
-      const { from, to } = editor.state.selection;
-      if (from !== to) {
-        // Text is selected, show toolbar
-        const coords = editor.view.coordsAtPos(from);
-        const editorRect = editorRef.current?.getBoundingClientRect();
-        if (editorRect) {
-          setToolbarPosition({
-            top: coords.top - editorRect.top - 40,
-            left: Math.max(0, coords.left - editorRect.left),
-          });
-          setShowToolbar(true);
-        }
-      } else {
-        setShowToolbar(false);
-      }
-    },
     onBlur: () => {
-      // Delay closing to allow click on menu items
       setTimeout(() => {
         setShowSlashMenu(false);
-        setShowToolbar(false);
       }, 200);
-      // Call the onBlur prop for auto-save
       onBlur?.();
     },
   });
+
+  const openLinkInput = useCallback(() => {
+    if (!editor) return;
+    const existingHref = editor.getAttributes('link').href || '';
+    setLinkUrl(existingHref);
+    setShowLinkInput(true);
+    setTimeout(() => linkInputRef.current?.focus(), 50);
+  }, [editor]);
+
+  const applyLink = useCallback(() => {
+    if (!editor) return;
+    if (linkUrl.trim() === '') {
+      editor.chain().focus().unsetLink().run();
+    } else {
+      let url = linkUrl.trim();
+      if (!/^https?:\/\//.test(url)) url = 'https://' + url;
+      editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    }
+    setShowLinkInput(false);
+    setLinkUrl('');
+  }, [editor, linkUrl]);
+
+  const removeLink = useCallback(() => {
+    if (!editor) return;
+    editor.chain().focus().unsetLink().run();
+    setShowLinkInput(false);
+    setLinkUrl('');
+  }, [editor]);
 
   const slashMenuItems: SlashMenuItem[] = editor ? [
     {
@@ -305,6 +336,12 @@ export function BlockEditor({
       command: () => editor.chain().focus().toggleCodeBlock().run(),
     },
     {
+      title: 'Link',
+      description: 'Inserir link',
+      icon: <LinkIcon className="h-4 w-4" />,
+      command: () => openLinkInput(),
+    },
+    {
       title: 'Divisor',
       description: 'Linha horizontal',
       icon: <Minus className="h-4 w-4" />,
@@ -320,7 +357,6 @@ export function BlockEditor({
   const executeCommand = useCallback((index: number) => {
     const item = filteredItems[index];
     if (item && editor) {
-      // Remove the slash and filter text
       const { selection } = editor.state;
       const from = selection.from - filterText.length - 1;
       editor.chain().focus().deleteRange({ from, to: selection.from }).run();
@@ -330,14 +366,12 @@ export function BlockEditor({
     }
   }, [editor, filteredItems, filterText]);
 
-  // Update content when prop changes externally
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
       editor.commands.setContent(content || '');
     }
   }, [content, editor]);
 
-  // Reset selected index when filter changes
   useEffect(() => {
     setSelectedIndex(0);
   }, [filterText]);
@@ -345,6 +379,20 @@ export function BlockEditor({
   if (!editor) {
     return null;
   }
+
+  const ToolbarButton = ({ onClick, isActive, title, children }: { onClick: () => void; isActive?: boolean; title: string; children: React.ReactNode }) => (
+    <button
+      onClick={onClick}
+      className={cn(
+        "p-1.5 rounded hover:bg-muted transition-colors",
+        isActive && "bg-muted text-primary"
+      )}
+      type="button"
+      title={title}
+    >
+      {children}
+    </button>
+  );
 
   return (
     <div 
@@ -355,174 +403,136 @@ export function BlockEditor({
         className
       )}
     >
-      {/* Fixed Quick Toolbar */}
-      <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border bg-muted/30">
-        <button
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={cn(
-            "p-1.5 rounded hover:bg-muted transition-colors",
-            editor.isActive('bulletList') && "bg-muted text-primary"
-          )}
-          type="button"
-          title="Lista com marcadores"
-        >
-          <List className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className={cn(
-            "p-1.5 rounded hover:bg-muted transition-colors",
-            editor.isActive('orderedList') && "bg-muted text-primary"
-          )}
-          type="button"
-          title="Lista numerada"
-        >
-          <ListOrdered className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleTaskList().run()}
-          className={cn(
-            "p-1.5 rounded hover:bg-muted transition-colors",
-            editor.isActive('taskList') && "bg-muted text-primary"
-          )}
-          type="button"
-          title="Checklist"
-        >
-          <CheckSquare className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => editor.chain().focus().setDetails().run()}
-          className={cn(
-            "p-1.5 rounded hover:bg-muted transition-colors",
-            editor.isActive('details') && "bg-muted text-primary"
-          )}
-          type="button"
-          title="Toggle (colapsável)"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-        <div className="w-px h-4 bg-border mx-1" />
-        <button
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          className={cn(
-            "p-1.5 rounded hover:bg-muted transition-colors",
-            editor.isActive('bold') && "bg-muted text-primary"
-          )}
-          type="button"
-          title="Negrito"
-        >
+      {/* Fixed Toolbar */}
+      <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-border bg-muted/30 flex-wrap">
+        {/* Text formatting */}
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} title="Negrito (Ctrl+B)">
           <Bold className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={cn(
-            "p-1.5 rounded hover:bg-muted transition-colors",
-            editor.isActive('italic') && "bg-muted text-primary"
-          )}
-          type="button"
-          title="Itálico"
-        >
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} title="Itálico (Ctrl+I)">
           <Italic className="h-4 w-4" />
-        </button>
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} isActive={editor.isActive('underline')} title="Sublinhado (Ctrl+U)">
+          <UnderlineIcon className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} isActive={editor.isActive('strike')} title="Tachado">
+          <Strikethrough className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleHighlight().run()} isActive={editor.isActive('highlight')} title="Destaque">
+          <Highlighter className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={openLinkInput} isActive={editor.isActive('link')} title="Link (Ctrl+K)">
+          <LinkIcon className="h-4 w-4" />
+        </ToolbarButton>
+
+        <div className="w-px h-4 bg-border mx-1" />
+
+        {/* Blocks */}
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} isActive={editor.isActive('bulletList')} title="Lista com marcadores">
+          <List className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} isActive={editor.isActive('orderedList')} title="Lista numerada">
+          <ListOrdered className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleTaskList().run()} isActive={editor.isActive('taskList')} title="Checklist">
+          <CheckSquare className="h-4 w-4" />
+        </ToolbarButton>
+
+        <div className="w-px h-4 bg-border mx-0.5" />
+
+        {/* Indent/Outdent for checklists */}
+        <ToolbarButton 
+          onClick={() => {
+            editor.chain().focus().sinkListItem('taskItem').run() ||
+            editor.chain().focus().sinkListItem('listItem').run();
+          }} 
+          title="Recuar (Tab)"
+        >
+          <Indent className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton 
+          onClick={() => {
+            editor.chain().focus().liftListItem('taskItem').run() ||
+            editor.chain().focus().liftListItem('listItem').run();
+          }} 
+          title="Diminuir recuo (Shift+Tab)"
+        >
+          <Outdent className="h-4 w-4" />
+        </ToolbarButton>
+
+        <div className="w-px h-4 bg-border mx-1" />
+
+        <ToolbarButton onClick={() => editor.chain().focus().setDetails().run()} isActive={editor.isActive('details')} title="Toggle (colapsável)">
+          <ChevronRight className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleCode().run()} isActive={editor.isActive('code')} title="Código inline">
+          <Code className="h-4 w-4" />
+        </ToolbarButton>
       </div>
 
-      {/* Floating Toolbar for text formatting */}
-      {showToolbar && (
-        <div
-          className="absolute z-50 flex items-center gap-0.5 p-1 bg-popover border border-border rounded-lg shadow-lg animate-in fade-in-0 zoom-in-95 duration-100"
-          style={{
-            top: Math.max(0, toolbarPosition.top),
-            left: toolbarPosition.left,
-          }}
-        >
-          <button
-            onClick={() => editor.chain().focus().toggleBold().run()}
-            className={cn(
-              "p-1.5 rounded hover:bg-muted transition-colors",
-              editor.isActive('bold') && "bg-muted text-primary"
-            )}
-            type="button"
-            title="Negrito (Ctrl+B)"
-            aria-label="Negrito"
-          >
-            <Bold className="h-4 w-4" />
+      {/* Link input popover */}
+      {showLinkInput && (
+        <div className="absolute top-12 left-3 z-50 flex items-center gap-2 p-2 bg-popover border border-border rounded-lg shadow-lg animate-in fade-in-0 zoom-in-95 duration-100">
+          <LinkIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <input
+            ref={linkInputRef}
+            type="url"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); applyLink(); }
+              if (e.key === 'Escape') { setShowLinkInput(false); setLinkUrl(''); editor.chain().focus().run(); }
+            }}
+            placeholder="https://exemplo.com"
+            className="w-56 px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+          />
+          <button onClick={applyLink} type="button" className="p-1 rounded hover:bg-muted" title="Aplicar">
+            <ExternalLink className="h-4 w-4 text-primary" />
           </button>
-          <button
-            onClick={() => editor.chain().focus().toggleItalic().run()}
-            className={cn(
-              "p-1.5 rounded hover:bg-muted transition-colors",
-              editor.isActive('italic') && "bg-muted text-primary"
-            )}
-            type="button"
-            title="Itálico (Ctrl+I)"
-            aria-label="Itálico"
-          >
-            <Italic className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => editor.chain().focus().toggleCode().run()}
-            className={cn(
-              "p-1.5 rounded hover:bg-muted transition-colors",
-              editor.isActive('code') && "bg-muted text-primary"
-            )}
-            type="button"
-            title="Código inline"
-            aria-label="Código inline"
-          >
-            <Code className="h-4 w-4" />
-          </button>
-          <div className="w-px h-4 bg-border mx-1" />
-          <button
-            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-            className={cn(
-              "p-1.5 rounded hover:bg-muted transition-colors",
-              editor.isActive('heading', { level: 1 }) && "bg-muted text-primary"
-            )}
-            type="button"
-            title="Título 1"
-            aria-label="Título 1"
-          >
-            <Heading1 className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-            className={cn(
-              "p-1.5 rounded hover:bg-muted transition-colors",
-              editor.isActive('heading', { level: 2 }) && "bg-muted text-primary"
-            )}
-            type="button"
-            title="Título 2"
-            aria-label="Título 2"
-          >
-            <Heading2 className="h-4 w-4" />
-          </button>
-          <div className="w-px h-4 bg-border mx-1" />
-          <button
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-            className={cn(
-              "p-1.5 rounded hover:bg-muted transition-colors",
-              editor.isActive('bulletList') && "bg-muted text-primary"
-            )}
-            type="button"
-            title="Lista"
-            aria-label="Lista com marcadores"
-          >
-            <List className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            className={cn(
-              "p-1.5 rounded hover:bg-muted transition-colors",
-              editor.isActive('blockquote') && "bg-muted text-primary"
-            )}
-            type="button"
-            title="Citação"
-            aria-label="Citação"
-          >
-            <Quote className="h-4 w-4" />
-          </button>
+          {editor.isActive('link') && (
+            <button onClick={removeLink} type="button" className="p-1 rounded hover:bg-destructive/10" title="Remover link">
+              <X className="h-4 w-4 text-destructive" />
+            </button>
+          )}
         </div>
       )}
+
+      {/* BubbleMenu - native TipTap floating toolbar */}
+      <BubbleMenu 
+        editor={editor} 
+        options={{ placement: 'top' }}
+        className="flex items-center gap-0.5 p-1 bg-popover border border-border rounded-lg shadow-lg"
+      >
+        <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} title="Negrito">
+          <Bold className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} title="Itálico">
+          <Italic className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} isActive={editor.isActive('underline')} title="Sublinhado">
+          <UnderlineIcon className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} isActive={editor.isActive('strike')} title="Tachado">
+          <Strikethrough className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleHighlight().run()} isActive={editor.isActive('highlight')} title="Destaque">
+          <Highlighter className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <div className="w-px h-4 bg-border mx-0.5" />
+        <ToolbarButton onClick={openLinkInput} isActive={editor.isActive('link')} title="Link">
+          <LinkIcon className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleCode().run()} isActive={editor.isActive('code')} title="Código">
+          <Code className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <div className="w-px h-4 bg-border mx-0.5" />
+        <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} isActive={editor.isActive('heading', { level: 1 })} title="Título 1">
+          <Heading1 className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} isActive={editor.isActive('heading', { level: 2 })} title="Título 2">
+          <Heading2 className="h-3.5 w-3.5" />
+        </ToolbarButton>
+      </BubbleMenu>
 
       {/* Editor Content */}
       <EditorContent 
@@ -590,7 +600,7 @@ export function BlockEditor({
 
       {/* Helper text */}
       <div className="absolute bottom-2 right-3 text-[10px] text-muted-foreground/80 pointer-events-none">
-        / comandos • Ctrl+B negrito • Ctrl+I itálico
+        / comandos • Ctrl+B/I/U • Ctrl+K link • Tab recuar
       </div>
     </div>
   );

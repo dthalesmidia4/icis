@@ -450,7 +450,103 @@ All colors MUST be HSL.
   @apply bg-transparent p-0;
 }
 
-/* Drag handle for list items and task items */
+/* Highlight mark */
+.ProseMirror mark {
+  background-color: hsl(var(--primary) / 0.2);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+/* Link styles in editor */
+.ProseMirror a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-decoration-color: hsl(var(--primary) / 0.5);
+  cursor: pointer;
+}
+
+.ProseMirror a:hover {
+  text-decoration-color: hsl(var(--primary));
+}
+
+/* TaskList / Checklist Styles */
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.5rem 0;
+}
+
+.ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  position: relative;
+  margin-bottom: 0.25rem;
+  padding: 0.125rem 0;
+}
+
+.ProseMirror ul[data-type="taskList"] li::before {
+  display: none;
+}
+
+/* Checkbox styling */
+.ProseMirror ul[data-type="taskList"] li label {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.ProseMirror ul[data-type="taskList"] li label input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 3px;
+  border: 2px solid hsl(var(--border));
+  cursor: pointer;
+  accent-color: hsl(var(--primary));
+  transition: all 0.15s ease;
+}
+
+.ProseMirror ul[data-type="taskList"] li label input[type="checkbox"]:checked {
+  border-color: hsl(var(--primary));
+}
+
+.ProseMirror ul[data-type="taskList"] li label input[type="checkbox"]:hover {
+  border-color: hsl(var(--primary) / 0.7);
+}
+
+/* Task item content */
+.ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Checked items - strikethrough and muted */
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  color: hsl(var(--muted-foreground));
+  opacity: 0.7;
+}
+
+/* Nested task lists - indentation */
+.ProseMirror ul[data-type="taskList"] ul[data-type="taskList"] {
+  padding-left: 1.5rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+  border-left: 2px solid hsl(var(--border) / 0.5);
+}
+
+/* 2nd level nesting */
+.ProseMirror ul[data-type="taskList"] ul[data-type="taskList"] ul[data-type="taskList"] {
+  border-left-color: hsl(var(--border) / 0.3);
+}
+
+/* 3rd level nesting */
+.ProseMirror ul[data-type="taskList"] ul[data-type="taskList"] ul[data-type="taskList"] ul[data-type="taskList"] {
+  border-left-color: hsl(var(--border) / 0.2);
+}
+
+/* Drag handle for list items */
 .ProseMirror li {
   position: relative;
 }
@@ -477,10 +573,6 @@ All colors MUST be HSL.
   cursor: grabbing;
 }
 
-.ProseMirror ul[data-type="taskList"] li::before {
-  top: 0.2rem;
-}
-
 /* Dragging state */
 .ProseMirror .ProseMirror-selectednode {
   outline: 2px solid hsl(var(--primary) / 0.4);
@@ -494,4 +586,9 @@ All colors MUST be HSL.
 
 .ProseMirror [draggable="true"]:active {
   cursor: grabbing;
+}
+
+/* Gapcursor */
+.ProseMirror .ProseMirror-gapcursor::after {
+  border-top: 1px solid hsl(var(--foreground));
 }
