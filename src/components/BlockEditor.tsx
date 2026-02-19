@@ -570,6 +570,10 @@ export function BlockEditor({
         <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} isActive={editor.isActive('heading', { level: 2 })} title="Título 2">
           <Heading2 className="h-3.5 w-3.5" />
         </ToolbarButton>
+        <div className="w-px h-4 bg-border mx-0.5" />
+        <ToolbarButton onClick={() => editor.chain().focus().toggleTaskList().run()} isActive={editor.isActive('taskList')} title="Checklist">
+          <CheckSquare className="h-3.5 w-3.5" />
+        </ToolbarButton>
       </BubbleMenu>
 
       {/* Editor Content */}
