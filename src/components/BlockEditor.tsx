@@ -405,6 +405,7 @@ export function BlockEditor({
 
   const ToolbarButton = ({ onClick, isActive, title, children }: { onClick: () => void; isActive?: boolean; title: string; children: React.ReactNode }) => (
     <button
+      onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
       className={cn(
         "p-1.5 rounded hover:bg-muted transition-colors",
