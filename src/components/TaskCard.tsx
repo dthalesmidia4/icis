@@ -14,7 +14,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2 } from "lucide-react";
+import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import { BlockEditor } from "@/components/BlockEditor";
@@ -284,6 +285,35 @@ export default function TaskCard({
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
+  const [periodTitle, setPeriodTitle] = useState<string | null>(null);
+
+  // Fetch period title when card has a period_plan_id
+  useEffect(() => {
+    if (open && card?.period_plan_id) {
+      supabase
+        .from("period_plans")
+        .select("period_title")
+        .eq("id", card.period_plan_id)
+        .single()
+        .then(({ data }) => {
+          setPeriodTitle(data?.period_title || null);
+        });
+    } else {
+      setPeriodTitle(null);
+    }
+  }, [open, card?.period_plan_id]);
+
+  // Derive priority from publish date proximity
+  const getDerivedPriority = () => {
+    if (!card?.publish_date) return null;
+    const now = new Date();
+    const publishDate = new Date(card.publish_date + 'T00:00:00');
+    const diffDays = Math.ceil((publishDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) return { label: "Atrasada", className: "bg-destructive/15 text-destructive border-destructive/30" };
+    if (diffDays <= 2) return { label: "Alta", className: "bg-destructive/15 text-destructive border-destructive/30" };
+    if (diffDays <= 5) return { label: "Média", className: "bg-amber-500/15 text-amber-600 border-amber-500/30" };
+    return { label: "Normal", className: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30" };
+  };
   
   // Section collapse states - persisted in localStorage
   const STORAGE_KEY = 'taskcard-collapsed-sections';
@@ -552,89 +582,106 @@ export default function TaskCard({
 
   if (!card || !open) return null;
   const statusConfig = getDynamicStatusConfig(card.status || normalizedStatus);
+  const priority = getDerivedPriority();
   const modalContent = <>
       {/* Full-screen modal container - respects sidebar */}
       <div className="fixed inset-0 z-50 md:left-16 flex flex-col" role="dialog" aria-modal="true" aria-labelledby="task-card-title">
-        {/* Overlay - only covers content area */}
+        {/* Overlay */}
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" aria-hidden="true" />
         
-        {/* Modal Content - Full screen within content area */}
+        {/* Modal Content */}
         <div className="relative z-10 flex flex-col h-full w-full bg-card border-l border-border shadow-2xl animate-in fade-in-0 slide-in-from-right-2 duration-200">
-          {/* ===== HEADER OPERACIONAL (Fixo, compacto) ===== */}
+          
+          {/* ===== HEADER REDESENHADO ===== */}
           <div className="border-b border-border bg-card px-6 py-4 shrink-0">
-            {/* Close Button */}
-            <Button variant="ghost" size="icon" className="absolute top-4 right-4 h-8 w-8 rounded-full hover:bg-muted z-20" onClick={() => onOpenChange(false)}>
-              <X className="h-4 w-4" />
-              <span className="sr-only">Fechar</span>
-            </Button>
-
-            {/* Title - Centered */}
-            <div className="mb-4 px-12 text-center">
-              {!readOnly && editingField === 'title' ? <Input autoFocus value={card.title || ""} onChange={e => onCardChange({
-              ...card,
-              title: e.target.value
-            })} onBlur={() => handleFieldSave('title', card.title || '')} onKeyDown={e => {
-              if (e.key === 'Enter') handleFieldSave('title', card.title || '');
-            }} className="text-2xl font-semibold border-primary text-center" /> : <h1 id="task-card-title" onClick={() => !readOnly && setEditingField('title')} className={cn("font-semibold text-4xl", !readOnly && "cursor-pointer hover:text-primary transition-colors")}>
-                  {card.title}
-                </h1>}
+            {/* Linha 1: Título + Close */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                {!readOnly && editingField === 'title' ? (
+                  <Input 
+                    autoFocus 
+                    value={card.title || ""} 
+                    onChange={e => onCardChange({ ...card, title: e.target.value })} 
+                    onBlur={() => handleFieldSave('title', card.title || '')} 
+                    onKeyDown={e => { if (e.key === 'Enter') handleFieldSave('title', card.title || ''); }}
+                    className="text-xl font-semibold border-primary" 
+                  />
+                ) : (
+                  <h1 
+                    id="task-card-title" 
+                    onClick={() => !readOnly && setEditingField('title')} 
+                    className={cn("font-semibold text-xl truncate", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
+                  >
+                    {card.title}
+                  </h1>
+                )}
+              </div>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-muted shrink-0" onClick={() => onOpenChange(false)}>
+                <X className="h-4 w-4" />
+                <span className="sr-only">Fechar</span>
+              </Button>
             </div>
 
-            {/* Control Fields - Centered, Single Row */}
-            <div className="flex items-center justify-center gap-3 flex-wrap">
-              {/* Status - ClickUp inspired */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</span>
-                {readOnly ? (
-                  <div 
-                    className="h-9 px-3 flex items-center gap-2 rounded-md border font-medium text-xs"
-                    style={{
-                      backgroundColor: `${statusConfig.color}15`,
-                      color: statusConfig.color,
-                      borderColor: `${statusConfig.color}40`
-                    }}
-                  >
-                    <span className="h-3 w-3 rounded-full flex-shrink-0" style={{ backgroundColor: statusConfig.color }} />
-                    <span>{statusConfig.label}</span>
-                  </div>
-                ) : (
+            {/* Linha 2: Metadados contextuais */}
+            <div className="flex items-center gap-6 mt-2 text-sm text-muted-foreground">
+              {card.clientName && (
+                <div className="flex items-center gap-1.5">
+                  <User className="h-3.5 w-3.5" />
+                  <span>Cliente</span>
+                  <strong className="text-foreground">{card.clientName}</strong>
+                </div>
+              )}
+              {periodTitle && (
+                <div className="flex items-center gap-1.5">
+                  <CalendarIconOutline className="h-3.5 w-3.5" />
+                  <span>Cronograma</span>
+                  <strong className="text-foreground">{periodTitle}</strong>
+                </div>
+              )}
+            </div>
+
+            {/* Linha 3: Status + Prioridade */}
+            <div className="flex items-center gap-3 mt-3 flex-wrap">
+              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</span>
+              {readOnly ? (
+                <div 
+                  className="h-8 px-3 flex items-center gap-2 rounded-md border font-medium text-xs"
+                  style={{
+                    backgroundColor: `${statusConfig.color}15`,
+                    color: statusConfig.color,
+                    borderColor: `${statusConfig.color}40`
+                  }}
+                >
+                  <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusConfig.color }} />
+                  <span>{statusConfig.label}</span>
+                </div>
+              ) : (
                 <Select value={card.status || normalizedStatus} onValueChange={async (value) => {
-                  // Interceptar "Agendar Publicação" para abrir modal de agendamento
                   if (value === "Agendar Publicação") {
                     if (onScheduleRequest) {
                       onScheduleRequest(card);
                       return;
                     }
-                    // Fallback: bloquear se não há handler
-                    const hasPublishDate = !!card.publish_date;
-                    if (!hasPublishDate) {
-                      const { toast } = await import("sonner");
+                    if (!card.publish_date) {
                       toast.error("Defina uma data de publicação", {
                         description: "Para mover para 'Agendar Publicação', defina data e horário primeiro."
                       });
                       return;
                     }
                   }
-                  
-                  onCardChange({
-                    ...card,
-                    status: value
-                  });
+                  onCardChange({ ...card, status: value });
                   handleFieldSave('status', value);
                 }}>
                   <SelectTrigger 
-                    className="h-9 w-auto min-w-[180px] gap-2 border font-medium text-xs"
+                    className="h-8 w-auto min-w-[170px] gap-2 border font-medium text-xs"
                     style={{
                       backgroundColor: `${statusConfig.color}15`,
                       color: statusConfig.color,
                       borderColor: `${statusConfig.color}40`
                     }}
-                    aria-label="Selecionar status da tarefa"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="h-3 w-3 rounded-full flex-shrink-0" style={{
-                        backgroundColor: statusConfig.color
-                      }} />
+                      <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusConfig.color }} />
                       <span className="truncate">{statusConfig.label}</span>
                     </div>
                   </SelectTrigger>
@@ -646,10 +693,7 @@ export default function TaskCard({
                             {idx > 0 && <Separator className="my-1" />}
                             <SelectItem value={status.name} className="cursor-pointer">
                               <div className="flex items-center gap-2">
-                                <span 
-                                  className="h-3 w-3 rounded-full flex-shrink-0" 
-                                  style={{ backgroundColor: status.color }}
-                                />
+                                <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />
                                 <span className="text-xs font-medium">{status.name.toUpperCase()}</span>
                               </div>
                             </SelectItem>
@@ -662,15 +706,7 @@ export default function TaskCard({
                             {group.statuses.map(status => (
                               <SelectItem key={status.value} value={status.column} className="cursor-pointer">
                                 <div className="flex items-center gap-2">
-                                  <span 
-                                    className={cn(
-                                      "h-3 w-3 rounded-full flex-shrink-0 flex items-center justify-center", 
-                                      status.value === 'concluido' && "ring-1 ring-inset ring-white/30"
-                                    )} 
-                                    style={{ backgroundColor: status.color }}
-                                  >
-                                    {status.value === 'concluido' && <Check className="h-2 w-2 text-white" />}
-                                  </span>
+                                  <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />
                                   <span className="text-xs font-medium">{status.label}</span>
                                 </div>
                               </SelectItem>
@@ -681,387 +717,379 @@ export default function TaskCard({
                     </ScrollArea>
                   </SelectContent>
                 </Select>
-                )}
-              </div>
+              )}
 
-
-              <div className="h-4 w-px bg-border" />
-
-              {/* Data de Publicação (single date + time) */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Publicação</span>
-                {readOnly ? (
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-7 px-2 flex items-center gap-1.5 text-xs border rounded-md bg-muted/30">
-                      <CalendarIcon className="h-3 w-3" />
-                      {card.publish_date ? formatShortDate(card.publish_date) : <span className="text-muted-foreground">Sem data</span>}
-                    </span>
-                    {card.publish_time && (
-                      <span className="h-7 px-2 flex items-center text-xs border rounded-md bg-muted/30">
-                        {card.publish_time}
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                <TooltipProvider delayDuration={200}>
-                  <div className="flex items-center gap-1.5">
-                    {/* Date Picker */}
-                    <Popover 
-                      open={isDatePickerOpen} 
-                      onOpenChange={setIsDatePickerOpen}
-                    >
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <PopoverTrigger asChild>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="h-7 px-2 gap-1.5 font-normal text-xs"
-                            >
-                              <CalendarIcon className="h-3 w-3" />
-                              {card.publish_date ? formatShortDate(card.publish_date) : <span className="text-muted-foreground">Definir data</span>}
-                            </Button>
-                          </PopoverTrigger>
-                        </TooltipTrigger>
-                        {card.publish_date && (
-                          <TooltipContent side="top">
-                            <span className="capitalize">{formatFullDate(card.publish_date)}</span>
-                          </TooltipContent>
-                        )}
-                      </Tooltip>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar 
-                          mode="single" 
-                          selected={card.publish_date ? new Date(card.publish_date + 'T00:00:00') : undefined} 
-                          onSelect={handlePublishDateChange} 
-                          initialFocus 
-                          className="p-3 pointer-events-auto" 
-                        />
-                      </PopoverContent>
-                    </Popover>
-
-                    {/* Time Input */}
-                    <Input
-                      type="time"
-                      value={card.publish_time || '09:00'}
-                      onChange={(e) => handlePublishTimeChange(e.target.value)}
-                      className="h-7 w-[80px] text-xs px-2"
-                      aria-label="Horário de publicação"
-                    />
-                  </div>
-                </TooltipProvider>
-                )}
-              </div>
-
-              {/* Period linking for unlinked demands */}
-              {!readOnly && !card.period_plan_id && periodPlans.length > 0 && (
+              {priority && (
                 <>
                   <div className="h-4 w-px bg-border" />
-                  <div className="flex items-center gap-2">
-                    <Link className="h-3.5 w-3.5 text-muted-foreground" />
-                    <Select onValueChange={handleLinkPeriod}>
-                      <SelectTrigger className="h-7 w-auto min-w-[160px] text-xs">
-                        <SelectValue placeholder="Vincular a período" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background z-50">
-                        {periodPlans.map(pp => (
-                          <SelectItem key={pp.id} value={pp.id}>
-                            <span className="text-xs">{pp.period_title} ({format(new Date(pp.period_start + 'T00:00:00'), "dd/MM", { locale: ptBR })} - {format(new Date(pp.period_end + 'T00:00:00'), "dd/MM", { locale: ptBR })})</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Prioridade</span>
+                  <Badge variant="outline" className={cn("text-xs font-medium border", priority.className)}>
+                    {priority.label}
+                  </Badge>
                 </>
-              )}
-
-              {!readOnly && (
-              <>
-              <div className="h-4 w-px bg-border" />
-
-              {/* Archive/Unarchive button */}
-              {onArchive && (
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className={cn(
-                          "h-8 text-muted-foreground",
-                          card.archived_at 
-                            ? "hover:text-primary hover:bg-primary/10" 
-                            : "hover:text-amber-600 hover:bg-amber-500/10"
-                        )}
-                        onClick={() => onArchive(!card.archived_at)}
-                        aria-label={card.archived_at ? "Desarquivar" : "Arquivar"}
-                      >
-                        {card.archived_at ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      {card.archived_at ? "Desarquivar demanda" : "Arquivar demanda"}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-
-              {/* Delete button */}
-              <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={onDelete} aria-label="Excluir tarefa">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-              </>
               )}
             </div>
           </div>
 
-          {/* ===== BODY (Conteúdo de execução, scrollable) ===== */}
+          {/* ===== BODY - 2 COLUNAS ===== */}
           <div className="flex-1 min-h-0 overflow-y-auto">
-            <div className="px-10 py-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-6 p-6">
               
-              {/* Objetivo */}
-              <section>
-                <button 
-                  type="button"
-                  onClick={() => toggleSection('objetivo')}
-                  className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
-                >
-                  {collapsedSections.objetivo ? (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  <div className="p-1.5 bg-primary/10 rounded-md">
-                    <Target className="h-4 w-4 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-foreground uppercase tracking-wide text-xl">Objetivo</h3>
-                  {saving && savingField === 'objective' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                </button>
-                {!collapsedSections.objetivo && (
-                  readOnly ? (
-                    <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.objective || "") }} />
-                  ) : (
-                  <BlockEditor content={convertToHtml(card.objective || "")} onChange={value => {
-                    onCardChange({
-                      ...card,
-                      objective: value
-                    });
-                  }} onBlur={() => handleFieldSave('objective', card.objective || '')} placeholder="Qual é a finalidade estratégica deste material?" minHeight="80px" />
-                  )
+              {/* === COLUNA ESQUERDA: Conteúdo === */}
+              <div className="space-y-6">
+                {/* Objetivo + Atividade Card */}
+                <Card>
+                  <CardContent className="p-5 space-y-5">
+                    {/* Objetivo */}
+                    <section>
+                      <button 
+                        type="button"
+                        onClick={() => toggleSection('objetivo')}
+                        className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
+                      >
+                        {collapsedSections.objetivo ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                        <div className="p-1.5 bg-primary/10 rounded-md">
+                          <Target className="h-4 w-4 text-primary" />
+                        </div>
+                        <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Objetivo</h3>
+                        {saving && savingField === 'objective' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
+                      </button>
+                      {!collapsedSections.objetivo && (
+                        readOnly ? (
+                          <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.objective || "") }} />
+                        ) : (
+                          <BlockEditor content={convertToHtml(card.objective || "")} onChange={value => onCardChange({ ...card, objective: value })} onBlur={() => handleFieldSave('objective', card.objective || '')} placeholder="Qual é a finalidade estratégica deste material?" minHeight="80px" />
+                        )
+                      )}
+                    </section>
+
+                    <Separator />
+
+                    {/* Atividade */}
+                    <section>
+                      <button 
+                        type="button"
+                        onClick={() => toggleSection('atividade')}
+                        className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
+                      >
+                        {collapsedSections.atividade ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                        <div className="p-1.5 bg-primary/10 rounded-md">
+                          <FileText className="h-4 w-4 text-primary" />
+                        </div>
+                        <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Atividade</h3>
+                        {saving && savingField === 'description' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
+                      </button>
+                      {!collapsedSections.atividade && (
+                        readOnly ? (
+                          <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.description || "") }} />
+                        ) : (
+                          <BlockEditor content={convertToHtml(card.description || "")} onChange={value => onCardChange({ ...card, description: value })} onBlur={() => handleFieldSave('description', card.description || '')} placeholder="Copy, roteiros, frames, instruções de produção..." minHeight="200px" />
+                        )
+                      )}
+                    </section>
+                  </CardContent>
+                </Card>
+
+                {/* Observações Card */}
+                <Card>
+                  <CardContent className="p-5">
+                    <section>
+                      <button 
+                        type="button"
+                        onClick={() => toggleSection('observacoes')}
+                        className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
+                      >
+                        {collapsedSections.observacoes ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                        <div className="p-1.5 bg-primary/10 rounded-md">
+                          <MessageSquare className="h-4 w-4 text-primary" />
+                        </div>
+                        <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Observações</h3>
+                        {saving && savingField === 'observations' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
+                      </button>
+                      {!collapsedSections.observacoes && (
+                        readOnly ? (
+                          <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.observations || "") }} />
+                        ) : (
+                          <BlockEditor content={convertToHtml(card.observations || "")} onChange={value => onCardChange({ ...card, observations: value })} onBlur={() => handleFieldSave('observations', card.observations || '')} placeholder="Feedbacks, ajustes, observações internas..." minHeight="100px" />
+                        )
+                      )}
+                    </section>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* === COLUNA DIREITA: Publicação + Controles === */}
+              <div className="space-y-4">
+                {/* Data de Publicação */}
+                <Card>
+                  <CardContent className="p-4 space-y-4">
+                    <h3 className="font-semibold text-sm flex items-center gap-2">
+                      <CalendarIcon className="h-4 w-4 text-primary" />
+                      Data de Publicação
+                    </h3>
+                    
+                    {readOnly ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                          {card.publish_date ? (
+                            <span className="capitalize">{formatFullDate(card.publish_date)}</span>
+                          ) : (
+                            <span className="text-muted-foreground">Sem data definida</span>
+                          )}
+                        </div>
+                        {card.publish_time && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>{card.publish_time}</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {/* Date Picker */}
+                        <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
+                              <CalendarIcon className="h-3.5 w-3.5" />
+                              {card.publish_date ? (
+                                <span className="capitalize">{formatShortDate(card.publish_date)}</span>
+                              ) : (
+                                <span className="text-muted-foreground">Definir data</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar 
+                              mode="single" 
+                              selected={card.publish_date ? new Date(card.publish_date + 'T00:00:00') : undefined} 
+                              onSelect={handlePublishDateChange} 
+                              initialFocus 
+                              className="p-3 pointer-events-auto" 
+                            />
+                          </PopoverContent>
+                        </Popover>
+
+                        {/* Time Input */}
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            type="time"
+                            value={card.publish_time || '09:00'}
+                            onChange={(e) => handlePublishTimeChange(e.target.value)}
+                            className="h-9 flex-1 text-sm"
+                            aria-label="Horário de publicação"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Period linking for unlinked demands */}
+                {!readOnly && !card.period_plan_id && periodPlans.length > 0 && (
+                  <Card>
+                    <CardContent className="p-4">
+                      <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                        <Link className="h-4 w-4 text-primary" />
+                        Vincular a período
+                      </h3>
+                      <Select onValueChange={handleLinkPeriod}>
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder="Selecionar período" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background z-50">
+                          {periodPlans.map(pp => (
+                            <SelectItem key={pp.id} value={pp.id}>
+                              <span className="text-xs">{pp.period_title} ({format(new Date(pp.period_start + 'T00:00:00'), "dd/MM", { locale: ptBR })} - {format(new Date(pp.period_end + 'T00:00:00'), "dd/MM", { locale: ptBR })})</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </CardContent>
+                  </Card>
                 )}
-              </section>
 
-              {/* Atividade */}
-              <section>
-                <button 
-                  type="button"
-                  onClick={() => toggleSection('atividade')}
-                  className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
-                >
-                  {collapsedSections.atividade ? (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  <div className="p-1.5 bg-primary/10 rounded-md">
-                    <FileText className="h-4 w-4 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-foreground uppercase tracking-wide text-lg">Atividade</h3>
-                  {saving && savingField === 'description' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                </button>
-                {!collapsedSections.atividade && (
-                  readOnly ? (
-                    <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.description || "") }} />
-                  ) : (
-                  <BlockEditor content={convertToHtml(card.description || "")} onChange={value => {
-                    onCardChange({
-                      ...card,
-                      description: value
-                    });
-                  }} onBlur={() => handleFieldSave('description', card.description || '')} placeholder="Copy, roteiros, frames, instruções de produção..." minHeight="200px" />
-                  )
+                {/* Ações secundárias */}
+                {!readOnly && (
+                  <Card>
+                    <CardContent className="p-4 space-y-2">
+                      <h3 className="font-semibold text-sm text-muted-foreground mb-2">Ações</h3>
+                      {onArchive && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className={cn(
+                            "w-full justify-start gap-2 text-sm",
+                            card.archived_at 
+                              ? "hover:text-primary hover:border-primary/30" 
+                              : "hover:text-amber-600 hover:border-amber-500/30"
+                          )}
+                          onClick={() => onArchive(!card.archived_at)}
+                        >
+                          {card.archived_at ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+                          {card.archived_at ? "Desarquivar demanda" : "Arquivar demanda"}
+                        </Button>
+                      )}
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full justify-start gap-2 text-sm text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+                        onClick={onDelete}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Excluir demanda
+                      </Button>
+                    </CardContent>
+                  </Card>
                 )}
-              </section>
+              </div>
+            </div>
 
-              {/* Observações */}
-              <section>
-                <button 
-                  type="button"
-                  onClick={() => toggleSection('observacoes')}
-                  className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
-                >
-                  {collapsedSections.observacoes ? (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  <div className="p-1.5 bg-primary/10 rounded-md">
-                    <MessageSquare className="h-4 w-4 text-primary" />
+            {/* ===== ANEXOS - Full Width ===== */}
+            <div className="px-6 pb-6">
+              <Card>
+                <CardContent className="p-5">
+                  {/* Header dos Anexos */}
+                  <div className="flex items-center justify-between mb-4">
+                    <button 
+                      type="button"
+                      onClick={() => toggleSection('anexos')}
+                      className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                    >
+                      {collapsedSections.anexos ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                      <div className="p-1.5 bg-primary/10 rounded-md">
+                        <Paperclip className="h-4 w-4 text-primary" />
+                      </div>
+                      <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Anexos</h3>
+                      {card.attachments && card.attachments.length > 0 && (
+                        <Badge variant="secondary" className="ml-1 text-xs">{card.attachments.length}</Badge>
+                      )}
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      {uploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                      {!readOnly && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => generatingImages ? null : setShowGenerateConfirm(true)}
+                          disabled={generatingImages}
+                          className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                        >
+                          {generatingImages ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Wand2 className="h-4 w-4" />
+                          )}
+                          {generatingImages && generationProgress
+                            ? `Gerando ${generationProgress.current}/${generationProgress.total}...`
+                            : generatingImages
+                              ? 'Gerando...'
+                              : 'Gerar estáticos com IA'}
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <h3 className="font-semibold text-foreground uppercase tracking-wide text-lg">Observações</h3>
-                  {saving && savingField === 'observations' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                </button>
-                {!collapsedSections.observacoes && (
-                  readOnly ? (
-                    <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.observations || "") }} />
-                  ) : (
-                  <BlockEditor content={convertToHtml(card.observations || "")} onChange={value => {
-                    onCardChange({
-                      ...card,
-                      observations: value
-                    });
-                  }} onBlur={() => handleFieldSave('observations', card.observations || '')} placeholder="Feedbacks, ajustes, observações internas..." minHeight="100px" />
-                  )
-                )}
-              </section>
 
-              {/* Anexos */}
-              <section>
-                <button 
-                  type="button"
-                  onClick={() => toggleSection('anexos')}
-                  className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
-                >
-                  {collapsedSections.anexos ? (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  <div className="p-1.5 bg-primary/10 rounded-md">
-                    <Paperclip className="h-4 w-4 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-foreground uppercase tracking-wide text-lg">Anexos</h3>
-                  {card.attachments && card.attachments.length > 0 && (
-                    <Badge variant="secondary" className="ml-1 text-xs">{card.attachments.length}</Badge>
-                  )}
-                  {uploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                </button>
-
-                {/* Generate AI Images Button - below Anexos title */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => generatingImages ? null : setShowGenerateConfirm(true)}
-                  disabled={generatingImages}
-                  className="gap-2 border-primary/30 text-primary hover:bg-primary/10 mb-3"
-                >
-                  {generatingImages ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Wand2 className="h-4 w-4" />
-                  )}
-                  {generatingImages && generationProgress
-                    ? `Gerando slide ${generationProgress.current}/${generationProgress.total}...`
-                    : generatingImages
-                      ? 'Gerando imagens...'
-                      : 'Gerar estáticos com IA'}
-                </Button>
-
-                {!collapsedSections.anexos && (
-                  <>
-                    {/* Attachments Grid with Drag and Drop */}
-                    {card.attachments && card.attachments.length > 0 && (
-                      <DragDropContext onDragEnd={handleAttachmentDragEnd}>
-                        <Droppable droppableId="attachments-list">
-                          {(provided) => (
-                            <div 
-                              ref={provided.innerRef}
-                              {...provided.droppableProps}
-                              className="flex flex-col gap-2 mb-4"
-                            >
-                              {card.attachments!.map((attachment, idx) => (
-                                <Draggable 
-                                  key={`attachment-${idx}-${attachment.url}`} 
-                                  draggableId={`attachment-${idx}-${attachment.url}`} 
-                                  index={idx}
-                                >
-                                  {(provided, snapshot) => (
-                                    <div 
-                                      ref={provided.innerRef}
-                                      {...provided.draggableProps}
-                                      className={cn(
-                                        "group flex items-center gap-3 p-2 bg-muted/30 rounded-lg border border-border/50 hover:border-primary/50 transition-colors",
-                                        snapshot.isDragging && "shadow-lg ring-2 ring-primary/50 z-50 bg-background"
-                                      )}
-                                    >
-                                      {/* Drag Handle */}
+                  {!collapsedSections.anexos && (
+                    <>
+                      {/* Attachments List with Drag and Drop */}
+                      {card.attachments && card.attachments.length > 0 && (
+                        <DragDropContext onDragEnd={handleAttachmentDragEnd}>
+                          <Droppable droppableId="attachments-list">
+                            {(provided) => (
+                              <div 
+                                ref={provided.innerRef}
+                                {...provided.droppableProps}
+                                className="flex flex-col gap-2 mb-4"
+                              >
+                                {card.attachments!.map((attachment, idx) => (
+                                  <Draggable 
+                                    key={`attachment-${idx}-${attachment.url}`} 
+                                    draggableId={`attachment-${idx}-${attachment.url}`} 
+                                    index={idx}
+                                  >
+                                    {(provided, snapshot) => (
                                       <div 
-                                        {...provided.dragHandleProps}
-                                        className="p-1.5 rounded hover:bg-muted cursor-grab active:cursor-grabbing flex-shrink-0"
+                                        ref={provided.innerRef}
+                                        {...provided.draggableProps}
+                                        className={cn(
+                                          "group flex items-center gap-3 p-2 bg-muted/30 rounded-lg border border-border/50 hover:border-primary/50 transition-colors",
+                                          snapshot.isDragging && "shadow-lg ring-2 ring-primary/50 z-50 bg-background"
+                                        )}
                                       >
-                                        <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                      </div>
-                                      
-                                      {/* Thumbnail */}
-                                      <div 
-                                        className="h-12 w-12 rounded-md bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
-                                        onClick={() => setPreviewAttachment(attachment)}
-                                      >
-                                        {isImageFile(attachment.type) ? (
-                                          <img src={attachment.url} alt={attachment.name} className="h-full w-full object-cover" />
-                                        ) : (
-                                          <File className="h-5 w-5 text-muted-foreground" />
+                                        <div 
+                                          {...provided.dragHandleProps}
+                                          className="p-1.5 rounded hover:bg-muted cursor-grab active:cursor-grabbing flex-shrink-0"
+                                        >
+                                          <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                        </div>
+                                        
+                                        <div 
+                                          className="h-12 w-12 rounded-md bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                                          onClick={() => setPreviewAttachment(attachment)}
+                                        >
+                                          {isImageFile(attachment.type) ? (
+                                            <img src={attachment.url} alt={attachment.name} className="h-full w-full object-cover" />
+                                          ) : (
+                                            <File className="h-5 w-5 text-muted-foreground" />
+                                          )}
+                                        </div>
+
+                                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setPreviewAttachment(attachment)}>
+                                          <p className="text-sm font-medium truncate text-foreground">{attachment.name}</p>
+                                          <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                                        </div>
+
+                                        {!readOnly && (
+                                          <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive" 
+                                            onClick={() => setAttachmentToRemove(attachment)}
+                                          >
+                                            <X className="h-4 w-4" />
+                                          </Button>
                                         )}
                                       </div>
+                                    )}
+                                  </Draggable>
+                                ))}
+                                {provided.placeholder}
+                              </div>
+                            )}
+                          </Droppable>
+                        </DragDropContext>
+                      )}
 
-                                      {/* File Info */}
-                                      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setPreviewAttachment(attachment)}>
-                                        <p className="text-sm font-medium truncate text-foreground">{attachment.name}</p>
-                                        <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
-                                      </div>
-
-                                      {/* Remove button */}
-                                      {!readOnly && (
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive" 
-                                        onClick={() => setAttachmentToRemove(attachment)}
-                                      >
-                                        <X className="h-4 w-4" />
-                                      </Button>
-                                      )}
-                                    </div>
-                                  )}
-                                </Draggable>
-                              ))}
-                              {provided.placeholder}
-                            </div>
+                      {/* Upload Button */}
+                      {!readOnly && (
+                        <label className={cn(
+                          "flex items-center gap-2 px-4 py-3 border-2 border-dashed border-border/60 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all",
+                          uploading && "opacity-50 cursor-not-allowed"
+                        )}>
+                          <input 
+                            type="file" 
+                            multiple 
+                            className="hidden" 
+                            onChange={onFileUpload}
+                            disabled={uploading}
+                          />
+                          {uploading ? (
+                            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                          ) : (
+                            <Upload className="h-5 w-5 text-muted-foreground" />
                           )}
-                        </Droppable>
-                      </DragDropContext>
-                    )}
-
-                    {/* Upload Button */}
-                    {!readOnly && (
-                    <div className="flex flex-col gap-2">
-                      <label className={cn(
-                        "flex items-center gap-2 px-4 py-3 border-2 border-dashed border-border/60 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all",
-                        uploading && "opacity-50 cursor-not-allowed"
-                      )}>
-                        <input 
-                          type="file" 
-                          multiple 
-                          className="hidden" 
-                          onChange={onFileUpload}
-                          disabled={uploading}
-                        />
-                        {uploading ? (
-                          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                        ) : (
-                          <Upload className="h-5 w-5 text-muted-foreground" />
-                        )}
-                        <span className="text-sm text-muted-foreground">
-                          {uploading ? 'Fazendo upload...' : 'Clique para anexar arquivos (máx. 50MB)'}
-                        </span>
-                      </label>
-
-                      {/* Old AI button location removed - moved to below Anexos title */}
-                    </div>
-                    )}
-                  </>
-                )}
-              </section>
+                          <span className="text-sm text-muted-foreground">
+                            {uploading ? 'Fazendo upload...' : 'Clique para anexar arquivos (máx. 50MB)'}
+                          </span>
+                        </label>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
