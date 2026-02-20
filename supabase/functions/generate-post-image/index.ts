@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
     // 3. Fetch client branding
     const { data: client } = await supabase
       .from("tenant_companies")
-      .select("name, fantasy_name, logo_url, brand_primary_color, brand_secondary_color, brand_font")
+      .select("name, fantasy_name, logo_url, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_url")
       .eq("id", demand.client_id)
       .single();
 
@@ -153,6 +153,8 @@ Deno.serve(async (req) => {
     const primaryColor = client?.brand_primary_color || "#000000";
     const secondaryColor = client?.brand_secondary_color || "#FFFFFF";
     const brandFont = client?.brand_font || "Montserrat";
+    const hasMascot = client?.has_mascot || false;
+    const mascotUrl = client?.mascot_url || null;
 
     const basePrompt = promptData?.prompt_content || "";
     const strategySnippet = strategy?.strategy_text
@@ -180,6 +182,7 @@ BRANDING:
 - Cor secundária: ${secondaryColor}
 - Tipografia: ${brandFont}
 - Incluir nome da marca sutilmente no canto inferior
+${hasMascot ? `- MASCOTE: A marca possui um mascote oficial. ${mascotUrl ? "Inclua um personagem/mascote simpático e carismático como elemento central ou de destaque no design, representando a marca de forma lúdica e memorável." : "Crie um personagem/mascote simpático que represente a marca."}` : "- NÃO inclua personagens ou mascotes no design."}
 
 ESTILO:
 - Design limpo, moderno e profissional para redes sociais

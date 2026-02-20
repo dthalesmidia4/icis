@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Save, X, Loader2, Trash2, Pencil, Building2, Mail, Phone, Calendar, MapPin, Upload, Image } from "lucide-react";
+import { ArrowLeft, Save, X, Loader2, Trash2, Pencil, Building2, Mail, Phone, Calendar, MapPin, Upload, Image, Dog } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useState, useEffect, useRef } from "react";
 import { ImageCropper } from "@/components/ImageCropper";
@@ -44,6 +45,7 @@ interface ClientFormData {
   brand_primary_color: string;
   brand_secondary_color: string;
   brand_font: string;
+  has_mascot: boolean;
 }
 
 const SECTOR_OPTIONS = [
@@ -119,7 +121,8 @@ const parseStoredData = (client: any): ClientFormData => {
     complement: "",
     brand_primary_color: client.brand_primary_color || "",
     brand_secondary_color: client.brand_secondary_color || "",
-    brand_font: client.brand_font || ""
+    brand_font: client.brand_font || "",
+    has_mascot: client.has_mascot || false
   };
 };
 
@@ -142,6 +145,14 @@ const ClientDetails = () => {
   const [cropperOpen, setCropperOpen] = useState(false);
   const [croppedBlob, setCroppedBlob] = useState<Blob | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Mascot upload states
+  const [isUploadingMascot, setIsUploadingMascot] = useState(false);
+  const [previewMascot, setPreviewMascot] = useState<string | null>(null);
+  const [rawMascotSrc, setRawMascotSrc] = useState<string | null>(null);
+  const [mascotCropperOpen, setMascotCropperOpen] = useState(false);
+  const [croppedMascotBlob, setCroppedMascotBlob] = useState<Blob | null>(null);
+  const mascotInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<ClientFormData>({
     name: "",
     fantasy_name: "",
@@ -167,7 +178,8 @@ const ClientDetails = () => {
     complement: "",
     brand_primary_color: "",
     brand_secondary_color: "",
-    brand_font: ""
+    brand_font: "",
+    has_mascot: false
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -200,6 +212,7 @@ const ClientDetails = () => {
     if (client) {
       setFormData(parseStoredData(client));
       setPreviewLogo(client.logo_url || null);
+      setPreviewMascot((client as any).mascot_url || null);
     }
   }, [client]);
 
@@ -288,6 +301,92 @@ const ClientDetails = () => {
       toast.error(error.message || "Erro ao remover logo");
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  // Mascot upload handlers
+  const handleMascotFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Formato inválido. Use PNG, JPG ou JPEG.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Arquivo muito grande. Máximo 5MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setRawMascotSrc(reader.result as string);
+      setMascotCropperOpen(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleMascotCropComplete = (blob: Blob) => {
+    setCroppedMascotBlob(blob);
+    setPreviewMascot(URL.createObjectURL(blob));
+    setMascotCropperOpen(false);
+  };
+
+  const handleUploadMascot = async () => {
+    if (!id || !croppedMascotBlob) return;
+    setIsUploadingMascot(true);
+    try {
+      if ((client as any)?.mascot_url) {
+        const pathParts = (client as any).mascot_url.split('/company-logos/');
+        if (pathParts[1]) {
+          await supabase.storage.from('company-logos').remove([pathParts[1]]);
+        }
+      }
+      const fileName = `mascot-${Date.now()}.png`;
+      const filePath = `${id}/${fileName}`;
+      const { error: uploadError } = await supabase.storage
+        .from('company-logos')
+        .upload(filePath, croppedMascotBlob, { upsert: true, contentType: 'image/png' });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(filePath);
+      const { error: updateError } = await supabase
+        .from('tenant_companies')
+        .update({ mascot_url: urlData.publicUrl } as any)
+        .eq('id', id);
+      if (updateError) throw updateError;
+      toast.success("Mascote atualizado com sucesso!");
+      setCroppedMascotBlob(null);
+      queryClient.invalidateQueries({ queryKey: ['client-details', id] });
+    } catch (error: any) {
+      console.error('Mascot upload error:', error);
+      toast.error(error.message || "Erro ao fazer upload do mascote");
+    } finally {
+      setIsUploadingMascot(false);
+    }
+  };
+
+  const handleRemoveMascot = async () => {
+    if (!id) return;
+    setIsUploadingMascot(true);
+    try {
+      if ((client as any)?.mascot_url) {
+        const pathParts = (client as any).mascot_url.split('/company-logos/');
+        if (pathParts[1]) {
+          await supabase.storage.from('company-logos').remove([pathParts[1]]);
+        }
+      }
+      const { error } = await supabase
+        .from('tenant_companies')
+        .update({ mascot_url: null } as any)
+        .eq('id', id);
+      if (error) throw error;
+      setPreviewMascot(null);
+      setCroppedMascotBlob(null);
+      toast.success("Mascote removido com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ['client-details', id] });
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao remover mascote");
+    } finally {
+      setIsUploadingMascot(false);
     }
   };
 
@@ -393,6 +492,7 @@ const ClientDetails = () => {
           brand_primary_color: formData.brand_primary_color.trim() || null,
           brand_secondary_color: formData.brand_secondary_color.trim() || null,
           brand_font: formData.brand_font.trim() || null,
+          has_mascot: formData.has_mascot,
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
@@ -1181,15 +1281,96 @@ const ClientDetails = () => {
                 )}
               </div>
             </div>
+           
+            {/* Mascote */}
+            <div className="space-y-3 pt-2 border-t border-border/30">
+              <div className="flex items-center space-x-3">
+                {isEditing ? (
+                  <Checkbox
+                    id="has_mascot"
+                    checked={formData.has_mascot}
+                    onCheckedChange={(checked) => {
+                      setFormData(prev => ({ ...prev, has_mascot: !!checked }));
+                      if (!checked) {
+                        // Clear mascot when unchecking
+                        if (previewMascot && !croppedMascotBlob) {
+                          handleRemoveMascot();
+                        }
+                        setPreviewMascot(null);
+                        setCroppedMascotBlob(null);
+                      }
+                    }}
+                  />
+                ) : (
+                  <Checkbox id="has_mascot" checked={formData.has_mascot} disabled />
+                )}
+                <Label htmlFor="has_mascot" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                  <Dog className="h-4 w-4 text-muted-foreground" />
+                  Possui Mascote
+                </Label>
+              </div>
+
+              {formData.has_mascot && (
+                <div className="flex items-start gap-6 p-4 rounded-xl bg-muted/20 border border-border/30">
+                  <div className="shrink-0">
+                    <div className="w-24 h-24 rounded-xl border-2 border-dashed border-border flex items-center justify-center bg-muted/50 overflow-hidden">
+                      {previewMascot ? (
+                        <img src={previewMascot} alt="Mascote preview" className="w-full h-full object-contain" />
+                      ) : (
+                        <Dog className="h-8 w-8 text-muted-foreground" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    <input ref={mascotInputRef} type="file" accept="image/png,image/jpeg,image/jpg" onChange={handleMascotFileSelect} className="hidden" />
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" onClick={() => mascotInputRef.current?.click()} disabled={isUploadingMascot}>
+                        {isUploadingMascot ? (
+                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enviando...</>
+                        ) : (
+                          <><Upload className="h-4 w-4 mr-2" />Escolher Imagem</>
+                        )}
+                      </Button>
+                      {croppedMascotBlob && (
+                        <Button size="sm" onClick={handleUploadMascot} disabled={isUploadingMascot}>
+                          <Save className="h-4 w-4 mr-2" />
+                          Salvar Mascote
+                        </Button>
+                      )}
+                      {previewMascot && !croppedMascotBlob && (
+                        <Button variant="outline" size="sm" onClick={handleRemoveMascot} disabled={isUploadingMascot} className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Remover
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Formatos: PNG, JPG · Máx: 5MB · A imagem do mascote será usada na geração de posts por IA
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </FormSection>
 
-          {/* Image Cropper */}
+          {/* Image Cropper - Logo */}
           {rawImageSrc && (
             <ImageCropper
               open={cropperOpen}
               onClose={() => { setCropperOpen(false); setRawImageSrc(null); }}
               imageSrc={rawImageSrc}
               onCropComplete={handleCropComplete}
+              aspectRatio={1}
+            />
+          )}
+
+          {/* Image Cropper - Mascot */}
+          {rawMascotSrc && (
+            <ImageCropper
+              open={mascotCropperOpen}
+              onClose={() => { setMascotCropperOpen(false); setRawMascotSrc(null); }}
+              imageSrc={rawMascotSrc}
+              onCropComplete={handleMascotCropComplete}
               aspectRatio={1}
             />
           )}
