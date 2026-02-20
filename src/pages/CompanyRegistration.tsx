@@ -9,8 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building2, ArrowLeft, MapPin, Phone, Mail } from "lucide-react";
+import { Building2, ArrowLeft, MapPin, Phone, Mail, Dog } from "lucide-react";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const CompanyRegistration = () => {
   const navigate = useNavigate();
@@ -41,7 +42,8 @@ const CompanyRegistration = () => {
     complement: "",
     brand_primary_color: "",
     brand_secondary_color: "",
-    brand_font: ""
+    brand_font: "",
+    has_mascot: false
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loadingCep, setLoadingCep] = useState(false);
@@ -144,7 +146,7 @@ const CompanyRegistration = () => {
 
     for (const field of baseFields) {
       const value = formData[field as keyof typeof formData];
-      if (!value.trim() || validateField(field, value)) {
+      if (typeof value !== 'string' || !value.trim() || validateField(field, value)) {
         return false;
       }
     }
@@ -157,7 +159,7 @@ const CompanyRegistration = () => {
       const franchiseFields = ["franchise_units", "franchise_city", "franchise_brand"];
       for (const field of franchiseFields) {
         const value = formData[field as keyof typeof formData];
-        if (!value.trim() || validateField(field, value)) {
+        if (typeof value !== 'string' || !value.trim() || validateField(field, value)) {
           return false;
         }
       }
@@ -212,7 +214,8 @@ const CompanyRegistration = () => {
         tenant_id: profile.tenant_id,
         brand_primary_color: formData.brand_primary_color || null,
         brand_secondary_color: formData.brand_secondary_color || null,
-        brand_font: formData.brand_font || null
+        brand_font: formData.brand_font || null,
+        has_mascot: (formData as any).has_mascot || false
       }]).select().single();
 
       if (error) {
@@ -544,6 +547,24 @@ const CompanyRegistration = () => {
                       />
                     </div>
                   </div>
+
+                  {/* Mascote */}
+                  <div className="flex items-center space-x-3 pt-2">
+                    <Checkbox
+                      id="has_mascot_reg"
+                      checked={(formData as any).has_mascot}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, has_mascot: !!checked }))}
+                    />
+                    <Label htmlFor="has_mascot_reg" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                      <Dog className="h-4 w-4 text-muted-foreground" />
+                      Possui Mascote
+                    </Label>
+                  </div>
+                  {(formData as any).has_mascot && (
+                    <p className="text-xs text-muted-foreground pl-7">
+                      Após o cadastro, acesse os detalhes do cliente para fazer upload da imagem do mascote.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>

@@ -863,8 +863,10 @@ export type Database = {
           created_at: string | null
           email: string
           fantasy_name: string | null
+          has_mascot: boolean
           id: string
           logo_url: string | null
+          mascot_url: string | null
           name: string
           phone: string
           products_services: string
@@ -881,8 +883,10 @@ export type Database = {
           created_at?: string | null
           email: string
           fantasy_name?: string | null
+          has_mascot?: boolean
           id?: string
           logo_url?: string | null
+          mascot_url?: string | null
           name: string
           phone: string
           products_services: string
@@ -899,8 +903,10 @@ export type Database = {
           created_at?: string | null
           email?: string
           fantasy_name?: string | null
+          has_mascot?: boolean
           id?: string
           logo_url?: string | null
+          mascot_url?: string | null
           name?: string
           phone?: string
           products_services?: string
