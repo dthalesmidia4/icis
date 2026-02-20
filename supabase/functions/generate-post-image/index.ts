@@ -6,6 +6,20 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Keywords that indicate mascot usage in the activity text
+const MASCOT_KEYWORDS = [
+  "mascote", "mascot", "personagem", "character",
+  "boneco", "avatar da marca", "figura da marca",
+  "usar o mascote", "com mascote", "com o mascote",
+  "incluir mascote", "incluir o mascote",
+];
+
+function textMentionsMascot(text: string): boolean {
+  if (!text) return false;
+  const lower = text.replace(/<[^>]*>/g, " ").toLowerCase();
+  return MASCOT_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
 // Parse slides from description
 function parseSlides(description: string): { slideNumber: number; title: string; body: string }[] {
   if (!description) return [];
@@ -43,6 +57,27 @@ function getImageSize(demandType: string | null, channel: string | null): { size
     return { size: "1536x1024", label: "16:9" };
   }
   return { size: "1024x1024", label: "1:1" };
+}
+
+// Download an image from URL and return as base64
+async function downloadImageAsBase64(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error(`Failed to download image from ${url}: ${response.status}`);
+      return null;
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  } catch (err) {
+    console.error(`Error downloading image:`, err);
+    return null;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -132,10 +167,8 @@ Deno.serve(async (req) => {
 
     const slidesToGenerate = slideNumber
       ? (() => {
-          // First try exact slideNumber match
           const exact = allSlides.filter((s) => s.slideNumber === slideNumber);
           if (exact.length > 0) return exact;
-          // Fallback: use as 1-based index (client sends sequential 1..N)
           const idx = slideNumber - 1;
           return idx >= 0 && idx < allSlides.length ? [allSlides[idx]] : [];
         })()
@@ -156,6 +189,24 @@ Deno.serve(async (req) => {
     const hasMascot = client?.has_mascot || false;
     const mascotUrl = client?.mascot_url || null;
 
+    // Check if the activity text mentions the mascot
+    const fullText = [demand.description, demand.instructions, demand.observations, demand.title].join(" ");
+    const mentionsMascot = textMentionsMascot(fullText);
+
+    // If mascot is mentioned and client has mascot image, download it for reference
+    let mascotImageBase64: string | null = null;
+    const shouldUseMascotImage = hasMascot && mascotUrl && mentionsMascot;
+
+    if (shouldUseMascotImage) {
+      console.log("🎭 Mascot mentioned in activity - downloading mascot image for reference...");
+      mascotImageBase64 = await downloadImageAsBase64(mascotUrl);
+      if (mascotImageBase64) {
+        console.log("✅ Mascot image downloaded successfully for reference");
+      } else {
+        console.warn("⚠️ Could not download mascot image, will use text-only prompt");
+      }
+    }
+
     const basePrompt = promptData?.prompt_content || "";
     const strategySnippet = strategy?.strategy_text
       ? `Tom de voz: ${strategy.strategy_text.substring(0, 300)}`
@@ -167,6 +218,12 @@ Deno.serve(async (req) => {
 
     // 7. Generate images for each slide using gpt-image-1
     for (const slide of slidesToGenerate) {
+      const mascotInstruction = hasMascot
+        ? mentionsMascot
+          ? `- MASCOTE: A marca possui um mascote oficial.${mascotImageBase64 ? " A imagem de referência do mascote foi fornecida. Reproduza FIELMENTE este mascote/personagem no design, mantendo suas características visuais (cores, forma, estilo, expressão). O mascote deve ser um elemento central e de destaque." : " Inclua um personagem/mascote simpático e carismático como elemento central ou de destaque no design, representando a marca de forma lúdica e memorável."}`
+          : `- A marca possui um mascote, mas ele NÃO foi solicitado neste slide. NÃO inclua personagens ou mascotes.`
+        : `- NÃO inclua personagens ou mascotes no design.`;
+
       const imagePrompt = `
 ${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}Crie uma imagem profissional para post de rede social.
 
@@ -182,7 +239,7 @@ BRANDING:
 - Cor secundária: ${secondaryColor}
 - Tipografia: ${brandFont}
 - Incluir nome da marca sutilmente no canto inferior
-${hasMascot ? `- MASCOTE: A marca possui um mascote oficial. ${mascotUrl ? "Inclua um personagem/mascote simpático e carismático como elemento central ou de destaque no design, representando a marca de forma lúdica e memorável." : "Crie um personagem/mascote simpático que represente a marca."}` : "- NÃO inclua personagens ou mascotes no design."}
+${mascotInstruction}
 
 ESTILO:
 - Design limpo, moderno e profissional para redes sociais
@@ -191,23 +248,53 @@ ESTILO:
 - Formato: ${imageSize.label}
 `.trim();
 
-      console.log(`Generating gpt-image-1 image for slide ${slide.slideNumber}...`);
+      console.log(`Generating gpt-image-1 image for slide ${slide.slideNumber}...${shouldUseMascotImage && mascotImageBase64 ? " (with mascot reference image)" : ""}`);
 
       try {
-        const dalleResponse = await fetch("https://api.openai.com/v1/images/generations", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${openaiApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "gpt-image-1",
-            prompt: imagePrompt,
-            n: 1,
-            size: imageSize.size,
-            quality: "medium",
-          }),
-        });
+        let dalleResponse: Response;
+
+        if (shouldUseMascotImage && mascotImageBase64) {
+          // Use gpt-image-1 with reference image via images/edits endpoint
+          const formData = new FormData();
+          
+          // Convert mascot base64 to a File/Blob
+          const mascotBinary = atob(mascotImageBase64);
+          const mascotBytes = new Uint8Array(mascotBinary.length);
+          for (let i = 0; i < mascotBinary.length; i++) {
+            mascotBytes[i] = mascotBinary.charCodeAt(i);
+          }
+          const mascotBlob = new Blob([mascotBytes], { type: "image/png" });
+          formData.append("image[]", mascotBlob, "mascot.png");
+          formData.append("model", "gpt-image-1");
+          formData.append("prompt", imagePrompt);
+          formData.append("n", "1");
+          formData.append("size", imageSize.size);
+          formData.append("quality", "medium");
+
+          dalleResponse = await fetch("https://api.openai.com/v1/images/edits", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${openaiApiKey}`,
+            },
+            body: formData,
+          });
+        } else {
+          // Standard text-only generation
+          dalleResponse = await fetch("https://api.openai.com/v1/images/generations", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${openaiApiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "gpt-image-1",
+              prompt: imagePrompt,
+              n: 1,
+              size: imageSize.size,
+              quality: "medium",
+            }),
+          });
+        }
 
         if (!dalleResponse.ok) {
           const errorText = await dalleResponse.text();
@@ -237,7 +324,7 @@ ESTILO:
           continue;
         }
 
-        // 8. Decode base64 image directly (no download needed)
+        // 8. Decode base64 image directly
         const binaryString = atob(b64Image);
         const imageBytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
@@ -318,6 +405,7 @@ ESTILO:
         generated: generatedAttachments.length,
         total_slides: allSlides.length,
         message: `${generatedAttachments.length} imagem(ns) gerada(s) com sucesso`,
+        used_mascot_reference: !!(shouldUseMascotImage && mascotImageBase64),
         errors: errors.length > 0 ? errors : undefined,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
