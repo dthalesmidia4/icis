@@ -452,47 +452,22 @@ export default function TaskCard({
     if (!card) return;
     setGeneratingImages(true);
 
-    const totalSlides = parseClientSlides(card.description || "");
-    let successCount = 0;
-    const errors: string[] = [];
-
     try {
-      if (totalSlides === 1) {
-        // Single slide — one call, simple progress
-        setGenerationProgress({ current: 1, total: 1 });
-        const { data, error } = await supabase.functions.invoke("generate-post-image", {
-          body: { demandId: card.id },
-        });
-        if (error) throw error;
-        if (data?.error) {
-          toast.error(data.error, { description: data.details?.join(", ") });
-          return;
-        }
-        successCount = data?.generated || 1;
-      } else {
-        // Multiple slides — call per slide for real progress
-        for (let i = 1; i <= totalSlides; i++) {
-          setGenerationProgress({ current: i, total: totalSlides });
-          try {
-            const { data, error } = await supabase.functions.invoke("generate-post-image", {
-              body: { demandId: card.id, slideNumber: i },
-            });
-            if (error) throw error;
-            if (data?.error) {
-              errors.push(`Slide ${i}: ${data.error}`);
-              continue;
-            }
-            successCount += (data?.generated || 0);
-          } catch (slideErr: any) {
-            errors.push(`Slide ${i}: ${slideErr.message || "Erro"}`);
-          }
-        }
+      setGenerationProgress({ current: 1, total: 1 });
+      const { data, error } = await supabase.functions.invoke("generate-post-image", {
+        body: { demandId: card.id },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error, { description: data.details?.join(", ") });
+        return;
       }
+      const successCount = data?.generated || 0;
 
       if (successCount > 0) {
         toast.success(`${successCount} imagem(ns) gerada(s) com sucesso!`);
       } else {
-        toast.error("Nenhuma imagem foi gerada", { description: errors.join("; ") });
+        toast.error("Nenhuma imagem foi gerada");
       }
 
       // Refetch demand to get updated attachments
