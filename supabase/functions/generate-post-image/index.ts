@@ -131,7 +131,14 @@ Deno.serve(async (req) => {
     }
 
     const slidesToGenerate = slideNumber
-      ? allSlides.filter((s) => s.slideNumber === slideNumber)
+      ? (() => {
+          // First try exact slideNumber match
+          const exact = allSlides.filter((s) => s.slideNumber === slideNumber);
+          if (exact.length > 0) return exact;
+          // Fallback: use as 1-based index (client sends sequential 1..N)
+          const idx = slideNumber - 1;
+          return idx >= 0 && idx < allSlides.length ? [allSlides[idx]] : [];
+        })()
       : allSlides;
 
     if (slidesToGenerate.length === 0) {
