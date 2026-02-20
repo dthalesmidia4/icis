@@ -50,18 +50,32 @@ interface AttachmentPreviewModalProps {
 
 type FileType = "image" | "video" | "audio" | "pdf" | "unsupported";
 
-const getFileType = (fileName: string): FileType => {
-  const extension = fileName.split(".").pop()?.toLowerCase() || "";
-  
+const getFileType = (fileName: string, fileUrl?: string): FileType => {
   const imageExtensions = ["jpg", "jpeg", "png", "webp", "gif", "bmp", "svg"];
   const videoExtensions = ["mp4", "mov", "avi", "webm", "mkv"];
   const audioExtensions = ["mp3", "wav", "ogg", "m4a", "flac"];
   const pdfExtensions = ["pdf"];
 
-  if (imageExtensions.includes(extension)) return "image";
-  if (videoExtensions.includes(extension)) return "video";
-  if (audioExtensions.includes(extension)) return "audio";
-  if (pdfExtensions.includes(extension)) return "pdf";
+  const checkExtension = (ext: string): FileType => {
+    if (imageExtensions.includes(ext)) return "image";
+    if (videoExtensions.includes(ext)) return "video";
+    if (audioExtensions.includes(ext)) return "audio";
+    if (pdfExtensions.includes(ext)) return "pdf";
+    return "unsupported";
+  };
+
+  // Try from file name first
+  const nameExt = fileName.split(".").pop()?.toLowerCase() || "";
+  const fromName = checkExtension(nameExt);
+  if (fromName !== "unsupported") return fromName;
+
+  // Fallback: try from URL (strip query params)
+  if (fileUrl) {
+    const urlPath = fileUrl.split("?")[0];
+    const urlExt = urlPath.split(".").pop()?.toLowerCase() || "";
+    return checkExtension(urlExt);
+  }
+
   return "unsupported";
 };
 
@@ -92,7 +106,7 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const fileType = getFileType(fileName);
+  const fileType = getFileType(fileName, fileUrl);
   const FileIcon = getFileIcon(fileType);
 
   // Reset zoom when modal opens
