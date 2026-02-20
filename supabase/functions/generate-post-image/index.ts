@@ -6,8 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const LOVABLE_AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const IMAGE_MODEL = "google/gemini-3-pro-image-preview";
+const GEMINI_MODEL = "gemini-2.0-flash-exp-image-generation";
 
 // Keywords that indicate mascot usage in the activity text
 const MASCOT_KEYWORDS = [
@@ -77,14 +76,21 @@ Deno.serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY not configured");
+    // Fetch Google AI Studio API key from api_keys table
+    const { data: apiKeyData, error: apiKeyError } = await supabase
+      .from("api_keys")
+      .select("key_value")
+      .eq("key_name", "Google AI Studio")
+      .single();
+
+    if (apiKeyError || !apiKeyData?.key_value) {
+      console.error("Google AI Studio API key not found in api_keys table");
       return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY não configurada no ambiente." }),
+        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    const GOOGLE_API_KEY = apiKeyData.key_value;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -177,7 +183,7 @@ Deno.serve(async (req) => {
     const existingAttachments = demand.attachments || [];
     const errors: string[] = [];
 
-    // 6. Generate images for each slide using Nano Banana Pro via Lovable AI Gateway
+    // 6. Generate images for each slide using Gemini via Google AI Studio
     for (const slide of slidesToGenerate) {
       const mascotInstruction = hasMascot
         ? mentionsMascot
@@ -210,78 +216,79 @@ ESTILO:
 - IMPORTANTE: Gere um POST COMPLETO para rede social, não apenas um elemento isolado
 `.trim();
 
-      console.log(`Generating image for slide ${slide.slideNumber} using ${IMAGE_MODEL}...${useMascotReference ? " (with mascot reference)" : ""}`);
+      console.log(`Generating image for slide ${slide.slideNumber} using ${GEMINI_MODEL}...${useMascotReference ? " (with mascot reference)" : ""}`);
 
       try {
-        // Build message content: text + optional mascot reference image
-        const messageContent: any[] = [{ type: "text", text: imagePrompt }];
+        // Build Gemini API request parts
+        const parts: any[] = [{ text: imagePrompt }];
 
         if (useMascotReference) {
-          messageContent.push({
-            type: "image_url",
-            image_url: { url: mascotUrl },
-          });
-          console.log(`  → Mascot reference image attached: ${mascotUrl}`);
+          // Fetch mascot image and send as inline data
+          try {
+            const mascotResponse = await fetch(mascotUrl);
+            if (mascotResponse.ok) {
+              const mascotBuffer = await mascotResponse.arrayBuffer();
+              const mascotBytes = new Uint8Array(mascotBuffer);
+              let mascotB64 = "";
+              const chunkSize = 8192;
+              for (let i = 0; i < mascotBytes.length; i += chunkSize) {
+                const chunk = mascotBytes.subarray(i, i + chunkSize);
+                mascotB64 += String.fromCharCode(...chunk);
+              }
+              mascotB64 = btoa(mascotB64);
+              const mascotMime = mascotResponse.headers.get("content-type") || "image/png";
+              parts.push({
+                inline_data: { mime_type: mascotMime, data: mascotB64 },
+              });
+              console.log(`  → Mascot reference image attached as inline_data`);
+            }
+          } catch (mascotErr) {
+            console.warn("Failed to fetch mascot image:", mascotErr);
+          }
         }
 
-        const gatewayResponse = await fetch(LOVABLE_AI_GATEWAY, {
+        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GOOGLE_API_KEY}`;
+
+        const geminiResponse = await fetch(GEMINI_API_URL, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: IMAGE_MODEL,
-            messages: [{ role: "user", content: messageContent }],
-            modalities: ["image", "text"],
+            contents: [{ parts }],
+            generationConfig: {
+              responseModalities: ["TEXT", "IMAGE"],
+            },
           }),
         });
 
-        if (!gatewayResponse.ok) {
-          const errorText = await gatewayResponse.text();
-          console.error(`Gateway error for slide ${slide.slideNumber}:`, gatewayResponse.status, errorText);
+        if (!geminiResponse.ok) {
+          const errorText = await geminiResponse.text();
+          console.error(`Gemini error for slide ${slide.slideNumber}:`, geminiResponse.status, errorText);
 
-          if (gatewayResponse.status === 429) {
+          if (geminiResponse.status === 429) {
             errors.push(`Slide ${slide.slideNumber}: Rate limit excedido. Tente novamente em alguns minutos.`);
             continue;
           }
-          if (gatewayResponse.status === 402) {
-            return new Response(
-              JSON.stringify({ error: "Créditos Lovable AI esgotados. Adicione créditos em Settings > Workspace > Usage." }),
-              { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-          }
 
-          errors.push(`Slide ${slide.slideNumber}: Erro ${gatewayResponse.status}`);
+          errors.push(`Slide ${slide.slideNumber}: Erro ${geminiResponse.status}`);
           continue;
         }
 
-        const gatewayData = await gatewayResponse.json();
-        const generatedImages = gatewayData.choices?.[0]?.message?.images;
+        const geminiData = await geminiResponse.json();
+        
+        // Extract image from Gemini response
+        const responseParts = geminiData.candidates?.[0]?.content?.parts || [];
+        const imagePart = responseParts.find((p: any) => p.inlineData);
 
-        if (!generatedImages || generatedImages.length === 0) {
-          console.error(`No image in response for slide ${slide.slideNumber}:`, JSON.stringify(gatewayData).substring(0, 500));
+        if (!imagePart) {
+          console.error(`No image in response for slide ${slide.slideNumber}:`, JSON.stringify(geminiData).substring(0, 500));
           errors.push(`Slide ${slide.slideNumber}: Nenhuma imagem retornada pelo modelo`);
           continue;
         }
 
-        // Extract base64 from data URL
-        const imageDataUrl = generatedImages[0]?.image_url?.url;
-        if (!imageDataUrl) {
-          errors.push(`Slide ${slide.slideNumber}: Formato de imagem inesperado`);
-          continue;
-        }
-
-        // Parse base64 from data:image/png;base64,...
-        const base64Match = imageDataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
-        if (!base64Match) {
-          errors.push(`Slide ${slide.slideNumber}: Formato base64 inválido`);
-          continue;
-        }
-
-        const imageFormat = base64Match[1];
-        const b64Image = base64Match[2];
-        const contentType = `image/${imageFormat}`;
+        const b64Image = imagePart.inlineData.data;
+        const mimeType = imagePart.inlineData.mimeType || "image/png";
+        const imageFormat = mimeType.split("/")[1] || "png";
+        const contentType = mimeType;
         const extension = imageFormat === "jpeg" ? "jpg" : imageFormat;
 
         // Decode base64
@@ -319,7 +326,7 @@ ESTILO:
           size: imageBytes.length,
           storagePath,
           uploadedAt: new Date().toISOString(),
-          uploadedBy: { id: "ai-generator", email: "system@ai", name: "IA - Gemini 3 Pro" },
+          uploadedBy: { id: "ai-generator", email: "system@ai", name: "IA - Gemini (Google AI Studio)" },
           cardId: demand.id,
           tenantId: demand.tenant_id,
           clientId: demand.client_id,
