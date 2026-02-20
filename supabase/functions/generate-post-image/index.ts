@@ -6,6 +6,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const LOVABLE_AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const IMAGE_MODEL = "google/gemini-2.5-flash-image";
+
 // Keywords that indicate mascot usage in the activity text
 const MASCOT_KEYWORDS = [
   "mascote", "mascot", "personagem", "character",
@@ -46,19 +49,18 @@ function parseSlides(description: string): { slideNumber: number; title: string;
   return slides;
 }
 
-// Determine image size based on demand type/channel
-function getImageSize(demandType: string | null, channel: string | null): { size: string; label: string } {
+// Determine aspect ratio label based on demand type/channel
+function getAspectRatio(demandType: string | null, _channel: string | null): string {
   const type = (demandType || "").toLowerCase();
 
   if (type.includes("reel") || type.includes("stories") || type.includes("story") || type.includes("video curto")) {
-    return { size: "1024x1536", label: "9:16" };
+    return "9:16 (portrait, 1024x1536)";
   }
   if (type.includes("cover") || type.includes("banner") || type.includes("capa")) {
-    return { size: "1536x1024", label: "16:9" };
+    return "16:9 (landscape, 1536x1024)";
   }
-  return { size: "1024x1024", label: "1:1" };
+  return "1:1 (square, 1024x1024)";
 }
-
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -75,29 +77,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // 1. Fetch OpenAI API key from api_keys table
-    const { data: apiKeyRow, error: apiKeyError } = await supabase
-      .from("api_keys")
-      .select("key_value")
-      .eq("key_name", "OPENAI_API_KEY")
-      .single();
-
-    if (apiKeyError || !apiKeyRow?.key_value) {
-      console.error("OpenAI API key not found in api_keys table:", apiKeyError);
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      console.error("LOVABLE_API_KEY not configured");
       return new Response(
-        JSON.stringify({ error: "Chave da API OpenAI não encontrada. Configure em /dev/apis." }),
+        JSON.stringify({ error: "LOVABLE_API_KEY não configurada no ambiente." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const openaiApiKey = apiKeyRow.key_value;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 2. Fetch the demand
+    // 1. Fetch the demand
     const { data: demand, error: demandError } = await supabase
       .from("demands")
       .select("*")
@@ -111,14 +104,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3. Fetch client branding
+    // 2. Fetch client branding
     const { data: client } = await supabase
       .from("tenant_companies")
       .select("name, fantasy_name, logo_url, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_url, mascot_description")
       .eq("id", demand.client_id)
       .single();
 
-    // 4. Fetch posts prompt
+    // 3. Fetch posts prompt
     const { data: promptData } = await supabase
       .from("system_prompts")
       .select("prompt_content")
@@ -126,7 +119,7 @@ Deno.serve(async (req) => {
       .eq("prompt_key", "generate_posts_prompt")
       .single();
 
-    // 5. Fetch active strategy for tone of voice
+    // 4. Fetch active strategy for tone of voice
     const { data: strategy } = await supabase
       .from("strategies")
       .select("strategy_text")
@@ -136,7 +129,7 @@ Deno.serve(async (req) => {
       .limit(1)
       .single();
 
-    // 6. Parse slides
+    // 5. Parse slides
     let allSlides = parseSlides(demand.description || "");
 
     if (allSlides.length === 0) {
@@ -161,7 +154,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const imageSize = getImageSize(demand.demand_type, demand.channel);
+    const aspectRatio = getAspectRatio(demand.demand_type, demand.channel);
     const brandName = client?.fantasy_name || client?.name || "Marca";
     const primaryColor = client?.brand_primary_color || "#000000";
     const secondaryColor = client?.brand_secondary_color || "#FFFFFF";
@@ -173,6 +166,7 @@ Deno.serve(async (req) => {
     // Check if the activity text mentions the mascot
     const fullText = [demand.description, demand.instructions, demand.observations, demand.title].join(" ");
     const mentionsMascot = textMentionsMascot(fullText);
+    const useMascotReference = hasMascot && mentionsMascot && mascotUrl;
 
     const basePrompt = promptData?.prompt_content || "";
     const strategySnippet = strategy?.strategy_text
@@ -183,11 +177,11 @@ Deno.serve(async (req) => {
     const existingAttachments = demand.attachments || [];
     const errors: string[] = [];
 
-    // 7. Generate images for each slide using gpt-image-1
+    // 6. Generate images for each slide using Gemini via Lovable AI Gateway
     for (const slide of slidesToGenerate) {
       const mascotInstruction = hasMascot
         ? mentionsMascot
-          ? `- MASCOTE: A marca possui um mascote oficial que DEVE aparecer neste design.${mascotDescription ? `\n  DESCRIÇÃO DETALHADA DO MASCOTE: ${mascotDescription}` : ""}${mascotUrl ? `\n  REFERÊNCIA: O mascote está cadastrado no sistema. Reproduza fielmente suas características visuais conforme a descrição acima.` : ""}\n  O mascote deve ser um elemento de DESTAQUE no design, integrado harmoniosamente à composição do post. NÃO gere apenas o mascote isolado — crie o POST COMPLETO para rede social com o mascote como parte da composição.`
+          ? `- MASCOTE: A marca possui um mascote oficial que DEVE aparecer neste design.${mascotDescription ? `\n  DESCRIÇÃO DETALHADA DO MASCOTE: ${mascotDescription}` : ""}${useMascotReference ? `\n  REFERÊNCIA VISUAL: Uma imagem de referência do mascote foi anexada. Reproduza fielmente suas características visuais, cores e estilo conforme a imagem de referência e a descrição acima.` : ""}\n  O mascote deve ser um elemento de DESTAQUE no design, integrado harmoniosamente à composição do post. NÃO gere apenas o mascote isolado — crie o POST COMPLETO para rede social com o mascote como parte da composição.`
           : `- A marca possui um mascote, mas ele NÃO foi solicitado neste slide. NÃO inclua personagens ou mascotes.`
         : `- NÃO inclua personagens ou mascotes no design.`;
 
@@ -212,72 +206,99 @@ ESTILO:
 - Design limpo, moderno e profissional para redes sociais
 - Texto centralizado com hierarquia visual clara
 - Fundo com gradiente sutil usando as cores da marca
-- Formato: ${imageSize.label}
+- Formato/Proporção: ${aspectRatio}
 - IMPORTANTE: Gere um POST COMPLETO para rede social, não apenas um elemento isolado
 `.trim();
 
-      console.log(`Generating gpt-image-1 image for slide ${slide.slideNumber}...${hasMascot && mentionsMascot ? " (with mascot in prompt)" : ""}`);
+      console.log(`Generating Gemini image for slide ${slide.slideNumber}...${useMascotReference ? " (with mascot reference image)" : hasMascot && mentionsMascot ? " (mascot via text description)" : ""}`);
 
       try {
-        // Always use standard text-only generation endpoint
-        const dalleResponse = await fetch("https://api.openai.com/v1/images/generations", {
+        // Build message content: text + optional mascot reference image
+        const messageContent: any[] = [{ type: "text", text: imagePrompt }];
+
+        if (useMascotReference) {
+          messageContent.push({
+            type: "image_url",
+            image_url: { url: mascotUrl },
+          });
+          console.log(`  → Mascot reference image attached: ${mascotUrl}`);
+        }
+
+        const gatewayResponse = await fetch(LOVABLE_AI_GATEWAY, {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${openaiApiKey}`,
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "gpt-image-1",
-            prompt: imagePrompt,
-            n: 1,
-            size: imageSize.size,
-            quality: "medium",
+            model: IMAGE_MODEL,
+            messages: [{ role: "user", content: messageContent }],
+            modalities: ["image", "text"],
           }),
         });
 
-        if (!dalleResponse.ok) {
-          const errorText = await dalleResponse.text();
-          console.error(`gpt-image-1 error for slide ${slide.slideNumber}:`, dalleResponse.status, errorText);
+        if (!gatewayResponse.ok) {
+          const errorText = await gatewayResponse.text();
+          console.error(`Gemini error for slide ${slide.slideNumber}:`, gatewayResponse.status, errorText);
 
-          if (dalleResponse.status === 429) {
-            errors.push(`Slide ${slide.slideNumber}: Rate limit excedido`);
+          if (gatewayResponse.status === 429) {
+            errors.push(`Slide ${slide.slideNumber}: Rate limit excedido. Tente novamente em alguns minutos.`);
             continue;
           }
-          if (dalleResponse.status === 401) {
+          if (gatewayResponse.status === 402) {
             return new Response(
-              JSON.stringify({ error: "Chave da API OpenAI inválida ou expirada. Atualize em /dev/apis." }),
-              { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              JSON.stringify({ error: "Créditos Lovable AI esgotados. Adicione créditos em Settings > Workspace > Usage." }),
+              { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
 
-          errors.push(`Slide ${slide.slideNumber}: Erro ${dalleResponse.status}`);
+          errors.push(`Slide ${slide.slideNumber}: Erro ${gatewayResponse.status}`);
           continue;
         }
 
-        const dalleData = await dalleResponse.json();
-        const b64Image = dalleData.data?.[0]?.b64_json;
+        const gatewayData = await gatewayResponse.json();
+        const generatedImages = gatewayData.choices?.[0]?.message?.images;
 
-        if (!b64Image) {
-          console.error(`No image data in gpt-image-1 response for slide ${slide.slideNumber}:`, JSON.stringify(dalleData).substring(0, 300));
-          errors.push(`Slide ${slide.slideNumber}: Nenhuma imagem retornada`);
+        if (!generatedImages || generatedImages.length === 0) {
+          console.error(`No image in Gemini response for slide ${slide.slideNumber}:`, JSON.stringify(gatewayData).substring(0, 500));
+          errors.push(`Slide ${slide.slideNumber}: Nenhuma imagem retornada pelo modelo`);
           continue;
         }
 
-        // 8. Decode base64 image directly
+        // Extract base64 from data URL
+        const imageDataUrl = generatedImages[0]?.image_url?.url;
+        if (!imageDataUrl) {
+          errors.push(`Slide ${slide.slideNumber}: Formato de imagem inesperado`);
+          continue;
+        }
+
+        // Parse base64 from data:image/png;base64,...
+        const base64Match = imageDataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (!base64Match) {
+          errors.push(`Slide ${slide.slideNumber}: Formato base64 inválido`);
+          continue;
+        }
+
+        const imageFormat = base64Match[1]; // png, jpeg, webp, etc.
+        const b64Image = base64Match[2];
+        const contentType = `image/${imageFormat}`;
+        const extension = imageFormat === "jpeg" ? "jpg" : imageFormat;
+
+        // Decode base64
         const binaryString = atob(b64Image);
         const imageBytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
           imageBytes[i] = binaryString.charCodeAt(i);
         }
 
-        const fileName = `ai-generated-slide-${slide.slideNumber}-${Date.now()}.png`;
+        const fileName = `ai-generated-slide-${slide.slideNumber}-${Date.now()}.${extension}`;
         const storagePath = `${demand.client_id}/${demand.id}/${fileName}`;
 
-        // 9. Upload to storage
+        // Upload to storage
         const { error: uploadError } = await supabase.storage
           .from("card-attachments")
           .upload(storagePath, imageBytes, {
-            contentType: "image/png",
+            contentType,
             upsert: true,
           });
 
@@ -293,37 +314,37 @@ ESTILO:
 
         const attachment = {
           url: urlData.publicUrl,
-          name: `Slide ${slide.slideNumber} - ${brandName}.png`,
-          type: "image/png",
+          name: `Slide ${slide.slideNumber} - ${brandName}.${extension}`,
+          type: contentType,
           size: imageBytes.length,
           storagePath,
           uploadedAt: new Date().toISOString(),
-          uploadedBy: { id: "ai-generator", email: "system@ai", name: "IA - Gerador de Posts" },
+          uploadedBy: { id: "ai-generator", email: "system@ai", name: "IA - Gemini" },
           cardId: demand.id,
           tenantId: demand.tenant_id,
           clientId: demand.client_id,
         };
 
         generatedAttachments.push(attachment);
-        console.log(`✅ Slide ${slide.slideNumber} generated and uploaded successfully`);
+        console.log(`✅ Slide ${slide.slideNumber} generated and uploaded successfully (${imageFormat})`);
       } catch (slideError) {
         console.error(`Exception generating slide ${slide.slideNumber}:`, slideError);
         errors.push(`Slide ${slide.slideNumber}: ${slideError instanceof Error ? slideError.message : "Erro desconhecido"}`);
       }
     }
 
-    // 10. If no images were generated, return error
+    // 7. If no images were generated, return error
     if (generatedAttachments.length === 0) {
       return new Response(
         JSON.stringify({
-          error: "Nenhuma imagem foi gerada. Verifique a configuração da API OpenAI.",
+          error: "Nenhuma imagem foi gerada. Verifique os logs para mais detalhes.",
           details: errors,
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // 11. Update demand attachments
+    // 8. Update demand attachments
     const updatedAttachments = [...existingAttachments, ...generatedAttachments];
     const { error: updateError } = await supabase
       .from("demands")
@@ -344,6 +365,7 @@ ESTILO:
         generated: generatedAttachments.length,
         total_slides: allSlides.length,
         message: `${generatedAttachments.length} imagem(ns) gerada(s) com sucesso`,
+        used_mascot_reference: !!useMascotReference,
         used_mascot_in_prompt: !!(hasMascot && mentionsMascot),
         errors: errors.length > 0 ? errors : undefined,
       }),
