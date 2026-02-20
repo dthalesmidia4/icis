@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Save, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
+import { Save, Eye, EyeOff, CheckCircle, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,81 +7,121 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import BackButton from "@/components/BackButton";
+
+interface ApiKeyEntry {
+  id?: string;
+  key_name: string;
+  key_value: string;
+  isNew?: boolean;
+  showKey?: boolean;
+  isSaving?: boolean;
+}
+
 const DevApis = () => {
   const { toast } = useToast();
-  const [apiKey, setApiKey] = useState("");
-  const [showKey, setShowKey] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [hasExistingKey, setHasExistingKey] = useState(false);
+  const [keys, setKeys] = useState<ApiKeyEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    checkExistingKey();
+    loadKeys();
   }, []);
-  const checkExistingKey = async () => {
+
+  const loadKeys = async () => {
     try {
-      const {
-        data,
-        error
-      } = await supabase.from('api_keys').select('id').eq('key_name', 'OPENAI_API_KEY').maybeSingle();
+      const { data, error } = await supabase
+        .from("api_keys")
+        .select("id, key_name, key_value")
+        .order("created_at", { ascending: true });
       if (error) throw error;
-      setHasExistingKey(!!data);
+      setKeys(
+        (data || []).map((k) => ({
+          id: k.id,
+          key_name: k.key_name,
+          key_value: "",
+          showKey: false,
+          isSaving: false,
+        }))
+      );
     } catch (error) {
-      console.error('Erro ao verificar chave existente:', error);
+      console.error("Erro ao carregar chaves:", error);
+    } finally {
+      setLoading(false);
     }
   };
-  const handleSave = async () => {
-    if (!apiKey.trim()) {
-      toast({
-        title: "Erro",
-        description: "Por favor, insira uma chave API válida.",
-        variant: "destructive"
-      });
+
+  const addNewKey = () => {
+    setKeys((prev) => [
+      ...prev,
+      { key_name: "", key_value: "", isNew: true, showKey: false, isSaving: false },
+    ]);
+  };
+
+  const updateKeyField = (index: number, field: keyof ApiKeyEntry, value: string | boolean) => {
+    setKeys((prev) => prev.map((k, i) => (i === index ? { ...k, [field]: value } : k)));
+  };
+
+  const handleSave = async (index: number) => {
+    const entry = keys[index];
+    if (!entry.key_name.trim()) {
+      toast({ title: "Erro", description: "Informe o nome da chave.", variant: "destructive" });
+      return;
+    }
+    if (!entry.key_value.trim()) {
+      toast({ title: "Erro", description: "Informe o valor da chave.", variant: "destructive" });
       return;
     }
 
-    // Validação básica do formato da chave OpenAI
-    if (!apiKey.startsWith('sk-')) {
-      toast({
-        title: "Formato inválido",
-        description: "A chave API do OpenAI deve começar com 'sk-'",
-        variant: "destructive"
-      });
-      return;
-    }
-    setIsSaving(true);
+    updateKeyField(index, "isSaving", true);
     try {
-      const {
-        error
-      } = await supabase.from('api_keys').upsert({
-        key_name: 'OPENAI_API_KEY',
-        key_value: apiKey,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'key_name'
-      });
+      const { error } = await supabase.from("api_keys").upsert(
+        {
+          key_name: entry.key_name,
+          key_value: entry.key_value,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "key_name" }
+      );
       if (error) throw error;
-      toast({
-        title: "✅ Chave API salva!",
-        description: "A chave do OpenAI foi configurada com sucesso."
-      });
-      setHasExistingKey(true);
-      setApiKey("");
+
+      toast({ title: "✅ Chave salva!", description: `"${entry.key_name}" foi salva com sucesso.` });
+      await loadKeys();
     } catch (error) {
-      console.error('Erro ao salvar chave API:', error);
-      toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível salvar a chave API. Tente novamente.",
-        variant: "destructive"
-      });
+      console.error("Erro ao salvar:", error);
+      toast({ title: "Erro ao salvar", description: "Tente novamente.", variant: "destructive" });
     } finally {
-      setIsSaving(false);
+      updateKeyField(index, "isSaving", false);
     }
   };
+
+  const handleDelete = async (index: number) => {
+    const entry = keys[index];
+    if (entry.isNew) {
+      setKeys((prev) => prev.filter((_, i) => i !== index));
+      return;
+    }
+    try {
+      const { error } = await supabase.from("api_keys").delete().eq("id", entry.id!);
+      if (error) throw error;
+      toast({ title: "Chave removida", description: `"${entry.key_name}" foi removida.` });
+      setKeys((prev) => prev.filter((_, i) => i !== index));
+    } catch (error) {
+      console.error("Erro ao remover:", error);
+      toast({ title: "Erro", description: "Não foi possível remover.", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="container max-w-5xl mx-auto px-6 py-8">
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <BackButton to="/dev-hub" />
-          <h1 className="text-3xl font-bold">APIs do Sistema</h1>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <BackButton to="/dev-hub" />
+            <h1 className="text-3xl font-bold">APIs do Sistema</h1>
+          </div>
+          <Button onClick={addNewKey} size="sm" className="gap-2">
+            <Plus className="h-4 w-4" />
+            Nova API Key
+          </Button>
         </div>
         <p className="text-muted-foreground">
           Configure as chaves de API externas utilizadas pelo sistema.
@@ -89,59 +129,89 @@ const DevApis = () => {
       </div>
 
       <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  OpenAI API Key (GPT-5-mini)
-                  {hasExistingKey && <CheckCircle className="h-5 w-5 text-green-500" />}
-                </CardTitle>
-                <CardDescription className="mt-2">
-                  Configure a chave API do OpenAI para habilitar as funcionalidades de IA do sistema.
-                  Esta chave será usada para gerar perguntas, análises e outras funcionalidades de IA.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {hasExistingKey && <div className="flex items-start gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-green-700 dark:text-green-400">
-                    Chave API configurada
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Uma chave API já está configurada. Você pode atualizá-la inserindo uma nova chave abaixo.
-                  </p>
-                </div>
-              </div>}
+        {loading && <p className="text-muted-foreground text-sm">Carregando...</p>}
 
-            <div className="space-y-4">
+        {!loading && keys.length === 0 && (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              Nenhuma API Key cadastrada. Clique em "Nova API Key" para começar.
+            </CardContent>
+          </Card>
+        )}
+
+        {keys.map((entry, index) => (
+          <Card key={entry.id || `new-${index}`}>
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-lg">
+                    {entry.isNew ? "Nova Chave" : entry.key_name}
+                  </CardTitle>
+                  {!entry.isNew && <CheckCircle className="h-4 w-4 text-green-500" />}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => handleDelete(index)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+              {!entry.isNew && (
+                <CardDescription>Chave configurada. Insira um novo valor para atualizar.</CardDescription>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {entry.isNew && (
+                <div className="space-y-2">
+                  <Label>Nome da Chave</Label>
+                  <Input
+                    placeholder="Ex: OPENAI_API_KEY"
+                    value={entry.key_name}
+                    onChange={(e) => updateKeyField(index, "key_name", e.target.value)}
+                  />
+                </div>
+              )}
               <div className="space-y-2">
-                <Label htmlFor="apiKey">Chave API</Label>
+                <Label>Valor da Chave</Label>
                 <div className="relative">
-                  <Input id="apiKey" type={showKey ? "text" : "password"} placeholder="sk-..." value={apiKey} onChange={e => setApiKey(e.target.value)} className="pr-10" />
-                  <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 hover:bg-transparent" onClick={() => setShowKey(!showKey)} aria-label={showKey ? "Ocultar chave" : "Mostrar chave"}>
-                    {showKey ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                  <Input
+                    type={entry.showKey ? "text" : "password"}
+                    placeholder="Cole o valor da chave aqui..."
+                    value={entry.key_value}
+                    onChange={(e) => updateKeyField(index, "key_value", e.target.value)}
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                    onClick={() => updateKeyField(index, "showKey", !entry.showKey)}
+                  >
+                    {entry.showKey ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Cole aqui sua chave API do OpenAI. A chave deve começar com "sk-"
-                </p>
               </div>
-
-              
-
-              <Button onClick={handleSave} disabled={isSaving || !apiKey.trim()} className="w-full" size="lg">
+              <Button
+                onClick={() => handleSave(index)}
+                disabled={entry.isSaving || !entry.key_value.trim()}
+                className="w-full"
+              >
                 <Save className="h-4 w-4 mr-2" />
-                {isSaving ? "Salvando..." : hasExistingKey ? "Atualizar Chave API" : "Salvar Chave API"}
+                {entry.isSaving ? "Salvando..." : entry.isNew ? "Salvar" : "Atualizar"}
               </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   );
 };
+
 export default DevApis;
