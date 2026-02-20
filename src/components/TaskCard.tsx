@@ -974,10 +974,10 @@ export default function TaskCard({
                         <DragDropContext onDragEnd={handleAttachmentDragEnd}>
                           <Droppable droppableId="attachments-list">
                             {(provided) => (
-                              <div 
+                                <div 
                                 ref={provided.innerRef}
                                 {...provided.droppableProps}
-                                className="flex flex-col gap-2 mb-4"
+                                className="flex flex-wrap gap-3 mb-4"
                               >
                                 {card.attachments!.map((attachment, idx) => (
                                   <Draggable 
@@ -990,43 +990,43 @@ export default function TaskCard({
                                         ref={provided.innerRef}
                                         {...provided.draggableProps}
                                         className={cn(
-                                          "group flex items-center gap-3 p-2 bg-muted/30 rounded-lg border border-border/50 hover:border-primary/50 transition-colors",
+                                          "group relative flex flex-col items-center gap-1 p-1.5 bg-muted/30 rounded-lg border border-border/50 hover:border-primary/50 transition-colors w-[110px]",
                                           snapshot.isDragging && "shadow-lg ring-2 ring-primary/50 z-50 bg-background"
                                         )}
                                       >
                                         <div 
                                           {...provided.dragHandleProps}
-                                          className="p-1.5 rounded hover:bg-muted cursor-grab active:cursor-grabbing flex-shrink-0"
+                                          className="absolute top-1 left-1 p-0.5 rounded hover:bg-muted cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity z-10"
                                         >
-                                          <GripVertical className="h-4 w-4 text-muted-foreground" />
-                                        </div>
-                                        
-                                        <div 
-                                          className="h-12 w-12 rounded-md bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
-                                          onClick={() => setPreviewAttachment(attachment)}
-                                        >
-                                          {isImageFile(attachment.type) ? (
-                                            <img src={attachment.url} alt={attachment.name} className="h-full w-full object-cover" />
-                                          ) : (
-                                            <File className="h-5 w-5 text-muted-foreground" />
-                                          )}
-                                        </div>
-
-                                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setPreviewAttachment(attachment)}>
-                                          <p className="text-sm font-medium truncate text-foreground">{attachment.name}</p>
-                                          <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                                          <GripVertical className="h-3 w-3 text-muted-foreground" />
                                         </div>
 
                                         {!readOnly && (
                                           <Button 
                                             variant="ghost" 
                                             size="icon" 
-                                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive" 
+                                            className="absolute top-1 right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive z-10" 
                                             onClick={() => setAttachmentToRemove(attachment)}
                                           >
-                                            <X className="h-4 w-4" />
+                                            <X className="h-3 w-3" />
                                           </Button>
                                         )}
+                                        
+                                        <div 
+                                          className="h-[100px] w-[100px] rounded-md bg-muted flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                                          onClick={() => setPreviewAttachment(attachment)}
+                                        >
+                                          {isImageFile(attachment.type) ? (
+                                            <img src={attachment.url} alt={attachment.name} className="h-full w-full object-cover" />
+                                          ) : (
+                                            <File className="h-8 w-8 text-muted-foreground" />
+                                          )}
+                                        </div>
+
+                                        <div className="w-full text-center cursor-pointer" onClick={() => setPreviewAttachment(attachment)}>
+                                          <p className="text-[10px] font-medium truncate text-foreground">{attachment.name}</p>
+                                          <p className="text-[9px] text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                                        </div>
                                       </div>
                                     )}
                                   </Draggable>
