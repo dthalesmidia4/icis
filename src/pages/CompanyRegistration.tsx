@@ -43,7 +43,8 @@ const CompanyRegistration = () => {
     brand_primary_color: "",
     brand_secondary_color: "",
     brand_font: "",
-    has_mascot: false
+    has_mascot: false,
+    mascot_description: ""
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loadingCep, setLoadingCep] = useState(false);
@@ -151,6 +152,11 @@ const CompanyRegistration = () => {
       }
     }
 
+    // Mascot description required when has_mascot is true
+    if ((formData as any).has_mascot && !((formData as any).mascot_description || "").trim()) {
+      return false;
+    }
+
     if (formData.sector === "Outros" && (!formData.other_sector.trim() || validateField("other_sector", formData.other_sector))) {
       return false;
     }
@@ -215,7 +221,8 @@ const CompanyRegistration = () => {
         brand_primary_color: formData.brand_primary_color || null,
         brand_secondary_color: formData.brand_secondary_color || null,
         brand_font: formData.brand_font || null,
-        has_mascot: (formData as any).has_mascot || false
+        has_mascot: (formData as any).has_mascot || false,
+        mascot_description: (formData as any).has_mascot ? ((formData as any).mascot_description || null) : null
       }]).select().single();
 
       if (error) {
@@ -561,9 +568,26 @@ const CompanyRegistration = () => {
                     </Label>
                   </div>
                   {(formData as any).has_mascot && (
-                    <p className="text-xs text-muted-foreground pl-7">
-                      Após o cadastro, acesse os detalhes do cliente para fazer upload da imagem do mascote.
-                    </p>
+                    <div className="space-y-2 pl-7">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="mascot_description_reg" className="text-xs font-medium text-muted-foreground">
+                          Características do Mascote <span className="text-destructive">*</span>
+                        </Label>
+                        <Textarea
+                          id="mascot_description_reg"
+                          value={(formData as any).mascot_description || ""}
+                          onChange={(e) => setFormData(prev => ({ ...prev, mascot_description: e.target.value }))}
+                          placeholder="Descreva as características visuais do mascote: cores, forma, estilo, expressão, personalidade, nome, etc."
+                          className={`min-h-[80px] border-border/60 ${errors.mascot_description ? "border-destructive" : ""}`}
+                        />
+                        {errors.mascot_description && (
+                          <p className="text-xs text-destructive">{errors.mascot_description}</p>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Após o cadastro, acesse os detalhes do cliente para fazer upload da imagem do mascote.
+                      </p>
+                    </div>
                   )}
                 </div>
               </CardContent>

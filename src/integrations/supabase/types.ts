@@ -866,6 +866,7 @@ export type Database = {
           has_mascot: boolean
           id: string
           logo_url: string | null
+          mascot_description: string | null
           mascot_url: string | null
           name: string
           phone: string
@@ -886,6 +887,7 @@ export type Database = {
           has_mascot?: boolean
           id?: string
           logo_url?: string | null
+          mascot_description?: string | null
           mascot_url?: string | null
           name: string
           phone: string
@@ -906,6 +908,7 @@ export type Database = {
           has_mascot?: boolean
           id?: string
           logo_url?: string | null
+          mascot_description?: string | null
           mascot_url?: string | null
           name?: string
           phone?: string
