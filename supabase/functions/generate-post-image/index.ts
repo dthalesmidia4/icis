@@ -264,7 +264,7 @@ ESTILO:
 
         const attachment = {
           url: urlData.publicUrl,
-          name: `Slide ${slide.slideNumber} - ${brandName}`,
+          name: `Slide ${slide.slideNumber} - ${brandName}.png`,
           type: "image/png",
           size: imageBytes.length,
           storagePath,
