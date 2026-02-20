@@ -1111,6 +1111,10 @@ export default function TaskCard({
               A IA irá analisar o conteúdo da atividade e gerar imagens para cada slide identificado. Isso pode levar alguns minutos dependendo da quantidade de slides.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+            <Wand2 className="h-3.5 w-3.5 shrink-0" />
+            <span>Tecnologia atual: <strong className="text-foreground">OpenAI gpt-image-1</strong></span>
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
