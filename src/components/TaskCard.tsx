@@ -972,12 +972,12 @@ export default function TaskCard({
                       {/* Attachments List with Drag and Drop */}
                       {card.attachments && card.attachments.length > 0 && (
                         <DragDropContext onDragEnd={handleAttachmentDragEnd}>
-                          <Droppable droppableId="attachments-list">
+                          <Droppable droppableId="attachments-list" direction="horizontal">
                             {(provided) => (
                                 <div 
                                 ref={provided.innerRef}
                                 {...provided.droppableProps}
-                                className="flex flex-wrap gap-3 mb-4"
+                                className="flex gap-3 mb-4 overflow-x-auto pb-2 scrollbar-thin"
                               >
                                 {card.attachments!.map((attachment, idx) => (
                                   <Draggable 
@@ -989,32 +989,30 @@ export default function TaskCard({
                                       <div 
                                         ref={provided.innerRef}
                                         {...provided.draggableProps}
+                                        {...provided.dragHandleProps}
                                         className={cn(
-                                          "group relative flex flex-col items-center gap-1 p-1.5 bg-muted/30 rounded-lg border border-border/50 hover:border-primary/50 transition-colors w-[110px]",
-                                          snapshot.isDragging && "shadow-lg ring-2 ring-primary/50 z-50 bg-background"
+                                          "group relative flex flex-col items-center gap-1 p-1.5 bg-muted/30 rounded-lg border border-border/50 hover:border-primary/50 transition-colors w-[110px] flex-shrink-0 cursor-grab active:cursor-grabbing select-none",
+                                          snapshot.isDragging && "shadow-xl ring-2 ring-primary/50 z-50 bg-background scale-105 rotate-1"
                                         )}
                                       >
-                                        <div 
-                                          {...provided.dragHandleProps}
-                                          className="absolute top-1 left-1 p-0.5 rounded hover:bg-muted cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                                        >
-                                          <GripVertical className="h-3 w-3 text-muted-foreground" />
-                                        </div>
-
                                         {!readOnly && (
                                           <Button 
                                             variant="ghost" 
                                             size="icon" 
-                                            className="absolute top-1 right-1 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive z-10" 
-                                            onClick={() => setAttachmentToRemove(attachment)}
+                                            className="absolute -top-2 -right-2 h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity bg-destructive/90 text-destructive-foreground hover:bg-destructive rounded-full z-10" 
+                                            onClick={(e) => { e.stopPropagation(); setAttachmentToRemove(attachment); }}
                                           >
                                             <X className="h-3 w-3" />
                                           </Button>
                                         )}
+
+                                        <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-0.5 opacity-0 group-hover:opacity-60 transition-opacity pointer-events-none">
+                                          <GripVertical className="h-3 w-3 text-muted-foreground rotate-90" />
+                                        </div>
                                         
                                         <div 
                                           className="h-[100px] w-[100px] rounded-md bg-muted flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
-                                          onClick={() => setPreviewAttachment(attachment)}
+                                          onClick={(e) => { e.stopPropagation(); setPreviewAttachment(attachment); }}
                                         >
                                           {isImageFile(attachment.type) ? (
                                             <img src={attachment.url} alt={attachment.name} className="h-full w-full object-cover" />
@@ -1023,7 +1021,7 @@ export default function TaskCard({
                                           )}
                                         </div>
 
-                                        <div className="w-full text-center cursor-pointer" onClick={() => setPreviewAttachment(attachment)}>
+                                        <div className="w-full text-center cursor-pointer" onClick={(e) => { e.stopPropagation(); setPreviewAttachment(attachment); }}>
                                           <p className="text-[10px] font-medium truncate text-foreground">{attachment.name}</p>
                                           <p className="text-[9px] text-muted-foreground">{formatFileSize(attachment.size)}</p>
                                         </div>
