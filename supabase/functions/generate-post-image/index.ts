@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
     // 3. Fetch client branding
     const { data: client } = await supabase
       .from("tenant_companies")
-      .select("name, fantasy_name, logo_url, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_url")
+      .select("name, fantasy_name, logo_url, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_url, mascot_description")
       .eq("id", demand.client_id)
       .single();
 
@@ -188,6 +188,7 @@ Deno.serve(async (req) => {
     const brandFont = client?.brand_font || "Montserrat";
     const hasMascot = client?.has_mascot || false;
     const mascotUrl = client?.mascot_url || null;
+    const mascotDescription = client?.mascot_description || null;
 
     // Check if the activity text mentions the mascot
     const fullText = [demand.description, demand.instructions, demand.observations, demand.title].join(" ");
@@ -218,9 +219,10 @@ Deno.serve(async (req) => {
 
     // 7. Generate images for each slide using gpt-image-1
     for (const slide of slidesToGenerate) {
+      const mascotDescriptionText = mascotDescription ? ` Características do mascote: ${mascotDescription}.` : "";
       const mascotInstruction = hasMascot
         ? mentionsMascot
-          ? `- MASCOTE: A marca possui um mascote oficial.${mascotImageBase64 ? " A imagem de referência do mascote foi fornecida. Reproduza FIELMENTE este mascote/personagem no design, mantendo suas características visuais (cores, forma, estilo, expressão). O mascote deve ser um elemento central e de destaque." : " Inclua um personagem/mascote simpático e carismático como elemento central ou de destaque no design, representando a marca de forma lúdica e memorável."}`
+          ? `- MASCOTE: A marca possui um mascote oficial.${mascotDescriptionText}${mascotImageBase64 ? " A imagem de referência do mascote foi fornecida. Reproduza FIELMENTE este mascote/personagem no design, mantendo suas características visuais (cores, forma, estilo, expressão). O mascote deve ser um elemento central e de destaque." : " Inclua um personagem/mascote simpático e carismático como elemento central ou de destaque no design, representando a marca de forma lúdica e memorável."}`
           : `- A marca possui um mascote, mas ele NÃO foi solicitado neste slide. NÃO inclua personagens ou mascotes.`
         : `- NÃO inclua personagens ou mascotes no design.`;
 

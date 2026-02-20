@@ -46,6 +46,7 @@ interface ClientFormData {
   brand_secondary_color: string;
   brand_font: string;
   has_mascot: boolean;
+  mascot_description: string;
 }
 
 const SECTOR_OPTIONS = [
@@ -122,7 +123,8 @@ const parseStoredData = (client: any): ClientFormData => {
     brand_primary_color: client.brand_primary_color || "",
     brand_secondary_color: client.brand_secondary_color || "",
     brand_font: client.brand_font || "",
-    has_mascot: client.has_mascot || false
+    has_mascot: client.has_mascot || false,
+    mascot_description: client.mascot_description || ""
   };
 };
 
@@ -179,7 +181,8 @@ const ClientDetails = () => {
     brand_primary_color: "",
     brand_secondary_color: "",
     brand_font: "",
-    has_mascot: false
+    has_mascot: false,
+    mascot_description: ""
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -448,6 +451,11 @@ const ClientDetails = () => {
     }
     if (!formData.phone.trim()) newErrors.phone = "Telefone é obrigatório";
     
+    // Mascot description validation
+    if (formData.has_mascot && !formData.mascot_description.trim()) {
+      newErrors.mascot_description = "Descreva as características do mascote";
+    }
+
     // Franchise validation
     if (formData.hasFranchise === "sim") {
       if (!formData.franchise_units.trim()) newErrors.franchise_units = "Campo obrigatório";
@@ -493,6 +501,7 @@ const ClientDetails = () => {
           brand_secondary_color: formData.brand_secondary_color.trim() || null,
           brand_font: formData.brand_font.trim() || null,
           has_mascot: formData.has_mascot,
+          mascot_description: formData.has_mascot ? formData.mascot_description.trim() || null : null,
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
@@ -1311,6 +1320,7 @@ const ClientDetails = () => {
               </div>
 
               {formData.has_mascot && (
+                <>
                 <div className="flex items-start gap-6 p-4 rounded-xl bg-muted/20 border border-border/30">
                   <div className="shrink-0">
                     <div className="w-24 h-24 rounded-xl border-2 border-dashed border-border flex items-center justify-center bg-muted/50 overflow-hidden">
@@ -1349,6 +1359,31 @@ const ClientDetails = () => {
                     </p>
                   </div>
                 </div>
+                {/* Mascot Description */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="mascot_description" className="text-xs font-medium text-muted-foreground">
+                    Características do Mascote <span className="text-destructive">*</span>
+                  </Label>
+                  {isEditing ? (
+                    <>
+                      <Textarea
+                        id="mascot_description"
+                        value={formData.mascot_description}
+                        onChange={(e) => handleInputChange('mascot_description', e.target.value)}
+                        placeholder="Descreva as características visuais do mascote: cores, forma, estilo, expressão, personalidade, nome, etc. Essas informações serão usadas pela IA para gerar imagens fiéis ao mascote."
+                        className={`min-h-[100px] border-border/60 ${errors.mascot_description ? "border-destructive" : ""}`}
+                      />
+                      {errors.mascot_description && (
+                        <p className="text-xs text-destructive">{errors.mascot_description}</p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 whitespace-pre-wrap">
+                      {formData.mascot_description || <span className="text-muted-foreground">Não informado</span>}
+                    </p>
+                  )}
+                </div>
+                </>
               )}
             </div>
           </FormSection>

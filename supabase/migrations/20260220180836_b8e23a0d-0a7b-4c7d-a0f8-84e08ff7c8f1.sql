@@ -1,0 +1,1 @@
+ALTER TABLE public.tenant_companies ADD COLUMN mascot_description text;
