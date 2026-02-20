@@ -76,6 +76,10 @@ Deno.serve(async (req) => {
       });
     }
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     // Fetch Google AI Studio API key from api_keys table
     const { data: apiKeyData, error: apiKeyError } = await supabase
       .from("api_keys")
@@ -91,10 +95,6 @@ Deno.serve(async (req) => {
       );
     }
     const GOOGLE_API_KEY = apiKeyData.key_value;
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // 1. Fetch the demand
     const { data: demand, error: demandError } = await supabase
