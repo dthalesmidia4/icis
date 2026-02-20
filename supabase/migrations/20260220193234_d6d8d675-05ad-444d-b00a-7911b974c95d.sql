@@ -1,0 +1,1 @@
+INSERT INTO public.super_admins (user_id) VALUES ('950c65f3-84b1-4903-ad1c-21e4ef4f73e5');
