@@ -1113,7 +1113,7 @@ export default function TaskCard({
           </AlertDialogHeader>
           <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
             <Wand2 className="h-3.5 w-3.5 shrink-0" />
-            <span>Tecnologia atual: <strong className="text-foreground">Google Gemini (gemini-2.0-flash-exp-image-generation) via Google AI Studio</strong></span>
+            <span>Tecnologia atual: <strong className="text-foreground">Nano Banana Pro (Gemini 3 Pro) via Lovable AI Gateway</strong></span>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>

@@ -6,7 +6,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent";
+const LOVABLE_AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const IMAGE_MODEL = "google/gemini-3-pro-image-preview";
 
 // Keywords that indicate mascot usage in the activity text
 const MASCOT_KEYWORDS = [
@@ -61,26 +62,6 @@ function getAspectRatio(demandType: string | null, _channel: string | null): str
   return "1:1 (square, 1024x1024)";
 }
 
-// Fetch mascot image as base64 for inline_data
-async function fetchImageAsBase64(url: string): Promise<{ base64: string; mimeType: string } | null> {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const buffer = await response.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    const base64 = btoa(binary);
-    const contentType = response.headers.get("content-type") || "image/png";
-    return { base64, mimeType: contentType };
-  } catch (e) {
-    console.error("Failed to fetch mascot image:", e);
-    return null;
-  }
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -96,26 +77,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Fetch the Google AI Studio key from api_keys table
-    const { data: apiKeyRow, error: apiKeyError } = await supabase
-      .from("api_keys")
-      .select("key_value")
-      .eq("key_name", "Google AI Studio")
-      .single();
-
-    if (apiKeyError || !apiKeyRow?.key_value) {
-      console.error("Google AI Studio key not found in api_keys:", apiKeyError);
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      console.error("LOVABLE_API_KEY not configured");
       return new Response(
-        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys. Cadastre em Dev > APIs." }),
+        JSON.stringify({ error: "LOVABLE_API_KEY não configurada no ambiente." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const GEMINI_API_KEY = apiKeyRow.key_value;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // 1. Fetch the demand
     const { data: demand, error: demandError } = await supabase
@@ -195,17 +168,6 @@ Deno.serve(async (req) => {
     const mentionsMascot = textMentionsMascot(fullText);
     const useMascotReference = hasMascot && mentionsMascot && mascotUrl;
 
-    // Pre-fetch mascot image if needed
-    let mascotImageData: { base64: string; mimeType: string } | null = null;
-    if (useMascotReference) {
-      mascotImageData = await fetchImageAsBase64(mascotUrl!);
-      if (mascotImageData) {
-        console.log("Mascot reference image fetched successfully");
-      } else {
-        console.warn("Failed to fetch mascot image, will use text description only");
-      }
-    }
-
     const basePrompt = promptData?.prompt_content || "";
     const strategySnippet = strategy?.strategy_text
       ? `Tom de voz: ${strategy.strategy_text.substring(0, 300)}`
@@ -215,11 +177,11 @@ Deno.serve(async (req) => {
     const existingAttachments = demand.attachments || [];
     const errors: string[] = [];
 
-    // 6. Generate images for each slide using Gemini API directly
+    // 6. Generate images for each slide using Nano Banana Pro via Lovable AI Gateway
     for (const slide of slidesToGenerate) {
       const mascotInstruction = hasMascot
         ? mentionsMascot
-          ? `- MASCOTE: A marca possui um mascote oficial que DEVE aparecer neste design.${mascotDescription ? `\n  DESCRIÇÃO DETALHADA DO MASCOTE: ${mascotDescription}` : ""}${useMascotReference && mascotImageData ? `\n  REFERÊNCIA VISUAL: Uma imagem de referência do mascote foi anexada. Reproduza fielmente suas características visuais, cores e estilo conforme a imagem de referência e a descrição acima.` : ""}\n  O mascote deve ser um elemento de DESTAQUE no design, integrado harmoniosamente à composição do post. NÃO gere apenas o mascote isolado — crie o POST COMPLETO para rede social com o mascote como parte da composição.`
+          ? `- MASCOTE: A marca possui um mascote oficial que DEVE aparecer neste design.${mascotDescription ? `\n  DESCRIÇÃO DETALHADA DO MASCOTE: ${mascotDescription}` : ""}${useMascotReference ? `\n  REFERÊNCIA VISUAL: Uma imagem de referência do mascote foi anexada. Reproduza fielmente suas características visuais, cores e estilo conforme a imagem de referência e a descrição acima.` : ""}\n  O mascote deve ser um elemento de DESTAQUE no design, integrado harmoniosamente à composição do post. NÃO gere apenas o mascote isolado — crie o POST COMPLETO para rede social com o mascote como parte da composição.`
           : `- A marca possui um mascote, mas ele NÃO foi solicitado neste slide. NÃO inclua personagens ou mascotes.`
         : `- NÃO inclua personagens ou mascotes no design.`;
 
@@ -248,75 +210,79 @@ ESTILO:
 - IMPORTANTE: Gere um POST COMPLETO para rede social, não apenas um elemento isolado
 `.trim();
 
-      console.log(`Generating Gemini image for slide ${slide.slideNumber}...${useMascotReference && mascotImageData ? " (with mascot reference image)" : hasMascot && mentionsMascot ? " (mascot via text description)" : ""}`);
+      console.log(`Generating image for slide ${slide.slideNumber} using ${IMAGE_MODEL}...${useMascotReference ? " (with mascot reference)" : ""}`);
 
       try {
-        // Build Gemini API request parts
-        const parts: any[] = [{ text: imagePrompt }];
+        // Build message content: text + optional mascot reference image
+        const messageContent: any[] = [{ type: "text", text: imagePrompt }];
 
-        // Add mascot reference image if available
-        if (useMascotReference && mascotImageData) {
-          parts.push({
-            inline_data: {
-              mime_type: mascotImageData.mimeType,
-              data: mascotImageData.base64,
-            },
+        if (useMascotReference) {
+          messageContent.push({
+            type: "image_url",
+            image_url: { url: mascotUrl },
           });
-          console.log(`  → Mascot reference image attached as inline_data`);
+          console.log(`  → Mascot reference image attached: ${mascotUrl}`);
         }
 
-        const geminiRequestBody = {
-          contents: [{ parts }],
-          generationConfig: {
-            responseModalities: ["TEXT", "IMAGE"],
-          },
-        };
-
-        const geminiResponse = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+        const gatewayResponse = await fetch(LOVABLE_AI_GATEWAY, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(geminiRequestBody),
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: IMAGE_MODEL,
+            messages: [{ role: "user", content: messageContent }],
+            modalities: ["image", "text"],
+          }),
         });
 
-        if (!geminiResponse.ok) {
-          const errorText = await geminiResponse.text();
-          console.error(`Gemini error for slide ${slide.slideNumber}:`, geminiResponse.status, errorText);
+        if (!gatewayResponse.ok) {
+          const errorText = await gatewayResponse.text();
+          console.error(`Gateway error for slide ${slide.slideNumber}:`, gatewayResponse.status, errorText);
 
-          if (geminiResponse.status === 429) {
+          if (gatewayResponse.status === 429) {
             errors.push(`Slide ${slide.slideNumber}: Rate limit excedido. Tente novamente em alguns minutos.`);
             continue;
           }
-          if (geminiResponse.status === 403) {
-            errors.push(`Slide ${slide.slideNumber}: Chave Google AI Studio inválida ou sem permissão.`);
-            continue;
+          if (gatewayResponse.status === 402) {
+            return new Response(
+              JSON.stringify({ error: "Créditos Lovable AI esgotados. Adicione créditos em Settings > Workspace > Usage." }),
+              { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
           }
 
-          errors.push(`Slide ${slide.slideNumber}: Erro ${geminiResponse.status}`);
+          errors.push(`Slide ${slide.slideNumber}: Erro ${gatewayResponse.status}`);
           continue;
         }
 
-        const geminiData = await geminiResponse.json();
+        const gatewayData = await gatewayResponse.json();
+        const generatedImages = gatewayData.choices?.[0]?.message?.images;
 
-        // Extract image from Gemini response
-        // Gemini returns candidates[0].content.parts[] where parts can have inlineData with image
-        const candidateParts = geminiData?.candidates?.[0]?.content?.parts;
-        if (!candidateParts || candidateParts.length === 0) {
-          console.error(`No parts in Gemini response for slide ${slide.slideNumber}:`, JSON.stringify(geminiData).substring(0, 500));
+        if (!generatedImages || generatedImages.length === 0) {
+          console.error(`No image in response for slide ${slide.slideNumber}:`, JSON.stringify(gatewayData).substring(0, 500));
           errors.push(`Slide ${slide.slideNumber}: Nenhuma imagem retornada pelo modelo`);
           continue;
         }
 
-        // Find the image part
-        const imagePart = candidateParts.find((p: any) => p.inlineData?.mimeType?.startsWith("image/"));
-        if (!imagePart) {
-          console.error(`No image part in Gemini response for slide ${slide.slideNumber}:`, JSON.stringify(candidateParts.map((p: any) => Object.keys(p))));
-          errors.push(`Slide ${slide.slideNumber}: Modelo não retornou imagem`);
+        // Extract base64 from data URL
+        const imageDataUrl = generatedImages[0]?.image_url?.url;
+        if (!imageDataUrl) {
+          errors.push(`Slide ${slide.slideNumber}: Formato de imagem inesperado`);
           continue;
         }
 
-        const b64Image = imagePart.inlineData.data;
-        const mimeType = imagePart.inlineData.mimeType;
-        const extension = mimeType === "image/jpeg" ? "jpg" : mimeType === "image/webp" ? "webp" : "png";
+        // Parse base64 from data:image/png;base64,...
+        const base64Match = imageDataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (!base64Match) {
+          errors.push(`Slide ${slide.slideNumber}: Formato base64 inválido`);
+          continue;
+        }
+
+        const imageFormat = base64Match[1];
+        const b64Image = base64Match[2];
+        const contentType = `image/${imageFormat}`;
+        const extension = imageFormat === "jpeg" ? "jpg" : imageFormat;
 
         // Decode base64
         const binaryString = atob(b64Image);
@@ -332,7 +298,7 @@ ESTILO:
         const { error: uploadError } = await supabase.storage
           .from("card-attachments")
           .upload(storagePath, imageBytes, {
-            contentType: mimeType,
+            contentType,
             upsert: true,
           });
 
@@ -349,18 +315,18 @@ ESTILO:
         const attachment = {
           url: urlData.publicUrl,
           name: `Slide ${slide.slideNumber} - ${brandName}.${extension}`,
-          type: mimeType,
+          type: contentType,
           size: imageBytes.length,
           storagePath,
           uploadedAt: new Date().toISOString(),
-          uploadedBy: { id: "ai-generator", email: "system@ai", name: "IA - Gemini" },
+          uploadedBy: { id: "ai-generator", email: "system@ai", name: "IA - Gemini 3 Pro" },
           cardId: demand.id,
           tenantId: demand.tenant_id,
           clientId: demand.client_id,
         };
 
         generatedAttachments.push(attachment);
-        console.log(`✅ Slide ${slide.slideNumber} generated and uploaded successfully (${extension})`);
+        console.log(`✅ Slide ${slide.slideNumber} generated and uploaded successfully (${imageFormat})`);
       } catch (slideError) {
         console.error(`Exception generating slide ${slide.slideNumber}:`, slideError);
         errors.push(`Slide ${slide.slideNumber}: ${slideError instanceof Error ? slideError.message : "Erro desconhecido"}`);
@@ -399,7 +365,7 @@ ESTILO:
         generated: generatedAttachments.length,
         total_slides: allSlides.length,
         message: `${generatedAttachments.length} imagem(ns) gerada(s) com sucesso`,
-        used_mascot_reference: !!(useMascotReference && mascotImageData),
+        used_mascot_reference: !!useMascotReference,
         used_mascot_in_prompt: !!(hasMascot && mentionsMascot),
         errors: errors.length > 0 ? errors : undefined,
       }),
