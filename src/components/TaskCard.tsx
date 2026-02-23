@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline } from "lucide-react";
+import { CalendarIcon, FileText, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
@@ -158,6 +158,64 @@ const convertToHtml = (text: string): string => {
   return html || `<p>${text.replace(/\n/g, '<br>')}</p>`;
 };
 
+// Merge 3 fields into a single HTML document with H2 separators
+const mergeFieldsToDocument = (objective: string | null, description: string | null, observations: string | null): string => {
+  const parts: string[] = [];
+  
+  const objHtml = convertToHtml(objective || '');
+  const descHtml = convertToHtml(description || '');
+  const obsHtml = convertToHtml(observations || '');
+  
+  const hasContent = (html: string) => {
+    const text = html.replace(/<[^>]*>/g, '').trim();
+    return text.length > 0;
+  };
+  
+  // Always include headers even if empty, so user knows where to type
+  parts.push(`<h2>Objetivo</h2>${hasContent(objHtml) ? objHtml : '<p></p>'}`);
+  parts.push(`<h2>Atividade</h2>${hasContent(descHtml) ? descHtml : '<p></p>'}`);
+  parts.push(`<h2>Observações</h2>${hasContent(obsHtml) ? obsHtml : '<p></p>'}`);
+  
+  return parts.join('');
+};
+
+// Split a unified document back into 3 fields based on H2 headers
+const splitDocumentToFields = (html: string): { objective: string; description: string; observations: string } => {
+  const result = { objective: '', description: '', observations: '' };
+  
+  if (!html) return result;
+  
+  // Split by H2 headers
+  // We use a regex that captures the header text and the content after it
+  const sections = html.split(/<h2[^>]*>/i);
+  
+  for (const section of sections) {
+    if (!section.trim()) continue;
+    
+    // Extract the header text (before </h2>)
+    const headerMatch = section.match(/^([^<]*)<\/h2>([\s\S]*)/i);
+    if (headerMatch) {
+      const headerText = headerMatch[1].trim().toLowerCase();
+      const content = headerMatch[2].trim();
+      
+      if (headerText.includes('objetivo')) {
+        result.objective = content;
+      } else if (headerText.includes('atividade')) {
+        result.description = content;
+      } else if (headerText.includes('observa')) {
+        result.observations = content;
+      }
+    } else {
+      // Content before any H2 — treat as objective
+      if (!result.objective && section.trim()) {
+        result.objective = section.trim();
+      }
+    }
+  }
+  
+  return result;
+};
+
 // Status configuration mapped directly to Kanban columns
 export const STATUS_GROUPS = [{
   label: "Planejamento",
@@ -288,6 +346,20 @@ export default function TaskCard({
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
   const [periodTitle, setPeriodTitle] = useState<string | null>(null);
+  
+  // Unified document content - initialized once when card opens
+  const [unifiedContent, setUnifiedContent] = useState<string>('');
+  const initializedCardId = useRef<string | null>(null);
+  
+  useEffect(() => {
+    if (open && card && card.id !== initializedCardId.current) {
+      initializedCardId.current = card.id;
+      setUnifiedContent(mergeFieldsToDocument(card.objective, card.description, card.observations));
+    }
+    if (!open) {
+      initializedCardId.current = null;
+    }
+  }, [open, card?.id]);
 
   // Fetch period title when card has a period_plan_id
   useEffect(() => {
@@ -330,9 +402,6 @@ export default function TaskCard({
       console.warn('Failed to load collapsed sections from localStorage:', e);
     }
     return {
-      objetivo: false,
-      atividade: false,
-      observacoes: false,
       anexos: false
     };
   });
@@ -747,85 +816,48 @@ export default function TaskCard({
           <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-6 p-6">
               
-              {/* === COLUNA ESQUERDA: Conteúdo === */}
+              {/* === COLUNA ESQUERDA: Editor Unificado === */}
               <div className="space-y-6">
-                {/* Objetivo + Atividade Card */}
-                <Card>
-                  <CardContent className="p-5 space-y-5">
-                    {/* Objetivo */}
-                    <section>
-                      <button 
-                        type="button"
-                        onClick={() => toggleSection('objetivo')}
-                        className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
-                      >
-                        {collapsedSections.objetivo ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                        <div className="p-1.5 bg-primary/10 rounded-md">
-                          <Target className="h-4 w-4 text-primary" />
-                        </div>
-                        <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Objetivo</h3>
-                        {saving && savingField === 'objective' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                      </button>
-                      {!collapsedSections.objetivo && (
-                        readOnly ? (
-                          <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.objective || "") }} />
-                        ) : (
-                          <BlockEditor content={convertToHtml(card.objective || "")} onChange={value => onCardChange({ ...card, objective: value })} onBlur={() => handleFieldSave('objective', card.objective || '')} placeholder="Qual é a finalidade estratégica deste material?" minHeight="80px" />
-                        )
-                      )}
-                    </section>
-
-                    <Separator />
-
-                    {/* Atividade */}
-                    <section>
-                      <button 
-                        type="button"
-                        onClick={() => toggleSection('atividade')}
-                        className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
-                      >
-                        {collapsedSections.atividade ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                        <div className="p-1.5 bg-primary/10 rounded-md">
-                          <FileText className="h-4 w-4 text-primary" />
-                        </div>
-                        <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Atividade</h3>
-                        {saving && savingField === 'description' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                      </button>
-                      {!collapsedSections.atividade && (
-                        readOnly ? (
-                          <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.description || "") }} />
-                        ) : (
-                          <BlockEditor content={convertToHtml(card.description || "")} onChange={value => onCardChange({ ...card, description: value })} onBlur={() => handleFieldSave('description', card.description || '')} placeholder="Copy, roteiros, frames, instruções de produção..." minHeight="200px" />
-                        )
-                      )}
-                    </section>
-                  </CardContent>
-                </Card>
-
-                {/* Observações Card */}
                 <Card>
                   <CardContent className="p-5">
-                    <section>
-                      <button 
-                        type="button"
-                        onClick={() => toggleSection('observacoes')}
-                        className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
-                      >
-                        {collapsedSections.observacoes ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                        <div className="p-1.5 bg-primary/10 rounded-md">
-                          <MessageSquare className="h-4 w-4 text-primary" />
-                        </div>
-                        <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Observações</h3>
-                        {saving && savingField === 'observations' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                      </button>
-                      {!collapsedSections.observacoes && (
-                        readOnly ? (
-                          <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.observations || "") }} />
-                        ) : (
-                          <BlockEditor content={convertToHtml(card.observations || "")} onChange={value => onCardChange({ ...card, observations: value })} onBlur={() => handleFieldSave('observations', card.observations || '')} placeholder="Feedbacks, ajustes, observações internas..." minHeight="100px" />
-                        )
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="p-1.5 bg-primary/10 rounded-md">
+                        <FileText className="h-4 w-4 text-primary" />
+                      </div>
+                      <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Descrição</h3>
+                      {saving && (savingField === 'objective' || savingField === 'description' || savingField === 'observations') && (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />
                       )}
-                    </section>
+                    </div>
+                    {readOnly ? (
+                      <div 
+                        className="prose prose-sm max-w-none text-muted-foreground [&_h2]:text-foreground [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:first:mt-0 [&_h2]:border-b [&_h2]:border-border/50 [&_h2]:pb-1" 
+                        dangerouslySetInnerHTML={{ __html: mergeFieldsToDocument(card.objective, card.description, card.observations) }} 
+                      />
+                    ) : (
+                      <BlockEditor 
+                        content={unifiedContent} 
+                        onChange={(value) => {
+                          setUnifiedContent(value);
+                          const fields = splitDocumentToFields(value);
+                          onCardChange({ 
+                            ...card, 
+                            objective: fields.objective, 
+                            description: fields.description, 
+                            observations: fields.observations 
+                          });
+                        }} 
+                        onBlur={() => {
+                          const fields = splitDocumentToFields(unifiedContent);
+                          handleFieldSave('objective', fields.objective);
+                          handleFieldSave('description', fields.description);
+                          handleFieldSave('observations', fields.observations);
+                        }} 
+                        placeholder="Digite '/' para inserir blocos..." 
+                        minHeight="400px" 
+                        className="[&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:border-b [&_h2]:border-border/50 [&_h2]:pb-1"
+                      />
+                    )}
                   </CardContent>
                 </Card>
               </div>
