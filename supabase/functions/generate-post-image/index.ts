@@ -197,8 +197,12 @@ ${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\
 CONTEÚDO DO SLIDE ${slide.slideNumber}/${allSlides.length}:
 Texto principal: "${slide.title}"
 ${slide.body ? `Texto complementar: "${slide.body}"` : ""}
-${demand.instructions ? `\nINSTRUÇÕES DA DEMANDA:\n${demand.instructions}` : ""}
-${demand.observations ? `\nOBSERVAÇÕES ADICIONAIS:\n${demand.observations}` : ""}
+${demand.objective ? `\nOBJETIVO DA DEMANDA:\n${demand.objective}` : ""}
+${demand.instructions ? `\nINSTRUÇÕES ESPECÍFICAS (SIGA COM PRIORIDADE MÁXIMA):\n${demand.instructions}` : ""}
+${demand.observations ? `\nOBSERVAÇÕES ADICIONAIS (SIGA COM PRIORIDADE MÁXIMA):\n${demand.observations}` : ""}
+
+DESCRIÇÃO COMPLETA DA ATIVIDADE (SIGA RIGOROSAMENTE CADA DETALHE DESCRITO ABAIXO - cenário, ambiente, estilo, cores, elementos visuais, posição dos personagens, etc.):
+${demand.description ? demand.description.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").trim() : "Criar post profissional para rede social"}
 
 BRANDING:
 - Marca: "${brandName}"
@@ -209,11 +213,10 @@ BRANDING:
 ${mascotInstruction}
 
 ESTILO:
-- Design limpo, moderno e profissional para redes sociais
-- Texto centralizado com hierarquia visual clara
-- Fundo com gradiente sutil usando as cores da marca
+- Design profissional para redes sociais
 - Formato/Proporção: ${aspectRatio}
 - IMPORTANTE: Gere um POST COMPLETO para rede social, não apenas um elemento isolado
+- IMPORTANTE: Siga EXATAMENTE o cenário, ambiente e background descritos na atividade acima. NÃO substitua por fundos genéricos ou abstratos.
 `.trim();
 
       console.log(`Generating image for slide ${slide.slideNumber} using ${GEMINI_MODEL}...${useMascotReference ? " (with mascot reference)" : ""}`);
