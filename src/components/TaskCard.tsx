@@ -775,7 +775,6 @@ export default function TaskCard({
                       )}
                     </section>
 
-                    <Separator />
 
                     {/* Atividade */}
                     <section>
