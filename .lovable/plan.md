@@ -1,131 +1,142 @@
 
 
-## Refatoração do TaskCard baseada no Figma
+# Unificar Campos de Descricao no Padrao ClickUp
 
-### Visao geral
+## Analise: O que ja temos vs O que precisa mudar
 
-Reorganizar o layout do componente `TaskCard` para seguir o design do Figma, com header contextual, body em 2 colunas e seção de anexos separada. A API do componente (props) permanece identica.
+### O que ja temos (e esta funcionando bem)
 
-### Mudancas no layout
+| Recurso ClickUp | Status atual | Detalhes |
+|---|---|---|
+| Editor TipTap com blocos | Ja implementado | StarterKit completo com headings, listas, code blocks, blockquote |
+| Slash commands (/) | Ja implementado | Menu com 12 tipos de bloco, filtro por texto, navegacao por teclado |
+| Checklists interativas | Ja implementado | TaskList/TaskItem com aninhamento via Tab/Shift+Tab |
+| Blocos colapsaveis (Toggle) | Ja implementado | Extension Details com summary/content |
+| Autosave com debounce | Ja implementado | 300ms debounce + indicador saving/saved |
+| Toolbar fixa | Ja implementada | Undo/Redo, formatacao, blocos, link |
+| BubbleMenu (selecao) | Ja implementado | Formatacao rapida ao selecionar texto |
+| Header com titulo editavel | Ja implementado | Titulo inline + status + prioridade derivada |
+| Layout 2 colunas | Ja implementado | 65% conteudo / 35% metadados |
+| Campos estruturados separados | Ja implementado | Status, datas, responsaveis no header e sidebar direita |
 
-**1. Header redesenhado**
-- Linha 1: "Header da tarefa" (titulo editavel) + botao X no canto direito
-- Linha 2: "Cliente **{clientName}**" + "Cronograma **{periodTitle}**" (metadados contextuais lado a lado)
-- Linha 3: "Status" + badge colorido do status + separador + "Prioridade" + badge de prioridade (novo campo derivado ou hardcoded por enquanto)
-- Remover: titulo centralizado gigante, controles archive/delete da toolbar (mover para menu de contexto ou footer)
+### O que NAO vamos implementar (fora de escopo)
 
-**2. Body em 2 colunas (desktop)**
-- Coluna esquerda (~65%): Card contendo Objetivo (colapsavel) e Atividade (BlockEditor) empilhados verticalmente, seguido de Observacoes
-- Coluna direita (~35%): Card "Data de Publicacao" com date picker + time picker + label "Adicionar horario", e abaixo os controles secundarios (vincular periodo, archive, delete)
-- Mobile: empilhar verticalmente (coluna direita acima da esquerda ou abaixo)
+- Comentarios / threads (usuario descartou explicitamente)
+- Activity log (usuario descartou explicitamente)
+- @Mencoes (fase futura)
+- Migracao HTML para JSON (fase futura - risco alto, baixo beneficio imediato)
+- Colaboracao real-time (fase futura)
+- Tabelas no editor (pode ser adicionado depois como slash command)
 
-**3. Seção de Anexos redesenhada**
-- Card separado abaixo do body de 2 colunas
-- Header do card: "Anexos" + badge de contagem + botao "Gerar Estatico com IA" alinhado a direita na mesma linha
-- Lista vertical de anexos (thumbnail quadrada 48x48 + nome do arquivo), ao inves do grid atual
-- Manter drag-and-drop para reordenacao
-- Manter upload button e remove/preview
+---
 
-### Sobre o campo "Prioridade"
+## Mudanca principal: Unificar 3 campos em 1 editor unico
 
-O Figma mostra um badge "Alta" de prioridade. Existem 2 opcoes:
+### Problema atual
 
-- **Opcao A (simples):** Derivar prioridade da proximidade da data de publicacao (ja existe `getPublicationPriority` no KanbanCentralPage). Exibir como badge read-only.
-- **Opcao B (completa):** Adicionar coluna `priority` na tabela `demands` (enum: baixa/media/alta) com Select editavel no TaskCard. Requer migration.
+O TaskCard tem 3 BlockEditors separados, cada um com sua propria toolbar, dentro de secoes colapsaveis:
 
-Recomendacao: comecar com Opcao A para manter escopo menor.
+```text
++---------------------------+
+| [v] Objetivo              |  <- BlockEditor proprio (minHeight 80px)
+|   [toolbar completa]      |
+|   [area de edicao]        |
+|---------------------------|
+| [v] Atividade             |  <- BlockEditor proprio (minHeight 200px)
+|   [toolbar completa]      |
+|   [area de edicao]        |
++---------------------------+
 
-### Detalhes tecnicos
-
-**Arquivo: `src/components/TaskCard.tsx`**
-
-Reestruturar o JSX do modal (linhas ~553-1130):
-
-```
-{/* HEADER */}
-<div className="border-b px-6 py-4">
-  {/* Linha 1: Titulo + Close */}
-  <div className="flex items-center justify-between">
-    <h1 onClick={edit} className="font-semibold text-xl">{card.title}</h1>
-    <Button variant="ghost" size="icon" onClick={close}><X /></Button>
-  </div>
-  
-  {/* Linha 2: Cliente + Cronograma */}
-  <div className="flex items-center gap-6 mt-2 text-sm">
-    <span>Cliente <strong>{card.clientName}</strong></span>
-    <span>Cronograma <strong>{periodTitle}</strong></span>
-  </div>
-  
-  {/* Linha 3: Status + Prioridade */}
-  <div className="flex items-center gap-3 mt-3">
-    <span className="text-sm text-muted-foreground">Status</span>
-    <Select ...>{/* status atual */}</Select>
-    <span>-</span>
-    <span className="text-sm text-muted-foreground">Prioridade</span>
-    <Badge variant="destructive">Alta</Badge>
-  </div>
-</div>
-
-{/* BODY - 2 colunas */}
-<div className="flex-1 overflow-y-auto">
-  <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-6 p-6">
-    {/* Coluna esquerda */}
-    <div className="space-y-6">
-      <Card className="p-5">
-        {/* Objetivo (colapsavel) */}
-        {/* Atividade (BlockEditor) */}
-      </Card>
-      <Card className="p-5">
-        {/* Observacoes (BlockEditor) */}
-      </Card>
-    </div>
-    
-    {/* Coluna direita */}
-    <div className="space-y-4">
-      <Card className="p-4">
-        <h3>Data de Publicacao</h3>
-        {/* Date picker + Time picker */}
-      </Card>
-      {/* Controles secundarios */}
-    </div>
-  </div>
-  
-  {/* Anexos - full width */}
-  <div className="px-6 pb-6">
-    <Card className="p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <h3>Anexos</h3>
-          <Badge>{count}</Badge>
-        </div>
-        <Button>Gerar Estatico com IA</Button>
-      </div>
-      {/* Lista vertical de anexos */}
-    </Card>
-  </div>
-</div>
++---------------------------+
+| [v] Observacoes           |  <- BlockEditor proprio (minHeight 100px)
+|   [toolbar completa]      |
+|   [area de edicao]        |
++---------------------------+
 ```
 
-**Para buscar o nome do periodo:**
-- O componente ja recebe `card.period_plan_id`
-- Adicionar um `useEffect` que busca `period_plans.period_title` quando `period_plan_id` existe
-- Ou receber como prop do componente pai (ja disponivel no KanbanCentralPage)
+Isso resulta em:
+- 3 toolbars repetidas (poluicao visual)
+- 3 instancias de TipTap rodando simultaneamente
+- Campos com tamanhos exorbitantes que ocupam muito espaco
+- Experiencia fragmentada - nao parece um documento unico
 
-**Layout responsivo:**
-- Desktop: `grid-cols-[1fr_280px]`
-- Mobile: `grid-cols-1` com coluna direita empilhada acima ou abaixo
+### Solucao: 1 editor unico com separadores internos
 
-### Arquivos impactados
+Juntar os 3 campos (`objective`, `description`, `observations`) em um unico campo `description` usando separadores visuais (headings) dentro do proprio editor, no estilo ClickUp onde a descricao e um unico documento livre.
 
-- `src/components/TaskCard.tsx` -- refatoracao do layout JSX (sem mudanca de props/API)
-- Nenhuma alteracao de banco de dados (usando prioridade derivada)
-- Nenhum novo componente necessario
+```text
++------------------------------------------+
+| [toolbar unica]                          |
+|------------------------------------------|
+| ## Objetivo                              |
+| Qual e a finalidade estrategica...       |
+|                                          |
+| ## Atividade                             |
+| Copy, roteiros, frames...               |
+|                                          |
+| ## Observacoes                           |
+| Feedbacks, ajustes...                    |
++------------------------------------------+
+```
+
+---
+
+## Plano tecnico
+
+### 1. Criar funcao de merge dos 3 campos em 1
+
+No `TaskCard.tsx`, criar uma funcao que concatena o conteudo dos 3 campos em um unico HTML com headings como separadores:
+
+- Se `objective` tem conteudo -> adiciona `<h2>Objetivo</h2>` + conteudo
+- Se `description` tem conteudo -> adiciona `<h2>Atividade</h2>` + conteudo
+- Se `observations` tem conteudo -> adiciona `<h2>Observacoes</h2>` + conteudo
+
+### 2. Criar funcao de split para salvar
+
+Ao salvar, parsear o HTML do editor e dividir de volta nos 3 campos do banco:
+- Conteudo antes do primeiro H2 ou entre `## Objetivo` e proximo H2 -> salva em `objective`
+- Conteudo entre `## Atividade` e proximo H2 -> salva em `description`
+- Conteudo apos `## Observacoes` -> salva em `observations`
+
+Isso mantem compatibilidade total com o banco de dados existente (sem migracoes).
+
+### 3. Substituir os 3 BlockEditors por 1
+
+No `TaskCard.tsx`:
+- Remover as 3 secoes colapsaveis (Objetivo, Atividade, Observacoes)
+- Colocar um unico `BlockEditor` que ocupa a coluna esquerda inteira
+- Aumentar o `minHeight` para algo como `400px` para dar espaco ao documento completo
+- O placeholder inicial tera os 3 headings pre-populados quando o documento esta vazio
+
+### 4. Ajuste no BlockEditor.tsx
+
+- Nenhuma mudanca estrutural necessaria no componente em si
+- O editor ja suporta headings, todos os blocos, slash commands, etc.
+- Apenas garantir que o `minHeight` funcione bem para documentos maiores
+
+### 5. Ajuste na funcao `parseClientSlides`
+
+- Continua funcionando pois le o campo `description` que sera salvo normalmente
+
+### 6. Leitura read-only
+
+- Substituir os 3 `dangerouslySetInnerHTML` por um unico bloco renderizando o documento mergeado
+
+---
+
+## Arquivos impactados
+
+| Arquivo | Mudanca |
+|---|---|
+| `src/components/TaskCard.tsx` | Substituir 3 editors por 1; funcoes merge/split; remover secoes colapsaveis de conteudo |
 
 ### O que NAO muda
 
-- Props do TaskCard (mesma interface)
-- Logica de save/upload/delete/archive
-- BlockEditor e suas melhorias recentes
-- Fluxo de geracao de imagens com IA
-- DemandaCard (componente separado usado apenas no review modal)
+- `BlockEditor.tsx` - nenhuma alteracao
+- Banco de dados - nenhuma migracao (os 3 campos continuam existindo)
+- Props/API do TaskCard - mesma interface
+- Sidebar direita (datas, acoes, anexos) - intocada
+- Header (titulo, status, prioridade) - intocado
+- Logica de save/upload/delete - mesma
+- Paginas consumidoras (KanbanCentralPage, PeriodClientList, Scheduled) - sem mudanca
 
