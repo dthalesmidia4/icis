@@ -181,7 +181,8 @@ const Scheduled = () => {
             isArchived: false,
             source: demand.source,
             demand_id: demand.id,
-            demand_type: demand.demand_type
+            demand_type: demand.demand_type,
+            additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates as string[] : []
           };
         });
 

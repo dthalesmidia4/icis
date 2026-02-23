@@ -72,6 +72,7 @@ export interface KanbanCardData {
   publish_date: string | null;
   publish_time: string | null;
   archived_at?: string | null;
+  additional_publish_dates?: string[];
   // Fields for demands mapped to cards
   source?: string;
   demand_id?: string;
@@ -278,6 +279,7 @@ export default function TaskCard({
 }: TaskCardProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isAdditionalDatePickerOpen, setIsAdditionalDatePickerOpen] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [attachmentToRemove, setAttachmentToRemove] = useState<Attachment | null>(null);
   const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
@@ -508,6 +510,41 @@ export default function TaskCard({
       publish_time: time
     });
     await onSave('publish_time', time);
+  };
+
+  // Additional publish dates management
+  const additionalDates: string[] = Array.isArray(card?.additional_publish_dates) 
+    ? card.additional_publish_dates 
+    : [];
+
+  const handleAddAdditionalDate = async (newDate: Date | undefined) => {
+    if (!newDate || !card) return;
+    const dateStr = format(newDate, "yyyy-MM-dd");
+    if (additionalDates.includes(dateStr)) {
+      toast.info("Data já adicionada");
+      return;
+    }
+    const updated = [...additionalDates, dateStr].sort();
+    onCardChange({ ...card, additional_publish_dates: updated });
+    try {
+      await supabase.from("demands").update({ additional_publish_dates: updated }).eq("id", card.id);
+    } catch (e) {
+      console.error("Error saving additional dates:", e);
+      toast.error("Erro ao salvar data adicional");
+    }
+    setIsAdditionalDatePickerOpen(false);
+  };
+
+  const handleRemoveAdditionalDate = async (dateStr: string) => {
+    if (!card) return;
+    const updated = additionalDates.filter(d => d !== dateStr);
+    onCardChange({ ...card, additional_publish_dates: updated });
+    try {
+      await supabase.from("demands").update({ additional_publish_dates: updated }).eq("id", card.id);
+    } catch (e) {
+      console.error("Error removing additional date:", e);
+      toast.error("Erro ao remover data");
+    }
   };
 
   // Format date for display
@@ -819,6 +856,18 @@ export default function TaskCard({
                             <span>{card.publish_time}</span>
                           </div>
                         )}
+                        {additionalDates.length > 0 && (
+                          <>
+                            <Separator className="my-2" />
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Datas adicionais</p>
+                            {additionalDates.map((dateStr) => (
+                              <div key={dateStr} className="flex items-center gap-2 text-sm">
+                                <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="capitalize">{formatFullDate(dateStr)}</span>
+                              </div>
+                            ))}
+                          </>
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -855,6 +904,42 @@ export default function TaskCard({
                             className="h-9 flex-1 text-sm"
                             aria-label="Horário de publicação"
                           />
+                        </div>
+
+                        {/* Additional Publish Dates */}
+                        <Separator />
+                        <div className="space-y-2">
+                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Datas adicionais</h4>
+                          {additionalDates.map((dateStr) => (
+                            <div key={dateStr} className="flex items-center gap-2 text-sm">
+                              <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="capitalize flex-1">{formatShortDate(dateStr)}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAdditionalDate(dateStr)}
+                                className="text-muted-foreground hover:text-destructive transition-colors p-0.5 rounded"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          <Popover open={isAdditionalDatePickerOpen} onOpenChange={setIsAdditionalDatePickerOpen}>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-xs h-8 text-muted-foreground">
+                                <Plus className="h-3.5 w-3.5" />
+                                Adicionar data
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={undefined}
+                                onSelect={handleAddAdditionalDate}
+                                initialFocus
+                                className="p-3 pointer-events-auto"
+                              />
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       </div>
                     )}
