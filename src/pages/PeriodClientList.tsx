@@ -57,6 +57,7 @@ interface DemandRow {
   demand_type: string | null;
   client_id: string;
   due_date: string | null;
+  additional_publish_dates?: any;
 }
 
 interface StatusGroup {
@@ -113,6 +114,7 @@ const demandToCardData = (demand: DemandRow, statusName: string, clientName: str
   demand_type: demand.demand_type,
   clientId: demand.client_id,
   clientName: clientName,
+  additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates : [],
 });
 
 // ─── Component ───────────────────────────────────────────────────
@@ -204,7 +206,7 @@ const PeriodClientList = () => {
       // Fetch demands with ALL fields
       const { data: demands } = await supabase
         .from("demands")
-        .select("id, title, publish_date, publish_time, attachments, status_id, period_plan_id, channel, objective, description, instructions, observations, tenant_id, created_at, updated_at, source, demand_type, client_id, due_date")
+        .select("id, title, publish_date, publish_time, attachments, status_id, period_plan_id, channel, objective, description, instructions, observations, tenant_id, created_at, updated_at, source, demand_type, client_id, due_date, additional_publish_dates")
         .eq("tenant_id", tenantId)
         .eq("client_id", selectedClientLocal.id)
         .eq("period_plan_id", selectedPeriodId);

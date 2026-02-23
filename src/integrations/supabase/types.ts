@@ -306,6 +306,7 @@ export type Database = {
       }
       demands: {
         Row: {
+          additional_publish_dates: Json
           archived_at: string | null
           attachments: Json
           channel: string | null
@@ -331,6 +332,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          additional_publish_dates?: Json
           archived_at?: string | null
           attachments?: Json
           channel?: string | null
@@ -356,6 +358,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          additional_publish_dates?: Json
           archived_at?: string | null
           attachments?: Json
           channel?: string | null
