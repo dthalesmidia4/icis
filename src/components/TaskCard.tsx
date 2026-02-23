@@ -749,9 +749,7 @@ export default function TaskCard({
               
               {/* === COLUNA ESQUERDA: Conteúdo === */}
               <div className="space-y-6">
-                {/* Objetivo + Atividade Card */}
-                <Card>
-                  <CardContent className="p-5 space-y-5">
+                <div className="space-y-5">
                     {/* Objetivo */}
                     <section>
                       <button 
@@ -775,6 +773,7 @@ export default function TaskCard({
                       )}
                     </section>
 
+                    <Separator />
 
                     {/* Atividade */}
                     <section>
@@ -798,12 +797,10 @@ export default function TaskCard({
                         )
                       )}
                     </section>
-                  </CardContent>
-                </Card>
 
-                {/* Observações Card */}
-                <Card>
-                  <CardContent className="p-5">
+                    <Separator />
+
+                    {/* Observações */}
                     <section>
                       <button 
                         type="button"
@@ -825,8 +822,7 @@ export default function TaskCard({
                         )
                       )}
                     </section>
-                  </CardContent>
-                </Card>
+                </div>
               </div>
 
               {/* === COLUNA DIREITA: Publicação + Controles === */}
