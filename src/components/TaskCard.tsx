@@ -826,7 +826,7 @@ export default function TaskCard({
               </div>
 
               {/* === COLUNA DIREITA: Publicação + Controles === */}
-              <div className="space-y-4">
+              <div className="space-y-4 sticky top-0 self-start">
                 {/* Data de Publicação */}
                 <Card>
                   <CardContent className="p-4 space-y-4">
