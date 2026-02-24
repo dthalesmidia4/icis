@@ -676,19 +676,23 @@ const PeriodClientList = () => {
     return (
       <div className="pb-8">
         <div className="container max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          {/* Back button */}
+          <BackButton to="/home" />
+
           {/* Header */}
-          <div className="flex items-start justify-between mb-1">
+          <div className="flex items-start justify-between mb-6 mt-4">
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <CalendarDays className="h-5 w-5 text-foreground" />
+              <div className="flex items-center gap-3 mb-1">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <CalendarDays className="h-5 w-5 text-primary" />
+                </div>
                 <h1 className="text-xl sm:text-2xl font-bold text-foreground">
                   Cronograma
                 </h1>
               </div>
-              <p className="text-sm text-muted-foreground">Selecione um cronograma para visualizar</p>
+              <p className="text-sm text-muted-foreground mt-1">Selecione um cronograma para visualizar</p>
             </div>
             <Button
-              variant="outline"
               size="sm"
               onClick={() => {
                 setSelectedClient({
@@ -707,7 +711,7 @@ const PeriodClientList = () => {
           </div>
 
           {/* Client label */}
-          <div className="flex items-center gap-2 mt-3 mb-5">
+          <div className="flex items-center gap-2 mb-5">
             <span className="text-sm text-muted-foreground">Cliente</span>
             <button
               onClick={handleBack}
