@@ -9,12 +9,14 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Search, Loader2, CalendarDays, ChevronRight, ChevronDown,
+  Search, Loader2, CalendarDays, ChevronRight, ChevronDown, ChevronUp,
   Plus, ArrowLeft, Paperclip, Building2
 } from "lucide-react";
 import BackButton from "@/components/BackButton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { SmartSearchBar } from "@/components/SmartSearchBar";
+import type { SearchableItem } from "@/hooks/useSmartSearch";
 import TaskCard, { getColumnFromStatus } from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
@@ -35,6 +37,7 @@ interface PeriodItem {
   period_start: string;
   period_end: string;
   operational_status: string;
+  demand_count: number;
 }
 
 interface DemandRow {
@@ -128,7 +131,7 @@ const PeriodClientList = () => {
   const [selectedClientLocal, setSelectedClientLocal] = useState<SelectedClientLocal | null>(null);
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ em_andamento: true });
 
   // TaskCard modal state
   const [selectedCard, setSelectedCard] = useState<KanbanCardData | null>(null);
@@ -173,7 +176,30 @@ const PeriodClientList = () => {
         .eq("company_id", selectedClientLocal.id)
         .order("period_end", { ascending: false });
       if (error) throw error;
-      return data as PeriodItem[];
+
+      // Fetch demand counts per period
+      const periodIds = (data || []).map(p => p.id);
+      let demandCounts: Record<string, number> = {};
+      if (periodIds.length > 0) {
+        const { data: demands } = await supabase
+          .from("demands")
+          .select("period_plan_id")
+          .eq("tenant_id", tenantId)
+          .eq("client_id", selectedClientLocal.id)
+          .in("period_plan_id", periodIds);
+        if (demands) {
+          demands.forEach(d => {
+            if (d.period_plan_id) {
+              demandCounts[d.period_plan_id] = (demandCounts[d.period_plan_id] || 0) + 1;
+            }
+          });
+        }
+      }
+
+      return (data || []).map(p => ({
+        ...p,
+        demand_count: demandCounts[p.id] || 0,
+      })) as PeriodItem[];
     },
     enabled: !!tenantId && !!selectedClientLocal && !selectedPeriodId,
   });
@@ -241,6 +267,18 @@ const PeriodClientList = () => {
     () => periods?.find((p) => p.id === selectedPeriodId) || null,
     [periods, selectedPeriodId]
   );
+
+  // Convert periods to SearchableItem for SmartSearchBar
+  const searchablePeriods: (SearchableItem & { _period: PeriodItem })[] = useMemo(() => {
+    if (!periods) return [];
+    return periods.map(p => ({
+      id: p.id,
+      title: p.period_title,
+      description: `${formatDate(p.period_start)} - ${formatDate(p.period_end)} · ${p.demand_count} Demandas`,
+      delivery_date: p.period_end,
+      _period: p,
+    }));
+  }, [periods]);
 
   // ── Handlers ──
   const handleSelectClient = (client: any) => {
@@ -631,47 +669,69 @@ const PeriodClientList = () => {
     );
   }
 
-  // ─── RENDER: Step 2 — Period list for selected client ───
+
   if (selectedClientLocal) {
     const clientDisplay = selectedClientLocal.fantasy_name || selectedClientLocal.name;
 
     return (
       <div className="pb-8">
-        <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
+        <div className="container max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           {/* Header */}
-          <div className="mb-8">
+          <div className="flex items-start justify-between mb-1">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <CalendarDays className="h-5 w-5 text-foreground" />
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+                  Cronograma
+                </h1>
+              </div>
+              <p className="text-sm text-muted-foreground">Selecione um cronograma para visualizar</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedClient({
+                  id: selectedClientLocal.id,
+                  name: selectedClientLocal.name,
+                  fantasy_name: selectedClientLocal.fantasy_name,
+                  cnpj_cpf: selectedClientLocal.cnpj_cpf,
+                  email: selectedClientLocal.email,
+                });
+                navigate("/plan-period");
+              }}
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              Novo Cronograma
+            </Button>
+          </div>
+
+          {/* Client label */}
+          <div className="flex items-center gap-2 mt-3 mb-5">
+            <span className="text-sm text-muted-foreground">Cliente</span>
             <button
               onClick={handleBack}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+              className="text-sm font-semibold text-foreground hover:underline"
             >
-              <ArrowLeft className="h-4 w-4" />
-              Voltar
+              {clientDisplay}
             </button>
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1">
-                  Cronogramas de {clientDisplay}
-                </h1>
-                <p className="text-sm text-muted-foreground">Selecione um período para ver a execução</p>
-              </div>
-              <Button
-                size="sm"
-                onClick={() => {
-                  setSelectedClient({
-                    id: selectedClientLocal.id,
-                    name: selectedClientLocal.name,
-                    fantasy_name: selectedClientLocal.fantasy_name,
-                    cnpj_cpf: selectedClientLocal.cnpj_cpf,
-                    email: selectedClientLocal.email,
-                  });
-                  navigate("/plan-period");
-                }}
-              >
-                <Plus className="h-4 w-4 mr-1.5" />
-                Novo Cronograma
-              </Button>
-            </div>
           </div>
+
+          {/* Smart Search */}
+          <div className="mb-8">
+            <SmartSearchBar
+              items={searchablePeriods}
+              onResultSelect={(item) => {
+                const periodItem = (item as any)._period as PeriodItem;
+                if (periodItem) setSelectedPeriodId(periodItem.id);
+              }}
+              placeholder="Busca Inteligente"
+              maxResults={6}
+            />
+          </div>
+
+          {/* Separator */}
+          <div className="border-t border-border mb-8" />
 
           {/* Periods grouped by operational status */}
           {loadingPeriods ? (
@@ -681,55 +741,59 @@ const PeriodClientList = () => {
           ) : !periods || periods.length === 0 ? (
             <div className="text-center py-12">
               <CalendarDays className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-30" />
-              <p className="text-sm text-muted-foreground">Nenhum período cadastrado para este cliente</p>
+              <p className="text-sm text-muted-foreground">Nenhum cronograma cadastrado para este cliente</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-8">
+            <div className="flex flex-col gap-6">
               {[
-                { key: "em_andamento", label: "Em andamento", color: "bg-amber-500" },
+                { key: "em_andamento", label: "Em Andamento", color: "bg-amber-500" },
                 { key: "analise", label: "Análise", color: "bg-blue-500" },
-                { key: "concluido", label: "Concluído", color: "bg-emerald-500" },
+                { key: "concluido", label: "Arquivados", color: "bg-emerald-500" },
               ].map((section) => {
                 const sectionPeriods = periods.filter((p) => p.operational_status === section.key);
+                const isExpanded = expandedSections[section.key] ?? false;
                 return (
                   <div key={section.key}>
                     <button
                       onClick={() => setExpandedSections((prev) => ({ ...prev, [section.key]: !prev[section.key] }))}
-                      className="flex items-center gap-2 mb-2 w-full text-left"
+                      className="flex items-center gap-2 mb-3 w-full text-left"
                     >
-                      {expandedSections[section.key] ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                      {isExpanded ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
                       ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
                       )}
                       <div className={cn("w-3 h-3 rounded-full shrink-0", section.color)} />
-                      <span className="text-sm font-semibold text-foreground">{section.label}</span>
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                      <span className="text-sm font-bold text-foreground">{section.label}</span>
+                      <Badge variant="secondary" className="text-xs px-2 py-0.5 rounded-full">
                         {sectionPeriods.length}
                       </Badge>
                     </button>
-                    {expandedSections[section.key] && (
+                    {isExpanded && (
                       sectionPeriods.length === 0 ? (
                         <div className="pl-9 py-3">
-                          <p className="text-xs text-muted-foreground italic">Nenhum período neste status</p>
+                          <p className="text-xs text-muted-foreground italic">Nenhum cronograma neste status</p>
                         </div>
                       ) : (
-                        <div className="flex flex-col gap-2 pl-9">
+                        <div className="flex flex-col gap-2 pl-2">
                           {sectionPeriods.map((period) => (
                             <div
                               key={period.id}
-                              className="flex items-center justify-between gap-4 px-4 py-3 bg-muted/30 rounded-lg border border-border/50 cursor-pointer hover:bg-muted/50 transition-colors group"
+                              className="flex items-center justify-between gap-4 px-5 py-4 bg-muted/30 rounded-lg border border-border/50 cursor-pointer hover:bg-muted/50 transition-colors group"
                               onClick={() => setSelectedPeriodId(period.id)}
                             >
                               <div className="min-w-0 flex-1">
-                                <span className="text-sm font-medium text-foreground block truncate">
+                                <span className="text-sm font-semibold text-foreground block truncate mb-1">
                                   {period.period_title}
                                 </span>
                                 <span className="text-xs text-muted-foreground">
-                                  {formatDate(period.period_start)} – {formatDate(period.period_end)}
+                                  {formatDate(period.period_start)} - {formatDate(period.period_end)}
+                                  {period.demand_count > 0 && (
+                                    <> &nbsp;·&nbsp; {period.demand_count} Demandas</>
+                                  )}
                                 </span>
                               </div>
-                              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+                              <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
                             </div>
                           ))}
                         </div>
