@@ -668,7 +668,7 @@ const PeriodClientList = () => {
                 }}
               >
                 <Plus className="h-4 w-4 mr-1.5" />
-                Novo Período
+                Novo Cronograma
               </Button>
             </div>
           </div>
