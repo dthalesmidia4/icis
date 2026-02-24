@@ -391,6 +391,11 @@ export function CreateDemandModal({
       return;
     }
 
+    if (!dueDate) {
+      toast.error("Informe a data de Início de Produção");
+      return;
+    }
+
     // Check required fields for selected status
     const selectedStatus = statuses.find((s) => s.id === statusId);
     if (selectedStatus?.requires_fields?.includes("publish_date") && !publishDate) {
@@ -691,7 +696,7 @@ export function CreateDemandModal({
               </div>
               
               <div className="space-y-2">
-                <Label>Prazo (Due Date)</Label>
+                <Label>Início de Produção <span className="text-destructive">*</span></Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button

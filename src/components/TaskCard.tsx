@@ -827,6 +827,21 @@ export default function TaskCard({
 
               {/* === COLUNA DIREITA: Publicação + Controles === */}
               <div className="space-y-4 sticky top-0 self-start">
+                {/* Início de Produção */}
+                {card.due_date && (
+                  <Card>
+                    <CardContent className="p-4 space-y-2">
+                      <h3 className="font-semibold text-sm flex items-center gap-2">
+                        <CalendarIcon className="h-4 w-4 text-amber-500" />
+                        Início de Produção
+                      </h3>
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="capitalize">{formatFullDate(card.due_date)}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Data de Publicação */}
                 <Card>
                   <CardContent className="p-4 space-y-4">
