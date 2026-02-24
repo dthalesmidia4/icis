@@ -102,7 +102,7 @@ DADOS DO CLIENTE:
 - Telefone: ${company.phone}
 `;
 
-    // Preparar respostas das perguntas guias (10 perguntas atualizadas)
+    // Preparar respostas das perguntas guias (6 perguntas)
     const questionsAndAnswers = `
 RESPOSTAS DAS PERGUNTAS ESTRATÉGICAS:
 
@@ -115,26 +115,14 @@ ${answers.question_1 || 'Não respondido'}
 3. Quem você deseja atingir com esse conteúdo? (Público-alvo)
 ${answers.question_2 || 'Não respondido'}
 
-4. Quando você espera começar a ver resultados? (Prazo)
+4. Como você prefere que essa comunicação seja feita? (Tom e formatos)
 ${answers.question_3 || 'Não respondido'}
 
-5. Como você prefere que essa comunicação seja feita? (Tom e formatos)
+5. Existe algum estilo de comunicação ou abordagem que você NÃO quer que seja utilizada? (Restrições de comunicação)
 ${answers.question_4 || 'Não respondido'}
 
-6. Existe algum estilo de comunicação ou abordagem que você NÃO quer que seja utilizada? (Restrições de comunicação)
+6. Quais são os seus principais diferenciais frente aos concorrentes? (Diferenciais competitivos)
 ${answers.question_5 || 'Não respondido'}
-
-7. Como sua empresa atrai clientes hoje? (Canais atuais)
-${answers.question_6 || 'Não respondido'}
-
-8. Quais são os seus principais diferenciais frente aos concorrentes? (Diferenciais competitivos)
-${answers.question_7 || 'Não respondido'}
-
-9. Quanto você pode investir em tráfego pago ou impulsionamento? (Orçamento)
-${answers.question_8 || 'Não respondido'}
-
-10. Quais limitações precisamos considerar antes de montar seu cronograma? (Restrições gerais)
-${answers.question_9 || 'Não respondido'}
 `;
 
     const userPrompt = `
