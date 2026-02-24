@@ -38,7 +38,6 @@ const strategicQuestions = [
   "O que você deseja alcançar com sua comunicação neste momento? (Objetivo principal como vendas, leads, lançamento, autoridade, engajamento.)",
   "Por que esse objetivo é importante para você agora? (Desafios, oportunidades, sazonalidade, concorrência, necessidade interna.)",
   "Quem você deseja atingir com esse conteúdo? (Perfil, comportamento, região, dores e necessidades do público.)",
-  "Quando você espera começar a ver resultados? (Prazo estimado: semanas, próximo mês, campanha específica.)",
   "Como você prefere que essa comunicação seja feita? (Tom e formatos: direto, humanizado, premium, educativo, reels, vídeos, stories, carrosséis.)",
   "Existe algum estilo de comunicação ou abordagem que você NÃO quer que seja utilizada? (Formas de comunicação, temas ou formatos que devem ser evitados.)",
   "Quais são os seus principais diferenciais frente aos concorrentes? (Três pontos que tornam sua empresa mais competitiva.)"
