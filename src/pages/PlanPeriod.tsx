@@ -1,6 +1,6 @@
 // Plan Period Page
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
@@ -64,11 +64,14 @@ type Step = 'form' | 'loading-normal' | 'review-normal' | 'choose-ultra' | 'load
 
 const PlanPeriod = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { selectedClient } = useSelectedClient();
   const { tenantId } = useTenant();
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
+  // Tab state - check URL param for initial tab
+  const [activeTab, setActiveTab] = useState<'new' | 'history'>(
+    searchParams.get('tab') === 'history' ? 'history' : 'new'
+  );
 
   // History state
   const [periodHistory, setPeriodHistory] = useState<PeriodPlanHistory[]>([]);
@@ -1149,7 +1152,7 @@ const PlanPeriod = () => {
     </Badge> : null} />
 
     <div className="container max-w-6xl mx-auto px-6 py-8">
-      {currentStep === 'form' && renderForm()}
+      {currentStep === 'form' && (activeTab === 'history' ? renderHistory() : renderForm())}
 
 
       {currentStep === 'loading-normal' && renderLoading(loadingMessage)}

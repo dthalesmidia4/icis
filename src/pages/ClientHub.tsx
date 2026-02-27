@@ -46,7 +46,7 @@ const ClientHub = () => {
     {
       title: "Histórico de Período",
       icon: History,
-      action: () => navigate("/schedules"),
+      action: () => navigate("/plan-period?tab=history"),
     },
   ];
 
