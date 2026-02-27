@@ -5,6 +5,7 @@ import {
   Briefcase,
   CalendarDays,
   Users,
+  CheckCircle2,
 } from "lucide-react";
 import type { HubSectionId } from "@/hooks/useHubPermissions";
 
@@ -42,6 +43,12 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     title: "Agendamento de Conteúdos",
     icon: CalendarDays,
     route: "/scheduled",
+  },
+  {
+    id: 'completed',
+    title: "Demandas Completas",
+    icon: CheckCircle2,
+    route: "/demandas-completas",
   },
   {
     id: 'minha-empresa',
