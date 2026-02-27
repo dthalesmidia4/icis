@@ -1149,20 +1149,8 @@ const PlanPeriod = () => {
     </Badge> : null} />
 
     <div className="container max-w-6xl mx-auto px-6 py-8">
-      {currentStep === 'form' && <Tabs value={activeTab} onValueChange={v => setActiveTab(v as 'new' | 'history')} className="w-full">
-        <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
-          <TabsTrigger value="new" className="flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Novo Período
-          </TabsTrigger>
-          <TabsTrigger value="history" className="flex items-center gap-2">
-            <History className="w-4 h-4" />
-            Histórico ({periodHistory.length})
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="new">{renderForm()}</TabsContent>
-        <TabsContent value="history">{renderHistory()}</TabsContent>
-      </Tabs>}
+      {currentStep === 'form' && renderForm()}
+
 
       {currentStep === 'loading-normal' && renderLoading(loadingMessage)}
       {currentStep === 'loading-ultra' && renderLoading(loadingMessage)}
