@@ -728,7 +728,8 @@ const KanbanCentralPage = () => {
     <div className="mt-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+        <div className="flex-1" />
+        <div className="flex items-center gap-3 justify-center">
           <div className="p-2 bg-primary/10 rounded-lg">
             <LayoutGrid className="h-5 w-5 text-primary" />
           </div>
@@ -853,7 +854,7 @@ const KanbanCentralPage = () => {
                             className="h-3 w-3 rounded-full flex-shrink-0"
                             style={{ backgroundColor: column.color }}
                           />
-                          <span className="text-sm font-semibold text-foreground">
+                          <span className="text-base font-bold text-foreground">
                             {column.name}
                           </span>
                           <Badge variant="secondary" className="text-xs">
