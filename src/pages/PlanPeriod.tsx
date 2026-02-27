@@ -102,13 +102,13 @@ const PlanPeriod = () => {
   const [observations, setObservations] = useState("");
   const [excludedFormats, setExcludedFormats] = useState<string[]>([]);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
-  const [productionLine, setProductionLine] = useState<{ type: string; quantity: number }[]>([
-    { type: 'Vídeos Curtos', quantity: 0 },
-    { type: 'Carrossel', quantity: 0 },
-    { type: 'Post Estático', quantity: 0 },
-    { type: 'Stories', quantity: 0 },
-  ]);
-  const productionLineTotal = productionLine.reduce((sum, item) => sum + item.quantity, 0);
+  // Linha de produção fixa - definida automaticamente
+  const productionLine = [
+    { type: 'Vídeos Curtos', quantity: 2 },
+    { type: 'Carrossel', quantity: 4 },
+    { type: 'Post Estático', quantity: 4 },
+  ];
+  const productionLineTotal = 10;
   
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
@@ -407,10 +407,6 @@ const PlanPeriod = () => {
       toast.error("A data final deve ser posterior à data inicial");
       return;
     }
-    if (productionLineTotal === 0) {
-      toast.error("Defina a linha de produção antes de gerar demandas");
-      return;
-    }
     setCurrentStep('loading-normal');
     try {
       const priorityChannel = selectedChannels.length === 0 ? 'Multi-canal' : selectedChannels.length === 1 ? selectedChannels[0].charAt(0).toUpperCase() + selectedChannels[0].slice(1) : selectedChannels.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ');
@@ -672,73 +668,27 @@ const PlanPeriod = () => {
         </div>
       </Card>
 
-      {/* Production Line */}
+      {/* Production Line - Informativo */}
       <Card className="p-4 sm:p-6">
         <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
           <List className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-          Linha de Produção *
+          Linha de Produção
         </h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Defina a quantidade exata de cada formato de conteúdo para este período.
+          A IA irá gerar automaticamente a seguinte distribuição de conteúdo:
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-          {productionLine.map((item, index) => (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          {productionLine.map((item) => (
             <div key={item.type} className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border/50 bg-muted/30">
               <Label className="text-sm font-medium">{item.type}</Label>
-              <div className="flex items-center gap-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 rounded-r-none border-r-0"
-                  onClick={() => {
-                    const newLine = [...productionLine];
-                    newLine[index] = { ...item, quantity: Math.max(0, item.quantity - 1) };
-                    setProductionLine(newLine);
-                  }}
-                  disabled={item.quantity === 0}
-                >
-                  <span className="text-lg font-medium">−</span>
-                </Button>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={item.quantity}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === '' || /^[0-9]$/.test(val)) {
-                      const newLine = [...productionLine];
-                      newLine[index] = { ...item, quantity: val === '' ? 0 : parseInt(val) };
-                      setProductionLine(newLine);
-                    }
-                  }}
-                  className="h-9 w-12 text-center border border-input bg-background text-sm font-semibold tabular-nums outline-none focus:ring-2 focus:ring-ring"
-                  maxLength={1}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 rounded-l-none border-l-0"
-                  onClick={() => {
-                    const newLine = [...productionLine];
-                    newLine[index] = { ...item, quantity: Math.min(9, item.quantity + 1) };
-                    setProductionLine(newLine);
-                  }}
-                >
-                  <span className="text-lg font-medium">+</span>
-                </Button>
-              </div>
+              <span className="text-2xl font-bold text-primary">{item.quantity}</span>
             </div>
           ))}
         </div>
-        <div className="mt-4 flex items-center justify-between px-1">
+        <div className="mt-4 flex items-center px-1">
           <span className="text-sm font-semibold">
-            Total: {productionLineTotal} conteúdo{productionLineTotal !== 1 ? 's' : ''}
+            Total: {productionLineTotal} conteúdos
           </span>
-          {productionLineTotal === 0 && (
-            <span className="text-xs text-destructive">Preencha ao menos 1 formato</span>
-          )}
         </div>
       </Card>
 
@@ -1161,7 +1111,7 @@ const PlanPeriod = () => {
       onClick: handleSubmit,
       icon: <Rocket className="w-4 h-4" />,
       className: "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600",
-      disabled: productionLineTotal === 0 || !periodTitle || !periodStart || !periodEnd
+      disabled: !periodTitle || !periodStart || !periodEnd
     }] : []} rightContent={currentStep !== 'form' && currentStep !== 'loading-normal' && currentStep !== 'loading-ultra' && currentStep !== 'choose-ultra' ? <Badge variant="outline" className="text-xs">
       {currentStep === 'review-normal' && 'Etapa 1/2: Demandas Normais'}
       {currentStep === 'review-ultra' && 'Etapa 2/2: Demandas Ultra'}

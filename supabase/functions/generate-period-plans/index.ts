@@ -180,29 +180,29 @@ Observações: ${periodPlan.observations || 'Nenhuma'}${calendarCtx}${successCtx
     }
     const apiKeyData = apiKeyDataResult as any;
 
-    // JSON instruction - use production_line if available, otherwise fallback to fixed limits
+    // JSON instruction - ALWAYS use fixed production line
     const planLabel = planType === 'ultra' ? 'ultra (ousado, criativo, inovador)' : 'normal (seguro, operacional)';
     
-    // Check for production_line
-    const productionLine = periodPlan.production_line as { type: string; quantity: number }[] | null;
-    const hasProductionLine = productionLine && Array.isArray(productionLine) && productionLine.some((item: any) => item.quantity > 0);
+    // Fixed production line: 4 Post Estático, 2 Vídeos Curtos, 4 Carrossel
+    const fixedProductionLine = [
+      { type: 'Post Estático', quantity: 4 },
+      { type: 'Vídeos Curtos', quantity: 2 },
+      { type: 'Carrossel', quantity: 4 },
+    ];
     
     let volumeInstruction = '';
     let demandLimit: number;
     
-    if (hasProductionLine && planType === 'default') {
-      // Use production line for normal plan
-      const activeItems = productionLine!.filter((item: any) => item.quantity > 0);
-      demandLimit = activeItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
-      const distribution = activeItems.map((item: any) => `${item.quantity} ${item.type}`).join(', ');
+    if (planType === 'default') {
+      demandLimit = 10;
+      const distribution = fixedProductionLine.map(item => `${item.quantity} ${item.type}`).join(', ');
       volumeInstruction = `
 REGRA OBRIGATÓRIA DE VOLUME:
 Gere exatamente: ${distribution}.
 Total: ${demandLimit} demandas. O campo "tipo" de cada demanda DEVE corresponder exatamente ao tipo definido.
 NÃO gere formatos não listados. NÃO compense quantidade de um formato com outro.`;
     } else {
-      // Fallback: fixed limits (ultra always 3, default 6)
-      demandLimit = planType === 'ultra' ? 3 : 6;
+      demandLimit = 3;
     }
     
     const jsonInstruction = `
@@ -272,9 +272,9 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
 
     console.log(`${planType} plan demands:`, planDemands.length);
 
-    // Validate production line compliance (only for default plan with production_line)
-    if (hasProductionLine && planType === 'default') {
-      const activeItems = productionLine!.filter((item: any) => item.quantity > 0);
+    // Validate production line compliance (always for default plan)
+    if (planType === 'default') {
+      const activeItems = fixedProductionLine;
       const typeCounts: Record<string, number> = {};
       planDemands.forEach((d: any) => {
         const tipo = (d.tipo || '').trim();
