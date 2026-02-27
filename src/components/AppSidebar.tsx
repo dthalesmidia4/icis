@@ -208,7 +208,7 @@ function DesktopSidebar() {
   };
 
   return (
-    <Sidebar collapsible="none" className="border-r w-16 min-w-16 max-w-16 flex flex-col">
+    <Sidebar collapsible="none" className="border-r w-52 min-w-52 max-w-52 flex flex-col">
       {/* Header com Avatar */}
       <SidebarHeader className="border-b p-2">
         <DropdownMenu>
@@ -236,25 +236,19 @@ function DesktopSidebar() {
             <SidebarMenu className="gap-1 px-2">
               {/* Home (fixo) */}
               <SidebarMenuItem>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <SidebarMenuButton
-                      onClick={() => navigate('/home')}
-                      isActive={isActive('/home')}
-                      className={cn(
-                        "h-10 w-10 p-0 flex items-center justify-center mx-auto rounded-xl transition-all duration-300 ease-out hover:scale-110 hover:shadow-lg",
-                        isActive('/home')
-                          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
-                          : 'hover:bg-accent hover:shadow-accent/20'
-                      )}
-                    >
-                      <Home className="h-5 w-5" />
-                    </SidebarMenuButton>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={10}>
-                    <p>Home</p>
-                  </TooltipContent>
-                </Tooltip>
+                <SidebarMenuButton
+                  onClick={() => navigate('/home')}
+                  isActive={isActive('/home')}
+                  className={cn(
+                    "h-10 flex items-center gap-3 px-3 rounded-xl transition-all duration-300 ease-out",
+                    isActive('/home')
+                      ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                      : 'hover:bg-accent'
+                  )}
+                >
+                  <Home className="h-5 w-5 flex-shrink-0" />
+                  <span className="text-sm font-medium truncate">Home</span>
+                </SidebarMenuButton>
               </SidebarMenuItem>
 
               {/* Itens centralizados */}
@@ -263,25 +257,19 @@ function DesktopSidebar() {
                 const active = isActive(item.route);
                 return (
                   <SidebarMenuItem key={item.route}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <SidebarMenuButton
-                          onClick={() => navigate(item.route)}
-                          isActive={active}
-                          className={cn(
-                            "h-10 w-10 p-0 flex items-center justify-center mx-auto rounded-xl transition-all duration-300 ease-out hover:scale-110 hover:shadow-lg",
-                            active
-                              ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
-                              : 'hover:bg-accent hover:shadow-accent/20'
-                          )}
-                        >
-                          <Icon className="h-5 w-5" />
-                        </SidebarMenuButton>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" sideOffset={10}>
-                        <p>{item.title}</p>
-                      </TooltipContent>
-                    </Tooltip>
+                    <SidebarMenuButton
+                      onClick={() => navigate(item.route)}
+                      isActive={active}
+                      className={cn(
+                        "h-10 flex items-center gap-3 px-3 rounded-xl transition-all duration-300 ease-out",
+                        active
+                          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                          : 'hover:bg-accent'
+                      )}
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="text-sm font-medium truncate">{item.title}</span>
+                    </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
               })}
@@ -299,25 +287,19 @@ function DesktopSidebar() {
                   const active = isActive(item.url);
                   return (
                     <SidebarMenuItem key={item.title}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <SidebarMenuButton
-                            onClick={() => navigate(item.url)}
-                            isActive={active}
-                            className={cn(
-                              "h-10 w-10 p-0 flex items-center justify-center mx-auto rounded-xl transition-all duration-300 ease-out hover:scale-110 hover:shadow-lg",
-                              active
-                                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
-                                : 'hover:bg-accent hover:shadow-accent/20'
-                            )}
-                          >
-                            <Icon className="h-5 w-5" />
-                          </SidebarMenuButton>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" sideOffset={10}>
-                          <p>{item.title}</p>
-                        </TooltipContent>
-                      </Tooltip>
+                      <SidebarMenuButton
+                        onClick={() => navigate(item.url)}
+                        isActive={active}
+                        className={cn(
+                          "h-10 flex items-center gap-3 px-3 rounded-xl transition-all duration-300 ease-out",
+                          active
+                            ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                            : 'hover:bg-accent'
+                        )}
+                      >
+                        <Icon className="h-5 w-5 flex-shrink-0" />
+                        <span className="text-sm font-medium truncate">{item.title}</span>
+                      </SidebarMenuButton>
                     </SidebarMenuItem>
                   );
                 })}
@@ -329,20 +311,14 @@ function DesktopSidebar() {
 
       {/* Footer com botão de logout */}
       <SidebarFooter className="border-t p-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={handleSignOut}
-              className="flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all duration-300 hover:scale-110 hover:bg-destructive/10 hover:shadow-lg hover:shadow-destructive/20 text-muted-foreground hover:text-destructive"
-              aria-label="Sair da conta"
-            >
-              <LogOut className="h-5 w-5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="right" sideOffset={10}>
-            <p>Sair</p>
-          </TooltipContent>
-        </Tooltip>
+        <button
+          onClick={handleSignOut}
+          className="flex items-center gap-3 px-3 h-10 rounded-xl transition-all duration-300 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+          aria-label="Sair da conta"
+        >
+          <LogOut className="h-5 w-5 flex-shrink-0" />
+          <span className="text-sm font-medium">Sair</span>
+        </button>
       </SidebarFooter>
     </Sidebar>
   );
