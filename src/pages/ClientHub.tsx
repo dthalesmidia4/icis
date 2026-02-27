@@ -36,7 +36,7 @@ const ClientHub = () => {
     {
       title: "Período Atual",
       icon: CalendarDays,
-      action: () => navigate("/schedules"),
+      action: () => navigate("/plan-period"),
     },
     {
       title: "Estratégia",
