@@ -881,7 +881,7 @@ const PlanPeriod = () => {
           });
 
         return (
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedHistoryPlan(null)}>
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setSelectedHistoryPlan(null); if (searchParams.get('view') === 'latest') navigate('/client-hub'); }}>
             <Card className="max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
               {/* Modal header */}
               <div className="p-6 border-b bg-muted/30">
@@ -895,7 +895,7 @@ const PlanPeriod = () => {
                       </span>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => setSelectedHistoryPlan(null)} className="shrink-0" aria-label="Fechar detalhes">
+                  <Button variant="ghost" size="icon" onClick={() => { setSelectedHistoryPlan(null); if (searchParams.get('view') === 'latest') navigate('/client-hub'); }} className="shrink-0" aria-label="Fechar detalhes">
                     <X className="w-5 h-5" />
                   </Button>
                 </div>
@@ -1104,7 +1104,7 @@ const PlanPeriod = () => {
     : `Confirmar Planejamento`;
 
   return <div className="pb-8">
-    <PageHeader title={activeTab === 'history' ? "Histórico de Período" : "Planejar Período"} subtitle={displayName} backTo="/client-hub" actions={currentStep === 'form' && activeTab === 'new' ? [{
+    <PageHeader title={searchParams.get('view') === 'latest' ? "Período Atual" : activeTab === 'history' ? "Histórico de Período" : "Planejar Período"} subtitle={displayName} backTo="/client-hub" actions={currentStep === 'form' && activeTab === 'new' ? [{
       label: "Gerar Demandas",
       onClick: handleSubmit,
       icon: <Rocket className="w-4 h-4" />,
@@ -1117,7 +1117,7 @@ const PlanPeriod = () => {
     </Badge> : null} />
 
     <div className="container max-w-6xl mx-auto px-6 py-8">
-      {currentStep === 'form' && (activeTab === 'history' ? renderHistory() : renderForm())}
+      {currentStep === 'form' && (activeTab === 'history' ? (searchParams.get('view') === 'latest' ? renderHistory() : renderHistory()) : renderForm())}
 
 
       {currentStep === 'loading-normal' && renderLoading(loadingMessage)}
