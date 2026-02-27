@@ -1156,7 +1156,7 @@ const PlanPeriod = () => {
     : `Confirmar Planejamento`;
 
   return <div className="pb-8">
-    <PageHeader title={searchParams.get('view') === 'latest' ? "Período Atual" : activeTab === 'history' ? "Histórico de Período" : "Planejar Período"} subtitle={displayName} backTo="/client-hub" actions={currentStep === 'form' && activeTab === 'new' ? [{
+    <PageHeader title={searchParams.get('view') === 'latest' ? "Cronograma Atual" : activeTab === 'history' ? "Histórico de Períodos" : "Planejar Período"} subtitle={displayName} backTo="/client-hub" actions={currentStep === 'form' && activeTab === 'new' ? [{
       label: "Gerar Demandas",
       onClick: handleSubmit,
       icon: <Rocket className="w-4 h-4" />,
