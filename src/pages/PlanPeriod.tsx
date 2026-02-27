@@ -856,34 +856,55 @@ const PlanPeriod = () => {
         </div>
       )}
 
-      {/* ===== DETAIL MODAL ===== */}
+      {/* ===== DETAIL VIEW ===== */}
       {selectedHistoryPlan && (() => {
+        const isLatestView = searchParams.get('view') === 'latest';
         const metrics = periodDemandMetrics[selectedHistoryPlan.id] || { total: 0, published: 0, demands: [] };
         const pending = metrics.total - metrics.published;
         const executionPercent = metrics.total > 0 ? Math.round((metrics.published / metrics.total) * 100) : 0;
 
-        // Executed demands (is_final = true), sorted by publish_date
         const executedDemands = metrics.demands
           .filter((d: any) => d.pipeline_statuses?.is_final)
-          .sort((a: any, b: any) => {
-            const dateA = a.publish_date || '';
-            const dateB = b.publish_date || '';
-            return dateA.localeCompare(dateB);
-          });
+          .sort((a: any, b: any) => (a.publish_date || '').localeCompare(b.publish_date || ''));
 
-        // Pending demands (not final)
         const pendingDemands = metrics.demands
           .filter((d: any) => !d.pipeline_statuses?.is_final)
-          .sort((a: any, b: any) => {
-            const dateA = a.publish_date || '';
-            const dateB = b.publish_date || '';
-            return dateA.localeCompare(dateB);
-          });
+          .sort((a: any, b: any) => (a.publish_date || '').localeCompare(b.publish_date || ''));
 
+        // --- "Período Atual": show only generated cards inline ---
+        if (isLatestView) {
+          const plan = selectedHistoryPlan.final_plan?.length ? selectedHistoryPlan.final_plan
+            : selectedHistoryPlan.default_plan?.length ? selectedHistoryPlan.default_plan
+            : selectedHistoryPlan.ultra_plan?.length ? selectedHistoryPlan.ultra_plan
+            : [];
+          const variant = selectedHistoryPlan.final_plan?.length ? 'normal'
+            : selectedHistoryPlan.ultra_plan?.length ? 'ultra' : 'normal';
+
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 text-sm text-muted-foreground mb-2">
+                <CalendarIcon className="w-4 h-4" />
+                <span>{format(new Date(selectedHistoryPlan.period_start + 'T00:00:00'), "dd/MM/yyyy")} – {format(new Date(selectedHistoryPlan.period_end + 'T00:00:00'), "dd/MM/yyyy")}</span>
+                <Badge variant="secondary" className="ml-auto">{plan.length} demandas</Badge>
+              </div>
+              {plan.length > 0 ? (
+                <div className="grid gap-3">
+                  {plan.map((item: any, idx: number) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant={variant as any} />)}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <CalendarIcon className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">Nenhuma demanda gerada neste período</p>
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        // --- Normal history modal ---
         return (
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setSelectedHistoryPlan(null); if (searchParams.get('view') === 'latest') navigate('/client-hub'); }}>
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedHistoryPlan(null)}>
             <Card className="max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-              {/* Modal header */}
               <div className="p-6 border-b bg-muted/30">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
@@ -895,14 +916,13 @@ const PlanPeriod = () => {
                       </span>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => { setSelectedHistoryPlan(null); if (searchParams.get('view') === 'latest') navigate('/client-hub'); }} className="shrink-0" aria-label="Fechar detalhes">
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedHistoryPlan(null)} className="shrink-0" aria-label="Fechar detalhes">
                     <X className="w-5 h-5" />
                   </Button>
                 </div>
               </div>
 
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {/* BLOCO 1 — RESUMO EXECUTIVO */}
                 <Card className="p-5 border-primary/20 bg-primary/5">
                   <h3 className="text-sm font-semibold text-primary mb-4 flex items-center gap-2">
                     <TrendingUp className="w-4 h-4" />
@@ -929,7 +949,6 @@ const PlanPeriod = () => {
                   <Progress value={executionPercent} className="h-2" />
                 </Card>
 
-                {/* BLOCO 2 — LINHA DO TEMPO DE EXECUÇÃO */}
                 <div>
                   <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                     <Rocket className="w-4 h-4 text-primary" />
@@ -942,7 +961,6 @@ const PlanPeriod = () => {
                     </div>
                   ) : (
                     <div className="bg-muted/30 rounded-xl border border-border/50">
-                      {/* Executed */}
                       {executedDemands.length > 0 && (
                         <div className="p-4">
                           <p className="text-xs font-medium text-emerald-600 mb-2 uppercase tracking-wide">Publicadas ({executedDemands.length})</p>
@@ -961,8 +979,6 @@ const PlanPeriod = () => {
                           </div>
                         </div>
                       )}
-
-                      {/* Pending */}
                       {pendingDemands.length > 0 && (
                         <div className={cn("p-4", executedDemands.length > 0 && "border-t border-border/50")}>
                           <p className="text-xs font-medium text-amber-600 mb-2 uppercase tracking-wide">Pendentes ({pendingDemands.length})</p>
@@ -985,14 +1001,12 @@ const PlanPeriod = () => {
                   )}
                 </div>
 
-                {/* BLOCO 3 — HISTÓRICO DE GERAÇÃO (Colapsado) */}
                 <Collapsible open={generationHistoryOpen} onOpenChange={setGenerationHistoryOpen}>
                   <CollapsibleTrigger className="flex items-center gap-2 w-full text-left py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                     <ChevronDown className={cn("w-4 h-4 transition-transform", generationHistoryOpen && "rotate-180")} />
                     Histórico Técnico de Geração
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-4 mt-3">
-                    {/* Final Plan */}
                     {selectedHistoryPlan.final_plan && selectedHistoryPlan.final_plan.length > 0 && (
                       <div>
                         <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Plano Final ({selectedHistoryPlan.final_plan.length})</p>
@@ -1001,7 +1015,6 @@ const PlanPeriod = () => {
                         </div>
                       </div>
                     )}
-                    {/* Normal */}
                     {selectedHistoryPlan.default_plan && selectedHistoryPlan.default_plan.length > 0 && (
                       <div>
                         <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Modo Normal ({selectedHistoryPlan.default_plan.length})</p>
@@ -1010,7 +1023,6 @@ const PlanPeriod = () => {
                         </div>
                       </div>
                     )}
-                    {/* Ultra */}
                     {selectedHistoryPlan.ultra_plan && selectedHistoryPlan.ultra_plan.length > 0 && (
                       <div>
                         <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Modo Ultra ({selectedHistoryPlan.ultra_plan.length})</p>
@@ -1026,7 +1038,6 @@ const PlanPeriod = () => {
                 </Collapsible>
               </div>
 
-              {/* Modal footer */}
               <div className="p-4 border-t bg-muted/30 flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
                   {metrics.published} de {metrics.total} demandas executadas ({executionPercent}%)
