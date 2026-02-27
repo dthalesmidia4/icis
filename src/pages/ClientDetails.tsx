@@ -585,10 +585,10 @@ const ClientDetails = () => {
               </Button>
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold">
-                  {client.fantasy_name || client.name}
+                  Cadastro
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Dados Cadastrais
+                  {client.fantasy_name || client.name}
                 </p>
               </div>
             </div>
