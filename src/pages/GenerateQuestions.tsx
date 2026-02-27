@@ -315,28 +315,6 @@ export default function GenerateQuestions() {
   };
 
   const handleGenerateStrategyClick = () => {
-    // Verificar perguntas não respondidas e marcar erros
-    const unansweredKeys = new Set<string>();
-    strategicQuestions.forEach((_, idx) => {
-      const key = `question_${idx}`;
-      if (!answers[key] || answers[key].trim().length === 0) {
-        unansweredKeys.add(key);
-      }
-    });
-
-    if (unansweredKeys.size > 0) {
-      setValidationErrors(unansweredKeys);
-      // Scroll para a primeira pergunta não respondida
-      const firstErrorKey = Array.from(unansweredKeys)[0];
-      const element = document.getElementById(firstErrorKey);
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-        element.focus();
-      }
-      return;
-    }
-
-    // Limpar erros de validação
     setValidationErrors(new Set());
 
     // Se já existe estratégia, mostrar modal de confirmação
@@ -360,26 +338,6 @@ export default function GenerateQuestions() {
       });
       return;
     }
-    const unansweredKeys = new Set<string>();
-    strategicQuestions.forEach((_, idx) => {
-      const key = `question_${idx}`;
-      if (!answers[key] || answers[key].trim().length === 0) {
-        unansweredKeys.add(key);
-      }
-    });
-
-    if (unansweredKeys.size > 0) {
-      setValidationErrors(unansweredKeys);
-      // Scroll para a primeira pergunta não respondida
-      const firstErrorKey = Array.from(unansweredKeys)[0];
-      const element = document.getElementById(firstErrorKey);
-      if (element) {
-        element.scrollIntoView({ behavior: "smooth", block: "center" });
-        element.focus();
-      }
-      return;
-    }
-
     setIsGeneratingStrategy(true);
 
     try {
