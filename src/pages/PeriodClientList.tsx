@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -125,13 +125,26 @@ const demandToCardData = (demand: DemandRow, statusName: string, clientName: str
 const PeriodClientList = () => {
   const navigate = useNavigate();
   const { tenantId } = useTenant();
-  const { setSelectedClient } = useSelectedClient();
+  const { selectedClient, setSelectedClient } = useSelectedClient();
 
   // Local navigation state: client → period → detail
   const [selectedClientLocal, setSelectedClientLocal] = useState<SelectedClientLocal | null>(null);
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ em_andamento: true });
+
+  // Auto-select client from context (coming from client hub)
+  useEffect(() => {
+    if (selectedClient && !selectedClientLocal) {
+      setSelectedClientLocal({
+        id: selectedClient.id,
+        name: selectedClient.name,
+        fantasy_name: selectedClient.fantasy_name,
+        cnpj_cpf: selectedClient.cnpj_cpf,
+        email: selectedClient.email,
+      });
+    }
+  }, [selectedClient]);
 
   // TaskCard modal state
   const [selectedCard, setSelectedCard] = useState<KanbanCardData | null>(null);
