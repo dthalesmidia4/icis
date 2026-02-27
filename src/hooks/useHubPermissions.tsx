@@ -8,6 +8,7 @@ export const HUB_SECTIONS = [
   { id: 'clientes', label: 'Clientes', description: 'Acesso à lista e gestão de clientes' },
   { id: 'kanban', label: 'Kanban Central', description: 'Visualização do quadro Kanban' },
   { id: 'schedule', label: 'Agendar Publicação', description: 'Programação de conteúdos' },
+  { id: 'cronogramas', label: 'Cronogramas', description: 'Planejamento e gestão de períodos' },
   { id: 'minha-empresa', label: 'Minha Empresa', description: 'Configurações da empresa' },
   { id: 'dev-hub', label: 'Hub de Desenvolvimento', description: 'Ferramentas de desenvolvimento' },
 ] as const;
