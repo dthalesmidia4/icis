@@ -44,18 +44,6 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     route: "/scheduled",
   },
   {
-    id: 'clientes',
-    title: "Cadastrar Cliente",
-    icon: UserPlus,
-    route: "/registration",
-  },
-  {
-    id: 'clientes',
-    title: "Cadastros de Clientes",
-    icon: ClipboardList,
-    route: "/cadastros-clientes",
-  },
-  {
     id: 'minha-empresa',
     title: "Minha Empresa",
     icon: Briefcase,
