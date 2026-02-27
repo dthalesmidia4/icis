@@ -37,7 +37,7 @@ const routeConfig: Record<string, BreadcrumbConfig> = {
       { label: 'Home', href: '/home', icon: Home },
       { label: 'Clientes', href: '/clientes', icon: Users },
       { label: '{clientName}', href: '/client-hub' },
-      { label: 'Perguntas Guias', icon: FileText }
+      { label: 'Anamnese', icon: FileText }
     ],
     requiresClient: true
   },

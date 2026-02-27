@@ -34,14 +34,84 @@ interface StrategicAnswers {
   [key: string]: string;
 }
 
-const strategicQuestions = [
-  "O que você deseja alcançar com sua comunicação neste momento? (Objetivo principal como vendas, leads, lançamento, autoridade, engajamento.)",
-  "Por que esse objetivo é importante para você agora? (Desafios, oportunidades, sazonalidade, concorrência, necessidade interna.)",
-  "Quem você deseja atingir com esse conteúdo? (Perfil, comportamento, região, dores e necessidades do público.)",
-  "Como você prefere que essa comunicação seja feita? (Tom e formatos: direto, humanizado, premium, educativo, reels, vídeos, stories, carrosséis.)",
-  "Existe algum estilo de comunicação ou abordagem que você NÃO quer que seja utilizada? (Formas de comunicação, temas ou formatos que devem ser evitados.)",
-  "Quais são os seus principais diferenciais frente aos concorrentes? (Três pontos que tornam sua empresa mais competitiva.)"
+interface QuestionSection {
+  title: string;
+  emoji: string;
+  questions: { question: string; hint?: string }[];
+}
+
+const anamnesisSections: QuestionSection[] = [
+  {
+    title: "OBJETIVO",
+    emoji: "1️⃣",
+    questions: [
+      { question: "O que você quer que aconteça neste período?", hint: "Ex: vender mais, atrair clientes, divulgar um serviço, crescer no Instagram." },
+      { question: "Você tem um número como meta para este período?", hint: "Ex: 30 vendas, 50 leads, 100 mensagens." },
+      { question: "Por que isso é importante neste período?", hint: "O que está acontecendo para isso ser prioridade?" },
+      { question: "Qual produto ou serviço será o foco principal neste período?" },
+    ],
+  },
+  {
+    title: "CLIENTE",
+    emoji: "2️⃣",
+    questions: [
+      { question: "Quem é a pessoa que você quer atrair?", hint: "Quem ela é? O que faz? Onde mora? Como é a rotina dela?" },
+      { question: "Qual problema principal essa pessoa tem hoje?" },
+      { question: "O que impede essa pessoa de comprar de você?", hint: "Preço? Medo? Falta de confiança? Não entende o serviço?" },
+      { question: "O que essa pessoa mais deseja conquistar?" },
+      { question: "Essa pessoa já conhece seu trabalho ou ainda não?" },
+    ],
+  },
+  {
+    title: "POSICIONAMENTO",
+    emoji: "3️⃣",
+    questions: [
+      { question: "Como você quer que sua marca seja vista?", hint: "Especialista? Premium? Acessível? Moderna?" },
+      { question: "O que você faz melhor que seus concorrentes?", hint: "Cite até 3 pontos." },
+      { question: "Existe algum tipo de cliente que você NÃO quer atrair?" },
+      { question: "Tem alguma marca ou perfil que você usa como referência?" },
+    ],
+  },
+  {
+    title: "OFERTA",
+    emoji: "4️⃣",
+    questions: [
+      { question: "O que exatamente você quer vender neste período?" },
+      { question: "Vai ter promoção, bônus ou condição especial neste período?" },
+      { question: "Como o cliente faz para comprar ou falar com você?" },
+    ],
+  },
+  {
+    title: "PROVA",
+    emoji: "5️⃣",
+    questions: [
+      { question: "Você tem números, resultados ou depoimentos?" },
+      { question: "Tem alguma história real de cliente que deu muito certo?" },
+    ],
+  },
+  {
+    title: "CONTEÚDO",
+    emoji: "6️⃣",
+    questions: [
+      { question: "Que tipo de conteúdo já deu resultado para você?" },
+      { question: "Que tipo de conteúdo não funcionou?" },
+      { question: "Você consegue gravar vídeos ou prefere outro formato?" },
+      { question: "Quantas vezes por semana você consegue postar?" },
+    ],
+  },
+  {
+    title: "COMUNICAÇÃO",
+    emoji: "7️⃣",
+    questions: [
+      { question: "Como você quer que sua comunicação pareça?", hint: "Mais séria? Mais leve? Mais técnica? Mais próxima?" },
+      { question: "Existe algo que você não quer que apareça nos conteúdos?" },
+    ],
+  },
 ];
+
+// Flatten questions for backward compatibility with keys
+const allQuestions = anamnesisSections.flatMap((s) => s.questions);
+const strategicQuestions = allQuestions.map((q) => q.hint ? `${q.question} (${q.hint})` : q.question);
 
 export default function GenerateQuestions() {
   const navigate = useNavigate();
@@ -184,7 +254,7 @@ export default function GenerateQuestions() {
     let yPosition = 20;
 
     doc.setFontSize(16);
-    doc.text("Perguntas Estratégicas da Empresa", 20, yPosition);
+    doc.text("Anamnese - Planejamento de Conteúdo", 20, yPosition);
     yPosition += 10;
 
     doc.setFontSize(12);
@@ -235,7 +305,7 @@ export default function GenerateQuestions() {
     });
 
     doc.save(
-      `Perguntas_Estrategicas_${selectedClient?.fantasy_name || selectedClient?.name}.pdf`
+      `Anamnese_${selectedClient?.fantasy_name || selectedClient?.name}.pdf`
     );
 
     toast({
@@ -412,7 +482,7 @@ export default function GenerateQuestions() {
     <div className="pb-8">
       {/* Header Fixo usando PageHeader */}
       <PageHeader
-        title="Perguntas Guias"
+        title="Anamnese"
         subtitle={selectedClient.fantasy_name || selectedClient.name}
         backTo="/guide"
         rightContent={
@@ -514,55 +584,62 @@ export default function GenerateQuestions() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Questionário */}
-      <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-        {strategicQuestions.map((question, idx) => {
-          const key = `question_${idx}`;
-          // Separar pergunta principal da descrição em parênteses
-          const match = question.match(/^(.+?)(\s*\(.+\))$/);
-          const mainQuestion = match ? match[1] : question;
-          const description = match ? match[2] : null;
-          
-          return (
-            <div key={key} className="space-y-3">
-              {/* Question Header */}
-              <Label 
-                htmlFor={key} 
-                className="text-base font-semibold text-foreground leading-relaxed block cursor-pointer"
-              >
-                <span className="text-primary font-bold mr-2">{idx + 1}.</span>
-                {mainQuestion}
-                {description && (
-                  <span className="block mt-1 text-muted-foreground font-normal text-sm">
-                    {description}
-                  </span>
-                )}
-              </Label>
-              
-              {/* Answer Textarea - auto-resize to content */}
-              <AutoResizeTextarea
-                id={key}
-                value={answers[key] || ""}
-                onChange={(e) => handleAnswerChange(key, e.target.value)}
-                placeholder="Digite sua resposta aqui..."
-                aria-label={`Resposta para: ${mainQuestion}`}
-                aria-required="true"
-                aria-invalid={validationErrors.has(key)}
-                minHeight={120}
-                className={`focus:ring-2 focus:ring-primary/20 transition-all bg-muted/50 text-foreground placeholder:text-muted-foreground ${
-                  validationErrors.has(key) 
-                    ? "border-destructive ring-2 ring-destructive/20" 
-                    : "border-border/50"
-                }`}
-              />
-              {validationErrors.has(key) && (
-                <p className="text-sm text-destructive mt-1" role="alert">
-                  Esta pergunta é obrigatória
-                </p>
-              )}
+      {/* Questionário por Seções */}
+      <div className="max-w-3xl mx-auto px-6 py-8 space-y-10">
+        {(() => {
+          let globalIdx = 0;
+          return anamnesisSections.map((section) => (
+            <div key={section.title} className="space-y-5">
+              {/* Section Header */}
+              <div className="flex items-center gap-3 pb-2 border-b border-border/50">
+                <span className="text-xl">{section.emoji}</span>
+                <h2 className="text-lg font-bold text-foreground tracking-wide uppercase">{section.title}</h2>
+              </div>
+
+              {/* Section Questions */}
+              {section.questions.map((q) => {
+                const idx = globalIdx++;
+                const key = `question_${idx}`;
+                return (
+                  <div key={key} className="space-y-3">
+                    <Label
+                      htmlFor={key}
+                      className="text-base font-semibold text-foreground leading-relaxed block cursor-pointer"
+                    >
+                      {q.question}
+                      {q.hint && (
+                        <span className="block mt-1 text-muted-foreground font-normal text-sm">
+                          ({q.hint})
+                        </span>
+                      )}
+                    </Label>
+
+                    <AutoResizeTextarea
+                      id={key}
+                      value={answers[key] || ""}
+                      onChange={(e) => handleAnswerChange(key, e.target.value)}
+                      placeholder="Digite sua resposta aqui..."
+                      aria-label={`Resposta para: ${q.question}`}
+                      aria-required="true"
+                      aria-invalid={validationErrors.has(key)}
+                      minHeight={120}
+                      className={`focus:ring-2 focus:ring-primary/20 transition-all bg-muted/50 text-foreground placeholder:text-muted-foreground ${
+                        validationErrors.has(key)
+                          ? "border-destructive ring-2 ring-destructive/20"
+                          : "border-border/50"
+                      }`}
+                    />
+                    {validationErrors.has(key) && (
+                      <p className="text-sm text-destructive mt-1" role="alert">
+                        Esta pergunta é obrigatória
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          ));
+        })()}
       </div>
     </div>
   );

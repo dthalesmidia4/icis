@@ -63,7 +63,7 @@ const ClientHub = () => {
   };
   
   const actionCards = [{
-    title: "Perguntas Guias",
+    title: "Anamnese",
     icon: FileText,
     route: "/client-guide",
     action: () => navigate("/client-guide")
