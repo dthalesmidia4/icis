@@ -835,55 +835,21 @@ const PlanPeriod = () => {
               return (
                 <div
                   key={period.id}
-                  className="flex items-center justify-between gap-4 px-4 py-3 bg-background rounded-lg border border-border/50 cursor-pointer hover:bg-muted/50 transition-all duration-200 group"
+                  className="flex items-center justify-between gap-4 px-5 py-4 bg-background rounded-lg border border-border/50 cursor-pointer hover:bg-muted/50 transition-all duration-200 group"
                   onClick={() => setSelectedHistoryPlan(period)}
                 >
                   {/* Left side */}
                   <div className="min-w-0 flex-1">
-                    <span className="text-sm font-semibold text-foreground truncate block">
+                    <span className="text-base sm:text-lg font-bold text-foreground truncate block">
                       {period.period_title}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-sm text-muted-foreground">
                       {format(new Date(period.period_start + 'T00:00:00'), "dd/MM/yyyy")} – {format(new Date(period.period_end + 'T00:00:00'), "dd/MM/yyyy")}
                     </span>
                   </div>
 
-                  {/* Right side */}
-                  <div className="flex items-center gap-3 shrink-0">
-                    {metrics.total > 0 && (
-                      <div className="hidden sm:flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          ✔ {metrics.total} aprovadas
-                        </span>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                          🚀 {metrics.published} publicadas
-                        </span>
-                        <Badge variant="outline" className="text-[10px] px-2 py-0.5 font-semibold whitespace-nowrap">
-                          📊 {executionPercent}%
-                        </Badge>
-                      </div>
-                    )}
-
-                    <Badge
-                      className={cn(
-                        "text-[10px] px-2 py-0.5 font-medium whitespace-nowrap border cursor-pointer",
-                        isCompleted
-                          ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
-                          : isInProgress
-                            ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-                            : "bg-blue-500/10 text-blue-600 border-blue-500/30"
-                      )}
-                      onClick={(e) => handleToggleOperationalStatus(period, e)}
-                    >
-                      {isCompleted ? 'Concluído' : isInProgress ? 'Em andamento' : 'Em planejamento'}
-                    </Badge>
-
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={e => { e.stopPropagation(); setPeriodToDelete(period); }} aria-label="Excluir período">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-
-                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  </div>
+                  {/* Right side - only chevron */}
+                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
                 </div>
               );
             })}
