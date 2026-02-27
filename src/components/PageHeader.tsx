@@ -54,8 +54,8 @@ export function PageHeader({
                 <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>}
             <div className="min-w-0">
-              <h1 className="text-base sm:text-xl font-bold truncate">{title}</h1>
-              {subtitle}
+              <h1 className="text-xl sm:text-3xl font-bold truncate">{title}</h1>
+              {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
             </div>
           </div>
 
