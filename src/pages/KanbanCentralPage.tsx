@@ -727,9 +727,8 @@ const KanbanCentralPage = () => {
   return (
     <div className="mt-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex-1" />
-        <div className="flex items-center gap-3 justify-center">
+      <div className="flex flex-col items-center mb-4 gap-3">
+        <div className="flex items-center gap-3">
           <div className="p-2 bg-primary/10 rounded-lg">
             <LayoutGrid className="h-5 w-5 text-primary" />
           </div>
