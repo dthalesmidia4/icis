@@ -484,7 +484,7 @@ export default function GenerateQuestions() {
       <PageHeader
         title="Anamnese"
         subtitle={selectedClient.fantasy_name || selectedClient.name}
-        backTo="/guide"
+        backTo="/client-hub"
         rightContent={
           <div className="flex gap-3">
             {/* Dropdown para Mobile */}

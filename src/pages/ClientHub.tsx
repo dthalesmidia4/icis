@@ -26,7 +26,7 @@ const ClientHub = () => {
     {
       title: "Cadastro",
       icon: ClipboardList,
-      action: () => navigate("/client-details"),
+      action: () => navigate(`/clientes/${selectedClient.id}`),
     },
     {
       title: "Anamnese",
