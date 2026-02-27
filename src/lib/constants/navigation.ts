@@ -44,13 +44,6 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     route: "/scheduled",
   },
   {
-    id: 'cronogramas',
-    title: "Cronogramas",
-    icon: ClipboardList,
-    route: "/schedules",
-    opensClientModal: true,
-  },
-  {
     id: 'minha-empresa',
     title: "Minha Empresa",
     icon: Briefcase,
