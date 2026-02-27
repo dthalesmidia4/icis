@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays, ClipboardList, History } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useEffect } from "react";
 import { toast } from "sonner";
@@ -42,6 +42,11 @@ const ClientHub = () => {
       title: "Estratégia",
       icon: Lightbulb,
       action: () => navigate("/strategies"),
+    },
+    {
+      title: "Período Atual",
+      icon: Clock,
+      action: () => navigate("/plan-period?tab=history&view=latest"),
     },
     {
       title: "Histórico de Período",

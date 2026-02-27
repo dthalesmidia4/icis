@@ -180,6 +180,13 @@ const PlanPeriod = () => {
     fetchHistory();
   }, [selectedClient, tenantId]);
 
+  // Auto-open latest period if view=latest
+  useEffect(() => {
+    if (!loadingHistory && searchParams.get('view') === 'latest' && periodHistory.length > 0 && !selectedHistoryPlan) {
+      setSelectedHistoryPlan(periodHistory[0]);
+    }
+  }, [loadingHistory, periodHistory]);
+
   useEffect(() => {
     if (!selectedClient) {
       toast.error("Nenhum cliente selecionado");
@@ -826,43 +833,23 @@ const PlanPeriod = () => {
       ) : (
         <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
           <div className="flex flex-col gap-2">
-            {periodHistory.map(period => {
-              const now = new Date();
-              const start = new Date(period.period_start + 'T00:00:00');
-              const end = new Date(period.period_end + 'T23:59:59');
-              const isCurrent = now >= start && now <= end;
-
-              return (
-                <div
-                  key={period.id}
-                  className={cn(
-                    "flex items-center justify-between gap-4 px-5 py-4 bg-background rounded-lg border cursor-pointer hover:bg-muted/50 transition-all duration-200 group",
-                    isCurrent ? "border-primary/50" : "border-border/50"
-                  )}
-                  onClick={() => setSelectedHistoryPlan(period)}
-                >
-                  {/* Left side */}
-                  <div className="min-w-0 flex-1 flex items-center gap-3">
-                    <div className="min-w-0">
-                      <span className="text-base sm:text-lg font-bold text-foreground truncate block">
-                        {period.period_title}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        {format(start, "dd/MM/yyyy")} – {format(end, "dd/MM/yyyy")}
-                      </span>
-                    </div>
-                    {isCurrent && (
-                      <Badge className="bg-primary/15 text-primary border-primary/30 text-xs shrink-0">
-                        Atualmente
-                      </Badge>
-                    )}
-                  </div>
-
-                  {/* Right side - only chevron */}
-                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+            {periodHistory.map(period => (
+              <div
+                key={period.id}
+                className="flex items-center justify-between gap-4 px-5 py-4 bg-background rounded-lg border border-border/50 cursor-pointer hover:bg-muted/50 transition-all duration-200 group"
+                onClick={() => setSelectedHistoryPlan(period)}
+              >
+                <div className="min-w-0 flex-1">
+                  <span className="text-base sm:text-lg font-bold text-foreground truncate block">
+                    {period.period_title}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {format(new Date(period.period_start + 'T00:00:00'), "dd/MM/yyyy")} – {format(new Date(period.period_end + 'T00:00:00'), "dd/MM/yyyy")}
+                  </span>
                 </div>
-              );
-            })}
+                <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+              </div>
+            ))}
           </div>
         </div>
       )}
