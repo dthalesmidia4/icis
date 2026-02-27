@@ -830,6 +830,8 @@ const PlanPeriod = () => {
             Criar Primeiro Período
           </Button>
         </Card>
+      ) : searchParams.get('view') === 'latest' && selectedHistoryPlan ? (
+        null
       ) : (
         <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
           <div className="flex flex-col gap-2">
