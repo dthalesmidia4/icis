@@ -57,7 +57,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   },
   {
     id: 'clientes',
-    title: "Estratégias",
+    title: "Estratégias Gerais",
     icon: Lightbulb,
     route: "/strategy-clients",
   },
