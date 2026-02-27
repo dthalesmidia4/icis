@@ -302,9 +302,7 @@ const ManageColumnsModal = ({
                                   onClick={() => !column.is_fixed && handleStartEditing(column)}
                                 >
                                   {column.name}
-                                  {column.is_fixed ? (
-                                    <span className="text-muted-foreground text-xs ml-1">🔒</span>
-                                  ) : (
+                                  {!column.is_fixed && (
                                     <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity" />
                                   )}
                                 </span>
