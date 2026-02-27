@@ -39,6 +39,7 @@ import GuideClientList from "./pages/GuideClientList";
 import StrategyClientList from "./pages/StrategyClientList";
 import PeriodClientList from "./pages/PeriodClientList";
 
+import InstallApp from "./pages/InstallApp";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -318,6 +319,7 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      <Route path="/install" element={<InstallApp />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
