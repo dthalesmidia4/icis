@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useEffect } from "react";
 import { toast } from "sonner";
@@ -23,6 +23,11 @@ const ClientHub = () => {
   const displayName = selectedClient.fantasy_name || selectedClient.name;
 
   const actionCards = [
+    {
+      title: "Cadastro",
+      icon: ClipboardList,
+      action: () => navigate("/client-details"),
+    },
     {
       title: "Anamnese",
       icon: FileText,
@@ -59,7 +64,7 @@ const ClientHub = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {actionCards.map((card, index) => (
             <Card 
               key={index} 
