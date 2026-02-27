@@ -79,6 +79,7 @@ const PlanPeriod = () => {
   const [selectedHistoryPlan, setSelectedHistoryPlan] = useState<PeriodPlanHistory | null>(null);
   const [historyViewTab, setHistoryViewTab] = useState<'final' | 'normal' | 'ultra'>('final');
   const [periodToDelete, setPeriodToDelete] = useState<PeriodPlanHistory | null>(null);
+  const [expandedLatestCard, setExpandedLatestCard] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [generationHistoryOpen, setGenerationHistoryOpen] = useState(false);
 
@@ -877,19 +878,59 @@ const PlanPeriod = () => {
             : selectedHistoryPlan.default_plan?.length ? selectedHistoryPlan.default_plan
             : selectedHistoryPlan.ultra_plan?.length ? selectedHistoryPlan.ultra_plan
             : [];
-          const variant = selectedHistoryPlan.final_plan?.length ? 'normal'
-            : selectedHistoryPlan.ultra_plan?.length ? 'ultra' : 'normal';
+
+          const getType = (item: any) => item.tipo || item.tipo_conteudo || item.type || '';
+          const getTitle = (item: any) => item.titulo || item.title || 'Sem título';
+          const getObjective = (item: any) => item.objetivo || item.objective || '';
 
           return (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 text-sm text-muted-foreground mb-2">
-                <CalendarIcon className="w-4 h-4" />
-                <span>{format(new Date(selectedHistoryPlan.period_start + 'T00:00:00'), "dd/MM/yyyy")} – {format(new Date(selectedHistoryPlan.period_end + 'T00:00:00'), "dd/MM/yyyy")}</span>
-                <Badge variant="secondary" className="ml-auto">{plan.length} demandas</Badge>
+            <div className="space-y-6">
+              {/* Period date - large */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CalendarIcon className="w-5 h-5 text-primary" />
+                  <span className="text-xl font-bold text-foreground">
+                    {format(new Date(selectedHistoryPlan.period_start + 'T00:00:00'), "dd/MM/yyyy")} – {format(new Date(selectedHistoryPlan.period_end + 'T00:00:00'), "dd/MM/yyyy")}
+                  </span>
+                </div>
+                <Badge variant="secondary" className="text-sm px-3 py-1">{plan.length} demandas</Badge>
               </div>
+
               {plan.length > 0 ? (
                 <div className="grid gap-3">
-                  {plan.map((item: any, idx: number) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant={variant as any} />)}
+                  {plan.map((item: any, idx: number) => {
+                    const tipo = getType(item);
+                    const title = getTitle(item);
+                    const objetivo = getObjective(item);
+                    return (
+                      <Card
+                        key={idx}
+                        className="p-4 cursor-pointer hover:bg-muted/50 transition-all duration-200 hover:shadow-md border-border/50"
+                        onClick={() => setExpandedLatestCard(expandedLatestCard === idx ? null : idx)}
+                      >
+                        {/* Summary - always visible */}
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {tipo && <Badge variant="secondary" className="text-xs">{tipo}</Badge>}
+                            </div>
+                            <h4 className="font-semibold text-foreground">{title}</h4>
+                            {objetivo && (
+                              <p className="text-sm text-muted-foreground line-clamp-2">{objetivo}</p>
+                            )}
+                          </div>
+                          <ChevronDown className={cn("w-5 h-5 text-muted-foreground shrink-0 transition-transform mt-1", expandedLatestCard === idx && "rotate-180")} />
+                        </div>
+
+                        {/* Expanded detail */}
+                        {expandedLatestCard === idx && (
+                          <div className="mt-4 pt-4 border-t border-border/50" onClick={e => e.stopPropagation()}>
+                            <DemandaCard demanda={item as unknown as DemandaItem} />
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-12 text-muted-foreground">
