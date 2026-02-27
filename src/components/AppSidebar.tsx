@@ -207,18 +207,32 @@ function DesktopSidebar() {
     return name.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
   };
 
+  const [expanded, setExpanded] = useState(false);
+
   return (
-    <Sidebar collapsible="none" className="border-r w-52 min-w-52 max-w-52 flex flex-col">
+    <div
+      onMouseEnter={() => setExpanded(true)}
+      onMouseLeave={() => setExpanded(false)}
+      className={cn(
+        "border-r flex flex-col bg-sidebar h-full transition-all duration-300 ease-in-out overflow-hidden",
+        expanded ? "w-52" : "w-16"
+      )}
+    >
       {/* Header com Avatar */}
-      <SidebarHeader className="border-b p-2">
+      <div className="border-b p-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center justify-center w-full p-1 hover:bg-accent rounded-lg transition-all duration-300 hover:scale-110 group" aria-label="Menu do perfil">
-              <Avatar className="h-10 w-10 border-2 border-primary transition-all duration-300 group-hover:border-primary/80 group-hover:shadow-lg group-hover:shadow-primary/20">
+            <button className="flex items-center gap-3 w-full p-1 hover:bg-accent rounded-lg transition-all duration-300 group" aria-label="Menu do perfil">
+              <Avatar className="h-10 w-10 flex-shrink-0 border-2 border-primary transition-all duration-300 group-hover:border-primary/80">
                 <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-sm font-bold">
                   {userName ? getInitials(userName) : 'U'}
                 </AvatarFallback>
               </Avatar>
+              {expanded && (
+                <span className="text-sm font-medium truncate animate-in fade-in duration-200">
+                  {userName || 'Usuário'}
+                </span>
+              )}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="right" className="w-56 z-50">
@@ -228,99 +242,152 @@ function DesktopSidebar() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      </SidebarHeader>
+      </div>
 
-      <SidebarContent className="py-2">
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu className="gap-1 px-2">
-              {/* Home (fixo) */}
-              <SidebarMenuItem>
-                <SidebarMenuButton
+      {/* Nav Items */}
+      <div className="flex-1 py-2 overflow-y-auto overflow-x-hidden">
+        <nav className="flex flex-col gap-1 px-2">
+          {/* Home */}
+          {expanded ? (
+            <button
+              onClick={() => navigate('/home')}
+              className={cn(
+                "h-10 flex items-center gap-3 px-3 rounded-xl transition-all duration-300",
+                isActive('/home')
+                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                  : 'hover:bg-accent text-sidebar-foreground'
+              )}
+            >
+              <Home className="h-5 w-5 flex-shrink-0" />
+              <span className="text-sm font-medium truncate">Home</span>
+            </button>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
                   onClick={() => navigate('/home')}
-                  isActive={isActive('/home')}
                   className={cn(
-                    "h-10 flex items-center gap-3 px-3 rounded-xl transition-all duration-300 ease-out",
+                    "h-10 w-10 mx-auto flex items-center justify-center rounded-xl transition-all duration-300",
                     isActive('/home')
                       ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
-                      : 'hover:bg-accent'
+                      : 'hover:bg-accent text-sidebar-foreground'
                   )}
                 >
-                  <Home className="h-5 w-5 flex-shrink-0" />
-                  <span className="text-sm font-medium truncate">Home</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+                  <Home className="h-5 w-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={10}>Home</TooltipContent>
+            </Tooltip>
+          )}
 
-              {/* Itens centralizados */}
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.route);
-                return (
-                  <SidebarMenuItem key={item.route}>
-                    <SidebarMenuButton
-                      onClick={() => navigate(item.route)}
-                      isActive={active}
-                      className={cn(
-                        "h-10 flex items-center gap-3 px-3 rounded-xl transition-all duration-300 ease-out",
-                        active
-                          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
-                          : 'hover:bg-accent'
-                      )}
-                    >
-                      <Icon className="h-5 w-5 flex-shrink-0" />
-                      <span className="text-sm font-medium truncate">{item.title}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.route);
+            return expanded ? (
+              <button
+                key={item.route}
+                onClick={() => navigate(item.route)}
+                className={cn(
+                  "h-10 flex items-center gap-3 px-3 rounded-xl transition-all duration-300",
+                  active
+                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                    : 'hover:bg-accent text-sidebar-foreground'
+                )}
+              >
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                <span className="text-sm font-medium truncate">{item.title}</span>
+              </button>
+            ) : (
+              <Tooltip key={item.route}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => navigate(item.route)}
+                    className={cn(
+                      "h-10 w-10 mx-auto flex items-center justify-center rounded-xl transition-all duration-300",
+                      active
+                        ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                        : 'hover:bg-accent text-sidebar-foreground'
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={10}>{item.title}</TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </nav>
 
         {/* Developer Menu */}
         {canAccessAdmin && (
-          <SidebarGroup className="mt-auto pt-2 border-t">
-            <SidebarGroupContent>
-              <SidebarMenu className="gap-1 px-2">
-                {devMenuItems.map((item) => {
-                  const Icon = item.icon;
-                  const active = isActive(item.url);
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton
+          <div className="mt-4 pt-2 border-t mx-2">
+            <nav className="flex flex-col gap-1">
+              {devMenuItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.url);
+                return expanded ? (
+                  <button
+                    key={item.title}
+                    onClick={() => navigate(item.url)}
+                    className={cn(
+                      "h-10 flex items-center gap-3 px-3 rounded-xl transition-all duration-300",
+                      active
+                        ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                        : 'hover:bg-accent text-sidebar-foreground'
+                    )}
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    <span className="text-sm font-medium truncate">{item.title}</span>
+                  </button>
+                ) : (
+                  <Tooltip key={item.title}>
+                    <TooltipTrigger asChild>
+                      <button
                         onClick={() => navigate(item.url)}
-                        isActive={active}
                         className={cn(
-                          "h-10 flex items-center gap-3 px-3 rounded-xl transition-all duration-300 ease-out",
+                          "h-10 w-10 mx-auto flex items-center justify-center rounded-xl transition-all duration-300",
                           active
                             ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
-                            : 'hover:bg-accent'
+                            : 'hover:bg-accent text-sidebar-foreground'
                         )}
                       >
-                        <Icon className="h-5 w-5 flex-shrink-0" />
-                        <span className="text-sm font-medium truncate">{item.title}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+                        <Icon className="h-5 w-5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" sideOffset={10}>{item.title}</TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </nav>
+          </div>
         )}
-      </SidebarContent>
+      </div>
 
-      {/* Footer com botão de logout */}
-      <SidebarFooter className="border-t p-2">
-        <button
-          onClick={handleSignOut}
-          className="flex items-center gap-3 px-3 h-10 rounded-xl transition-all duration-300 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-          aria-label="Sair da conta"
-        >
-          <LogOut className="h-5 w-5 flex-shrink-0" />
-          <span className="text-sm font-medium">Sair</span>
-        </button>
-      </SidebarFooter>
-    </Sidebar>
+      {/* Footer - Logout */}
+      <div className="border-t p-2">
+        {expanded ? (
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-3 px-3 h-10 w-full rounded-xl transition-all duration-300 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+          >
+            <LogOut className="h-5 w-5 flex-shrink-0" />
+            <span className="text-sm font-medium">Sair</span>
+          </button>
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all duration-300 hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+              >
+                <LogOut className="h-5 w-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right" sideOffset={10}>Sair</TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    </div>
   );
 }
 
