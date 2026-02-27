@@ -697,8 +697,8 @@ export default function TaskCard({
                       <span className="truncate">{statusConfig.label}</span>
                     </div>
                   </SelectTrigger>
-                  <SelectContent className="min-w-[220px] max-h-[320px]">
-                    <ScrollArea className="max-h-[300px]">
+                  <SelectContent className="min-w-[220px] max-h-[420px]">
+                    <ScrollArea className="max-h-[400px]">
                       {pipelineStatuses.length > 0 ? (
                         pipelineStatuses.map((status, idx) => (
                           <div key={status.id}>
