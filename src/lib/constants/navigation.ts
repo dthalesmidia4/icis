@@ -51,7 +51,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   },
   {
     id: 'clientes',
-    title: "Perguntas Guias",
+    title: "Anamnese",
     icon: FileText,
     route: "/guide",
   },

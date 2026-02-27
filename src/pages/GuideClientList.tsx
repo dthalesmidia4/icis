@@ -58,10 +58,10 @@ const GuideClientList = () => {
             <BackButton to="/home" />
           </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3 break-words px-2">
-            Perguntas Guias
+            Anamnese
           </h1>
           <p className="text-sm sm:text-lg text-muted-foreground">
-            Selecione um cliente para acessar as perguntas guias
+            Selecione um cliente para acessar a anamnese
           </p>
         </div>
 
@@ -88,7 +88,7 @@ const GuideClientList = () => {
             <FileText className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground mx-auto mb-3 sm:mb-4" />
             <p className="text-base sm:text-lg font-medium mb-2">Nenhum cliente encontrado</p>
             <p className="text-sm text-muted-foreground">
-              Cadastre clientes para acessar as perguntas guias
+              Cadastre clientes para acessar a anamnese
             </p>
           </div>
         ) : (
