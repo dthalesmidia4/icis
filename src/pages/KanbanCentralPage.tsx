@@ -89,9 +89,10 @@ const KanbanCentralPage = () => {
   // Hook de permissões de colunas
   const { filterColumns, loading: permissionsLoading } = useColumnPermissions();
 
-  // Filtrar colunas baseado nas permissões do usuário
+  // Filtrar colunas baseado nas permissões do usuário e esconder "Feito"/"Feitos"
   const visibleColumns = useMemo(() => {
-    return filterColumns(columns);
+    const DONE_NAMES = ["feito", "feitos"];
+    return filterColumns(columns).filter(col => !DONE_NAMES.includes(col.name.toLowerCase().trim()));
   }, [columns, filterColumns]);
 
   // Extrair lista única de clientes (dos cards ativos)

@@ -7,6 +7,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +43,10 @@ const CreateColumnModal = ({
   const [selectedColor, setSelectedColor] = useState("#8b5cf6");
   const [loading, setLoading] = useState(false);
   const [producaoStatusId, setProducaoStatusId] = useState<string | null>(null);
+  const [showDoneWarning, setShowDoneWarning] = useState(false);
+
+  const DONE_NAMES = ["feito", "feitos"];
+  const isDoneName = (n: string) => DONE_NAMES.includes(n.toLowerCase().trim());
 
   // Fetch Produção status ID when modal opens
   useEffect(() => {
@@ -50,22 +63,9 @@ const CreateColumnModal = ({
     }
   }, [open, pipelineId]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!name.trim()) {
-      toast.error("Digite um nome para a coluna");
-      return;
-    }
-
-    if (!pipelineId) {
-      toast.error("Pipeline não encontrado");
-      return;
-    }
-
+  const doCreate = async () => {
     setLoading(true);
     try {
-      // Calcular próxima posição
       const maxPosition = existingPositions.length > 0 
         ? Math.max(...existingPositions) 
         : 0;
@@ -100,7 +100,29 @@ const CreateColumnModal = ({
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!name.trim()) {
+      toast.error("Digite um nome para a coluna");
+      return;
+    }
+
+    if (!pipelineId) {
+      toast.error("Pipeline não encontrado");
+      return;
+    }
+
+    if (isDoneName(name.trim())) {
+      setShowDoneWarning(true);
+      return;
+    }
+
+    await doCreate();
+  };
+
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
@@ -147,6 +169,23 @@ const CreateColumnModal = ({
         </form>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={showDoneWarning} onOpenChange={setShowDoneWarning}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Coluna de demandas completas</AlertDialogTitle>
+          <AlertDialogDescription>
+            Esta coluna não vai aparecer no Kanban. Os cards movidos para ela serão exibidos na página <strong>"Demandas Completas"</strong> na tela inicial.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogAction onClick={() => { setShowDoneWarning(false); doCreate(); }}>
+            Entendi, criar coluna
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 };
 

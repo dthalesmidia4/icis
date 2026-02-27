@@ -41,6 +41,7 @@ import PeriodClientList from "./pages/PeriodClientList";
 
 import InstallApp from "./pages/InstallApp";
 import NotFound from "./pages/NotFound";
+import CompletedDemands from "./pages/CompletedDemands";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -270,6 +271,15 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <KanbanCentralPage />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/demandas-completas" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <CompletedDemands />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>
