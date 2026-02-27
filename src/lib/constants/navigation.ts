@@ -3,10 +3,8 @@ import {
   ClipboardList,
   LayoutGrid,
   Briefcase,
-  FileText,
-  Lightbulb,
   CalendarDays,
-  Building2,
+  Users,
 } from "lucide-react";
 import type { HubSectionId } from "@/hooks/useHubPermissions";
 
@@ -17,6 +15,8 @@ export interface NavigationItem {
   route: string;
   adminOnly?: boolean;
   requiresAgency?: boolean;
+  /** When true, Home will open the client selection modal instead of navigating */
+  opensClientModal?: boolean;
 }
 
 /**
@@ -24,6 +24,25 @@ export interface NavigationItem {
  * Qualquer item adicionado aqui aparece automaticamente na Home e na Sidebar.
  */
 export const NAVIGATION_ITEMS: NavigationItem[] = [
+  {
+    id: 'clientes',
+    title: "Cliente",
+    icon: Users,
+    route: "/client-hub",
+    opensClientModal: true,
+  },
+  {
+    id: 'kanban',
+    title: "Kanban Central",
+    icon: LayoutGrid,
+    route: "/kanban-central",
+  },
+  {
+    id: 'schedule',
+    title: "Agendamento de Conteúdos",
+    icon: CalendarDays,
+    route: "/scheduled",
+  },
   {
     id: 'clientes',
     title: "Cadastrar Cliente",
@@ -37,48 +56,11 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     route: "/cadastros-clientes",
   },
   {
-    id: 'kanban',
-    title: "Kanban Central",
-    icon: LayoutGrid,
-    route: "/kanban-central",
-  },
-  {
     id: 'minha-empresa',
     title: "Minha Empresa",
     icon: Briefcase,
     route: "/minha-empresa",
     requiresAgency: true,
-  },
-  {
-    id: 'clientes',
-    title: "Anamnese",
-    icon: FileText,
-    route: "/guide",
-  },
-  {
-    id: 'clientes',
-    title: "Estratégias Gerais",
-    icon: Lightbulb,
-    route: "/strategy-clients",
-  },
-  {
-    id: 'clientes',
-    title: "Cronograma",
-    icon: CalendarDays,
-    route: "/schedules",
-  },
-  {
-    id: 'schedule',
-    title: "Agendamento de Conteúdos",
-    icon: CalendarDays,
-    route: "/scheduled",
-  },
-  {
-    id: 'clientes',
-    title: "Gerenciar (Legado)",
-    icon: Building2,
-    route: "/clientes",
-    adminOnly: true,
   },
 ];
 

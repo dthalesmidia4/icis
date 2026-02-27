@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -6,6 +7,9 @@ import { useHubPermissions } from "@/hooks/useHubPermissions";
 import { Card } from "@/components/ui/card";
 import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { getFilteredNavigationItems } from "@/lib/constants/navigation";
+import { useSelectedClient } from "@/contexts/SelectedClientContext";
+import { ClientSelectionModal } from "@/components/ClientSelectionModal";
+import { toast } from "sonner";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -13,6 +17,8 @@ const Home = () => {
   const { agencyId } = useAgency();
   const { canAccess, loading: permissionsLoading } = useHubPermissions();
   const { role, isLoading: roleLoading } = useAgencyRole();
+  const { setSelectedClient } = useSelectedClient();
+  const [clientModalOpen, setClientModalOpen] = useState(false);
 
   const isAdmin = role === 'super_admin' || role === 'agency_admin' || role === 'agency_manager';
   const isAdminOnly = role === 'super_admin' || role === 'agency_admin';
@@ -30,6 +36,27 @@ const Home = () => {
     isAdminOnly,
     canAccess,
   });
+
+  const handleCardClick = (card: typeof actionCards[0]) => {
+    if (card.opensClientModal) {
+      setClientModalOpen(true);
+    } else {
+      navigate(card.route);
+    }
+  };
+
+  const handleClientSelected = (client: any) => {
+    setSelectedClient({
+      id: client.id,
+      name: client.name,
+      fantasy_name: client.fantasy_name || null,
+      cnpj_cpf: client.cnpj_cpf,
+      email: client.email,
+    });
+    setClientModalOpen(false);
+    toast.success(`Cliente ${client.fantasy_name || client.name} selecionado`);
+    navigate('/client-hub');
+  };
 
   if (permissionsLoading || roleLoading) {
     return (
@@ -51,12 +78,12 @@ const Home = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {actionCards.map((card, index) => (
             <Card 
               key={index} 
               className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]" 
-              onClick={() => navigate(card.route)}
+              onClick={() => handleCardClick(card)}
             >
               <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
               
@@ -79,6 +106,12 @@ const Home = () => {
           </div>
         )}
       </div>
+
+      <ClientSelectionModal
+        open={clientModalOpen}
+        onOpenChange={setClientModalOpen}
+        onClientSelected={handleClientSelected}
+      />
     </div>
   );
 };
