@@ -34,22 +34,22 @@ const ClientHub = () => {
       action: () => navigate("/client-guide"),
     },
     {
-      title: "Planejar Período",
-      icon: CalendarDays,
-      action: () => navigate("/plan-period"),
-    },
-    {
       title: "Estratégia",
       icon: Lightbulb,
       action: () => navigate("/strategies"),
     },
     {
-      title: "Período Atual",
+      title: "Planejar Período",
+      icon: CalendarDays,
+      action: () => navigate("/plan-period"),
+    },
+    {
+      title: "Cronograma Atual",
       icon: Clock,
       action: () => navigate("/plan-period?tab=history&view=latest"),
     },
     {
-      title: "Histórico de Período",
+      title: "Histórico de Períodos",
       icon: History,
       action: () => navigate("/plan-period?tab=history"),
     },
