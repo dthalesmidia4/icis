@@ -200,7 +200,7 @@ const ClientDetails = () => {
       if (error) {
         if (error.code === 'PGRST116') {
           toast.error("Cliente não encontrado");
-          navigate('/clientes');
+          navigate('/client-hub');
           return null;
         }
         throw error;
@@ -545,7 +545,7 @@ const ClientDetails = () => {
       
       queryClient.invalidateQueries({ queryKey: ['tenant-clients'] });
       toast.success("Cliente excluído com sucesso");
-      navigate('/clientes');
+      navigate('/client-hub');
     } catch (error: any) {
       console.error('Error deleting client:', error);
       toast.error(error.message || "Erro ao excluir cliente");
@@ -578,7 +578,7 @@ const ClientDetails = () => {
               <Button 
                 variant="ghost" 
                 size="icon"
-                onClick={() => navigate("/cadastros-clientes")}
+                onClick={() => navigate("/client-hub")}
                 aria-label="Voltar para lista de clientes"
               >
                 <ArrowLeft className="h-5 w-5" />

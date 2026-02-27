@@ -677,7 +677,7 @@ const PeriodClientList = () => {
       <div className="pb-8">
         <div className="container max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           {/* Back button */}
-          <BackButton to="/home" />
+           <BackButton to="/client-hub" />
 
           {/* Header */}
           <div className="flex items-start justify-between mb-6 mt-4">
@@ -820,7 +820,7 @@ const PeriodClientList = () => {
         {/* Header */}
         <div className="mb-8 sm:mb-12 text-center relative">
           <div className="absolute left-0 top-0">
-            <BackButton to="/home" />
+            <BackButton to="/client-hub" />
           </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3">
             Cronogramas
