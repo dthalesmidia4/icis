@@ -8,8 +8,10 @@ import { useTenant } from '@/contexts/TenantContext';
 interface Client {
   id: string;
   name: string;
+  fantasy_name: string | null;
   cnpj_cpf: string;
   email: string;
+  logo_url: string | null;
 }
 interface ClientSelectionModalProps {
   open: boolean;
@@ -39,9 +41,9 @@ export const ClientSelectionModal = ({
   } = useQuery({
     queryKey: ['clients', tenantId, searchTerm],
     queryFn: async () => {
-      let query = supabase.from('tenant_companies').select('*').eq('tenant_id', tenantId!).order('name');
+      let query = supabase.from('tenant_companies').select('*').eq('tenant_id', tenantId!).order('fantasy_name');
       if (searchTerm) {
-        query = query.ilike('name', `%${searchTerm}%`);
+        query = query.or(`name.ilike.%${searchTerm}%,fantasy_name.ilike.%${searchTerm}%`);
       }
       const {
         data,
@@ -53,11 +55,11 @@ export const ClientSelectionModal = ({
     enabled: !!tenantId && open
   });
   return <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Selecionar Cliente</DialogTitle>
           <DialogDescription>
-            Pesquise e selecione o cliente para criar uma nova estratégia
+            Pesquise e selecione o cliente
           </DialogDescription>
         </DialogHeader>
 
@@ -71,18 +73,15 @@ export const ClientSelectionModal = ({
               Carregando clientes disponíveis...
             </div> : !clients || clients.length === 0 ? <div className="text-center py-8 text-muted-foreground">
               Nenhum cliente encontrado
-            </div> : <div className="max-h-[300px] overflow-y-auto space-y-2">
+            </div> : <div className="max-h-[400px] overflow-y-auto space-y-2">
               {clients.map(client => <div key={client.id} onClick={() => onClientSelected(client)} className="p-4 rounded-lg border-2 cursor-pointer transition-all border-border hover:border-primary/50 hover:bg-accent/50">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1">
-                      <Building2 className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium">{client.name}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        CNPJ/CPF: {client.cnpj_cpf}
-                      </p>
-                    </div>
+                  <div className="flex items-center gap-3">
+                    {client.logo_url ? (
+                      <img src={client.logo_url} alt={client.fantasy_name || client.name} className="h-8 w-8 rounded-full object-cover border border-border" />
+                    ) : (
+                      <Building2 className="h-6 w-6 text-primary flex-shrink-0" />
+                    )}
+                    <h4 className="font-medium text-base">{client.fantasy_name || client.name}</h4>
                   </div>
                 </div>)}
             </div>}
