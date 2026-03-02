@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useEffect, useState } from "react";
@@ -9,6 +9,9 @@ import BackButton from "@/components/BackButton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import VisualIdentityModal from "@/components/VisualIdentityModal";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
 const ClientHub = () => {
   const navigate = useNavigate();
@@ -20,6 +23,26 @@ const ClientHub = () => {
   const [selectedContentType, setSelectedContentType] = useState<string | null>(null);
   const [pendingCardsCount, setPendingCardsCount] = useState(0);
   const [visualIdentityModalOpen, setVisualIdentityModalOpen] = useState(false);
+  const [videoModalOpen, setVideoModalOpen] = useState(false);
+  const [videoIdea, setVideoIdea] = useState('');
+  const [sceneCount, setSceneCount] = useState(3);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  const [presets, setPresets] = useState<Array<{ id: string; name: string; primary_color: string | null; secondary_color: string | null }>>([]);
+
+  // Fetch visual identity presets for the video modal
+  useEffect(() => {
+    if (!selectedClient?.id || !tenantId) return;
+    const fetchPresets = async () => {
+      const { data } = await supabase
+        .from('visual_identity_presets')
+        .select('id, name, primary_color, secondary_color')
+        .eq('company_id', selectedClient.id)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: true });
+      if (data) setPresets(data);
+    };
+    fetchPresets();
+  }, [selectedClient?.id, tenantId]);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -201,7 +224,8 @@ const ClientHub = () => {
                   onClick={() => {
                     setContentModalOpen(false);
                     if (item.title === "Vídeo") {
-                      toast.info("Funcionalidade de Vídeo em breve!");
+                      setContentModalOpen(false);
+                      setVideoModalOpen(true);
                     } else {
                       setSelectedContentType(item.title);
                       setProductionModalOpen(true);
@@ -300,6 +324,99 @@ const ClientHub = () => {
           companyName={selectedClient?.fantasy_name || selectedClient?.name || ''}
           tenantId={tenantId || ''}
         />
+
+        {/* Modal Vídeo - Storyboard */}
+        <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) { setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); } }}>
+          <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <Clapperboard className="w-5 h-5 text-primary" />
+                Criar Storyboard de Vídeo
+              </DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Descreva sua ideia e escolha quantas cenas você quer. A IA vai criar um storyboard completo.
+              </p>
+            </DialogHeader>
+
+            <div className="space-y-5 py-2">
+              {/* Ideia do Vídeo */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Ideia do Vídeo</Label>
+                <Textarea
+                  placeholder="Ex: Um comercial cinematográfico de um café robótico cyberpunk..."
+                  value={videoIdea}
+                  onChange={(e) => setVideoIdea(e.target.value)}
+                  className="min-h-[100px] resize-none"
+                />
+              </div>
+
+              {/* Quantidade de Cenas */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Quantidade de Cenas</Label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setSceneCount(n)}
+                      className={`w-10 h-10 rounded-lg font-bold text-sm transition-all duration-200 ${
+                        sceneCount === n
+                          ? 'bg-primary text-primary-foreground shadow-lg scale-110'
+                          : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Predefinição de ID Visual */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Identidade Visual (Predefinição)</Label>
+                {presets.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva. Crie uma no botão "Identidade Visual" do Hub.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {presets.map((preset) => (
+                      <button
+                        key={preset.id}
+                        onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${
+                          selectedPresetId === preset.id
+                            ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30'
+                            : 'border-border bg-card hover:border-primary/40 text-foreground'
+                        }`}
+                      >
+                        <div className="flex gap-1">
+                          {preset.primary_color && (
+                            <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />
+                          )}
+                          {preset.secondary_color && (
+                            <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />
+                          )}
+                        </div>
+                        {preset.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Botão Gerar */}
+              <Button
+                className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70"
+                disabled={!videoIdea.trim()}
+                onClick={() => {
+                  setVideoModalOpen(false);
+                  toast.info("Geração de Storyboard em breve!");
+                }}
+              >
+                <Clapperboard className="w-5 h-5 mr-2" />
+                Gerar Storyboard
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
