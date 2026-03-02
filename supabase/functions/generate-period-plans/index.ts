@@ -213,7 +213,7 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
     
     // AbortController with 115s timeout to guarantee time for early save before 150s wall clock
     const abortController = new AbortController();
-    const fetchTimeout = setTimeout(() => abortController.abort(), 115000);
+    const fetchTimeout = setTimeout(() => abortController.abort(), 140000);
     
     let response: Response;
     try {
@@ -224,7 +224,7 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-5',
+          model: 'gpt-5-mini',
           messages: [
             { role: 'developer', content: systemPrompt + jsonInstruction },
             { role: 'user', content: context }
@@ -237,7 +237,7 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
     } catch (fetchErr: any) {
       clearTimeout(fetchTimeout);
       if (fetchErr.name === 'AbortError') {
-        console.error('OpenAI fetch aborted after 115s timeout');
+        console.error('OpenAI fetch aborted after 140s timeout');
         throw new Error('A geração demorou muito. Tente novamente com menos observações.');
       }
       throw fetchErr;
