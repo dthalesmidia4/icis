@@ -216,12 +216,12 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5',
+        model: 'gpt-4o',
         messages: [
-          { role: 'developer', content: systemPrompt + jsonInstruction },
+          { role: 'system', content: systemPrompt + jsonInstruction },
           { role: 'user', content: context }
         ],
-        max_completion_tokens: 32000,
+        max_tokens: 8000,
         response_format: { type: 'json_object' },
       }),
     });
@@ -321,12 +321,12 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-               model: 'gpt-5',
+               model: 'gpt-4o',
                messages: [
-                 { role: 'developer', content: systemPrompt + jsonInstruction },
+                 { role: 'system', content: systemPrompt + jsonInstruction },
                  { role: 'user', content: context }
                ],
-               max_completion_tokens: 32000,
+               max_tokens: 8000,
               response_format: { type: 'json_object' },
             }),
           });
