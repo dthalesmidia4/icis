@@ -270,6 +270,27 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
 
     console.log(`${planType} plan demands:`, planDemands.length);
 
+    // EARLY SAVE: persist to DB immediately to avoid timeout killing the save
+    {
+      const earlySaveData: any = { updated_at: new Date().toISOString() };
+      if (planType === 'default') {
+        earlySaveData.default_plan = planDemands;
+        earlySaveData.status = 'generating_ultra';
+      } else {
+        earlySaveData.ultra_plan = planDemands;
+        earlySaveData.status = 'generated';
+        // Also set final_plan for ultra
+        const currentDefault = periodPlan.default_plan && Array.isArray(periodPlan.default_plan) ? periodPlan.default_plan : [];
+        earlySaveData.final_plan = [...currentDefault, ...planDemands];
+      }
+      const { error: earlySaveErr } = await (supabase as any).from('period_plans').update(earlySaveData).eq('id', periodPlanId);
+      if (earlySaveErr) {
+        console.error('EARLY SAVE FAILED:', JSON.stringify(earlySaveErr));
+      } else {
+        console.log(`EARLY SAVE OK: ${planDemands.length} demands saved for ${planType}`);
+      }
+    }
+
     // Validate production line compliance (always for default plan)
     if (planType === 'default') {
       const activeItems = fixedProductionLine;

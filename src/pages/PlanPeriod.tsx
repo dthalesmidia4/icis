@@ -281,50 +281,62 @@ const PlanPeriod = () => {
 
   // Generate a single plan type - use direct response, polling as fallback
   const generateSinglePlan = async (planId: string, planType: 'default' | 'ultra'): Promise<{ success: boolean; plan?: any[]; error?: string }> => {
-    try {
-      const { data, error } = await supabase.functions.invoke('generate-period-plans', {
-        body: { periodPlanId: planId, tenantId, planType }
-      });
-      
-      console.log(`[PlanPeriod] Edge function response (${planType}):`, { data, error });
-
-      // Use direct response if available
+    // Start edge function (don't await - it may timeout)
+    let directResult: any = null;
+    const edgeFunctionPromise = supabase.functions.invoke('generate-period-plans', {
+      body: { periodPlanId: planId, tenantId, planType }
+    }).then(({ data, error }) => {
+      console.log(`[PlanPeriod] Edge function response (${planType}):`, { data: data ? 'received' : null, error });
       if (!error && data?.success && data?.plan && Array.isArray(data.plan) && data.plan.length > 0) {
-        console.log(`[PlanPeriod] Direct response: ${data.plan.length} demands for ${planType}`);
-        return { success: true, plan: data.plan };
+        directResult = data.plan;
       }
+    }).catch(err => {
+      console.warn(`[PlanPeriod] Edge function invocation failed (${planType}):`, err);
+    });
 
-      if (error) {
-        console.error(`[PlanPeriod] Edge function error (${planType}):`, error);
-      }
-    } catch (err) {
-      console.error(`[PlanPeriod] Edge function invocation failed (${planType}):`, err);
-    }
-
-    // Fallback: polling
-    console.warn('[PlanPeriod] Direct response failed, falling back to polling');
+    // Poll DB in parallel - edge function saves early now
     const fieldName = planType === 'default' ? 'default_plan' : 'ultra_plan';
-    for (let attempt = 0; attempt < 40; attempt++) {
-      setPollingProgress(Math.min(10 + attempt * 2, 90));
-      await new Promise(resolve => setTimeout(resolve, 4000));
-      const { data, error } = await supabase
-        .from('period_plans')
-        .select(`status, ${fieldName}`)
-        .eq('id', planId)
-        .single();
+    for (let attempt = 0; attempt < 60; attempt++) {
+      setPollingProgress(Math.min(10 + attempt * 1.5, 95));
       
-      if (error) continue;
-      if (data.status === 'error') {
-        return { success: false, error: 'Erro na geração. Verifique o prompt em /dev/prompts' };
+      // Check if direct response came through
+      if (directResult) {
+        console.log(`[PlanPeriod] Direct response: ${directResult.length} demands for ${planType}`);
+        return { success: true, plan: directResult };
       }
 
-      const planData = (data as any)[fieldName];
-      if (planData && Array.isArray(planData) && planData.length > 0) {
-        console.log(`[PlanPeriod] Polling success: ${planData.length} demands for ${planType}`);
-        return { success: true, plan: planData };
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Poll DB
+      try {
+        const { data, error } = await supabase
+          .from('period_plans')
+          .select(`status, ${fieldName}`)
+          .eq('id', planId)
+          .single();
+        
+        if (!error && data) {
+          if (data.status === 'error') {
+            return { success: false, error: 'Erro na geração. Verifique o prompt em /dev/prompts' };
+          }
+          const planData = (data as any)[fieldName];
+          if (planData && Array.isArray(planData) && planData.length > 0) {
+            console.log(`[PlanPeriod] Polling success: ${planData.length} demands for ${planType}`);
+            return { success: true, plan: planData };
+          }
+        }
+      } catch (pollErr) {
+        console.warn('[PlanPeriod] Poll error:', pollErr);
       }
     }
-    return { success: false, error: 'Tempo limite excedido' };
+
+    // Final check on direct result
+    await edgeFunctionPromise;
+    if (directResult) {
+      return { success: true, plan: directResult };
+    }
+
+    return { success: false, error: 'Tempo limite excedido. Tente retomar pela aba Histórico.' };
   };
 
   // Helper: save demands to Kanban
