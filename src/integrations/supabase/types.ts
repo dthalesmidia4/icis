@@ -1153,6 +1153,66 @@ export type Database = {
           },
         ]
       }
+      visual_identity_presets: {
+        Row: {
+          company_id: string
+          created_at: string
+          font_name: string | null
+          highlight_color: string | null
+          id: string
+          is_active: boolean
+          name: string
+          primary_color: string | null
+          secondary_color: string | null
+          tenant_id: string
+          text_color: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          font_name?: string | null
+          highlight_color?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          primary_color?: string | null
+          secondary_color?: string | null
+          tenant_id: string
+          text_color?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          font_name?: string | null
+          highlight_color?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          primary_color?: string | null
+          secondary_color?: string | null
+          tenant_id?: string
+          text_color?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visual_identity_presets_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visual_identity_presets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
