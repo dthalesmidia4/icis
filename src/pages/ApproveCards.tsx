@@ -318,27 +318,14 @@ const ApproveCards = () => {
           <div className="mt-6 space-y-6">
             {/* Period header */}
             <Card className="p-4 sm:p-6 border-primary/20 bg-primary/5">
-              <div className="flex items-center gap-3 flex-wrap">
-                <CalendarDays className="w-5 h-5 text-primary" />
-                <h2 className="text-xl sm:text-2xl font-bold">{period.period_title}</h2>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <CalendarDays className="w-5 h-5 text-primary" />
+                  <h2 className="text-xl sm:text-2xl font-bold">{period.period_title}</h2>
+                </div>
                 <span className="text-sm text-muted-foreground">
                   {formatDateStr(period.period_start)} — {formatDateStr(period.period_end)}
                 </span>
-                <div className="flex items-center gap-2">
-                  <Package className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">{cards.length} cards gerados</span>
-                </div>
-                {approvedCount > 0 && (
-                  <Badge variant="default" className="bg-green-600">
-                    <Check className="w-3 h-3 mr-1" />
-                    {approvedCount} aprovados
-                  </Badge>
-                )}
-                {pendingCount > 0 && (
-                  <Badge variant="secondary">
-                    {pendingCount} pendentes
-                  </Badge>
-                )}
               </div>
             </Card>
 
