@@ -147,10 +147,15 @@ export default function TeamMembers() {
         .eq('tenant_id', agencyId);
 
       if (colPerms && colPerms.length > 0) {
-        setColumnPermissions(colPerms);
+        // Mesclar com colunas existentes para incluir novas colunas criadas depois
+        const mergedPerms = columns.map(col => {
+          const existing = colPerms.find(p => p.status_id === col.id);
+          return { status_id: col.id, can_view: existing?.can_view ?? false };
+        });
+        setColumnPermissions(mergedPerms);
       } else {
-        // Se não tem permissões, assume que pode ver tudo
-        setColumnPermissions(columns.map(col => ({ status_id: col.id, can_view: true })));
+        // Se não tem permissões, assume deny-by-default
+        setColumnPermissions(columns.map(col => ({ status_id: col.id, can_view: false })));
       }
 
       // Carregar permissões de hub
@@ -183,7 +188,7 @@ export default function TeamMembers() {
       if (existing) {
         return prev.map(p => p.status_id === statusId ? { ...p, can_view: !p.can_view } : p);
       } else {
-        return [...prev, { status_id: statusId, can_view: false }];
+        return [...prev, { status_id: statusId, can_view: true }];
       }
     });
   };
@@ -194,7 +199,7 @@ export default function TeamMembers() {
       if (existing) {
         return prev.map(p => p.hub_section === sectionId ? { ...p, can_access: !p.can_access } : p);
       } else {
-        return [...prev, { hub_section: sectionId, can_access: false }];
+        return [...prev, { hub_section: sectionId, can_access: true }];
       }
     });
   };
@@ -372,7 +377,7 @@ export default function TeamMembers() {
                 </p>
                 {columns.map(column => {
                   const permission = columnPermissions.find(p => p.status_id === column.id);
-                  const canView = permission?.can_view ?? true;
+                  const canView = permission?.can_view ?? false;
 
                   return (
                     <div
