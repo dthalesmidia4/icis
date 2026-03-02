@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2 } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useEffect, useState } from "react";
@@ -403,7 +403,7 @@ const ClientHub = () => {
 
         {/* Modal Gerar Post Estático com IA */}
         <Dialog open={aiPostModalOpen} onOpenChange={(open) => { setAiPostModalOpen(open); if (!open) { setPostIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setGeneratedPostImage(null); } }}>
-          <DialogContent className={`!flex !flex-col overflow-hidden max-h-[90vh] ${generatedPostImage ? 'sm:max-w-4xl' : 'sm:max-w-xl'}`}>
+          <DialogContent className={`!flex !flex-col overflow-hidden ${generatedPostImage ? 'sm:max-w-5xl max-h-[95vh]' : 'sm:max-w-xl max-h-[90vh]'}`}>
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-center">Gerar Conteúdo com IA</DialogTitle>
               <p className="text-sm text-muted-foreground text-center">
@@ -411,9 +411,9 @@ const ClientHub = () => {
               </p>
             </DialogHeader>
 
-            <div className={`flex-1 overflow-y-auto min-h-0 ${generatedPostImage ? 'flex gap-6' : ''}`}>
+            <div className={`flex-1 min-h-0 ${generatedPostImage ? 'flex gap-6' : 'overflow-y-auto'}`}>
               {/* Config side */}
-              <div className={`space-y-5 py-2 ${generatedPostImage ? 'w-1/2 flex-shrink-0' : 'w-full'}`}>
+              <div className={`space-y-5 py-2 ${generatedPostImage ? 'w-[40%] flex-shrink-0 overflow-y-auto' : 'w-full'}`}>
                 {/* Ideia do Post */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Sua Ideia para o Post</Label>
@@ -503,44 +503,61 @@ const ClientHub = () => {
 
               {/* Generated image side */}
               {generatedPostImage && (
-                <div className="w-1/2 flex-shrink-0 flex flex-col items-center justify-center py-2">
-                  <Label className="text-sm font-medium mb-3 self-start">Resultado</Label>
-                  <div className="rounded-xl overflow-hidden border-2 border-primary/30 shadow-lg">
+                <div className="w-[60%] flex-shrink-0 flex flex-col py-2">
+                  <Label className="text-sm font-medium mb-3">Resultado</Label>
+                  <div className="flex-1 min-h-0 flex items-center justify-center rounded-xl overflow-hidden border-2 border-primary/30 shadow-lg bg-black/5">
                     <img
                       src={generatedPostImage}
                       alt="Post gerado pela IA"
-                      className="w-full h-auto max-h-[500px] object-contain"
+                      className="w-full h-full object-contain"
                     />
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Botão Gerar */}
-            <Button
-              className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 mt-2"
-              disabled={!postIdea.trim() || generatingPost}
-              onClick={() => handleGeneratePost(postIdea)}
-            >
-              {generatingPost ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Gerando...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  {generatedPostImage ? 'Gerar Novamente' : 'Gerar Post'}
-                </>
+            {/* Botões */}
+            <div className={`flex gap-3 mt-2 ${generatedPostImage ? '' : 'flex-col'}`}>
+              {generatedPostImage && (
+                <Button
+                  variant="outline"
+                  className="h-12 text-base font-semibold flex-1"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = generatedPostImage;
+                    link.download = `post-${selectedClient?.name || 'gerado'}-${Date.now()}.png`;
+                    link.click();
+                  }}
+                >
+                  <Download className="w-5 h-5 mr-2" />
+                  Baixar Imagem
+                </Button>
               )}
-            </Button>
+              <Button
+                className={`h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 ${generatedPostImage ? 'flex-1' : 'w-full'}`}
+                disabled={!postIdea.trim() || generatingPost}
+                onClick={() => handleGeneratePost(postIdea)}
+              >
+                {generatingPost ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Gerando...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-5 h-5 mr-2" />
+                    {generatedPostImage ? 'Gerar Novamente' : 'Gerar Post'}
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
 
 
         {/* Modal Post Estático Manual */}
         <Dialog open={manualPostOpen} onOpenChange={(open) => { setManualPostOpen(open); if (!open) { setManualPostText(''); setSelectedPresetId(null); setSelectedMascotIds([]); setGeneratedManualPostImage(null); } }}>
-          <DialogContent className={`!flex !flex-col overflow-hidden max-h-[90vh] ${generatedManualPostImage ? 'sm:max-w-4xl' : 'sm:max-w-xl'}`}>
+          <DialogContent className={`!flex !flex-col overflow-hidden ${generatedManualPostImage ? 'sm:max-w-5xl max-h-[95vh]' : 'sm:max-w-xl max-h-[90vh]'}`}>
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-center">Editor de Conteúdo</DialogTitle>
               <p className="text-sm text-muted-foreground text-center">
@@ -548,9 +565,9 @@ const ClientHub = () => {
               </p>
             </DialogHeader>
 
-            <div className={`flex-1 overflow-y-auto min-h-0 ${generatedManualPostImage ? 'flex gap-6' : ''}`}>
+            <div className={`flex-1 min-h-0 ${generatedManualPostImage ? 'flex gap-6' : 'overflow-y-auto'}`}>
               {/* Config side */}
-              <div className={`space-y-5 py-2 ${generatedManualPostImage ? 'w-1/2 flex-shrink-0' : 'w-full'}`}>
+              <div className={`space-y-5 py-2 ${generatedManualPostImage ? 'w-[40%] flex-shrink-0 overflow-y-auto' : 'w-full'}`}>
                 <div className="rounded-lg border border-border p-4 space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-primary">Slide 1</span>
@@ -629,36 +646,54 @@ const ClientHub = () => {
 
               {/* Generated image side */}
               {generatedManualPostImage && (
-                <div className="w-1/2 flex-shrink-0 flex flex-col items-center justify-center py-2">
-                  <Label className="text-sm font-medium mb-3 self-start">Resultado</Label>
-                  <div className="rounded-xl overflow-hidden border-2 border-primary/30 shadow-lg">
+                <div className="w-[60%] flex-shrink-0 flex flex-col py-2">
+                  <Label className="text-sm font-medium mb-3">Resultado</Label>
+                  <div className="flex-1 min-h-0 flex items-center justify-center rounded-xl overflow-hidden border-2 border-primary/30 shadow-lg bg-black/5">
                     <img
                       src={generatedManualPostImage}
                       alt="Post gerado"
-                      className="w-full h-auto max-h-[500px] object-contain"
+                      className="w-full h-full object-contain"
                     />
                   </div>
                 </div>
               )}
             </div>
 
-            <Button
-              className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 mt-2"
-              disabled={!manualPostText.trim() || generatingManualPost}
-              onClick={() => handleGeneratePost(manualPostText, true)}
-            >
-              {generatingManualPost ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Gerando...
-                </>
-              ) : (
-                <>
-                  <Clapperboard className="w-5 h-5 mr-2" />
-                  {generatedManualPostImage ? 'Gerar Novamente' : 'Gerar Post'}
-                </>
+            {/* Botões */}
+            <div className={`flex gap-3 mt-2 ${generatedManualPostImage ? '' : 'flex-col'}`}>
+              {generatedManualPostImage && (
+                <Button
+                  variant="outline"
+                  className="h-12 text-base font-semibold flex-1"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = generatedManualPostImage;
+                    link.download = `post-${selectedClient?.name || 'gerado'}-${Date.now()}.png`;
+                    link.click();
+                  }}
+                >
+                  <Download className="w-5 h-5 mr-2" />
+                  Baixar Imagem
+                </Button>
               )}
-            </Button>
+              <Button
+                className={`h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 ${generatedManualPostImage ? 'flex-1' : 'w-full'}`}
+                disabled={!manualPostText.trim() || generatingManualPost}
+                onClick={() => handleGeneratePost(manualPostText, true)}
+              >
+                {generatingManualPost ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Gerando...
+                  </>
+                ) : (
+                  <>
+                    <Clapperboard className="w-5 h-5 mr-2" />
+                    {generatedManualPostImage ? 'Gerar Novamente' : 'Gerar Post'}
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
 
