@@ -318,14 +318,12 @@ const ApproveCards = () => {
           <div className="mt-6 space-y-6">
             {/* Period header */}
             <Card className="p-4 sm:p-6 border-primary/20 bg-primary/5">
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <CalendarDays className="w-5 h-5 text-primary" />
-                <h2 className="text-lg font-bold">{period.period_title}</h2>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {formatDateStr(period.period_start)} — {formatDateStr(period.period_end)}
-              </p>
-              <div className="flex items-center gap-4 mt-3">
+                <h2 className="text-xl sm:text-2xl font-bold">{period.period_title}</h2>
+                <span className="text-sm text-muted-foreground">
+                  {formatDateStr(period.period_start)} — {formatDateStr(period.period_end)}
+                </span>
                 <div className="flex items-center gap-2">
                   <Package className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm">{cards.length} cards gerados</span>
