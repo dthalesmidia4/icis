@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useEffect, useState } from "react";
@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import BackButton from "@/components/BackButton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import VisualIdentityModal from "@/components/VisualIdentityModal";
 
 const ClientHub = () => {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ const ClientHub = () => {
   const [productionModalOpen, setProductionModalOpen] = useState(false);
   const [selectedContentType, setSelectedContentType] = useState<string | null>(null);
   const [pendingCardsCount, setPendingCardsCount] = useState(0);
+  const [visualIdentityModalOpen, setVisualIdentityModalOpen] = useState(false);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -119,6 +121,11 @@ const ClientHub = () => {
       title: "Histórico de Períodos",
       icon: History,
       action: () => navigate("/plan-period?tab=history"),
+    },
+    {
+      title: "Identidade Visual",
+      icon: Palette,
+      action: () => setVisualIdentityModalOpen(true),
     },
     {
       title: "Conteúdo Avulso",
@@ -286,6 +293,11 @@ const ClientHub = () => {
             </div>
           </DialogContent>
         </Dialog>
+        <VisualIdentityModal
+          open={visualIdentityModalOpen}
+          onOpenChange={setVisualIdentityModalOpen}
+          company={selectedClient as any}
+        />
       </div>
     </div>
   );
