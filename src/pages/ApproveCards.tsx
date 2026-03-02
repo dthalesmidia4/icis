@@ -366,20 +366,20 @@ const ApproveCards = () => {
                       const isApproving = approvingIndex === card._index;
                       return (
                         <div key={card._index} className={cn("relative", isApproved && "opacity-60")}>
-                          <DemandaCard demanda={card} variant="normal" />
-                          <div className="mt-2 flex justify-end">
+                          <div className="absolute top-3 right-3 z-10">
                             {isApproved ? (
                               <Badge variant="default" className="bg-green-600 text-sm py-1 px-3">
                                 <Check className="w-3.5 h-3.5 mr-1.5" />
-                                Aprovado — No Kanban
+                                Aprovado
                               </Badge>
                             ) : (
-                              <Button size="sm" onClick={() => handleApprove(card)} disabled={isApproving}>
+                              <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving}>
                                 {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                                 Aprovar Card
                               </Button>
                             )}
                           </div>
+                          <DemandaCard demanda={card} variant="normal" />
                         </div>
                       );
                     })}
@@ -400,20 +400,20 @@ const ApproveCards = () => {
                       const isApproving = approvingIndex === card._index;
                       return (
                         <div key={card._index} className={cn("relative", isApproved && "opacity-60")}>
-                          <DemandaCard demanda={card} variant="ultra" />
-                          <div className="mt-2 flex justify-end">
+                          <div className="absolute top-3 right-3 z-10">
                             {isApproved ? (
                               <Badge variant="default" className="bg-green-600 text-sm py-1 px-3">
                                 <Check className="w-3.5 h-3.5 mr-1.5" />
-                                Aprovado — No Kanban
+                                Aprovado
                               </Badge>
                             ) : (
-                              <Button size="sm" onClick={() => handleApprove(card)} disabled={isApproving}>
+                              <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving}>
                                 {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                                 Aprovar Card
                               </Button>
                             )}
                           </div>
+                          <DemandaCard demanda={card} variant="ultra" />
                         </div>
                       );
                     })}
