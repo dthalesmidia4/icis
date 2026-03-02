@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useEffect, useState } from "react";
@@ -12,6 +12,7 @@ import VisualIdentityModal from "@/components/VisualIdentityModal";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const ClientHub = () => {
   const navigate = useNavigate();
@@ -28,6 +29,10 @@ const ClientHub = () => {
   const [sceneCount, setSceneCount] = useState(3);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [presets, setPresets] = useState<Array<{ id: string; name: string; primary_color: string | null; secondary_color: string | null }>>([]);
+  const [aiPostModalOpen, setAiPostModalOpen] = useState(false);
+  const [postIdea, setPostIdea] = useState('');
+  const [selectedMascotIds, setSelectedMascotIds] = useState<string[]>([]);
+  const [mascotImages, setMascotImages] = useState<Array<{ id: string; image_url: string; file_name: string | null }>>([]);
 
   // Fetch visual identity presets for the video modal
   useEffect(() => {
@@ -42,6 +47,21 @@ const ClientHub = () => {
       if (data) setPresets(data);
     };
     fetchPresets();
+  }, [selectedClient?.id, tenantId]);
+
+  // Fetch mascot images
+  useEffect(() => {
+    if (!selectedClient?.id || !tenantId) return;
+    const fetchMascots = async () => {
+      const { data } = await supabase
+        .from('company_mascot_images')
+        .select('id, image_url, file_name')
+        .eq('company_id', selectedClient.id)
+        .eq('tenant_id', tenantId)
+        .order('position', { ascending: true });
+      if (data) setMascotImages(data);
+    };
+    fetchMascots();
   }, [selectedClient?.id, tenantId]);
 
   useEffect(() => {
@@ -256,7 +276,17 @@ const ClientHub = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 py-4">
               <Card
                 className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
-                onClick={() => { setProductionModalOpen(false); toast.info(`Gerar ${selectedContentType} com IA em breve!`); }}
+                onClick={() => {
+                  setProductionModalOpen(false);
+                  if (selectedContentType === 'Post Estático') {
+                    setPostIdea('');
+                    setSelectedPresetId(null);
+                    setSelectedMascotIds([]);
+                    setAiPostModalOpen(true);
+                  } else {
+                    toast.info(`Gerar ${selectedContentType} com IA em breve!`);
+                  }
+                }}
               >
                 <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
                 <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
@@ -283,6 +313,117 @@ const ClientHub = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Modal Gerar Post Estático com IA */}
+        <Dialog open={aiPostModalOpen} onOpenChange={(open) => { setAiPostModalOpen(open); if (!open) { setPostIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); } }}>
+          <DialogContent className="sm:max-w-xl !flex !flex-col overflow-hidden max-h-[85vh]">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-center">Gerar Conteúdo com IA</DialogTitle>
+              <p className="text-sm text-muted-foreground text-center">
+                Descreva o tema, cole um texto ou apenas jogue uma ideia. A IA vai estruturar tudo em um post único para você.
+              </p>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto min-h-0 space-y-5 py-2">
+              {/* Ideia do Post */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Sua Ideia para o Post</Label>
+                <Textarea
+                  placeholder="Ex: 'Crie uma frase motivacional sobre foco...'"
+                  value={postIdea}
+                  onChange={(e) => setPostIdea(e.target.value)}
+                  className="min-h-[120px] resize-none"
+                />
+              </div>
+
+              {/* Predefinição de ID Visual */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Identidade Visual (Predefinição)</Label>
+                {presets.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva. Crie uma no botão "Identidade Visual" do Hub.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {presets.map((preset) => (
+                      <button
+                        key={preset.id}
+                        onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${
+                          selectedPresetId === preset.id
+                            ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30'
+                            : 'border-border bg-card hover:border-primary/40 text-foreground'
+                        }`}
+                      >
+                        <div className="flex gap-1">
+                          {preset.primary_color && (
+                            <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />
+                          )}
+                          {preset.secondary_color && (
+                            <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />
+                          )}
+                        </div>
+                        {preset.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Mascotes */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Mascotes</Label>
+                {mascotImages.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado. Adicione na "Identidade Visual" do Hub.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-3">
+                    {mascotImages.map((mascot) => {
+                      const isSelected = selectedMascotIds.includes(mascot.id);
+                      return (
+                        <button
+                          key={mascot.id}
+                          onClick={() => {
+                            setSelectedMascotIds(prev =>
+                              isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id]
+                            );
+                          }}
+                          className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                            isSelected
+                              ? 'border-primary ring-2 ring-primary/30 scale-105'
+                              : 'border-border hover:border-primary/40'
+                          }`}
+                        >
+                          <img
+                            src={mascot.image_url}
+                            alt={mascot.file_name || 'Mascote'}
+                            className="w-full h-full object-cover"
+                          />
+                          {isSelected && (
+                            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                              <CheckSquare className="w-5 h-5 text-primary" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Botão Gerar */}
+            <Button
+              className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 mt-2"
+              disabled={!postIdea.trim()}
+              onClick={() => {
+                setAiPostModalOpen(false);
+                toast.info("Geração de Post com IA em breve!");
+              }}
+            >
+              <Sparkles className="w-5 h-5 mr-2" />
+              Gerar Post
+            </Button>
+          </DialogContent>
+        </Dialog>
+
 
         <Dialog open={scheduleModalOpen} onOpenChange={setScheduleModalOpen}>
           <DialogContent className="sm:max-w-2xl">
