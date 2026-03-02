@@ -42,6 +42,8 @@ const ClientHub = () => {
     { text: '', label: 'Conteúdo' },
     { text: '', label: 'Chamada para Ação (CTA)' },
   ]);
+  const [manualPostOpen, setManualPostOpen] = useState(false);
+  const [manualPostText, setManualPostText] = useState('');
 
   // Fetch visual identity presets for the video modal
   useEffect(() => {
@@ -325,6 +327,11 @@ const ClientHub = () => {
                     setSelectedPresetId(null);
                     setSelectedMascotIds([]);
                     setManualCarouselOpen(true);
+                  } else if (selectedContentType === 'Post Estático') {
+                    setManualPostText('');
+                    setSelectedPresetId(null);
+                    setSelectedMascotIds([]);
+                    setManualPostOpen(true);
                   } else {
                     toast.info(`Criar ${selectedContentType} manualmente em breve!`);
                   }
@@ -453,6 +460,104 @@ const ClientHub = () => {
           </DialogContent>
         </Dialog>
 
+
+        {/* Modal Post Estático Manual */}
+        <Dialog open={manualPostOpen} onOpenChange={(open) => { setManualPostOpen(open); if (!open) { setManualPostText(''); setSelectedPresetId(null); setSelectedMascotIds([]); } }}>
+          <DialogContent className="sm:max-w-xl !flex !flex-col overflow-hidden max-h-[85vh]">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-center">Editor de Conteúdo</DialogTitle>
+              <p className="text-sm text-muted-foreground text-center">
+                Escreva o texto do seu post estático.
+              </p>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto min-h-0 space-y-5 py-2">
+              <div className="rounded-lg border border-border p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-primary">Slide 1</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Conteúdo</span>
+                </div>
+                <Textarea
+                  placeholder="Sua frase impactante ou dica única aqui."
+                  value={manualPostText}
+                  onChange={(e) => setManualPostText(e.target.value.slice(0, 50))}
+                  className="min-h-[100px] resize-none"
+                />
+                <p className="text-xs text-muted-foreground text-right">{manualPostText.length}/50</p>
+              </div>
+
+              {/* Predefinição de ID Visual */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Identidade Visual (Predefinição)</Label>
+                {presets.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {presets.map((preset) => (
+                      <button
+                        key={preset.id}
+                        onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${
+                          selectedPresetId === preset.id
+                            ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30'
+                            : 'border-border bg-card hover:border-primary/40 text-foreground'
+                        }`}
+                      >
+                        <div className="flex gap-1">
+                          {preset.primary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
+                          {preset.secondary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
+                        </div>
+                        {preset.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Mascotes */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Mascotes</Label>
+                {mascotImages.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-3">
+                    {mascotImages.map((mascot) => {
+                      const isSelected = selectedMascotIds.includes(mascot.id);
+                      return (
+                        <button
+                          key={mascot.id}
+                          onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
+                          className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                            isSelected ? 'border-primary ring-2 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'
+                          }`}
+                        >
+                          <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
+                          {isSelected && (
+                            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                              <CheckSquare className="w-5 h-5 text-primary" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <Button
+              className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 mt-2"
+              disabled={!manualPostText.trim()}
+              onClick={() => {
+                setManualPostOpen(false);
+                toast.info("Geração de Post em breve!");
+              }}
+            >
+              <Clapperboard className="w-5 h-5 mr-2" />
+              Gerar Post
+            </Button>
+          </DialogContent>
+        </Dialog>
 
         {/* Modal Carrossel Manual */}
         <Dialog open={manualCarouselOpen} onOpenChange={(open) => { setManualCarouselOpen(open); if (!open) { setSelectedPresetId(null); setSelectedMascotIds([]); } }}>
