@@ -437,9 +437,18 @@ const PlanPeriod = () => {
       setDefaultPlan(defaultResult.plan as PlanItem[] || []);
       setPollingProgress(100);
 
-      // Go to choose-ultra (skip review, review happens in ApproveCards)
-      await supabase.from('period_plans').update({ status: 'review_normal_done' }).eq('id', periodPlan.id);
-      setNormalSavedCount((defaultResult.plan as PlanItem[])?.length || 0);
+      // Save plan data to DB (fallback in case edge function didn't persist)
+      const planData = defaultResult.plan as PlanItem[] || [];
+      const { error: saveError } = await supabase.from('period_plans').update({ 
+        status: 'review_normal_done',
+        default_plan: planData as unknown as null
+      }).eq('id', periodPlan.id);
+      if (saveError) {
+        console.error('[PlanPeriod] Error saving default_plan to DB:', saveError);
+      } else {
+        console.log(`[PlanPeriod] default_plan saved to DB: ${planData.length} demands`);
+      }
+      setNormalSavedCount(planData.length);
       setCurrentStep('choose-ultra');
     } catch (error) {
       console.error('Error creating period plan:', error);
@@ -452,10 +461,12 @@ const PlanPeriod = () => {
   // Finalize planning without ultra - redirect to approve cards
   const handleFinalizePlanning = async () => {
     try {
-      await supabase.from('period_plans').update({
+      const { error: finalizeError } = await supabase.from('period_plans').update({
         status: 'generated',
+        default_plan: defaultPlan as unknown as null,
         final_plan: defaultPlan as unknown as null
       }).eq('id', periodPlanId!);
+      if (finalizeError) console.error('[PlanPeriod] Finalize error:', finalizeError);
       toast.success('Período gerado! Agora aprove as demandas.');
       navigate('/approve-cards');
     } catch (error) {
@@ -479,11 +490,15 @@ const PlanPeriod = () => {
       setPollingProgress(100);
       
       // Save ultra plan and redirect to approve-cards
-      await supabase.from('period_plans').update({
-        ultra_plan: ultraResult.plan as unknown as null,
+      const ultraData = ultraResult.plan as PlanItem[] || [];
+      const { error: ultraSaveError } = await supabase.from('period_plans').update({
+        ultra_plan: ultraData as unknown as null,
         status: 'generated',
-        final_plan: [...defaultPlan, ...(ultraResult.plan as PlanItem[] || [])] as unknown as null
+        final_plan: [...defaultPlan, ...ultraData] as unknown as null
       }).eq('id', periodPlanId!);
+      if (ultraSaveError) {
+        console.error('[PlanPeriod] Error saving ultra_plan to DB:', ultraSaveError);
+      }
       
       setUltraSavedCount((ultraResult.plan as PlanItem[])?.length || 0);
       toast.success('Demandas ultra geradas! Agora aprove as demandas.');

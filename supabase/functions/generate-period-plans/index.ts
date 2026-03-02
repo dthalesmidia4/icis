@@ -393,7 +393,13 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
       }
     }
 
-    await (supabase as any).from('period_plans').update(updateData).eq('id', periodPlanId);
+    const { error: updateError } = await (supabase as any).from('period_plans').update(updateData).eq('id', periodPlanId);
+    if (updateError) {
+      console.error('CRITICAL: Failed to save plan to DB:', JSON.stringify(updateError));
+      // Don't throw - we still return the plan in the response so frontend can save it
+    } else {
+      console.log(`DB update successful for ${planType}. Fields: ${Object.keys(updateData).join(', ')}`);
+    }
 
     console.log(`=== GENERATE-PERIOD-PLANS SUCCESS (${planType}) ===`);
 
