@@ -4,6 +4,12 @@ import { Target, Calendar, FileText, ChevronDown, ChevronUp } from "lucide-react
 import { useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export interface DemandaItem {
   titulo?: string;
@@ -33,10 +39,8 @@ interface DemandaCardProps {
   variant?: 'normal' | 'ultra' | 'default';
 }
 
-export const DemandaCard = ({ demanda, compact = false, variant = 'default' }: DemandaCardProps) => {
-  const [expanded, setExpanded] = useState(false);
-
-  // Parse fields with fallbacks
+// Helper to parse all fields
+function parseDemanda(demanda: DemandaItem) {
   const title = demanda.titulo || demanda.title || 'Sem título';
   const tipo = demanda.tipo || demanda.tipo_conteudo || demanda.type || '';
   const channel = demanda.canal || demanda.channel || '';
@@ -46,7 +50,6 @@ export const DemandaCard = ({ demanda, compact = false, variant = 'default' }: D
   const instrucoes = demanda.instrucoes_de_producao || '';
   const cta = demanda.cta_recomendado || '';
 
-  // Format date
   let formattedDate = '';
   if (dateStr) {
     try {
@@ -58,6 +61,13 @@ export const DemandaCard = ({ demanda, compact = false, variant = 'default' }: D
       formattedDate = dateStr;
     }
   }
+
+  return { title, tipo, channel, objetivo, content, dateStr, formattedDate, instrucoes, cta };
+}
+
+export const DemandaCard = ({ demanda, compact = false, variant = 'default' }: DemandaCardProps) => {
+  const [detailOpen, setDetailOpen] = useState(false);
+  const { title, tipo, channel, objetivo, content, formattedDate, instrucoes, cta } = parseDemanda(demanda);
 
   const bgClass = variant === 'ultra' 
     ? 'bg-pink-50 dark:bg-pink-950/20 border-pink-200/50 dark:border-pink-800/30' 
@@ -72,25 +82,46 @@ export const DemandaCard = ({ demanda, compact = false, variant = 'default' }: D
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               {tipo && <Badge variant="secondary" className="text-xs">{tipo}</Badge>}
-              {channel && <Badge variant="outline" className="text-xs">{channel}</Badge>}
             </div>
             <p className="font-medium text-sm truncate">{title}</p>
           </div>
-          {formattedDate && (
-            <span className="text-xs text-muted-foreground whitespace-nowrap">{formattedDate}</span>
-          )}
         </div>
       </div>
     );
   }
 
   return (
-    <Card className={`p-4 border ${bgClass}`}>
-      <div className="space-y-3">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 flex-wrap mb-2">
+    <>
+      <Card
+        className={`p-4 border ${bgClass} cursor-pointer hover:shadow-md transition-shadow`}
+        onClick={() => setDetailOpen(true)}
+      >
+        <div className="space-y-2">
+          {/* Category badge */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {tipo && <Badge variant="secondary">{tipo}</Badge>}
+          </div>
+
+          {/* Title - bigger */}
+          <h4 className="text-lg font-semibold">{title}</h4>
+
+          {/* Objective */}
+          {objetivo && (
+            <p className="text-sm text-muted-foreground line-clamp-2">{objetivo}</p>
+          )}
+        </div>
+      </Card>
+
+      {/* Detail Modal */}
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl">{title}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-2">
+            {/* Badges */}
+            <div className="flex items-center gap-2 flex-wrap">
               {tipo && <Badge variant="secondary">{tipo}</Badge>}
               {channel && <Badge variant="outline">{channel}</Badge>}
               {formattedDate && (
@@ -100,53 +131,49 @@ export const DemandaCard = ({ demanda, compact = false, variant = 'default' }: D
                 </Badge>
               )}
             </div>
-            <h4 className="font-semibold">{title}</h4>
-          </div>
-        </div>
 
-        {/* Objetivo */}
-        {objetivo && (
-          <div className="flex items-start gap-2 text-sm">
-            <Target className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-            <p className="text-muted-foreground">{objetivo}</p>
-          </div>
-        )}
+            {/* Objective */}
+            {objetivo && (
+              <div className="flex items-start gap-2 text-sm">
+                <Target className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                <p className="text-muted-foreground">{objetivo}</p>
+              </div>
+            )}
 
-        {/* Content preview or full */}
-        {content && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <FileText className="w-4 h-4" />
-              <span>Conteúdo</span>
-            </div>
-            <div className={`text-sm bg-background/50 rounded-lg p-3 border whitespace-pre-line ${!expanded && content.length > 200 ? 'line-clamp-4' : ''}`}>
-              {expanded ? content : content.slice(0, 300) + (content.length > 300 ? '...' : '')}
-            </div>
-            {content.length > 200 && (
-              <button
-                onClick={() => setExpanded(!expanded)}
-                className="text-xs text-primary hover:underline flex items-center gap-1"
-                aria-label={expanded ? "Ver menos conteúdo" : "Ver mais conteúdo"}
-                aria-expanded={expanded}
-              >
-                {expanded ? (
-                  <>
-                    <ChevronUp className="w-3 h-3" />
-                    Ver menos
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="w-3 h-3" />
-                    Ver mais
-                  </>
-                )}
-              </button>
+            {/* Content */}
+            {content && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <FileText className="w-4 h-4" />
+                  <span>Conteúdo</span>
+                </div>
+                <div className="text-sm bg-muted/50 rounded-lg p-3 border whitespace-pre-line">
+                  {content}
+                </div>
+              </div>
+            )}
+
+            {/* Instructions */}
+            {instrucoes && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Instruções de Produção</p>
+                <div className="text-sm bg-muted/50 rounded-lg p-3 border whitespace-pre-line">
+                  {instrucoes}
+                </div>
+              </div>
+            )}
+
+            {/* CTA */}
+            {cta && (
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">CTA Recomendado</p>
+                <p className="text-sm">{cta}</p>
+              </div>
             )}
           </div>
-        )}
-
-      </div>
-    </Card>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
