@@ -6,7 +6,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Eye, Instagram, Facebook, Youtube, Linkedin, Clock, ChevronDown, TrendingUp } from "lucide-react";
+import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Eye, Instagram, Facebook, Youtube, Linkedin, Clock, ChevronDown, TrendingUp, CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -135,7 +135,7 @@ const PlanPeriod = () => {
         setPeriodHistory(historyData);
 
         // Check for incomplete periods
-        const incomplete = historyData.find(p => p.status === 'generating_default' || p.status === 'generating_ultra' || p.status === 'review_normal');
+        const incomplete = historyData.find(p => p.status === 'generating_default' || p.status === 'generating_ultra' || p.status === 'review_normal' || p.status === 'review_normal_done');
         if (incomplete) {
           setIncompletePeriod(incomplete);
         }
@@ -147,7 +147,7 @@ const PlanPeriod = () => {
           const { data: demandsData, error: demandsError } = await supabase
             .from('demands')
             .select(`
-              id, title, period_plan_id, channel, demand_type, publish_date, publish_time,
+              id, title, period_plan_id, channel, demand_type, publish_date, publish_time, source, objective, instructions,
               pipeline_statuses!demands_status_id_fkey (
                 name, is_final, color
               )
@@ -451,13 +451,19 @@ const PlanPeriod = () => {
     }
   };
 
-  // Handle confirm from normal review - save to kanban, then show ultra choice
+  // Handle confirm from normal review - save selected items to JSON, then show ultra choice
   const handleReviewNormalConfirm = async (selectedDemands: PlanItem[], _smartSelections: PlanItem[]) => {
     setReviewModalOpen(false);
     try {
-      const savedCount = await saveDemandToKanban(selectedDemands);
-      setNormalSavedCount(savedCount);
-      toast.success(`${savedCount} demandas normais salvas no Kanban!`);
+      // Save selected demands back to default_plan JSON
+      await supabase.from('period_plans').update({
+        default_plan: selectedDemands as unknown as null,
+        status: 'review_normal_done'
+      }).eq('id', periodPlanId!);
+
+      setDefaultPlan(selectedDemands);
+      setNormalSavedCount(selectedDemands.length);
+      toast.success(`${selectedDemands.length} demandas normais selecionadas!`);
       setCurrentStep('choose-ultra');
     } catch (error) {
       console.error('Error in normal confirm flow:', error);
@@ -466,14 +472,15 @@ const PlanPeriod = () => {
     }
   };
 
-  // Finalize planning without ultra
+  // Finalize planning without ultra - redirect to approve cards
   const handleFinalizePlanning = async () => {
     try {
       await supabase.from('period_plans').update({
-        status: 'completed',
+        status: 'generated',
         final_plan: defaultPlan as unknown as null
       }).eq('id', periodPlanId!);
-      setCurrentStep('completed');
+      toast.success('Período gerado! Agora aprove as demandas.');
+      navigate('/approve-cards');
     } catch (error) {
       console.error('Error finalizing planning:', error);
       toast.error('Erro ao finalizar planejamento');
@@ -501,21 +508,21 @@ const PlanPeriod = () => {
     }
   };
 
-  // Handle confirm from ultra review - save to kanban, complete
+  // Handle confirm from ultra review - save selected items, redirect to approve
   const handleReviewUltraConfirm = async (selectedDemands: PlanItem[], _smartSelections: PlanItem[]) => {
     setReviewModalOpen(false);
     try {
-      const savedCount = await saveDemandToKanban(selectedDemands);
-      setUltraSavedCount(savedCount);
-      toast.success(`${savedCount} demandas ultra salvas no Kanban!`);
-
-      // Mark as completed
+      // Save selected ultra demands back to ultra_plan JSON
       await supabase.from('period_plans').update({
-        status: 'completed',
-        final_plan: [...defaultPlan, ...ultraPlan] as unknown as null
+        ultra_plan: selectedDemands as unknown as null,
+        status: 'generated',
+        final_plan: [...defaultPlan, ...selectedDemands] as unknown as null
       }).eq('id', periodPlanId!);
 
-      setCurrentStep('completed');
+      setUltraPlan(selectedDemands);
+      setUltraSavedCount(selectedDemands.length);
+      toast.success('Período gerado! Agora aprove as demandas.');
+      navigate('/approve-cards');
     } catch (error) {
       console.error('Error in ultra confirm flow:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao processar');
@@ -738,9 +745,9 @@ const PlanPeriod = () => {
       <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center mb-6">
         <Check className="w-12 h-12 text-white" />
       </div>
-      <h2 className="text-3xl font-bold mb-4">Período Planejado com Sucesso!</h2>
+      <h2 className="text-3xl font-bold mb-4">Período Gerado com Sucesso!</h2>
       <p className="text-muted-foreground mb-8">
-        Todas as demandas selecionadas já foram salvas no Kanban.
+        As demandas foram geradas e estão prontas para aprovação.
       </p>
 
       <Card className="p-6 text-left mb-8">
@@ -749,7 +756,7 @@ const PlanPeriod = () => {
           <p><span className="text-muted-foreground">Período:</span> {periodTitle}</p>
           <p><span className="text-muted-foreground">Demandas Normais:</span> {normalSavedCount}</p>
           <p><span className="text-muted-foreground">Demandas Ultra:</span> {ultraSavedCount}</p>
-          <p><span className="text-muted-foreground">Total salvo no Kanban:</span> {totalDemands}</p>
+          <p><span className="text-muted-foreground">Total gerado:</span> {totalDemands}</p>
         </div>
       </Card>
 
@@ -757,9 +764,9 @@ const PlanPeriod = () => {
         <Button variant="outline" onClick={() => navigate('/client-hub')}>
           Voltar ao Hub
         </Button>
-        <Button onClick={() => navigate('/kanban-central')}>
-          <LayoutGrid className="w-4 h-4 mr-2" />
-          Ver no Kanban
+        <Button onClick={() => navigate('/approve-cards')}>
+          <CheckSquare className="w-4 h-4 mr-2" />
+          Aprovar Demandas
         </Button>
       </div>
     </div>;
@@ -822,16 +829,19 @@ const PlanPeriod = () => {
           .filter((d: any) => !d.pipeline_statuses?.is_final)
           .sort((a: any, b: any) => (a.publish_date || '').localeCompare(b.publish_date || ''));
 
-        // --- "Período Atual": show only generated cards inline ---
+        // --- "Período Atual": show approved demands from DB ---
         if (isLatestView) {
-          const plan = selectedHistoryPlan.final_plan?.length ? selectedHistoryPlan.final_plan
-            : selectedHistoryPlan.default_plan?.length ? selectedHistoryPlan.default_plan
-            : selectedHistoryPlan.ultra_plan?.length ? selectedHistoryPlan.ultra_plan
-            : [];
-
-          const getType = (item: any) => item.tipo || item.tipo_conteudo || item.type || '';
-          const getTitle = (item: any) => item.titulo || item.title || 'Sem título';
-          const getObjective = (item: any) => item.objetivo || item.objective || '';
+          const isUltraMode = searchParams.get('mode') === 'ultra';
+          const allDemands = metrics.demands || [];
+          
+          // Filter by mode if ultra
+          const filteredDemands = isUltraMode 
+            ? allDemands.filter((d: any) => d.source === 'card') // ultra cards also have source 'card'
+            : allDemands;
+          
+          const sortedDemands = [...filteredDemands].sort((a: any, b: any) => 
+            (a.publish_date || '').localeCompare(b.publish_date || '')
+          );
 
           return (
             <div className="space-y-6">
@@ -843,39 +853,55 @@ const PlanPeriod = () => {
                     {format(new Date(selectedHistoryPlan.period_start + 'T00:00:00'), "dd/MM/yyyy")} – {format(new Date(selectedHistoryPlan.period_end + 'T00:00:00'), "dd/MM/yyyy")}
                   </span>
                 </div>
-                <Badge variant="secondary" className="text-sm px-3 py-1">{plan.length} demandas</Badge>
+                <Badge variant="secondary" className="text-sm px-3 py-1">{sortedDemands.length} demandas</Badge>
               </div>
 
-              {plan.length > 0 ? (
+              {sortedDemands.length > 0 ? (
                 <div className="grid gap-3">
-                  {plan.map((item: any, idx: number) => {
-                    const tipo = getType(item);
-                    const title = getTitle(item);
-                    const objetivo = getObjective(item);
+                  {sortedDemands.map((demand: any, idx: number) => {
+                    const statusInfo = demand.pipeline_statuses;
                     return (
                       <Card
-                        key={idx}
+                        key={demand.id || idx}
                         className="p-4 cursor-pointer hover:bg-muted/50 transition-all duration-200 hover:shadow-md border-border/50"
                         onClick={() => setExpandedLatestCard(expandedLatestCard === idx ? null : idx)}
                       >
-                        {/* Summary - always visible */}
                         <div className="flex items-start gap-3">
                           <div className="flex-1 min-w-0 space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              {tipo && <Badge variant="secondary" className="text-xs">{tipo}</Badge>}
+                              {demand.demand_type && <Badge variant="secondary" className="text-xs">{demand.demand_type}</Badge>}
+                              {demand.channel && <Badge variant="outline" className="text-xs">{demand.channel}</Badge>}
+                              {statusInfo && (
+                                <Badge 
+                                  className="text-[10px] px-1.5 py-0" 
+                                  style={{ backgroundColor: `${statusInfo.color}20`, color: statusInfo.color, borderColor: `${statusInfo.color}40` }}
+                                >
+                                  {statusInfo.name}
+                                </Badge>
+                              )}
                             </div>
-                            <h4 className="font-semibold text-foreground">{title}</h4>
-                            {objetivo && (
-                              <p className="text-sm text-muted-foreground line-clamp-2">{objetivo}</p>
+                            <h4 className="font-semibold text-foreground">{demand.title}</h4>
+                            {demand.objective && (
+                              <p className="text-sm text-muted-foreground line-clamp-2">{demand.objective}</p>
+                            )}
+                            {demand.publish_date && (
+                              <p className="text-xs text-muted-foreground">
+                                📅 {format(new Date(demand.publish_date + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}
+                                {demand.publish_time && ` às ${demand.publish_time}`}
+                              </p>
                             )}
                           </div>
                           <ChevronDown className={cn("w-5 h-5 text-muted-foreground shrink-0 transition-transform mt-1", expandedLatestCard === idx && "rotate-180")} />
                         </div>
 
-                        {/* Expanded detail */}
                         {expandedLatestCard === idx && (
-                          <div className="mt-4 pt-4 border-t border-border/50" onClick={e => e.stopPropagation()}>
-                            <DemandaCard demanda={item as unknown as DemandaItem} />
+                          <div className="mt-4 pt-4 border-t border-border/50 space-y-2 text-sm" onClick={e => e.stopPropagation()}>
+                            {demand.objective && (
+                              <div><span className="font-medium text-muted-foreground">Objetivo:</span> <span>{demand.objective}</span></div>
+                            )}
+                            {demand.instructions && (
+                              <div><span className="font-medium text-muted-foreground">Instruções:</span> <p className="whitespace-pre-line mt-1">{demand.instructions}</p></div>
+                            )}
                           </div>
                         )}
                       </Card>
@@ -885,7 +911,10 @@ const PlanPeriod = () => {
               ) : (
                 <div className="text-center py-12 text-muted-foreground">
                   <CalendarIcon className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">Nenhuma demanda gerada neste período</p>
+                  <p className="text-sm">Nenhuma demanda aprovada neste período</p>
+                  <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate('/approve-cards')}>
+                    Ir para Aprovação
+                  </Button>
                 </div>
               )}
             </div>
@@ -1102,8 +1131,8 @@ const PlanPeriod = () => {
   const currentReviewDemands = currentStep === 'review-normal' ? defaultPlan : ultraPlan;
   const currentReviewHandler = currentStep === 'review-normal' ? handleReviewNormalConfirm : handleReviewUltraConfirm;
   const currentConfirmLabel = currentStep === 'review-normal' 
-    ? `Salvar Demandas (${defaultPlan.length})` 
-    : `Confirmar Planejamento`;
+    ? `Confirmar Seleção (${defaultPlan.length})` 
+    : `Confirmar Seleção`;
 
   return <div className="pb-8">
     <PageHeader title={searchParams.get('view') === 'latest' ? (searchParams.get('mode') === 'ultra' ? "Demanda Ultra" : "Demanda Comum") : activeTab === 'history' ? "Histórico de Períodos" : "Planejar Período"} subtitle={displayName} backTo="/client-hub" actions={currentStep === 'form' && activeTab === 'new' ? [{
@@ -1130,9 +1159,9 @@ const PlanPeriod = () => {
           <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center mb-4">
             <Check className="w-8 h-8 text-white" />
           </div>
-          <h2 className="text-2xl font-bold mb-2">Demandas Normais Salvas!</h2>
+          <h2 className="text-2xl font-bold mb-2">Demandas Normais Selecionadas!</h2>
           <p className="text-muted-foreground mb-8">
-            {normalSavedCount} demandas foram salvas no Kanban. O que deseja fazer agora?
+            {normalSavedCount} demandas foram selecionadas. O que deseja fazer agora?
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Card 
