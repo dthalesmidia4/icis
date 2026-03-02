@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2 } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useEffect, useState } from "react";
@@ -36,6 +36,12 @@ const ClientHub = () => {
   const [aiCarouselModalOpen, setAiCarouselModalOpen] = useState(false);
   const [carouselIdea, setCarouselIdea] = useState('');
   const [slideCount, setSlideCount] = useState<number | null>(null);
+  const [manualCarouselOpen, setManualCarouselOpen] = useState(false);
+  const [manualSlides, setManualSlides] = useState<Array<{ text: string; label: string }>>([
+    { text: '', label: 'Gancho (Atração)' },
+    { text: '', label: 'Conteúdo' },
+    { text: '', label: 'Chamada para Ação (CTA)' },
+  ]);
 
   // Fetch visual identity presets for the video modal
   useEffect(() => {
@@ -308,7 +314,21 @@ const ClientHub = () => {
               </Card>
               <Card
                 className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
-                onClick={() => { setProductionModalOpen(false); toast.info(`Criar ${selectedContentType} manualmente em breve!`); }}
+                onClick={() => {
+                  setProductionModalOpen(false);
+                  if (selectedContentType === 'Carrossel') {
+                    setManualSlides([
+                      { text: '', label: 'Gancho (Atração)' },
+                      { text: '', label: 'Conteúdo' },
+                      { text: '', label: 'Chamada para Ação (CTA)' },
+                    ]);
+                    setSelectedPresetId(null);
+                    setSelectedMascotIds([]);
+                    setManualCarouselOpen(true);
+                  } else {
+                    toast.info(`Criar ${selectedContentType} manualmente em breve!`);
+                  }
+                }}
               >
                 <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
                 <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
@@ -433,6 +453,132 @@ const ClientHub = () => {
           </DialogContent>
         </Dialog>
 
+
+        {/* Modal Carrossel Manual */}
+        <Dialog open={manualCarouselOpen} onOpenChange={(open) => { setManualCarouselOpen(open); if (!open) { setSelectedPresetId(null); setSelectedMascotIds([]); } }}>
+          <DialogContent className="sm:max-w-2xl !flex !flex-col overflow-hidden max-h-[90vh]">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-center">Editor de Conteúdo</DialogTitle>
+              <p className="text-sm text-muted-foreground text-center">
+                Escreva o texto de cada slide do seu carrossel.
+              </p>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto min-h-0 space-y-4 py-2">
+              {/* Slides */}
+              {manualSlides.map((slide, idx) => (
+                <div key={idx} className="rounded-lg border border-border p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-primary">Slide {idx + 1}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{slide.label}</span>
+                    </div>
+                    {manualSlides.length > 1 && (
+                      <button
+                        onClick={() => setManualSlides(prev => prev.filter((_, i) => i !== idx))}
+                        className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  <Textarea
+                    placeholder={`Texto do slide ${idx + 1}...`}
+                    value={slide.text}
+                    onChange={(e) => {
+                      const val = e.target.value.slice(0, 50);
+                      setManualSlides(prev => prev.map((s, i) => i === idx ? { ...s, text: val } : s));
+                    }}
+                    className="min-h-[80px] resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground text-right">{slide.text.length}/50</p>
+                </div>
+              ))}
+
+              {/* Adicionar Slide */}
+              {manualSlides.length < 10 && (
+                <button
+                  onClick={() => setManualSlides(prev => [...prev, { text: '', label: 'Conteúdo' }])}
+                  className="w-full py-3 rounded-lg border-2 border-dashed border-border hover:border-primary/50 text-muted-foreground hover:text-primary text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Adicionar Novo Slide
+                </button>
+              )}
+
+              {/* Predefinição de ID Visual */}
+              <div className="space-y-2 pt-2">
+                <Label className="text-sm font-medium">Identidade Visual (Predefinição)</Label>
+                {presets.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {presets.map((preset) => (
+                      <button
+                        key={preset.id}
+                        onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${
+                          selectedPresetId === preset.id
+                            ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30'
+                            : 'border-border bg-card hover:border-primary/40 text-foreground'
+                        }`}
+                      >
+                        <div className="flex gap-1">
+                          {preset.primary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
+                          {preset.secondary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
+                        </div>
+                        {preset.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Mascotes */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Mascotes</Label>
+                {mascotImages.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-3">
+                    {mascotImages.map((mascot) => {
+                      const isSelected = selectedMascotIds.includes(mascot.id);
+                      return (
+                        <button
+                          key={mascot.id}
+                          onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
+                          className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                            isSelected ? 'border-primary ring-2 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'
+                          }`}
+                        >
+                          <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
+                          {isSelected && (
+                            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                              <CheckSquare className="w-5 h-5 text-primary" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Botão Gerar */}
+            <Button
+              className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 mt-2"
+              disabled={manualSlides.every(s => !s.text.trim())}
+              onClick={() => {
+                setManualCarouselOpen(false);
+                toast.info("Geração de Post em breve!");
+              }}
+            >
+              <Clapperboard className="w-5 h-5 mr-2" />
+              Gerar Post
+            </Button>
+          </DialogContent>
+        </Dialog>
 
         {/* Modal Gerar Carrossel com IA */}
         <Dialog open={aiCarouselModalOpen} onOpenChange={(open) => { setAiCarouselModalOpen(open); if (!open) { setCarouselIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setSlideCount(null); } }}>
