@@ -51,8 +51,16 @@ const ApproveCards = () => {
     fetchData();
   }, [isInitialized, selectedClient]);
 
+  // Persist selected period to localStorage
+  useEffect(() => {
+    if (period && selectedClient) {
+      localStorage.setItem(`approve_cards_period_${selectedClient.id}`, period.id);
+    }
+  }, [period, selectedClient]);
+
   const fetchData = async () => {
     if (!selectedClient || !tenantId) return;
+    const savedPeriodId = localStorage.getItem(`approve_cards_period_${selectedClient.id}`);
     setLoading(true);
     try {
       // Fetch pipeline + initial status
@@ -85,19 +93,33 @@ const ApproveCards = () => {
 
       if (error) throw error;
 
-      // Find first period with plans in JSON
+      // Priority 1: saved period from localStorage
       let bestPeriod: PeriodData | null = null;
-      for (const p of (periods || [])) {
-        const dp = Array.isArray(p.default_plan) ? p.default_plan : [];
-        const up = Array.isArray(p.ultra_plan) ? p.ultra_plan : [];
-        if (dp.length > 0 || up.length > 0) {
-          bestPeriod = p as PeriodData;
-          break;
+      if (savedPeriodId) {
+        const saved = (periods || []).find(p => p.id === savedPeriodId);
+        if (saved) {
+          const dp = Array.isArray(saved.default_plan) ? saved.default_plan : [];
+          const up = Array.isArray(saved.ultra_plan) ? saved.ultra_plan : [];
+          if (dp.length > 0 || up.length > 0) {
+            bestPeriod = saved as PeriodData;
+          }
         }
       }
 
+      // Priority 2: first period with plans in JSON
+      if (!bestPeriod) {
+        for (const p of (periods || [])) {
+          const dp = Array.isArray(p.default_plan) ? p.default_plan : [];
+          const up = Array.isArray(p.ultra_plan) ? p.ultra_plan : [];
+          if (dp.length > 0 || up.length > 0) {
+            bestPeriod = p as PeriodData;
+            break;
+          }
+        }
+      }
+
+      // Priority 3: latest period
       if (!bestPeriod && periods && periods.length > 0) {
-        // No JSON plans found — check if latest period has demands already saved
         bestPeriod = periods[0] as PeriodData;
       }
 
