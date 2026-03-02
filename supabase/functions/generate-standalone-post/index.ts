@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { decode as base64Decode } from "https://deno.land/std@0.224.0/encoding/base64.ts";
+import { decodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -197,7 +197,7 @@ ESTILO:
     console.log("Uploading generated image to storage...");
     
     const base64Data = base64Url.replace(/^data:image\/\w+;base64,/, "");
-    const imageBytes = base64Decode(base64Data);
+    const imageBytes = decodeBase64(base64Data);
     
     const fileName = `standalone-posts/${clientId}/${crypto.randomUUID()}.png`;
     
