@@ -461,7 +461,41 @@ const PlanPeriod = () => {
         console.log(`[PlanPeriod] default_plan saved to DB: ${planData.length} demands`);
       }
       setNormalSavedCount(planData.length);
-      setCurrentStep('choose-ultra');
+
+      // Auto-generate ultra plan immediately after default
+      setCurrentStep('loading-ultra');
+      setLoadingMessage("Gerando demandas ultra...");
+      setPollingProgress(10);
+
+      const ultraResult = await generateSinglePlan(periodPlan.id, 'ultra');
+      if (!ultraResult.success) {
+        // Ultra failed but default was saved - redirect to approve anyway
+        console.error('[PlanPeriod] Ultra generation failed:', ultraResult.error);
+        toast.warning('Demandas normais geradas! Ultra não pôde ser gerado.');
+        await supabase.from('period_plans').update({
+          status: 'generated',
+          final_plan: planData as unknown as null
+        }).eq('id', periodPlan.id);
+        navigate('/approve-cards');
+        return;
+      }
+
+      const ultraData = ultraResult.plan as PlanItem[] || [];
+      setUltraPlan(ultraData);
+      setPollingProgress(100);
+
+      const { error: ultraSaveError } = await supabase.from('period_plans').update({
+        ultra_plan: ultraData as unknown as null,
+        status: 'generated',
+        final_plan: [...planData, ...ultraData] as unknown as null
+      }).eq('id', periodPlan.id);
+      if (ultraSaveError) {
+        console.error('[PlanPeriod] Error saving ultra_plan to DB:', ultraSaveError);
+      }
+
+      setUltraSavedCount(ultraData.length);
+      toast.success('Todas as demandas foram geradas! Aprove agora.');
+      navigate('/approve-cards');
     } catch (error) {
       console.error('Error creating period plan:', error);
       toast.error(error instanceof Error ? error.message : "Erro ao gerar planos");
