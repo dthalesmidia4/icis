@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { decode as base64Decode } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -182,9 +183,9 @@ ESTILO:
     }
 
     const data = await response.json();
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const base64Url = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
-    if (!imageUrl) {
+    if (!base64Url) {
       console.error("No image in response:", JSON.stringify(data).substring(0, 500));
       return new Response(
         JSON.stringify({ error: "Nenhuma imagem foi retornada pelo modelo." }),
@@ -192,13 +193,39 @@ ESTILO:
       );
     }
 
-    console.log("✅ Post image generated successfully");
+    // 8. Upload base64 image to Supabase Storage to avoid memory issues
+    console.log("Uploading generated image to storage...");
+    
+    const base64Data = base64Url.replace(/^data:image\/\w+;base64,/, "");
+    const imageBytes = base64Decode(base64Data);
+    
+    const fileName = `standalone-posts/${clientId}/${crypto.randomUUID()}.png`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from("card-attachments")
+      .upload(fileName, imageBytes, {
+        contentType: "image/png",
+        upsert: false,
+      });
 
-    // Return the base64 image URL directly - the client will display it
+    if (uploadError) {
+      console.error("Storage upload error:", uploadError);
+      return new Response(
+        JSON.stringify({ error: "Falha ao salvar imagem gerada." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("card-attachments")
+      .getPublicUrl(fileName);
+
+    console.log("✅ Post image generated and uploaded successfully");
+
     return new Response(
       JSON.stringify({
         success: true,
-        imageUrl,
+        imageUrl: publicUrlData.publicUrl,
         message: "Post gerado com sucesso!",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
