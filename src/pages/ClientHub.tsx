@@ -2,15 +2,19 @@ import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
+import { useTenant } from "@/contexts/TenantContext";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import BackButton from "@/components/BackButton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
 
 const ClientHub = () => {
   const navigate = useNavigate();
   const { selectedClient, isInitialized } = useSelectedClient();
+  const { tenantId } = useTenant();
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [pendingCardsCount, setPendingCardsCount] = useState(0);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -19,6 +23,58 @@ const ClientHub = () => {
       navigate('/home');
     }
   }, [isInitialized, selectedClient, navigate]);
+
+  // Fetch pending cards count
+  useEffect(() => {
+    if (!selectedClient || !tenantId) return;
+
+    const fetchCount = async () => {
+      try {
+        const { data: periods } = await supabase
+          .from('period_plans')
+          .select('id, default_plan, ultra_plan')
+          .eq('company_id', selectedClient.id)
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (!periods) return;
+
+        // Find first period with plans
+        for (const p of periods) {
+          const dp = Array.isArray(p.default_plan) ? p.default_plan : [];
+          const up = Array.isArray(p.ultra_plan) ? p.ultra_plan : [];
+          const totalCards = dp.length + up.length;
+
+          if (totalCards > 0) {
+            // Count already approved
+            const { data: existingDemands } = await supabase
+              .from('demands')
+              .select('title')
+              .eq('period_plan_id', p.id)
+              .eq('client_id', selectedClient.id)
+              .is('archived_at', null);
+
+            const approvedTitles = new Set((existingDemands || []).map(d => d.title));
+            const allItems = [...dp, ...up] as any[];
+            const pending = allItems.filter(item => {
+              const title = item.titulo || item.title || '';
+              return !approvedTitles.has(title);
+            });
+
+            setPendingCardsCount(pending.length);
+            return;
+          }
+        }
+
+        setPendingCardsCount(0);
+      } catch {
+        // silently fail
+      }
+    };
+
+    fetchCount();
+  }, [selectedClient, tenantId]);
 
   if (!isInitialized || !selectedClient) return null;
 
@@ -49,6 +105,7 @@ const ClientHub = () => {
       title: "Aprovar Produção de Demandas",
       icon: CheckSquare,
       action: () => navigate("/approve-cards"),
+      badge: pendingCardsCount > 0 ? pendingCardsCount : undefined,
     },
     {
       title: "Cronograma Atual",
@@ -90,6 +147,13 @@ const ClientHub = () => {
             >
               <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
               
+              {/* Notification badge */}
+              {'badge' in card && card.badge && (
+                <div className="absolute top-2 right-2 z-10 bg-destructive text-destructive-foreground text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">
+                  {card.badge}
+                </div>
+              )}
+
               <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
                 <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
                   <card.icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
