@@ -42,6 +42,7 @@ import PeriodClientList from "./pages/PeriodClientList";
 import InstallApp from "./pages/InstallApp";
 import NotFound from "./pages/NotFound";
 import CompletedDemands from "./pages/CompletedDemands";
+import ApproveCards from "./pages/ApproveCards";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -122,6 +123,17 @@ function AppRoutes() {
             <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
               <Layout>
                 <PlanPeriod />
+              </Layout>
+            </RequireRole>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/approve-cards" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
+              <Layout>
+                <ApproveCards />
               </Layout>
             </RequireRole>
           </RequireTenant>
