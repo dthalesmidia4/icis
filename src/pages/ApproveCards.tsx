@@ -6,13 +6,15 @@ import { useTenant } from "@/contexts/TenantContext";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { DemandaCard, DemandaItem } from "@/components/DemandaCard";
+import { DemandReviewModal } from "@/components/DemandReviewModal";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarDays, Package, AlertCircle, RefreshCw, Check, CheckCheck } from "lucide-react";
+import { CalendarDays, Package, AlertCircle, RefreshCw, Check, CheckCheck, Eye, Shield, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface PeriodData {
   id: string;
@@ -40,6 +42,11 @@ const ApproveCards = () => {
   const [approvingIndex, setApprovingIndex] = useState<number | null>(null);
   const [pipelineId, setPipelineId] = useState<string | null>(null);
   const [initialStatusId, setInitialStatusId] = useState<string | null>(null);
+
+  // Review modal state
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewMode, setReviewMode] = useState<'normal' | 'ultra'>('normal');
+  const [reviewDemands, setReviewDemands] = useState<any[]>([]);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -181,7 +188,6 @@ const ApproveCards = () => {
       const cta = card.cta_recomendado || null;
       const dateStr = card.data_sugerida || card.suggested_date || card.date || null;
 
-      // Build instructions field
       const instructionParts = [conteudo, instrucoes, cta ? `CTA: ${cta}` : ''].filter(Boolean);
 
       const { error } = await supabase.from('demands').insert({
@@ -221,11 +227,44 @@ const ApproveCards = () => {
     }
   };
 
+  // Open review modal for a specific plan type
+  const handleOpenReview = (mode: 'normal' | 'ultra') => {
+    if (!period) return;
+    const planData = mode === 'normal' 
+      ? (Array.isArray(period.default_plan) ? period.default_plan : [])
+      : (Array.isArray(period.ultra_plan) ? period.ultra_plan : []);
+    setReviewMode(mode);
+    setReviewDemands(planData);
+    setReviewModalOpen(true);
+  };
+
+  // Handle review confirm - update the JSON plan with selected items
+  const handleReviewConfirm = async (selectedDemands: any[], _smartSelections: any[]) => {
+    setReviewModalOpen(false);
+    if (!period) return;
+
+    try {
+      const field = reviewMode === 'normal' ? 'default_plan' : 'ultra_plan';
+      await supabase.from('period_plans').update({
+        [field]: selectedDemands as unknown as null
+      }).eq('id', period.id);
+
+      toast.success(`${selectedDemands.length} demandas ${reviewMode === 'normal' ? 'normais' : 'ultra'} atualizadas!`);
+      fetchData(); // Reload to reflect changes
+    } catch (error) {
+      console.error('Error updating plan:', error);
+      toast.error('Erro ao atualizar demandas');
+    }
+  };
+
   if (!isInitialized || !selectedClient) return null;
 
   const displayName = selectedClient.fantasy_name || selectedClient.name;
   const pendingCount = cards.filter(c => !approvedIndexes.has(c._index)).length;
   const approvedCount = approvedIndexes.size;
+
+  const defaultCards = cards.filter(c => c._source === 'default');
+  const ultraCards = cards.filter(c => c._source === 'ultra');
 
   const formatDateStr = (d: string) => {
     try {
@@ -305,45 +344,114 @@ const ApproveCards = () => {
               </div>
             </Card>
 
+            {/* Review buttons */}
+            <div className="flex flex-wrap gap-3">
+              {defaultCards.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => handleOpenReview('normal')}
+                  className="gap-2"
+                >
+                  <Shield className="w-4 h-4" />
+                  Revisar Demandas Normais ({defaultCards.length})
+                </Button>
+              )}
+              {ultraCards.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => handleOpenReview('ultra')}
+                  className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  <Rocket className="w-4 h-4" />
+                  Revisar Demandas Ultra ({ultraCards.length})
+                </Button>
+              )}
+            </div>
+
             {/* Cards list */}
             <div className="space-y-4">
-              {cards.map((card) => {
-                const isApproved = approvedIndexes.has(card._index);
-                const isApproving = approvingIndex === card._index;
-
-                return (
-                  <div key={card._index} className={`relative ${isApproved ? 'opacity-60' : ''}`}>
-                    <DemandaCard
-                      demanda={card}
-                      variant={card._source === 'ultra' ? 'ultra' : 'normal'}
-                    />
-                    <div className="mt-2 flex justify-end">
-                      {isApproved ? (
-                        <Badge variant="default" className="bg-green-600 text-sm py-1 px-3">
-                          <Check className="w-3.5 h-3.5 mr-1.5" />
-                          Aprovado — No Kanban
-                        </Badge>
-                      ) : (
-                        <Button
-                          size="sm"
-                          onClick={() => handleApprove(card)}
-                          disabled={isApproving}
-                        >
-                          {isApproving ? (
-                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <Check className="w-4 h-4 mr-2" />
-                          )}
-                          Aprovar Card
-                        </Button>
-                      )}
-                    </div>
+              {/* Default cards section */}
+              {defaultCards.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+                    <Shield className="w-4 h-4" />
+                    Demandas Normais ({defaultCards.length})
+                  </h3>
+                  <div className="space-y-3">
+                    {defaultCards.map((card) => {
+                      const isApproved = approvedIndexes.has(card._index);
+                      const isApproving = approvingIndex === card._index;
+                      return (
+                        <div key={card._index} className={cn("relative", isApproved && "opacity-60")}>
+                          <DemandaCard demanda={card} variant="normal" />
+                          <div className="mt-2 flex justify-end">
+                            {isApproved ? (
+                              <Badge variant="default" className="bg-green-600 text-sm py-1 px-3">
+                                <Check className="w-3.5 h-3.5 mr-1.5" />
+                                Aprovado — No Kanban
+                              </Badge>
+                            ) : (
+                              <Button size="sm" onClick={() => handleApprove(card)} disabled={isApproving}>
+                                {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                                Aprovar Card
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              )}
+
+              {/* Ultra cards section */}
+              {ultraCards.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-primary uppercase tracking-wide mb-3 flex items-center gap-2">
+                    <Rocket className="w-4 h-4" />
+                    Demandas Ultra ({ultraCards.length})
+                  </h3>
+                  <div className="space-y-3">
+                    {ultraCards.map((card) => {
+                      const isApproved = approvedIndexes.has(card._index);
+                      const isApproving = approvingIndex === card._index;
+                      return (
+                        <div key={card._index} className={cn("relative", isApproved && "opacity-60")}>
+                          <DemandaCard demanda={card} variant="ultra" />
+                          <div className="mt-2 flex justify-end">
+                            {isApproved ? (
+                              <Badge variant="default" className="bg-green-600 text-sm py-1 px-3">
+                                <Check className="w-3.5 h-3.5 mr-1.5" />
+                                Aprovado — No Kanban
+                              </Badge>
+                            ) : (
+                              <Button size="sm" onClick={() => handleApprove(card)} disabled={isApproving}>
+                                {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                                Aprovar Card
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
+
+        {/* Review Modal */}
+        <DemandReviewModal
+          open={reviewModalOpen}
+          onOpenChange={setReviewModalOpen}
+          mode={reviewMode}
+          demands={reviewDemands}
+          onConfirm={handleReviewConfirm}
+          onRegenerate={() => {}}
+          hideSmartSuggestions={true}
+          confirmLabel={`Confirmar Seleção (${reviewDemands.length})`}
+        />
       </div>
     </div>
   );
