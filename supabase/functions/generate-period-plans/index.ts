@@ -6,6 +6,7 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  const startTime = Date.now();
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -216,12 +217,12 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-5',
         messages: [
-          { role: 'system', content: systemPrompt + jsonInstruction },
+          { role: 'developer', content: systemPrompt + jsonInstruction },
           { role: 'user', content: context }
         ],
-        max_tokens: 8000,
+        max_completion_tokens: 10000,
         response_format: { type: 'json_object' },
       }),
     });
@@ -310,6 +311,12 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
       
       if (!isCompliant) {
         console.warn('[ProductionLine] First attempt divergent. Expected:', JSON.stringify(activeItems), 'Got:', JSON.stringify(typeCounts));
+        
+        // Only retry if we have enough time left (< 100s elapsed)
+        const elapsedMs = Date.now() - startTime;
+        if (elapsedMs > 100000) {
+          console.warn('[ProductionLine] Skipping retry - already at', Math.round(elapsedMs/1000), 's. Proceeding with best effort.');
+        } else {
         console.warn('[ProductionLine] Attempting retry...');
         
         // Retry once
@@ -321,12 +328,12 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-               model: 'gpt-4o',
+               model: 'gpt-5',
                messages: [
-                 { role: 'system', content: systemPrompt + jsonInstruction },
+                 { role: 'developer', content: systemPrompt + jsonInstruction },
                  { role: 'user', content: context }
                ],
-               max_tokens: 8000,
+               max_completion_tokens: 10000,
               response_format: { type: 'json_object' },
             }),
           });
@@ -369,6 +376,7 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
         } catch (retryErr) {
           console.error('[ProductionLine] Retry failed:', retryErr);
         }
+        } // end else (time guard)
       } else {
         console.log('[ProductionLine] First attempt compliant ✓');
       }
