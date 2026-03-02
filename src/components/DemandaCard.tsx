@@ -107,7 +107,10 @@ export const DemandaCard = ({ demanda, compact = false, variant = 'default' }: D
 
           {/* Objective */}
           {objetivo && (
-            <p className="text-sm text-muted-foreground line-clamp-2">{objetivo}</p>
+            <div>
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Objetivo:</span>
+              <p className="text-sm text-muted-foreground line-clamp-2 mt-0.5">{objetivo}</p>
+            </div>
           )}
         </div>
       </Card>
