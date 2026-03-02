@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useEffect, useState } from "react";
@@ -15,6 +15,8 @@ const ClientHub = () => {
   const { tenantId } = useTenant();
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [contentModalOpen, setContentModalOpen] = useState(false);
+  const [productionModalOpen, setProductionModalOpen] = useState(false);
+  const [selectedContentType, setSelectedContentType] = useState<string | null>(null);
   const [pendingCardsCount, setPendingCardsCount] = useState(0);
 
   useEffect(() => {
@@ -185,11 +187,19 @@ const ClientHub = () => {
                 { title: "Post Estático", icon: Image, description: "Uma única imagem impactante. Ideal para frases, avisos rápidos ou lembretes." },
                 { title: "Carrossel", icon: LayoutGrid, description: "Uma sequência narrativa. Ideal para tutoriais, listas e storytelling." },
                 { title: "Vídeo", icon: Video, description: "Vídeos realistas de alta qualidade gerados por IA." },
-              ].map((item, idx) => (
+               ].map((item, idx) => (
                 <Card
                   key={idx}
                   className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
-                  onClick={() => { setContentModalOpen(false); toast.info(`Funcionalidade "${item.title}" em breve!`); }}
+                  onClick={() => {
+                    setContentModalOpen(false);
+                    if (item.title === "Vídeo") {
+                      toast.info("Funcionalidade de Vídeo em breve!");
+                    } else {
+                      setSelectedContentType(item.title);
+                      setProductionModalOpen(true);
+                    }
+                  }}
                 >
                   <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
                   <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
@@ -201,6 +211,44 @@ const ClientHub = () => {
                   </div>
                 </Card>
               ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal Como Produzir */}
+        <Dialog open={productionModalOpen} onOpenChange={setProductionModalOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Como você quer produzir?</DialogTitle>
+              <p className="text-sm text-muted-foreground">Defina como o conteúdo de <span className="font-semibold text-primary">{selectedContentType}</span> será gerado.</p>
+            </DialogHeader>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 py-4">
+              <Card
+                className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
+                onClick={() => { setProductionModalOpen(false); toast.info(`Gerar ${selectedContentType} com IA em breve!`); }}
+              >
+                <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
+                <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold transition-colors text-primary mb-2">Gerar com IA</h3>
+                  <p className="text-xs text-muted-foreground">Descreva sua ideia e deixe a IA criar os textos e a estrutura para você.</p>
+                </div>
+              </Card>
+              <Card
+                className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
+                onClick={() => { setProductionModalOpen(false); toast.info(`Criar ${selectedContentType} manualmente em breve!`); }}
+              >
+                <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
+                <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <PenLine className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold transition-colors text-primary mb-2">Criar Manualmente</h3>
+                  <p className="text-xs text-muted-foreground">Tenha controle total. Escreva e personalize cada lâmina do zero.</p>
+                </div>
+              </Card>
             </div>
           </DialogContent>
         </Dialog>
