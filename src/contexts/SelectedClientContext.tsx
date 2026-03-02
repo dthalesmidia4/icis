@@ -6,6 +6,13 @@ interface Client {
   fantasy_name: string | null;
   cnpj_cpf: string;
   email: string;
+  brand_primary_color?: string | null;
+  brand_secondary_color?: string | null;
+  brand_font?: string | null;
+  has_mascot?: boolean;
+  mascot_description?: string | null;
+  mascot_url?: string | null;
+  tenant_id?: string;
 }
 
 interface SelectedClientContextType {

@@ -12,18 +12,9 @@ import { toast } from "sonner";
 interface VisualIdentityModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  company: {
-    id: string;
-    name: string;
-    fantasy_name?: string | null;
-    brand_primary_color?: string | null;
-    brand_secondary_color?: string | null;
-    brand_font?: string | null;
-    has_mascot?: boolean;
-    mascot_description?: string | null;
-    mascot_url?: string | null;
-    tenant_id: string;
-  };
+  companyId: string;
+  companyName: string;
+  tenantId: string;
 }
 
 type Tab = "menu" | "visual" | "mascot";
@@ -46,15 +37,16 @@ interface Preset {
   is_active: boolean;
 }
 
-const VisualIdentityModal = ({ open, onOpenChange, company }: VisualIdentityModalProps) => {
+const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenantId }: VisualIdentityModalProps) => {
   const [tab, setTab] = useState<Tab>("menu");
+  const [loadingCompany, setLoadingCompany] = useState(false);
   
   // Visual Identity fields
-  const [primaryColor, setPrimaryColor] = useState(company.brand_primary_color || "#000000");
-  const [secondaryColor, setSecondaryColor] = useState(company.brand_secondary_color || "#000000");
+  const [primaryColor, setPrimaryColor] = useState("#000000");
+  const [secondaryColor, setSecondaryColor] = useState("#000000");
   const [highlightColor, setHighlightColor] = useState("#D6D2B5");
   const [textColor, setTextColor] = useState("#FFFFFF");
-  const [fontName, setFontName] = useState(company.brand_font || "");
+  const [fontName, setFontName] = useState("");
   const [savingVisual, setSavingVisual] = useState(false);
   const [presetName, setPresetName] = useState("");
 
@@ -64,7 +56,7 @@ const VisualIdentityModal = ({ open, onOpenChange, company }: VisualIdentityModa
   const [editingPresetName, setEditingPresetName] = useState("");
 
   // Mascot fields
-  const [mascotDescription, setMascotDescription] = useState(company.mascot_description || "");
+  const [mascotDescription, setMascotDescription] = useState("");
   const [mascotImages, setMascotImages] = useState<MascotImage[]>([]);
   const [uploadingMascot, setUploadingMascot] = useState(false);
   const [savingMascot, setSavingMascot] = useState(false);
@@ -73,24 +65,37 @@ const VisualIdentityModal = ({ open, onOpenChange, company }: VisualIdentityModa
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
+  const fetchCompanyData = async () => {
+    setLoadingCompany(true);
+    const { data } = await supabase
+      .from('tenant_companies')
+      .select('brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, mascot_url')
+      .eq('id', companyId)
+      .single();
+    if (data) {
+      setPrimaryColor(data.brand_primary_color || "#000000");
+      setSecondaryColor(data.brand_secondary_color || "#000000");
+      setFontName(data.brand_font || "");
+      setMascotDescription(data.mascot_description || "");
+    }
+    setLoadingCompany(false);
+  };
+
   useEffect(() => {
     if (open) {
       setTab("menu");
-      setPrimaryColor(company.brand_primary_color || "#000000");
-      setSecondaryColor(company.brand_secondary_color || "#000000");
-      setFontName(company.brand_font || "");
-      setMascotDescription(company.mascot_description || "");
       setPresetName("");
+      fetchCompanyData();
       fetchMascotImages();
       fetchPresets();
     }
-  }, [open, company]);
+  }, [open, companyId]);
 
   const fetchPresets = async () => {
     const { data } = await supabase
       .from('visual_identity_presets')
       .select('*')
-      .eq('company_id', company.id)
+      .eq('company_id', companyId)
       .order('created_at', { ascending: false });
     if (data) setPresets(data as Preset[]);
   };
@@ -99,7 +104,7 @@ const VisualIdentityModal = ({ open, onOpenChange, company }: VisualIdentityModa
     const { data } = await supabase
       .from('company_mascot_images')
       .select('*')
-      .eq('company_id', company.id)
+      .eq('company_id', companyId)
       .order('position', { ascending: true });
     if (data) setMascotImages(data);
   };
@@ -119,12 +124,12 @@ const VisualIdentityModal = ({ open, onOpenChange, company }: VisualIdentityModa
           brand_secondary_color: secondaryColor,
           brand_font: fontName,
         })
-        .eq('id', company.id);
+        .eq('id', companyId);
 
       // Save as preset
       await supabase.from('visual_identity_presets').insert({
-        company_id: company.id,
-        tenant_id: company.tenant_id,
+        company_id: companyId,
+        tenant_id: tenantId,
         name: presetName.trim(),
         primary_color: primaryColor,
         secondary_color: secondaryColor,
@@ -175,12 +180,12 @@ const VisualIdentityModal = ({ open, onOpenChange, company }: VisualIdentityModa
       for (const file of Array.from(files)) {
         if (!file.type.startsWith('image/')) continue;
         const ext = file.name.split('.').pop();
-        const path = `${company.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const path = `${companyId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
         const { error: uploadError } = await supabase.storage.from('mascot-images').upload(path, file);
         if (uploadError) throw uploadError;
         const { data: urlData } = supabase.storage.from('mascot-images').getPublicUrl(path);
         await supabase.from('company_mascot_images').insert({
-          company_id: company.id, tenant_id: company.tenant_id,
+          company_id: companyId, tenant_id: tenantId,
           image_url: urlData.publicUrl, file_name: file.name, position: mascotImages.length,
         });
       }
@@ -207,7 +212,7 @@ const VisualIdentityModal = ({ open, onOpenChange, company }: VisualIdentityModa
         mascot_description: mascotDescription,
         has_mascot: mascotImages.length > 0 || mascotDescription.length > 0,
         mascot_url: mascotImages.length > 0 ? mascotImages[0].image_url : null,
-      }).eq('id', company.id);
+      }).eq('id', companyId);
       for (let i = 0; i < mascotImages.length; i++) {
         await supabase.from('company_mascot_images').update({ position: i }).eq('id', mascotImages[i].id);
       }
@@ -266,7 +271,7 @@ const VisualIdentityModal = ({ open, onOpenChange, company }: VisualIdentityModa
               {tab === "mascot" && "Mascote da Marca"}
             </DialogTitle>
           </div>
-          <p className="text-sm text-muted-foreground">{company.fantasy_name || company.name}</p>
+          <p className="text-sm text-muted-foreground">{companyName}</p>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto min-h-0">

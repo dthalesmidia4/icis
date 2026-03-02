@@ -296,7 +296,9 @@ const ClientHub = () => {
         <VisualIdentityModal
           open={visualIdentityModalOpen}
           onOpenChange={setVisualIdentityModalOpen}
-          company={selectedClient as any}
+          companyId={selectedClient?.id || ''}
+          companyName={selectedClient?.fantasy_name || selectedClient?.name || ''}
+          tenantId={tenantId || ''}
         />
       </div>
     </div>
