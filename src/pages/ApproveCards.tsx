@@ -57,6 +57,17 @@ const ApproveCards = () => {
   const [editEnd, setEditEnd] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
+  // Edit card modal state
+  const [editCardModalOpen, setEditCardModalOpen] = useState(false);
+  const [editingCard, setEditingCard] = useState<CardItem | null>(null);
+  const [editCardTitle, setEditCardTitle] = useState('');
+  const [editCardType, setEditCardType] = useState('');
+  const [editCardChannel, setEditCardChannel] = useState('');
+  const [editCardObjective, setEditCardObjective] = useState('');
+  const [editCardContent, setEditCardContent] = useState('');
+  const [editCardDate, setEditCardDate] = useState('');
+  const [editCardSaving, setEditCardSaving] = useState(false);
+
   useEffect(() => {
     if (!isInitialized) return;
     if (!selectedClient) {
@@ -276,6 +287,71 @@ const ApproveCards = () => {
     setEditModalOpen(true);
   };
 
+  const handleOpenEditCard = (card: CardItem) => {
+    setEditingCard(card);
+    setEditCardTitle(card.titulo || card.title || '');
+    setEditCardType(card.tipo || card.tipo_conteudo || card.type || '');
+    setEditCardChannel(card.canal || card.channel || '');
+    setEditCardObjective(card.objetivo || card.objective || '');
+    setEditCardContent(card.conteudo || card.descricao || card.description || '');
+    setEditCardDate(card.data_sugerida || card.suggested_date || card.date || '');
+    setEditCardModalOpen(true);
+  };
+
+  const handleSaveEditCard = async () => {
+    if (!period || !editingCard) return;
+    setEditCardSaving(true);
+    try {
+      const isDefault = editingCard._source === 'default';
+      const planKey = isDefault ? 'default_plan' : 'ultra_plan';
+      const plan = isDefault
+        ? (Array.isArray(period.default_plan) ? [...period.default_plan] : [])
+        : (Array.isArray(period.ultra_plan) ? [...period.ultra_plan] : []);
+
+      const indexInPlan = isDefault ? editingCard._index : editingCard._index - (Array.isArray(period.default_plan) ? period.default_plan.length : 0);
+
+      if (indexInPlan >= 0 && indexInPlan < plan.length) {
+        const item = { ...plan[indexInPlan] };
+        // Update all possible key variants
+        if ('titulo' in item) item.titulo = editCardTitle;
+        else item.title = editCardTitle;
+        if ('tipo' in item) item.tipo = editCardType;
+        else if ('tipo_conteudo' in item) item.tipo_conteudo = editCardType;
+        else item.type = editCardType;
+        if ('canal' in item) item.canal = editCardChannel;
+        else item.channel = editCardChannel;
+        if ('objetivo' in item) item.objetivo = editCardObjective;
+        else item.objective = editCardObjective;
+        if ('conteudo' in item) item.conteudo = editCardContent;
+        else if ('descricao' in item) item.descricao = editCardContent;
+        else item.description = editCardContent;
+        if ('data_sugerida' in item) item.data_sugerida = editCardDate;
+        else if ('suggested_date' in item) item.suggested_date = editCardDate;
+        else item.date = editCardDate;
+
+        plan[indexInPlan] = item;
+
+        const { error } = await supabase.from('period_plans').update({
+          [planKey]: plan as unknown as null,
+        }).eq('id', period.id);
+
+        if (error) throw error;
+
+        // Update local state
+        const updatedPeriod = { ...period, [planKey]: plan };
+        setPeriod(updatedPeriod as PeriodData);
+        fetchData();
+        setEditCardModalOpen(false);
+        toast.success("Card atualizado!");
+      }
+    } catch (error) {
+      console.error('Error updating card:', error);
+      toast.error("Erro ao atualizar card");
+    } finally {
+      setEditCardSaving(false);
+    }
+  };
+
   const handleSaveEditPeriod = async () => {
     if (!period || !editTitle.trim() || !editStart || !editEnd) {
       toast.error("Preencha todos os campos");
@@ -415,7 +491,10 @@ const ApproveCards = () => {
                       const isApproving = approvingIndex === card._index;
                       return (
                         <div key={card._index} className={cn("relative", isApproved && "opacity-60")}>
-                          <div className="absolute top-3 right-3 z-10">
+                          <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleOpenEditCard(card); }}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
                             {isApproved ? (
                               <Badge variant="default" className="bg-green-600 text-sm py-1 px-3">
                                 <Check className="w-3.5 h-3.5 mr-1.5" />
@@ -449,7 +528,10 @@ const ApproveCards = () => {
                       const isApproving = approvingIndex === card._index;
                       return (
                         <div key={card._index} className={cn("relative", isApproved && "opacity-60")}>
-                          <div className="absolute top-3 right-3 z-10">
+                          <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleOpenEditCard(card); }}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
                             {isApproved ? (
                               <Badge variant="default" className="bg-green-600 text-sm py-1 px-3">
                                 <Check className="w-3.5 h-3.5 mr-1.5" />
@@ -511,6 +593,57 @@ const ApproveCards = () => {
               <Button variant="outline" onClick={() => setEditModalOpen(false)}>Cancelar</Button>
               <Button onClick={handleSaveEditPeriod} disabled={editSaving}>
                 {editSaving ? "Salvando..." : "Salvar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Card Modal */}
+        <Dialog open={editCardModalOpen} onOpenChange={setEditCardModalOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Editar Card</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Título</label>
+                <Input value={editCardTitle} onChange={e => setEditCardTitle(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Tipo</label>
+                  <Input value={editCardType} onChange={e => setEditCardType(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Canal</label>
+                  <Input value={editCardChannel} onChange={e => setEditCardChannel(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Objetivo</label>
+                <textarea
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[80px]"
+                  value={editCardObjective}
+                  onChange={e => setEditCardObjective(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Conteúdo</label>
+                <textarea
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-[100px]"
+                  value={editCardContent}
+                  onChange={e => setEditCardContent(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Data Sugerida</label>
+                <Input value={editCardDate} onChange={e => setEditCardDate(e.target.value)} placeholder="ex: 2026-03-15" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditCardModalOpen(false)}>Cancelar</Button>
+              <Button onClick={handleSaveEditCard} disabled={editCardSaving}>
+                {editCardSaving ? "Salvando..." : "Salvar"}
               </Button>
             </DialogFooter>
           </DialogContent>
