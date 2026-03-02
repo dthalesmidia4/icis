@@ -10,8 +10,10 @@ import { DemandReviewModal } from "@/components/DemandReviewModal";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarDays, Package, AlertCircle, RefreshCw, Check, CheckCheck, Eye, Shield, Rocket } from "lucide-react";
+import { CalendarDays, Package, AlertCircle, RefreshCw, Check, CheckCheck, Eye, Shield, Rocket, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -47,6 +49,13 @@ const ApproveCards = () => {
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [reviewMode, setReviewMode] = useState<'normal' | 'ultra'>('normal');
   const [reviewDemands, setReviewDemands] = useState<any[]>([]);
+
+  // Edit period modal state
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editStart, setEditStart] = useState('');
+  const [editEnd, setEditEnd] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -259,6 +268,38 @@ const ApproveCards = () => {
 
   if (!isInitialized || !selectedClient) return null;
 
+  const handleOpenEditPeriod = () => {
+    if (!period) return;
+    setEditTitle(period.period_title);
+    setEditStart(period.period_start);
+    setEditEnd(period.period_end);
+    setEditModalOpen(true);
+  };
+
+  const handleSaveEditPeriod = async () => {
+    if (!period || !editTitle.trim() || !editStart || !editEnd) {
+      toast.error("Preencha todos os campos");
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const { error } = await supabase.from('period_plans').update({
+        period_title: editTitle.trim(),
+        period_start: editStart,
+        period_end: editEnd,
+      }).eq('id', period.id);
+      if (error) throw error;
+      setPeriod({ ...period, period_title: editTitle.trim(), period_start: editStart, period_end: editEnd });
+      setEditModalOpen(false);
+      toast.success("Período atualizado!");
+    } catch (error) {
+      console.error('Error updating period:', error);
+      toast.error("Erro ao atualizar período");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const displayName = selectedClient.fantasy_name || selectedClient.name;
   const pendingCount = cards.filter(c => !approvedIndexes.has(c._index)).length;
   const approvedCount = approvedIndexes.size;
@@ -317,14 +358,22 @@ const ApproveCards = () => {
         ) : (
           <div className="mt-6 space-y-6">
             {/* Period header */}
-            <Card className="p-4 sm:p-6 border-primary/20 bg-primary/5">
-              <div className="flex items-center justify-center gap-3 flex-wrap">
+            <Card className="p-4 sm:p-6 border-primary/20 bg-primary/5 relative">
+              <div className="flex items-center justify-center gap-3 flex-wrap pr-10">
                 <CalendarDays className="w-5 h-5 text-primary" />
                 <h2 className="text-xl sm:text-2xl font-bold">{period.period_title}</h2>
                 <span className="text-xl sm:text-2xl text-muted-foreground">
                   {formatDateStr(period.period_start)} — {formatDateStr(period.period_end)}
                 </span>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-3 right-3"
+                onClick={handleOpenEditPeriod}
+              >
+                <Pencil className="w-4 h-4" />
+              </Button>
             </Card>
 
             {/* Review buttons */}
@@ -435,6 +484,37 @@ const ApproveCards = () => {
           hideSmartSuggestions={true}
           confirmLabel={`Confirmar Seleção (${reviewDemands.length})`}
         />
+
+        {/* Edit Period Modal */}
+        <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Editar Período</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Nome do Período</label>
+                <Input value={editTitle} onChange={e => setEditTitle(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Data Início</label>
+                  <Input type="date" value={editStart} onChange={e => setEditStart(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Data Fim</label>
+                  <Input type="date" value={editEnd} onChange={e => setEditEnd(e.target.value)} />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditModalOpen(false)}>Cancelar</Button>
+              <Button onClick={handleSaveEditPeriod} disabled={editSaving}>
+                {editSaving ? "Salvando..." : "Salvar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
