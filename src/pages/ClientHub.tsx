@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useEffect, useState } from "react";
@@ -14,6 +14,7 @@ const ClientHub = () => {
   const { selectedClient, isInitialized } = useSelectedClient();
   const { tenantId } = useTenant();
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [contentModalOpen, setContentModalOpen] = useState(false);
   const [pendingCardsCount, setPendingCardsCount] = useState(0);
 
   useEffect(() => {
@@ -117,6 +118,11 @@ const ClientHub = () => {
       icon: History,
       action: () => navigate("/plan-period?tab=history"),
     },
+    {
+      title: "Conteúdo Avulso",
+      icon: PenTool,
+      action: () => setContentModalOpen(true),
+    },
   ];
 
   return (
@@ -166,6 +172,38 @@ const ClientHub = () => {
             </Card>
           ))}
         </div>
+
+        {/* Modal Conteúdo Avulso */}
+        <Dialog open={contentModalOpen} onOpenChange={setContentModalOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl">O que você vai criar hoje?</DialogTitle>
+              <p className="text-sm text-muted-foreground">Escolha o formato do conteúdo avulso para {displayName}.</p>
+            </DialogHeader>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 py-4">
+              {[
+                { title: "Post Estático", icon: Image, description: "Uma única imagem impactante. Ideal para frases, avisos rápidos ou lembretes." },
+                { title: "Carrossel", icon: LayoutGrid, description: "Uma sequência narrativa. Ideal para tutoriais, listas e storytelling." },
+                { title: "Vídeo", icon: Video, description: "Vídeos realistas de alta qualidade gerados por IA." },
+              ].map((item, idx) => (
+                <Card
+                  key={idx}
+                  className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
+                  onClick={() => { setContentModalOpen(false); toast.info(`Funcionalidade "${item.title}" em breve!`); }}
+                >
+                  <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
+                  <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <item.icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                    </div>
+                    <h3 className="text-base sm:text-lg font-bold transition-colors text-primary mb-2">{item.title}</h3>
+                    <p className="text-xs text-muted-foreground">{item.description}</p>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={scheduleModalOpen} onOpenChange={setScheduleModalOpen}>
           <DialogContent className="sm:max-w-2xl">
