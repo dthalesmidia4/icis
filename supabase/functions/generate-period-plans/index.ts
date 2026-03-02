@@ -210,22 +210,39 @@ IMPORTANTE: Gere exatamente ${demandLimit} demandas, nem mais nem menos.${volume
 Cada demanda: {"tipo":"...","titulo":"...","objetivo":"...","conteudo":"conteúdo markdown","instrucoes_de_producao":"...","cta_recomendado":"...","canal":"${periodPlan.priority_channel}","data_sugerida":"YYYY-MM-DD"}
 Formato: {"plan":[...],"summary":"resumo curto"}`;
     console.log('Calling OpenAI for planType:', planType);
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKeyData.key_value}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-5',
-        messages: [
-          { role: 'developer', content: systemPrompt + jsonInstruction },
-          { role: 'user', content: context }
-        ],
-        max_completion_tokens: 10000,
-        response_format: { type: 'json_object' },
-      }),
-    });
+    
+    // AbortController with 115s timeout to guarantee time for early save before 150s wall clock
+    const abortController = new AbortController();
+    const fetchTimeout = setTimeout(() => abortController.abort(), 115000);
+    
+    let response: Response;
+    try {
+      response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKeyData.key_value}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-5',
+          messages: [
+            { role: 'developer', content: systemPrompt + jsonInstruction },
+            { role: 'user', content: context }
+          ],
+          max_completion_tokens: 6000,
+          response_format: { type: 'json_object' },
+        }),
+        signal: abortController.signal,
+      });
+    } catch (fetchErr: any) {
+      clearTimeout(fetchTimeout);
+      if (fetchErr.name === 'AbortError') {
+        console.error('OpenAI fetch aborted after 115s timeout');
+        throw new Error('A geração demorou muito. Tente novamente com menos observações.');
+      }
+      throw fetchErr;
+    }
+    clearTimeout(fetchTimeout);
 
     const responseText = await response.text();
     console.log('OpenAI response status:', response.status);
@@ -292,94 +309,14 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
       }
     }
 
-    // Validate production line compliance (always for default plan)
+    // Validate production line compliance (log only, no retry to save time)
     if (planType === 'default') {
-      const activeItems = fixedProductionLine;
       const typeCounts: Record<string, number> = {};
       planDemands.forEach((d: any) => {
         const tipo = (d.tipo || '').trim();
         typeCounts[tipo] = (typeCounts[tipo] || 0) + 1;
       });
-      
-      let isCompliant = true;
-      for (const item of activeItems) {
-        if ((typeCounts[item.type] || 0) !== item.quantity) {
-          isCompliant = false;
-          break;
-        }
-      }
-      
-      if (!isCompliant) {
-        console.warn('[ProductionLine] First attempt divergent. Expected:', JSON.stringify(activeItems), 'Got:', JSON.stringify(typeCounts));
-        
-        // Only retry if we have enough time left (< 100s elapsed)
-        const elapsedMs = Date.now() - startTime;
-        if (elapsedMs > 100000) {
-          console.warn('[ProductionLine] Skipping retry - already at', Math.round(elapsedMs/1000), 's. Proceeding with best effort.');
-        } else {
-        console.warn('[ProductionLine] Attempting retry...');
-        
-        // Retry once
-        try {
-          const retryResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKeyData.key_value}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-               model: 'gpt-5',
-               messages: [
-                 { role: 'developer', content: systemPrompt + jsonInstruction },
-                 { role: 'user', content: context }
-               ],
-               max_completion_tokens: 10000,
-              response_format: { type: 'json_object' },
-            }),
-          });
-          
-          if (retryResponse.ok) {
-            const retryText = await retryResponse.text();
-            const retryAi = JSON.parse(retryText);
-            const retryContent = retryAi.choices?.[0]?.message?.content;
-            if (retryContent) {
-              let cleanRetry = retryContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-              const retryMatch = cleanRetry.match(/\{[\s\S]*"plan"[\s\S]*\}/);
-              if (retryMatch) cleanRetry = retryMatch[0];
-              const retryParsed = JSON.parse(cleanRetry);
-              const retryDemands = (retryParsed.plan || []).map((d: any) => ({ ...d, canal: priorityChannel }));
-              
-              // Check retry compliance
-              const retryTypeCounts: Record<string, number> = {};
-              retryDemands.forEach((d: any) => {
-                const tipo = (d.tipo || '').trim();
-                retryTypeCounts[tipo] = (retryTypeCounts[tipo] || 0) + 1;
-              });
-              
-              let retryCompliant = true;
-              for (const item of activeItems) {
-                if ((retryTypeCounts[item.type] || 0) !== item.quantity) {
-                  retryCompliant = false;
-                  break;
-                }
-              }
-              
-              if (retryCompliant) {
-                console.log('[ProductionLine] Retry succeeded with correct distribution');
-                planDemands.length = 0;
-                retryDemands.forEach((d: any) => planDemands.push(d));
-              } else {
-                console.warn('[ProductionLine] Retry also divergent. Proceeding with best effort. Expected:', JSON.stringify(activeItems), 'Got:', JSON.stringify(retryTypeCounts));
-              }
-            }
-          }
-        } catch (retryErr) {
-          console.error('[ProductionLine] Retry failed:', retryErr);
-        }
-        } // end else (time guard)
-      } else {
-        console.log('[ProductionLine] First attempt compliant ✓');
-      }
+      console.log('[ProductionLine] Distribution:', JSON.stringify(typeCounts));
     }
 
     // Batch insert fingerprints
