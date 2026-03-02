@@ -2,13 +2,15 @@ import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import BackButton from "@/components/BackButton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const ClientHub = () => {
   const navigate = useNavigate();
   const { selectedClient, isInitialized } = useSelectedClient();
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -44,19 +46,14 @@ const ClientHub = () => {
       action: () => navigate("/plan-period"),
     },
     {
-      title: "Aprovar Produção",
+      title: "Aprovar Produção de Demandas",
       icon: CheckSquare,
       action: () => navigate("/approve-cards"),
     },
     {
-      title: "Demandas Ultra",
-      icon: Zap,
-      action: () => navigate("/plan-period?tab=history&view=latest&mode=ultra"),
-    },
-    {
       title: "Cronograma Atual",
       icon: Clock,
-      action: () => navigate("/plan-period?tab=history&view=latest"),
+      action: () => setScheduleModalOpen(true),
     },
     {
       title: "Histórico de Períodos",
@@ -105,6 +102,38 @@ const ClientHub = () => {
             </Card>
           ))}
         </div>
+
+        <Dialog open={scheduleModalOpen} onOpenChange={setScheduleModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Cronograma Atual</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-4 py-4">
+              <Card
+                className="group cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 hover:border-primary/50 active:scale-[0.98]"
+                onClick={() => { setScheduleModalOpen(false); navigate("/plan-period?tab=history&view=latest"); }}
+              >
+                <div className="relative p-6 flex flex-col items-center justify-center text-center min-h-[140px]">
+                  <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <Clock className="w-5 h-5 text-primary-foreground" />
+                  </div>
+                  <h3 className="text-sm font-bold text-primary">Demanda Comum</h3>
+                </div>
+              </Card>
+              <Card
+                className="group cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 hover:border-primary/50 active:scale-[0.98]"
+                onClick={() => { setScheduleModalOpen(false); navigate("/plan-period?tab=history&view=latest&mode=ultra"); }}
+              >
+                <div className="relative p-6 flex flex-col items-center justify-center text-center min-h-[140px]">
+                  <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <Zap className="w-5 h-5 text-primary-foreground" />
+                  </div>
+                  <h3 className="text-sm font-bold text-primary">Demanda Ultra</h3>
+                </div>
+              </Card>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
