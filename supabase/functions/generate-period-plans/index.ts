@@ -229,7 +229,7 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
             { role: 'developer', content: systemPrompt + jsonInstruction },
             { role: 'user', content: context }
           ],
-          max_completion_tokens: 6000,
+          max_completion_tokens: 10000,
           response_format: { type: 'json_object' },
         }),
         signal: abortController.signal,
