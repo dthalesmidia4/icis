@@ -6,7 +6,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Sparkles, Zap, Shield, Rocket, Check, X, Package, History, Plus, Calendar as CalendarIcon, Target, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Eye, Instagram, Facebook, Youtube, Linkedin, Clock, ChevronDown, TrendingUp, CheckSquare } from "lucide-react";
+import { Sparkles, Zap, Check, X, Package, History, Plus, Calendar as CalendarIcon, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Instagram, Facebook, Youtube, Linkedin, ChevronDown, TrendingUp, CheckSquare, Rocket, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose, DrawerFooter } from "@/components/ui/drawer";
 import { DemandaCard, DemandaItem } from "@/components/DemandaCard";
-import { DemandReviewModal } from "@/components/DemandReviewModal";
+
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
@@ -60,7 +60,7 @@ interface PeriodPlanHistory {
   ultra_plan: PlanItem[] | null;
 }
 
-type Step = 'form' | 'loading-normal' | 'review-normal' | 'choose-ultra' | 'loading-ultra' | 'review-ultra' | 'completed';
+type Step = 'form' | 'loading-normal' | 'choose-ultra' | 'loading-ultra' | 'completed';
 
 const PlanPeriod = () => {
   const navigate = useNavigate();
@@ -87,9 +87,6 @@ const PlanPeriod = () => {
   const [periodDemandMetrics, setPeriodDemandMetrics] = useState<Record<string, { total: number; published: number; demands: any[] }>>({});
   const [loadingMetrics, setLoadingMetrics] = useState(false);
 
-  // Review modal state
-  const [reviewModalOpen, setReviewModalOpen] = useState(false);
-  const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Incomplete period resume state
   const [incompletePeriod, setIncompletePeriod] = useState<PeriodPlanHistory | null>(null);
@@ -135,7 +132,7 @@ const PlanPeriod = () => {
         setPeriodHistory(historyData);
 
         // Check for incomplete periods
-        const incomplete = historyData.find(p => p.status === 'generating_default' || p.status === 'generating_ultra' || p.status === 'review_normal' || p.status === 'review_normal_done');
+        const incomplete = historyData.find(p => p.status === 'generating_default' || p.status === 'generating_ultra');
         if (incomplete) {
           setIncompletePeriod(incomplete);
         }
@@ -205,10 +202,9 @@ const PlanPeriod = () => {
     setDefaultPlan(incompletePeriod.default_plan as PlanItem[] || []);
     setUltraPlan(incompletePeriod.ultra_plan as PlanItem[] || []);
     
-    if (incompletePeriod.status === 'review_normal' && incompletePeriod.default_plan && incompletePeriod.default_plan.length > 0) {
-      setCurrentStep('review-normal');
-    } else if (incompletePeriod.default_plan && incompletePeriod.default_plan.length > 0) {
-      setCurrentStep('review-normal');
+    if (incompletePeriod.default_plan && incompletePeriod.default_plan.length > 0) {
+      setNormalSavedCount(incompletePeriod.default_plan.length);
+      setCurrentStep('choose-ultra');
     }
     setIncompletePeriod(null);
     toast.success("Período retomado com sucesso!");
@@ -441,9 +437,10 @@ const PlanPeriod = () => {
       setDefaultPlan(defaultResult.plan as PlanItem[] || []);
       setPollingProgress(100);
 
-      // Go to review-normal
-      await supabase.from('period_plans').update({ status: 'review_normal' }).eq('id', periodPlan.id);
-      setCurrentStep('review-normal');
+      // Go to choose-ultra (skip review, review happens in ApproveCards)
+      await supabase.from('period_plans').update({ status: 'review_normal_done' }).eq('id', periodPlan.id);
+      setNormalSavedCount((defaultResult.plan as PlanItem[])?.length || 0);
+      setCurrentStep('choose-ultra');
     } catch (error) {
       console.error('Error creating period plan:', error);
       toast.error(error instanceof Error ? error.message : "Erro ao gerar planos");
@@ -451,26 +448,6 @@ const PlanPeriod = () => {
     }
   };
 
-  // Handle confirm from normal review - save selected items to JSON, then show ultra choice
-  const handleReviewNormalConfirm = async (selectedDemands: PlanItem[], _smartSelections: PlanItem[]) => {
-    setReviewModalOpen(false);
-    try {
-      // Save selected demands back to default_plan JSON
-      await supabase.from('period_plans').update({
-        default_plan: selectedDemands as unknown as null,
-        status: 'review_normal_done'
-      }).eq('id', periodPlanId!);
-
-      setDefaultPlan(selectedDemands);
-      setNormalSavedCount(selectedDemands.length);
-      toast.success(`${selectedDemands.length} demandas normais selecionadas!`);
-      setCurrentStep('choose-ultra');
-    } catch (error) {
-      console.error('Error in normal confirm flow:', error);
-      toast.error(error instanceof Error ? error.message : 'Erro ao processar');
-      setCurrentStep('review-normal');
-    }
-  };
 
   // Finalize planning without ultra - redirect to approve cards
   const handleFinalizePlanning = async () => {
@@ -500,7 +477,17 @@ const PlanPeriod = () => {
       }
       setUltraPlan(ultraResult.plan as PlanItem[] || []);
       setPollingProgress(100);
-      setCurrentStep('review-ultra');
+      
+      // Save ultra plan and redirect to approve-cards
+      await supabase.from('period_plans').update({
+        ultra_plan: ultraResult.plan as unknown as null,
+        status: 'generated',
+        final_plan: [...defaultPlan, ...(ultraResult.plan as PlanItem[] || [])] as unknown as null
+      }).eq('id', periodPlanId!);
+      
+      setUltraSavedCount((ultraResult.plan as PlanItem[])?.length || 0);
+      toast.success('Demandas ultra geradas! Agora aprove as demandas.');
+      navigate('/approve-cards');
     } catch (error) {
       console.error('Error generating ultra:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao gerar planos ultra');
@@ -508,64 +495,6 @@ const PlanPeriod = () => {
     }
   };
 
-  // Handle confirm from ultra review - save selected items, redirect to approve
-  const handleReviewUltraConfirm = async (selectedDemands: PlanItem[], _smartSelections: PlanItem[]) => {
-    setReviewModalOpen(false);
-    try {
-      // Save selected ultra demands back to ultra_plan JSON
-      await supabase.from('period_plans').update({
-        ultra_plan: selectedDemands as unknown as null,
-        status: 'generated',
-        final_plan: [...defaultPlan, ...selectedDemands] as unknown as null
-      }).eq('id', periodPlanId!);
-
-      setUltraPlan(selectedDemands);
-      setUltraSavedCount(selectedDemands.length);
-      toast.success('Período gerado! Agora aprove as demandas.');
-      navigate('/approve-cards');
-    } catch (error) {
-      console.error('Error in ultra confirm flow:', error);
-      toast.error(error instanceof Error ? error.message : 'Erro ao processar');
-    }
-  };
-
-  // Handle regenerate - regenerate only the current step's plan type
-  const handleRegenerate = async () => {
-    if (!periodPlanId) return;
-    setIsRegenerating(true);
-    setReviewModalOpen(false);
-    
-    const isNormalStep = currentStep === 'review-normal';
-    const planType = isNormalStep ? 'default' : 'ultra';
-    const fieldToReset = isNormalStep ? 'default_plan' : 'ultra_plan';
-
-    try {
-      await supabase.from('period_plans').update({ [fieldToReset]: [] }).eq('id', periodPlanId);
-      
-      setCurrentStep(isNormalStep ? 'loading-normal' : 'loading-ultra');
-      setLoadingMessage(isNormalStep ? "Regenerando demandas normais..." : "Regenerando demandas ultra...");
-      setPollingProgress(10);
-
-      const result = await generateSinglePlan(periodPlanId, planType);
-      if (!result.success) throw new Error(result.error || 'Erro ao regenerar');
-      
-      if (isNormalStep) {
-        setDefaultPlan(result.plan as PlanItem[] || []);
-      } else {
-        setUltraPlan(result.plan as PlanItem[] || []);
-      }
-      setPollingProgress(100);
-
-      setCurrentStep(isNormalStep ? 'review-normal' : 'review-ultra');
-      toast.success('Demandas regeneradas com sucesso!');
-    } catch (error) {
-      console.error('Error regenerating:', error);
-      toast.error('Erro ao regenerar demandas');
-      setCurrentStep(isNormalStep ? 'review-normal' : 'review-ultra');
-    } finally {
-      setIsRegenerating(false);
-    }
-  };
 
   const renderForm = () => <div className="max-w-3xl mx-auto px-4 sm:px-0">
     {/* Incomplete Period Banner */}
@@ -1126,14 +1055,6 @@ const PlanPeriod = () => {
     </div>
   );
 
-  // Determine current review mode and handler
-  const currentReviewMode = currentStep === 'review-normal' ? 'normal' : 'ultra';
-  const currentReviewDemands = currentStep === 'review-normal' ? defaultPlan : ultraPlan;
-  const currentReviewHandler = currentStep === 'review-normal' ? handleReviewNormalConfirm : handleReviewUltraConfirm;
-  const currentConfirmLabel = currentStep === 'review-normal' 
-    ? `Confirmar Seleção (${defaultPlan.length})` 
-    : `Confirmar Seleção`;
-
   return <div className="pb-8">
     <PageHeader title={searchParams.get('view') === 'latest' ? (searchParams.get('mode') === 'ultra' ? "Demanda Ultra" : "Demanda Comum") : activeTab === 'history' ? "Histórico de Períodos" : "Planejar Período"} subtitle={displayName} backTo="/client-hub" actions={currentStep === 'form' && activeTab === 'new' ? [{
       label: "Gerar Demandas",
@@ -1141,15 +1062,10 @@ const PlanPeriod = () => {
       icon: <Rocket className="w-4 h-4" />,
       className: "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600",
       disabled: !periodTitle || !periodStart || !periodEnd
-    }] : []} rightContent={currentStep !== 'form' && currentStep !== 'loading-normal' && currentStep !== 'loading-ultra' && currentStep !== 'choose-ultra' ? <Badge variant="outline" className="text-xs">
-      {currentStep === 'review-normal' && 'Etapa 1/2: Demandas Normais'}
-      {currentStep === 'review-ultra' && 'Etapa 2/2: Demandas Ultra'}
-      {currentStep === 'completed' && 'Concluído'}
-    </Badge> : null} />
+    }] : []} rightContent={currentStep === 'completed' ? <Badge variant="outline" className="text-xs">Concluído</Badge> : null} />
 
     <div className="container max-w-6xl mx-auto px-6 py-8">
-      {currentStep === 'form' && (activeTab === 'history' ? (searchParams.get('view') === 'latest' ? renderHistory() : renderHistory()) : renderForm())}
-
+      {currentStep === 'form' && (activeTab === 'history' ? renderHistory() : renderForm())}
 
       {currentStep === 'loading-normal' && renderLoading(loadingMessage)}
       {currentStep === 'loading-ultra' && renderLoading(loadingMessage)}
@@ -1159,9 +1075,9 @@ const PlanPeriod = () => {
           <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center mb-4">
             <Check className="w-8 h-8 text-white" />
           </div>
-          <h2 className="text-2xl font-bold mb-2">Demandas Normais Selecionadas!</h2>
+          <h2 className="text-2xl font-bold mb-2">Demandas Geradas!</h2>
           <p className="text-muted-foreground mb-8">
-            {normalSavedCount} demandas foram selecionadas. O que deseja fazer agora?
+            {normalSavedCount} demandas foram geradas. O que deseja fazer agora?
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Card 
@@ -1173,7 +1089,7 @@ const PlanPeriod = () => {
               </div>
               <h3 className="font-semibold text-lg mb-2">Finalizar Planejamento</h3>
               <p className="text-sm text-muted-foreground">
-                Salvar as demandas geradas e concluir o planejamento do período.
+                Ir para a tela de aprovação e revisar as demandas geradas.
               </p>
             </Card>
             <Card 
@@ -1189,69 +1105,6 @@ const PlanPeriod = () => {
               </p>
             </Card>
           </div>
-        </div>
-      )}
-
-      {(currentStep === 'review-normal' || currentStep === 'review-ultra') && (
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-8">
-            <div className={cn(
-              "w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 bg-gradient-to-br",
-              currentStep === 'review-normal' ? 'from-blue-400 to-cyan-500' : 'from-pink-400 to-purple-500'
-            )}>
-              {currentStep === 'review-normal' ? <Shield className="w-8 h-8 text-white" /> : <Rocket className="w-8 h-8 text-white" />}
-            </div>
-            <h2 className="text-2xl font-bold mb-2">
-              {currentStep === 'review-normal' ? 'Revise as Demandas Normais' : 'Revise as Demandas Ultra'}
-            </h2>
-            <p className="text-muted-foreground">
-              {currentStep === 'review-normal' 
-                ? 'Selecione as demandas normais que deseja salvar no Kanban' 
-                : 'Selecione as demandas ultra para complementar seu planejamento'}
-            </p>
-          </div>
-
-          <Card className="p-6 mb-6">
-            <div className="mb-4">
-              <h3 className="font-semibold">{currentReviewDemands.length} demandas geradas</h3>
-            </div>
-            <div className="space-y-2">
-              {currentReviewDemands.slice(0, 3).map((item, idx) => {
-                const anyItem = item as any;
-                const tipo = anyItem.tipo || item.tipo_conteudo || '';
-                return <div key={idx} className="text-sm bg-muted/50 p-3 rounded-lg flex items-center gap-3">
-                  <Badge variant="secondary" className="text-xs shrink-0">{tipo || item.canal}</Badge>
-                  <span className="font-medium truncate">{item.titulo}</span>
-                </div>;
-              })}
-              {currentReviewDemands.length > 3 && (
-                <p className="text-xs text-muted-foreground text-center pt-2">
-                  + {currentReviewDemands.length - 3} demandas...
-                </p>
-              )}
-            </div>
-          </Card>
-
-          <div className="flex justify-center">
-            <Button size="lg" onClick={() => setReviewModalOpen(true)} className={cn(
-              currentStep === 'review-ultra' && "bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
-            )}>
-              <Eye className="w-5 h-5 mr-2" />
-              Revisar Conteúdo
-            </Button>
-          </div>
-
-          <DemandReviewModal
-            open={reviewModalOpen}
-            onOpenChange={setReviewModalOpen}
-            mode={currentReviewMode}
-            demands={currentReviewDemands}
-            onConfirm={currentReviewHandler}
-            onRegenerate={handleRegenerate}
-            isRegenerating={isRegenerating}
-            hideSmartSuggestions={true}
-            confirmLabel={currentConfirmLabel}
-          />
         </div>
       )}
 
