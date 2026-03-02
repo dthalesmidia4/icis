@@ -169,6 +169,51 @@ export type Database = {
           },
         ]
       }
+      company_mascot_images: {
+        Row: {
+          company_id: string
+          created_at: string
+          file_name: string | null
+          id: string
+          image_url: string
+          position: number
+          tenant_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          image_url: string
+          position?: number
+          tenant_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          image_url?: string
+          position?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_mascot_images_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_mascot_images_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       demand_feedback_events: {
         Row: {
           channel: string | null
