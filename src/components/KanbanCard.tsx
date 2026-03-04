@@ -16,11 +16,13 @@ const KanbanCard = ({
   subtitle,
   deliveryDate,
   dueDate,
+  cardDeliveryDate,
   isDragging = false,
   onClick
 }: KanbanCardProps) => {
   const formattedDeliveryDate = new Date(deliveryDate + 'T00:00:00').toLocaleDateString("pt-BR");
   const formattedDueDate = dueDate ? new Date(dueDate + 'T00:00:00').toLocaleDateString("pt-BR") : null;
+  const formattedCardDeliveryDate = cardDeliveryDate ? new Date(cardDeliveryDate + 'T00:00:00').toLocaleDateString("pt-BR") : null;
 
   return (
     <Card
