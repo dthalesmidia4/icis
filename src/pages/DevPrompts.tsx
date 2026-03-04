@@ -437,10 +437,11 @@ const DevPrompts = () => {
 
       <div className="space-y-6">
         <Tabs defaultValue="strategy" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="strategy">Estratégia</TabsTrigger>
             <TabsTrigger value="demandas">Demandas</TabsTrigger>
             <TabsTrigger value="posts">Posts</TabsTrigger>
+            <TabsTrigger value="reavaliacao">Reavaliação</TabsTrigger>
           </TabsList>
           
           <TabsContent value="strategy">
