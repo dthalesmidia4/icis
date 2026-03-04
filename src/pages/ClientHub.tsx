@@ -433,6 +433,8 @@ const ClientHub = () => {
                     setSelectedPresetId(null);
                     setSelectedMascotIds([]);
                     setSlideCount(null);
+                    setCarouselStep(1);
+                    setCarouselSlides([]);
                     setAiCarouselModalOpen(true);
                   } else {
                     toast.info(`Gerar ${selectedContentType} com IA em breve!`);
