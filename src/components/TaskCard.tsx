@@ -718,16 +718,6 @@ export default function TaskCard({
                   </SelectContent>
                 </Select>
               )}
-
-              {priority && (
-                <>
-                  <div className="h-4 w-px bg-border" />
-                  <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Prioridade</span>
-                  <Badge variant="outline" className={cn("text-xs font-medium border", priority.className)}>
-                    {priority.label}
-                  </Badge>
-                </>
-              )}
             </div>
           </div>
 
