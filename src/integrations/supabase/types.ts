@@ -358,6 +358,7 @@ export type Database = {
           client_id: string
           created_at: string
           created_by: string | null
+          delivery_date: string | null
           demand_type: string | null
           description: string | null
           due_date: string | null
@@ -384,6 +385,7 @@ export type Database = {
           client_id: string
           created_at?: string
           created_by?: string | null
+          delivery_date?: string | null
           demand_type?: string | null
           description?: string | null
           due_date?: string | null
@@ -410,6 +412,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           created_by?: string | null
+          delivery_date?: string | null
           demand_type?: string | null
           description?: string | null
           due_date?: string | null

@@ -1,0 +1,1 @@
+ALTER TABLE public.demands ADD COLUMN delivery_date date;
