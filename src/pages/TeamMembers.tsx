@@ -50,7 +50,8 @@ export default function TeamMembers() {
   const [columnPermissions, setColumnPermissions] = useState<ColumnPermission[]>([]);
   const [hubPermissions, setHubPermissions] = useState<HubPermission[]>([]);
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
-  const [activeTab, setActiveTab] = useState<'columns' | 'hub'>('columns');
+  const [activeTab, setActiveTab] = useState<'columns' | 'hub' | 'notifications'>('columns');
+  const [lateNotificationEnabled, setLateNotificationEnabled] = useState(false);
 
   useEffect(() => {
     if (!agencyLoading && agencyId) {
