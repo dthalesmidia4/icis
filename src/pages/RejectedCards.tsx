@@ -63,6 +63,25 @@ const RejectedCards = () => {
     if (!selectedClient || !tenantId) return;
     setLoading(true);
     try {
+      // Fetch pipeline + initial status
+      const { data: pipeline } = await supabase
+        .from('pipelines')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('is_default', true)
+        .single();
+
+      if (pipeline) {
+        setPipelineId(pipeline.id);
+        const { data: status } = await supabase
+          .from('pipeline_statuses')
+          .select('id')
+          .eq('pipeline_id', pipeline.id)
+          .eq('is_initial', true)
+          .single();
+        if (status) setInitialStatusId(status.id);
+      }
+
       const savedPeriodId = localStorage.getItem(`approve_cards_period_${selectedClient.id}`);
 
       const { data: periods, error } = await supabase
