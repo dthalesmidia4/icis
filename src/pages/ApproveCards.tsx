@@ -247,6 +247,49 @@ const ApproveCards = () => {
     }
   };
 
+  const handleReject = useCallback(async (card: CardItem) => {
+    if (!period || !selectedClient) return;
+
+    try {
+      const isDefault = card._source === 'default';
+      const planKey = isDefault ? 'default_plan' : 'ultra_plan';
+      const plan = isDefault
+        ? (Array.isArray(period.default_plan) ? [...period.default_plan] : [])
+        : (Array.isArray(period.ultra_plan) ? [...period.ultra_plan] : []);
+
+      const indexInPlan = isDefault ? card._index : card._index - (Array.isArray(period.default_plan) ? period.default_plan.length : 0);
+
+      if (indexInPlan < 0 || indexInPlan >= plan.length) return;
+
+      // Remove from plan
+      const [removedCard] = plan.splice(indexInPlan, 1);
+
+      // Add to rejected_plan
+      const rejectedPlan = Array.isArray((period as any).rejected_plan) ? [...(period as any).rejected_plan] : [];
+      rejectedPlan.push({
+        ...removedCard,
+        _originalSource: card._source,
+        _rejectedAt: new Date().toISOString(),
+      });
+
+      const { error } = await supabase
+        .from('period_plans')
+        .update({
+          [planKey]: plan as unknown as null,
+          rejected_plan: rejectedPlan as unknown as null,
+        })
+        .eq('id', period.id);
+
+      if (error) throw error;
+
+      toast.success(`Card reprovado e movido para reavaliação`);
+      fetchData();
+    } catch (error) {
+      console.error('Error rejecting card:', error);
+      toast.error("Erro ao reprovar card");
+    }
+  }, [period, selectedClient]);
+
   // Open review modal for a specific plan type
   const handleOpenReview = (mode: 'normal' | 'ultra') => {
     if (!period) return;
