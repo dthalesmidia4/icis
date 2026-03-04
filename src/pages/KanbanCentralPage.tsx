@@ -189,7 +189,23 @@ const KanbanCentralPage = () => {
     }
   }, [tenantId, tenantLoading]);
 
-  const fetchColumns = async () => {
+  // Auto-open card when navigating with ?openCard=true&highlight=<id>
+  useEffect(() => {
+    const highlightId = searchParams.get('highlight');
+    const shouldOpenCard = searchParams.get('openCard') === 'true';
+    if (highlightId && shouldOpenCard && cards.length > 0) {
+      const card = cards.find(c => c.id === highlightId);
+      if (card) {
+        setSelectedCard(card);
+        setIsTaskCardOpen(true);
+        // Clean up URL params
+        searchParams.delete('highlight');
+        searchParams.delete('openCard');
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  }, [cards, searchParams]);
+
     if (!tenantId) return;
     try {
       const { data: pipelineData, error: pipelineError } = await supabase
