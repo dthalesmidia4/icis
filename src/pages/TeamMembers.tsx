@@ -264,6 +264,17 @@ export default function TeamMembers() {
         if (hubError) throw hubError;
       }
 
+      // Salvar configuração de notificações de atraso
+      const { error: lateError } = await supabase
+        .from('user_late_notification_settings')
+        .upsert({
+          user_id: selectedMember.id,
+          tenant_id: agencyId,
+          enabled: lateNotificationEnabled,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,tenant_id' });
+      if (lateError) throw lateError;
+
       toast.success('Permissões salvas com sucesso!');
       setSelectedMember(null);
     } catch (error: any) {
