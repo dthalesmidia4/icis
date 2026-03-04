@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Users, Settings2, LayoutGrid, Home } from 'lucide-react';
+import { Loader2, Users, Settings2, LayoutGrid, Home, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import BackButton from '@/components/BackButton';
 import { HUB_SECTIONS } from '@/hooks/useHubPermissions';
@@ -49,7 +50,8 @@ export default function TeamMembers() {
   const [columnPermissions, setColumnPermissions] = useState<ColumnPermission[]>([]);
   const [hubPermissions, setHubPermissions] = useState<HubPermission[]>([]);
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
-  const [activeTab, setActiveTab] = useState<'columns' | 'hub'>('columns');
+  const [activeTab, setActiveTab] = useState<'columns' | 'hub' | 'notifications'>('columns');
+  const [lateNotificationEnabled, setLateNotificationEnabled] = useState(false);
 
   useEffect(() => {
     if (!agencyLoading && agencyId) {
@@ -171,6 +173,16 @@ export default function TeamMembers() {
         // Se não tem permissões, assume que pode acessar tudo
         setHubPermissions(HUB_SECTIONS.map(s => ({ hub_section: s.id, can_access: true })));
       }
+
+      // Carregar configuração de notificações de atraso
+      const { data: lateNotif } = await supabase
+        .from('user_late_notification_settings')
+        .select('enabled')
+        .eq('user_id', userId)
+        .eq('tenant_id', agencyId)
+        .maybeSingle();
+
+      setLateNotificationEnabled(lateNotif?.enabled ?? false);
     } catch (error) {
       console.error('Erro ao carregar permissões:', error);
     }
@@ -251,6 +263,17 @@ export default function TeamMembers() {
           .insert(hubPermsToInsert);
         if (hubError) throw hubError;
       }
+
+      // Salvar configuração de notificações de atraso
+      const { error: lateError } = await supabase
+        .from('user_late_notification_settings')
+        .upsert({
+          user_id: selectedMember.id,
+          tenant_id: agencyId,
+          enabled: lateNotificationEnabled,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,tenant_id' });
+      if (lateError) throw lateError;
 
       toast.success('Permissões salvas com sucesso!');
       setSelectedMember(null);
@@ -358,8 +381,8 @@ export default function TeamMembers() {
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'columns' | 'hub')} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'columns' | 'hub' | 'notifications')} className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="columns" className="gap-2">
                 <LayoutGrid className="h-4 w-4" />
                 Colunas Kanban
@@ -367,6 +390,10 @@ export default function TeamMembers() {
               <TabsTrigger value="hub" className="gap-2">
                 <Home className="h-4 w-4" />
                 Botões do Hub
+              </TabsTrigger>
+              <TabsTrigger value="notifications" className="gap-2">
+                <Bell className="h-4 w-4" />
+                Alertas
               </TabsTrigger>
             </TabsList>
 
@@ -430,6 +457,24 @@ export default function TeamMembers() {
                     </div>
                   );
                 })}
+              </TabsContent>
+
+              <TabsContent value="notifications" className="mt-0 space-y-3">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Configure os alertas que este colaborador vai receber:
+                </p>
+                <div className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors">
+                  <div className="flex-1">
+                    <p className="font-medium">Demandas em atraso</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Esta pessoa vai receber alertas quando demandas entrarem em atraso
+                    </p>
+                  </div>
+                  <Switch
+                    checked={lateNotificationEnabled}
+                    onCheckedChange={setLateNotificationEnabled}
+                  />
+                </div>
               </TabsContent>
             </div>
           </Tabs>
