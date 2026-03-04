@@ -32,6 +32,7 @@ import CreateColumnModal from "@/components/CreateColumnModal";
 import ManageColumnsModal from "@/components/ManageColumnsModal";
 import { CreateDemandModal } from "@/components/CreateDemandModal";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
+import { useAgencyRole } from "@/hooks/useAgencyRole";
 
 interface PipelineStatus {
   id: string;
