@@ -892,7 +892,7 @@ const KanbanCentralPage = () => {
                                  <KanbanCard
                                    title={card.title}
                                    subtitle={card.clientName}
-                                   deliveryDate={card.publish_date || card.due_date}
+                                   dueDate={card.due_date}
                                    dueDate={card.due_date}
                                    cardDeliveryDate={card.delivery_date || undefined}
                                   isDragging={snapshot.isDragging}
