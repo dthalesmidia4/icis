@@ -625,7 +625,7 @@ export default function TaskCard({
                   <h1 
                     id="task-card-title" 
                     onClick={() => !readOnly && setEditingField('title')} 
-                    className={cn("font-semibold text-xl truncate", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
+                    className={cn("font-bold text-2xl truncate", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
                   >
                     {card.title}
                   </h1>
