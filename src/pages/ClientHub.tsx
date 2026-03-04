@@ -226,7 +226,7 @@ const ClientHub = () => {
     { title: "Cronograma Atual", icon: Clock, action: () => setScheduleModalOpen(true) },
     { title: "Histórico de Períodos", icon: History, action: () => navigate("/plan-period?tab=history") },
     { title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
-    { title: "Conteúdo Avulso", icon: PenTool, action: () => setContentModalOpen(true) },
+    { title: "Conteúdo Avulso", icon: PenTool, action: () => setContentHubModalOpen(true) },
   ];
 
   return (
