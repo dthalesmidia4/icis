@@ -4,7 +4,6 @@ import { Calendar, CalendarClock } from "lucide-react";
 interface KanbanCardProps {
   title: string;
   subtitle?: string;
-  deliveryDate: string;
   dueDate?: string;
   cardDeliveryDate?: string;
   isDragging?: boolean;
@@ -14,13 +13,11 @@ interface KanbanCardProps {
 const KanbanCard = ({
   title,
   subtitle,
-  deliveryDate,
   dueDate,
   cardDeliveryDate,
   isDragging = false,
   onClick
 }: KanbanCardProps) => {
-  const formattedDeliveryDate = new Date(deliveryDate + 'T00:00:00').toLocaleDateString("pt-BR");
   const formattedDueDate = dueDate ? new Date(dueDate + 'T00:00:00').toLocaleDateString("pt-BR") : null;
   const formattedCardDeliveryDate = cardDeliveryDate ? new Date(cardDeliveryDate + 'T00:00:00').toLocaleDateString("pt-BR") : null;
 
@@ -56,10 +53,6 @@ const KanbanCard = ({
               {formattedCardDeliveryDate}
             </div>
           )}
-          <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md w-fit">
-            <Calendar className="h-3 w-3" />
-            {formattedDeliveryDate}
-          </div>
         </div>
       </CardContent>
     </Card>
