@@ -125,6 +125,7 @@ const DevPrompts = () => {
   const [demandasPromptContent, setDemandasPromptContent] = useState("");
   const [postsPromptContent, setPostsPromptContent] = useState("");
   const [reavaliacaoPromptContent, setReavaliacaoPromptContent] = useState("");
+  const [videoPromptContent, setVideoPromptContent] = useState("");
 
   // Buscar o prompt de geração de estratégia
   const { data: strategyPromptData, isLoading: isLoadingStrategy } = useQuery({
@@ -227,6 +228,31 @@ const DevPrompts = () => {
       setReavaliacaoPromptContent("");
     }
   }, [reavaliacaoPromptData]);
+
+  // Buscar o prompt de vídeo
+  const { data: videoPromptData, isLoading: isLoadingVideo } = useQuery({
+    queryKey: ["system-prompt", "generate_video_prompt", tenantId],
+    queryFn: async () => {
+      if (!tenantId) return null;
+      const { data, error } = await supabase
+        .from("system_prompts")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("prompt_key", "generate_video_prompt")
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!tenantId,
+  });
+
+  useEffect(() => {
+    if (videoPromptData) {
+      setVideoPromptContent(videoPromptData.prompt_content);
+    } else {
+      setVideoPromptContent("");
+    }
+  }, [videoPromptData]);
 
   // Mutation para salvar o prompt de estratégia
   const saveStrategyPromptMutation = useMutation({
@@ -423,6 +449,49 @@ const DevPrompts = () => {
     saveReavaliacaoPromptMutation.mutate(reavaliacaoPromptContent);
   };
 
+  // Mutation para salvar o prompt de vídeo
+  const saveVideoPromptMutation = useMutation({
+    mutationFn: async (content: string) => {
+      if (!tenantId) throw new Error("Tenant ID não encontrado");
+      const { data: existing } = await supabase
+        .from("system_prompts")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("prompt_key", "generate_video_prompt")
+        .maybeSingle();
+      if (existing) {
+        const { error } = await supabase
+          .from("system_prompts")
+          .update({ prompt_content: content })
+          .eq("tenant_id", tenantId)
+          .eq("prompt_key", "generate_video_prompt");
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("system_prompts")
+          .insert({
+            tenant_id: tenantId,
+            prompt_key: "generate_video_prompt",
+            prompt_title: "Prompt de Geração de Vídeo",
+            prompt_content: content,
+          });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["system-prompt"] });
+      toast.success("Prompt de vídeo salvo com sucesso!");
+    },
+    onError: (error) => {
+      console.error("Erro ao salvar prompt:", error);
+      toast.error("Erro ao salvar o prompt");
+    },
+  });
+
+  const handleSaveVideo = () => {
+    saveVideoPromptMutation.mutate(videoPromptContent);
+  };
+
   return (
     <div className="container max-w-5xl mx-auto px-6 py-8">
       <div className="mb-8">
@@ -437,11 +506,12 @@ const DevPrompts = () => {
 
       <div className="space-y-6">
         <Tabs defaultValue="strategy" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="strategy">Estratégia</TabsTrigger>
             <TabsTrigger value="demandas">Demandas</TabsTrigger>
             <TabsTrigger value="posts">Posts</TabsTrigger>
             <TabsTrigger value="reavaliacao">Reavaliação</TabsTrigger>
+            <TabsTrigger value="video">Vídeo</TabsTrigger>
           </TabsList>
           
           <TabsContent value="strategy">
@@ -601,6 +671,42 @@ const DevPrompts = () => {
                       >
                         <Save className="h-4 w-4 mr-2" />
                         {saveReavaliacaoPromptMutation.isPending ? "Salvando..." : "Salvar"}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="video">
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {videoPromptData?.prompt_title || "Prompt de Geração de Vídeo"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isLoadingVideo ? (
+                  <div className="text-muted-foreground">Carregando...</div>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Este prompt é usado para gerar roteiros e storyboards de vídeo. Configure as instruções conforme necessário.
+                    </p>
+                    <Textarea
+                      value={videoPromptContent}
+                      onChange={(e) => setVideoPromptContent(e.target.value)}
+                      placeholder="Digite o prompt de geração de vídeo aqui..."
+                      className="min-h-[400px] font-mono text-sm"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        onClick={handleSaveVideo}
+                        disabled={saveVideoPromptMutation.isPending}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        {saveVideoPromptMutation.isPending ? "Salvando..." : "Salvar"}
                       </Button>
                     </div>
                   </>
