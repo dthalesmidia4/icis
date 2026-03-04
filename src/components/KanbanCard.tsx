@@ -50,6 +50,12 @@ const KanbanCard = ({
               {formattedDueDate}
             </div>
           )}
+          {formattedCardDeliveryDate && (
+            <div className="flex items-center gap-1 text-[11px] font-medium text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-md w-fit">
+              <Calendar className="h-3 w-3" />
+              {formattedCardDeliveryDate}
+            </div>
+          )}
           <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md w-fit">
             <Calendar className="h-3 w-3" />
             {formattedDeliveryDate}
