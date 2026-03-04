@@ -30,6 +30,9 @@ const ClientHub = () => {
   const [videoIdea, setVideoIdea] = useState('');
   const [sceneCount, setSceneCount] = useState(3);
   const [videoAspectRatio, setVideoAspectRatio] = useState('9:16');
+  const [videoStep, setVideoStep] = useState<1 | 2>(1);
+  const [videoScenes, setVideoScenes] = useState<Array<{ scene_description: string; mascot_speech: string }>>([]);
+  const [generatingStoryboard, setGeneratingStoryboard] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [presets, setPresets] = useState<Array<{ id: string; name: string; primary_color: string | null; secondary_color: string | null }>>([]);
   const [aiPostModalOpen, setAiPostModalOpen] = useState(false);
@@ -245,6 +248,26 @@ const ClientHub = () => {
       else { toast.error('Nenhuma imagem retornada.'); }
     } catch (err) { console.error('Generate carousel images error:', err); toast.error('Erro inesperado ao gerar imagens.'); }
     finally { setGeneratingCarouselImages(false); setCarouselImageProgress(''); }
+  };
+
+  const handleGenerateStoryboard = async () => {
+    if (!videoIdea.trim()) return;
+    setGeneratingStoryboard(true);
+    try {
+      const selectedMascotUrls = mascotImages.filter(m => selectedMascotIds.includes(m.id)).map(m => m.image_url);
+      const { data, error } = await supabase.functions.invoke('generate-video-storyboard', {
+        body: { idea: videoIdea, sceneCount, presetId: selectedPresetId, mascotImageUrls: selectedMascotUrls, clientId: selectedClient.id, tenantId },
+      });
+      if (error) { console.error('Edge function error:', error); toast.error('Erro ao gerar storyboard. Tente novamente.'); return; }
+      if (data?.error) { toast.error(data.error); return; }
+      if (data?.scenes && Array.isArray(data.scenes)) {
+        setVideoScenes(data.scenes);
+        setVideoStep(2);
+        toast.success('Storyboard gerado! Revise e edite as cenas.');
+        await saveGeneratedContent('video_storyboard', 'Storyboard de Vídeo', videoIdea, []);
+      } else { toast.error('Nenhuma cena retornada.'); }
+    } catch (err) { console.error('Generate storyboard error:', err); toast.error('Erro inesperado ao gerar o storyboard.'); }
+    finally { setGeneratingStoryboard(false); }
   };
 
   const actionCards = [
@@ -882,92 +905,134 @@ const ClientHub = () => {
         <VisualIdentityModal open={visualIdentityModalOpen} onOpenChange={setVisualIdentityModalOpen} companyId={selectedClient?.id || ''} companyName={selectedClient?.fantasy_name || selectedClient?.name || ''} tenantId={tenantId || ''} />
 
         {/* Modal Vídeo - Storyboard */}
-        <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) { setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); setVideoAspectRatio('9:16'); setSelectedMascotIds([]); } }}>
-          <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+        <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) { setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); setVideoAspectRatio('9:16'); setSelectedMascotIds([]); setVideoStep(1); setVideoScenes([]); } }}>
+          <DialogContent className={`!flex !flex-col overflow-hidden ${videoStep === 2 ? 'sm:max-w-4xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[85vh]'}`}>
             <DialogHeader>
               <DialogTitle className="text-lg flex items-center gap-2">
-                <Clapperboard className="w-5 h-5 text-primary" />Criar Storyboard de Vídeo
+                <Clapperboard className="w-5 h-5 text-primary" />
+                {videoStep === 1 ? 'Criar Storyboard de Vídeo' : 'Editar Cenas do Storyboard'}
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-1">
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Ideia do Vídeo</Label>
-                <Textarea placeholder="Ex: Um comercial cinematográfico de um café robótico cyberpunk..." value={videoIdea} onChange={(e) => setVideoIdea(e.target.value)} className="min-h-[90px] resize-none" />
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Cenas</Label>
-                  <div className="flex gap-1.5">
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <button key={n} onClick={() => setSceneCount(n)}
-                        className={`w-9 h-9 rounded-lg font-bold text-sm transition-all ${sceneCount === n ? 'bg-primary text-primary-foreground shadow-lg scale-110' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
-                        {n}
-                      </button>
-                    ))}
+            {videoStep === 1 ? (
+              <>
+                <div className="flex-1 overflow-y-auto min-h-0 space-y-4 py-1">
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Ideia do Vídeo</Label>
+                    <Textarea placeholder="Ex: Um comercial cinematográfico de um café robótico cyberpunk..." value={videoIdea} onChange={(e) => setVideoIdea(e.target.value)} className="min-h-[90px] resize-none" disabled={generatingStoryboard} />
                   </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Formato</Label>
-                  <div className="flex gap-1.5">
-                    {['9:16', '16:9', '1:1', '4:5'].map((ratio) => (
-                      <button key={ratio} onClick={() => setVideoAspectRatio(ratio)}
-                        className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-all ${videoAspectRatio === ratio ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
-                        {ratio}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Predefinição Visual</Label>
-                  {presets.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-1.5">
-                      {presets.map((preset) => (
-                        <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)}
-                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
-                          <div className="flex gap-0.5">
-                            {preset.primary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
-                            {preset.secondary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
-                          </div>
-                          {preset.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Mascote</Label>
-                  {mascotImages.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {mascotImages.map((mascot) => {
-                        const isSelected = selectedMascotIds.includes(mascot.id);
-                        return (
-                          <button key={mascot.id}
-                            onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
-                            className={`relative w-14 h-14 rounded-lg border-2 overflow-hidden transition-all ${isSelected ? 'border-primary ring-1 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
-                            <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
-                            {isSelected && (<div className="absolute inset-0 bg-primary/20 flex items-center justify-center"><CheckSquare className="w-4 h-4 text-primary" /></div>)}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Cenas</Label>
+                      <div className="flex gap-1.5">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <button key={n} onClick={() => setSceneCount(n)} disabled={generatingStoryboard}
+                            className={`w-9 h-9 rounded-lg font-bold text-sm transition-all ${sceneCount === n ? 'bg-primary text-primary-foreground shadow-lg scale-110' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                            {n}
                           </button>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
-                  )}
-                </div>
-              </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Formato</Label>
+                      <div className="flex gap-1.5">
+                        {['9:16', '16:9', '1:1', '4:5'].map((ratio) => (
+                          <button key={ratio} onClick={() => setVideoAspectRatio(ratio)} disabled={generatingStoryboard}
+                            className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-all ${videoAspectRatio === ratio ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                            {ratio}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
 
-              <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70" disabled={!videoIdea.trim()}
-                onClick={() => { setVideoModalOpen(false); toast.info("Geração de Storyboard em breve!"); }}>
-                <Clapperboard className="w-4 h-4 mr-2" />Gerar Storyboard
-              </Button>
-            </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Predefinição Visual</Label>
+                      {presets.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva.</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                          {presets.map((preset) => (
+                            <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)} disabled={generatingStoryboard}
+                              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
+                              <div className="flex gap-0.5">
+                                {preset.primary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
+                                {preset.secondary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
+                              </div>
+                              {preset.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Mascote</Label>
+                      {mascotImages.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado.</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {mascotImages.map((mascot) => {
+                            const isSelected = selectedMascotIds.includes(mascot.id);
+                            return (
+                              <button key={mascot.id} disabled={generatingStoryboard}
+                                onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
+                                className={`relative w-14 h-14 rounded-lg border-2 overflow-hidden transition-all ${isSelected ? 'border-primary ring-1 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
+                                <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
+                                {isSelected && (<div className="absolute inset-0 bg-primary/20 flex items-center justify-center"><CheckSquare className="w-4 h-4 text-primary" /></div>)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" disabled={!videoIdea.trim() || generatingStoryboard} onClick={handleGenerateStoryboard}>
+                  {generatingStoryboard ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando storyboard...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />Gerar Storyboard</>)}
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="flex-1 overflow-y-auto min-h-0 space-y-4 py-2">
+                  {videoScenes.map((scene, idx) => (
+                    <div key={idx} className="rounded-lg border border-border p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-primary">Cena {idx + 1}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
+                          {idx === 0 ? 'Abertura' : idx === videoScenes.length - 1 ? 'Encerramento (CTA)' : 'Desenvolvimento'}
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground">Descrição da Cena (EN)</Label>
+                        <Textarea placeholder="Scene description in English..." value={scene.scene_description}
+                          onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, scene_description: e.target.value } : s))}
+                          className="min-h-[80px] resize-none text-sm" />
+                      </div>
+                      {scene.mascot_speech && (
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground">Fala do Mascote (PT-BR)</Label>
+                          <Textarea placeholder="O mascote diz: ..." value={scene.mascot_speech}
+                            onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, mascot_speech: e.target.value } : s))}
+                            className="min-h-[60px] resize-none text-sm" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-3 mt-2">
+                  <Button variant="outline" className="h-11 text-sm font-semibold flex-1" onClick={() => { setVideoStep(1); setVideoScenes([]); }}>
+                    Voltar
+                  </Button>
+                  <Button className="h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 flex-1" onClick={() => handleGenerateStoryboard()}>
+                    <Sparkles className="w-4 h-4 mr-2" />Gerar Novamente
+                  </Button>
+                </div>
+              </>
+            )}
           </DialogContent>
         </Dialog>
       </div>
