@@ -167,15 +167,20 @@ const ClientHub = () => {
   const saveGeneratedContent = async (contentType: string, title: string, prompt: string, imageUrls: string[]) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from('generated_contents').insert({
+      const { error } = await supabase.from('generated_contents').insert({
         tenant_id: tenantId!,
         client_id: selectedClient!.id,
         content_type: contentType,
         title,
         prompt,
-        image_urls: imageUrls,
+        image_urls: imageUrls as any,
         created_by: user?.id || null,
       });
+      if (error) {
+        console.error('Error saving generated content to DB:', error);
+      } else {
+        console.log('Generated content saved successfully:', contentType, imageUrls.length, 'images');
+      }
     } catch (err) { console.error('Error saving generated content:', err); }
   };
 
