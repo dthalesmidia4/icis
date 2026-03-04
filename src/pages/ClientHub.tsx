@@ -218,6 +218,11 @@ const ClientHub = () => {
       badge: pendingCardsCount > 0 ? pendingCardsCount : undefined,
     },
     {
+      title: "Demandas Reprovadas",
+      icon: ThumbsDown,
+      action: () => navigate("/rejected-cards"),
+    },
+    {
       title: "Cronograma Atual",
       icon: Clock,
       action: () => setScheduleModalOpen(true),
