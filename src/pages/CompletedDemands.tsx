@@ -322,6 +322,7 @@ const CompletedDemands = () => {
                 title={card.title}
                 subtitle={card.clientName || ""}
                 deliveryDate={card.publish_date || card.due_date}
+                dueDate={card.due_date}
                 onClick={() => setSelectedCard(card)}
               />
             </div>

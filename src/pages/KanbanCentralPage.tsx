@@ -890,6 +890,7 @@ const KanbanCentralPage = () => {
                                    title={card.title}
                                    subtitle={card.clientName}
                                    deliveryDate={card.publish_date || card.due_date}
+                                   dueDate={card.due_date}
                                   isDragging={snapshot.isDragging}
                                   onClick={() => handleCardClick(card)}
                                 />
