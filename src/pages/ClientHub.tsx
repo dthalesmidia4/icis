@@ -250,6 +250,26 @@ const ClientHub = () => {
     finally { setGeneratingCarouselImages(false); setCarouselImageProgress(''); }
   };
 
+  const handleGenerateStoryboard = async () => {
+    if (!videoIdea.trim()) return;
+    setGeneratingStoryboard(true);
+    try {
+      const selectedMascotUrls = mascotImages.filter(m => selectedMascotIds.includes(m.id)).map(m => m.image_url);
+      const { data, error } = await supabase.functions.invoke('generate-video-storyboard', {
+        body: { idea: videoIdea, sceneCount, presetId: selectedPresetId, mascotImageUrls: selectedMascotUrls, clientId: selectedClient.id, tenantId },
+      });
+      if (error) { console.error('Edge function error:', error); toast.error('Erro ao gerar storyboard. Tente novamente.'); return; }
+      if (data?.error) { toast.error(data.error); return; }
+      if (data?.scenes && Array.isArray(data.scenes)) {
+        setVideoScenes(data.scenes);
+        setVideoStep(2);
+        toast.success('Storyboard gerado! Revise e edite as cenas.');
+        await saveGeneratedContent('video_storyboard', 'Storyboard de Vídeo', videoIdea, []);
+      } else { toast.error('Nenhuma cena retornada.'); }
+    } catch (err) { console.error('Generate storyboard error:', err); toast.error('Erro inesperado ao gerar o storyboard.'); }
+    finally { setGeneratingStoryboard(false); }
+  };
+
   const actionCards = [
     { title: "Cadastro", icon: ClipboardList, action: () => navigate(`/clientes/${selectedClient.id}`) },
     { title: "Anamnese", icon: FileText, action: () => navigate("/client-guide") },
