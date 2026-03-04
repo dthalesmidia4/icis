@@ -423,72 +423,67 @@ const ClientHub = () => {
 
         {/* Modal Gerar Post Estático com IA */}
         <Dialog open={aiPostModalOpen} onOpenChange={(open) => { setAiPostModalOpen(open); if (!open) { setPostIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setGeneratedPostImage(null); } }}>
-          <DialogContent className={`!flex !flex-col overflow-hidden ${generatedPostImage ? 'sm:max-w-5xl max-h-[95vh]' : 'sm:max-w-xl max-h-[90vh]'}`}>
+          <DialogContent className={`!flex !flex-col overflow-hidden ${generatedPostImage ? 'sm:max-w-5xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[90vh]'}`}>
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-center">Gerar Conteúdo com IA</DialogTitle>
-              <p className="text-sm text-muted-foreground text-center">
-                Descreva sua ideia e a IA vai criar uma imagem profissional para seu post.
-              </p>
+              <DialogTitle className="text-lg flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />Gerar Post com IA
+              </DialogTitle>
             </DialogHeader>
 
             <div className={`flex-1 min-h-0 ${generatedPostImage ? 'flex gap-6' : 'overflow-y-auto'}`}>
-              {/* Config side */}
-              <div className={`space-y-5 py-2 ${generatedPostImage ? 'w-[40%] flex-shrink-0 overflow-y-auto' : 'w-full'}`}>
-                <div className="space-y-2">
+              <div className={`space-y-4 py-1 ${generatedPostImage ? 'w-[40%] flex-shrink-0 overflow-y-auto' : 'w-full'}`}>
+                <div className="space-y-1.5">
                   <Label className="text-sm font-medium">Ideia do Post</Label>
-                  <Textarea
-                    placeholder="Ex: 'Crie um post de natal com tom acolhedor...'"
-                    value={postIdea}
-                    onChange={(e) => setPostIdea(e.target.value)}
-                    className="min-h-[120px] resize-none"
-                    disabled={generatingPost}
-                  />
+                  <Textarea placeholder="Ex: 'Crie um post de natal com tom acolhedor...'" value={postIdea}
+                    onChange={(e) => setPostIdea(e.target.value)} className="min-h-[100px] resize-none" disabled={generatingPost} />
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Identidade Visual (Predefinição)</Label>
-                  {presets.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {presets.map((preset) => (
-                        <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)} disabled={generatingPost}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
-                          <div className="flex gap-1">
-                            {preset.primary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
-                            {preset.secondary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
-                          </div>
-                          {preset.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Mascotes</Label>
-                  {mascotImages.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-3">
-                      {mascotImages.map((mascot) => {
-                        const isSelected = selectedMascotIds.includes(mascot.id);
-                        return (
-                          <button key={mascot.id} disabled={generatingPost} onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
-                            className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${isSelected ? 'border-primary ring-2 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
-                            <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
-                            {isSelected && (<div className="absolute inset-0 bg-primary/20 flex items-center justify-center"><CheckSquare className="w-5 h-5 text-primary" /></div>)}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Predefinição Visual</Label>
+                    {presets.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {presets.map((preset) => (
+                          <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)} disabled={generatingPost}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
+                            <div className="flex gap-0.5">
+                              {preset.primary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
+                              {preset.secondary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
+                            </div>
+                            {preset.name}
                           </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Mascote</Label>
+                    {mascotImages.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {mascotImages.map((mascot) => {
+                          const isSelected = selectedMascotIds.includes(mascot.id);
+                          return (
+                            <button key={mascot.id} disabled={generatingPost} onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
+                              className={`relative w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${isSelected ? 'border-primary ring-1 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
+                              <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
+                              {isSelected && (<div className="absolute inset-0 bg-primary/20 flex items-center justify-center"><CheckSquare className="w-4 h-4 text-primary" /></div>)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {generatedPostImage && (
-                <div className="w-[60%] flex-shrink-0 flex flex-col py-2">
-                  <Label className="text-sm font-medium mb-3">Resultado</Label>
+                <div className="w-[60%] flex-shrink-0 flex flex-col py-1">
+                  <Label className="text-sm font-medium mb-2">Resultado</Label>
                   <div className="flex-1 min-h-0 flex items-center justify-center rounded-xl overflow-hidden border-2 border-primary/30 shadow-lg bg-black/5">
                     <img src={generatedPostImage} alt="Post gerado pela IA" className="w-full h-full object-contain" />
                   </div>
@@ -496,16 +491,16 @@ const ClientHub = () => {
               )}
             </div>
 
-            <div className={`flex gap-3 mt-2 ${generatedPostImage ? '' : 'flex-col'}`}>
+            <div className={`flex gap-3 mt-1 ${generatedPostImage ? '' : 'flex-col'}`}>
               {generatedPostImage && (
-                <Button variant="outline" className="h-12 text-base font-semibold flex-1" onClick={() => {
+                <Button variant="outline" className="h-11 text-sm font-semibold flex-1" onClick={() => {
                   const link = document.createElement('a'); link.href = generatedPostImage; link.download = `post-${selectedClient?.name || 'gerado'}-${Date.now()}.png`; link.click();
                 }}>
-                  <Download className="w-5 h-5 mr-2" />Baixar Imagem
+                  <Download className="w-4 h-4 mr-2" />Baixar Imagem
                 </Button>
               )}
-              <Button className={`h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 ${generatedPostImage ? 'flex-1' : 'w-full'}`} disabled={!postIdea.trim() || generatingPost} onClick={() => handleGeneratePost(postIdea)}>
-                {generatingPost ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-5 h-5 mr-2" />{generatedPostImage ? 'Gerar Novamente' : 'Gerar Post'}</>)}
+              <Button className={`h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 ${generatedPostImage ? 'flex-1' : 'w-full'}`} disabled={!postIdea.trim() || generatingPost} onClick={() => handleGeneratePost(postIdea)}>
+                {generatingPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-4 h-4 mr-2" />{generatedPostImage ? 'Gerar Novamente' : 'Gerar Post'}</>)}
               </Button>
             </div>
           </DialogContent>
@@ -513,65 +508,68 @@ const ClientHub = () => {
 
         {/* Modal Post Estático Manual */}
         <Dialog open={manualPostOpen} onOpenChange={(open) => { setManualPostOpen(open); if (!open) { setManualPostText(''); setSelectedPresetId(null); setSelectedMascotIds([]); setGeneratedManualPostImage(null); } }}>
-          <DialogContent className={`!flex !flex-col overflow-hidden ${generatedManualPostImage ? 'sm:max-w-5xl max-h-[95vh]' : 'sm:max-w-xl max-h-[90vh]'}`}>
+          <DialogContent className={`!flex !flex-col overflow-hidden ${generatedManualPostImage ? 'sm:max-w-5xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[90vh]'}`}>
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-center">Editor de Conteúdo</DialogTitle>
-              <p className="text-sm text-muted-foreground text-center">Escreva o texto do seu post estático.</p>
+              <DialogTitle className="text-lg flex items-center gap-2">
+                <PenLine className="w-5 h-5 text-primary" />Editor de Post
+              </DialogTitle>
             </DialogHeader>
 
             <div className={`flex-1 min-h-0 ${generatedManualPostImage ? 'flex gap-6' : 'overflow-y-auto'}`}>
-              <div className={`space-y-5 py-2 ${generatedManualPostImage ? 'w-[40%] flex-shrink-0 overflow-y-auto' : 'w-full'}`}>
-                <div className="space-y-2">
+              <div className={`space-y-4 py-1 ${generatedManualPostImage ? 'w-[40%] flex-shrink-0 overflow-y-auto' : 'w-full'}`}>
+                <div className="space-y-1.5">
                   <Label className="text-sm font-medium">Texto do Post</Label>
                   <Textarea placeholder="Escreva o texto que aparecerá no post..." value={manualPostText}
-                    onChange={(e) => setManualPostText(e.target.value.slice(0, 50))} className="min-h-[120px] resize-none" disabled={generatingManualPost} />
+                    onChange={(e) => setManualPostText(e.target.value.slice(0, 50))} className="min-h-[100px] resize-none" disabled={generatingManualPost} />
                   <p className={`text-xs text-right ${manualPostText.length > 50 ? 'text-destructive' : 'text-muted-foreground'}`}>{manualPostText.length}/50</p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Identidade Visual (Predefinição)</Label>
-                  {presets.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {presets.map((preset) => (
-                        <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)} disabled={generatingManualPost}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
-                          <div className="flex gap-1">
-                            {preset.primary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
-                            {preset.secondary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
-                          </div>
-                          {preset.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Mascotes</Label>
-                  {mascotImages.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-3">
-                      {mascotImages.map((mascot) => {
-                        const isSelected = selectedMascotIds.includes(mascot.id);
-                        return (
-                          <button key={mascot.id} disabled={generatingManualPost} onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
-                            className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${isSelected ? 'border-primary ring-2 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
-                            <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
-                            {isSelected && (<div className="absolute inset-0 bg-primary/20 flex items-center justify-center"><CheckSquare className="w-5 h-5 text-primary" /></div>)}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Predefinição Visual</Label>
+                    {presets.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {presets.map((preset) => (
+                          <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)} disabled={generatingManualPost}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
+                            <div className="flex gap-0.5">
+                              {preset.primary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
+                              {preset.secondary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
+                            </div>
+                            {preset.name}
                           </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Mascote</Label>
+                    {mascotImages.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {mascotImages.map((mascot) => {
+                          const isSelected = selectedMascotIds.includes(mascot.id);
+                          return (
+                            <button key={mascot.id} disabled={generatingManualPost} onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
+                              className={`relative w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${isSelected ? 'border-primary ring-1 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
+                              <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
+                              {isSelected && (<div className="absolute inset-0 bg-primary/20 flex items-center justify-center"><CheckSquare className="w-4 h-4 text-primary" /></div>)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {generatedManualPostImage && (
-                <div className="w-[60%] flex-shrink-0 flex flex-col py-2">
-                  <Label className="text-sm font-medium mb-3">Resultado</Label>
+                <div className="w-[60%] flex-shrink-0 flex flex-col py-1">
+                  <Label className="text-sm font-medium mb-2">Resultado</Label>
                   <div className="flex-1 min-h-0 flex items-center justify-center rounded-xl overflow-hidden border-2 border-primary/30 shadow-lg bg-black/5">
                     <img src={generatedManualPostImage} alt="Post gerado" className="w-full h-full object-contain" />
                   </div>
@@ -579,16 +577,16 @@ const ClientHub = () => {
               )}
             </div>
 
-            <div className={`flex gap-3 mt-2 ${generatedManualPostImage ? '' : 'flex-col'}`}>
+            <div className={`flex gap-3 mt-1 ${generatedManualPostImage ? '' : 'flex-col'}`}>
               {generatedManualPostImage && (
-                <Button variant="outline" className="h-12 text-base font-semibold flex-1" onClick={() => {
+                <Button variant="outline" className="h-11 text-sm font-semibold flex-1" onClick={() => {
                   const link = document.createElement('a'); link.href = generatedManualPostImage; link.download = `post-${selectedClient?.name || 'gerado'}-${Date.now()}.png`; link.click();
                 }}>
-                  <Download className="w-5 h-5 mr-2" />Baixar Imagem
+                  <Download className="w-4 h-4 mr-2" />Baixar Imagem
                 </Button>
               )}
-              <Button className={`h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 ${generatedManualPostImage ? 'flex-1' : 'w-full'}`} disabled={!manualPostText.trim() || generatingManualPost} onClick={() => handleGeneratePost(manualPostText, true)}>
-                {generatingManualPost ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Gerando...</>) : (<><Clapperboard className="w-5 h-5 mr-2" />{generatedManualPostImage ? 'Gerar Novamente' : 'Gerar Post'}</>)}
+              <Button className={`h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 ${generatedManualPostImage ? 'flex-1' : 'w-full'}`} disabled={!manualPostText.trim() || generatingManualPost} onClick={() => handleGeneratePost(manualPostText, true)}>
+                {generatingManualPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />{generatedManualPostImage ? 'Gerar Novamente' : 'Gerar Post'}</>)}
               </Button>
             </div>
           </DialogContent>
@@ -598,13 +596,14 @@ const ClientHub = () => {
         <Dialog open={manualCarouselOpen} onOpenChange={(open) => { setManualCarouselOpen(open); if (!open) { setSelectedPresetId(null); setSelectedMascotIds([]); } }}>
           <DialogContent className="sm:max-w-2xl !flex !flex-col overflow-hidden max-h-[90vh]">
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-center">Editor de Conteúdo</DialogTitle>
-              <p className="text-sm text-muted-foreground text-center">Escreva o texto de cada slide do seu carrossel.</p>
+              <DialogTitle className="text-lg flex items-center gap-2">
+                <LayoutGrid className="w-5 h-5 text-primary" />Editor de Carrossel
+              </DialogTitle>
             </DialogHeader>
 
-            <div className="flex-1 overflow-y-auto min-h-0 space-y-4 py-2">
+            <div className="flex-1 overflow-y-auto min-h-0 space-y-3 py-1">
               {manualSlides.map((slide, idx) => (
-                <div key={idx} className="rounded-lg border border-border p-4 space-y-2">
+                <div key={idx} className="rounded-lg border border-border p-3 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold text-primary">Slide {idx + 1}</span>
@@ -612,151 +611,151 @@ const ClientHub = () => {
                     </div>
                     {manualSlides.length > 1 && (
                       <button onClick={() => setManualSlides(prev => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive transition-colors p-1">
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
                   <Textarea placeholder={`Texto do slide ${idx + 1}...`} value={slide.text}
                     onChange={(e) => { const val = e.target.value.slice(0, 50); setManualSlides(prev => prev.map((s, i) => i === idx ? { ...s, text: val } : s)); }}
-                    className="min-h-[80px] resize-none" />
+                    className="min-h-[60px] resize-none" />
                   <p className="text-xs text-muted-foreground text-right">{slide.text.length}/50</p>
                 </div>
               ))}
 
               {manualSlides.length < 10 && (
                 <button onClick={() => setManualSlides(prev => [...prev, { text: '', label: 'Conteúdo' }])}
-                  className="w-full py-3 rounded-lg border-2 border-dashed border-border hover:border-primary/50 text-muted-foreground hover:text-primary text-sm font-medium flex items-center justify-center gap-2 transition-colors">
-                  <Plus className="w-4 h-4" />Adicionar Novo Slide
+                  className="w-full py-2.5 rounded-lg border-2 border-dashed border-border hover:border-primary/50 text-muted-foreground hover:text-primary text-sm font-medium flex items-center justify-center gap-2 transition-colors">
+                  <Plus className="w-4 h-4" />Adicionar Slide
                 </button>
               )}
 
-              <div className="space-y-2 pt-2">
-                <Label className="text-sm font-medium">Identidade Visual (Predefinição)</Label>
-                {presets.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {presets.map((preset) => (
-                      <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
-                        <div className="flex gap-1">
-                          {preset.primary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
-                          {preset.secondary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
-                        </div>
-                        {preset.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Mascotes</Label>
-                {mascotImages.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-3">
-                    {mascotImages.map((mascot) => {
-                      const isSelected = selectedMascotIds.includes(mascot.id);
-                      return (
-                        <button key={mascot.id} onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
-                          className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${isSelected ? 'border-primary ring-2 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
-                          <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
-                          {isSelected && (<div className="absolute inset-0 bg-primary/20 flex items-center justify-center"><CheckSquare className="w-5 h-5 text-primary" /></div>)}
+              <div className="grid grid-cols-2 gap-4 pt-1">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Predefinição Visual</Label>
+                  {presets.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {presets.map((preset) => (
+                        <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
+                          <div className="flex gap-0.5">
+                            {preset.primary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
+                            {preset.secondary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
+                          </div>
+                          {preset.name}
                         </button>
-                      );
-                    })}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Mascote</Label>
+                  {mascotImages.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {mascotImages.map((mascot) => {
+                        const isSelected = selectedMascotIds.includes(mascot.id);
+                        return (
+                          <button key={mascot.id} onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
+                            className={`relative w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${isSelected ? 'border-primary ring-1 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
+                            <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
+                            {isSelected && (<div className="absolute inset-0 bg-primary/20 flex items-center justify-center"><CheckSquare className="w-4 h-4 text-primary" /></div>)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            <Button className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 mt-2" disabled={manualSlides.every(s => !s.text.trim())}
+            <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" disabled={manualSlides.every(s => !s.text.trim())}
               onClick={() => { setManualCarouselOpen(false); toast.info("Geração de Post em breve!"); }}>
-              <Clapperboard className="w-5 h-5 mr-2" />Gerar Post
+              <Clapperboard className="w-4 h-4 mr-2" />Gerar Post
             </Button>
           </DialogContent>
         </Dialog>
 
         {/* Modal Gerar Carrossel com IA - Two Steps */}
         <Dialog open={aiCarouselModalOpen} onOpenChange={(open) => { setAiCarouselModalOpen(open); if (!open) { setCarouselIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setSlideCount(null); setCarouselStep(1); setCarouselSlides([]); setCarouselAspectRatio('1:1'); setCarouselAiModel('nanobanana3'); setCarouselGeneratedImages([]); setGeneratingCarouselImages(false); setCarouselImageProgress(''); } }}>
-          <DialogContent className={`!flex !flex-col overflow-hidden ${carouselGeneratedImages.length > 0 || generatingCarouselImages ? 'sm:max-w-6xl max-h-[95vh]' : carouselStep === 2 ? 'sm:max-w-4xl max-h-[95vh]' : 'sm:max-w-xl max-h-[85vh]'}`}>
+          <DialogContent className={`!flex !flex-col overflow-hidden ${carouselGeneratedImages.length > 0 || generatingCarouselImages ? 'sm:max-w-6xl max-h-[95vh]' : carouselStep === 2 ? 'sm:max-w-4xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[85vh]'}`}>
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-center">
+              <DialogTitle className="text-lg flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
                 {carouselStep === 1 ? 'Gerar Carrossel com IA' : 'Editar Slides do Carrossel'}
               </DialogTitle>
-              <p className="text-sm text-muted-foreground text-center">
-                {carouselStep === 1
-                  ? 'Descreva o tema, cole um texto ou apenas jogue uma ideia. A IA vai estruturar tudo em um carrossel para você.'
-                  : 'Revise e edite o conteúdo de cada slide gerado pela IA.'}
-              </p>
             </DialogHeader>
 
             {carouselStep === 1 ? (
               <>
-                <div className="flex-1 overflow-y-auto min-h-0 space-y-5 py-2">
-                  <div className="space-y-2">
+                <div className="flex-1 overflow-y-auto min-h-0 space-y-4 py-1">
+                  <div className="space-y-1.5">
                     <Label className="text-sm font-medium">Sua Ideia para o Carrossel</Label>
                     <Textarea placeholder="Ex: 'Crie um carrossel sobre 5 dicas de produtividade...'" value={carouselIdea}
-                      onChange={(e) => setCarouselIdea(e.target.value)} className="min-h-[120px] resize-none" disabled={generatingCarousel} />
+                      onChange={(e) => setCarouselIdea(e.target.value)} className="min-h-[100px] resize-none" disabled={generatingCarousel} />
                   </div>
 
-                  <div className={`space-y-2 rounded-lg border-2 p-4 transition-colors ${slideCount ? 'border-primary/50' : 'border-primary/80 bg-primary/5'}`}>
-                    <Label className="text-sm font-medium">Quantos slides terá o seu carrossel? <span className="text-destructive">*</span></Label>
-                    <div className="flex flex-wrap gap-2">
+                  <div className={`space-y-1.5 rounded-lg border-2 p-3 transition-colors ${slideCount ? 'border-primary/50' : 'border-primary/80 bg-primary/5'}`}>
+                    <Label className="text-sm font-medium">Quantidade de slides <span className="text-destructive">*</span></Label>
+                    <div className="flex flex-wrap gap-1.5">
                       {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                         <button key={n} onClick={() => setSlideCount(n)} disabled={generatingCarousel}
-                          className={`w-10 h-10 rounded-lg font-bold text-sm transition-all duration-200 ${slideCount === n ? 'bg-primary text-primary-foreground shadow-lg scale-110' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                          className={`w-9 h-9 rounded-lg font-bold text-sm transition-all ${slideCount === n ? 'bg-primary text-primary-foreground shadow-lg scale-110' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
                           {n}
                         </button>
                       ))}
                     </div>
-                    {!slideCount && <p className="text-xs text-primary">● Selecione uma opção acima para habilitar a geração.</p>}
+                    {!slideCount && <p className="text-xs text-primary">● Selecione para habilitar a geração.</p>}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Identidade Visual (Predefinição)</Label>
-                    {presets.length === 0 ? (
-                      <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva. Crie uma no botão "Identidade Visual" do Hub.</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {presets.map((preset) => (
-                          <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)} disabled={generatingCarousel}
-                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
-                            <div className="flex gap-1">
-                              {preset.primary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
-                              {preset.secondary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
-                            </div>
-                            {preset.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Mascotes</Label>
-                    {mascotImages.length === 0 ? (
-                      <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado. Adicione na "Identidade Visual" do Hub.</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-3">
-                        {mascotImages.map((mascot) => {
-                          const isSelected = selectedMascotIds.includes(mascot.id);
-                          return (
-                            <button key={mascot.id} disabled={generatingCarousel} onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
-                              className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${isSelected ? 'border-primary ring-2 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
-                              <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
-                              {isSelected && (<div className="absolute inset-0 bg-primary/20 flex items-center justify-center"><CheckSquare className="w-5 h-5 text-primary" /></div>)}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Predefinição Visual</Label>
+                      {presets.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva.</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                          {presets.map((preset) => (
+                            <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)} disabled={generatingCarousel}
+                              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
+                              <div className="flex gap-0.5">
+                                {preset.primary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
+                                {preset.secondary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
+                              </div>
+                              {preset.name}
                             </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Mascote</Label>
+                      {mascotImages.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado.</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {mascotImages.map((mascot) => {
+                            const isSelected = selectedMascotIds.includes(mascot.id);
+                            return (
+                              <button key={mascot.id} disabled={generatingCarousel} onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
+                                className={`relative w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${isSelected ? 'border-primary ring-1 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
+                                <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
+                                {isSelected && (<div className="absolute inset-0 bg-primary/20 flex items-center justify-center"><CheckSquare className="w-4 h-4 text-primary" /></div>)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <Button className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 mt-2" disabled={!carouselIdea.trim() || !slideCount || generatingCarousel} onClick={handleGenerateCarouselContent}>
-                  {generatingCarousel ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Gerando conteúdo...</>) : (<><Sparkles className="w-5 h-5 mr-2" />Gerar Carrossel</>)}
+                <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" disabled={!carouselIdea.trim() || !slideCount || generatingCarousel} onClick={handleGenerateCarouselContent}>
+                  {generatingCarousel ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando conteúdo...</>) : (<><Sparkles className="w-4 h-4 mr-2" />Gerar Carrossel</>)}
                 </Button>
               </>
             ) : (
@@ -884,76 +883,89 @@ const ClientHub = () => {
 
         {/* Modal Vídeo - Storyboard */}
         <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) { setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); setVideoAspectRatio('9:16'); setSelectedMascotIds([]); } }}>
-          <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-xl flex items-center gap-2">
+              <DialogTitle className="text-lg flex items-center gap-2">
                 <Clapperboard className="w-5 h-5 text-primary" />Criar Storyboard de Vídeo
               </DialogTitle>
-              <p className="text-sm text-muted-foreground">Descreva sua ideia e escolha quantas cenas você quer. A IA vai criar um storyboard completo.</p>
             </DialogHeader>
-            <div className="space-y-5 py-2">
-              <div className="space-y-2">
+            <div className="space-y-4 py-1">
+              <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Ideia do Vídeo</Label>
-                <Textarea placeholder="Ex: Um comercial cinematográfico de um café robótico cyberpunk..." value={videoIdea} onChange={(e) => setVideoIdea(e.target.value)} className="min-h-[100px] resize-none" />
+                <Textarea placeholder="Ex: Um comercial cinematográfico de um café robótico cyberpunk..." value={videoIdea} onChange={(e) => setVideoIdea(e.target.value)} className="min-h-[90px] resize-none" />
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Quantidade de Cenas</Label>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button key={n} onClick={() => setSceneCount(n)}
-                      className={`w-10 h-10 rounded-lg font-bold text-sm transition-all duration-200 ${sceneCount === n ? 'bg-primary text-primary-foreground shadow-lg scale-110' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
-                      {n}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Formato</Label>
-                <div className="flex gap-2">
-                  {['9:16', '16:9', '1:1', '4:5'].map((ratio) => (
-                    <button key={ratio} onClick={() => setVideoAspectRatio(ratio)}
-                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${videoAspectRatio === ratio ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
-                      {ratio}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {mascotImages.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Mascote (opcional)</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {mascotImages.map((mascot) => (
-                      <button key={mascot.id}
-                        onClick={() => setSelectedMascotIds(prev => prev.includes(mascot.id) ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
-                        className={`relative w-16 h-16 rounded-lg border-2 overflow-hidden transition-all duration-200 ${selectedMascotIds.includes(mascot.id) ? 'border-primary ring-2 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
-                        <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Cenas</Label>
+                  <div className="flex gap-1.5">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button key={n} onClick={() => setSceneCount(n)}
+                        className={`w-9 h-9 rounded-lg font-bold text-sm transition-all ${sceneCount === n ? 'bg-primary text-primary-foreground shadow-lg scale-110' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                        {n}
                       </button>
                     ))}
                   </div>
                 </div>
-              )}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Identidade Visual (Predefinição)</Label>
-                {presets.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva. Crie uma no botão "Identidade Visual" do Hub.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {presets.map((preset) => (
-                      <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
-                        <div className="flex gap-1">
-                          {preset.primary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
-                          {preset.secondary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
-                        </div>
-                        {preset.name}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Formato</Label>
+                  <div className="flex gap-1.5">
+                    {['9:16', '16:9', '1:1', '4:5'].map((ratio) => (
+                      <button key={ratio} onClick={() => setVideoAspectRatio(ratio)}
+                        className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-all ${videoAspectRatio === ratio ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                        {ratio}
                       </button>
                     ))}
                   </div>
-                )}
+                </div>
               </div>
-              <Button className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70" disabled={!videoIdea.trim()}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Predefinição Visual</Label>
+                  {presets.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {presets.map((preset) => (
+                        <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
+                          <div className="flex gap-0.5">
+                            {preset.primary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
+                            {preset.secondary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
+                          </div>
+                          {preset.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Mascote</Label>
+                  {mascotImages.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {mascotImages.map((mascot) => {
+                        const isSelected = selectedMascotIds.includes(mascot.id);
+                        return (
+                          <button key={mascot.id}
+                            onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
+                            className={`relative w-14 h-14 rounded-lg border-2 overflow-hidden transition-all ${isSelected ? 'border-primary ring-1 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
+                            <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
+                            {isSelected && (<div className="absolute inset-0 bg-primary/20 flex items-center justify-center"><CheckSquare className="w-4 h-4 text-primary" /></div>)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70" disabled={!videoIdea.trim()}
                 onClick={() => { setVideoModalOpen(false); toast.info("Geração de Storyboard em breve!"); }}>
-                <Clapperboard className="w-5 h-5 mr-2" />Gerar Storyboard
+                <Clapperboard className="w-4 h-4 mr-2" />Gerar Storyboard
               </Button>
             </div>
           </DialogContent>
