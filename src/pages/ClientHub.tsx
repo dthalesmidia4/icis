@@ -29,6 +29,7 @@ const ClientHub = () => {
   const [videoModalOpen, setVideoModalOpen] = useState(false);
   const [videoIdea, setVideoIdea] = useState('');
   const [sceneCount, setSceneCount] = useState(3);
+  const [videoAspectRatio, setVideoAspectRatio] = useState('9:16');
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [presets, setPresets] = useState<Array<{ id: string; name: string; primary_color: string | null; secondary_color: string | null }>>([]);
   const [aiPostModalOpen, setAiPostModalOpen] = useState(false);
