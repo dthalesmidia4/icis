@@ -314,7 +314,7 @@ const RejectedCards = () => {
         ) : (
           <div className="mt-6 space-y-4">
             <p className="text-sm text-muted-foreground">
-              {cards.length} card(s) reprovado(s) — Clique em "Reavaliar Conteúdo" para melhorar com IA ou "Restaurar" para devolver à aprovação.
+              {cards.length} card(s) reprovado(s) — Clique em "Reavaliar Conteúdo" para melhorar com IA ou "Aprovar" para enviar ao Kanban.
             </p>
             {cards.map((card, idx) => (
               <div key={idx} className="relative">
@@ -322,11 +322,12 @@ const RejectedCards = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={(e) => { e.stopPropagation(); handleRestoreCard(idx); }}
+                    onClick={(e) => { e.stopPropagation(); handleApproveCard(idx); }}
                     className="gap-1"
+                    disabled={approvingIndex === idx}
                   >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    Restaurar
+                    {approvingIndex === idx ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    Aprovar
                   </Button>
                   <Button
                     size="sm"
