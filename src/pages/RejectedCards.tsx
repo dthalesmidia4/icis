@@ -9,7 +9,7 @@ import { DemandaCard, DemandaItem } from "@/components/DemandaCard";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, RefreshCw, Check, RotateCcw, Loader2, ThumbsDown } from "lucide-react";
+import { AlertCircle, RefreshCw, Check, Loader2, ThumbsDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,6 +38,10 @@ const RejectedCards = () => {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<PeriodData | null>(null);
   const [cards, setCards] = useState<RejectedCardItem[]>([]);
+  const [pipelineId, setPipelineId] = useState<string | null>(null);
+  const [initialStatusId, setInitialStatusId] = useState<string | null>(null);
+  const [approvingIndex, setApprovingIndex] = useState<number | null>(null);
+  const [approvedIndexes, setApprovedIndexes] = useState<Set<number>>(new Set());
 
   // Reevaluate modal
   const [reevalModalOpen, setReevalModalOpen] = useState(false);
@@ -59,6 +63,25 @@ const RejectedCards = () => {
     if (!selectedClient || !tenantId) return;
     setLoading(true);
     try {
+      // Fetch pipeline + initial status
+      const { data: pipeline } = await supabase
+        .from('pipelines')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('is_default', true)
+        .single();
+
+      if (pipeline) {
+        setPipelineId(pipeline.id);
+        const { data: status } = await supabase
+          .from('pipeline_statuses')
+          .select('id')
+          .eq('pipeline_id', pipeline.id)
+          .eq('is_initial', true)
+          .single();
+        if (status) setInitialStatusId(status.id);
+      }
+
       const savedPeriodId = localStorage.getItem(`approve_cards_period_${selectedClient.id}`);
 
       const { data: periods, error } = await supabase
@@ -188,49 +211,65 @@ const RejectedCards = () => {
     }
   };
 
-  const handleRestoreCard = async (index: number) => {
-    if (!period || !selectedClient) return;
+  const handleApproveCard = async (index: number) => {
+    if (!period || !selectedClient || !tenantId || !pipelineId || !initialStatusId) return;
 
+    setApprovingIndex(index);
     try {
       const card = cards[index];
+      const title = card.titulo || card.title || 'Sem título';
+      const tipo = card.tipo || card.tipo_conteudo || card.type || null;
+      const channel = card.canal || card.channel || null;
+      const objetivo = card.objetivo || card.objective || null;
+      const conteudo = card.conteudo || card.descricao || card.description || null;
+      const instrucoes = card.instrucoes_de_producao || null;
+      const cta = card.cta_recomendado || null;
+      const dateStr = card.data_sugerida || card.suggested_date || card.date || null;
+
+      const instructionParts = [conteudo, instrucoes, cta ? `CTA: ${cta}` : ''].filter(Boolean);
+
+      const { error: insertError } = await supabase.from('demands').insert({
+        tenant_id: tenantId,
+        client_id: selectedClient.id,
+        pipeline_id: pipelineId,
+        status_id: initialStatusId,
+        period_plan_id: period.id,
+        title,
+        objective: objetivo,
+        instructions: instructionParts.join('\n\n') || null,
+        publish_date: dateStr || null,
+        channel,
+        demand_type: tipo,
+        source: 'card',
+        observations: null,
+      });
+
+      if (insertError) throw insertError;
+
+      // Remove from rejected_plan
       const updatedRejected = [...(period.rejected_plan || [])];
       updatedRejected.splice(index, 1);
 
-      // Restore to original plan
-      const source = card._originalSource === 'ultra' ? 'ultra_plan' : 'default_plan';
-      const originalPlan = Array.isArray(period[source === 'ultra_plan' ? 'ultra_plan' : 'default_plan'])
-        ? [...period[source === 'ultra_plan' ? 'ultra_plan' : 'default_plan']]
-        : [];
-
-      // Remove internal tracking fields before restoring
-      const { _index, _originalSource, _rejectedAt, _reevaluatedAt, ...cleanCard } = card as any;
-      originalPlan.push(cleanCard);
-
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('period_plans')
-        .update({
-          rejected_plan: updatedRejected as unknown as null,
-          [source]: originalPlan as unknown as null,
-        })
+        .update({ rejected_plan: updatedRejected as unknown as null })
         .eq('id', period.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
-      setPeriod({
-        ...period,
-        rejected_plan: updatedRejected,
-        [source]: originalPlan,
-      });
+      setPeriod({ ...period, rejected_plan: updatedRejected });
       setCards(updatedRejected.map((item: any, i: number) => ({
         ...item,
         _index: i,
         _originalSource: item._originalSource || 'default',
       })));
 
-      toast.success("Card restaurado para aprovação!");
+      toast.success(`"${title}" aprovado e enviado ao Kanban!`);
     } catch (error) {
-      console.error('Error restoring card:', error);
-      toast.error("Erro ao restaurar card");
+      console.error('Error approving card:', error);
+      toast.error("Erro ao aprovar card");
+    } finally {
+      setApprovingIndex(null);
     }
   };
 
@@ -275,7 +314,7 @@ const RejectedCards = () => {
         ) : (
           <div className="mt-6 space-y-4">
             <p className="text-sm text-muted-foreground">
-              {cards.length} card(s) reprovado(s) — Clique em "Reavaliar Conteúdo" para melhorar com IA ou "Restaurar" para devolver à aprovação.
+              {cards.length} card(s) reprovado(s) — Clique em "Reavaliar Conteúdo" para melhorar com IA ou "Aprovar" para enviar ao Kanban.
             </p>
             {cards.map((card, idx) => (
               <div key={idx} className="relative">
@@ -283,11 +322,12 @@ const RejectedCards = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={(e) => { e.stopPropagation(); handleRestoreCard(idx); }}
+                    onClick={(e) => { e.stopPropagation(); handleApproveCard(idx); }}
                     className="gap-1"
+                    disabled={approvingIndex === idx}
                   >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    Restaurar
+                    {approvingIndex === idx ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    Aprovar
                   </Button>
                   <Button
                     size="sm"
