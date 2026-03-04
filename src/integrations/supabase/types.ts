@@ -475,6 +475,60 @@ export type Database = {
           },
         ]
       }
+      generated_contents: {
+        Row: {
+          client_id: string
+          content_type: string
+          created_at: string
+          created_by: string | null
+          id: string
+          image_urls: Json
+          metadata: Json | null
+          prompt: string | null
+          tenant_id: string
+          title: string | null
+        }
+        Insert: {
+          client_id: string
+          content_type?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_urls?: Json
+          metadata?: Json | null
+          prompt?: string | null
+          tenant_id: string
+          title?: string | null
+        }
+        Update: {
+          client_id?: string
+          content_type?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_urls?: Json
+          metadata?: Json | null
+          prompt?: string | null
+          tenant_id?: string
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_contents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_contents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           code: string
