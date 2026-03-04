@@ -37,6 +37,9 @@ const ClientHub = () => {
   const [aiCarouselModalOpen, setAiCarouselModalOpen] = useState(false);
   const [carouselIdea, setCarouselIdea] = useState('');
   const [slideCount, setSlideCount] = useState<number | null>(null);
+  const [carouselStep, setCarouselStep] = useState<1 | 2>(1);
+  const [carouselSlides, setCarouselSlides] = useState<Array<{ text: string; label: string }>>([]);
+  const [generatingCarousel, setGeneratingCarousel] = useState(false);
   const [manualCarouselOpen, setManualCarouselOpen] = useState(false);
   const [manualSlides, setManualSlides] = useState<Array<{ text: string; label: string }>>([
     { text: '', label: 'Gancho (Atração)' },
