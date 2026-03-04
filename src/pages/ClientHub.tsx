@@ -912,7 +912,7 @@ const ClientHub = () => {
         </Dialog>
 
         {/* Modal Gerar Carrossel com IA - Two Steps */}
-        <Dialog open={aiCarouselModalOpen} onOpenChange={(open) => { setAiCarouselModalOpen(open); if (!open) { setCarouselIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setSlideCount(null); setCarouselStep(1); setCarouselSlides([]); } }}>
+        <Dialog open={aiCarouselModalOpen} onOpenChange={(open) => { setAiCarouselModalOpen(open); if (!open) { setCarouselIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setSlideCount(null); setCarouselStep(1); setCarouselSlides([]); setCarouselAspectRatio('1:1'); setCarouselAiModel('nanobanana3'); } }}>
           <DialogContent className={`!flex !flex-col overflow-hidden ${carouselStep === 2 ? 'sm:max-w-4xl max-h-[95vh]' : 'sm:max-w-xl max-h-[85vh]'}`}>
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-center">
