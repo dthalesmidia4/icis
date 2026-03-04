@@ -883,76 +883,89 @@ const ClientHub = () => {
 
         {/* Modal Vídeo - Storyboard */}
         <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) { setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); setVideoAspectRatio('9:16'); setSelectedMascotIds([]); } }}>
-          <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-xl flex items-center gap-2">
+              <DialogTitle className="text-lg flex items-center gap-2">
                 <Clapperboard className="w-5 h-5 text-primary" />Criar Storyboard de Vídeo
               </DialogTitle>
-              <p className="text-sm text-muted-foreground">Descreva sua ideia e escolha quantas cenas você quer. A IA vai criar um storyboard completo.</p>
             </DialogHeader>
-            <div className="space-y-5 py-2">
-              <div className="space-y-2">
+            <div className="space-y-4 py-1">
+              <div className="space-y-1.5">
                 <Label className="text-sm font-medium">Ideia do Vídeo</Label>
-                <Textarea placeholder="Ex: Um comercial cinematográfico de um café robótico cyberpunk..." value={videoIdea} onChange={(e) => setVideoIdea(e.target.value)} className="min-h-[100px] resize-none" />
+                <Textarea placeholder="Ex: Um comercial cinematográfico de um café robótico cyberpunk..." value={videoIdea} onChange={(e) => setVideoIdea(e.target.value)} className="min-h-[90px] resize-none" />
               </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Quantidade de Cenas</Label>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <button key={n} onClick={() => setSceneCount(n)}
-                      className={`w-10 h-10 rounded-lg font-bold text-sm transition-all duration-200 ${sceneCount === n ? 'bg-primary text-primary-foreground shadow-lg scale-110' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
-                      {n}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Formato</Label>
-                <div className="flex gap-2">
-                  {['9:16', '16:9', '1:1', '4:5'].map((ratio) => (
-                    <button key={ratio} onClick={() => setVideoAspectRatio(ratio)}
-                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${videoAspectRatio === ratio ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
-                      {ratio}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {mascotImages.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Mascote (opcional)</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {mascotImages.map((mascot) => (
-                      <button key={mascot.id}
-                        onClick={() => setSelectedMascotIds(prev => prev.includes(mascot.id) ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
-                        className={`relative w-16 h-16 rounded-lg border-2 overflow-hidden transition-all duration-200 ${selectedMascotIds.includes(mascot.id) ? 'border-primary ring-2 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
-                        <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Cenas</Label>
+                  <div className="flex gap-1.5">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button key={n} onClick={() => setSceneCount(n)}
+                        className={`w-9 h-9 rounded-lg font-bold text-sm transition-all ${sceneCount === n ? 'bg-primary text-primary-foreground shadow-lg scale-110' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                        {n}
                       </button>
                     ))}
                   </div>
                 </div>
-              )}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Identidade Visual (Predefinição)</Label>
-                {presets.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva. Crie uma no botão "Identidade Visual" do Hub.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {presets.map((preset) => (
-                      <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
-                        <div className="flex gap-1">
-                          {preset.primary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
-                          {preset.secondary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
-                        </div>
-                        {preset.name}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Formato</Label>
+                  <div className="flex gap-1.5">
+                    {['9:16', '16:9', '1:1', '4:5'].map((ratio) => (
+                      <button key={ratio} onClick={() => setVideoAspectRatio(ratio)}
+                        className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-all ${videoAspectRatio === ratio ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                        {ratio}
                       </button>
                     ))}
                   </div>
-                )}
+                </div>
               </div>
-              <Button className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70" disabled={!videoIdea.trim()}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Predefinição Visual</Label>
+                  {presets.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {presets.map((preset) => (
+                        <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
+                          <div className="flex gap-0.5">
+                            {preset.primary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
+                            {preset.secondary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
+                          </div>
+                          {preset.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium">Mascote</Label>
+                  {mascotImages.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {mascotImages.map((mascot) => {
+                        const isSelected = selectedMascotIds.includes(mascot.id);
+                        return (
+                          <button key={mascot.id}
+                            onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
+                            className={`relative w-14 h-14 rounded-lg border-2 overflow-hidden transition-all ${isSelected ? 'border-primary ring-1 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
+                            <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
+                            {isSelected && (<div className="absolute inset-0 bg-primary/20 flex items-center justify-center"><CheckSquare className="w-4 h-4 text-primary" /></div>)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70" disabled={!videoIdea.trim()}
                 onClick={() => { setVideoModalOpen(false); toast.info("Geração de Storyboard em breve!"); }}>
-                <Clapperboard className="w-5 h-5 mr-2" />Gerar Storyboard
+                <Clapperboard className="w-4 h-4 mr-2" />Gerar Storyboard
               </Button>
             </div>
           </DialogContent>
