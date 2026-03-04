@@ -203,6 +203,31 @@ const DevPrompts = () => {
     }
   }, [postsPromptData]);
 
+  // Buscar o prompt de reavaliação
+  const { data: reavaliacaoPromptData, isLoading: isLoadingReavaliacao } = useQuery({
+    queryKey: ["system-prompt", "reavaliacao_prompt", tenantId],
+    queryFn: async () => {
+      if (!tenantId) return null;
+      const { data, error } = await supabase
+        .from("system_prompts")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("prompt_key", "reavaliacao_prompt")
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!tenantId,
+  });
+
+  useEffect(() => {
+    if (reavaliacaoPromptData) {
+      setReavaliacaoPromptContent(reavaliacaoPromptData.prompt_content);
+    } else {
+      setReavaliacaoPromptContent("");
+    }
+  }, [reavaliacaoPromptData]);
+
   // Mutation para salvar o prompt de estratégia
   const saveStrategyPromptMutation = useMutation({
     mutationFn: async (content: string) => {
