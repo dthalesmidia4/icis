@@ -4,7 +4,6 @@ import { Calendar, CalendarClock } from "lucide-react";
 interface KanbanCardProps {
   title: string;
   subtitle?: string;
-  deliveryDate: string;
   dueDate?: string;
   cardDeliveryDate?: string;
   isDragging?: boolean;
