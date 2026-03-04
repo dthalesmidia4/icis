@@ -206,6 +206,7 @@ const KanbanCentralPage = () => {
     }
   }, [cards, searchParams]);
 
+  const fetchColumns = async () => {
     if (!tenantId) return;
     try {
       const { data: pipelineData, error: pipelineError } = await supabase
