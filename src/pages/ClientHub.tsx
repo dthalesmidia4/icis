@@ -23,6 +23,7 @@ const ClientHub = () => {
   const [productionModalOpen, setProductionModalOpen] = useState(false);
   const [selectedContentType, setSelectedContentType] = useState<string | null>(null);
   const [pendingCardsCount, setPendingCardsCount] = useState(0);
+  const [rejectedCardsCount, setRejectedCardsCount] = useState(0);
   const [visualIdentityModalOpen, setVisualIdentityModalOpen] = useState(false);
   const [videoModalOpen, setVideoModalOpen] = useState(false);
   const [videoIdea, setVideoIdea] = useState('');
@@ -139,6 +140,34 @@ const ClientHub = () => {
     fetchCount();
   }, [selectedClient, tenantId]);
 
+  // Fetch rejected cards count
+  useEffect(() => {
+    if (!selectedClient || !tenantId) return;
+
+    const fetchRejectedCount = async () => {
+      try {
+        const { data: periods } = await supabase
+          .from('period_plans')
+          .select('rejected_plan')
+          .eq('company_id', selectedClient.id)
+          .eq('tenant_id', tenantId);
+
+        if (!periods) return;
+
+        let total = 0;
+        for (const p of periods) {
+          const rp = Array.isArray(p.rejected_plan) ? p.rejected_plan : [];
+          total += rp.length;
+        }
+        setRejectedCardsCount(total);
+      } catch {
+        // silently fail
+      }
+    };
+
+    fetchRejectedCount();
+  }, [selectedClient, tenantId]);
+
   if (!isInitialized || !selectedClient) return null;
 
   const displayName = selectedClient.fantasy_name || selectedClient.name;
@@ -221,6 +250,7 @@ const ClientHub = () => {
       title: "Demandas Reprovadas",
       icon: ThumbsDown,
       action: () => navigate("/rejected-cards"),
+      badge: rejectedCardsCount > 0 ? rejectedCardsCount : undefined,
     },
     {
       title: "Cronograma Atual",
