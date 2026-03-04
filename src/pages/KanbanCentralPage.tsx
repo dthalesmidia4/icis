@@ -54,6 +54,7 @@ interface CentralKanbanCard extends KanbanCardData {
 const KanbanCentralPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { tenantId, isLoading: tenantLoading } = useTenant();
+  const { isSuperAdmin } = useAgencyRole();
   const [cards, setCards] = useState<CentralKanbanCard[]>([]);
   const [archivedCards, setArchivedCards] = useState<CentralKanbanCard[]>([]);
   const [loading, setLoading] = useState(true);
