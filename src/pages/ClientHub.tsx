@@ -508,65 +508,68 @@ const ClientHub = () => {
 
         {/* Modal Post Estático Manual */}
         <Dialog open={manualPostOpen} onOpenChange={(open) => { setManualPostOpen(open); if (!open) { setManualPostText(''); setSelectedPresetId(null); setSelectedMascotIds([]); setGeneratedManualPostImage(null); } }}>
-          <DialogContent className={`!flex !flex-col overflow-hidden ${generatedManualPostImage ? 'sm:max-w-5xl max-h-[95vh]' : 'sm:max-w-xl max-h-[90vh]'}`}>
+          <DialogContent className={`!flex !flex-col overflow-hidden ${generatedManualPostImage ? 'sm:max-w-5xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[90vh]'}`}>
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-center">Editor de Conteúdo</DialogTitle>
-              <p className="text-sm text-muted-foreground text-center">Escreva o texto do seu post estático.</p>
+              <DialogTitle className="text-lg flex items-center gap-2">
+                <PenLine className="w-5 h-5 text-primary" />Editor de Post
+              </DialogTitle>
             </DialogHeader>
 
             <div className={`flex-1 min-h-0 ${generatedManualPostImage ? 'flex gap-6' : 'overflow-y-auto'}`}>
-              <div className={`space-y-5 py-2 ${generatedManualPostImage ? 'w-[40%] flex-shrink-0 overflow-y-auto' : 'w-full'}`}>
-                <div className="space-y-2">
+              <div className={`space-y-4 py-1 ${generatedManualPostImage ? 'w-[40%] flex-shrink-0 overflow-y-auto' : 'w-full'}`}>
+                <div className="space-y-1.5">
                   <Label className="text-sm font-medium">Texto do Post</Label>
                   <Textarea placeholder="Escreva o texto que aparecerá no post..." value={manualPostText}
-                    onChange={(e) => setManualPostText(e.target.value.slice(0, 50))} className="min-h-[120px] resize-none" disabled={generatingManualPost} />
+                    onChange={(e) => setManualPostText(e.target.value.slice(0, 50))} className="min-h-[100px] resize-none" disabled={generatingManualPost} />
                   <p className={`text-xs text-right ${manualPostText.length > 50 ? 'text-destructive' : 'text-muted-foreground'}`}>{manualPostText.length}/50</p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Identidade Visual (Predefinição)</Label>
-                  {presets.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {presets.map((preset) => (
-                        <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)} disabled={generatingManualPost}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
-                          <div className="flex gap-1">
-                            {preset.primary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
-                            {preset.secondary_color && <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
-                          </div>
-                          {preset.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Mascotes</Label>
-                  {mascotImages.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-3">
-                      {mascotImages.map((mascot) => {
-                        const isSelected = selectedMascotIds.includes(mascot.id);
-                        return (
-                          <button key={mascot.id} disabled={generatingManualPost} onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
-                            className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${isSelected ? 'border-primary ring-2 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
-                            <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
-                            {isSelected && (<div className="absolute inset-0 bg-primary/20 flex items-center justify-center"><CheckSquare className="w-5 h-5 text-primary" /></div>)}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Predefinição Visual</Label>
+                    {presets.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {presets.map((preset) => (
+                          <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)} disabled={generatingManualPost}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
+                            <div className="flex gap-0.5">
+                              {preset.primary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
+                              {preset.secondary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />}
+                            </div>
+                            {preset.name}
                           </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Mascote</Label>
+                    {mascotImages.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {mascotImages.map((mascot) => {
+                          const isSelected = selectedMascotIds.includes(mascot.id);
+                          return (
+                            <button key={mascot.id} disabled={generatingManualPost} onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
+                              className={`relative w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${isSelected ? 'border-primary ring-1 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
+                              <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
+                              {isSelected && (<div className="absolute inset-0 bg-primary/20 flex items-center justify-center"><CheckSquare className="w-4 h-4 text-primary" /></div>)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {generatedManualPostImage && (
-                <div className="w-[60%] flex-shrink-0 flex flex-col py-2">
-                  <Label className="text-sm font-medium mb-3">Resultado</Label>
+                <div className="w-[60%] flex-shrink-0 flex flex-col py-1">
+                  <Label className="text-sm font-medium mb-2">Resultado</Label>
                   <div className="flex-1 min-h-0 flex items-center justify-center rounded-xl overflow-hidden border-2 border-primary/30 shadow-lg bg-black/5">
                     <img src={generatedManualPostImage} alt="Post gerado" className="w-full h-full object-contain" />
                   </div>
@@ -574,16 +577,16 @@ const ClientHub = () => {
               )}
             </div>
 
-            <div className={`flex gap-3 mt-2 ${generatedManualPostImage ? '' : 'flex-col'}`}>
+            <div className={`flex gap-3 mt-1 ${generatedManualPostImage ? '' : 'flex-col'}`}>
               {generatedManualPostImage && (
-                <Button variant="outline" className="h-12 text-base font-semibold flex-1" onClick={() => {
+                <Button variant="outline" className="h-11 text-sm font-semibold flex-1" onClick={() => {
                   const link = document.createElement('a'); link.href = generatedManualPostImage; link.download = `post-${selectedClient?.name || 'gerado'}-${Date.now()}.png`; link.click();
                 }}>
-                  <Download className="w-5 h-5 mr-2" />Baixar Imagem
+                  <Download className="w-4 h-4 mr-2" />Baixar Imagem
                 </Button>
               )}
-              <Button className={`h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 ${generatedManualPostImage ? 'flex-1' : 'w-full'}`} disabled={!manualPostText.trim() || generatingManualPost} onClick={() => handleGeneratePost(manualPostText, true)}>
-                {generatingManualPost ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Gerando...</>) : (<><Clapperboard className="w-5 h-5 mr-2" />{generatedManualPostImage ? 'Gerar Novamente' : 'Gerar Post'}</>)}
+              <Button className={`h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 ${generatedManualPostImage ? 'flex-1' : 'w-full'}`} disabled={!manualPostText.trim() || generatingManualPost} onClick={() => handleGeneratePost(manualPostText, true)}>
+                {generatingManualPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />{generatedManualPostImage ? 'Gerar Novamente' : 'Gerar Post'}</>)}
               </Button>
             </div>
           </DialogContent>
