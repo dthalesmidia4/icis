@@ -181,11 +181,12 @@ const ManageColumnsModal = ({
     setMoveToColumnId("");
 
     try {
-      // Count ALL cards (including archived) in this column
+      // Count ALL cards (including archived) in this column, filtered by pipeline
       const { count: totalCount, error: totalError } = await supabase
         .from("demands")
         .select("id", { count: "exact", head: true })
-        .eq("status_id", column.id);
+        .eq("status_id", column.id)
+        .eq("pipeline_id", column.pipeline_id);
 
       if (totalError) throw totalError;
 
@@ -194,6 +195,7 @@ const ManageColumnsModal = ({
         .from("demands")
         .select("id", { count: "exact", head: true })
         .eq("status_id", column.id)
+        .eq("pipeline_id", column.pipeline_id)
         .is("archived_at", null);
 
       if (activeError) throw activeError;
