@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.generate-carousel-content]
 verify_jwt = false
+
+[functions.generate-carousel-images]
+verify_jwt = false
