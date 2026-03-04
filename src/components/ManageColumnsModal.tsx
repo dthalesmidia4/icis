@@ -28,6 +28,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { createPortal } from "react-dom";
 
 // Custom portal for draggable items to render correctly inside modal
@@ -66,9 +73,11 @@ const ManageColumnsModal = ({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [columnToDelete, setColumnToDelete] = useState<PipelineStatus | null>(null);
   const [cardCount, setCardCount] = useState<number>(0);
+  const [activeCardCount, setActiveCardCount] = useState<number>(0);
   const [checkingCards, setCheckingCards] = useState(false);
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [moveToColumnId, setMoveToColumnId] = useState<string>("");
 
   useEffect(() => {
     if (open) {
@@ -169,17 +178,28 @@ const ManageColumnsModal = ({
   const handleDeleteClick = async (column: PipelineStatus) => {
     setColumnToDelete(column);
     setCheckingCards(true);
+    setMoveToColumnId("");
 
     try {
-      // Check if there are cards in this column
-      const { count, error } = await supabase
+      // Count ALL cards (including archived) in this column
+      const { count: totalCount, error: totalError } = await supabase
         .from("demands")
         .select("id", { count: "exact", head: true })
         .eq("status_id", column.id);
 
-      if (error) throw error;
+      if (totalError) throw totalError;
 
-      setCardCount(count || 0);
+      // Count active cards only
+      const { count: activeCount, error: activeError } = await supabase
+        .from("demands")
+        .select("id", { count: "exact", head: true })
+        .eq("status_id", column.id)
+        .is("archived_at", null);
+
+      if (activeError) throw activeError;
+
+      setCardCount(totalCount || 0);
+      setActiveCardCount(activeCount || 0);
       setDeleteConfirmOpen(true);
     } catch (error) {
       console.error("Error checking cards:", error);
@@ -192,16 +212,31 @@ const ManageColumnsModal = ({
   const handleConfirmDelete = async () => {
     if (!columnToDelete) return;
 
-    // If there are cards, don't allow deletion
-    if (cardCount > 0) {
-      toast.error("Mova os cards para outra coluna antes de excluir");
-      setDeleteConfirmOpen(false);
-      setColumnToDelete(null);
+    // If there are cards and no target column selected, block
+    if (cardCount > 0 && !moveToColumnId) {
+      toast.error("Selecione uma coluna para mover os cards antes de excluir");
       return;
     }
 
     setLoading(true);
     try {
+      // Move cards to the target column first
+      if (cardCount > 0 && moveToColumnId) {
+        const { error: moveError } = await supabase
+          .from("demands")
+          .update({ 
+            status_id: moveToColumnId,
+            updated_at: new Date().toISOString()
+          })
+          .eq("status_id", columnToDelete.id);
+
+        if (moveError) throw moveError;
+
+        const targetCol = columns.find(c => c.id === moveToColumnId);
+        toast.success(`${cardCount} card(s) movido(s) para "${targetCol?.name}"`);
+      }
+
+      // Now delete the column
       const { error } = await supabase
         .from("pipeline_statuses")
         .delete()
@@ -219,8 +254,11 @@ const ManageColumnsModal = ({
       setLoading(false);
       setDeleteConfirmOpen(false);
       setColumnToDelete(null);
+      setMoveToColumnId("");
     }
   };
+
+  const availableTargetColumns = columns.filter(c => c.id !== columnToDelete?.id);
 
   return (
     <>
@@ -295,9 +333,7 @@ const ManageColumnsModal = ({
                                 />
                               ) : (
                                 <span
-                                  className={cn(
-                                    "flex-1 font-medium text-sm text-foreground flex items-center gap-1.5 group/name cursor-pointer"
-                                  )}
+                                  className="flex-1 font-medium text-sm text-foreground flex items-center gap-1.5 group/name cursor-pointer"
                                   onClick={() => handleStartEditing(column)}
                                 >
                                   {column.name}
@@ -354,37 +390,63 @@ const ManageColumnsModal = ({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              {cardCount > 0 && <AlertTriangle className="h-5 w-5 text-destructive" />}
-              {cardCount > 0 ? "Não é possível excluir" : "Excluir coluna"}
+              {cardCount > 0 && <AlertTriangle className="h-5 w-5 text-amber-500" />}
+              {cardCount > 0 ? "Mover cards antes de excluir" : "Excluir coluna"}
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              {cardCount > 0 ? (
-                <>
-                  A coluna <strong>"{columnToDelete?.name}"</strong> possui{" "}
-                  <strong>{cardCount} {cardCount === 1 ? "card" : "cards"}</strong>.
-                  <br />
-                  <br />
-                  Mova os cards para outra coluna antes de excluir esta.
-                </>
-              ) : (
-                <>
-                  Tem certeza que deseja excluir a coluna{" "}
-                  <strong>"{columnToDelete?.name}"</strong>?
-                  <br />
-                  <br />
-                  Esta ação não pode ser desfeita.
-                </>
-              )}
+            <AlertDialogDescription asChild>
+              <div>
+                {cardCount > 0 ? (
+                  <div className="space-y-3">
+                    <p>
+                      A coluna <strong>"{columnToDelete?.name}"</strong> possui{" "}
+                      <strong>{cardCount} {cardCount === 1 ? "card" : "cards"}</strong>
+                      {activeCardCount !== cardCount && (
+                        <span className="text-muted-foreground">
+                          {" "}({activeCardCount} {activeCardCount === 1 ? "ativo" : "ativos"}, {cardCount - activeCardCount} {cardCount - activeCardCount === 1 ? "arquivado" : "arquivados"})
+                        </span>
+                      )}
+                      .
+                    </p>
+                    <p>Selecione uma coluna para mover os cards:</p>
+                    <Select value={moveToColumnId} onValueChange={setMoveToColumnId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a coluna destino..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableTargetColumns.map((col) => (
+                          <SelectItem key={col.id} value={col.id}>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: col.color }}
+                              />
+                              {col.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <p>
+                    Tem certeza que deseja excluir a coluna{" "}
+                    <strong>"{columnToDelete?.name}"</strong>?
+                    <br />
+                    <br />
+                    Esta ação não pode ser desfeita.
+                  </p>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            {cardCount === 0 && (
+            {(cardCount === 0 || moveToColumnId) && (
               <AlertDialogAction
                 onClick={handleConfirmDelete}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                Excluir
+                {cardCount > 0 ? "Mover e Excluir" : "Excluir"}
               </AlertDialogAction>
             )}
           </AlertDialogFooter>
