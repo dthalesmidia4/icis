@@ -841,6 +841,27 @@ export default function TaskCard({
                       <div className="flex items-center gap-2 text-sm">
                         <span className="capitalize">{formatFullDate(card.due_date)}</span>
                       </div>
+                      {!readOnly ? (
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            type="time"
+                            value={card.due_time || '09:00'}
+                            onChange={async (e) => {
+                              const time = e.target.value;
+                              onCardChange({ ...card, due_time: time });
+                              await onSave('due_time', time);
+                            }}
+                            className="h-9 flex-1 text-sm"
+                            aria-label="Horário de início de produção"
+                          />
+                        </div>
+                      ) : card.due_time ? (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span>{card.due_time}</span>
+                        </div>
+                      ) : null}
                     </CardContent>
                   </Card>
                 )}
