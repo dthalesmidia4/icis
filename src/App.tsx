@@ -44,6 +44,7 @@ import NotFound from "./pages/NotFound";
 import CompletedDemands from "./pages/CompletedDemands";
 import ApproveCards from "./pages/ApproveCards";
 import RejectedCards from "./pages/RejectedCards";
+import ContentHistory from "./pages/ContentHistory";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -101,6 +102,18 @@ function AppRoutes() {
             <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
               <Layout>
                 <ClientHub />
+              </Layout>
+            </RequireRole>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/content-history" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
+              <Layout>
+                <ContentHistory />
               </Layout>
             </RequireRole>
           </RequireTenant>
