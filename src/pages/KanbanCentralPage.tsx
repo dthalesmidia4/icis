@@ -329,6 +329,7 @@ const KanbanCentralPage = () => {
           publish_date: demand.publish_date || null,
           publish_time: demand.publish_time || null,
           tenant_id: demand.tenant_id,
+          delivery_date: demand.delivery_date || null,
           period_plan_id: demand.period_plan_id,
           created_at: demand.created_at,
           updated_at: demand.updated_at,
@@ -891,6 +892,7 @@ const KanbanCentralPage = () => {
                                    subtitle={card.clientName}
                                    deliveryDate={card.publish_date || card.due_date}
                                    dueDate={card.due_date}
+                                   cardDeliveryDate={card.delivery_date || undefined}
                                   isDragging={snapshot.isDragging}
                                   onClick={() => handleCardClick(card)}
                                 />

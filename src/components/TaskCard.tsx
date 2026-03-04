@@ -71,6 +71,7 @@ export interface KanbanCardData {
   attachments: Attachment[] | null;
   publish_date: string | null;
   publish_time: string | null;
+  delivery_date?: string | null;
   archived_at?: string | null;
   additional_publish_dates?: string[];
   // Fields for demands mapped to cards
@@ -841,6 +842,52 @@ export default function TaskCard({
                     </CardContent>
                   </Card>
                 )}
+
+                {/* Data de Entrega */}
+                <Card>
+                  <CardContent className="p-4 space-y-2">
+                    <h3 className="font-semibold text-sm flex items-center gap-2">
+                      <CalendarIcon className="h-4 w-4 text-emerald-500" />
+                      Data de Entrega
+                    </h3>
+                    {readOnly ? (
+                      <div className="flex items-center gap-2 text-sm">
+                        {card.delivery_date ? (
+                          <span className="capitalize">{formatFullDate(card.delivery_date)}</span>
+                        ) : (
+                          <span className="text-muted-foreground">Sem data definida</span>
+                        )}
+                      </div>
+                    ) : (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
+                            <CalendarIcon className="h-3.5 w-3.5" />
+                            {card.delivery_date ? (
+                              <span className="capitalize">{formatShortDate(card.delivery_date)}</span>
+                            ) : (
+                              <span className="text-muted-foreground">Definir data</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar 
+                            mode="single" 
+                            selected={card.delivery_date ? new Date(card.delivery_date + 'T00:00:00') : undefined} 
+                            onSelect={(date) => {
+                              if (date) {
+                                const formatted = date.toISOString().split('T')[0];
+                                onCardChange({ ...card, delivery_date: formatted });
+                                handleFieldSave('delivery_date', formatted);
+                              }
+                            }} 
+                            initialFocus 
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </CardContent>
+                </Card>
 
                 {/* Data de Publicação */}
                 <Card>
