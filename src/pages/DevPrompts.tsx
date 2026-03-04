@@ -124,6 +124,7 @@ const DevPrompts = () => {
   const [strategyPromptContent, setStrategyPromptContent] = useState("");
   const [demandasPromptContent, setDemandasPromptContent] = useState("");
   const [postsPromptContent, setPostsPromptContent] = useState("");
+  const [reavaliacaoPromptContent, setReavaliacaoPromptContent] = useState("");
 
   // Buscar o prompt de geração de estratégia
   const { data: strategyPromptData, isLoading: isLoadingStrategy } = useQuery({
