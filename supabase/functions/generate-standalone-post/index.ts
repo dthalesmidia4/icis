@@ -96,10 +96,8 @@ Deno.serve(async (req) => {
 
     // 5. Build the image prompt
     const mascotSection = mascotImageUrls && mascotImageUrls.length > 0
-      ? `- MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição: ${client.mascot_description}.` : ""} O mascote DEVE aparecer no design de forma integrada e harmoniosa. Uma imagem de referência do mascote foi anexada.`
-      : client?.has_mascot
-        ? `- A marca possui mascote, mas não foi selecionado para este post. NÃO inclua personagens.`
-        : `- NÃO inclua personagens ou mascotes no design.`;
+      ? `- MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""} OBRIGATÓRIO: Reproduza o mascote EXATAMENTE como na imagem de referência fornecida — mesma aparência, cabelo, roupa, proporções e características físicas. NÃO altere nenhuma característica do mascote. O mascote DEVE aparecer no design de forma integrada e harmoniosa.`
+      : `- NÃO inclua personagens, mascotes ou figuras humanas no design.`;
 
     const imagePrompt = `
 ${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}Crie uma imagem profissional de post para rede social.
@@ -108,16 +106,16 @@ IDEIA DO USUÁRIO:
 "${idea}"
 
 BRANDING:
-- Marca: "${brandName}"
 - Cor primária: ${presetColors.primary}
 - Cor secundária: ${presetColors.secondary}
 ${presetColors.highlight ? `- Cor de destaque: ${presetColors.highlight}` : ""}
 ${presetColors.text ? `- Cor do texto: ${presetColors.text}` : ""}
 - Tipografia: ${presetColors.font}
-- Incluir nome da marca sutilmente no canto inferior
 ${mascotSection}
 
-ESTILO:
+REGRAS OBRIGATÓRIAS:
+- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem
+- NÃO adicione texto com o nome da marca em nenhum lugar da imagem
 - Design profissional para redes sociais
 - Formato: 1:1 (quadrado, 1024x1024)
 - IMPORTANTE: Gere um POST COMPLETO para rede social, não apenas um elemento isolado
