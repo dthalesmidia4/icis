@@ -140,6 +140,17 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      <Route path="/rejected-cards" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
+              <Layout>
+                <RejectedCards />
+              </Layout>
+            </RequireRole>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
       
       <Route path="/cadastros-clientes" element={
         <ProtectedRoute>

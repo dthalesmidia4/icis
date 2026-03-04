@@ -544,10 +544,16 @@ const ApproveCards = () => {
                                 Aprovado
                               </Badge>
                             ) : (
-                              <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving}>
-                                {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-                                Aprovar Card
-                              </Button>
+                              <>
+                                <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleReject(card); }} className="gap-1">
+                                  <ThumbsDown className="w-3.5 h-3.5" />
+                                  Reprovar
+                                </Button>
+                                <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving}>
+                                  {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                                  Aprovar Card
+                                </Button>
+                              </>
                             )}
                           </div>
                           <DemandaCard demanda={card} variant="normal" />
@@ -581,10 +587,16 @@ const ApproveCards = () => {
                                 Aprovado
                               </Badge>
                             ) : (
-                              <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving}>
-                                {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-                                Aprovar Card
-                              </Button>
+                              <>
+                                <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleReject(card); }} className="gap-1">
+                                  <ThumbsDown className="w-3.5 h-3.5" />
+                                  Reprovar
+                                </Button>
+                                <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving}>
+                                  {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                                  Aprovar Card
+                                </Button>
+                              </>
                             )}
                           </div>
                           <DemandaCard demanda={card} variant="ultra" />
