@@ -230,7 +230,12 @@ const ClientHub = () => {
       });
       if (error) { console.error('Edge function error:', error); toast.error('Erro ao gerar imagens do carrossel.'); return; }
       if (data?.error) { toast.error(data.error); if (data.partialImages?.length > 0) setCarouselGeneratedImages(data.partialImages); return; }
-      if (data?.images && Array.isArray(data.images)) { setCarouselGeneratedImages(data.images); toast.success(`${data.totalGenerated}/${data.totalRequested} imagens geradas com sucesso!`); }
+      if (data?.images && Array.isArray(data.images)) {
+        setCarouselGeneratedImages(data.images);
+        toast.success(`${data.totalGenerated}/${data.totalRequested} imagens geradas com sucesso!`);
+        const urls = data.images.map((img: any) => img.imageUrl).filter(Boolean);
+        if (urls.length > 0) await saveGeneratedContent('carousel', 'Carrossel com IA', carouselIdea, urls);
+      }
       else { toast.error('Nenhuma imagem retornada.'); }
     } catch (err) { console.error('Generate carousel images error:', err); toast.error('Erro inesperado ao gerar imagens.'); }
     finally { setGeneratingCarouselImages(false); setCarouselImageProgress(''); }
