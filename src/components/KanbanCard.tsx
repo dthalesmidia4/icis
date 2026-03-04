@@ -6,6 +6,7 @@ interface KanbanCardProps {
   subtitle?: string;
   deliveryDate: string;
   dueDate?: string;
+  cardDeliveryDate?: string;
   isDragging?: boolean;
   onClick?: () => void;
 }
