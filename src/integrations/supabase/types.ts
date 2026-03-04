@@ -359,9 +359,11 @@ export type Database = {
           created_at: string
           created_by: string | null
           delivery_date: string | null
+          delivery_time: string | null
           demand_type: string | null
           description: string | null
           due_date: string | null
+          due_time: string | null
           id: string
           instructions: string | null
           objective: string | null
@@ -386,9 +388,11 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           delivery_date?: string | null
+          delivery_time?: string | null
           demand_type?: string | null
           description?: string | null
           due_date?: string | null
+          due_time?: string | null
           id?: string
           instructions?: string | null
           objective?: string | null
@@ -413,9 +417,11 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           delivery_date?: string | null
+          delivery_time?: string | null
           demand_type?: string | null
           description?: string | null
           due_date?: string | null
+          due_time?: string | null
           id?: string
           instructions?: string | null
           objective?: string | null

@@ -72,6 +72,8 @@ export interface KanbanCardData {
   publish_date: string | null;
   publish_time: string | null;
   delivery_date?: string | null;
+  due_time?: string | null;
+  delivery_time?: string | null;
   archived_at?: string | null;
   additional_publish_dates?: string[];
   // Fields for demands mapped to cards
@@ -839,6 +841,27 @@ export default function TaskCard({
                       <div className="flex items-center gap-2 text-sm">
                         <span className="capitalize">{formatFullDate(card.due_date)}</span>
                       </div>
+                      {!readOnly ? (
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            type="time"
+                            value={card.due_time || '09:00'}
+                            onChange={async (e) => {
+                              const time = e.target.value;
+                              onCardChange({ ...card, due_time: time });
+                              await onSave('due_time', time);
+                            }}
+                            className="h-9 flex-1 text-sm"
+                            aria-label="Horário de início de produção"
+                          />
+                        </div>
+                      ) : card.due_time ? (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span>{card.due_time}</span>
+                        </div>
+                      ) : null}
                     </CardContent>
                   </Card>
                 )}
@@ -851,40 +874,64 @@ export default function TaskCard({
                       Data de Entrega
                     </h3>
                     {readOnly ? (
-                      <div className="flex items-center gap-2 text-sm">
-                        {card.delivery_date ? (
-                          <span className="capitalize">{formatFullDate(card.delivery_date)}</span>
-                        ) : (
-                          <span className="text-muted-foreground">Sem data definida</span>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          {card.delivery_date ? (
+                            <span className="capitalize">{formatFullDate(card.delivery_date)}</span>
+                          ) : (
+                            <span className="text-muted-foreground">Sem data definida</span>
+                          )}
+                        </div>
+                        {card.delivery_time && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>{card.delivery_time}</span>
+                          </div>
                         )}
                       </div>
                     ) : (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
-                            <CalendarIcon className="h-3.5 w-3.5" />
-                            {card.delivery_date ? (
-                              <span className="capitalize">{formatShortDate(card.delivery_date)}</span>
-                            ) : (
-                              <span className="text-muted-foreground">Definir data</span>
-                            )}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar 
-                            mode="single" 
-                            selected={card.delivery_date ? new Date(card.delivery_date + 'T00:00:00') : undefined} 
-                            onSelect={(date) => {
-                              if (date) {
-                                const formatted = date.toISOString().split('T')[0];
-                                onCardChange({ ...card, delivery_date: formatted });
-                                handleFieldSave('delivery_date', formatted);
-                              }
-                            }} 
-                            initialFocus 
+                      <div className="space-y-2">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
+                              <CalendarIcon className="h-3.5 w-3.5" />
+                              {card.delivery_date ? (
+                                <span className="capitalize">{formatShortDate(card.delivery_date)}</span>
+                              ) : (
+                                <span className="text-muted-foreground">Definir data</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar 
+                              mode="single" 
+                              selected={card.delivery_date ? new Date(card.delivery_date + 'T00:00:00') : undefined} 
+                              onSelect={(date) => {
+                                if (date) {
+                                  const formatted = date.toISOString().split('T')[0];
+                                  onCardChange({ ...card, delivery_date: formatted });
+                                  handleFieldSave('delivery_date', formatted);
+                                }
+                              }} 
+                              initialFocus 
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                          <Input
+                            type="time"
+                            value={card.delivery_time || '09:00'}
+                            onChange={async (e) => {
+                              const time = e.target.value;
+                              onCardChange({ ...card, delivery_time: time });
+                              await onSave('delivery_time', time);
+                            }}
+                            className="h-9 flex-1 text-sm"
+                            aria-label="Horário de entrega"
                           />
-                        </PopoverContent>
-                      </Popover>
+                        </div>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
