@@ -41,6 +41,8 @@ const ClientHub = () => {
   const [carouselStep, setCarouselStep] = useState<1 | 2>(1);
   const [carouselSlides, setCarouselSlides] = useState<Array<{ text: string; label: string }>>([]);
   const [generatingCarousel, setGeneratingCarousel] = useState(false);
+  const [carouselAspectRatio, setCarouselAspectRatio] = useState('1:1');
+  const [carouselAiModel, setCarouselAiModel] = useState<'nanobanana3' | 'gpt'>('nanobanana3');
   const [manualCarouselOpen, setManualCarouselOpen] = useState(false);
   const [manualSlides, setManualSlides] = useState<Array<{ text: string; label: string }>>([
     { text: '', label: 'Gancho (Atração)' },
