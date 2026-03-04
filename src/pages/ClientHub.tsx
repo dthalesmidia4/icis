@@ -883,8 +883,8 @@ const ClientHub = () => {
         <VisualIdentityModal open={visualIdentityModalOpen} onOpenChange={setVisualIdentityModalOpen} companyId={selectedClient?.id || ''} companyName={selectedClient?.fantasy_name || selectedClient?.name || ''} tenantId={tenantId || ''} />
 
         {/* Modal Vídeo - Storyboard */}
-        <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) { setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); } }}>
-          <DialogContent className="sm:max-w-xl">
+        <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) { setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); setVideoAspectRatio('9:16'); setSelectedMascotIds([]); } }}>
+          <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-xl flex items-center gap-2">
                 <Clapperboard className="w-5 h-5 text-primary" />Criar Storyboard de Vídeo
@@ -907,6 +907,31 @@ const ClientHub = () => {
                   ))}
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Formato</Label>
+                <div className="flex gap-2">
+                  {['9:16', '16:9', '1:1', '4:5'].map((ratio) => (
+                    <button key={ratio} onClick={() => setVideoAspectRatio(ratio)}
+                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${videoAspectRatio === ratio ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                      {ratio}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {mascotImages.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Mascote (opcional)</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {mascotImages.map((mascot) => (
+                      <button key={mascot.id}
+                        onClick={() => setSelectedMascotIds(prev => prev.includes(mascot.id) ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
+                        className={`relative w-16 h-16 rounded-lg border-2 overflow-hidden transition-all duration-200 ${selectedMascotIds.includes(mascot.id) ? 'border-primary ring-2 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
+                        <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Identidade Visual (Predefinição)</Label>
                 {presets.length === 0 ? (
