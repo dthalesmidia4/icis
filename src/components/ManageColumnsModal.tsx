@@ -296,15 +296,12 @@ const ManageColumnsModal = ({
                               ) : (
                                 <span
                                   className={cn(
-                                    "flex-1 font-medium text-sm text-foreground flex items-center gap-1.5 group/name",
-                                    !column.is_fixed && "cursor-pointer"
+                                    "flex-1 font-medium text-sm text-foreground flex items-center gap-1.5 group/name cursor-pointer"
                                   )}
-                                  onClick={() => !column.is_fixed && handleStartEditing(column)}
+                                  onClick={() => handleStartEditing(column)}
                                 >
                                   {column.name}
-                                  {!column.is_fixed && (
-                                    <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity" />
-                                  )}
+                                  <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover/name:opacity-100 transition-opacity" />
                                 </span>
                               )}
 
@@ -312,7 +309,6 @@ const ManageColumnsModal = ({
                                 #{column.position}
                               </span>
 
-                              {!column.is_fixed && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -326,7 +322,6 @@ const ManageColumnsModal = ({
                                   <Trash2 className="h-4 w-4" />
                                 )}
                               </Button>
-                              )}
                             </div>
                           );
 
