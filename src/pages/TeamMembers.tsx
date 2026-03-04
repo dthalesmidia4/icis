@@ -173,6 +173,16 @@ export default function TeamMembers() {
         // Se não tem permissões, assume que pode acessar tudo
         setHubPermissions(HUB_SECTIONS.map(s => ({ hub_section: s.id, can_access: true })));
       }
+
+      // Carregar configuração de notificações de atraso
+      const { data: lateNotif } = await supabase
+        .from('user_late_notification_settings')
+        .select('enabled')
+        .eq('user_id', userId)
+        .eq('tenant_id', agencyId)
+        .maybeSingle();
+
+      setLateNotificationEnabled(lateNotif?.enabled ?? false);
     } catch (error) {
       console.error('Erro ao carregar permissões:', error);
     }
