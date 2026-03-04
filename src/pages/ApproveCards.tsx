@@ -10,7 +10,7 @@ import { DemandReviewModal } from "@/components/DemandReviewModal";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarDays, Package, AlertCircle, RefreshCw, Check, CheckCheck, Eye, Shield, Rocket, Pencil } from "lucide-react";
+import { CalendarDays, Package, AlertCircle, RefreshCw, Check, CheckCheck, Eye, Shield, Rocket, Pencil, ThumbsDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -246,6 +246,49 @@ const ApproveCards = () => {
       await handleApprove(card);
     }
   };
+
+  const handleReject = useCallback(async (card: CardItem) => {
+    if (!period || !selectedClient) return;
+
+    try {
+      const isDefault = card._source === 'default';
+      const planKey = isDefault ? 'default_plan' : 'ultra_plan';
+      const plan = isDefault
+        ? (Array.isArray(period.default_plan) ? [...period.default_plan] : [])
+        : (Array.isArray(period.ultra_plan) ? [...period.ultra_plan] : []);
+
+      const indexInPlan = isDefault ? card._index : card._index - (Array.isArray(period.default_plan) ? period.default_plan.length : 0);
+
+      if (indexInPlan < 0 || indexInPlan >= plan.length) return;
+
+      // Remove from plan
+      const [removedCard] = plan.splice(indexInPlan, 1);
+
+      // Add to rejected_plan
+      const rejectedPlan = Array.isArray((period as any).rejected_plan) ? [...(period as any).rejected_plan] : [];
+      rejectedPlan.push({
+        ...removedCard,
+        _originalSource: card._source,
+        _rejectedAt: new Date().toISOString(),
+      });
+
+      const { error } = await supabase
+        .from('period_plans')
+        .update({
+          [planKey]: plan as unknown as null,
+          rejected_plan: rejectedPlan as unknown as null,
+        })
+        .eq('id', period.id);
+
+      if (error) throw error;
+
+      toast.success(`Card reprovado e movido para reavaliação`);
+      fetchData();
+    } catch (error) {
+      console.error('Error rejecting card:', error);
+      toast.error("Erro ao reprovar card");
+    }
+  }, [period, selectedClient]);
 
   // Open review modal for a specific plan type
   const handleOpenReview = (mode: 'normal' | 'ultra') => {
@@ -501,10 +544,16 @@ const ApproveCards = () => {
                                 Aprovado
                               </Badge>
                             ) : (
-                              <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving}>
-                                {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-                                Aprovar Card
-                              </Button>
+                              <>
+                                <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleReject(card); }} className="gap-1">
+                                  <ThumbsDown className="w-3.5 h-3.5" />
+                                  Reprovar
+                                </Button>
+                                <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving}>
+                                  {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                                  Aprovar Card
+                                </Button>
+                              </>
                             )}
                           </div>
                           <DemandaCard demanda={card} variant="normal" />
@@ -538,10 +587,16 @@ const ApproveCards = () => {
                                 Aprovado
                               </Badge>
                             ) : (
-                              <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving}>
-                                {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-                                Aprovar Card
-                              </Button>
+                              <>
+                                <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleReject(card); }} className="gap-1">
+                                  <ThumbsDown className="w-3.5 h-3.5" />
+                                  Reprovar
+                                </Button>
+                                <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving}>
+                                  {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                                  Aprovar Card
+                                </Button>
+                              </>
                             )}
                           </div>
                           <DemandaCard demanda={card} variant="ultra" />

@@ -537,6 +537,7 @@ export type Database = {
           primary_mode: string | null
           priority_channel: string
           production_line: Json | null
+          rejected_plan: Json
           status: string
           strategy_id: string | null
           tenant_id: string
@@ -563,6 +564,7 @@ export type Database = {
           primary_mode?: string | null
           priority_channel: string
           production_line?: Json | null
+          rejected_plan?: Json
           status?: string
           strategy_id?: string | null
           tenant_id: string
@@ -589,6 +591,7 @@ export type Database = {
           primary_mode?: string | null
           priority_channel?: string
           production_line?: Json | null
+          rejected_plan?: Json
           status?: string
           strategy_id?: string | null
           tenant_id?: string

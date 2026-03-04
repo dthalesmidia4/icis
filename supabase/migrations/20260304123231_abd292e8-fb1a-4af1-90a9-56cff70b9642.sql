@@ -1,0 +1,1 @@
+ALTER TABLE public.period_plans ADD COLUMN IF NOT EXISTS rejected_plan jsonb NOT NULL DEFAULT '[]'::jsonb;

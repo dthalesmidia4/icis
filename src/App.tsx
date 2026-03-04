@@ -43,6 +43,7 @@ import InstallApp from "./pages/InstallApp";
 import NotFound from "./pages/NotFound";
 import CompletedDemands from "./pages/CompletedDemands";
 import ApproveCards from "./pages/ApproveCards";
+import RejectedCards from "./pages/RejectedCards";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -134,6 +135,17 @@ function AppRoutes() {
             <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
               <Layout>
                 <ApproveCards />
+              </Layout>
+            </RequireRole>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/rejected-cards" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
+              <Layout>
+                <RejectedCards />
               </Layout>
             </RequireRole>
           </RequireTenant>
