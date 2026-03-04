@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.reevaluate-card]
 verify_jwt = false
+
+[functions.generate-carousel-content]
+verify_jwt = false

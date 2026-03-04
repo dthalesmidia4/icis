@@ -37,6 +37,9 @@ const ClientHub = () => {
   const [aiCarouselModalOpen, setAiCarouselModalOpen] = useState(false);
   const [carouselIdea, setCarouselIdea] = useState('');
   const [slideCount, setSlideCount] = useState<number | null>(null);
+  const [carouselStep, setCarouselStep] = useState<1 | 2>(1);
+  const [carouselSlides, setCarouselSlides] = useState<Array<{ text: string; label: string }>>([]);
+  const [generatingCarousel, setGeneratingCarousel] = useState(false);
   const [manualCarouselOpen, setManualCarouselOpen] = useState(false);
   const [manualSlides, setManualSlides] = useState<Array<{ text: string; label: string }>>([
     { text: '', label: 'Gancho (Atração)' },
@@ -219,6 +222,51 @@ const ClientHub = () => {
     }
   };
 
+  const handleGenerateCarouselContent = async () => {
+    if (!carouselIdea.trim() || !slideCount) return;
+    setGeneratingCarousel(true);
+    try {
+      const selectedMascotUrls = mascotImages
+        .filter(m => selectedMascotIds.includes(m.id))
+        .map(m => m.image_url);
+
+      const { data, error } = await supabase.functions.invoke('generate-carousel-content', {
+        body: {
+          idea: carouselIdea,
+          slideCount,
+          presetId: selectedPresetId,
+          mascotImageUrls: selectedMascotUrls,
+          clientId: selectedClient.id,
+          tenantId,
+        },
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        toast.error('Erro ao gerar conteúdo do carrossel. Tente novamente.');
+        return;
+      }
+
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      if (data?.slides && Array.isArray(data.slides)) {
+        setCarouselSlides(data.slides);
+        setCarouselStep(2);
+        toast.success('Conteúdo gerado! Revise e edite os slides.');
+      } else {
+        toast.error('Nenhum conteúdo retornado.');
+      }
+    } catch (err) {
+      console.error('Generate carousel error:', err);
+      toast.error('Erro inesperado ao gerar o carrossel.');
+    } finally {
+      setGeneratingCarousel(false);
+    }
+  };
+
   const actionCards = [
     {
       title: "Cadastro",
@@ -385,6 +433,8 @@ const ClientHub = () => {
                     setSelectedPresetId(null);
                     setSelectedMascotIds([]);
                     setSlideCount(null);
+                    setCarouselStep(1);
+                    setCarouselSlides([]);
                     setAiCarouselModalOpen(true);
                   } else {
                     toast.info(`Gerar ${selectedContentType} com IA em breve!`);
@@ -858,132 +908,196 @@ const ClientHub = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Modal Gerar Carrossel com IA */}
-        <Dialog open={aiCarouselModalOpen} onOpenChange={(open) => { setAiCarouselModalOpen(open); if (!open) { setCarouselIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setSlideCount(null); } }}>
-          <DialogContent className="sm:max-w-xl !flex !flex-col overflow-hidden max-h-[85vh]">
+        {/* Modal Gerar Carrossel com IA - Two Steps */}
+        <Dialog open={aiCarouselModalOpen} onOpenChange={(open) => { setAiCarouselModalOpen(open); if (!open) { setCarouselIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setSlideCount(null); setCarouselStep(1); setCarouselSlides([]); } }}>
+          <DialogContent className={`!flex !flex-col overflow-hidden ${carouselStep === 2 ? 'sm:max-w-4xl max-h-[95vh]' : 'sm:max-w-xl max-h-[85vh]'}`}>
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-center">Gerar Carrossel com IA</DialogTitle>
+              <DialogTitle className="text-xl font-bold text-center">
+                {carouselStep === 1 ? 'Gerar Carrossel com IA' : 'Editar Slides do Carrossel'}
+              </DialogTitle>
               <p className="text-sm text-muted-foreground text-center">
-                Descreva o tema, cole um texto ou apenas jogue uma ideia. A IA vai estruturar tudo em um carrossel para você.
+                {carouselStep === 1
+                  ? 'Descreva o tema, cole um texto ou apenas jogue uma ideia. A IA vai estruturar tudo em um carrossel para você.'
+                  : 'Revise e edite o conteúdo de cada slide gerado pela IA.'}
               </p>
             </DialogHeader>
 
-            <div className="flex-1 overflow-y-auto min-h-0 space-y-5 py-2">
-              {/* Ideia do Carrossel */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Sua Ideia para o Carrossel</Label>
-                <Textarea
-                  placeholder="Ex: 'Crie um carrossel sobre 5 dicas de produtividade...'"
-                  value={carouselIdea}
-                  onChange={(e) => setCarouselIdea(e.target.value)}
-                  className="min-h-[120px] resize-none"
-                />
-              </div>
-
-              {/* Quantidade de Slides */}
-              <div className={`space-y-2 rounded-lg border-2 p-4 transition-colors ${slideCount ? 'border-primary/50' : 'border-primary/80 bg-primary/5'}`}>
-                <Label className="text-sm font-medium">Quantos slides terá o seu carrossel? <span className="text-destructive">*</span></Label>
-                <div className="flex flex-wrap gap-2">
-                  {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => setSlideCount(n)}
-                      className={`w-10 h-10 rounded-lg font-bold text-sm transition-all duration-200 ${
-                        slideCount === n
-                          ? 'bg-primary text-primary-foreground shadow-lg scale-110'
-                          : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-                {!slideCount && (
-                  <p className="text-xs text-primary">● Selecione uma opção acima para habilitar a geração.</p>
-                )}
-              </div>
-
-              {/* Predefinição de ID Visual */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Identidade Visual (Predefinição)</Label>
-                {presets.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva. Crie uma no botão "Identidade Visual" do Hub.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {presets.map((preset) => (
-                      <button
-                        key={preset.id}
-                        onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${
-                          selectedPresetId === preset.id
-                            ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30'
-                            : 'border-border bg-card hover:border-primary/40 text-foreground'
-                        }`}
-                      >
-                        <div className="flex gap-1">
-                          {preset.primary_color && (
-                            <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />
-                          )}
-                          {preset.secondary_color && (
-                            <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />
-                          )}
-                        </div>
-                        {preset.name}
-                      </button>
-                    ))}
+            {carouselStep === 1 ? (
+              <>
+                <div className="flex-1 overflow-y-auto min-h-0 space-y-5 py-2">
+                  {/* Ideia do Carrossel */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Sua Ideia para o Carrossel</Label>
+                    <Textarea
+                      placeholder="Ex: 'Crie um carrossel sobre 5 dicas de produtividade...'"
+                      value={carouselIdea}
+                      onChange={(e) => setCarouselIdea(e.target.value)}
+                      className="min-h-[120px] resize-none"
+                      disabled={generatingCarousel}
+                    />
                   </div>
-                )}
-              </div>
 
-              {/* Mascotes */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Mascotes</Label>
-                {mascotImages.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado. Adicione na "Identidade Visual" do Hub.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-3">
-                    {mascotImages.map((mascot) => {
-                      const isSelected = selectedMascotIds.includes(mascot.id);
-                      return (
+                  {/* Quantidade de Slides */}
+                  <div className={`space-y-2 rounded-lg border-2 p-4 transition-colors ${slideCount ? 'border-primary/50' : 'border-primary/80 bg-primary/5'}`}>
+                    <Label className="text-sm font-medium">Quantos slides terá o seu carrossel? <span className="text-destructive">*</span></Label>
+                    <div className="flex flex-wrap gap-2">
+                      {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                         <button
-                          key={mascot.id}
-                          onClick={() => {
-                            setSelectedMascotIds(prev =>
-                              isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id]
-                            );
-                          }}
-                          className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
-                            isSelected
-                              ? 'border-primary ring-2 ring-primary/30 scale-105'
-                              : 'border-border hover:border-primary/40'
+                          key={n}
+                          onClick={() => setSlideCount(n)}
+                          disabled={generatingCarousel}
+                          className={`w-10 h-10 rounded-lg font-bold text-sm transition-all duration-200 ${
+                            slideCount === n
+                              ? 'bg-primary text-primary-foreground shadow-lg scale-110'
+                              : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                           }`}
                         >
-                          <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
-                          {isSelected && (
-                            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                              <CheckSquare className="w-5 h-5 text-primary" />
-                            </div>
-                          )}
+                          {n}
                         </button>
-                      );
-                    })}
+                      ))}
+                    </div>
+                    {!slideCount && (
+                      <p className="text-xs text-primary">● Selecione uma opção acima para habilitar a geração.</p>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
 
-            {/* Botão Gerar */}
-            <Button
-              className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 mt-2"
-              disabled={!carouselIdea.trim() || !slideCount}
-              onClick={() => {
-                setAiCarouselModalOpen(false);
-                toast.info("Geração de Carrossel com IA em breve!");
-              }}
-            >
-              <Sparkles className="w-5 h-5 mr-2" />
-              Gerar Carrossel
-            </Button>
+                  {/* Predefinição de ID Visual */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Identidade Visual (Predefinição)</Label>
+                    {presets.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">Nenhuma predefinição salva. Crie uma no botão "Identidade Visual" do Hub.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {presets.map((preset) => (
+                          <button
+                            key={preset.id}
+                            onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)}
+                            disabled={generatingCarousel}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 ${
+                              selectedPresetId === preset.id
+                                ? 'border-primary bg-primary/10 text-primary ring-2 ring-primary/30'
+                                : 'border-border bg-card hover:border-primary/40 text-foreground'
+                            }`}
+                          >
+                            <div className="flex gap-1">
+                              {preset.primary_color && (
+                                <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />
+                              )}
+                              {preset.secondary_color && (
+                                <div className="w-4 h-4 rounded-full border border-border" style={{ backgroundColor: preset.secondary_color }} />
+                              )}
+                            </div>
+                            {preset.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Mascotes */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Mascotes</Label>
+                    {mascotImages.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">Nenhum mascote cadastrado. Adicione na "Identidade Visual" do Hub.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-3">
+                        {mascotImages.map((mascot) => {
+                          const isSelected = selectedMascotIds.includes(mascot.id);
+                          return (
+                            <button
+                              key={mascot.id}
+                              disabled={generatingCarousel}
+                              onClick={() => {
+                                setSelectedMascotIds(prev =>
+                                  isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id]
+                                );
+                              }}
+                              className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                                isSelected
+                                  ? 'border-primary ring-2 ring-primary/30 scale-105'
+                                  : 'border-border hover:border-primary/40'
+                              }`}
+                            >
+                              <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
+                              {isSelected && (
+                                <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                                  <CheckSquare className="w-5 h-5 text-primary" />
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Botão Gerar */}
+                <Button
+                  className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 mt-2"
+                  disabled={!carouselIdea.trim() || !slideCount || generatingCarousel}
+                  onClick={handleGenerateCarouselContent}
+                >
+                  {generatingCarousel ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Gerando conteúdo...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-5 h-5 mr-2" />
+                      Gerar Carrossel
+                    </>
+                  )}
+                </Button>
+              </>
+            ) : (
+              <>
+                {/* Step 2: Edit generated slides */}
+                <div className="flex-1 overflow-y-auto min-h-0 space-y-4 py-2">
+                  {carouselSlides.map((slide, idx) => (
+                    <div key={idx} className="rounded-lg border border-border p-4 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-primary">Slide {idx + 1}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{slide.label}</span>
+                      </div>
+                      <Textarea
+                        placeholder={`Texto do slide ${idx + 1}...`}
+                        value={slide.text}
+                        onChange={(e) => {
+                          const val = e.target.value.slice(0, 50);
+                          setCarouselSlides(prev => prev.map((s, i) => i === idx ? { ...s, text: val } : s));
+                        }}
+                        className="min-h-[80px] resize-none"
+                      />
+                      <p className={`text-xs text-right ${slide.text.length > 50 ? 'text-destructive' : 'text-muted-foreground'}`}>{slide.text.length}/50</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Botões Step 2 */}
+                <div className="flex gap-3 mt-2">
+                  <Button
+                    variant="outline"
+                    className="h-12 text-base font-semibold flex-1"
+                    onClick={() => setCarouselStep(1)}
+                  >
+                    Voltar
+                  </Button>
+                  <Button
+                    className="h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 flex-1"
+                    disabled={carouselSlides.every(s => !s.text.trim()) || generatingCarousel}
+                    onClick={() => {
+                      setAiCarouselModalOpen(false);
+                      toast.success("Carrossel finalizado! Em breve a geração de imagens.");
+                    }}
+                  >
+                    <Sparkles className="w-5 h-5 mr-2" />
+                    Gerar Imagens
+                  </Button>
+                </div>
+              </>
+            )}
           </DialogContent>
         </Dialog>
 
