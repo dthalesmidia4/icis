@@ -9,7 +9,7 @@ import { DemandaCard, DemandaItem } from "@/components/DemandaCard";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, RefreshCw, Check, RotateCcw, Loader2, ThumbsDown } from "lucide-react";
+import { AlertCircle, RefreshCw, Check, Loader2, ThumbsDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
