@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useEffect, useState } from "react";
@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const ClientHub = () => {
   const navigate = useNavigate();
@@ -40,6 +41,8 @@ const ClientHub = () => {
   const [carouselStep, setCarouselStep] = useState<1 | 2>(1);
   const [carouselSlides, setCarouselSlides] = useState<Array<{ text: string; label: string }>>([]);
   const [generatingCarousel, setGeneratingCarousel] = useState(false);
+  const [carouselAspectRatio, setCarouselAspectRatio] = useState('1:1');
+  const [carouselAiModel, setCarouselAiModel] = useState<'nanobanana3' | 'gpt'>('nanobanana3');
   const [manualCarouselOpen, setManualCarouselOpen] = useState(false);
   const [manualSlides, setManualSlides] = useState<Array<{ text: string; label: string }>>([
     { text: '', label: 'Gancho (Atração)' },
@@ -909,7 +912,7 @@ const ClientHub = () => {
         </Dialog>
 
         {/* Modal Gerar Carrossel com IA - Two Steps */}
-        <Dialog open={aiCarouselModalOpen} onOpenChange={(open) => { setAiCarouselModalOpen(open); if (!open) { setCarouselIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setSlideCount(null); setCarouselStep(1); setCarouselSlides([]); } }}>
+        <Dialog open={aiCarouselModalOpen} onOpenChange={(open) => { setAiCarouselModalOpen(open); if (!open) { setCarouselIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setSlideCount(null); setCarouselStep(1); setCarouselSlides([]); setCarouselAspectRatio('1:1'); setCarouselAiModel('nanobanana3'); } }}>
           <DialogContent className={`!flex !flex-col overflow-hidden ${carouselStep === 2 ? 'sm:max-w-4xl max-h-[95vh]' : 'sm:max-w-xl max-h-[85vh]'}`}>
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-center">
@@ -1073,6 +1076,36 @@ const ClientHub = () => {
                       <p className={`text-xs text-right ${slide.text.length > 50 ? 'text-destructive' : 'text-muted-foreground'}`}>{slide.text.length}/50</p>
                     </div>
                   ))}
+
+                  {/* Proporção e Modelo de IA */}
+                  <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Proporção</Label>
+                      <Select value={carouselAspectRatio} onValueChange={setCarouselAspectRatio}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1:1">1:1 (Quadrado)</SelectItem>
+                          <SelectItem value="9:16">9:16 (Stories/Reels)</SelectItem>
+                          <SelectItem value="16:9">16:9 (Paisagem)</SelectItem>
+                          <SelectItem value="4:5">4:5 (Feed Instagram)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Modelo de IA</Label>
+                      <Select value={carouselAiModel} onValueChange={(v) => setCarouselAiModel(v as 'nanobanana3' | 'gpt')}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="nanobanana3">Nanobanana 3 (Alta Qualidade)</SelectItem>
+                          <SelectItem value="gpt">ChatGPT (Rápido)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Botões Step 2 */}
@@ -1089,7 +1122,7 @@ const ClientHub = () => {
                     disabled={carouselSlides.every(s => !s.text.trim()) || generatingCarousel}
                     onClick={() => {
                       setAiCarouselModalOpen(false);
-                      toast.success("Carrossel finalizado! Em breve a geração de imagens.");
+                      toast.success(`Carrossel pronto! Modelo: ${carouselAiModel === 'nanobanana3' ? 'Nanobanana 3' : 'ChatGPT'}, Proporção: ${carouselAspectRatio}`);
                     }}
                   >
                     <Sparkles className="w-5 h-5 mr-2" />
