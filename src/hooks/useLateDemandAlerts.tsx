@@ -59,17 +59,17 @@ export function useLateDemandAlerts() {
 
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
-    const currentTime = now.toTimeString().slice(0, 5); // HH:MM
 
     try {
-      // Fetch active (non-archived) demands with due_date that might be overdue
+      // Fetch active (non-archived) demands with delivery_date that might be overdue
+      // Also fetch the status to exclude final statuses (Feito, Publicado, etc.)
       const { data: demands } = await supabase
         .from('demands')
-        .select('id, title, due_date, due_time, client_id, tenant_companies!demands_client_id_fkey(name, fantasy_name)')
+        .select('id, title, delivery_date, delivery_time, client_id, status_id, tenant_companies!demands_client_id_fkey(name, fantasy_name), pipeline_statuses!demands_status_id_fkey(name, is_final)')
         .eq('tenant_id', tenantId)
         .is('archived_at', null)
-        .not('due_date', 'is', null)
-        .lte('due_date', todayStr);
+        .not('delivery_date', 'is', null)
+        .lte('delivery_date', todayStr);
 
       if (!demands) return;
 
@@ -79,21 +79,29 @@ export function useLateDemandAlerts() {
         // Skip if already alerted
         if (checkedIds.current.has(demand.id)) continue;
 
-        const dueDate = demand.due_date as string;
-        const dueTime = (demand.due_time as string) || '23:59';
+        // Skip if the status is final (Feito, Publicado, etc.)
+        const status = demand.pipeline_statuses as any;
+        if (status?.is_final) continue;
 
-        // Build the full due datetime
-        const dueDatetime = new Date(`${dueDate}T${dueTime}:00`);
+        // Also skip by name for extra safety
+        const statusName = (status?.name || '').toLowerCase();
+        if (statusName === 'feito' || statusName === 'feitos' || statusName === 'publicado') continue;
 
-        if (now >= dueDatetime) {
+        const deliveryDate = demand.delivery_date as string;
+        const deliveryTime = (demand.delivery_time as string) || '23:59';
+
+        // Build the full delivery datetime
+        const deliveryDatetime = new Date(`${deliveryDate}T${deliveryTime}:00`);
+
+        if (now >= deliveryDatetime) {
           checkedIds.current.add(demand.id);
           const company = demand.tenant_companies as any;
           newLateDemands.push({
             id: demand.id,
             title: demand.title,
             clientName: company?.fantasy_name || company?.name || 'Cliente',
-            dueDate,
-            dueTime: demand.due_time as string | null,
+            dueDate: deliveryDate,
+            dueTime: demand.delivery_time as string | null,
           });
         }
       }
