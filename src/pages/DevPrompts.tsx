@@ -678,6 +678,42 @@ const DevPrompts = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="video">
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {videoPromptData?.prompt_title || "Prompt de Geração de Vídeo"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isLoadingVideo ? (
+                  <div className="text-muted-foreground">Carregando...</div>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Este prompt é usado para gerar roteiros e storyboards de vídeo. Configure as instruções conforme necessário.
+                    </p>
+                    <Textarea
+                      value={videoPromptContent}
+                      onChange={(e) => setVideoPromptContent(e.target.value)}
+                      placeholder="Digite o prompt de geração de vídeo aqui..."
+                      className="min-h-[400px] font-mono text-sm"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        onClick={handleSaveVideo}
+                        disabled={saveVideoPromptMutation.isPending}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        {saveVideoPromptMutation.isPending ? "Salvando..." : "Salvar"}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
     </div>
