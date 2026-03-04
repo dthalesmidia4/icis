@@ -53,10 +53,6 @@ const KanbanCard = ({
               {formattedCardDeliveryDate}
             </div>
           )}
-          <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md w-fit">
-            <Calendar className="h-3 w-3" />
-            {formattedDeliveryDate}
-          </div>
         </div>
       </CardContent>
     </Card>
