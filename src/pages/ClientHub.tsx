@@ -288,6 +288,40 @@ const ClientHub = () => {
           ))}
         </div>
 
+        {/* Modal Hub Conteúdo Avulso - Criar ou Histórico */}
+        <Dialog open={contentHubModalOpen} onOpenChange={setContentHubModalOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Conteúdo Avulso</DialogTitle>
+              <p className="text-sm text-muted-foreground">O que deseja fazer?</p>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 py-4">
+              <Card className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
+                onClick={() => { setContentHubModalOpen(false); setContentModalOpen(true); }}>
+                <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
+                <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                  </div>
+                  <h3 className="text-base sm:text-xl font-bold transition-colors text-primary">Criar</h3>
+                  <p className="text-xs text-muted-foreground mt-2">Criar novo conteúdo avulso</p>
+                </div>
+              </Card>
+              <Card className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
+                onClick={() => { setContentHubModalOpen(false); navigate('/content-history'); }}>
+                <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
+                <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <History className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                  </div>
+                  <h3 className="text-base sm:text-xl font-bold transition-colors text-primary">Histórico de Criações</h3>
+                  <p className="text-xs text-muted-foreground mt-2">Ver conteúdos já gerados</p>
+                </div>
+              </Card>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Modal Conteúdo Avulso */}
         <Dialog open={contentModalOpen} onOpenChange={setContentModalOpen}>
           <DialogContent className="sm:max-w-2xl">
