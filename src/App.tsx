@@ -43,6 +43,7 @@ import InstallApp from "./pages/InstallApp";
 import NotFound from "./pages/NotFound";
 import CompletedDemands from "./pages/CompletedDemands";
 import ApproveCards from "./pages/ApproveCards";
+import RejectedCards from "./pages/RejectedCards";
 
 const queryClient = new QueryClient({
   defaultOptions: {
