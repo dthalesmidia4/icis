@@ -250,6 +250,7 @@ const ClientHub = () => {
       title: "Demandas Reprovadas",
       icon: ThumbsDown,
       action: () => navigate("/rejected-cards"),
+      badge: rejectedCardsCount > 0 ? rejectedCardsCount : undefined,
     },
     {
       title: "Cronograma Atual",
