@@ -52,6 +52,7 @@ interface CentralKanbanCard extends KanbanCardData {
 }
 
 const KanbanCentralPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const [cards, setCards] = useState<CentralKanbanCard[]>([]);
   const [archivedCards, setArchivedCards] = useState<CentralKanbanCard[]>([]);
