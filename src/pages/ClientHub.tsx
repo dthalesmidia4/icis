@@ -140,6 +140,34 @@ const ClientHub = () => {
     fetchCount();
   }, [selectedClient, tenantId]);
 
+  // Fetch rejected cards count
+  useEffect(() => {
+    if (!selectedClient || !tenantId) return;
+
+    const fetchRejectedCount = async () => {
+      try {
+        const { data: periods } = await supabase
+          .from('period_plans')
+          .select('rejected_plan')
+          .eq('company_id', selectedClient.id)
+          .eq('tenant_id', tenantId);
+
+        if (!periods) return;
+
+        let total = 0;
+        for (const p of periods) {
+          const rp = Array.isArray(p.rejected_plan) ? p.rejected_plan : [];
+          total += rp.length;
+        }
+        setRejectedCardsCount(total);
+      } catch {
+        // silently fail
+      }
+    };
+
+    fetchRejectedCount();
+  }, [selectedClient, tenantId]);
+
   if (!isInitialized || !selectedClient) return null;
 
   const displayName = selectedClient.fantasy_name || selectedClient.name;
