@@ -44,6 +44,7 @@ import NotFound from "./pages/NotFound";
 import CompletedDemands from "./pages/CompletedDemands";
 import ApproveCards from "./pages/ApproveCards";
 import RejectedCards from "./pages/RejectedCards";
+import ContentHistory from "./pages/ContentHistory";
 
 const queryClient = new QueryClient({
   defaultOptions: {
