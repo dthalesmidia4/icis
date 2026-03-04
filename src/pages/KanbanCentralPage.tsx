@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +52,7 @@ interface CentralKanbanCard extends KanbanCardData {
 }
 
 const KanbanCentralPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const [cards, setCards] = useState<CentralKanbanCard[]>([]);
   const [archivedCards, setArchivedCards] = useState<CentralKanbanCard[]>([]);
@@ -186,6 +188,23 @@ const KanbanCentralPage = () => {
       fetchPeriods();
     }
   }, [tenantId, tenantLoading]);
+
+  // Auto-open card when navigating with ?openCard=true&highlight=<id>
+  useEffect(() => {
+    const highlightId = searchParams.get('highlight');
+    const shouldOpenCard = searchParams.get('openCard') === 'true';
+    if (highlightId && shouldOpenCard && cards.length > 0) {
+      const card = cards.find(c => c.id === highlightId);
+      if (card) {
+        setSelectedCard(card);
+        setIsTaskCardOpen(true);
+        // Clean up URL params
+        searchParams.delete('highlight');
+        searchParams.delete('openCard');
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  }, [cards, searchParams]);
 
   const fetchColumns = async () => {
     if (!tenantId) return;
