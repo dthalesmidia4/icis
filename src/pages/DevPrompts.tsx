@@ -380,6 +380,49 @@ const DevPrompts = () => {
     toast.success("Prompt de posts restaurado para a versão padrão!");
   };
 
+  // Mutation para salvar o prompt de reavaliação
+  const saveReavaliacaoPromptMutation = useMutation({
+    mutationFn: async (content: string) => {
+      if (!tenantId) throw new Error("Tenant ID não encontrado");
+      const { data: existing } = await supabase
+        .from("system_prompts")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("prompt_key", "reavaliacao_prompt")
+        .maybeSingle();
+      if (existing) {
+        const { error } = await supabase
+          .from("system_prompts")
+          .update({ prompt_content: content })
+          .eq("tenant_id", tenantId)
+          .eq("prompt_key", "reavaliacao_prompt");
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("system_prompts")
+          .insert({
+            tenant_id: tenantId,
+            prompt_key: "reavaliacao_prompt",
+            prompt_title: "Prompt de Reavaliação",
+            prompt_content: content,
+          });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["system-prompt"] });
+      toast.success("Prompt de reavaliação salvo com sucesso!");
+    },
+    onError: (error) => {
+      console.error("Erro ao salvar prompt:", error);
+      toast.error("Erro ao salvar o prompt");
+    },
+  });
+
+  const handleSaveReavaliacao = () => {
+    saveReavaliacaoPromptMutation.mutate(reavaliacaoPromptContent);
+  };
+
   return (
     <div className="container max-w-5xl mx-auto px-6 py-8">
       <div className="mb-8">
