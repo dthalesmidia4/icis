@@ -266,6 +266,8 @@ const ClientHub = () => {
       setGeneratingCarousel(false);
     }
   };
+
+  const actionCards = [
     {
       title: "Cadastro",
       icon: ClipboardList,
