@@ -381,8 +381,8 @@ export default function TeamMembers() {
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'columns' | 'hub')} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'columns' | 'hub' | 'notifications')} className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="columns" className="gap-2">
                 <LayoutGrid className="h-4 w-4" />
                 Colunas Kanban
@@ -390,6 +390,10 @@ export default function TeamMembers() {
               <TabsTrigger value="hub" className="gap-2">
                 <Home className="h-4 w-4" />
                 Botões do Hub
+              </TabsTrigger>
+              <TabsTrigger value="notifications" className="gap-2">
+                <Bell className="h-4 w-4" />
+                Alertas
               </TabsTrigger>
             </TabsList>
 
@@ -453,6 +457,24 @@ export default function TeamMembers() {
                     </div>
                   );
                 })}
+              </TabsContent>
+
+              <TabsContent value="notifications" className="mt-0 space-y-3">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Configure os alertas que este colaborador vai receber:
+                </p>
+                <div className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors">
+                  <div className="flex-1">
+                    <p className="font-medium">Demandas em atraso</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Esta pessoa vai receber alertas quando demandas entrarem em atraso
+                    </p>
+                  </div>
+                  <Switch
+                    checked={lateNotificationEnabled}
+                    onCheckedChange={setLateNotificationEnabled}
+                  />
+                </div>
               </TabsContent>
             </div>
           </Tabs>
