@@ -11,7 +11,7 @@ export default function LateDemandPopup() {
 
   const handleCardClick = (demandId: string) => {
     dismissDemand(demandId);
-    navigate(`/kanban-central?highlight=${demandId}`);
+    navigate(`/kanban-central?highlight=${demandId}&openCard=true`);
   };
 
   return (
