@@ -625,7 +625,7 @@ export default function TaskCard({
                   <h1 
                     id="task-card-title" 
                     onClick={() => !readOnly && setEditingField('title')} 
-                    className={cn("font-semibold text-xl truncate", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
+                    className={cn("font-bold text-2xl truncate", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
                   >
                     {card.title}
                   </h1>
@@ -637,27 +637,12 @@ export default function TaskCard({
               </Button>
             </div>
 
-            {/* Linha 2: Metadados contextuais */}
-            <div className="flex items-center gap-6 mt-2 text-sm text-muted-foreground">
+            {/* Linha 2: Cliente + Status */}
+            <div className="flex items-center gap-4 mt-2 flex-wrap">
               {card.clientName && (
-                <div className="flex items-center gap-1.5">
-                  <User className="h-3.5 w-3.5" />
-                  <span>Cliente</span>
-                  <strong className="text-foreground">{card.clientName}</strong>
-                </div>
+                <span className="text-sm text-muted-foreground">{card.clientName}</span>
               )}
-              {periodTitle && (
-                <div className="flex items-center gap-1.5">
-                  <CalendarIconOutline className="h-3.5 w-3.5" />
-                  <span>Cronograma</span>
-                  <strong className="text-foreground">{periodTitle}</strong>
-                </div>
-              )}
-            </div>
-
-            {/* Linha 3: Status + Prioridade */}
-            <div className="flex items-center gap-3 mt-3 flex-wrap">
-              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Status</span>
+              {card.clientName && <div className="h-4 w-px bg-border" />}
               {readOnly ? (
                 <div 
                   className="h-8 px-3 flex items-center gap-2 rounded-md border font-medium text-xs"
@@ -732,16 +717,6 @@ export default function TaskCard({
                     </ScrollArea>
                   </SelectContent>
                 </Select>
-              )}
-
-              {priority && (
-                <>
-                  <div className="h-4 w-px bg-border" />
-                  <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Prioridade</span>
-                  <Badge variant="outline" className={cn("text-xs font-medium border", priority.className)}>
-                    {priority.label}
-                  </Badge>
-                </>
               )}
             </div>
           </div>
