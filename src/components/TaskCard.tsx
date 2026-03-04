@@ -71,6 +71,7 @@ export interface KanbanCardData {
   attachments: Attachment[] | null;
   publish_date: string | null;
   publish_time: string | null;
+  delivery_date?: string | null;
   archived_at?: string | null;
   additional_publish_dates?: string[];
   // Fields for demands mapped to cards
