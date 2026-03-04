@@ -211,49 +211,65 @@ const RejectedCards = () => {
     }
   };
 
-  const handleRestoreCard = async (index: number) => {
-    if (!period || !selectedClient) return;
+  const handleApproveCard = async (index: number) => {
+    if (!period || !selectedClient || !tenantId || !pipelineId || !initialStatusId) return;
 
+    setApprovingIndex(index);
     try {
       const card = cards[index];
+      const title = card.titulo || card.title || 'Sem título';
+      const tipo = card.tipo || card.tipo_conteudo || card.type || null;
+      const channel = card.canal || card.channel || null;
+      const objetivo = card.objetivo || card.objective || null;
+      const conteudo = card.conteudo || card.descricao || card.description || null;
+      const instrucoes = card.instrucoes_de_producao || null;
+      const cta = card.cta_recomendado || null;
+      const dateStr = card.data_sugerida || card.suggested_date || card.date || null;
+
+      const instructionParts = [conteudo, instrucoes, cta ? `CTA: ${cta}` : ''].filter(Boolean);
+
+      const { error: insertError } = await supabase.from('demands').insert({
+        tenant_id: tenantId,
+        client_id: selectedClient.id,
+        pipeline_id: pipelineId,
+        status_id: initialStatusId,
+        period_plan_id: period.id,
+        title,
+        objective: objetivo,
+        instructions: instructionParts.join('\n\n') || null,
+        publish_date: dateStr || null,
+        channel,
+        demand_type: tipo,
+        source: 'card',
+        observations: null,
+      });
+
+      if (insertError) throw insertError;
+
+      // Remove from rejected_plan
       const updatedRejected = [...(period.rejected_plan || [])];
       updatedRejected.splice(index, 1);
 
-      // Restore to original plan
-      const source = card._originalSource === 'ultra' ? 'ultra_plan' : 'default_plan';
-      const originalPlan = Array.isArray(period[source === 'ultra_plan' ? 'ultra_plan' : 'default_plan'])
-        ? [...period[source === 'ultra_plan' ? 'ultra_plan' : 'default_plan']]
-        : [];
-
-      // Remove internal tracking fields before restoring
-      const { _index, _originalSource, _rejectedAt, _reevaluatedAt, ...cleanCard } = card as any;
-      originalPlan.push(cleanCard);
-
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('period_plans')
-        .update({
-          rejected_plan: updatedRejected as unknown as null,
-          [source]: originalPlan as unknown as null,
-        })
+        .update({ rejected_plan: updatedRejected as unknown as null })
         .eq('id', period.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
-      setPeriod({
-        ...period,
-        rejected_plan: updatedRejected,
-        [source]: originalPlan,
-      });
+      setPeriod({ ...period, rejected_plan: updatedRejected });
       setCards(updatedRejected.map((item: any, i: number) => ({
         ...item,
         _index: i,
         _originalSource: item._originalSource || 'default',
       })));
 
-      toast.success("Card restaurado para aprovação!");
+      toast.success(`"${title}" aprovado e enviado ao Kanban!`);
     } catch (error) {
-      console.error('Error restoring card:', error);
-      toast.error("Erro ao restaurar card");
+      console.error('Error approving card:', error);
+      toast.error("Erro ao aprovar card");
+    } finally {
+      setApprovingIndex(null);
     }
   };
 
