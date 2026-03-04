@@ -1076,6 +1076,36 @@ const ClientHub = () => {
                       <p className={`text-xs text-right ${slide.text.length > 50 ? 'text-destructive' : 'text-muted-foreground'}`}>{slide.text.length}/50</p>
                     </div>
                   ))}
+
+                  {/* Proporção e Modelo de IA */}
+                  <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Proporção</Label>
+                      <Select value={carouselAspectRatio} onValueChange={setCarouselAspectRatio}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1:1">1:1 (Quadrado)</SelectItem>
+                          <SelectItem value="9:16">9:16 (Stories/Reels)</SelectItem>
+                          <SelectItem value="16:9">16:9 (Paisagem)</SelectItem>
+                          <SelectItem value="4:5">4:5 (Feed Instagram)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Modelo de IA</Label>
+                      <Select value={carouselAiModel} onValueChange={(v) => setCarouselAiModel(v as 'nanobanana3' | 'gpt')}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="nanobanana3">Nanobanana 3 (Alta Qualidade)</SelectItem>
+                          <SelectItem value="gpt">ChatGPT (Rápido)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Botões Step 2 */}
@@ -1092,7 +1122,7 @@ const ClientHub = () => {
                     disabled={carouselSlides.every(s => !s.text.trim()) || generatingCarousel}
                     onClick={() => {
                       setAiCarouselModalOpen(false);
-                      toast.success("Carrossel finalizado! Em breve a geração de imagens.");
+                      toast.success(`Carrossel pronto! Modelo: ${carouselAiModel === 'nanobanana3' ? 'Nanobanana 3' : 'ChatGPT'}, Proporção: ${carouselAspectRatio}`);
                     }}
                   >
                     <Sparkles className="w-5 h-5 mr-2" />
