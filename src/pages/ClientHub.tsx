@@ -30,6 +30,9 @@ const ClientHub = () => {
   const [videoIdea, setVideoIdea] = useState('');
   const [sceneCount, setSceneCount] = useState(3);
   const [videoAspectRatio, setVideoAspectRatio] = useState('9:16');
+  const [videoStep, setVideoStep] = useState<1 | 2>(1);
+  const [videoScenes, setVideoScenes] = useState<Array<{ scene_description: string; mascot_speech: string }>>([]);
+  const [generatingStoryboard, setGeneratingStoryboard] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [presets, setPresets] = useState<Array<{ id: string; name: string; primary_color: string | null; secondary_color: string | null }>>([]);
   const [aiPostModalOpen, setAiPostModalOpen] = useState(false);
