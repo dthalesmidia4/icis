@@ -229,6 +229,31 @@ const DevPrompts = () => {
     }
   }, [reavaliacaoPromptData]);
 
+  // Buscar o prompt de vídeo
+  const { data: videoPromptData, isLoading: isLoadingVideo } = useQuery({
+    queryKey: ["system-prompt", "generate_video_prompt", tenantId],
+    queryFn: async () => {
+      if (!tenantId) return null;
+      const { data, error } = await supabase
+        .from("system_prompts")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("prompt_key", "generate_video_prompt")
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!tenantId,
+  });
+
+  useEffect(() => {
+    if (videoPromptData) {
+      setVideoPromptContent(videoPromptData.prompt_content);
+    } else {
+      setVideoPromptContent("");
+    }
+  }, [videoPromptData]);
+
   // Mutation para salvar o prompt de estratégia
   const saveStrategyPromptMutation = useMutation({
     mutationFn: async (content: string) => {
