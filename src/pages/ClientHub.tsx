@@ -164,6 +164,21 @@ const ClientHub = () => {
 
   const displayName = selectedClient.fantasy_name || selectedClient.name;
 
+  const saveGeneratedContent = async (contentType: string, title: string, prompt: string, imageUrls: string[]) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from('generated_contents').insert({
+        tenant_id: tenantId!,
+        client_id: selectedClient!.id,
+        content_type: contentType,
+        title,
+        prompt,
+        image_urls: imageUrls,
+        created_by: user?.id || null,
+      });
+    } catch (err) { console.error('Error saving generated content:', err); }
+  };
+
   const handleGeneratePost = async (idea: string, isManual: boolean = false) => {
     const setGenerating = isManual ? setGeneratingManualPost : setGeneratingPost;
     const setImage = isManual ? setGeneratedManualPostImage : setGeneratedPostImage;
@@ -178,7 +193,11 @@ const ClientHub = () => {
       });
       if (error) { console.error('Edge function error:', error); toast.error('Erro ao gerar o post. Tente novamente.'); return; }
       if (data?.error) { toast.error(data.error); return; }
-      if (data?.imageUrl) { setImage(data.imageUrl); toast.success('Post gerado com sucesso!'); } else { toast.error('Nenhuma imagem retornada.'); }
+      if (data?.imageUrl) {
+        setImage(data.imageUrl);
+        toast.success('Post gerado com sucesso!');
+        await saveGeneratedContent('post', isManual ? 'Post Manual' : 'Post com IA', idea, [data.imageUrl]);
+      } else { toast.error('Nenhuma imagem retornada.'); }
     } catch (err) { console.error('Generate post error:', err); toast.error('Erro inesperado ao gerar o post.'); }
     finally { setGenerating(false); }
   };
