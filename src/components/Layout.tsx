@@ -37,6 +37,9 @@ export const Layout = ({ children }: LayoutProps) => {
             {children}
           </main>
         </div>
+        
+        {/* Late Demand Alerts */}
+        <LateDemandPopup />
       </div>
     </SidebarProvider>
   );
