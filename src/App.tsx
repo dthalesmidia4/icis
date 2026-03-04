@@ -107,6 +107,18 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+
+      <Route path="/content-history" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
+              <Layout>
+                <ContentHistory />
+              </Layout>
+            </RequireRole>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
       {/* === ROTAS ADMINISTRATIVAS (apenas agency_admin) === */}
       <Route path="/registration" element={
         <ProtectedRoute>
