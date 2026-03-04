@@ -572,6 +572,42 @@ const DevPrompts = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="reavaliacao">
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {reavaliacaoPromptData?.prompt_title || "Prompt de Reavaliação"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isLoadingReavaliacao ? (
+                  <div className="text-muted-foreground">Carregando...</div>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Este prompt é usado para a função de reavaliação. Configure as instruções conforme necessário.
+                    </p>
+                    <Textarea
+                      value={reavaliacaoPromptContent}
+                      onChange={(e) => setReavaliacaoPromptContent(e.target.value)}
+                      placeholder="Digite o prompt de reavaliação aqui..."
+                      className="min-h-[400px] font-mono text-sm"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        onClick={handleSaveReavaliacao}
+                        disabled={saveReavaliacaoPromptMutation.isPending}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        {saveReavaliacaoPromptMutation.isPending ? "Salvando..." : "Salvar"}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
     </div>
