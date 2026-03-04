@@ -222,7 +222,50 @@ const ClientHub = () => {
     }
   };
 
-  const actionCards = [
+  const handleGenerateCarouselContent = async () => {
+    if (!carouselIdea.trim() || !slideCount) return;
+    setGeneratingCarousel(true);
+    try {
+      const selectedMascotUrls = mascotImages
+        .filter(m => selectedMascotIds.includes(m.id))
+        .map(m => m.image_url);
+
+      const { data, error } = await supabase.functions.invoke('generate-carousel-content', {
+        body: {
+          idea: carouselIdea,
+          slideCount,
+          presetId: selectedPresetId,
+          mascotImageUrls: selectedMascotUrls,
+          clientId: selectedClient.id,
+          tenantId,
+        },
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        toast.error('Erro ao gerar conteúdo do carrossel. Tente novamente.');
+        return;
+      }
+
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      if (data?.slides && Array.isArray(data.slides)) {
+        setCarouselSlides(data.slides);
+        setCarouselStep(2);
+        toast.success('Conteúdo gerado! Revise e edite os slides.');
+      } else {
+        toast.error('Nenhum conteúdo retornado.');
+      }
+    } catch (err) {
+      console.error('Generate carousel error:', err);
+      toast.error('Erro inesperado ao gerar o carrossel.');
+    } finally {
+      setGeneratingCarousel(false);
+    }
+  };
     {
       title: "Cadastro",
       icon: ClipboardList,
