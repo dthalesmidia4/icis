@@ -765,22 +765,26 @@ const KanbanCentralPage = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsManageColumnsModalOpen(true)}
-          >
-            <Settings2 className="h-4 w-4 mr-1" />
-            Colunas
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsCreateColumnModalOpen(true)}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Nova Coluna
-          </Button>
+          {isSuperAdmin && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsManageColumnsModalOpen(true)}
+              >
+                <Settings2 className="h-4 w-4 mr-1" />
+                Colunas
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCreateColumnModalOpen(true)}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Nova Coluna
+              </Button>
+            </>
+          )}
           <Button
             size="sm"
             onClick={() => setIsCreateDemandModalOpen(true)}
