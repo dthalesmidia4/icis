@@ -8,8 +8,8 @@ import BackButton from "@/components/BackButton";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Download, Image, LayoutGrid, Video, Eye, Calendar, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription } from "@/components/ui/dialog";
+import { Download, Image, LayoutGrid, Video, Film, Calendar, Loader2, Play } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -26,7 +26,13 @@ interface GeneratedContent {
 const contentTypeConfig: Record<string, { label: string; icon: typeof Image; color: string }> = {
   post: { label: "Post Estático", icon: Image, color: "bg-blue-500" },
   carousel: { label: "Carrossel", icon: LayoutGrid, color: "bg-purple-500" },
+  video_storyboard: { label: "Storyboard", icon: Film, color: "bg-amber-500" },
+  video_scene: { label: "Cena de Vídeo", icon: Video, color: "bg-pink-500" },
   video: { label: "Vídeo", icon: Video, color: "bg-pink-500" },
+};
+
+const isVideoUrl = (url: string) => {
+  return url.match(/\.(mp4|webm|mov|avi)(\?|$)/i) || url.includes("video-scenes/");
 };
 
 const ContentHistory = () => {
@@ -72,10 +78,93 @@ const ContentHistory = () => {
   const displayName = selectedClient.fantasy_name || selectedClient.name;
 
   const handleDownload = (url: string, index: number) => {
+    const ext = isVideoUrl(url) ? "mp4" : "png";
     const link = document.createElement("a");
     link.href = url;
-    link.download = `conteudo-${Date.now()}-${index}.png`;
+    link.download = `conteudo-${Date.now()}-${index}.${ext}`;
+    link.target = "_blank";
     link.click();
+  };
+
+  const renderMediaThumb = (content: GeneratedContent) => {
+    const config = contentTypeConfig[content.content_type] || contentTypeConfig.post;
+    const IconComp = config.icon;
+    const firstUrl = content.image_urls[0];
+
+    if (!firstUrl) {
+      // Storyboard without media - show icon
+      return (
+        <div className="aspect-square flex items-center justify-center bg-muted/50">
+          <div className="flex flex-col items-center gap-2 text-muted-foreground/40">
+            <IconComp className="w-12 h-12" />
+            <span className="text-xs">Sem mídia</span>
+          </div>
+        </div>
+      );
+    }
+
+    if (isVideoUrl(firstUrl)) {
+      return (
+        <div className="aspect-square overflow-hidden bg-black relative group">
+          <video
+            src={firstUrl}
+            className="w-full h-full object-cover"
+            muted
+            preload="metadata"
+          />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/20 transition-colors">
+            <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+              <Play className="w-6 h-6 text-foreground ml-0.5" fill="currentColor" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="aspect-square overflow-hidden bg-muted">
+        <img
+          src={firstUrl}
+          alt={content.title || "Conteúdo gerado"}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
+      </div>
+    );
+  };
+
+  const renderPreviewMedia = (url: string, idx: number) => {
+    if (isVideoUrl(url)) {
+      return (
+        <div key={idx} className="rounded-xl overflow-hidden border shadow-sm">
+          <video
+            src={url}
+            controls
+            className="w-full max-h-[60vh]"
+            preload="metadata"
+          />
+          <div className="flex items-center justify-between px-3 py-2 bg-muted/30">
+            <span className="text-xs font-medium text-muted-foreground">Vídeo {idx + 1}</span>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleDownload(url, idx)}>
+              <Download className="w-3 h-3 mr-1" />Baixar
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div key={idx} className="rounded-xl overflow-hidden border shadow-sm">
+        <img src={url} alt={`Imagem ${idx + 1}`} className="w-full" />
+        <div className="flex items-center justify-between px-3 py-2 bg-muted/30">
+          <span className="text-xs font-medium text-muted-foreground">
+            {(previewContent?.image_urls?.length || 0) > 1 ? `Slide ${idx + 1}` : "Imagem"}
+          </span>
+          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleDownload(url, idx)}>
+            <Download className="w-3 h-3 mr-1" />Baixar
+          </Button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -107,22 +196,13 @@ const ContentHistory = () => {
             {contents.map((content) => {
               const config = contentTypeConfig[content.content_type] || contentTypeConfig.post;
               const IconComp = config.icon;
-              const firstImage = content.image_urls[0];
               return (
                 <Card
                   key={content.id}
                   className="group overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border hover:border-primary/50"
                   onClick={() => { setPreviewContent(content); setPreviewOpen(true); }}
                 >
-                  {firstImage ? (
-                    <div className="aspect-square overflow-hidden bg-muted">
-                      <img src={firstImage} alt={content.title || "Conteúdo gerado"} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    </div>
-                  ) : (
-                    <div className="aspect-square flex items-center justify-center bg-muted">
-                      <IconComp className="w-16 h-16 text-muted-foreground/30" />
-                    </div>
-                  )}
+                  {renderMediaThumb(content)}
                   <div className="p-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <Badge variant="secondary" className="text-xs">
@@ -130,7 +210,7 @@ const ContentHistory = () => {
                         {config.label}
                       </Badge>
                       {content.image_urls.length > 1 && (
-                        <span className="text-xs text-muted-foreground">{content.image_urls.length} imagens</span>
+                        <span className="text-xs text-muted-foreground">{content.image_urls.length} mídias</span>
                       )}
                     </div>
                     {content.title && (
@@ -150,6 +230,7 @@ const ContentHistory = () => {
         {/* Preview Modal */}
         <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
           <DialogContent className="sm:max-w-4xl max-h-[95vh] !flex !flex-col overflow-hidden">
+            <DialogDescription className="sr-only">Visualização do conteúdo gerado</DialogDescription>
             {previewContent && (
               <>
                 <div className="flex items-center justify-between mb-4">
@@ -168,24 +249,22 @@ const ContentHistory = () => {
                     <span className="font-medium">Prompt:</span> {previewContent.prompt}
                   </p>
                 )}
-                <div className="flex-1 overflow-y-auto space-y-4">
-                  {previewContent.image_urls.map((url, idx) => (
-                    <div key={idx} className="rounded-xl overflow-hidden border shadow-sm">
-                      <img src={url} alt={`Imagem ${idx + 1}`} className="w-full" />
-                      <div className="flex items-center justify-between px-3 py-2 bg-muted/30">
-                        <span className="text-xs font-medium text-muted-foreground">
-                          {previewContent.image_urls.length > 1 ? `Slide ${idx + 1}` : "Imagem"}
-                        </span>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleDownload(url, idx)}>
-                          <Download className="w-3 h-3 mr-1" />Baixar
-                        </Button>
-                      </div>
+                {previewContent.image_urls.length > 0 ? (
+                  <div className="flex-1 overflow-y-auto space-y-4">
+                    {previewContent.image_urls.map((url, idx) => renderPreviewMedia(url, idx))}
+                  </div>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center py-12">
+                    <div className="text-center text-muted-foreground">
+                      <Film className="w-12 h-12 mx-auto mb-3 opacity-40" />
+                      <p className="text-sm">Este storyboard não possui mídias anexadas.</p>
+                      <p className="text-xs mt-1">Gere as cenas de vídeo no Hub do Cliente.</p>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
                 {previewContent.image_urls.length > 1 && (
                   <Button variant="outline" className="mt-4 w-full" onClick={() => previewContent.image_urls.forEach((url, i) => handleDownload(url, i))}>
-                    <Download className="w-4 h-4 mr-2" />Baixar Todas ({previewContent.image_urls.length} imagens)
+                    <Download className="w-4 h-4 mr-2" />Baixar Todas ({previewContent.image_urls.length} mídias)
                   </Button>
                 )}
               </>
