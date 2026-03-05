@@ -869,18 +869,18 @@ const PlanPeriod = () => {
                         key={demand.id || idx}
                         className="flex items-center gap-3 px-4 py-3 rounded-lg border border-border/50 bg-card hover:bg-muted/50 transition-colors"
                       >
-                        <div className="flex-1 min-w-0 flex items-center gap-3">
-                          {demand.demand_type && <Badge variant="secondary" className="text-xs shrink-0">{demand.demand_type}</Badge>}
-                          <h4 className="text-base font-bold text-foreground truncate">{demand.title}</h4>
+                        <h4 className="text-base font-bold text-foreground truncate flex-1 min-w-0">{demand.title}</h4>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {demand.demand_type && <Badge variant="secondary" className="text-xs">{demand.demand_type}</Badge>}
+                          {statusInfo && (
+                            <Badge 
+                              className="text-[10px] px-2 py-0.5" 
+                              style={{ backgroundColor: `${statusInfo.color}20`, color: statusInfo.color, borderColor: `${statusInfo.color}40` }}
+                            >
+                              {statusInfo.name}
+                            </Badge>
+                          )}
                         </div>
-                        {statusInfo && (
-                          <Badge 
-                            className="text-[10px] px-2 py-0.5 shrink-0" 
-                            style={{ backgroundColor: `${statusInfo.color}20`, color: statusInfo.color, borderColor: `${statusInfo.color}40` }}
-                          >
-                            {statusInfo.name}
-                          </Badge>
-                        )}
                       </div>
                     );
                   })}
