@@ -194,16 +194,20 @@ const ApproveCards = () => {
     }
   };
 
-  // Fire-and-forget auto image generation for static posts
+  // Fire-and-forget auto image generation for static posts and carousels
   const triggerAutoGenerate = useCallback((demandTitle: string, demandType: string | null, demandId: string) => {
     const tipo = (demandType || '').toLowerCase();
     const isStaticPost = tipo.includes('post');
-    if (!isStaticPost) return;
+    const isCarousel = tipo.includes('carrossel') || tipo.includes('carousel');
+    if (!isStaticPost && !isCarousel) return;
 
-    console.log(`[AutoGen] Triggering auto-generation for "${demandTitle}" (type: ${demandType})`);
-    toast.info(`Gerando imagem automaticamente para "${demandTitle}"...`, { duration: 5000 });
+    const functionName = isCarousel ? 'auto-generate-carousel' : 'auto-generate-post';
+    const label = isCarousel ? 'carrossel' : 'imagem';
 
-    supabase.functions.invoke('auto-generate-post', {
+    console.log(`[AutoGen] Triggering ${functionName} for "${demandTitle}" (type: ${demandType})`);
+    toast.info(`Gerando ${label} automaticamente para "${demandTitle}"...`, { duration: 5000 });
+
+    supabase.functions.invoke(functionName, {
       body: { demandId },
     }).then(({ data, error }) => {
       if (error) {
@@ -216,7 +220,10 @@ const ApproveCards = () => {
         return;
       }
       if (data?.success) {
-        toast.success(`Imagem gerada e anexada a "${demandTitle}"!`);
+        const msg = isCarousel
+          ? `${data.totalGenerated} slides gerados e anexados a "${demandTitle}"!`
+          : `Imagem gerada e anexada a "${demandTitle}"!`;
+        toast.success(msg);
       }
     }).catch(err => {
       console.error('[AutoGen] Exception:', err);
