@@ -176,66 +176,54 @@ function AppRoutes() {
       <Route path="/clientes" element={
         <ProtectedRoute>
           <RequireTenant>
-              <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
-              <Layout>
-                <ClientList />
-              </Layout>
-            </RequireRole>
+            <Layout>
+              <ClientList />
+            </Layout>
           </RequireTenant>
         </ProtectedRoute>
       } />
       <Route path="/clientes/:id" element={
         <ProtectedRoute>
           <RequireTenant>
-              <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
-              <Layout>
-                <ClientDetails />
-              </Layout>
-            </RequireRole>
+            <Layout>
+              <ClientDetails />
+            </Layout>
           </RequireTenant>
         </ProtectedRoute>
       } />
       <Route path="/schedules" element={
         <ProtectedRoute>
           <RequireTenant>
-            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
-              <Layout>
-                <PeriodClientList />
-              </Layout>
-            </RequireRole>
+            <Layout>
+              <PeriodClientList />
+            </Layout>
           </RequireTenant>
         </ProtectedRoute>
       } />
       <Route path="/strategy-clients" element={
         <ProtectedRoute>
           <RequireTenant>
-            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
-              <Layout>
-                <StrategyClientList />
-              </Layout>
-            </RequireRole>
+            <Layout>
+              <StrategyClientList />
+            </Layout>
           </RequireTenant>
         </ProtectedRoute>
       } />
       <Route path="/strategies" element={
         <ProtectedRoute>
           <RequireTenant>
-            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
-              <Layout>
-                <StrategyCreation />
-              </Layout>
-            </RequireRole>
+            <Layout>
+              <StrategyCreation />
+            </Layout>
           </RequireTenant>
         </ProtectedRoute>
       } />
       <Route path="/client-guide" element={
         <ProtectedRoute>
           <RequireTenant>
-            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
-              <Layout>
-                <GenerateQuestions />
-              </Layout>
-            </RequireRole>
+            <Layout>
+              <GenerateQuestions />
+            </Layout>
           </RequireTenant>
         </ProtectedRoute>
       } />
