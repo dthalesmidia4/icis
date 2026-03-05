@@ -1,15 +1,10 @@
 import { Home, Code, User, LogOut, Menu, Building2 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useTenant } from "@/contexts/TenantContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { useAgency } from "@/contexts/AgencyContext";
-import { useHubPermissions } from "@/hooks/useHubPermissions";
-import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { RoleBadge } from "@/components/RoleBadge";
-import { getFilteredNavigationItems, type NavigationItem } from "@/lib/constants/navigation";
 import {
   Sidebar,
   SidebarContent,
@@ -34,7 +29,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 // Menu developer
@@ -49,16 +44,6 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
   const { signOut, user } = useAuth();
   const userName = user?.user_metadata?.full_name as string | undefined;
   const { canAccessAdmin, role } = useUserRole();
-  const { agencyId } = useAgency();
-  const { canAccess } = useHubPermissions();
-  const { role: agencyRole } = useAgencyRole();
-
-  const isAdmin = agencyRole === 'super_admin' || agencyRole === 'agency_admin' || agencyRole === 'agency_manager';
-  const isAdminOnly = agencyRole === 'super_admin' || agencyRole === 'agency_admin';
-
-  const navItems = useMemo(() => {
-    return getFilteredNavigationItems({ agencyId, isAdmin, isAdminOnly, canAccess });
-  }, [agencyId, isAdmin, isAdminOnly, canAccess]);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -109,26 +94,6 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
             <span className="font-medium">Home</span>
           </button>
 
-          {/* Itens centralizados */}
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.route);
-            return (
-              <button
-                key={item.route}
-                onClick={() => handleNavigate(item.route)}
-                className={cn(
-                  "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left",
-                  active
-                    ? 'bg-primary text-primary-foreground shadow-lg'
-                    : 'hover:bg-accent text-foreground'
-                )}
-              >
-                <Icon className="h-5 w-5 flex-shrink-0" />
-                <span className="font-medium">{item.title}</span>
-              </button>
-            );
-          })}
 
           {/* Developer Menu */}
           {canAccessAdmin && (
@@ -185,16 +150,6 @@ function DesktopSidebar() {
   const { signOut, user } = useAuth();
   const userName = user?.user_metadata?.full_name as string | undefined;
   const { canAccessAdmin } = useUserRole();
-  const { agencyId } = useAgency();
-  const { canAccess } = useHubPermissions();
-  const { role: agencyRole } = useAgencyRole();
-
-  const isAdmin = agencyRole === 'super_admin' || agencyRole === 'agency_admin' || agencyRole === 'agency_manager';
-  const isAdminOnly = agencyRole === 'super_admin' || agencyRole === 'agency_admin';
-
-  const navItems = useMemo(() => {
-    return getFilteredNavigationItems({ agencyId, isAdmin, isAdminOnly, canAccess });
-  }, [agencyId, isAdmin, isAdminOnly, canAccess]);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -280,42 +235,6 @@ function DesktopSidebar() {
             </Tooltip>
           )}
 
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.route);
-            return expanded ? (
-              <button
-                key={item.route}
-                onClick={() => navigate(item.route)}
-                className={cn(
-                  "h-10 flex items-center gap-3 px-3 rounded-xl transition-all duration-300",
-                  active
-                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
-                    : 'hover:bg-accent text-sidebar-foreground'
-                )}
-              >
-                <Icon className="h-5 w-5 flex-shrink-0" />
-                <span className="text-sm font-medium truncate">{item.title}</span>
-              </button>
-            ) : (
-              <Tooltip key={item.route}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => navigate(item.route)}
-                    className={cn(
-                      "h-10 w-10 mx-auto flex items-center justify-center rounded-xl transition-all duration-300",
-                      active
-                        ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
-                        : 'hover:bg-accent text-sidebar-foreground'
-                    )}
-                  >
-                    <Icon className="h-5 w-5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={10}>{item.title}</TooltipContent>
-              </Tooltip>
-            );
-          })}
         </nav>
 
         {/* Developer Menu */}
