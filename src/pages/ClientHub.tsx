@@ -523,9 +523,12 @@ const ClientHub = () => {
         <Dialog open={aiPostModalOpen} onOpenChange={(open) => { setAiPostModalOpen(open); if (!open) { setPostIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setGeneratedPostImage(null); } }}>
           <DialogContent className={`!flex !flex-col overflow-hidden ${generatedPostImage ? 'sm:max-w-5xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[90vh]'}`}>
             <DialogHeader>
-              <DialogTitle className="text-lg flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary" />Gerar Post com IA
-              </DialogTitle>
+             <div className="flex items-center gap-2">
+                <button onClick={() => { setAiPostModalOpen(false); setPostIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setGeneratedPostImage(null); setSelectedContentType("Post Estático"); setProductionModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                <DialogTitle className="text-lg flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary" />Gerar Post com IA
+                </DialogTitle>
+              </div>
             </DialogHeader>
 
             <div className={`flex-1 min-h-0 ${generatedPostImage ? 'flex gap-6' : 'overflow-y-auto'}`}>
