@@ -425,18 +425,22 @@ export default function TeamMembers() {
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'columns' | 'hub' | 'notifications')} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="columns" className="gap-2">
-                <LayoutGrid className="h-4 w-4" />
-                Colunas Kanban
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'columns' | 'hub' | 'client_buttons' | 'notifications')} className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="columns" className="gap-1 text-xs sm:text-sm">
+                <LayoutGrid className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Colunas</span> Kanban
               </TabsTrigger>
-              <TabsTrigger value="hub" className="gap-2">
-                <Home className="h-4 w-4" />
-                Botões do Hub
+              <TabsTrigger value="hub" className="gap-1 text-xs sm:text-sm">
+                <Home className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Botões do</span> Hub
               </TabsTrigger>
-              <TabsTrigger value="notifications" className="gap-2">
-                <Bell className="h-4 w-4" />
+              <TabsTrigger value="client_buttons" className="gap-1 text-xs sm:text-sm">
+                <MousePointerClick className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Botões</span> Cliente
+              </TabsTrigger>
+              <TabsTrigger value="notifications" className="gap-1 text-xs sm:text-sm">
+                <Bell className="h-3 w-3 sm:h-4 sm:w-4" />
                 Alertas
               </TabsTrigger>
             </TabsList>
