@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useEffect, useState } from "react";
@@ -31,8 +31,9 @@ const ClientHub = () => {
   const [sceneCount, setSceneCount] = useState(3);
   const [videoAspectRatio, setVideoAspectRatio] = useState('9:16');
   const [videoStep, setVideoStep] = useState<1 | 2>(1);
-  const [videoScenes, setVideoScenes] = useState<Array<{ scene_description: string; mascot_speech: string }>>([]);
+  const [videoScenes, setVideoScenes] = useState<Array<{ scene_description: string; mascot_speech: string; frame0_url?: string; video_url?: string; generating?: boolean }>>([]);
   const [generatingStoryboard, setGeneratingStoryboard] = useState(false);
+  const [uploadingFrame, setUploadingFrame] = useState<number | null>(null);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [presets, setPresets] = useState<Array<{ id: string; name: string; primary_color: string | null; secondary_color: string | null }>>([]);
   const [aiPostModalOpen, setAiPostModalOpen] = useState(false);
@@ -261,13 +262,55 @@ const ClientHub = () => {
       if (error) { console.error('Edge function error:', error); toast.error('Erro ao gerar storyboard. Tente novamente.'); return; }
       if (data?.error) { toast.error(data.error); return; }
       if (data?.scenes && Array.isArray(data.scenes)) {
-        setVideoScenes(data.scenes);
+        setVideoScenes(data.scenes.map((s: any) => ({ ...s, frame0_url: undefined, video_url: undefined, generating: false })));
         setVideoStep(2);
-        toast.success('Storyboard gerado! Revise e edite as cenas.');
+        toast.success('Storyboard gerado! Insira os frames e gere as cenas.');
         await saveGeneratedContent('video_storyboard', 'Storyboard de Vídeo', videoIdea, []);
       } else { toast.error('Nenhuma cena retornada.'); }
     } catch (err) { console.error('Generate storyboard error:', err); toast.error('Erro inesperado ao gerar o storyboard.'); }
     finally { setGeneratingStoryboard(false); }
+  };
+
+  const handleFrameUpload = async (sceneIndex: number, file: File) => {
+    setUploadingFrame(sceneIndex);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `video-frames/${selectedClient.id}/${crypto.randomUUID()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('card-attachments').upload(filePath, file, { contentType: file.type, upsert: true });
+      if (uploadError) { toast.error('Erro ao fazer upload da imagem.'); return; }
+      const { data: publicUrlData } = supabase.storage.from('card-attachments').getPublicUrl(filePath);
+      setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, frame0_url: publicUrlData.publicUrl } : s));
+      toast.success(`Frame 0 da Cena ${sceneIndex + 1} carregado!`);
+    } catch (err) { console.error('Frame upload error:', err); toast.error('Erro ao fazer upload.'); }
+    finally { setUploadingFrame(null); }
+  };
+
+  const handleGenerateScene = async (sceneIndex: number) => {
+    const scene = videoScenes[sceneIndex];
+    if (!scene.scene_description.trim()) { toast.error('Descrição da cena é obrigatória.'); return; }
+    
+    setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, generating: true } : s));
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-video-scene', {
+        body: {
+          sceneDescription: scene.scene_description,
+          mascotSpeech: scene.mascot_speech || null,
+          frameUrl: scene.frame0_url || null,
+          clientId: selectedClient.id,
+          tenantId,
+          sceneIndex,
+          aspectRatio: videoAspectRatio,
+        },
+      });
+      if (error) { console.error('Edge function error:', error); toast.error(`Erro ao gerar Cena ${sceneIndex + 1}.`); return; }
+      if (data?.error) { toast.error(data.error); return; }
+      if (data?.videoUrl) {
+        setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, video_url: data.videoUrl } : s));
+        toast.success(`Cena ${sceneIndex + 1} gerada com sucesso!`);
+        await saveGeneratedContent('video_scene', `Cena ${sceneIndex + 1} - Vídeo`, scene.scene_description, [data.videoUrl]);
+      } else { toast.error('Nenhum vídeo retornado.'); }
+    } catch (err) { console.error('Generate scene error:', err); toast.error('Erro inesperado ao gerar a cena.'); }
+    finally { setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, generating: false } : s)); }
   };
 
   const actionCards = [
@@ -997,39 +1040,133 @@ const ClientHub = () => {
               </>
             ) : (
               <>
-                <div className="flex-1 overflow-y-auto min-h-0 space-y-4 py-2">
-                  {videoScenes.map((scene, idx) => (
-                    <div key={idx} className="rounded-lg border border-border p-4 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-primary">Cena {idx + 1}</span>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
-                          {idx === 0 ? 'Abertura' : idx === videoScenes.length - 1 ? 'Encerramento (CTA)' : 'Desenvolvimento'}
-                        </span>
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-medium text-muted-foreground">Descrição da Cena (EN)</Label>
-                        <Textarea placeholder="Scene description in English..." value={scene.scene_description}
-                          onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, scene_description: e.target.value } : s))}
-                          className="min-h-[80px] resize-none text-sm" />
-                      </div>
-                      {scene.mascot_speech && (
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-muted-foreground">Fala do Mascote (PT-BR)</Label>
-                          <Textarea placeholder="O mascote diz: ..." value={scene.mascot_speech}
-                            onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, mascot_speech: e.target.value } : s))}
-                            className="min-h-[60px] resize-none text-sm" />
+                <div className="flex gap-4 flex-1 overflow-hidden min-h-0">
+                  {/* Left side - scene inputs */}
+                  <div className={`flex-shrink-0 overflow-y-auto space-y-4 py-2 ${videoScenes.some(s => s.video_url) ? 'w-[45%]' : 'w-full'}`}>
+                    {videoScenes.map((scene, idx) => (
+                      <div key={idx} className="rounded-lg border border-border p-4 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-primary">Cena {idx + 1}</span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
+                            {idx === 0 ? 'Abertura' : idx === videoScenes.length - 1 ? 'Encerramento (CTA)' : 'Desenvolvimento'}
+                          </span>
+                          {scene.generating && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary ml-auto" />}
                         </div>
-                      )}
+
+                        {/* Frame 0 upload */}
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground">Frame 0 (Imagem Inicial)</Label>
+                          {scene.frame0_url ? (
+                            <div className="relative rounded-lg overflow-hidden border border-primary/30">
+                              <img src={scene.frame0_url} alt={`Frame 0 - Cena ${idx + 1}`} className="w-full h-28 object-cover" />
+                              <button
+                                className="absolute top-1.5 right-1.5 bg-destructive text-destructive-foreground rounded-full p-1 hover:scale-110 transition-transform"
+                                onClick={() => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, frame0_url: undefined } : s))}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <label className={`flex flex-col items-center justify-center w-full h-24 rounded-lg border-2 border-dashed border-border hover:border-primary/50 cursor-pointer transition-colors bg-muted/30 ${uploadingFrame === idx ? 'opacity-50 pointer-events-none' : ''}`}>
+                              {uploadingFrame === idx ? (
+                                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                              ) : (
+                                <>
+                                  <Upload className="w-5 h-5 text-muted-foreground mb-1" />
+                                  <span className="text-xs text-muted-foreground">Clique para inserir o frame</span>
+                                </>
+                              )}
+                              <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleFrameUpload(idx, file);
+                                e.target.value = '';
+                              }} />
+                            </label>
+                          )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-muted-foreground">Descrição da Cena (EN)</Label>
+                          <Textarea placeholder="Scene description in English..." value={scene.scene_description}
+                            onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, scene_description: e.target.value } : s))}
+                            className="min-h-[70px] resize-none text-sm" disabled={scene.generating} />
+                        </div>
+                        {scene.mascot_speech && (
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-medium text-muted-foreground">Fala do Mascote (PT-BR)</Label>
+                            <Textarea placeholder="O mascote diz: ..." value={scene.mascot_speech}
+                              onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, mascot_speech: e.target.value } : s))}
+                              className="min-h-[50px] resize-none text-sm" disabled={scene.generating} />
+                          </div>
+                        )}
+
+                        <Button
+                          className="w-full h-9 text-xs font-semibold bg-gradient-to-r from-primary to-primary/70"
+                          disabled={!scene.scene_description.trim() || scene.generating}
+                          onClick={() => handleGenerateScene(idx)}
+                        >
+                          {scene.generating ? (
+                            <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Gerando cena...</>
+                          ) : scene.video_url ? (
+                            <><Sparkles className="w-3.5 h-3.5 mr-1.5" />Gerar Novamente</>
+                          ) : (
+                            <><Play className="w-3.5 h-3.5 mr-1.5" />Gerar Cena</>
+                          )}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Right side - generated videos */}
+                  {videoScenes.some(s => s.video_url || s.generating) && (
+                    <div className="w-[55%] flex-shrink-0 flex flex-col py-2 overflow-y-auto">
+                      <Label className="text-sm font-medium mb-3">Vídeos Gerados</Label>
+                      <div className="space-y-4">
+                        {videoScenes.map((scene, idx) => {
+                          if (!scene.video_url && !scene.generating) return null;
+                          return (
+                            <div key={idx} className="rounded-xl overflow-hidden border-2 border-primary/30 shadow-lg">
+                              <div className="flex items-center justify-between px-3 py-2 bg-muted/50">
+                                <span className="text-xs font-bold text-primary">Cena {idx + 1}</span>
+                                {scene.video_url && (
+                                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => {
+                                    const link = document.createElement('a'); link.href = scene.video_url!; link.download = `scene-${idx + 1}-${Date.now()}.mp4`; link.click();
+                                  }}>
+                                    <Download className="w-3.5 h-3.5 mr-1" />Baixar
+                                  </Button>
+                                )}
+                              </div>
+                              {scene.generating ? (
+                                <div className="flex flex-col items-center justify-center py-12 gap-3 bg-black/5">
+                                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                  <p className="text-xs text-muted-foreground">Gerando vídeo... Isso pode levar alguns minutos.</p>
+                                </div>
+                              ) : scene.video_url ? (
+                                <video src={scene.video_url} controls className="w-full bg-black/5" />
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  ))}
+                  )}
                 </div>
+
                 <div className="flex gap-3 mt-2">
                   <Button variant="outline" className="h-11 text-sm font-semibold flex-1" onClick={() => { setVideoStep(1); setVideoScenes([]); }}>
                     Voltar
                   </Button>
-                  <Button className="h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 flex-1" onClick={() => handleGenerateStoryboard()}>
-                    <Sparkles className="w-4 h-4 mr-2" />Gerar Novamente
-                  </Button>
+                  {videoScenes.some(s => s.video_url) && (
+                    <Button variant="outline" className="h-11 text-sm font-semibold flex-1" onClick={() => {
+                      videoScenes.forEach((s, idx) => {
+                        if (s.video_url) {
+                          const link = document.createElement('a'); link.href = s.video_url; link.download = `scene-${idx + 1}-${Date.now()}.mp4`; link.click();
+                        }
+                      });
+                    }}>
+                      <Download className="w-4 h-4 mr-2" />Baixar Todos
+                    </Button>
+                  )}
                 </div>
               </>
             )}
