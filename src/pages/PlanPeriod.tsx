@@ -861,54 +861,29 @@ const PlanPeriod = () => {
               </div>
 
               {sortedDemands.length > 0 ? (
-                <div className="grid gap-3">
+                <div className="grid gap-2">
                   {sortedDemands.map((demand: any, idx: number) => {
                     const statusInfo = demand.pipeline_statuses;
                     return (
-                      <Card
+                      <div
                         key={demand.id || idx}
-                        className="p-4 cursor-pointer hover:bg-muted/50 transition-all duration-200 hover:shadow-md border-border/50"
-                        onClick={() => setExpandedLatestCard(expandedLatestCard === idx ? null : idx)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-lg border border-border/50 bg-card hover:bg-muted/50 transition-colors"
                       >
-                        <div className="flex items-start gap-3">
-                          <div className="flex-1 min-w-0 space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {demand.demand_type && <Badge variant="secondary" className="text-xs">{demand.demand_type}</Badge>}
-                              {demand.channel && <Badge variant="outline" className="text-xs">{demand.channel}</Badge>}
-                              {statusInfo && (
-                                <Badge 
-                                  className="text-[10px] px-1.5 py-0" 
-                                  style={{ backgroundColor: `${statusInfo.color}20`, color: statusInfo.color, borderColor: `${statusInfo.color}40` }}
-                                >
-                                  {statusInfo.name}
-                                </Badge>
-                              )}
-                            </div>
-                            <h4 className="font-semibold text-foreground">{demand.title}</h4>
-                            {demand.objective && (
-                              <p className="text-sm text-muted-foreground line-clamp-2">{demand.objective}</p>
-                            )}
-                            {demand.publish_date && (
-                              <p className="text-xs text-muted-foreground">
-                                📅 {format(new Date(demand.publish_date + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}
-                                {demand.publish_time && ` às ${demand.publish_time}`}
-                              </p>
-                            )}
-                          </div>
-                          <ChevronDown className={cn("w-5 h-5 text-muted-foreground shrink-0 transition-transform mt-1", expandedLatestCard === idx && "rotate-180")} />
+                        <div className="flex-1 min-w-0 flex items-center gap-3">
+                          {demand.demand_type && <Badge variant="secondary" className="text-xs shrink-0">{demand.demand_type}</Badge>}
+                          <h4 className="text-base font-bold text-foreground truncate">{demand.title}</h4>
                         </div>
-
-                        {expandedLatestCard === idx && (
-                          <div className="mt-4 pt-4 border-t border-border/50 space-y-2 text-sm" onClick={e => e.stopPropagation()}>
-                            {demand.objective && (
-                              <div><span className="font-medium text-muted-foreground">Objetivo:</span> <span>{demand.objective}</span></div>
-                            )}
-                            {demand.instructions && (
-                              <div><span className="font-medium text-muted-foreground">Instruções:</span> <p className="whitespace-pre-line mt-1">{demand.instructions}</p></div>
-                            )}
-                          </div>
+                        {statusInfo && (
+                          <Badge 
+                            className="text-[10px] px-2 py-0.5 shrink-0" 
+                            style={{ backgroundColor: `${statusInfo.color}20`, color: statusInfo.color, borderColor: `${statusInfo.color}40` }}
+                          >
+                            {statusInfo.name}
+                          </Badge>
                         )}
-                      </Card>
+                      </div>
+                    );
+                  })}
                     );
                   })}
                 </div>
