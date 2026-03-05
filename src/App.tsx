@@ -99,11 +99,9 @@ function AppRoutes() {
       <Route path="/client-hub" element={
         <ProtectedRoute>
           <RequireTenant>
-            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
-              <Layout>
-                <ClientHub />
-              </Layout>
-            </RequireRole>
+            <Layout>
+              <ClientHub />
+            </Layout>
           </RequireTenant>
         </ProtectedRoute>
       } />
