@@ -468,7 +468,10 @@ const ClientHub = () => {
         <Dialog open={productionModalOpen} onOpenChange={(open) => { setProductionModalOpen(open); if (!open) setSelectedContentType(null); }}>
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle className="text-xl">{selectedContentType}</DialogTitle>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setProductionModalOpen(false); setContentModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                <DialogTitle className="text-xl">{selectedContentType}</DialogTitle>
+              </div>
               <p className="text-sm text-muted-foreground">Escolha como deseja criar o conteúdo.</p>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-4 sm:gap-6 py-4">
