@@ -103,20 +103,15 @@ export function useHubPermissions() {
 
   // Função para verificar se o usuário pode acessar uma seção específica
   const canAccess = useCallback((sectionId: HubSectionId | ClientHubButtonId | string): boolean => {
-    // Para botões do cliente (client_*), o padrão é "allow" quando não há permissão salva
-    const isClientButton = sectionId.startsWith('client_');
-
-    // Se não há permissões carregadas/salvas para este usuário
+    // Se não há permissões carregadas/salvas para este usuário, permitir tudo por padrão
     if (permissions.length === 0) {
-      // Botões do cliente: permitir por padrão; seções do hub: negar por padrão
-      return isClientButton;
+      return true;
     }
 
     const permission = permissions.find(p => p.hub_section === sectionId);
-    // Se não encontrou permissão específica para esta seção
+    // Se não encontrou permissão específica para esta seção, permitir por padrão
     if (!permission) {
-      // Botões do cliente: permitir por padrão; seções do hub: negar por padrão
-      return isClientButton;
+      return true;
     }
 
     return permission.can_access === true;
