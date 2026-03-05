@@ -700,9 +700,12 @@ const ClientHub = () => {
         <Dialog open={manualCarouselOpen} onOpenChange={(open) => { setManualCarouselOpen(open); if (!open) { setSelectedPresetId(null); setSelectedMascotIds([]); } }}>
           <DialogContent className="sm:max-w-2xl !flex !flex-col overflow-hidden max-h-[90vh]">
             <DialogHeader>
-              <DialogTitle className="text-lg flex items-center gap-2">
-                <LayoutGrid className="w-5 h-5 text-primary" />Editor de Carrossel
-              </DialogTitle>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setManualCarouselOpen(false); setSelectedPresetId(null); setSelectedMascotIds([]); setSelectedContentType("Carrossel"); setProductionModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                <DialogTitle className="text-lg flex items-center gap-2">
+                  <LayoutGrid className="w-5 h-5 text-primary" />Editor de Carrossel
+                </DialogTitle>
+              </div>
             </DialogHeader>
 
             <div className="flex-1 overflow-y-auto min-h-0 space-y-3 py-1">
