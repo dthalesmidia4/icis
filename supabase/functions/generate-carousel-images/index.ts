@@ -115,9 +115,15 @@ Deno.serve(async (req) => {
           const imgResp = await fetch(url);
           if (imgResp.ok) {
             const imgBuffer = await imgResp.arrayBuffer();
-            const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
+            const bytes = new Uint8Array(imgBuffer);
+            let binary = "";
+            const chunkSize = 8192;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+              binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+            }
+            const imgBase64 = btoa(binary);
             const contentType = imgResp.headers.get("content-type") || "image/png";
-            mascotInlineData.push({ mime_type: contentType, data: imgBase64 });
+            mascotInlineData.push({ mimeType: contentType, data: imgBase64 });
           }
         } catch (e) {
           console.error("Failed to fetch mascot image:", e);
@@ -171,7 +177,7 @@ REGRAS DE DESIGN:
 
       const parts: any[] = [{ text: imagePrompt }];
       for (const mascot of mascotInlineData) {
-        parts.push({ inline_data: mascot });
+        parts.push({ inlineData: mascot });
       }
 
       try {
@@ -210,9 +216,10 @@ REGRAS DE DESIGN:
         for (const candidate of candidates) {
           const candidateParts = candidate.content?.parts || [];
           for (const part of candidateParts) {
-            if (part.inline_data) {
-              imageBase64 = part.inline_data.data;
-              imageMimeType = part.inline_data.mime_type || "image/png";
+            const inlineData = part.inlineData || part.inline_data;
+            if (inlineData) {
+              imageBase64 = inlineData.data;
+              imageMimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
               break;
             }
           }
