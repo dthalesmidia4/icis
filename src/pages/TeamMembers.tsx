@@ -536,6 +536,7 @@ export default function TeamMembers() {
                     </div>
                   );
                 })}
+              </TabsContent>
 
               <TabsContent value="notifications" className="mt-0 space-y-3">
                 <p className="text-sm text-muted-foreground mb-3">
