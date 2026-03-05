@@ -109,11 +109,9 @@ function AppRoutes() {
       <Route path="/content-history" element={
         <ProtectedRoute>
           <RequireTenant>
-            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
-              <Layout>
-                <ContentHistory />
-              </Layout>
-            </RequireRole>
+            <Layout>
+              <ContentHistory />
+            </Layout>
           </RequireTenant>
         </ProtectedRoute>
       } />
