@@ -10,10 +10,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Users, Settings2, LayoutGrid, Home, Bell } from 'lucide-react';
+import { Loader2, Users, Settings2, LayoutGrid, Home, Bell, MousePointerClick } from 'lucide-react';
 import { toast } from 'sonner';
 import BackButton from '@/components/BackButton';
-import { HUB_SECTIONS } from '@/hooks/useHubPermissions';
+import { HUB_SECTIONS, CLIENT_HUB_BUTTONS } from '@/hooks/useHubPermissions';
 
 interface TeamMember {
   id: string;
