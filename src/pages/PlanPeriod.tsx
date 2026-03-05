@@ -137,10 +137,12 @@ const PlanPeriod = () => {
           setIncompletePeriod(incomplete);
         }
 
-        // Fetch demand metrics for all periods
+        // Fetch demand metrics for all periods + all client demands
         if (historyData.length > 0) {
           setLoadingMetrics(true);
           const periodIds = historyData.map(p => p.id);
+          
+          // Fetch all demands for the client (period-linked AND unlinked)
           const { data: demandsData, error: demandsError } = await supabase
             .from('demands')
             .select(`
@@ -150,21 +152,32 @@ const PlanPeriod = () => {
               )
             `)
             .eq('tenant_id', tenantId)
-            .in('period_plan_id', periodIds);
+            .eq('client_id', selectedClient.id)
+            .is('archived_at', null);
 
           if (!demandsError && demandsData) {
             const metrics: Record<string, { total: number; published: number; demands: any[] }> = {};
             demandsData.forEach(d => {
-              if (!d.period_plan_id) return;
-              if (!metrics[d.period_plan_id]) {
-                metrics[d.period_plan_id] = { total: 0, published: 0, demands: [] };
-              }
-              metrics[d.period_plan_id].total++;
-              metrics[d.period_plan_id].demands.push(d);
-              if (d.pipeline_statuses?.is_final) {
-                metrics[d.period_plan_id].published++;
+              // Group by period_plan_id for period metrics
+              if (d.period_plan_id && periodIds.includes(d.period_plan_id)) {
+                if (!metrics[d.period_plan_id]) {
+                  metrics[d.period_plan_id] = { total: 0, published: 0, demands: [] };
+                }
+                metrics[d.period_plan_id].total++;
+                metrics[d.period_plan_id].demands.push(d);
+                if (d.pipeline_statuses?.is_final) {
+                  metrics[d.period_plan_id].published++;
+                }
               }
             });
+            
+            // Store ALL client demands under a special key for the latest view
+            metrics['__all_client__'] = {
+              total: demandsData.length,
+              published: demandsData.filter(d => d.pipeline_statuses?.is_final).length,
+              demands: demandsData
+            };
+            
             setPeriodDemandMetrics(metrics);
           }
           setLoadingMetrics(false);
