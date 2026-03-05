@@ -22,17 +22,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Fetch Google AI Studio API key
+    const { data: apiKeyData } = await supabase
+      .from("api_keys")
+      .select("key_value")
+      .eq("key_name", "Google AI Studio")
+      .single();
+
+    const GOOGLE_API_KEY = apiKeyData?.key_value;
+    if (!GOOGLE_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // 1. Fetch client branding
     const { data: client } = await supabase
@@ -94,29 +101,37 @@ Deno.serve(async (req) => {
       ? `Tom de voz e estratégia da marca: ${strategy.strategy_text.substring(0, 500)}`
       : "";
 
-    // 5. Determine dimensions from aspect ratio
-    const dimensions: Record<string, { w: number; h: number }> = {
-      "1:1": { w: 1024, h: 1024 },
-      "9:16": { w: 768, h: 1365 },
-      "16:9": { w: 1365, h: 768 },
-      "4:5": { w: 1024, h: 1280 },
-    };
-    const dim = dimensions[aspectRatio] || dimensions["1:1"];
-
-    // 6. Determine model
-    const modelId = aiModel === "gpt" 
-      ? "openai/gpt-5" 
-      : "google/gemini-3-pro-image-preview";
-
     const mascotSection = mascotImageUrls && mascotImageUrls.length > 0
       ? `- MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""} OBRIGATÓRIO: Reproduza o mascote EXATAMENTE como na imagem de referência fornecida — mesma aparência, cabelo, roupa, proporções e características físicas. NÃO altere nenhuma característica do mascote. O mascote DEVE aparecer no design de forma integrada e harmoniosa.`
       : `- NÃO inclua personagens, mascotes ou figuras humanas no design.`;
 
-    console.log(`Generating ${slides.length} carousel images with model: ${modelId}, ratio: ${aspectRatio}`);
+    console.log(`Generating ${slides.length} carousel images with Gemini 3 Pro Image, ratio: ${aspectRatio}`);
+
+    // Pre-fetch mascot images as base64
+    const mascotInlineData: Array<{ mime_type: string; data: string }> = [];
+    if (mascotImageUrls && mascotImageUrls.length > 0) {
+      for (const url of mascotImageUrls) {
+        try {
+          const imgResp = await fetch(url);
+          if (imgResp.ok) {
+            const imgBuffer = await imgResp.arrayBuffer();
+            const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
+            const contentType = imgResp.headers.get("content-type") || "image/png";
+            mascotInlineData.push({ mime_type: contentType, data: imgBase64 });
+          }
+        } catch (e) {
+          console.error("Failed to fetch mascot image:", e);
+        }
+      }
+      if (mascotInlineData.length > 0) {
+        console.log(`  → ${mascotInlineData.length} mascot reference image(s) pre-fetched`);
+      }
+    }
 
     const generatedImages: Array<{ slideIndex: number; imageUrl: string }> = [];
+    const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
 
-    // 7. Generate images one by one to avoid memory issues
+    // 5. Generate images one by one
     for (let i = 0; i < slides.length; i++) {
       const slide = slides[i];
       const slideNumber = i + 1;
@@ -142,7 +157,7 @@ ${presetColors.text ? `- Cor do texto: ${presetColors.text}` : ""}
 ${mascotSection}
 
 REGRAS DE DESIGN:
-- Formato: ${aspectRatio} (${dim.w}x${dim.h}px)
+- Formato: ${aspectRatio || "1:1"} (1024x1024px)
 - Este é o slide ${slideNumber} de ${totalSlides} — mantenha coerência visual com os outros slides
 - O texto "${slide.text}" DEVE aparecer legível e bem posicionado na imagem
 - Design profissional para redes sociais
@@ -154,84 +169,92 @@ REGRAS DE DESIGN:
 
       console.log(`  → Generating slide ${slideNumber}/${totalSlides}...`);
 
-      const contentParts: any[] = [{ type: "text", text: imagePrompt }];
-
-      if (mascotImageUrls && mascotImageUrls.length > 0) {
-        for (const url of mascotImageUrls) {
-          contentParts.push({ type: "image_url", image_url: { url } });
-        }
+      const parts: any[] = [{ text: imagePrompt }];
+      for (const mascot of mascotInlineData) {
+        parts.push({ inline_data: mascot });
       }
 
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: modelId,
-          messages: [{ role: "user", content: contentParts }],
-          modalities: ["image", "text"],
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Slide ${slideNumber} AI error:`, response.status, errorText);
-
-        if (response.status === 429) {
-          return new Response(
-            JSON.stringify({ error: `Rate limit excedido no slide ${slideNumber}. Tente novamente.`, partialImages: generatedImages }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-        if (response.status === 402) {
-          return new Response(
-            JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao workspace.", partialImages: generatedImages }),
-            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-
-        // Skip this slide but continue with others
-        console.warn(`  ⚠ Skipping slide ${slideNumber} due to error`);
-        continue;
-      }
-
-      const data = await response.json();
-      const base64Url = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
-      if (!base64Url) {
-        console.warn(`  ⚠ No image returned for slide ${slideNumber}`);
-        continue;
-      }
-
-      // Upload to storage
-      const base64Data = base64Url.replace(/^data:image\/\w+;base64,/, "");
-      const imageBytes = decodeBase64(base64Data);
-      const fileName = `carousel-posts/${clientId}/${crypto.randomUUID()}.png`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("card-attachments")
-        .upload(fileName, imageBytes, {
-          contentType: "image/png",
-          upsert: false,
+      try {
+        const response = await fetch(googleApiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: {
+              responseModalities: ["IMAGE", "TEXT"],
+            },
+          }),
         });
 
-      if (uploadError) {
-        console.error(`Storage upload error for slide ${slideNumber}:`, uploadError);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Slide ${slideNumber} error:`, response.status, errorText);
+
+          if (response.status === 429) {
+            return new Response(
+              JSON.stringify({ error: `Rate limit excedido no slide ${slideNumber}. Tente novamente.`, partialImages: generatedImages }),
+              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          console.warn(`  ⚠ Skipping slide ${slideNumber} due to error`);
+          continue;
+        }
+
+        const data = await response.json();
+
+        // Extract base64 image from Gemini response
+        let imageBase64 = "";
+        let imageMimeType = "image/png";
+        const candidates = data.candidates || [];
+        for (const candidate of candidates) {
+          const candidateParts = candidate.content?.parts || [];
+          for (const part of candidateParts) {
+            if (part.inline_data) {
+              imageBase64 = part.inline_data.data;
+              imageMimeType = part.inline_data.mime_type || "image/png";
+              break;
+            }
+          }
+          if (imageBase64) break;
+        }
+
+        if (!imageBase64) {
+          console.warn(`  ⚠ No image returned for slide ${slideNumber}`);
+          continue;
+        }
+
+        // Upload to storage
+        const imageBytes = decodeBase64(imageBase64);
+        const ext = imageMimeType.includes("jpeg") ? "jpg" : "png";
+        const fileName = `carousel-posts/${clientId}/${crypto.randomUUID()}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("card-attachments")
+          .upload(fileName, imageBytes, {
+            contentType: imageMimeType,
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error(`Storage upload error for slide ${slideNumber}:`, uploadError);
+          continue;
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from("card-attachments")
+          .getPublicUrl(fileName);
+
+        generatedImages.push({
+          slideIndex: i,
+          imageUrl: publicUrlData.publicUrl,
+        });
+
+        console.log(`  ✅ Slide ${slideNumber} generated successfully`);
+      } catch (slideError) {
+        console.error(`Exception on slide ${slideNumber}:`, slideError);
         continue;
       }
-
-      const { data: publicUrlData } = supabase.storage
-        .from("card-attachments")
-        .getPublicUrl(fileName);
-
-      generatedImages.push({
-        slideIndex: i,
-        imageUrl: publicUrlData.publicUrl,
-      });
-
-      console.log(`  ✅ Slide ${slideNumber} generated successfully`);
     }
 
     if (generatedImages.length === 0) {
@@ -241,7 +264,7 @@ REGRAS DE DESIGN:
       );
     }
 
-    console.log(`✅ Generated ${generatedImages.length}/${slides.length} carousel images`);
+    console.log(`✅ Generated ${generatedImages.length}/${slides.length} carousel images with Gemini 3 Pro Image`);
 
     return new Response(
       JSON.stringify({
