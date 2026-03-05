@@ -268,9 +268,10 @@ ESTILO:
         for (const candidate of candidates) {
           const candidateParts = candidate.content?.parts || [];
           for (const part of candidateParts) {
-            if (part.inline_data) {
-              imageBase64 = part.inline_data.data;
-              imageMimeType = part.inline_data.mime_type || "image/png";
+            const inlineData = part.inlineData || part.inline_data;
+            if (inlineData) {
+              imageBase64 = inlineData.data;
+              imageMimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
               break;
             }
           }
