@@ -1,15 +1,10 @@
 import { Home, Code, User, LogOut, Menu, Building2 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useTenant } from "@/contexts/TenantContext";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { useAgency } from "@/contexts/AgencyContext";
-import { useHubPermissions } from "@/hooks/useHubPermissions";
-import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { RoleBadge } from "@/components/RoleBadge";
-import { getFilteredNavigationItems, type NavigationItem } from "@/lib/constants/navigation";
 import {
   Sidebar,
   SidebarContent,
