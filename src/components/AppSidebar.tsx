@@ -260,42 +260,6 @@ function DesktopSidebar() {
             </Tooltip>
           )}
 
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.route);
-            return expanded ? (
-              <button
-                key={item.route}
-                onClick={() => navigate(item.route)}
-                className={cn(
-                  "h-10 flex items-center gap-3 px-3 rounded-xl transition-all duration-300",
-                  active
-                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
-                    : 'hover:bg-accent text-sidebar-foreground'
-                )}
-              >
-                <Icon className="h-5 w-5 flex-shrink-0" />
-                <span className="text-sm font-medium truncate">{item.title}</span>
-              </button>
-            ) : (
-              <Tooltip key={item.route}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => navigate(item.route)}
-                    className={cn(
-                      "h-10 w-10 mx-auto flex items-center justify-center rounded-xl transition-all duration-300",
-                      active
-                        ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
-                        : 'hover:bg-accent text-sidebar-foreground'
-                    )}
-                  >
-                    <Icon className="h-5 w-5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={10}>{item.title}</TooltipContent>
-              </Tooltip>
-            );
-          })}
         </nav>
 
         {/* Developer Menu */}
