@@ -22,17 +22,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Fetch Google AI Studio API key from api_keys table
+    const { data: apiKeyData } = await supabase
+      .from("api_keys")
+      .select("key_value")
+      .eq("key_name", "Google AI Studio")
+      .single();
+
+    const GOOGLE_API_KEY = apiKeyData?.key_value;
+    if (!GOOGLE_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // 1. Fetch client branding
     const { data: client } = await supabase
@@ -96,14 +103,13 @@ Deno.serve(async (req) => {
 
     // 5. Build the image prompt
     const mascotSection = mascotImageUrls && mascotImageUrls.length > 0
-      ? `- MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""} OBRIGATÓRIO: Reproduza o mascote EXATAMENTE como na imagem de referência fornecida — mesma aparência, cabelo, roupa, proporções e características físicas. NÃO altere nenhuma característica do mascote. O mascote DEVE aparecer no design de forma integrada e harmoniosa.`
-      : `- NÃO inclua personagens, mascotes ou figuras humanas no design.`;
+      ? `A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""} OBRIGATÓRIO: Reproduza o mascote EXATAMENTE como descrito. O mascote DEVE aparecer no design de forma integrada e harmoniosa.`
+      : `NÃO inclua personagens, mascotes ou figuras humanas no design.`;
 
     const imagePrompt = `
 ${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}Crie uma imagem profissional de post para rede social.
 
-IDEIA DO USUÁRIO:
-"${idea}"
+IDEIA DO USUÁRIO: "${idea}"
 
 BRANDING:
 - Cor primária: ${presetColors.primary}
@@ -111,7 +117,7 @@ BRANDING:
 ${presetColors.highlight ? `- Cor de destaque: ${presetColors.highlight}` : ""}
 ${presetColors.text ? `- Cor do texto: ${presetColors.text}` : ""}
 - Tipografia: ${presetColors.font}
-${mascotSection}
+- ${mascotSection}
 
 REGRAS OBRIGATÓRIAS:
 - NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem
@@ -123,72 +129,59 @@ REGRAS OBRIGATÓRIAS:
 - Texto legível e bem posicionado
 `.trim();
 
-    console.log("Generating standalone post with Nano Banana Pro (google/gemini-3-pro-image-preview)...");
+    console.log("Generating standalone post with Imagen 3 (imagen-3.0-generate-002) via Google AI Studio...");
 
-    // 6. Build message content
-    const contentParts: any[] = [{ type: "text", text: imagePrompt }];
+    // 6. Call Imagen 3 via Google AI Studio REST API
+    const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GOOGLE_API_KEY}`;
 
-    if (mascotImageUrls && mascotImageUrls.length > 0) {
-      for (const url of mascotImageUrls) {
-        contentParts.push({ type: "image_url", image_url: { url } });
-      }
-      console.log(`  → ${mascotImageUrls.length} mascot reference image(s) attached`);
-    }
-
-    // 7. Call Nano Banana Pro via Lovable AI Gateway
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(googleApiUrl, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-3-pro-image-preview",
-        messages: [{ role: "user", content: contentParts }],
-        modalities: ["image", "text"],
+        instances: [{ prompt: imagePrompt }],
+        parameters: {
+          sampleCount: 1,
+          aspectRatio: "1:1",
+          personGeneration: "allow_all",
+        },
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Nano Banana Pro error:", response.status, errorText);
+      console.error("Imagen 3 error:", response.status, errorText);
 
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit excedido. Tente novamente em alguns minutos." }),
+          JSON.stringify({ error: "Rate limit excedido no Google AI Studio. Tente novamente em alguns minutos." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Créditos insuficientes no Lovable AI. Adicione créditos em Settings → Workspace → Usage." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       return new Response(
-        JSON.stringify({ error: `Erro na geração de imagem: ${response.status}` }),
+        JSON.stringify({ error: `Erro na geração de imagem: ${response.status} - ${errorText.substring(0, 200)}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const data = await response.json();
-    const base64Url = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
-    if (!base64Url) {
-      console.error("No image in response:", JSON.stringify(data).substring(0, 500));
+    // Imagen 3 returns predictions[].bytesBase64Encoded
+    const predictions = data.predictions || [];
+    if (predictions.length === 0 || !predictions[0].bytesBase64Encoded) {
+      console.error("No image in Imagen 3 response:", JSON.stringify(data).substring(0, 500));
       return new Response(
-        JSON.stringify({ error: "Nenhuma imagem foi retornada pelo modelo." }),
+        JSON.stringify({ error: "Nenhuma imagem foi retornada pelo Imagen 3." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // 8. Upload to Supabase Storage
+    const imageBase64 = predictions[0].bytesBase64Encoded;
+
+    // 7. Upload to Supabase Storage
     console.log("Uploading generated image to storage...");
 
-    const base64Data = base64Url.replace(/^data:image\/\w+;base64,/, "");
-    const imageBytes = decodeBase64(base64Data);
-
+    const imageBytes = decodeBase64(imageBase64);
     const fileName = `standalone-posts/${clientId}/${crypto.randomUUID()}.png`;
 
     const { error: uploadError } = await supabase.storage
@@ -210,7 +203,7 @@ REGRAS OBRIGATÓRIAS:
       .from("card-attachments")
       .getPublicUrl(fileName);
 
-    console.log("✅ Post generated successfully with Nano Banana Pro");
+    console.log("✅ Post generated successfully with Imagen 3");
 
     return new Response(
       JSON.stringify({
