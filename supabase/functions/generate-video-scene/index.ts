@@ -13,7 +13,14 @@ async function imageUrlToBase64(url: string): Promise<{ base64: string; mimeType
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
   const buffer = await resp.arrayBuffer();
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+  const bytes = new Uint8Array(buffer);
+  // Chunk-based btoa to avoid stack overflow on large images
+  let binary = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  const base64 = btoa(binary);
   const contentType = resp.headers.get("content-type") || "image/png";
   return { base64, mimeType: contentType.split(";")[0].trim() };
 }
