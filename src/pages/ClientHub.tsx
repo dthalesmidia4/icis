@@ -35,6 +35,7 @@ const ClientHub = () => {
   const [generatingStoryboard, setGeneratingStoryboard] = useState(false);
   const [uploadingFrame, setUploadingFrame] = useState<number | null>(null);
   const [videoPreviewIndex, setVideoPreviewIndex] = useState(0);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [presets, setPresets] = useState<Array<{ id: string; name: string; primary_color: string | null; secondary_color: string | null }>>([]);
   const [aiPostModalOpen, setAiPostModalOpen] = useState(false);
   const [postIdea, setPostIdea] = useState('');
