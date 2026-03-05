@@ -262,13 +262,55 @@ const ClientHub = () => {
       if (error) { console.error('Edge function error:', error); toast.error('Erro ao gerar storyboard. Tente novamente.'); return; }
       if (data?.error) { toast.error(data.error); return; }
       if (data?.scenes && Array.isArray(data.scenes)) {
-        setVideoScenes(data.scenes);
+        setVideoScenes(data.scenes.map((s: any) => ({ ...s, frame0_url: undefined, video_url: undefined, generating: false })));
         setVideoStep(2);
-        toast.success('Storyboard gerado! Revise e edite as cenas.');
+        toast.success('Storyboard gerado! Insira os frames e gere as cenas.');
         await saveGeneratedContent('video_storyboard', 'Storyboard de Vídeo', videoIdea, []);
       } else { toast.error('Nenhuma cena retornada.'); }
     } catch (err) { console.error('Generate storyboard error:', err); toast.error('Erro inesperado ao gerar o storyboard.'); }
     finally { setGeneratingStoryboard(false); }
+  };
+
+  const handleFrameUpload = async (sceneIndex: number, file: File) => {
+    setUploadingFrame(sceneIndex);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `video-frames/${selectedClient.id}/${crypto.randomUUID()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('card-attachments').upload(filePath, file, { contentType: file.type, upsert: true });
+      if (uploadError) { toast.error('Erro ao fazer upload da imagem.'); return; }
+      const { data: publicUrlData } = supabase.storage.from('card-attachments').getPublicUrl(filePath);
+      setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, frame0_url: publicUrlData.publicUrl } : s));
+      toast.success(`Frame 0 da Cena ${sceneIndex + 1} carregado!`);
+    } catch (err) { console.error('Frame upload error:', err); toast.error('Erro ao fazer upload.'); }
+    finally { setUploadingFrame(null); }
+  };
+
+  const handleGenerateScene = async (sceneIndex: number) => {
+    const scene = videoScenes[sceneIndex];
+    if (!scene.scene_description.trim()) { toast.error('Descrição da cena é obrigatória.'); return; }
+    
+    setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, generating: true } : s));
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-video-scene', {
+        body: {
+          sceneDescription: scene.scene_description,
+          mascotSpeech: scene.mascot_speech || null,
+          frameUrl: scene.frame0_url || null,
+          clientId: selectedClient.id,
+          tenantId,
+          sceneIndex,
+          aspectRatio: videoAspectRatio,
+        },
+      });
+      if (error) { console.error('Edge function error:', error); toast.error(`Erro ao gerar Cena ${sceneIndex + 1}.`); return; }
+      if (data?.error) { toast.error(data.error); return; }
+      if (data?.videoUrl) {
+        setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, video_url: data.videoUrl } : s));
+        toast.success(`Cena ${sceneIndex + 1} gerada com sucesso!`);
+        await saveGeneratedContent('video_scene', `Cena ${sceneIndex + 1} - Vídeo`, scene.scene_description, [data.videoUrl]);
+      } else { toast.error('Nenhum vídeo retornado.'); }
+    } catch (err) { console.error('Generate scene error:', err); toast.error('Erro inesperado ao gerar a cena.'); }
+    finally { setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, generating: false } : s)); }
   };
 
   const actionCards = [
