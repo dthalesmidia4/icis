@@ -22,30 +22,36 @@ Deno.serve(async (req) => {
       );
     }
 
-    // LOVABLE_API_KEY still needed for Step 1 (text generation via Gateway)
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Fetch Google AI Studio API key for image generation (Step 2)
-    const { data: apiKeyData } = await supabase
+    const { data: googleKeyData } = await supabase
       .from("api_keys")
       .select("key_value")
       .eq("key_name", "Google AI Studio")
       .single();
 
-    const GOOGLE_API_KEY = apiKeyData?.key_value;
+    const GOOGLE_API_KEY = googleKeyData?.key_value;
     if (!GOOGLE_API_KEY) {
       return new Response(
         JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Fetch OpenAI API key for text generation (Step 1)
+    const { data: openaiKeyData } = await supabase
+      .from("api_keys")
+      .select("key_value")
+      .eq("key_name", "OpenAI")
+      .single();
+
+    const OPENAI_API_KEY = openaiKeyData?.key_value;
+    if (!OPENAI_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Chave 'OpenAI' não encontrada na tabela api_keys." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
