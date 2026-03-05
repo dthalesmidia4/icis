@@ -40,6 +40,11 @@ interface HubPermission {
   can_access: boolean;
 }
 
+interface ClientButtonPermission {
+  hub_section: string;
+  can_access: boolean;
+}
+
 export default function TeamMembers() {
   const navigate = useNavigate();
   const { agencyId, isLoading: agencyLoading } = useAgency();
