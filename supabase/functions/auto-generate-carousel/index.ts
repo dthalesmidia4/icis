@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     const { data: openaiKeyData } = await supabase
       .from("api_keys")
       .select("key_value")
-      .eq("key_name", "OpenAI")
+      .eq("key_name", "OPENAI_API_KEY")
       .single();
 
     const OPENAI_API_KEY = openaiKeyData?.key_value;
