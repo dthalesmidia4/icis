@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
 
     // 5. Build the image prompt
     const mascotSection = mascotImageUrls && mascotImageUrls.length > 0
-      ? `A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""} OBRIGATÓRIO: Reproduza o mascote EXATAMENTE como descrito. O mascote DEVE aparecer no design de forma integrada e harmoniosa.`
+      ? `A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""} OBRIGATÓRIO: Reproduza o mascote EXATAMENTE como na imagem de referência fornecida. O mascote DEVE aparecer no design de forma integrada e harmoniosa.`
       : `NÃO inclua personagens, mascotes ou figuras humanas no design.`;
 
     const imagePrompt = `
@@ -129,27 +129,45 @@ REGRAS OBRIGATÓRIAS:
 - Texto legível e bem posicionado
 `.trim();
 
-    console.log("Generating standalone post with Imagen 3 (imagen-3.0-generate-002) via Google AI Studio...");
+    console.log("Generating standalone post with Gemini 3 Pro Image (gemini-3-pro-image-preview) via Google AI Studio...");
 
-    // 6. Call Imagen 3 via Google AI Studio REST API
-    const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GOOGLE_API_KEY}`;
+    // 6. Build parts for Google AI Studio (with optional mascot reference images)
+    const parts: any[] = [{ text: imagePrompt }];
+
+    if (mascotImageUrls && mascotImageUrls.length > 0) {
+      for (const url of mascotImageUrls) {
+        try {
+          const imgResp = await fetch(url);
+          if (imgResp.ok) {
+            const imgBuffer = await imgResp.arrayBuffer();
+            const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
+            const contentType = imgResp.headers.get("content-type") || "image/png";
+            parts.push({ inline_data: { mime_type: contentType, data: imgBase64 } });
+            console.log("  → Mascot reference image attached as inline_data");
+          }
+        } catch (e) {
+          console.error("Failed to fetch mascot image:", e);
+        }
+      }
+    }
+
+    // 7. Call Gemini 3 Pro Image via Google AI Studio REST API
+    const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
 
     const response = await fetch(googleApiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        instances: [{ prompt: imagePrompt }],
-        parameters: {
-          sampleCount: 1,
-          aspectRatio: "1:1",
-          personGeneration: "allow_all",
+        contents: [{ parts }],
+        generationConfig: {
+          responseModalities: ["IMAGE", "TEXT"],
         },
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Imagen 3 error:", response.status, errorText);
+      console.error("Gemini 3 Pro Image error:", response.status, errorText);
 
       if (response.status === 429) {
         return new Response(
@@ -166,28 +184,41 @@ REGRAS OBRIGATÓRIAS:
 
     const data = await response.json();
 
-    // Imagen 3 returns predictions[].bytesBase64Encoded
-    const predictions = data.predictions || [];
-    if (predictions.length === 0 || !predictions[0].bytesBase64Encoded) {
-      console.error("No image in Imagen 3 response:", JSON.stringify(data).substring(0, 500));
+    // Extract base64 image from Gemini response
+    let imageBase64 = "";
+    let imageMimeType = "image/png";
+    const candidates = data.candidates || [];
+    for (const candidate of candidates) {
+      const candidateParts = candidate.content?.parts || [];
+      for (const part of candidateParts) {
+        if (part.inline_data) {
+          imageBase64 = part.inline_data.data;
+          imageMimeType = part.inline_data.mime_type || "image/png";
+          break;
+        }
+      }
+      if (imageBase64) break;
+    }
+
+    if (!imageBase64) {
+      console.error("No image in Gemini 3 Pro response:", JSON.stringify(data).substring(0, 500));
       return new Response(
-        JSON.stringify({ error: "Nenhuma imagem foi retornada pelo Imagen 3." }),
+        JSON.stringify({ error: "Nenhuma imagem foi retornada pelo Gemini 3 Pro Image." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const imageBase64 = predictions[0].bytesBase64Encoded;
-
-    // 7. Upload to Supabase Storage
+    // 8. Upload to Supabase Storage
     console.log("Uploading generated image to storage...");
 
     const imageBytes = decodeBase64(imageBase64);
-    const fileName = `standalone-posts/${clientId}/${crypto.randomUUID()}.png`;
+    const ext = imageMimeType.includes("jpeg") ? "jpg" : "png";
+    const fileName = `standalone-posts/${clientId}/${crypto.randomUUID()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from("card-attachments")
       .upload(fileName, imageBytes, {
-        contentType: "image/png",
+        contentType: imageMimeType,
         upsert: false,
       });
 
@@ -203,7 +234,7 @@ REGRAS OBRIGATÓRIAS:
       .from("card-attachments")
       .getPublicUrl(fileName);
 
-    console.log("✅ Post generated successfully with Imagen 3");
+    console.log("✅ Post generated successfully with Gemini 3 Pro Image");
 
     return new Response(
       JSON.stringify({

@@ -22,6 +22,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    // LOVABLE_API_KEY still needed for Step 1 (text generation via Gateway)
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       return new Response(
@@ -33,6 +34,21 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Fetch Google AI Studio API key for image generation (Step 2)
+    const { data: apiKeyData } = await supabase
+      .from("api_keys")
+      .select("key_value")
+      .eq("key_name", "Google AI Studio")
+      .single();
+
+    const GOOGLE_API_KEY = apiKeyData?.key_value;
+    if (!GOOGLE_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // 1. Fetch the demand
     const { data: demand, error: demandError } = await supabase
@@ -111,7 +127,7 @@ Deno.serve(async (req) => {
       ? strategy.strategy_text.substring(0, 1500)
       : "";
 
-    // 7. Build card content as the "idea" for carousel
+    // 7. Build card content
     const cardContent = [
       demand.title ? `Título: ${demand.title}` : "",
       demand.objective ? `Objetivo: ${demand.objective}` : "",
@@ -120,10 +136,10 @@ Deno.serve(async (req) => {
       demand.observations ? `Observações: ${demand.observations.replace(/<[^>]*>/g, " ").trim()}` : "",
     ].filter(Boolean).join("\n");
 
-    const slideCount = 5; // Default carousel slide count
+    const slideCount = 5;
 
-    // ============ STEP 1: Generate carousel text content ============
-    console.log(`Step 1: Generating ${slideCount} slide texts...`);
+    // ============ STEP 1: Generate carousel text content (via Lovable Gateway) ============
+    console.log(`Step 1: Generating ${slideCount} slide texts via Lovable Gateway...`);
 
     const mascotInfo = mascotImageUrls.length > 0
       ? `O cliente possui um mascote oficial. ${client?.mascot_description ? `Descrição: ${client.mascot_description}.` : ""} Considere referenciá-lo nos textos quando relevante.`
@@ -239,14 +255,36 @@ Retorne exatamente ${slideCount} slides, cada um com texto curto (máx 50 caract
 
     console.log(`✅ Step 1 complete: ${slides.length} slide texts generated`);
 
-    // ============ STEP 2: Generate images for each slide ============
-    console.log(`Step 2: Generating ${slides.length} slide images...`);
+    // ============ STEP 2: Generate images via Gemini 3 Pro Image (Google AI Studio direct) ============
+    console.log(`Step 2: Generating ${slides.length} slide images via Gemini 3 Pro Image...`);
 
     const mascotSection = mascotImageUrls.length > 0
       ? `- MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""} OBRIGATÓRIO: Reproduza o mascote EXATAMENTE como na imagem de referência fornecida — mesma aparência, cabelo, roupa, proporções e características físicas.`
       : `- NÃO inclua personagens, mascotes ou figuras humanas no design.`;
 
+    // Pre-fetch mascot images as base64 for reuse across slides
+    const mascotInlineData: Array<{ mime_type: string; data: string }> = [];
+    if (mascotImageUrls.length > 0) {
+      for (const url of mascotImageUrls) {
+        try {
+          const imgResp = await fetch(url);
+          if (imgResp.ok) {
+            const imgBuffer = await imgResp.arrayBuffer();
+            const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
+            const contentType = imgResp.headers.get("content-type") || "image/png";
+            mascotInlineData.push({ mime_type: contentType, data: imgBase64 });
+          }
+        } catch (e) {
+          console.error("Failed to fetch mascot image:", e);
+        }
+      }
+      if (mascotInlineData.length > 0) {
+        console.log(`  → ${mascotInlineData.length} mascot reference image(s) pre-fetched`);
+      }
+    }
+
     const generatedAttachments: any[] = [];
+    const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
 
     for (let i = 0; i < slides.length; i++) {
       const slide = slides[i];
@@ -281,24 +319,20 @@ REGRAS DE DESIGN:
 
       console.log(`  → Generating slide ${slideNumber}/${slides.length}...`);
 
-      const contentParts: any[] = [{ type: "text", text: imagePrompt }];
-      if (mascotImageUrls.length > 0) {
-        for (const url of mascotImageUrls) {
-          contentParts.push({ type: "image_url", image_url: { url } });
-        }
+      const parts: any[] = [{ text: imagePrompt }];
+      for (const mascot of mascotInlineData) {
+        parts.push({ inline_data: mascot });
       }
 
       try {
-        const imgResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const imgResponse = await fetch(googleApiUrl, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "google/gemini-3-pro-image-preview",
-            messages: [{ role: "user", content: contentParts }],
-            modalities: ["image", "text"],
+            contents: [{ parts }],
+            generationConfig: {
+              responseModalities: ["IMAGE", "TEXT"],
+            },
           }),
         });
 
@@ -306,30 +340,45 @@ REGRAS DE DESIGN:
           const errText = await imgResponse.text();
           console.error(`Slide ${slideNumber} error:`, imgResponse.status, errText);
 
-          if (imgResponse.status === 429 || imgResponse.status === 402) {
-            console.warn(`Rate/credit limit hit at slide ${slideNumber}, returning partial results`);
+          if (imgResponse.status === 429) {
+            console.warn(`Rate limit hit at slide ${slideNumber}, returning partial results`);
             break;
           }
           continue;
         }
 
         const imgData = await imgResponse.json();
-        const base64Url = imgData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
-        if (!base64Url) {
+        // Extract base64 image from Gemini response
+        let imageBase64 = "";
+        let imageMimeType = "image/png";
+        const candidates = imgData.candidates || [];
+        for (const candidate of candidates) {
+          const candidateParts = candidate.content?.parts || [];
+          for (const part of candidateParts) {
+            if (part.inline_data) {
+              imageBase64 = part.inline_data.data;
+              imageMimeType = part.inline_data.mime_type || "image/png";
+              break;
+            }
+          }
+          if (imageBase64) break;
+        }
+
+        if (!imageBase64) {
           console.warn(`  ⚠ No image returned for slide ${slideNumber}`);
           continue;
         }
 
         // Upload to storage
-        const base64Data = base64Url.replace(/^data:image\/\w+;base64,/, "");
-        const imageBytes = decodeBase64(base64Data);
-        const fileName = `auto-generated/${demand.client_id}/${demandId}/carousel-slide-${slideNumber}-${crypto.randomUUID()}.png`;
+        const imageBytes = decodeBase64(imageBase64);
+        const ext = imageMimeType.includes("jpeg") ? "jpg" : "png";
+        const fileName = `auto-generated/${demand.client_id}/${demandId}/carousel-slide-${slideNumber}-${crypto.randomUUID()}.${ext}`;
 
         const { error: uploadError } = await supabase.storage
           .from("card-attachments")
           .upload(fileName, imageBytes, {
-            contentType: "image/png",
+            contentType: imageMimeType,
             upsert: false,
           });
 
@@ -344,12 +393,12 @@ REGRAS DE DESIGN:
 
         generatedAttachments.push({
           url: publicUrlData.publicUrl,
-          name: `Carrossel Slide ${slideNumber} - ${brandName}.png`,
-          type: "image/png",
+          name: `Carrossel Slide ${slideNumber} - ${brandName}.${ext}`,
+          type: imageMimeType,
           size: imageBytes.length,
           storagePath: fileName,
           uploadedAt: new Date().toISOString(),
-          uploadedBy: { id: "auto-generator", email: "system@ai", name: "IA - Auto Geração (Carrossel)" },
+          uploadedBy: { id: "auto-generator", email: "system@ai", name: "IA - Gemini 3 Pro Image (Carrossel)" },
           cardId: demandId,
           tenantId: demand.tenant_id,
           clientId: demand.client_id,

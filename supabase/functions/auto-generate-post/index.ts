@@ -22,17 +22,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Fetch Google AI Studio API key
+    const { data: apiKeyData } = await supabase
+      .from("api_keys")
+      .select("key_value")
+      .eq("key_name", "Google AI Studio")
+      .single();
+
+    const GOOGLE_API_KEY = apiKeyData?.key_value;
+    if (!GOOGLE_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // 1. Fetch the demand
     const { data: demand, error: demandError } = await supabase
@@ -49,10 +56,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Check if demand type is "Post Estático" (case-insensitive partial match)
+    // 2. Check if demand type is "Post Estático"
     const demandType = (demand.demand_type || "").toLowerCase();
     const isPostEstatico = demandType.includes("post") && demandType.includes("est");
-    // Also accept exact common variations
     const isStaticPost = isPostEstatico || demandType === "post estático" || demandType === "post estatico" || demandType === "post";
 
     if (!isStaticPost) {
@@ -151,43 +157,45 @@ REGRAS OBRIGATÓRIAS:
 - Texto legível e bem posicionado
 `.trim();
 
-    console.log("Calling Nano Banana 3 (gemini-3-pro-image-preview)...");
+    console.log("Calling Gemini 3 Pro Image (gemini-3-pro-image-preview) via Google AI Studio...");
 
-    // 9. Build message content
-    const contentParts: any[] = [{ type: "text", text: imagePrompt }];
+    // 9. Build parts with optional mascot reference images
+    const parts: any[] = [{ text: imagePrompt }];
 
     if (mascotImageUrls.length > 0) {
       for (const url of mascotImageUrls) {
-        contentParts.push({
-          type: "image_url",
-          image_url: { url },
-        });
+        try {
+          const imgResp = await fetch(url);
+          if (imgResp.ok) {
+            const imgBuffer = await imgResp.arrayBuffer();
+            const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
+            const contentType = imgResp.headers.get("content-type") || "image/png";
+            parts.push({ inline_data: { mime_type: contentType, data: imgBase64 } });
+            console.log(`  → Mascot reference image attached as inline_data`);
+          }
+        } catch (e) {
+          console.error("Failed to fetch mascot image:", e);
+        }
       }
-      console.log(`  → ${mascotImageUrls.length} mascot reference image(s) attached`);
     }
 
-    // 10. Call Lovable AI Gateway
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // 10. Call Gemini 3 Pro Image via Google AI Studio
+    const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
+
+    const response = await fetch(googleApiUrl, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-3-pro-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: contentParts,
-          },
-        ],
-        modalities: ["image", "text"],
+        contents: [{ parts }],
+        generationConfig: {
+          responseModalities: ["IMAGE", "TEXT"],
+        },
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
+      console.error("Gemini 3 Pro Image error:", response.status, errorText);
 
       if (response.status === 429) {
         return new Response(
@@ -195,23 +203,32 @@ REGRAS OBRIGATÓRIAS:
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao workspace." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
 
       return new Response(
-        JSON.stringify({ error: `Erro do gateway de IA: ${response.status}` }),
+        JSON.stringify({ error: `Erro do Google AI Studio: ${response.status}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const data = await response.json();
-    const base64Url = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
-    if (!base64Url) {
+    // Extract base64 image from Gemini response
+    let imageBase64 = "";
+    let imageMimeType = "image/png";
+    const candidates = data.candidates || [];
+    for (const candidate of candidates) {
+      const candidateParts = candidate.content?.parts || [];
+      for (const part of candidateParts) {
+        if (part.inline_data) {
+          imageBase64 = part.inline_data.data;
+          imageMimeType = part.inline_data.mime_type || "image/png";
+          break;
+        }
+      }
+      if (imageBase64) break;
+    }
+
+    if (!imageBase64) {
       console.error("No image in response:", JSON.stringify(data).substring(0, 500));
       return new Response(
         JSON.stringify({ error: "Nenhuma imagem foi retornada pelo modelo." }),
@@ -222,15 +239,14 @@ REGRAS OBRIGATÓRIAS:
     // 11. Upload to Supabase Storage
     console.log("Uploading generated image to storage...");
 
-    const base64Data = base64Url.replace(/^data:image\/\w+;base64,/, "");
-    const imageBytes = decodeBase64(base64Data);
-
-    const fileName = `auto-generated/${demand.client_id}/${demandId}/${crypto.randomUUID()}.png`;
+    const imageBytes = decodeBase64(imageBase64);
+    const ext = imageMimeType.includes("jpeg") ? "jpg" : "png";
+    const fileName = `auto-generated/${demand.client_id}/${demandId}/${crypto.randomUUID()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from("card-attachments")
       .upload(fileName, imageBytes, {
-        contentType: "image/png",
+        contentType: imageMimeType,
         upsert: false,
       });
 
@@ -252,12 +268,12 @@ REGRAS OBRIGATÓRIAS:
     const existingAttachments = Array.isArray(demand.attachments) ? demand.attachments : [];
     const newAttachment = {
       url: imageUrl,
-      name: `Post Gerado - ${brandName}.png`,
-      type: "image/png",
+      name: `Post Gerado - ${brandName}.${ext}`,
+      type: imageMimeType,
       size: imageBytes.length,
       storagePath: fileName,
       uploadedAt: new Date().toISOString(),
-      uploadedBy: { id: "auto-generator", email: "system@ai", name: "IA - Auto Geração (Aprovação)" },
+      uploadedBy: { id: "auto-generator", email: "system@ai", name: "IA - Gemini 3 Pro Image (Auto)" },
       cardId: demandId,
       tenantId: demand.tenant_id,
       clientId: demand.client_id,

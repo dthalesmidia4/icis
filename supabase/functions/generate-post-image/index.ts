@@ -7,7 +7,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Keywords that indicate mascot usage in the activity text
 const MASCOT_KEYWORDS = [
   "mascote", "mascot", "personagem", "character",
   "boneco", "avatar da marca", "figura da marca",
@@ -21,16 +20,12 @@ function textMentionsMascot(text: string): boolean {
   return MASCOT_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
-// Parse slides from description
 function parseSlides(description: string): { slideNumber: number; title: string; body: string }[] {
   if (!description) return [];
-
   const text = description.replace(/<[^>]*>/g, "\n").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
-
   const slideRegex = /(?:SLIDE|FRAME|CENA|IMAGEM)\s*(\d+)\s*[—\-:]\s*(.*?)(?=(?:SLIDE|FRAME|CENA|IMAGEM)\s*\d+|$)/gis;
   const slides: { slideNumber: number; title: string; body: string }[] = [];
   let match;
-
   while ((match = slideRegex.exec(text)) !== null) {
     const slideNumber = parseInt(match[1]);
     const content = match[2].trim();
@@ -39,18 +34,14 @@ function parseSlides(description: string): { slideNumber: number; title: string;
     const body = lines.slice(1).join("\n").trim();
     slides.push({ slideNumber, title, body });
   }
-
   if (slides.length === 0 && text.trim()) {
     slides.push({ slideNumber: 1, title: text.trim().substring(0, 100), body: text.trim() });
   }
-
   return slides;
 }
 
-// Determine aspect ratio and dimensions
 function getAspectRatioInfo(demandType: string | null, _channel: string | null): { label: string; width: number; height: number } {
   const type = (demandType || "").toLowerCase();
-
   if (type.includes("reel") || type.includes("stories") || type.includes("story") || type.includes("video curto")) {
     return { label: "9:16 (portrait)", width: 1024, height: 1536 };
   }
@@ -123,7 +114,7 @@ Deno.serve(async (req) => {
       .eq("prompt_key", "generate_posts_prompt")
       .single();
 
-    // 4. Fetch active strategy for tone of voice
+    // 4. Fetch active strategy
     const { data: strategy } = await supabase
       .from("strategies")
       .select("strategy_text")
@@ -135,7 +126,6 @@ Deno.serve(async (req) => {
 
     // 5. Parse slides
     let allSlides = parseSlides(demand.description || "");
-
     if (allSlides.length === 0) {
       const fallbackText = demand.title || "Post";
       const fallbackBody = demand.description?.replace(/<[^>]*>/g, "").trim() || demand.objective || "";
@@ -167,7 +157,6 @@ Deno.serve(async (req) => {
     const mascotUrl = client?.mascot_url || null;
     const mascotDescription = client?.mascot_description || null;
 
-    // Check if the activity text mentions the mascot
     const fullText = [demand.description, demand.instructions, demand.observations, demand.title].join(" ");
     const mentionsMascot = textMentionsMascot(fullText);
     const useMascotReference = hasMascot && mentionsMascot && mascotUrl;
@@ -181,7 +170,7 @@ Deno.serve(async (req) => {
     const existingAttachments = demand.attachments || [];
     const errors: string[] = [];
 
-    // 6. Generate images for each slide using Google AI Studio
+    // 6. Generate images for each slide using Gemini 3 Pro Image via Google AI Studio
     for (const slide of slidesToGenerate) {
       const mascotInstruction = hasMascot
         ? mentionsMascot
@@ -217,7 +206,7 @@ ESTILO:
 - IMPORTANTE: Siga EXATAMENTE o cenário, ambiente e background descritos na atividade acima.
 `.trim();
 
-      console.log(`Generating image for slide ${slide.slideNumber} via Google AI Studio...${useMascotReference ? " (with mascot reference)" : ""}`);
+      console.log(`Generating image for slide ${slide.slideNumber} via Gemini 3 Pro Image...${useMascotReference ? " (with mascot reference)" : ""}`);
 
       try {
         // Build parts for Google AI Studio
@@ -238,7 +227,7 @@ ESTILO:
           }
         }
 
-        const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GOOGLE_API_KEY}`;
+        const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
 
         const response = await fetch(googleApiUrl, {
           method: "POST",
@@ -247,14 +236,13 @@ ESTILO:
             contents: [{ parts }],
             generationConfig: {
               responseModalities: ["IMAGE", "TEXT"],
-              imageDimension: { width: aspectInfo.width, height: aspectInfo.height },
             },
           }),
         });
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`Google AI Studio error for slide ${slide.slideNumber}:`, response.status, errorText);
+          console.error(`Gemini 3 Pro error for slide ${slide.slideNumber}:`, response.status, errorText);
 
           if (response.status === 429) {
             errors.push(`Slide ${slide.slideNumber}: Rate limit excedido. Tente novamente em alguns minutos.`);
@@ -267,7 +255,7 @@ ESTILO:
 
         const data = await response.json();
 
-        // Extract base64 image from Google AI Studio response
+        // Extract base64 image from Gemini response
         let imageBase64 = "";
         let imageMimeType = "image/png";
         const candidates = data.candidates || [];
@@ -319,21 +307,20 @@ ESTILO:
           size: imageBytes.length,
           storagePath,
           uploadedAt: new Date().toISOString(),
-          uploadedBy: { id: "ai-generator", email: "system@ai", name: "IA - Google AI Studio" },
+          uploadedBy: { id: "ai-generator", email: "system@ai", name: "IA - Gemini 3 Pro Image" },
           cardId: demand.id,
           tenantId: demand.tenant_id,
           clientId: demand.client_id,
         };
 
         generatedAttachments.push(attachment);
-        console.log(`✅ Slide ${slide.slideNumber} generated and uploaded successfully via Google AI Studio`);
+        console.log(`✅ Slide ${slide.slideNumber} generated and uploaded successfully via Gemini 3 Pro Image`);
       } catch (slideError) {
         console.error(`Exception generating slide ${slide.slideNumber}:`, slideError);
         errors.push(`Slide ${slide.slideNumber}: ${slideError instanceof Error ? slideError.message : "Erro desconhecido"}`);
       }
     }
 
-    // 7. If no images were generated, return error
     if (generatedAttachments.length === 0) {
       return new Response(
         JSON.stringify({
@@ -344,7 +331,7 @@ ESTILO:
       );
     }
 
-    // 8. Update demand attachments
+    // 7. Update demand attachments
     const updatedAttachments = [...existingAttachments, ...generatedAttachments];
     const { error: updateError } = await supabase
       .from("demands")
