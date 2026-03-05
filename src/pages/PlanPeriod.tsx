@@ -835,13 +835,16 @@ const PlanPeriod = () => {
         // --- "Período Atual": show approved demands from DB ---
         if (isLatestView) {
           const isUltraMode = searchParams.get('mode') === 'ultra';
-          // Show ALL client demands (period-linked + manual/unlinked)
           const allClientDemands = periodDemandMetrics['__all_client__']?.demands || [];
           
-          // Filter by mode if ultra (show only ultra-source demands for that period)
+          // Show demands linked to this period + unlinked (manual) demands
+          const periodDemands = allClientDemands.filter((d: any) => 
+            d.period_plan_id === selectedHistoryPlan.id || !d.period_plan_id
+          );
+          
           const filteredDemands = isUltraMode 
             ? (metrics.demands || []).filter((d: any) => d.source === 'card')
-            : allClientDemands;
+            : periodDemands;
           
           const sortedDemands = [...filteredDemands].sort((a: any, b: any) => 
             (a.publish_date || '').localeCompare(b.publish_date || '')
