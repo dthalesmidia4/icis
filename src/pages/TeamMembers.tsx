@@ -54,8 +54,9 @@ export default function TeamMembers() {
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [columnPermissions, setColumnPermissions] = useState<ColumnPermission[]>([]);
   const [hubPermissions, setHubPermissions] = useState<HubPermission[]>([]);
+  const [clientButtonPermissions, setClientButtonPermissions] = useState<ClientButtonPermission[]>([]);
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
-  const [activeTab, setActiveTab] = useState<'columns' | 'hub' | 'notifications'>('columns');
+  const [activeTab, setActiveTab] = useState<'columns' | 'hub' | 'client_buttons' | 'notifications'>('columns');
   const [lateNotificationEnabled, setLateNotificationEnabled] = useState(false);
 
   useEffect(() => {
