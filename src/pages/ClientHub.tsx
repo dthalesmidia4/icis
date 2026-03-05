@@ -424,7 +424,10 @@ const ClientHub = () => {
         <Dialog open={contentModalOpen} onOpenChange={setContentModalOpen}>
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle className="text-xl">O que você vai criar hoje?</DialogTitle>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setContentModalOpen(false); setContentHubModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                <DialogTitle className="text-xl">O que você vai criar hoje?</DialogTitle>
+              </div>
               <p className="text-sm text-muted-foreground">Escolha o formato do conteúdo avulso para {displayName}.</p>
             </DialogHeader>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 py-4">
@@ -465,7 +468,10 @@ const ClientHub = () => {
         <Dialog open={productionModalOpen} onOpenChange={(open) => { setProductionModalOpen(open); if (!open) setSelectedContentType(null); }}>
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle className="text-xl">{selectedContentType}</DialogTitle>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setProductionModalOpen(false); setContentModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                <DialogTitle className="text-xl">{selectedContentType}</DialogTitle>
+              </div>
               <p className="text-sm text-muted-foreground">Escolha como deseja criar o conteúdo.</p>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-4 sm:gap-6 py-4">
@@ -517,9 +523,12 @@ const ClientHub = () => {
         <Dialog open={aiPostModalOpen} onOpenChange={(open) => { setAiPostModalOpen(open); if (!open) { setPostIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setGeneratedPostImage(null); } }}>
           <DialogContent className={`!flex !flex-col overflow-hidden ${generatedPostImage ? 'sm:max-w-5xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[90vh]'}`}>
             <DialogHeader>
-              <DialogTitle className="text-lg flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary" />Gerar Post com IA
-              </DialogTitle>
+             <div className="flex items-center gap-2">
+                <button onClick={() => { setAiPostModalOpen(false); setPostIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setGeneratedPostImage(null); setSelectedContentType("Post Estático"); setProductionModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                <DialogTitle className="text-lg flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary" />Gerar Post com IA
+                </DialogTitle>
+              </div>
             </DialogHeader>
 
             <div className={`flex-1 min-h-0 ${generatedPostImage ? 'flex gap-6' : 'overflow-y-auto'}`}>
@@ -602,9 +611,12 @@ const ClientHub = () => {
         <Dialog open={manualPostOpen} onOpenChange={(open) => { setManualPostOpen(open); if (!open) { setManualPostText(''); setSelectedPresetId(null); setSelectedMascotIds([]); setGeneratedManualPostImage(null); } }}>
           <DialogContent className={`!flex !flex-col overflow-hidden ${generatedManualPostImage ? 'sm:max-w-5xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[90vh]'}`}>
             <DialogHeader>
-              <DialogTitle className="text-lg flex items-center gap-2">
-                <PenLine className="w-5 h-5 text-primary" />Editor de Post
-              </DialogTitle>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setManualPostOpen(false); setManualPostText(''); setSelectedPresetId(null); setSelectedMascotIds([]); setGeneratedManualPostImage(null); setSelectedContentType("Post Estático"); setProductionModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                <DialogTitle className="text-lg flex items-center gap-2">
+                  <PenLine className="w-5 h-5 text-primary" />Editor de Post
+                </DialogTitle>
+              </div>
             </DialogHeader>
 
             <div className={`flex-1 min-h-0 ${generatedManualPostImage ? 'flex gap-6' : 'overflow-y-auto'}`}>
@@ -688,9 +700,12 @@ const ClientHub = () => {
         <Dialog open={manualCarouselOpen} onOpenChange={(open) => { setManualCarouselOpen(open); if (!open) { setSelectedPresetId(null); setSelectedMascotIds([]); } }}>
           <DialogContent className="sm:max-w-2xl !flex !flex-col overflow-hidden max-h-[90vh]">
             <DialogHeader>
-              <DialogTitle className="text-lg flex items-center gap-2">
-                <LayoutGrid className="w-5 h-5 text-primary" />Editor de Carrossel
-              </DialogTitle>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setManualCarouselOpen(false); setSelectedPresetId(null); setSelectedMascotIds([]); setSelectedContentType("Carrossel"); setProductionModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                <DialogTitle className="text-lg flex items-center gap-2">
+                  <LayoutGrid className="w-5 h-5 text-primary" />Editor de Carrossel
+                </DialogTitle>
+              </div>
             </DialogHeader>
 
             <div className="flex-1 overflow-y-auto min-h-0 space-y-3 py-1">
@@ -775,10 +790,13 @@ const ClientHub = () => {
         <Dialog open={aiCarouselModalOpen} onOpenChange={(open) => { setAiCarouselModalOpen(open); if (!open) { setCarouselIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setSlideCount(null); setCarouselStep(1); setCarouselSlides([]); setCarouselAspectRatio('1:1'); setCarouselAiModel('nanobanana3'); setCarouselGeneratedImages([]); setGeneratingCarouselImages(false); setCarouselImageProgress(''); } }}>
           <DialogContent className={`!flex !flex-col overflow-hidden ${carouselGeneratedImages.length > 0 || generatingCarouselImages ? 'sm:max-w-6xl max-h-[95vh]' : carouselStep === 2 ? 'sm:max-w-4xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[85vh]'}`}>
             <DialogHeader>
-              <DialogTitle className="text-lg flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary" />
-                {carouselStep === 1 ? 'Gerar Carrossel com IA' : 'Editar Slides do Carrossel'}
-              </DialogTitle>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setAiCarouselModalOpen(false); setCarouselIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setSlideCount(null); setCarouselStep(1); setCarouselSlides([]); setCarouselGeneratedImages([]); setSelectedContentType("Carrossel"); setProductionModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                <DialogTitle className="text-lg flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                  {carouselStep === 1 ? 'Gerar Carrossel com IA' : 'Editar Slides do Carrossel'}
+                </DialogTitle>
+              </div>
             </DialogHeader>
 
             {carouselStep === 1 ? (
@@ -977,10 +995,13 @@ const ClientHub = () => {
         <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) { setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); setVideoAspectRatio('9:16'); setSelectedMascotIds([]); setVideoStep(1); setVideoScenes([]); setVideoPreviewIndex(0); } }}>
           <DialogContent className={`!flex !flex-col overflow-hidden ${videoStep === 2 ? 'sm:max-w-4xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[85vh]'}`}>
             <DialogHeader>
-              <DialogTitle className="text-lg flex items-center gap-2">
-                <Clapperboard className="w-5 h-5 text-primary" />
-                {videoStep === 1 ? 'Criar Storyboard de Vídeo' : 'Editar Cenas do Storyboard'}
-              </DialogTitle>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setVideoModalOpen(false); setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); setVideoAspectRatio('9:16'); setSelectedMascotIds([]); setVideoStep(1); setVideoScenes([]); setVideoPreviewIndex(0); setContentModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                <DialogTitle className="text-lg flex items-center gap-2">
+                  <Clapperboard className="w-5 h-5 text-primary" />
+                  {videoStep === 1 ? 'Criar Storyboard de Vídeo' : 'Editar Cenas do Storyboard'}
+                </DialogTitle>
+              </div>
             </DialogHeader>
 
             {videoStep === 1 ? (
