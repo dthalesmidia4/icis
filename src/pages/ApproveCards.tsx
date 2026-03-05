@@ -87,7 +87,6 @@ const ApproveCards = () => {
 
   const fetchData = async () => {
     if (!selectedClient || !tenantId) return;
-    const savedPeriodId = localStorage.getItem(`approve_cards_period_${selectedClient.id}`);
     setLoading(true);
     try {
       // Fetch pipeline + initial status
@@ -120,32 +119,18 @@ const ApproveCards = () => {
 
       if (error) throw error;
 
-      // Priority 1: saved period from localStorage
+      // Priority 1: first (most recent) period with plans in JSON
       let bestPeriod: PeriodData | null = null;
-      if (savedPeriodId) {
-        const saved = (periods || []).find(p => p.id === savedPeriodId);
-        if (saved) {
-          const dp = Array.isArray(saved.default_plan) ? saved.default_plan : [];
-          const up = Array.isArray(saved.ultra_plan) ? saved.ultra_plan : [];
-          if (dp.length > 0 || up.length > 0) {
-            bestPeriod = saved as PeriodData;
-          }
+      for (const p of (periods || [])) {
+        const dp = Array.isArray(p.default_plan) ? p.default_plan : [];
+        const up = Array.isArray(p.ultra_plan) ? p.ultra_plan : [];
+        if (dp.length > 0 || up.length > 0) {
+          bestPeriod = p as PeriodData;
+          break;
         }
       }
 
-      // Priority 2: first period with plans in JSON
-      if (!bestPeriod) {
-        for (const p of (periods || [])) {
-          const dp = Array.isArray(p.default_plan) ? p.default_plan : [];
-          const up = Array.isArray(p.ultra_plan) ? p.ultra_plan : [];
-          if (dp.length > 0 || up.length > 0) {
-            bestPeriod = p as PeriodData;
-            break;
-          }
-        }
-      }
-
-      // Priority 3: latest period
+      // Priority 2: latest period
       if (!bestPeriod && periods && periods.length > 0) {
         bestPeriod = periods[0] as PeriodData;
       }
