@@ -21,6 +21,8 @@ const ClientHub = () => {
   const navigate = useNavigate();
   const { selectedClient, isInitialized } = useSelectedClient();
   const { tenantId } = useTenant();
+  const { canAccess: canAccessButton } = useHubPermissions();
+  const { role } = useAgencyRole();
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [contentModalOpen, setContentModalOpen] = useState(false);
   const [productionModalOpen, setProductionModalOpen] = useState(false);
