@@ -180,6 +180,25 @@ export default function TeamMembers() {
         setHubPermissions(HUB_SECTIONS.map(s => ({ hub_section: s.id, can_access: true })));
       }
 
+      // Carregar permissões de botões do cliente
+      const { data: clientBtnPerms } = await supabase
+        .from('user_hub_permissions')
+        .select('hub_section, can_access')
+        .eq('user_id', userId)
+        .eq('tenant_id', agencyId)
+        .like('hub_section', 'client_%');
+
+      if (clientBtnPerms && clientBtnPerms.length > 0) {
+        // Merge with all available buttons
+        const merged = CLIENT_HUB_BUTTONS.map(btn => {
+          const existing = clientBtnPerms.find(p => p.hub_section === btn.id);
+          return { hub_section: btn.id, can_access: existing?.can_access ?? true };
+        });
+        setClientButtonPermissions(merged);
+      } else {
+        setClientButtonPermissions(CLIENT_HUB_BUTTONS.map(b => ({ hub_section: b.id, can_access: true })));
+      }
+
       // Carregar configuração de notificações de atraso
       const { data: lateNotif } = await supabase
         .from('user_late_notification_settings')
