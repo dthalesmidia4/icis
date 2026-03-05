@@ -241,6 +241,16 @@ export default function TeamMembers() {
     });
   };
 
+  const toggleClientButtonPermission = (buttonId: string) => {
+    setClientButtonPermissions(prev => {
+      const existing = prev.find(p => p.hub_section === buttonId);
+      if (existing) {
+        return prev.map(p => p.hub_section === buttonId ? { ...p, can_access: !p.can_access } : p);
+      } else {
+        return [...prev, { hub_section: buttonId, can_access: true }];
+      }
+    });
+
   const savePermissions = async () => {
     if (!selectedMember || !agencyId) return;
 
