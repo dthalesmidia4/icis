@@ -1054,6 +1054,25 @@ const ClientHub = () => {
                           {scene.generating && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary ml-auto" />}
                         </div>
 
+                        {/* Mascot images as Frame 0 options */}
+                        {mascotImages.length > 0 && (
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-medium text-muted-foreground">Usar Mascote como Frame 0</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {mascotImages.map((mascot) => (
+                                <button key={mascot.id} onClick={() => {
+                                  setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, frame0_url: mascot.image_url } : s));
+                                  toast.success(`Mascote aplicado como Frame 0 da Cena ${idx + 1}`);
+                                }}
+                                  className={`relative w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${scene.frame0_url === mascot.image_url ? 'border-primary ring-1 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
+                                  <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
+                                  {scene.frame0_url === mascot.image_url && (<div className="absolute inset-0 bg-primary/20 flex items-center justify-center"><CheckSquare className="w-4 h-4 text-primary" /></div>)}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Frame 0 upload */}
                         <div className="space-y-1.5">
                           <Label className="text-xs font-medium text-muted-foreground">Frame 0 (Imagem Inicial)</Label>
@@ -1118,43 +1137,71 @@ const ClientHub = () => {
                     ))}
                   </div>
 
-                  {/* Right side - generated videos */}
-                  {videoScenes.some(s => s.video_url || s.generating) && (
-                    <div className="w-[55%] flex-shrink-0 flex flex-col py-2 overflow-y-auto">
-                      <Label className="text-sm font-medium mb-3">Vídeos Gerados</Label>
-                      <div className="space-y-4">
-                        {videoScenes.map((scene, idx) => {
-                          if (!scene.video_url && !scene.generating) return null;
-                          return (
-                            <div key={idx} className="rounded-xl overflow-hidden border-2 border-primary/30 shadow-lg">
-                              <div className="flex items-center justify-between px-3 py-2 bg-muted/50">
-                                <span className="text-xs font-bold text-primary">Cena {idx + 1}</span>
-                                {scene.video_url && (
-                                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => {
-                                    const link = document.createElement('a'); link.href = scene.video_url!; link.download = `scene-${idx + 1}-${Date.now()}.mp4`; link.click();
-                                  }}>
-                                    <Download className="w-3.5 h-3.5 mr-1" />Baixar
-                                  </Button>
-                                )}
-                              </div>
-                              {scene.generating ? (
-                                <div className="flex flex-col items-center justify-center py-12 gap-3 bg-black/5">
-                                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                                  <p className="text-xs text-muted-foreground">Gerando vídeo... Isso pode levar alguns minutos.</p>
-                                </div>
-                              ) : scene.video_url ? (
-                                <video src={scene.video_url} controls className="w-full bg-black/5" />
-                              ) : null}
+                  {/* Right side - generated videos carousel */}
+                  {videoScenes.some(s => s.video_url || s.generating) && (() => {
+                    const generatedScenes = videoScenes.map((s, idx) => ({ ...s, originalIndex: idx })).filter(s => s.video_url || s.generating);
+                    const currentPreviewIndex = Math.min(videoPreviewIndex, generatedScenes.length - 1);
+                    const currentScene = generatedScenes[currentPreviewIndex];
+                    return (
+                      <div className="w-[55%] flex-shrink-0 flex flex-col py-2">
+                        <div className="flex items-center justify-between mb-3">
+                          <Label className="text-sm font-medium">Vídeos Gerados ({generatedScenes.length})</Label>
+                          <span className="text-xs text-muted-foreground">{currentPreviewIndex + 1} / {generatedScenes.length}</span>
+                        </div>
+                        <div className="flex-1 min-h-0 flex flex-col">
+                          <div className="rounded-xl overflow-hidden border-2 border-primary/30 shadow-lg flex-1 min-h-0 flex flex-col">
+                            <div className="flex items-center justify-between px-3 py-2 bg-muted/50">
+                              <span className="text-xs font-bold text-primary">Cena {currentScene.originalIndex + 1}</span>
+                              {currentScene.video_url && (
+                                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => {
+                                  const link = document.createElement('a'); link.href = currentScene.video_url!; link.download = `scene-${currentScene.originalIndex + 1}-${Date.now()}.mp4`; link.click();
+                                }}>
+                                  <Download className="w-3.5 h-3.5 mr-1" />Baixar
+                                </Button>
+                              )}
                             </div>
-                          );
-                        })}
+                            {currentScene.generating ? (
+                              <div className="flex flex-col items-center justify-center py-12 gap-3 bg-black/5 flex-1">
+                                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                <p className="text-xs text-muted-foreground">Gerando vídeo... Isso pode levar alguns minutos.</p>
+                              </div>
+                            ) : currentScene.video_url ? (
+                              <video key={currentScene.video_url} src={currentScene.video_url} controls className="w-full bg-black/5 flex-1 min-h-0 object-contain" />
+                            ) : null}
+                          </div>
+                          {/* Navigation arrows */}
+                          {generatedScenes.length > 1 && (
+                            <div className="flex items-center justify-center gap-4 mt-3">
+                              <button
+                                className="w-9 h-9 rounded-full bg-muted hover:bg-accent flex items-center justify-center transition-colors disabled:opacity-30"
+                                disabled={currentPreviewIndex === 0}
+                                onClick={() => setVideoPreviewIndex(prev => Math.max(0, prev - 1))}
+                              >
+                                <ChevronLeft className="w-5 h-5" />
+                              </button>
+                              <div className="flex gap-1.5">
+                                {generatedScenes.map((_, i) => (
+                                  <button key={i} onClick={() => setVideoPreviewIndex(i)}
+                                    className={`w-2 h-2 rounded-full transition-all ${i === currentPreviewIndex ? 'bg-primary scale-125' : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'}`} />
+                                ))}
+                              </div>
+                              <button
+                                className="w-9 h-9 rounded-full bg-muted hover:bg-accent flex items-center justify-center transition-colors disabled:opacity-30"
+                                disabled={currentPreviewIndex === generatedScenes.length - 1}
+                                onClick={() => setVideoPreviewIndex(prev => Math.min(generatedScenes.length - 1, prev + 1))}
+                              >
+                                <ChevronRight className="w-5 h-5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 <div className="flex gap-3 mt-2">
-                  <Button variant="outline" className="h-11 text-sm font-semibold flex-1" onClick={() => { setVideoStep(1); setVideoScenes([]); }}>
+                  <Button variant="outline" className="h-11 text-sm font-semibold flex-1" onClick={() => { setVideoStep(1); setVideoScenes([]); setVideoPreviewIndex(0); }}>
                     Voltar
                   </Button>
                   {videoScenes.some(s => s.video_url) && (
