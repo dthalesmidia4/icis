@@ -14,6 +14,22 @@ export const HUB_SECTIONS = [
   { id: 'dev-hub', label: 'Hub de Desenvolvimento', description: 'Ferramentas de desenvolvimento' },
 ] as const;
 
+// Botões dentro do Hub do Cliente que podem ter permissões controladas
+export const CLIENT_HUB_BUTTONS = [
+  { id: 'client_cadastro', label: 'Cadastro', description: 'Acesso ao cadastro do cliente' },
+  { id: 'client_anamnese', label: 'Anamnese', description: 'Acesso à anamnese do cliente' },
+  { id: 'client_estrategia', label: 'Estratégia', description: 'Acesso à estratégia do cliente' },
+  { id: 'client_planejar_periodo', label: 'Planejar Período', description: 'Planejamento de períodos' },
+  { id: 'client_aprovar_producao', label: 'Aprovar Produção', description: 'Aprovação de demandas' },
+  { id: 'client_demandas_reprovadas', label: 'Demandas Reprovadas', description: 'Visualização de demandas reprovadas' },
+  { id: 'client_cronograma_atual', label: 'Cronograma Atual', description: 'Cronograma do período atual' },
+  { id: 'client_historico', label: 'Histórico de Períodos', description: 'Histórico de períodos anteriores' },
+  { id: 'client_identidade_visual', label: 'Identidade Visual', description: 'Gestão da identidade visual' },
+  { id: 'client_conteudo_avulso', label: 'Conteúdo Avulso', description: 'Criação de conteúdo avulso' },
+] as const;
+
+export type ClientHubButtonId = typeof CLIENT_HUB_BUTTONS[number]['id'];
+
 export type HubSectionId = typeof HUB_SECTIONS[number]['id'];
 
 interface HubPermission {

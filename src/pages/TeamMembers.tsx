@@ -10,10 +10,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Users, Settings2, LayoutGrid, Home, Bell } from 'lucide-react';
+import { Loader2, Users, Settings2, LayoutGrid, Home, Bell, MousePointerClick } from 'lucide-react';
 import { toast } from 'sonner';
 import BackButton from '@/components/BackButton';
-import { HUB_SECTIONS } from '@/hooks/useHubPermissions';
+import { HUB_SECTIONS, CLIENT_HUB_BUTTONS } from '@/hooks/useHubPermissions';
 
 interface TeamMember {
   id: string;
@@ -40,6 +40,11 @@ interface HubPermission {
   can_access: boolean;
 }
 
+interface ClientButtonPermission {
+  hub_section: string;
+  can_access: boolean;
+}
+
 export default function TeamMembers() {
   const navigate = useNavigate();
   const { agencyId, isLoading: agencyLoading } = useAgency();
@@ -49,8 +54,9 @@ export default function TeamMembers() {
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [columnPermissions, setColumnPermissions] = useState<ColumnPermission[]>([]);
   const [hubPermissions, setHubPermissions] = useState<HubPermission[]>([]);
+  const [clientButtonPermissions, setClientButtonPermissions] = useState<ClientButtonPermission[]>([]);
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
-  const [activeTab, setActiveTab] = useState<'columns' | 'hub' | 'notifications'>('columns');
+  const [activeTab, setActiveTab] = useState<'columns' | 'hub' | 'client_buttons' | 'notifications'>('columns');
   const [lateNotificationEnabled, setLateNotificationEnabled] = useState(false);
 
   useEffect(() => {
@@ -174,6 +180,25 @@ export default function TeamMembers() {
         setHubPermissions(HUB_SECTIONS.map(s => ({ hub_section: s.id, can_access: true })));
       }
 
+      // Carregar permissões de botões do cliente
+      const { data: clientBtnPerms } = await supabase
+        .from('user_hub_permissions')
+        .select('hub_section, can_access')
+        .eq('user_id', userId)
+        .eq('tenant_id', agencyId)
+        .like('hub_section', 'client_%');
+
+      if (clientBtnPerms && clientBtnPerms.length > 0) {
+        // Merge with all available buttons
+        const merged = CLIENT_HUB_BUTTONS.map(btn => {
+          const existing = clientBtnPerms.find(p => p.hub_section === btn.id);
+          return { hub_section: btn.id, can_access: existing?.can_access ?? true };
+        });
+        setClientButtonPermissions(merged);
+      } else {
+        setClientButtonPermissions(CLIENT_HUB_BUTTONS.map(b => ({ hub_section: b.id, can_access: true })));
+      }
+
       // Carregar configuração de notificações de atraso
       const { data: lateNotif } = await supabase
         .from('user_late_notification_settings')
@@ -216,6 +241,17 @@ export default function TeamMembers() {
     });
   };
 
+  const toggleClientButtonPermission = (buttonId: string) => {
+    setClientButtonPermissions(prev => {
+      const existing = prev.find(p => p.hub_section === buttonId);
+      if (existing) {
+        return prev.map(p => p.hub_section === buttonId ? { ...p, can_access: !p.can_access } : p);
+      } else {
+        return [...prev, { hub_section: buttonId, can_access: true }];
+      }
+    });
+  };
+
   const savePermissions = async () => {
     if (!selectedMember || !agencyId) return;
 
@@ -243,24 +279,32 @@ export default function TeamMembers() {
         if (colError) throw colError;
       }
 
-      // Salvar permissões de hub
+      // Salvar permissões de hub + botões do cliente juntos
       await supabase
         .from('user_hub_permissions')
         .delete()
         .eq('user_id', selectedMember.id)
         .eq('tenant_id', agencyId);
 
-      const hubPermsToInsert = hubPermissions.map(p => ({
-        user_id: selectedMember.id,
-        tenant_id: agencyId,
-        hub_section: p.hub_section,
-        can_access: p.can_access,
-      }));
+      const allHubPerms = [
+        ...hubPermissions.map(p => ({
+          user_id: selectedMember.id,
+          tenant_id: agencyId,
+          hub_section: p.hub_section,
+          can_access: p.can_access,
+        })),
+        ...clientButtonPermissions.map(p => ({
+          user_id: selectedMember.id,
+          tenant_id: agencyId,
+          hub_section: p.hub_section,
+          can_access: p.can_access,
+        })),
+      ];
 
-      if (hubPermsToInsert.length > 0) {
+      if (allHubPerms.length > 0) {
         const { error: hubError } = await supabase
           .from('user_hub_permissions')
-          .insert(hubPermsToInsert);
+          .insert(allHubPerms);
         if (hubError) throw hubError;
       }
 
@@ -381,18 +425,22 @@ export default function TeamMembers() {
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'columns' | 'hub' | 'notifications')} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="columns" className="gap-2">
-                <LayoutGrid className="h-4 w-4" />
-                Colunas Kanban
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'columns' | 'hub' | 'client_buttons' | 'notifications')} className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="columns" className="gap-1 text-xs sm:text-sm">
+                <LayoutGrid className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Colunas</span> Kanban
               </TabsTrigger>
-              <TabsTrigger value="hub" className="gap-2">
-                <Home className="h-4 w-4" />
-                Botões do Hub
+              <TabsTrigger value="hub" className="gap-1 text-xs sm:text-sm">
+                <Home className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Botões do</span> Hub
               </TabsTrigger>
-              <TabsTrigger value="notifications" className="gap-2">
-                <Bell className="h-4 w-4" />
+              <TabsTrigger value="client_buttons" className="gap-1 text-xs sm:text-sm">
+                <MousePointerClick className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Botões</span> Cliente
+              </TabsTrigger>
+              <TabsTrigger value="notifications" className="gap-1 text-xs sm:text-sm">
+                <Bell className="h-3 w-3 sm:h-4 sm:w-4" />
                 Alertas
               </TabsTrigger>
             </TabsList>
@@ -452,6 +500,37 @@ export default function TeamMembers() {
                         </label>
                         <span className="text-xs text-muted-foreground">
                           {section.description}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </TabsContent>
+
+              <TabsContent value="client_buttons" className="mt-0 space-y-3">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Selecione quais botões dentro do Hub do Cliente este colaborador pode acessar:
+                </p>
+                {CLIENT_HUB_BUTTONS.map(button => {
+                  const permission = clientButtonPermissions.find(p => p.hub_section === button.id);
+                  const canAccess = permission?.can_access ?? true;
+
+                  return (
+                    <div
+                      key={button.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                    >
+                      <Checkbox
+                        id={`btn-${button.id}`}
+                        checked={canAccess}
+                        onCheckedChange={() => toggleClientButtonPermission(button.id)}
+                      />
+                      <div className="flex-1">
+                        <label htmlFor={`btn-${button.id}`} className="cursor-pointer font-medium block">
+                          {button.label}
+                        </label>
+                        <span className="text-xs text-muted-foreground">
+                          {button.description}
                         </span>
                       </div>
                     </div>

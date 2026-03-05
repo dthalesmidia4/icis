@@ -2,6 +2,8 @@ import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play, ChevronLeft, ChevronRight } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
+import { useHubPermissions, type ClientHubButtonId } from "@/hooks/useHubPermissions";
+import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { useTenant } from "@/contexts/TenantContext";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -19,6 +21,8 @@ const ClientHub = () => {
   const navigate = useNavigate();
   const { selectedClient, isInitialized } = useSelectedClient();
   const { tenantId } = useTenant();
+  const { canAccess: canAccessButton } = useHubPermissions();
+  const { role } = useAgencyRole();
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [contentModalOpen, setContentModalOpen] = useState(false);
   const [productionModalOpen, setProductionModalOpen] = useState(false);
@@ -328,18 +332,25 @@ const ClientHub = () => {
     finally { setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, generating: false } : s)); }
   };
 
-  const actionCards = [
-    { title: "Cadastro", icon: ClipboardList, action: () => navigate(`/clientes/${selectedClient.id}`) },
-    { title: "Anamnese", icon: FileText, action: () => navigate("/client-guide") },
-    { title: "Estratégia", icon: Lightbulb, action: () => navigate("/strategies") },
-    { title: "Planejar Período", icon: CalendarDays, action: () => navigate("/plan-period") },
-    { title: "Aprovar Produção de Demandas", icon: CheckSquare, action: () => navigate("/approve-cards"), badge: pendingCardsCount > 0 ? pendingCardsCount : undefined },
-    { title: "Demandas Reprovadas", icon: ThumbsDown, action: () => navigate("/rejected-cards"), badge: rejectedCardsCount > 0 ? rejectedCardsCount : undefined },
-    { title: "Cronograma Atual", icon: Clock, action: () => setScheduleModalOpen(true) },
-    { title: "Histórico de Períodos", icon: History, action: () => navigate("/plan-period?tab=history") },
-    { title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
-    { title: "Conteúdo Avulso", icon: PenTool, action: () => setContentHubModalOpen(true) },
+  const isAdmin = role === 'agency_admin' || role === 'super_admin';
+
+  const allActionCards = [
+    { id: 'client_cadastro' as ClientHubButtonId, title: "Cadastro", icon: ClipboardList, action: () => navigate(`/clientes/${selectedClient.id}`) },
+    { id: 'client_anamnese' as ClientHubButtonId, title: "Anamnese", icon: FileText, action: () => navigate("/client-guide") },
+    { id: 'client_estrategia' as ClientHubButtonId, title: "Estratégia", icon: Lightbulb, action: () => navigate("/strategies") },
+    { id: 'client_planejar_periodo' as ClientHubButtonId, title: "Planejar Período", icon: CalendarDays, action: () => navigate("/plan-period") },
+    { id: 'client_aprovar_producao' as ClientHubButtonId, title: "Aprovar Produção de Demandas", icon: CheckSquare, action: () => navigate("/approve-cards"), badge: pendingCardsCount > 0 ? pendingCardsCount : undefined },
+    { id: 'client_demandas_reprovadas' as ClientHubButtonId, title: "Demandas Reprovadas", icon: ThumbsDown, action: () => navigate("/rejected-cards"), badge: rejectedCardsCount > 0 ? rejectedCardsCount : undefined },
+    { id: 'client_cronograma_atual' as ClientHubButtonId, title: "Cronograma Atual", icon: Clock, action: () => setScheduleModalOpen(true) },
+    { id: 'client_historico' as ClientHubButtonId, title: "Histórico de Períodos", icon: History, action: () => navigate("/plan-period?tab=history") },
+    { id: 'client_identidade_visual' as ClientHubButtonId, title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
+    { id: 'client_conteudo_avulso' as ClientHubButtonId, title: "Conteúdo Avulso", icon: PenTool, action: () => setContentHubModalOpen(true) },
   ];
+
+  // Admins see all buttons; others are filtered by permissions
+  const actionCards = isAdmin
+    ? allActionCards
+    : allActionCards.filter(card => canAccessButton(card.id));
 
   return (
     <div className="pb-8">
