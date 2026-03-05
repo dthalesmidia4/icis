@@ -78,12 +78,7 @@ const ApproveCards = () => {
     fetchData();
   }, [isInitialized, selectedClient]);
 
-  // Persist selected period to localStorage
-  useEffect(() => {
-    if (period && selectedClient) {
-      localStorage.setItem(`approve_cards_period_${selectedClient.id}`, period.id);
-    }
-  }, [period, selectedClient]);
+  // No longer using localStorage for period persistence - always show most recent period with plans
 
   const fetchData = async () => {
     if (!selectedClient || !tenantId) return;
