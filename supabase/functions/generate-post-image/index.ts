@@ -217,9 +217,15 @@ ESTILO:
             const imgResp = await fetch(mascotUrl);
             if (imgResp.ok) {
               const imgBuffer = await imgResp.arrayBuffer();
-              const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
+              const bytes = new Uint8Array(imgBuffer);
+              let binary = "";
+              const chunkSize = 8192;
+              for (let i = 0; i < bytes.length; i += chunkSize) {
+                binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+              }
+              const imgBase64 = btoa(binary);
               const contentType = imgResp.headers.get("content-type") || "image/png";
-              parts.push({ inline_data: { mime_type: contentType, data: imgBase64 } });
+              parts.push({ inlineData: { mimeType: contentType, data: imgBase64 } });
               console.log("  → Mascot reference image attached as inline_data");
             }
           } catch (e) {
