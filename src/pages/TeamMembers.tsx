@@ -250,6 +250,7 @@ export default function TeamMembers() {
         return [...prev, { hub_section: buttonId, can_access: true }];
       }
     });
+  };
 
   const savePermissions = async () => {
     if (!selectedMember || !agencyId) return;
@@ -278,24 +279,32 @@ export default function TeamMembers() {
         if (colError) throw colError;
       }
 
-      // Salvar permissões de hub
+      // Salvar permissões de hub + botões do cliente juntos
       await supabase
         .from('user_hub_permissions')
         .delete()
         .eq('user_id', selectedMember.id)
         .eq('tenant_id', agencyId);
 
-      const hubPermsToInsert = hubPermissions.map(p => ({
-        user_id: selectedMember.id,
-        tenant_id: agencyId,
-        hub_section: p.hub_section,
-        can_access: p.can_access,
-      }));
+      const allHubPerms = [
+        ...hubPermissions.map(p => ({
+          user_id: selectedMember.id,
+          tenant_id: agencyId,
+          hub_section: p.hub_section,
+          can_access: p.can_access,
+        })),
+        ...clientButtonPermissions.map(p => ({
+          user_id: selectedMember.id,
+          tenant_id: agencyId,
+          hub_section: p.hub_section,
+          can_access: p.can_access,
+        })),
+      ];
 
-      if (hubPermsToInsert.length > 0) {
+      if (allHubPerms.length > 0) {
         const { error: hubError } = await supabase
           .from('user_hub_permissions')
-          .insert(hubPermsToInsert);
+          .insert(allHubPerms);
         if (hubError) throw hubError;
       }
 
