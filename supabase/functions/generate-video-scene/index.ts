@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
       parameters: {
         aspectRatio: aspectRatio === "16:9" ? "16:9" : "9:16",
         durationSeconds: 8,
-        personGeneration: "allow_all",
+        personGeneration: "allow_adult",
       },
     };
 
