@@ -611,9 +611,12 @@ const ClientHub = () => {
         <Dialog open={manualPostOpen} onOpenChange={(open) => { setManualPostOpen(open); if (!open) { setManualPostText(''); setSelectedPresetId(null); setSelectedMascotIds([]); setGeneratedManualPostImage(null); } }}>
           <DialogContent className={`!flex !flex-col overflow-hidden ${generatedManualPostImage ? 'sm:max-w-5xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[90vh]'}`}>
             <DialogHeader>
-              <DialogTitle className="text-lg flex items-center gap-2">
-                <PenLine className="w-5 h-5 text-primary" />Editor de Post
-              </DialogTitle>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setManualPostOpen(false); setManualPostText(''); setSelectedPresetId(null); setSelectedMascotIds([]); setGeneratedManualPostImage(null); setSelectedContentType("Post Estático"); setProductionModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                <DialogTitle className="text-lg flex items-center gap-2">
+                  <PenLine className="w-5 h-5 text-primary" />Editor de Post
+                </DialogTitle>
+              </div>
             </DialogHeader>
 
             <div className={`flex-1 min-h-0 ${generatedManualPostImage ? 'flex gap-6' : 'overflow-y-auto'}`}>
