@@ -507,6 +507,36 @@ export default function TeamMembers() {
                 })}
               </TabsContent>
 
+              <TabsContent value="client_buttons" className="mt-0 space-y-3">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Selecione quais botões dentro do Hub do Cliente este colaborador pode acessar:
+                </p>
+                {CLIENT_HUB_BUTTONS.map(button => {
+                  const permission = clientButtonPermissions.find(p => p.hub_section === button.id);
+                  const canAccess = permission?.can_access ?? true;
+
+                  return (
+                    <div
+                      key={button.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                    >
+                      <Checkbox
+                        id={`btn-${button.id}`}
+                        checked={canAccess}
+                        onCheckedChange={() => toggleClientButtonPermission(button.id)}
+                      />
+                      <div className="flex-1">
+                        <label htmlFor={`btn-${button.id}`} className="cursor-pointer font-medium block">
+                          {button.label}
+                        </label>
+                        <span className="text-xs text-muted-foreground">
+                          {button.description}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+
               <TabsContent value="notifications" className="mt-0 space-y-3">
                 <p className="text-sm text-muted-foreground mb-3">
                   Configure os alertas que este colaborador vai receber:
