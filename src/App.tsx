@@ -130,33 +130,27 @@ function AppRoutes() {
       <Route path="/plan-period" element={
         <ProtectedRoute>
           <RequireTenant>
-            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
-              <Layout>
-                <PlanPeriod />
-              </Layout>
-            </RequireRole>
+            <Layout>
+              <PlanPeriod />
+            </Layout>
           </RequireTenant>
         </ProtectedRoute>
       } />
       <Route path="/approve-cards" element={
         <ProtectedRoute>
           <RequireTenant>
-            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
-              <Layout>
-                <ApproveCards />
-              </Layout>
-            </RequireRole>
+            <Layout>
+              <ApproveCards />
+            </Layout>
           </RequireTenant>
         </ProtectedRoute>
       } />
       <Route path="/rejected-cards" element={
         <ProtectedRoute>
           <RequireTenant>
-            <RequireRole allowedRoles={['agency_admin', 'agency_manager']}>
-              <Layout>
-                <RejectedCards />
-              </Layout>
-            </RequireRole>
+            <Layout>
+              <RejectedCards />
+            </Layout>
           </RequireTenant>
         </ProtectedRoute>
       } />
