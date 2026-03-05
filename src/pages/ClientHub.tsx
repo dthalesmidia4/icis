@@ -34,7 +34,7 @@ const ClientHub = () => {
   const [videoScenes, setVideoScenes] = useState<Array<{ scene_description: string; mascot_speech: string; frame0_url?: string; video_url?: string; generating?: boolean }>>([]);
   const [generatingStoryboard, setGeneratingStoryboard] = useState(false);
   const [uploadingFrame, setUploadingFrame] = useState<number | null>(null);
-  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  const [videoPreviewIndex, setVideoPreviewIndex] = useState(0);
   const [presets, setPresets] = useState<Array<{ id: string; name: string; primary_color: string | null; secondary_color: string | null }>>([]);
   const [aiPostModalOpen, setAiPostModalOpen] = useState(false);
   const [postIdea, setPostIdea] = useState('');
