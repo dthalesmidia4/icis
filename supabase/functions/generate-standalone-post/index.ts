@@ -22,17 +22,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Fetch Google AI Studio API key from api_keys table
+    const { data: apiKeyData } = await supabase
+      .from("api_keys")
+      .select("key_value")
+      .eq("key_name", "Google AI Studio")
+      .single();
+
+    const GOOGLE_API_KEY = apiKeyData?.key_value;
+    if (!GOOGLE_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // 1. Fetch client branding
     const { data: client } = await supabase
@@ -123,46 +130,56 @@ REGRAS OBRIGATÓRIAS:
 - Texto legível e bem posicionado
 `.trim();
 
-    console.log("Generating standalone post with Nano Banana 3 Pro (gemini-3-pro-image-preview)...");
+    console.log("Generating standalone post via Google AI Studio (gemini-2.0-flash-exp-image-generation)...");
 
-    // 6. Build message content
-    const contentParts: any[] = [{ type: "text", text: imagePrompt }];
+    // 6. Build request parts for Google AI Studio
+    const parts: any[] = [{ text: imagePrompt }];
 
     if (mascotImageUrls && mascotImageUrls.length > 0) {
       for (const url of mascotImageUrls) {
-        contentParts.push({ type: "image_url", image_url: { url } });
+        try {
+          const imgResp = await fetch(url);
+          if (imgResp.ok) {
+            const imgBuffer = await imgResp.arrayBuffer();
+            const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
+            const contentType = imgResp.headers.get("content-type") || "image/png";
+            parts.push({
+              inline_data: {
+                mime_type: contentType,
+                data: imgBase64,
+              },
+            });
+            console.log("  → Mascot reference image attached as inline_data");
+          }
+        } catch (e) {
+          console.error("Failed to fetch mascot image:", e);
+        }
       }
-      console.log(`  → ${mascotImageUrls.length} mascot reference image(s) attached`);
     }
 
-    // 7. Call Nano Banana 3 Pro
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // 7. Call Google AI Studio directly
+    const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GOOGLE_API_KEY}`;
+
+    const response = await fetch(googleApiUrl, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-3-pro-image-preview",
-        messages: [{ role: "user", content: contentParts }],
-        modalities: ["image", "text"],
+        contents: [{ parts }],
+        generationConfig: {
+          responseModalities: ["IMAGE", "TEXT"],
+          imageDimension: { width: 1024, height: 1024 },
+        },
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Nano Banana 3 Pro error:", response.status, errorText);
+      console.error("Google AI Studio error:", response.status, errorText);
 
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit excedido. Tente novamente em alguns minutos." }),
+          JSON.stringify({ error: "Rate limit excedido no Google AI Studio. Tente novamente em alguns minutos." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao workspace." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -173,9 +190,25 @@ REGRAS OBRIGATÓRIAS:
     }
 
     const data = await response.json();
-    const base64Url = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
-    if (!base64Url) {
+    // Extract base64 image from Google AI Studio response
+    let imageBase64 = "";
+    let imageMimeType = "image/png";
+
+    const candidates = data.candidates || [];
+    for (const candidate of candidates) {
+      const candidateParts = candidate.content?.parts || [];
+      for (const part of candidateParts) {
+        if (part.inline_data) {
+          imageBase64 = part.inline_data.data;
+          imageMimeType = part.inline_data.mime_type || "image/png";
+          break;
+        }
+      }
+      if (imageBase64) break;
+    }
+
+    if (!imageBase64) {
       console.error("No image in response:", JSON.stringify(data).substring(0, 500));
       return new Response(
         JSON.stringify({ error: "Nenhuma imagem foi retornada pelo modelo." }),
@@ -186,15 +219,14 @@ REGRAS OBRIGATÓRIAS:
     // 8. Upload to Supabase Storage
     console.log("Uploading generated image to storage...");
 
-    const base64Data = base64Url.replace(/^data:image\/\w+;base64,/, "");
-    const imageBytes = decodeBase64(base64Data);
-
-    const fileName = `standalone-posts/${clientId}/${crypto.randomUUID()}.png`;
+    const imageBytes = decodeBase64(imageBase64);
+    const ext = imageMimeType.includes("jpeg") ? "jpg" : "png";
+    const fileName = `standalone-posts/${clientId}/${crypto.randomUUID()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from("card-attachments")
       .upload(fileName, imageBytes, {
-        contentType: "image/png",
+        contentType: imageMimeType,
         upsert: false,
       });
 
@@ -210,7 +242,7 @@ REGRAS OBRIGATÓRIAS:
       .from("card-attachments")
       .getPublicUrl(fileName);
 
-    console.log("✅ Post image generated and uploaded successfully with Nano Banana 3 Pro");
+    console.log("✅ Post image generated and uploaded successfully via Google AI Studio");
 
     return new Response(
       JSON.stringify({
