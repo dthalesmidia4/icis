@@ -150,16 +150,6 @@ function DesktopSidebar() {
   const { signOut, user } = useAuth();
   const userName = user?.user_metadata?.full_name as string | undefined;
   const { canAccessAdmin } = useUserRole();
-  const { agencyId } = useAgency();
-  const { canAccess } = useHubPermissions();
-  const { role: agencyRole } = useAgencyRole();
-
-  const isAdmin = agencyRole === 'super_admin' || agencyRole === 'agency_admin' || agencyRole === 'agency_manager';
-  const isAdminOnly = agencyRole === 'super_admin' || agencyRole === 'agency_admin';
-
-  const navItems = useMemo(() => {
-    return getFilteredNavigationItems({ agencyId, isAdmin, isAdminOnly, canAccess });
-  }, [agencyId, isAdmin, isAdminOnly, canAccess]);
 
   const isActive = (path: string) => location.pathname === path;
 
