@@ -1002,6 +1002,7 @@ const ClientHub = () => {
                   {videoStep === 1 ? 'Criar Storyboard de Vídeo' : 'Editar Cenas do Storyboard'}
                 </DialogTitle>
               </div>
+            </DialogHeader>
 
             {videoStep === 1 ? (
               <>
