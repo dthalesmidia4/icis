@@ -194,6 +194,35 @@ const ApproveCards = () => {
     }
   };
 
+  // Fire-and-forget auto image generation for static posts
+  const triggerAutoGenerate = useCallback((demandTitle: string, demandType: string | null, demandId: string) => {
+    const tipo = (demandType || '').toLowerCase();
+    const isStaticPost = tipo.includes('post');
+    if (!isStaticPost) return;
+
+    console.log(`[AutoGen] Triggering auto-generation for "${demandTitle}" (type: ${demandType})`);
+    toast.info(`Gerando imagem automaticamente para "${demandTitle}"...`, { duration: 5000 });
+
+    supabase.functions.invoke('auto-generate-post', {
+      body: { demandId },
+    }).then(({ data, error }) => {
+      if (error) {
+        console.error('[AutoGen] Error:', error);
+        toast.error(`Erro na geração automática de "${demandTitle}"`);
+        return;
+      }
+      if (data?.skipped) {
+        console.log('[AutoGen] Skipped:', data.reason);
+        return;
+      }
+      if (data?.success) {
+        toast.success(`Imagem gerada e anexada a "${demandTitle}"!`);
+      }
+    }).catch(err => {
+      console.error('[AutoGen] Exception:', err);
+    });
+  }, []);
+
   const handleApprove = useCallback(async (card: CardItem) => {
     if (!selectedClient || !tenantId || !pipelineId || !initialStatusId || !period) return;
 
@@ -210,7 +239,7 @@ const ApproveCards = () => {
 
       const instructionParts = [conteudo, instrucoes, cta ? `CTA: ${cta}` : ''].filter(Boolean);
 
-      const { error } = await supabase.from('demands').insert({
+      const { data: insertedData, error } = await supabase.from('demands').insert({
         tenant_id: tenantId,
         client_id: selectedClient.id,
         pipeline_id: pipelineId,
@@ -224,19 +253,24 @@ const ApproveCards = () => {
         demand_type: tipo,
         source: 'card',
         observations: null,
-      });
+      }).select('id').single();
 
       if (error) throw error;
 
       setApprovedIndexes(prev => new Set([...prev, card._index]));
       toast.success(`"${title}" aprovado e enviado ao Kanban!`);
+
+      // Trigger auto image generation (fire-and-forget)
+      if (insertedData?.id) {
+        triggerAutoGenerate(title, tipo, insertedData.id);
+      }
     } catch (error) {
       console.error('Error approving card:', error);
       toast.error("Erro ao aprovar card");
     } finally {
       setApprovingIndex(null);
     }
-  }, [selectedClient, tenantId, pipelineId, initialStatusId, period]);
+  }, [selectedClient, tenantId, pipelineId, initialStatusId, period, triggerAutoGenerate]);
 
   const handleApproveAll = async () => {
     const pending = cards.filter(c => !approvedIndexes.has(c._index));
