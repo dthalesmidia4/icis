@@ -47,17 +47,17 @@ function parseSlides(description: string): { slideNumber: number; title: string;
   return slides;
 }
 
-// Determine aspect ratio label based on demand type/channel
-function getAspectRatio(demandType: string | null, _channel: string | null): string {
+// Determine aspect ratio and dimensions
+function getAspectRatioInfo(demandType: string | null, _channel: string | null): { label: string; width: number; height: number } {
   const type = (demandType || "").toLowerCase();
 
   if (type.includes("reel") || type.includes("stories") || type.includes("story") || type.includes("video curto")) {
-    return "9:16 (portrait, 1024x1536)";
+    return { label: "9:16 (portrait)", width: 1024, height: 1536 };
   }
   if (type.includes("cover") || type.includes("banner") || type.includes("capa")) {
-    return "16:9 (landscape, 1536x1024)";
+    return { label: "16:9 (landscape)", width: 1536, height: 1024 };
   }
-  return "1:1 (square, 1024x1024)";
+  return { label: "1:1 (square)", width: 1024, height: 1024 };
 }
 
 Deno.serve(async (req) => {
@@ -75,17 +75,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Fetch Google AI Studio API key
+    const { data: apiKeyData } = await supabase
+      .from("api_keys")
+      .select("key_value")
+      .eq("key_name", "Google AI Studio")
+      .single();
+
+    const GOOGLE_API_KEY = apiKeyData?.key_value;
+    if (!GOOGLE_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // 1. Fetch the demand
     const { data: demand, error: demandError } = await supabase
@@ -151,7 +158,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const aspectRatio = getAspectRatio(demand.demand_type, demand.channel);
+    const aspectInfo = getAspectRatioInfo(demand.demand_type, demand.channel);
     const brandName = client?.fantasy_name || client?.name || "Marca";
     const primaryColor = client?.brand_primary_color || "#000000";
     const secondaryColor = client?.brand_secondary_color || "#FFFFFF";
@@ -174,7 +181,7 @@ Deno.serve(async (req) => {
     const existingAttachments = demand.attachments || [];
     const errors: string[] = [];
 
-    // 6. Generate images for each slide using Nano Banana 3 Pro
+    // 6. Generate images for each slide using Google AI Studio
     for (const slide of slidesToGenerate) {
       const mascotInstruction = hasMascot
         ? mentionsMascot
@@ -192,7 +199,7 @@ ${demand.objective ? `\nOBJETIVO DA DEMANDA:\n${demand.objective}` : ""}
 ${demand.instructions ? `\nINSTRUÇÕES ESPECÍFICAS (SIGA COM PRIORIDADE MÁXIMA):\n${demand.instructions}` : ""}
 ${demand.observations ? `\nOBSERVAÇÕES ADICIONAIS (SIGA COM PRIORIDADE MÁXIMA):\n${demand.observations}` : ""}
 
-DESCRIÇÃO COMPLETA DA ATIVIDADE (SIGA RIGOROSAMENTE CADA DETALHE DESCRITO ABAIXO - cenário, ambiente, estilo, cores, elementos visuais, posição dos personagens, etc.):
+DESCRIÇÃO COMPLETA DA ATIVIDADE (SIGA RIGOROSAMENTE CADA DETALHE DESCRITO ABAIXO):
 ${demand.description ? demand.description.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").trim() : "Criar post profissional para rede social"}
 
 BRANDING:
@@ -205,45 +212,52 @@ ${mascotInstruction}
 
 ESTILO:
 - Design profissional para redes sociais
-- Formato/Proporção: ${aspectRatio}
+- Formato/Proporção: ${aspectInfo.label}
 - IMPORTANTE: Gere um POST COMPLETO para rede social, não apenas um elemento isolado
-- IMPORTANTE: Siga EXATAMENTE o cenário, ambiente e background descritos na atividade acima. NÃO substitua por fundos genéricos ou abstratos.
+- IMPORTANTE: Siga EXATAMENTE o cenário, ambiente e background descritos na atividade acima.
 `.trim();
 
-      console.log(`Generating image for slide ${slide.slideNumber} using Nano Banana 3 Pro...${useMascotReference ? " (with mascot reference)" : ""}`);
+      console.log(`Generating image for slide ${slide.slideNumber} via Google AI Studio...${useMascotReference ? " (with mascot reference)" : ""}`);
 
       try {
-        // Build message content
-        const contentParts: any[] = [{ type: "text", text: imagePrompt }];
+        // Build parts for Google AI Studio
+        const parts: any[] = [{ text: imagePrompt }];
 
         if (useMascotReference) {
-          contentParts.push({ type: "image_url", image_url: { url: mascotUrl } });
-          console.log(`  → Mascot reference image attached`);
+          try {
+            const imgResp = await fetch(mascotUrl);
+            if (imgResp.ok) {
+              const imgBuffer = await imgResp.arrayBuffer();
+              const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
+              const contentType = imgResp.headers.get("content-type") || "image/png";
+              parts.push({ inline_data: { mime_type: contentType, data: imgBase64 } });
+              console.log("  → Mascot reference image attached as inline_data");
+            }
+          } catch (e) {
+            console.error("Failed to fetch mascot image:", e);
+          }
         }
 
-        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GOOGLE_API_KEY}`;
+
+        const response = await fetch(googleApiUrl, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "google/gemini-3-pro-image-preview",
-            messages: [{ role: "user", content: contentParts }],
-            modalities: ["image", "text"],
+            contents: [{ parts }],
+            generationConfig: {
+              responseModalities: ["IMAGE", "TEXT"],
+              imageDimension: { width: aspectInfo.width, height: aspectInfo.height },
+            },
           }),
         });
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`Nano Banana 3 Pro error for slide ${slide.slideNumber}:`, response.status, errorText);
+          console.error(`Google AI Studio error for slide ${slide.slideNumber}:`, response.status, errorText);
 
           if (response.status === 429) {
             errors.push(`Slide ${slide.slideNumber}: Rate limit excedido. Tente novamente em alguns minutos.`);
-            continue;
-          }
-          if (response.status === 402) {
-            errors.push(`Slide ${slide.slideNumber}: Créditos insuficientes.`);
             continue;
           }
 
@@ -252,25 +266,39 @@ ESTILO:
         }
 
         const data = await response.json();
-        const base64Url = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
-        if (!base64Url) {
+        // Extract base64 image from Google AI Studio response
+        let imageBase64 = "";
+        let imageMimeType = "image/png";
+        const candidates = data.candidates || [];
+        for (const candidate of candidates) {
+          const candidateParts = candidate.content?.parts || [];
+          for (const part of candidateParts) {
+            if (part.inline_data) {
+              imageBase64 = part.inline_data.data;
+              imageMimeType = part.inline_data.mime_type || "image/png";
+              break;
+            }
+          }
+          if (imageBase64) break;
+        }
+
+        if (!imageBase64) {
           console.error(`No image in response for slide ${slide.slideNumber}:`, JSON.stringify(data).substring(0, 500));
           errors.push(`Slide ${slide.slideNumber}: Nenhuma imagem retornada pelo modelo`);
           continue;
         }
 
         // Upload to storage
-        const base64Data = base64Url.replace(/^data:image\/\w+;base64,/, "");
-        const imageBytes = decodeBase64(base64Data);
-
-        const fileName = `ai-generated-slide-${slide.slideNumber}-${Date.now()}.png`;
+        const imageBytes = decodeBase64(imageBase64);
+        const ext = imageMimeType.includes("jpeg") ? "jpg" : "png";
+        const fileName = `ai-generated-slide-${slide.slideNumber}-${Date.now()}.${ext}`;
         const storagePath = `${demand.client_id}/${demand.id}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from("card-attachments")
           .upload(storagePath, imageBytes, {
-            contentType: "image/png",
+            contentType: imageMimeType,
             upsert: true,
           });
 
@@ -286,19 +314,19 @@ ESTILO:
 
         const attachment = {
           url: urlData.publicUrl,
-          name: `Slide ${slide.slideNumber} - ${brandName}.png`,
-          type: "image/png",
+          name: `Slide ${slide.slideNumber} - ${brandName}.${ext}`,
+          type: imageMimeType,
           size: imageBytes.length,
           storagePath,
           uploadedAt: new Date().toISOString(),
-          uploadedBy: { id: "ai-generator", email: "system@ai", name: "IA - Nano Banana 3 Pro" },
+          uploadedBy: { id: "ai-generator", email: "system@ai", name: "IA - Google AI Studio" },
           cardId: demand.id,
           tenantId: demand.tenant_id,
           clientId: demand.client_id,
         };
 
         generatedAttachments.push(attachment);
-        console.log(`✅ Slide ${slide.slideNumber} generated and uploaded successfully with Nano Banana 3 Pro`);
+        console.log(`✅ Slide ${slide.slideNumber} generated and uploaded successfully via Google AI Studio`);
       } catch (slideError) {
         console.error(`Exception generating slide ${slide.slideNumber}:`, slideError);
         errors.push(`Slide ${slide.slideNumber}: ${slideError instanceof Error ? slideError.message : "Erro desconhecido"}`);
