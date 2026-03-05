@@ -22,30 +22,36 @@ Deno.serve(async (req) => {
       );
     }
 
-    // LOVABLE_API_KEY still needed for Step 1 (text generation via Gateway)
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Fetch Google AI Studio API key for image generation (Step 2)
-    const { data: apiKeyData } = await supabase
+    const { data: googleKeyData } = await supabase
       .from("api_keys")
       .select("key_value")
       .eq("key_name", "Google AI Studio")
       .single();
 
-    const GOOGLE_API_KEY = apiKeyData?.key_value;
+    const GOOGLE_API_KEY = googleKeyData?.key_value;
     if (!GOOGLE_API_KEY) {
       return new Response(
         JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Fetch OpenAI API key for text generation (Step 1)
+    const { data: openaiKeyData } = await supabase
+      .from("api_keys")
+      .select("key_value")
+      .eq("key_name", "OpenAI")
+      .single();
+
+    const OPENAI_API_KEY = openaiKeyData?.key_value;
+    if (!OPENAI_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Chave 'OpenAI' não encontrada na tabela api_keys." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -138,8 +144,7 @@ Deno.serve(async (req) => {
 
     const slideCount = 5;
 
-    // ============ STEP 1: Generate carousel text content (via Lovable Gateway) ============
-    console.log(`Step 1: Generating ${slideCount} slide texts via Lovable Gateway...`);
+    console.log(`Step 1: Generating ${slideCount} slide texts via OpenAI GPT-4o-mini (direct API)...`);
 
     const mascotInfo = mascotImageUrls.length > 0
       ? `O cliente possui um mascote oficial. ${client?.mascot_description ? `Descrição: ${client.mascot_description}.` : ""} Considere referenciá-lo nos textos quando relevante.`
@@ -168,14 +173,14 @@ ${cardContent}
 
 Retorne exatamente ${slideCount} slides, cada um com texto curto (máx 50 caracteres) e um rótulo descritivo.`;
 
-    const contentResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const contentResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openai/gpt-5-mini",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -214,9 +219,9 @@ Retorne exatamente ${slideCount} slides, cada um com texto curto (máx 50 caract
 
     if (!contentResponse.ok) {
       const errorText = await contentResponse.text();
-      console.error("Content generation error:", contentResponse.status, errorText);
+      console.error("OpenAI content generation error:", contentResponse.status, errorText);
       return new Response(
-        JSON.stringify({ error: `Erro ao gerar conteúdo do carrossel: ${contentResponse.status}` }),
+        JSON.stringify({ error: `Erro ao gerar conteúdo do carrossel via OpenAI: ${contentResponse.status}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
