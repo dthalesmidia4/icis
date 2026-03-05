@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const VEO_MODEL = "veo-3.1-generate-preview";
+const VEO_MODEL = "veo-3-generate-preview";
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
 async function imageUrlToBase64(url: string): Promise<{ base64: string; mimeType: string }> {
