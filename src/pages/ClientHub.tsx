@@ -332,7 +332,7 @@ const ClientHub = () => {
     finally { setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, generating: false } : s)); }
   };
 
-  const isAdmin = role === 'agency_admin' || role === 'super_admin';
+  const isAdmin = role === 'agency_admin' || role === 'super_admin' || role === 'agency_manager';
 
   const allActionCards = [
     { id: 'client_cadastro' as ClientHubButtonId, title: "Cadastro", icon: ClipboardList, action: () => navigate(`/clientes/${selectedClient.id}`) },
