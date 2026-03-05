@@ -306,7 +306,21 @@ const ClientHub = () => {
       if (error) { console.error('Edge function error:', error); toast.error(`Erro ao gerar Cena ${sceneIndex + 1}.`); return; }
       if (data?.error) { toast.error(data.error); return; }
       if (data?.videoUrl) {
-        setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, video_url: data.videoUrl } : s));
+        setVideoScenes(prev => {
+          const updated = prev.map((s, i) => i === sceneIndex ? { ...s, video_url: data.videoUrl } : s);
+          // Auto-navigate to the newly generated scene in the preview carousel
+          const generatedScenes = updated.filter(s => s.video_url || s.generating);
+          const newIndex = generatedScenes.findIndex((_, gi) => {
+            let count = -1;
+            for (let j = 0; j < updated.length; j++) {
+              if (updated[j].video_url || updated[j].generating) count++;
+              if (j === sceneIndex) return count === gi;
+            }
+            return false;
+          });
+          if (newIndex >= 0) setVideoPreviewIndex(newIndex);
+          return updated;
+        });
         toast.success(`Cena ${sceneIndex + 1} gerada com sucesso!`);
         await saveGeneratedContent('video_scene', `Cena ${sceneIndex + 1} - Vídeo`, scene.scene_description, [data.videoUrl]);
       } else { toast.error('Nenhum vídeo retornado.'); }
