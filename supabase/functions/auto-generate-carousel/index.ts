@@ -144,8 +144,7 @@ Deno.serve(async (req) => {
 
     const slideCount = 5;
 
-    // ============ STEP 1: Generate carousel text content (via Lovable Gateway) ============
-    console.log(`Step 1: Generating ${slideCount} slide texts via Lovable Gateway...`);
+    console.log(`Step 1: Generating ${slideCount} slide texts via OpenAI GPT-4o-mini (direct API)...`);
 
     const mascotInfo = mascotImageUrls.length > 0
       ? `O cliente possui um mascote oficial. ${client?.mascot_description ? `Descrição: ${client.mascot_description}.` : ""} Considere referenciá-lo nos textos quando relevante.`
