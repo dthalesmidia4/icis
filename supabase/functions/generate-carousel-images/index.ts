@@ -177,7 +177,7 @@ REGRAS DE DESIGN:
 
       const parts: any[] = [{ text: imagePrompt }];
       for (const mascot of mascotInlineData) {
-        parts.push({ inline_data: mascot });
+        parts.push({ inlineData: mascot });
       }
 
       try {
