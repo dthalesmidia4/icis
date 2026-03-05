@@ -949,7 +949,7 @@ const ClientHub = () => {
         <VisualIdentityModal open={visualIdentityModalOpen} onOpenChange={setVisualIdentityModalOpen} companyId={selectedClient?.id || ''} companyName={selectedClient?.fantasy_name || selectedClient?.name || ''} tenantId={tenantId || ''} />
 
         {/* Modal Vídeo - Storyboard */}
-        <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) { setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); setVideoAspectRatio('9:16'); setSelectedMascotIds([]); setVideoStep(1); setVideoScenes([]); } }}>
+        <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) { setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); setVideoAspectRatio('9:16'); setSelectedMascotIds([]); setVideoStep(1); setVideoScenes([]); setVideoPreviewIndex(0); } }}>
           <DialogContent className={`!flex !flex-col overflow-hidden ${videoStep === 2 ? 'sm:max-w-4xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[85vh]'}`}>
             <DialogHeader>
               <DialogTitle className="text-lg flex items-center gap-2">
