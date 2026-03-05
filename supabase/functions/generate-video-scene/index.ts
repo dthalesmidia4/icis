@@ -182,22 +182,45 @@ Deno.serve(async (req) => {
     let videoBytes: Uint8Array;
 
     if (video.video?.uri) {
-      // Download video from URI
-      const videoResp = await fetch(`${video.video.uri}?key=${GOOGLE_API_KEY}`);
-      if (!videoResp.ok) {
-        // Try fetching from files API
-        const fileResp = await fetch(`${BASE_URL}/files/${video.video.uri.split('/').pop()}?key=${GOOGLE_API_KEY}&alt=media`);
-        if (!fileResp.ok) {
-          const errText = await fileResp.text();
-          console.error("Failed to download video:", errText);
-          return new Response(JSON.stringify({ error: "Erro ao baixar o vídeo gerado" }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        videoBytes = new Uint8Array(await fileResp.arrayBuffer());
+      const uri = video.video.uri;
+      console.log("Video URI:", uri.substring(0, 200));
+      
+      // Try multiple download approaches
+      const urlsToTry = [];
+      
+      // If URI is already a full URL
+      if (uri.startsWith("http")) {
+        const separator = uri.includes("?") ? "&" : "?";
+        urlsToTry.push(`${uri}${separator}key=${GOOGLE_API_KEY}`);
       } else {
-        videoBytes = new Uint8Array(await videoResp.arrayBuffer());
+        // URI might be a file name like "files/xyz" or just "xyz"
+        const fileName = uri.includes("/") ? uri.split("/").pop() : uri;
+        urlsToTry.push(`${BASE_URL}/files/${fileName}?key=${GOOGLE_API_KEY}&alt=media`);
+        urlsToTry.push(`${BASE_URL}/${uri}?key=${GOOGLE_API_KEY}`);
+      }
+      
+      let downloaded = false;
+      for (const url of urlsToTry) {
+        try {
+          console.log("Trying download URL:", url.substring(0, 150));
+          const resp = await fetch(url);
+          if (resp.ok) {
+            videoBytes = new Uint8Array(await resp.arrayBuffer());
+            downloaded = true;
+            break;
+          }
+          const errText = await resp.text();
+          console.error(`Download failed (${resp.status}):`, errText.substring(0, 300));
+        } catch (e) {
+          console.error("Download error:", e);
+        }
+      }
+      
+      if (!downloaded) {
+        return new Response(JSON.stringify({ error: "Erro ao baixar o vídeo gerado" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
     } else if (video.video?.bytesBase64Encoded || video.bytesBase64Encoded) {
       const b64 = video.video?.bytesBase64Encoded || video.bytesBase64Encoded;
