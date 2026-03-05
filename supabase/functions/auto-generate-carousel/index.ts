@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     const OPENAI_API_KEY = openaiKeyData?.key_value;
     if (!OPENAI_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "Chave 'OpenAI' não encontrada na tabela api_keys." }),
+        JSON.stringify({ error: "Chave 'OPENAI_API_KEY' não encontrada na tabela api_keys." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
