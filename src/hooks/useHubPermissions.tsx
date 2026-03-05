@@ -102,16 +102,23 @@ export function useHubPermissions() {
   }, [user?.id, agencyId, fetchPermissions]);
 
   // Função para verificar se o usuário pode acessar uma seção específica
-  const canAccess = useCallback((sectionId: HubSectionId | string): boolean => {
-    // Importante: modo "deny by default".
-    // Se não há permissões carregadas/salvas para este usuário, não exibe a seção.
-    if (permissions.length === 0) return false;
+  const canAccess = useCallback((sectionId: HubSectionId | ClientHubButtonId | string): boolean => {
+    // Para botões do cliente (client_*), o padrão é "allow" quando não há permissão salva
+    const isClientButton = sectionId.startsWith('client_');
+
+    // Se não há permissões carregadas/salvas para este usuário
+    if (permissions.length === 0) {
+      // Botões do cliente: permitir por padrão; seções do hub: negar por padrão
+      return isClientButton;
+    }
 
     const permission = permissions.find(p => p.hub_section === sectionId);
-    // Se não encontrou permissão específica para esta seção, assume bloqueado
-    if (!permission) return false;
+    // Se não encontrou permissão específica para esta seção
+    if (!permission) {
+      // Botões do cliente: permitir por padrão; seções do hub: negar por padrão
+      return isClientButton;
+    }
 
-    // Retorna o valor de can_access (true = pode acessar, false = bloqueado)
     return permission.can_access === true;
   }, [permissions]);
 
