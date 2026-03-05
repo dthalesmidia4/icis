@@ -9,7 +9,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription } from "@/components/ui/dialog";
-import { Download, Image, LayoutGrid, Video, Film, Calendar, Loader2, Play } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Download, Image, LayoutGrid, Video, Film, Calendar, Loader2, Play, Users } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -21,6 +22,14 @@ interface GeneratedContent {
   image_urls: string[];
   metadata: Record<string, any>;
   created_at: string;
+  client_id: string;
+  client_name?: string;
+}
+
+interface ClientOption {
+  id: string;
+  name: string;
+  fantasy_name: string | null;
 }
 
 const contentTypeConfig: Record<string, { label: string; icon: typeof Image; color: string }> = {
@@ -37,45 +46,70 @@ const isVideoUrl = (url: string) => {
 
 const ContentHistory = () => {
   const navigate = useNavigate();
-  const { selectedClient, isInitialized } = useSelectedClient();
+  const { selectedClient } = useSelectedClient();
   const { tenantId } = useTenant();
   const [contents, setContents] = useState<GeneratedContent[]>([]);
+  const [clients, setClients] = useState<ClientOption[]>([]);
+  const [filterClientId, setFilterClientId] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewContent, setPreviewContent] = useState<GeneratedContent | null>(null);
 
+  // Load clients for filter
   useEffect(() => {
-    if (!isInitialized) return;
-    if (!selectedClient) {
-      toast.error("Nenhum cliente selecionado");
-      navigate("/home");
-    }
-  }, [isInitialized, selectedClient, navigate]);
+    if (!tenantId) return;
+    const fetchClients = async () => {
+      const { data } = await supabase
+        .from("tenant_companies")
+        .select("id, name, fantasy_name")
+        .eq("tenant_id", tenantId)
+        .order("name");
+      if (data) setClients(data);
+    };
+    fetchClients();
+  }, [tenantId]);
 
+  // If coming from ClientHub with a selected client, pre-filter
   useEffect(() => {
-    if (!selectedClient?.id || !tenantId) return;
+    if (selectedClient?.id) {
+      setFilterClientId(selectedClient.id);
+    }
+  }, [selectedClient?.id]);
+
+  // Fetch contents
+  useEffect(() => {
+    if (!tenantId) return;
     const fetchContents = async () => {
       setLoading(true);
-      const { data, error } = await supabase
+      let query = supabase
         .from("generated_contents")
         .select("*")
-        .eq("client_id", selectedClient.id)
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false });
+
+      if (filterClientId !== "all") {
+        query = query.eq("client_id", filterClientId);
+      }
+
+      const { data, error } = await query;
       if (error) {
         console.error("Error fetching contents:", error);
         toast.error("Erro ao carregar histórico");
       } else {
-        setContents((data || []).map((d: any) => ({ ...d, image_urls: Array.isArray(d.image_urls) ? d.image_urls : [] })));
+        const mapped = (data || []).map((d: any) => ({
+          ...d,
+          image_urls: Array.isArray(d.image_urls) ? d.image_urls : [],
+        }));
+        // Enrich with client name
+        setContents(mapped.map((c: any) => {
+          const client = clients.find(cl => cl.id === c.client_id);
+          return { ...c, client_name: client ? (client.fantasy_name || client.name) : undefined };
+        }));
       }
       setLoading(false);
     };
     fetchContents();
-  }, [selectedClient?.id, tenantId]);
-
-  if (!isInitialized || !selectedClient) return null;
-
-  const displayName = selectedClient.fantasy_name || selectedClient.name;
+  }, [tenantId, filterClientId, clients]);
 
   const handleDownload = (url: string, index: number) => {
     const ext = isVideoUrl(url) ? "mp4" : "png";
@@ -92,7 +126,6 @@ const ContentHistory = () => {
     const firstUrl = content.image_urls[0];
 
     if (!firstUrl) {
-      // Storyboard without media - show icon
       return (
         <div className="aspect-square flex items-center justify-center bg-muted/50">
           <div className="flex flex-col items-center gap-2 text-muted-foreground/40">
@@ -106,12 +139,7 @@ const ContentHistory = () => {
     if (isVideoUrl(firstUrl)) {
       return (
         <div className="aspect-square overflow-hidden bg-black relative group">
-          <video
-            src={firstUrl}
-            className="w-full h-full object-cover"
-            muted
-            preload="metadata"
-          />
+          <video src={firstUrl} className="w-full h-full object-cover" muted preload="metadata" />
           <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/20 transition-colors">
             <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
               <Play className="w-6 h-6 text-foreground ml-0.5" fill="currentColor" />
@@ -136,12 +164,7 @@ const ContentHistory = () => {
     if (isVideoUrl(url)) {
       return (
         <div key={idx} className="rounded-xl overflow-hidden border shadow-sm">
-          <video
-            src={url}
-            controls
-            className="w-full max-h-[60vh]"
-            preload="metadata"
-          />
+          <video src={url} controls className="w-full max-h-[60vh]" preload="metadata" />
           <div className="flex items-center justify-between px-3 py-2 bg-muted/30">
             <span className="text-xs font-medium text-muted-foreground">Vídeo {idx + 1}</span>
             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleDownload(url, idx)}>
@@ -172,12 +195,28 @@ const ContentHistory = () => {
       <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
         <div className="mb-8 sm:mb-12 relative">
           <div className="absolute left-0 top-0">
-            <BackButton to="/client-hub" />
+            <BackButton to="/home" />
           </div>
           <div className="text-center">
             <h1 className="text-2xl sm:text-3xl font-bold mb-2">Histórico de Criações</h1>
-            <p className="text-sm text-muted-foreground">{displayName}</p>
+            <p className="text-sm text-muted-foreground">Todas as mídias geradas por IA</p>
           </div>
+        </div>
+
+        {/* Client Filter */}
+        <div className="mb-6 flex items-center gap-3">
+          <Users className="w-4 h-4 text-muted-foreground" />
+          <Select value={filterClientId} onValueChange={setFilterClientId}>
+            <SelectTrigger className="w-64">
+              <SelectValue placeholder="Filtrar por cliente" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os clientes</SelectItem>
+              {clients.map(c => (
+                <SelectItem key={c.id} value={c.id}>{c.fantasy_name || c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {loading ? (
@@ -216,6 +255,9 @@ const ContentHistory = () => {
                     {content.title && (
                       <p className="text-sm font-medium line-clamp-2">{content.title}</p>
                     )}
+                    {content.client_name && filterClientId === "all" && (
+                      <p className="text-xs text-muted-foreground truncate">{content.client_name}</p>
+                    )}
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Calendar className="w-3 h-3" />
                       {format(new Date(content.created_at), "dd MMM yyyy, HH:mm", { locale: ptBR })}
@@ -238,6 +280,7 @@ const ContentHistory = () => {
                     <h2 className="text-lg font-bold">{previewContent.title || "Conteúdo Gerado"}</h2>
                     <p className="text-xs text-muted-foreground">
                       {format(new Date(previewContent.created_at), "dd 'de' MMMM 'de' yyyy, HH:mm", { locale: ptBR })}
+                      {previewContent.client_name && ` · ${previewContent.client_name}`}
                     </p>
                   </div>
                   <Badge variant="secondary">
