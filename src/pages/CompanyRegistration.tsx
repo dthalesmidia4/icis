@@ -40,9 +40,6 @@ const CompanyRegistration = () => {
     street: "",
     number: "",
     complement: "",
-    brand_primary_color: "",
-    brand_secondary_color: "",
-    brand_font: "",
     has_mascot: false,
     mascot_description: ""
   });
