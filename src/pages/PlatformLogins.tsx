@@ -92,7 +92,7 @@ const PlatformLogins = () => {
     } else {
       const { error } = await supabase
         .from("platform_logins" as any)
-        .insert({ tenant_id: currentTenantId, name: name.trim(), access_info: accessInfo.trim() } as any);
+        .insert({ tenant_id: currentTenantId, name: name.trim(), access_info: accessInfo.trim(), observations: observations.trim() || null } as any);
       if (error) {
         toast.error("Erro ao salvar");
       } else {
