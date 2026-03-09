@@ -215,11 +215,8 @@ const CompanyRegistration = () => {
         email: formData.email,
         phone: formData.phone,
         tenant_id: profile.tenant_id,
-        brand_primary_color: formData.brand_primary_color || null,
-        brand_secondary_color: formData.brand_secondary_color || null,
-        brand_font: formData.brand_font || null,
-        has_mascot: (formData as any).has_mascot || false,
-        mascot_description: (formData as any).has_mascot ? ((formData as any).mascot_description || null) : null
+        has_mascot: formData.has_mascot || false,
+        mascot_description: formData.has_mascot ? (formData.mascot_description || null) : null
       }]).select().single();
 
       if (error) {
