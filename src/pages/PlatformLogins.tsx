@@ -82,7 +82,7 @@ const PlatformLogins = () => {
     if (editing && editId) {
       const { error } = await supabase
         .from("platform_logins" as any)
-        .update({ name: name.trim(), access_info: accessInfo.trim(), updated_at: new Date().toISOString() } as any)
+        .update({ name: name.trim(), access_info: accessInfo.trim(), observations: observations.trim() || null, updated_at: new Date().toISOString() } as any)
         .eq("id", editId);
       if (error) {
         toast.error("Erro ao atualizar");
