@@ -165,6 +165,7 @@ const PlatformLogins = () => {
                     <TableRow key={login.id}>
                       <TableCell className="font-medium">{login.name}</TableCell>
                       <TableCell>{login.access_info}</TableCell>
+                      <TableCell className="text-muted-foreground">{login.observations || "—"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" onClick={() => openEdit(login)}>
