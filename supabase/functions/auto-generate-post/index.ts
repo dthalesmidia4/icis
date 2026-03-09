@@ -80,6 +80,33 @@ Deno.serve(async (req) => {
 
     const brandName = client?.fantasy_name || client?.name || "Marca";
 
+    // 3b. Fetch visual identity preset (same as standalone)
+    let presetColors = {
+      primary: client?.brand_primary_color || "#000000",
+      secondary: client?.brand_secondary_color || "#FFFFFF",
+      highlight: null as string | null,
+      text: null as string | null,
+      font: client?.brand_font || "Montserrat",
+    };
+
+    const { data: preset } = await supabase
+      .from("visual_identity_presets")
+      .select("primary_color, secondary_color, highlight_color, text_color, font_name")
+      .eq("company_id", demand.client_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (preset) {
+      presetColors = {
+        primary: preset.primary_color || presetColors.primary,
+        secondary: preset.secondary_color || presetColors.secondary,
+        highlight: preset.highlight_color,
+        text: preset.text_color,
+        font: preset.font_name || presetColors.font,
+      };
+    }
+
     // 4. Fetch mascot images if client has mascot
     let mascotImageUrls: string[] = [];
     if (client?.has_mascot) {
