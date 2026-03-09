@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Users,
   CheckCircle2,
+  FilePlus2,
 } from "lucide-react";
 import type { HubSectionId } from "@/hooks/useHubPermissions";
 
