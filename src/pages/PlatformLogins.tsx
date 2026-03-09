@@ -67,6 +67,7 @@ const PlatformLogins = () => {
     setEditId(login.id);
     setName(login.name);
     setAccessInfo(login.access_info);
+    setObservations(login.observations || "");
     setModalOpen(true);
   };
 
