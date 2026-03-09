@@ -10,6 +10,7 @@ export const HUB_SECTIONS = [
   { id: 'schedule', label: 'Agendar Publicação', description: 'Programação de conteúdos' },
   { id: 'completed', label: 'Demandas Completas', description: 'Visualização de demandas finalizadas' },
   { id: 'cronogramas', label: 'Cronogramas', description: 'Planejamento e gestão de períodos' },
+  { id: 'cadastrar-cliente', label: 'Cadastrar Novo Cliente', description: 'Cadastro de novos clientes' },
   { id: 'minha-empresa', label: 'Minha Empresa', description: 'Configurações da empresa' },
   { id: 'dev-hub', label: 'Hub de Desenvolvimento', description: 'Ferramentas de desenvolvimento' },
 ] as const;

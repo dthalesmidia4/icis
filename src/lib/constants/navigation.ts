@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Users,
   CheckCircle2,
+  FilePlus2,
 } from "lucide-react";
 import type { HubSectionId } from "@/hooks/useHubPermissions";
 
@@ -49,6 +50,12 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     title: "Demandas Completas",
     icon: CheckCircle2,
     route: "/demandas-completas",
+  },
+  {
+    id: 'cadastrar-cliente',
+    title: "Cadastrar Novo Cliente",
+    icon: FilePlus2,
+    route: "/registration",
   },
   {
     id: 'minha-empresa',
