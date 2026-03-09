@@ -328,6 +328,15 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      <Route path="/financeiro/gastos-ferramentas" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <ToolExpenses />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
       <Route path="/logins-plataformas" element={
         <ProtectedRoute>
           <RequireTenant>
