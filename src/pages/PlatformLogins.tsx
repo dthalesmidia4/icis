@@ -58,6 +58,7 @@ const PlatformLogins = () => {
     setEditId(null);
     setName("");
     setAccessInfo("");
+    setObservations("");
     setModalOpen(true);
   };
 
