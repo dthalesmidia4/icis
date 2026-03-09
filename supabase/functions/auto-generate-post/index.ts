@@ -169,9 +169,11 @@ CONTEÚDO DO CARD APROVADO:
 ${cardContent}
 
 BRANDING:
-- Cor primária: ${client?.brand_primary_color || "#000000"}
-- Cor secundária: ${client?.brand_secondary_color || "#FFFFFF"}
-- Tipografia: ${client?.brand_font || "Montserrat"}
+- Cor primária: ${presetColors.primary}
+- Cor secundária: ${presetColors.secondary}
+${presetColors.highlight ? `- Cor de destaque: ${presetColors.highlight}` : ""}
+${presetColors.text ? `- Cor do texto: ${presetColors.text}` : ""}
+- Tipografia: ${presetColors.font}
 ${mascotSection}
 
 REGRAS OBRIGATÓRIAS:
