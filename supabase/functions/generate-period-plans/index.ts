@@ -207,6 +207,14 @@ NÃO gere formatos não listados. NÃO compense quantidade de um formato com out
     const jsonInstruction = `
 Responda APENAS JSON. Canal: "${periodPlan.priority_channel}". Plano ${planLabel}.
 IMPORTANTE: Gere exatamente ${demandLimit} demandas, nem mais nem menos.${volumeInstruction}
+
+REGRA CRÍTICA DE DIVERSIDADE:
+- Cada demanda DEVE ter um tema/assunto ÚNICO e DIFERENTE das demais.
+- NUNCA repita o mesmo tema, conceito ou abordagem entre demandas diferentes.
+- Títulos NÃO podem ser variações do mesmo assunto (ex: NÃO gere 2+ posts sobre "checklist", ou 2+ sobre "dicas", ou 2+ sobre o mesmo produto).
+- Varie os formatos de abordagem: educativo, storytelling, bastidores, depoimento, tendência, humor, dados/estatísticas, antes/depois, tutorial, etc.
+- Se o setor tem poucos temas, explore ângulos completamente diferentes para cada demanda.
+
 Cada demanda: {"tipo":"...","titulo":"...","objetivo":"...","conteudo":"conteúdo markdown","instrucoes_de_producao":"...","cta_recomendado":"...","canal":"${periodPlan.priority_channel}","data_sugerida":"YYYY-MM-DD"}
 Formato: {"plan":[...],"summary":"resumo curto"}`;
     console.log('Calling OpenAI for planType:', planType);
