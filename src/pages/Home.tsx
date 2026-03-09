@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles, BookOpen, MapPin } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useHubPermissions } from "@/hooks/useHubPermissions";
@@ -10,6 +10,12 @@ import { getFilteredNavigationItems } from "@/lib/constants/navigation";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { ClientSelectionModal } from "@/components/ClientSelectionModal";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const Home = () => {
   const navigate = useNavigate();
