@@ -28,6 +28,7 @@ const PlatformLogins = () => {
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [accessInfo, setAccessInfo] = useState("");
+  const [observations, setObservations] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
