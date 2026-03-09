@@ -149,10 +149,6 @@ const CompanyRegistration = () => {
       }
     }
 
-    // Mascot description required when has_mascot is true
-    if ((formData as any).has_mascot && !((formData as any).mascot_description || "").trim()) {
-      return false;
-    }
 
     if (formData.sector === "Outros" && (!formData.other_sector.trim() || validateField("other_sector", formData.other_sector))) {
       return false;
