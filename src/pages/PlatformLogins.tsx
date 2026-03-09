@@ -18,7 +18,7 @@ interface PlatformLogin {
 }
 
 const PlatformLogins = () => {
-  const { currentTenantId } = useTenant();
+  const { tenantId: currentTenantId } = useTenant();
   const [logins, setLogins] = useState<PlatformLogin[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
