@@ -37,7 +37,7 @@ const PlatformLogins = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("platform_logins" as any)
-      .select("id, name, access_info")
+      .select("id, name, access_info, observations")
       .eq("tenant_id", currentTenantId)
       .order("created_at", { ascending: true });
 
