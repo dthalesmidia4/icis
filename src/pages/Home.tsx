@@ -25,6 +25,12 @@ const Home = () => {
   const { role, isLoading: roleLoading } = useAgencyRole();
   const { setSelectedClient } = useSelectedClient();
   const [clientModalOpen, setClientModalOpen] = useState(false);
+  const [extrasModalOpen, setExtrasModalOpen] = useState(false);
+
+  const extrasOptions = [
+    { title: "Leitura", icon: BookOpen, route: "/leitura" },
+    { title: "Visitas Estratégicas", icon: MapPin, route: "" },
+  ];
 
   const isAdmin = role === 'super_admin' || role === 'agency_admin' || role === 'agency_manager';
   const isAdminOnly = role === 'super_admin' || role === 'agency_admin';
