@@ -216,6 +216,10 @@ const CompanyRegistration = () => {
       }]).select().single();
 
       if (error) {
+        if (error.code === '23505') {
+          toast.error("Já existe um cliente cadastrado com esse CNPJ/CPF nesta agência.");
+          return;
+        }
         if (error.code === '42501') {
           toast.error("Erro de permissão. Verifique se sua agência está configurada corretamente");
           navigate('/agency-setup');
