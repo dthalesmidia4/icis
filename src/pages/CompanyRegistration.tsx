@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building2, ArrowLeft, MapPin, Phone, Mail, Dog } from "lucide-react";
+import { Building2, ArrowLeft, MapPin, Phone, Mail } from "lucide-react";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { Checkbox } from "@/components/ui/checkbox";
 
