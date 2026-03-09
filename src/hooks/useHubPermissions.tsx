@@ -12,6 +12,8 @@ export const HUB_SECTIONS = [
   { id: 'cronogramas', label: 'Cronogramas', description: 'Planejamento e gestão de períodos' },
   { id: 'cadastrar-cliente', label: 'Cadastrar Novo Cliente', description: 'Cadastro de novos clientes' },
   { id: 'minha-empresa', label: 'Minha Empresa', description: 'Configurações da empresa' },
+  { id: 'financeiro', label: 'Financeiro', description: 'Gestão financeira da agência' },
+  { id: 'logins-plataformas', label: 'Logins das Plataformas', description: 'Credenciais das plataformas dos clientes' },
   { id: 'dev-hub', label: 'Hub de Desenvolvimento', description: 'Ferramentas de desenvolvimento' },
 ] as const;
 

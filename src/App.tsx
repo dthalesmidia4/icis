@@ -24,6 +24,8 @@ import DevHub from "./pages/DevHub";
 import DevPrompts from "./pages/DevPrompts";
 import DevApis from "./pages/DevApis";
 import DevWebhooks from "./pages/DevWebhooks";
+import Financial from "./pages/Financial";
+import PlatformLogins from "./pages/PlatformLogins";
 
 import PlanPeriod from "./pages/PlanPeriod";
 import ProfileSettings from "./pages/ProfileSettings";
@@ -302,6 +304,24 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <MyCompany />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/financeiro" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <Financial />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/logins-plataformas" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <PlatformLogins />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>

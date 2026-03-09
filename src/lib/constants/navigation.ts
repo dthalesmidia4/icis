@@ -7,6 +7,8 @@ import {
   Users,
   CheckCircle2,
   FilePlus2,
+  DollarSign,
+  KeyRound,
 } from "lucide-react";
 import type { HubSectionId } from "@/hooks/useHubPermissions";
 
@@ -63,6 +65,18 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: Briefcase,
     route: "/minha-empresa",
     requiresAgency: true,
+  },
+  {
+    id: 'financeiro',
+    title: "Financeiro",
+    icon: DollarSign,
+    route: "/financeiro",
+  },
+  {
+    id: 'logins-plataformas',
+    title: "Logins das Plataformas",
+    icon: KeyRound,
+    route: "/logins-plataformas",
   },
 ];
 
