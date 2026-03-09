@@ -152,12 +152,12 @@ const PlatformLogins = () => {
           ) : (
             <div className="border rounded-lg">
               <Table>
-                <TableHeader>
+                <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Acesso</TableHead>
-                    <TableHead>Observação</TableHead>
-                    <TableHead className="w-[100px] text-right">Ações</TableHead>
+                    <TableHead className="font-bold text-foreground uppercase text-xs tracking-wider">Nome</TableHead>
+                    <TableHead className="font-bold text-foreground uppercase text-xs tracking-wider">Acesso</TableHead>
+                    <TableHead className="font-bold text-foreground uppercase text-xs tracking-wider">Observação</TableHead>
+                    <TableHead className="w-[100px] text-right font-bold text-foreground uppercase text-xs tracking-wider">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
