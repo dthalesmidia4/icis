@@ -9,9 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building2, ArrowLeft, MapPin, Phone, Mail, Dog } from "lucide-react";
+import { Building2, ArrowLeft, MapPin, Phone, Mail } from "lucide-react";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
-import { Checkbox } from "@/components/ui/checkbox";
+
 
 const CompanyRegistration = () => {
   const navigate = useNavigate();
@@ -40,9 +40,6 @@ const CompanyRegistration = () => {
     street: "",
     number: "",
     complement: "",
-    brand_primary_color: "",
-    brand_secondary_color: "",
-    brand_font: "",
     has_mascot: false,
     mascot_description: ""
   });
@@ -152,10 +149,6 @@ const CompanyRegistration = () => {
       }
     }
 
-    // Mascot description required when has_mascot is true
-    if ((formData as any).has_mascot && !((formData as any).mascot_description || "").trim()) {
-      return false;
-    }
 
     if (formData.sector === "Outros" && (!formData.other_sector.trim() || validateField("other_sector", formData.other_sector))) {
       return false;
@@ -218,11 +211,8 @@ const CompanyRegistration = () => {
         email: formData.email,
         phone: formData.phone,
         tenant_id: profile.tenant_id,
-        brand_primary_color: formData.brand_primary_color || null,
-        brand_secondary_color: formData.brand_secondary_color || null,
-        brand_font: formData.brand_font || null,
-        has_mascot: (formData as any).has_mascot || false,
-        mascot_description: (formData as any).has_mascot ? ((formData as any).mascot_description || null) : null
+        has_mascot: formData.has_mascot || false,
+        mascot_description: formData.has_mascot ? (formData.mascot_description || null) : null
       }]).select().single();
 
       if (error) {
@@ -503,93 +493,6 @@ const CompanyRegistration = () => {
                   {errors.products_services && <p className="text-xs text-destructive">{errors.products_services}</p>}
                 </div>
 
-                {/* Branding */}
-                <div className="space-y-3 pt-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Identidade Visual (opcional)</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="brand_primary_color" className="text-xs font-medium text-muted-foreground">Cor Primária</Label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={formData.brand_primary_color || "#000000"}
-                          onChange={e => handleChange("brand_primary_color", e.target.value)}
-                          className="h-10 w-10 rounded border border-border/60 cursor-pointer"
-                        />
-                        <Input
-                          id="brand_primary_color"
-                          value={formData.brand_primary_color}
-                          onChange={e => handleChange("brand_primary_color", e.target.value)}
-                          placeholder="#000000"
-                          className="h-10 border-border/60 flex-1"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="brand_secondary_color" className="text-xs font-medium text-muted-foreground">Cor Secundária</Label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={formData.brand_secondary_color || "#000000"}
-                          onChange={e => handleChange("brand_secondary_color", e.target.value)}
-                          className="h-10 w-10 rounded border border-border/60 cursor-pointer"
-                        />
-                        <Input
-                          id="brand_secondary_color"
-                          value={formData.brand_secondary_color}
-                          onChange={e => handleChange("brand_secondary_color", e.target.value)}
-                          placeholder="#000000"
-                          className="h-10 border-border/60 flex-1"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="brand_font" className="text-xs font-medium text-muted-foreground">Tipografia</Label>
-                      <Input
-                        id="brand_font"
-                        value={formData.brand_font}
-                        onChange={e => handleChange("brand_font", e.target.value)}
-                        placeholder="Ex: Montserrat, Roboto"
-                        className="h-10 border-border/60"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Mascote */}
-                  <div className="flex items-center space-x-3 pt-2">
-                    <Checkbox
-                      id="has_mascot_reg"
-                      checked={(formData as any).has_mascot}
-                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, has_mascot: !!checked }))}
-                    />
-                    <Label htmlFor="has_mascot_reg" className="text-sm font-medium cursor-pointer flex items-center gap-2">
-                      <Dog className="h-4 w-4 text-muted-foreground" />
-                      Possui Mascote
-                    </Label>
-                  </div>
-                  {(formData as any).has_mascot && (
-                    <div className="space-y-2 pl-7">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="mascot_description_reg" className="text-xs font-medium text-muted-foreground">
-                          Características do Mascote <span className="text-destructive">*</span>
-                        </Label>
-                        <Textarea
-                          id="mascot_description_reg"
-                          value={(formData as any).mascot_description || ""}
-                          onChange={(e) => setFormData(prev => ({ ...prev, mascot_description: e.target.value }))}
-                          placeholder="Descreva as características visuais do mascote: cores, forma, estilo, expressão, personalidade, nome, etc."
-                          className={`min-h-[80px] border-border/60 ${errors.mascot_description ? "border-destructive" : ""}`}
-                        />
-                        {errors.mascot_description && (
-                          <p className="text-xs text-destructive">{errors.mascot_description}</p>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Após o cadastro, acesse os detalhes do cliente para fazer upload da imagem do mascote.
-                      </p>
-                    </div>
-                  )}
-                </div>
               </CardContent>
             </Card>
 
