@@ -1,0 +1,1 @@
+ALTER TABLE public.platform_logins ADD COLUMN observations text;

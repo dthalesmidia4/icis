@@ -15,6 +15,7 @@ interface PlatformLogin {
   id: string;
   name: string;
   access_info: string;
+  observations: string | null;
 }
 
 const PlatformLogins = () => {
@@ -27,6 +28,7 @@ const PlatformLogins = () => {
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [accessInfo, setAccessInfo] = useState("");
+  const [observations, setObservations] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -35,7 +37,7 @@ const PlatformLogins = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("platform_logins" as any)
-      .select("id, name, access_info")
+      .select("id, name, access_info, observations")
       .eq("tenant_id", currentTenantId)
       .order("created_at", { ascending: true });
 
@@ -56,6 +58,7 @@ const PlatformLogins = () => {
     setEditId(null);
     setName("");
     setAccessInfo("");
+    setObservations("");
     setModalOpen(true);
   };
 
@@ -64,6 +67,7 @@ const PlatformLogins = () => {
     setEditId(login.id);
     setName(login.name);
     setAccessInfo(login.access_info);
+    setObservations(login.observations || "");
     setModalOpen(true);
   };
 
@@ -78,7 +82,7 @@ const PlatformLogins = () => {
     if (editing && editId) {
       const { error } = await supabase
         .from("platform_logins" as any)
-        .update({ name: name.trim(), access_info: accessInfo.trim(), updated_at: new Date().toISOString() } as any)
+        .update({ name: name.trim(), access_info: accessInfo.trim(), observations: observations.trim() || null, updated_at: new Date().toISOString() } as any)
         .eq("id", editId);
       if (error) {
         toast.error("Erro ao atualizar");
@@ -88,7 +92,7 @@ const PlatformLogins = () => {
     } else {
       const { error } = await supabase
         .from("platform_logins" as any)
-        .insert({ tenant_id: currentTenantId, name: name.trim(), access_info: accessInfo.trim() } as any);
+        .insert({ tenant_id: currentTenantId, name: name.trim(), access_info: accessInfo.trim(), observations: observations.trim() || null } as any);
       if (error) {
         toast.error("Erro ao salvar");
       } else {
@@ -152,6 +156,7 @@ const PlatformLogins = () => {
                   <TableRow>
                     <TableHead>Nome</TableHead>
                     <TableHead>Acesso</TableHead>
+                    <TableHead>Observação</TableHead>
                     <TableHead className="w-[100px] text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -160,6 +165,7 @@ const PlatformLogins = () => {
                     <TableRow key={login.id}>
                       <TableCell className="font-medium">{login.name}</TableCell>
                       <TableCell>{login.access_info}</TableCell>
+                      <TableCell className="text-muted-foreground">{login.observations || "—"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" onClick={() => openEdit(login)}>
@@ -192,6 +198,10 @@ const PlatformLogins = () => {
             <div className="space-y-2">
               <Label>Acesso</Label>
               <Input value={accessInfo} onChange={(e) => setAccessInfo(e.target.value)} placeholder="Ex: usuario@email.com / senha123" />
+            </div>
+            <div className="space-y-2">
+              <Label>Observação</Label>
+              <Input value={observations} onChange={(e) => setObservations(e.target.value)} placeholder="Ex: Conta principal do cliente" />
             </div>
           </div>
           <DialogFooter>
