@@ -24,6 +24,8 @@ import DevHub from "./pages/DevHub";
 import DevPrompts from "./pages/DevPrompts";
 import DevApis from "./pages/DevApis";
 import DevWebhooks from "./pages/DevWebhooks";
+import Financial from "./pages/Financial";
+import PlatformLogins from "./pages/PlatformLogins";
 
 import PlanPeriod from "./pages/PlanPeriod";
 import ProfileSettings from "./pages/ProfileSettings";
