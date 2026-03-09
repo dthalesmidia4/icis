@@ -1189,6 +1189,56 @@ export type Database = {
           },
         ]
       }
+      tool_expenses: {
+        Row: {
+          amount: number
+          card_used: string | null
+          created_at: string
+          created_by: string | null
+          due_date: string
+          id: string
+          name: string
+          observations: string | null
+          subscription_date: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          card_used?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date: string
+          id?: string
+          name: string
+          observations?: string | null
+          subscription_date?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          card_used?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string
+          id?: string
+          name?: string
+          observations?: string | null
+          subscription_date?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_expenses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_column_permissions: {
         Row: {
           can_view: boolean
