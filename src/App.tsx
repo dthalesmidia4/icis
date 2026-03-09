@@ -326,6 +326,7 @@ function AppRoutes() {
             </Layout>
           </RequireTenant>
         </ProtectedRoute>
+      } />
       <Route path="/logins-plataformas" element={
         <ProtectedRoute>
           <RequireTenant>
