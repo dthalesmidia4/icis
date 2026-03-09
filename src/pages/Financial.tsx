@@ -24,6 +24,7 @@ const Financial = () => {
 
   const hubCards = [
     { title: "Contas a Pagar", icon: Receipt, onClick: () => setBillsModalOpen(true) },
+    { title: "Controle de Gasto de Ferramentas", icon: Wrench, onClick: () => navigate("/financeiro/gastos-ferramentas") },
   ];
 
   return (

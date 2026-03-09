@@ -26,6 +26,7 @@ import DevApis from "./pages/DevApis";
 import DevWebhooks from "./pages/DevWebhooks";
 import Financial from "./pages/Financial";
 import BillsList from "./pages/BillsList";
+import ToolExpenses from "./pages/ToolExpenses";
 import PlatformLogins from "./pages/PlatformLogins";
 
 import PlanPeriod from "./pages/PlanPeriod";
