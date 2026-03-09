@@ -38,6 +38,53 @@ export type Database = {
         }
         Relationships: []
       }
+      bills_payable: {
+        Row: {
+          attachment_name: string | null
+          attachment_url: string | null
+          created_at: string
+          created_by: string | null
+          due_date: string
+          id: string
+          name: string
+          observations: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          attachment_name?: string | null
+          attachment_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date: string
+          id?: string
+          name: string
+          observations?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          attachment_name?: string | null
+          attachment_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string
+          id?: string
+          name?: string
+          observations?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bills_payable_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       br_calendar_events: {
         Row: {
           created_at: string
