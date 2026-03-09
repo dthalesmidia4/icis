@@ -209,10 +209,8 @@ const PlatformLogins = () => {
         onOpenChange={(open) => !open && setDeleteId(null)}
         title="Excluir Login"
         description="Tem certeza que deseja excluir este login? Esta ação não pode ser desfeita."
-        confirmLabel="Excluir"
         onConfirm={handleDelete}
         loading={deleting}
-        variant="destructive"
       />
     </div>
   );
