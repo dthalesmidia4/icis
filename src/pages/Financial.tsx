@@ -1,4 +1,4 @@
-import { BackButton } from "@/components/BackButton";
+import BackButton from "@/components/BackButton";
 import { DollarSign } from "lucide-react";
 
 const Financial = () => {
