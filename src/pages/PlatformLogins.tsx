@@ -199,6 +199,10 @@ const PlatformLogins = () => {
               <Label>Acesso</Label>
               <Input value={accessInfo} onChange={(e) => setAccessInfo(e.target.value)} placeholder="Ex: usuario@email.com / senha123" />
             </div>
+            <div className="space-y-2">
+              <Label>Observação</Label>
+              <Input value={observations} onChange={(e) => setObservations(e.target.value)} placeholder="Ex: Conta principal do cliente" />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
