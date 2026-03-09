@@ -116,25 +116,28 @@ Retorne APENAS um JSON válido com os campos: titulo, tipo, canal, objetivo, con
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: reevalPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_completion_tokens: 2000,
+        max_tokens: 2000,
+        response_format: { type: 'json_object' },
       }),
     });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
       console.error('OpenAI API error:', aiResponse.status, errorText);
-      throw new Error(`Erro na API OpenAI: ${aiResponse.status}`);
+      throw new Error(`Erro na API OpenAI: ${aiResponse.status} - ${errorText}`);
     }
 
     const aiData = await aiResponse.json();
+    console.log('AI response choices:', JSON.stringify(aiData.choices?.length), 'finish_reason:', aiData.choices?.[0]?.finish_reason);
     const content = aiData.choices?.[0]?.message?.content;
 
     if (!content) {
+      console.error('Empty AI response. Full response:', JSON.stringify(aiData));
       throw new Error('Resposta vazia da IA');
     }
 
