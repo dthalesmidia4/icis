@@ -301,6 +301,15 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      <Route path="/leitura" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <LeituraHub />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
       <Route path="/minha-empresa" element={
         <ProtectedRoute>
           <RequireTenant>
