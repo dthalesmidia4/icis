@@ -15,6 +15,7 @@ interface PlatformLogin {
   id: string;
   name: string;
   access_info: string;
+  observations: string | null;
 }
 
 const PlatformLogins = () => {
