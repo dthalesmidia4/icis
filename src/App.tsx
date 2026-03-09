@@ -119,11 +119,9 @@ function AppRoutes() {
       <Route path="/registration" element={
         <ProtectedRoute>
           <RequireTenant>
-            <RequireRole allowedRoles={['agency_admin']}>
-              <Layout>
-                <CompanyRegistration />
-              </Layout>
-            </RequireRole>
+            <Layout>
+              <CompanyRegistration />
+            </Layout>
           </RequireTenant>
         </ProtectedRoute>
       } />

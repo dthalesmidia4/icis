@@ -52,6 +52,12 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     route: "/demandas-completas",
   },
   {
+    id: 'cadastrar-cliente',
+    title: "Cadastrar Novo Cliente",
+    icon: FilePlus2,
+    route: "/registration",
+  },
+  {
     id: 'minha-empresa',
     title: "Minha Empresa",
     icon: Briefcase,
