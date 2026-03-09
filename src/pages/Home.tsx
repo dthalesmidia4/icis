@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles, BookOpen, MapPin } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useHubPermissions } from "@/hooks/useHubPermissions";
@@ -10,6 +10,12 @@ import { getFilteredNavigationItems } from "@/lib/constants/navigation";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { ClientSelectionModal } from "@/components/ClientSelectionModal";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -19,6 +25,12 @@ const Home = () => {
   const { role, isLoading: roleLoading } = useAgencyRole();
   const { setSelectedClient } = useSelectedClient();
   const [clientModalOpen, setClientModalOpen] = useState(false);
+  const [extrasModalOpen, setExtrasModalOpen] = useState(false);
+
+  const extrasOptions = [
+    { title: "Leitura", icon: BookOpen, route: "/leitura" },
+    { title: "Visitas Estratégicas", icon: MapPin, route: "" },
+  ];
 
   const isAdmin = role === 'super_admin' || role === 'agency_admin' || role === 'agency_manager';
   const isAdminOnly = role === 'super_admin' || role === 'agency_admin';
@@ -98,6 +110,22 @@ const Home = () => {
               </div>
             </Card>
           ))}
+
+          {/* Atividades Extras card */}
+          <Card 
+            className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]" 
+            onClick={() => setExtrasModalOpen(true)}
+          >
+            <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
+            <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+              </div>
+              <h3 className="text-base sm:text-xl font-bold transition-colors text-primary">
+                Atividades Extras
+              </h3>
+            </div>
+          </Card>
         </div>
 
         {actionCards.length === 0 && (
@@ -112,6 +140,34 @@ const Home = () => {
         onOpenChange={setClientModalOpen}
         onClientSelected={handleClientSelected}
       />
+
+      {/* Modal Atividades Extras */}
+      <Dialog open={extrasModalOpen} onOpenChange={setExtrasModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Atividades Extras</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            {extrasOptions.map((option, index) => (
+              <Card
+                key={index}
+                className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border-2 hover:border-primary/50 active:scale-[0.98]"
+                onClick={() => {
+                  setExtrasModalOpen(false);
+                  if (option.route) navigate(option.route);
+                }}
+              >
+                <div className="p-6 flex flex-col items-center justify-center text-center min-h-[120px]">
+                  <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <option.icon className="w-5 h-5 text-primary-foreground" />
+                  </div>
+                  <h3 className="text-sm font-bold text-primary">{option.title}</h3>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

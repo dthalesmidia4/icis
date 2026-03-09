@@ -46,6 +46,7 @@ import PeriodClientList from "./pages/PeriodClientList";
 import InstallApp from "./pages/InstallApp";
 import NotFound from "./pages/NotFound";
 import CompletedDemands from "./pages/CompletedDemands";
+import LeituraHub from "./pages/LeituraHub";
 import ApproveCards from "./pages/ApproveCards";
 import RejectedCards from "./pages/RejectedCards";
 import ContentHistory from "./pages/ContentHistory";
@@ -297,6 +298,15 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <CompletedDemands />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/leitura" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <LeituraHub />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>
