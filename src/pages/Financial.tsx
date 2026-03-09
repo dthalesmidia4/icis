@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Receipt } from "lucide-react";
+import { Receipt, Wrench } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ const Financial = () => {
 
   const hubCards = [
     { title: "Contas a Pagar", icon: Receipt, onClick: () => setBillsModalOpen(true) },
+    { title: "Controle de Gasto de Ferramentas", icon: Wrench, onClick: () => navigate("/financeiro/gastos-ferramentas") },
   ];
 
   return (
