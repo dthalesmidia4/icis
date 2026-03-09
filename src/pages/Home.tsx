@@ -109,7 +109,8 @@ const Home = () => {
                 </h3>
               </div>
             </Card>
-          
+          ))}
+
           {/* Atividades Extras card */}
           <Card 
             className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]" 
@@ -139,6 +140,34 @@ const Home = () => {
         onOpenChange={setClientModalOpen}
         onClientSelected={handleClientSelected}
       />
+
+      {/* Modal Atividades Extras */}
+      <Dialog open={extrasModalOpen} onOpenChange={setExtrasModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Atividades Extras</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            {extrasOptions.map((option, index) => (
+              <Card
+                key={index}
+                className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border-2 hover:border-primary/50 active:scale-[0.98]"
+                onClick={() => {
+                  setExtrasModalOpen(false);
+                  if (option.route) navigate(option.route);
+                }}
+              >
+                <div className="p-6 flex flex-col items-center justify-center text-center min-h-[120px]">
+                  <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <option.icon className="w-5 h-5 text-primary-foreground" />
+                  </div>
+                  <h3 className="text-sm font-bold text-primary">{option.title}</h3>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
