@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Building2, ArrowLeft, MapPin, Phone, Mail } from "lucide-react";
 import { ConfirmationModal } from "@/components/ConfirmationModal";
-import { Checkbox } from "@/components/ui/checkbox";
+
 
 const CompanyRegistration = () => {
   const navigate = useNavigate();
