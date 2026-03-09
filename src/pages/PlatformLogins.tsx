@@ -156,6 +156,7 @@ const PlatformLogins = () => {
                   <TableRow>
                     <TableHead>Nome</TableHead>
                     <TableHead>Acesso</TableHead>
+                    <TableHead>Observação</TableHead>
                     <TableHead className="w-[100px] text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
