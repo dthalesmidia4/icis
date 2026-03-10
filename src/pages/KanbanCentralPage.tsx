@@ -929,9 +929,10 @@ const KanbanCentralPage = () => {
                                    subtitle={card.clientName}
                                    dueDate={card.due_date}
                                    cardDeliveryDate={card.delivery_date || undefined}
-                                  isDragging={snapshot.isDragging}
-                                  onClick={() => handleCardClick(card)}
-                                />
+                                   isDragging={snapshot.isDragging}
+                                   isOverdue={isCardOverdue(card)}
+                                   onClick={() => handleCardClick(card)}
+                                 />
                               </div>
                             )}
                           </Draggable>
