@@ -52,6 +52,17 @@ interface CentralKanbanCard extends KanbanCardData {
   archived_at?: string | null;
 }
 
+const FINAL_STATUS_NAMES = ['feito', 'feitos', 'publicado'];
+
+const isCardOverdue = (card: { delivery_date?: string | null; delivery_time?: string | null; status?: string }) => {
+  if (!card.delivery_date) return false;
+  const statusLower = (card.status || '').toLowerCase();
+  if (FINAL_STATUS_NAMES.includes(statusLower)) return false;
+  const time = card.delivery_time || '23:59';
+  const deadline = new Date(`${card.delivery_date}T${time}:00`);
+  return new Date() >= deadline;
+};
+
 const KanbanCentralPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { tenantId, isLoading: tenantLoading } = useTenant();
