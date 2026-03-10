@@ -21,7 +21,7 @@ export const RequireTenant = ({ children }: RequireTenantProps) => {
   const navigate = useNavigate();
   const hasRedirected = useRef(false);
   const [showFallback, setShowFallback] = useState(false);
-  const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Reset redirect flag when agencyId becomes available
   useEffect(() => {
