@@ -180,6 +180,18 @@ const LeituraHub = () => {
       } else if (data?.supervisionText) {
         setSupervisaoText(data.supervisionText);
         toast.success("Análise de supervisão gerada!");
+
+        // Log to history
+        if (agencyId) {
+          await logProgressEvent({
+            tenantId: agencyId,
+            employeeId: member.id,
+            eventType: "supervisao",
+            eventTitle: "Supervisão realizada",
+            eventData: { preview: data.supervisionText.substring(0, 200) },
+            createdBy: user?.id,
+          });
+        }
       }
     } catch (err: any) {
       console.error("Erro ao gerar supervisão:", err);
