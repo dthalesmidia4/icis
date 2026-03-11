@@ -758,9 +758,8 @@ const ClientHub = () => {
                     )}
                   </div>
                   <Textarea placeholder={`Texto do slide ${idx + 1}...`} value={slide.text}
-                    onChange={(e) => { const val = e.target.value.slice(0, 50); setManualSlides(prev => prev.map((s, i) => i === idx ? { ...s, text: val } : s)); }}
+                    onChange={(e) => { setManualSlides(prev => prev.map((s, i) => i === idx ? { ...s, text: e.target.value } : s)); }}
                     className="min-h-[60px] resize-none" />
-                  <p className="text-xs text-muted-foreground text-right">{slide.text.length}/50</p>
                 </div>
               ))}
 
