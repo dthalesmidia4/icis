@@ -1103,6 +1103,7 @@ export type Database = {
           brand_primary_color: string | null
           brand_secondary_color: string | null
           cnpj_cpf: string
+          content_requirements: string | null
           created_at: string | null
           email: string
           fantasy_name: string | null
@@ -1124,6 +1125,7 @@ export type Database = {
           brand_primary_color?: string | null
           brand_secondary_color?: string | null
           cnpj_cpf: string
+          content_requirements?: string | null
           created_at?: string | null
           email: string
           fantasy_name?: string | null
@@ -1145,6 +1147,7 @@ export type Database = {
           brand_primary_color?: string | null
           brand_secondary_color?: string | null
           cnpj_cpf?: string
+          content_requirements?: string | null
           created_at?: string | null
           email?: string
           fantasy_name?: string | null

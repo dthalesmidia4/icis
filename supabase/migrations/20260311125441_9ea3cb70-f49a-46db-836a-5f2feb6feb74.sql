@@ -1,0 +1,1 @@
+ALTER TABLE public.tenant_companies ADD COLUMN content_requirements text;
