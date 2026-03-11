@@ -1302,6 +1302,37 @@ const ClientHub = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Modal Exigências de Conteúdo */}
+        <Dialog open={contentRequirementsModalOpen} onOpenChange={setContentRequirementsModalOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <ScrollText className="w-5 h-5" />
+                Exigências de Conteúdo
+              </DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Defina as exigências e regras de como os conteúdos devem ser gerados para {displayName}. Essas instruções serão seguidas pela IA em todas as gerações.
+              </p>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <Textarea
+                placeholder="Ex: Posts devem ser super explicativos, com linguagem acessível e detalhamento técnico dos veículos. Não usar gírias. Sempre incluir chamada para ação com link..."
+                value={contentRequirements}
+                onChange={(e) => setContentRequirements(e.target.value)}
+                className="min-h-[200px]"
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setContentRequirementsModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleSaveContentRequirements} disabled={savingRequirements}>
+                  {savingRequirements ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : 'Salvar'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
