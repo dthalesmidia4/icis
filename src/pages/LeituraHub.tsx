@@ -65,6 +65,11 @@ const LeituraHub = () => {
   const [bookAuthor, setBookAuthor] = useState("");
   const [savingBook, setSavingBook] = useState(false);
 
+  // Supervisão modal
+  const [supervisaoModalOpen, setSupervisaoModalOpen] = useState(false);
+  const [supervisaoText, setSupervisaoText] = useState("");
+  const [generatingSupervision, setGeneratingSupervision] = useState(false);
+
   // Resultado do dia modal
   const [resultadoModalOpen, setResultadoModalOpen] = useState(false);
   const [resultadoText, setResultadoText] = useState("");
@@ -133,9 +138,43 @@ const LeituraHub = () => {
     } else if (activeAction === "resultado") {
       setResultadoText("");
       setResultadoModalOpen(true);
-    } else if (activeAction === "supervisao" || activeAction === "historico") {
+    } else if (activeAction === "supervisao") {
+      setSupervisaoText("");
+      setSupervisaoModalOpen(true);
+      handleGenerateSupervision(member);
+      return;
+    } else if (activeAction === "historico") {
       toast.info("Em breve!");
       return;
+    }
+  };
+
+  const handleGenerateSupervision = async (member: TeamMember) => {
+    setGeneratingSupervision(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-supervision", {
+        body: {
+          employeeId: member.id,
+          employeeName: member.full_name,
+          tenantId: agencyId,
+          bookName,
+          bookAuthor,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        setSupervisaoText("");
+      } else if (data?.supervisionText) {
+        setSupervisaoText(data.supervisionText);
+        toast.success("Análise de supervisão gerada!");
+      }
+    } catch (err: any) {
+      console.error("Erro ao gerar supervisão:", err);
+      toast.error("Erro ao gerar análise de supervisão");
+    } finally {
+      setGeneratingSupervision(false);
     }
   };
 
@@ -322,6 +361,34 @@ const LeituraHub = () => {
             <Button onClick={handleSaveResultado} disabled={savingResultado}>
               {savingResultado ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Salvar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Supervisão */}
+      <Dialog open={supervisaoModalOpen} onOpenChange={setSupervisaoModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Supervisão — {selectedMember?.full_name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 overflow-y-auto max-h-[60vh]">
+            {generatingSupervision ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <p className="text-muted-foreground text-sm">Gerando análise de supervisão...</p>
+              </div>
+            ) : supervisaoText ? (
+              <div className="prose prose-sm max-w-none dark:prose-invert whitespace-pre-wrap text-foreground">
+                {supervisaoText}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">Nenhuma análise disponível.</p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setSupervisaoModalOpen(false)}>
+              Fechar
             </Button>
           </div>
         </DialogContent>
