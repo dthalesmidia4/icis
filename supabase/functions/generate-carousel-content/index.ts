@@ -232,7 +232,7 @@ Retorne exatamente ${slideCount} slides, cada um com texto impactante e um rótu
       JSON.stringify({
         success: true,
         slides: slides.map((s: any) => ({
-          text: (s.text || "").substring(0, 50),
+          text: s.text || "",
           label: s.label || "Conteúdo",
         })),
       }),
