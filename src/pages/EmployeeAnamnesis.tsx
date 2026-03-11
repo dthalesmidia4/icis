@@ -422,7 +422,24 @@ export default function EmployeeAnamnesis() {
             />
           </div>
 
-          {/* Save */}
+          {/* Strategy */}
+          {strategyText && (
+            <div className="mt-8 space-y-2">
+              <Label className="text-base font-semibold text-foreground">
+                📋 Estratégia de Desenvolvimento (Gerada por IA)
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Estratégia personalizada gerada com base nas respostas da anamnese. Você pode editar o texto abaixo.
+              </p>
+              <AutoResizeTextarea
+                value={strategyText}
+                onChange={(e) => setStrategyText(e.target.value)}
+                minHeight={200}
+                className="text-sm whitespace-pre-wrap"
+              />
+            </div>
+          )}
+
           <div className="flex justify-end mt-6">
             <Button onClick={handleSave} disabled={saving || generatingStrategy} size="lg">
               {saving ? (
