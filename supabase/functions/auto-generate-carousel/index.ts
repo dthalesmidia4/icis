@@ -148,11 +148,15 @@ Deno.serve(async (req) => {
       ? `O cliente possui um mascote oficial. ${client?.mascot_description ? `Descrição: ${client.mascot_description}.` : ""}`
       : "";
 
+    const contentReqsSection = (client as any)?.content_requirements
+      ? `\nEXIGÊNCIAS DE CONTEÚDO DO CLIENTE (SIGA OBRIGATORIAMENTE):\n${(client as any).content_requirements}\n`
+      : '';
+
     const systemPrompt = `Você é um copywriter especialista em marketing digital. Crie textos para carrosséis.
 
 ${strategyText ? "ESTRATÉGIA:\n" + strategyText + "\n\n" : ""}CLIENTE: ${brandName} | ${client?.sector || "N/A"} | ${client?.products_services || "N/A"}
 ${mascotInfo}
-
+${contentReqsSection}
 REGRAS:
 1. Retorne EXATAMENTE ${slideCount} slides
 2. Cada slide: MÁXIMO 50 caracteres

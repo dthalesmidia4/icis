@@ -162,8 +162,12 @@ Deno.serve(async (req) => {
         ? `- A marca possui um mascote (${client?.mascot_description || "sem descrição"}), mas nenhuma imagem de referência está disponível. Tente incluí-lo se possível.`
         : `- NÃO inclua personagens, mascotes ou figuras humanas no design.`;
 
+    const contentReqsSection = (client as any)?.content_requirements
+      ? `\nEXIGÊNCIAS DE CONTEÚDO DO CLIENTE (SIGA OBRIGATORIAMENTE):\n${(client as any).content_requirements}\n`
+      : '';
+
     const imagePrompt = `
-${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}Crie uma imagem profissional de post para rede social.
+${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${contentReqsSection}Crie uma imagem profissional de post para rede social.
 
 CONTEÚDO DO CARD APROVADO:
 ${cardContent}
