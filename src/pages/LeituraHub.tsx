@@ -126,7 +126,8 @@ const LeituraHub = () => {
     setCollaboratorModalOpen(false);
 
     if (activeAction === "anamnese") {
-      setAnamneseModalOpen(true);
+      navigate(`/anamnese-pessoal?employeeId=${member.id}&employeeName=${encodeURIComponent(member.full_name)}`);
+      return;
     } else if (activeAction === "livros") {
       setBookName("");
       setBookAuthor("");
