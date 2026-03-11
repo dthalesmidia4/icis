@@ -380,13 +380,15 @@ export default function EmployeeAnamnesis() {
 
           {/* Save */}
           <div className="flex justify-end mt-6">
-            <Button onClick={handleSave} disabled={saving} size="lg">
+            <Button onClick={handleSave} disabled={saving || generatingStrategy} size="lg">
               {saving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : generatingStrategy ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : (
                 <Save className="w-4 h-4 mr-2" />
               )}
-              Salvar Anamnese
+              {saving ? "Salvando..." : generatingStrategy ? "Gerando estratégia..." : "Salvar Anamnese"}
             </Button>
           </div>
         </Card>
