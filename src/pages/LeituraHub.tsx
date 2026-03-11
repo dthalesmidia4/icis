@@ -207,9 +207,21 @@ const LeituraHub = () => {
       return;
     }
     setSavingBook(true);
-    // TODO: Salvar no banco quando a tabela for criada
-    await new Promise((r) => setTimeout(r, 500));
-    toast.success(`Livro "${bookName}" salvo para ${selectedMember?.full_name}`);
+    try {
+      if (agencyId && selectedMember) {
+        await logProgressEvent({
+          tenantId: agencyId,
+          employeeId: selectedMember.id,
+          eventType: "livro",
+          eventTitle: `Livro adicionado: ${bookName}`,
+          eventData: { bookName, bookAuthor },
+          createdBy: user?.id,
+        });
+      }
+      toast.success(`Livro "${bookName}" salvo para ${selectedMember?.full_name}`);
+    } catch {
+      toast.error("Erro ao salvar livro");
+    }
     setSavingBook(false);
     setLivrosModalOpen(false);
   };
