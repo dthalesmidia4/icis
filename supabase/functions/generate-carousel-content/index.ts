@@ -101,7 +101,7 @@ ${mascotInfo ? "- " + mascotInfo : ""}
 
 REGRAS OBRIGATÓRIAS:
 1. Você DEVE retornar EXATAMENTE ${slideCount} slides
-2. Cada slide deve ter no MÁXIMO 50 caracteres de texto
+2. O texto de cada slide deve ser conciso e impactante, sem limite rígido de caracteres
 3. O texto deve ser impactante, direto e adequado para redes sociais
 4. O Slide 1 SEMPRE deve ser o "gancho" - a frase que atrai atenção
 5. O último slide SEMPRE deve ser o CTA (Call to Action)
@@ -112,7 +112,7 @@ REGRAS OBRIGATÓRIAS:
 
 "${idea}"
 
-Retorne exatamente ${slideCount} slides, cada um com texto curto (máx 50 caracteres) e um rótulo descritivo.`;
+Retorne exatamente ${slideCount} slides, cada um com texto impactante e um rótulo descritivo.`;
 
     console.log(`Generating carousel content: ${slideCount} slides for "${idea.substring(0, 50)}..."`);
 
@@ -143,7 +143,7 @@ Retorne exatamente ${slideCount} slides, cada um com texto curto (máx 50 caract
                     items: {
                       type: "object",
                       properties: {
-                        text: { type: "string", description: "Texto do slide (máx 50 caracteres)" },
+                        text: { type: "string", description: "Texto do slide" },
                         label: { type: "string", description: "Rótulo descritivo do slide, ex: Gancho (Atração), Conteúdo, Chamada para Ação (CTA)" },
                       },
                       required: ["text", "label"],

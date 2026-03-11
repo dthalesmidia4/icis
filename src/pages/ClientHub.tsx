@@ -660,8 +660,7 @@ const ClientHub = () => {
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium">Texto do Post</Label>
                   <Textarea placeholder="Escreva o texto que aparecerá no post..." value={manualPostText}
-                    onChange={(e) => setManualPostText(e.target.value.slice(0, 50))} className="min-h-[100px] resize-none" disabled={generatingManualPost} />
-                  <p className={`text-xs text-right ${manualPostText.length > 50 ? 'text-destructive' : 'text-muted-foreground'}`}>{manualPostText.length}/50</p>
+                    onChange={(e) => setManualPostText(e.target.value)} className="min-h-[100px] resize-none" disabled={generatingManualPost} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -759,9 +758,8 @@ const ClientHub = () => {
                     )}
                   </div>
                   <Textarea placeholder={`Texto do slide ${idx + 1}...`} value={slide.text}
-                    onChange={(e) => { const val = e.target.value.slice(0, 50); setManualSlides(prev => prev.map((s, i) => i === idx ? { ...s, text: val } : s)); }}
+                    onChange={(e) => { setManualSlides(prev => prev.map((s, i) => i === idx ? { ...s, text: e.target.value } : s)); }}
                     className="min-h-[60px] resize-none" />
-                  <p className="text-xs text-muted-foreground text-right">{slide.text.length}/50</p>
                 </div>
               ))}
 
@@ -915,9 +913,8 @@ const ClientHub = () => {
                           <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{slide.label}</span>
                         </div>
                         <Textarea placeholder={`Texto do slide ${idx + 1}...`} value={slide.text}
-                          onChange={(e) => { const val = e.target.value.slice(0, 50); setCarouselSlides(prev => prev.map((s, i) => i === idx ? { ...s, text: val } : s)); }}
+                          onChange={(e) => { setCarouselSlides(prev => prev.map((s, i) => i === idx ? { ...s, text: e.target.value } : s)); }}
                           className="min-h-[80px] resize-none" disabled={generatingCarouselImages} />
-                        <p className={`text-xs text-right ${slide.text.length > 50 ? 'text-destructive' : 'text-muted-foreground'}`}>{slide.text.length}/50</p>
                       </div>
                     ))}
                     <div className="grid grid-cols-2 gap-4 pt-2">
