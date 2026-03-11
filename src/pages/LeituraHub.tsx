@@ -27,8 +27,12 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useVoiceSearch } from "@/hooks/useVoiceSearch";
+import { logProgressEvent } from "@/lib/progressHistory";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface TeamMember {
   id: string;
