@@ -110,6 +110,19 @@ const ClientHub = () => {
   }, [isInitialized, selectedClient, navigate]);
 
   useEffect(() => {
+    if (!selectedClient?.id || !tenantId) return;
+    const fetchRequirements = async () => {
+      const { data } = await supabase
+        .from('tenant_companies')
+        .select('content_requirements')
+        .eq('id', selectedClient.id)
+        .single();
+      if (data) setContentRequirements((data as any).content_requirements || '');
+    };
+    fetchRequirements();
+  }, [selectedClient?.id, tenantId]);
+
+  useEffect(() => {
     if (!selectedClient || !tenantId) return;
     const fetchCount = async () => {
       try {
