@@ -281,7 +281,32 @@ const LeituraHub = () => {
     if (isListening) stopListening();
   };
 
-  const loadHistorico = async (member: TeamMember) => {
+  const handleSaveEstrategia = async () => {
+    if (!estrategiaText.trim()) {
+      toast.error("Nenhuma estratégia para salvar");
+      return;
+    }
+    setSavingEstrategia(true);
+    try {
+      if (agencyId && selectedMember) {
+        await logProgressEvent({
+          tenantId: agencyId,
+          employeeId: selectedMember.id,
+          eventType: "estrategia",
+          eventTitle: "Estratégia geral atualizada",
+          eventData: { strategyText: estrategiaText, strategyPreview: estrategiaText.substring(0, 300) },
+          createdBy: user?.id,
+        });
+      }
+      toast.success("Estratégia salva com sucesso!");
+      setEstrategiaModalOpen(false);
+    } catch {
+      toast.error("Erro ao salvar estratégia");
+    } finally {
+      setSavingEstrategia(false);
+    }
+  };
+
     setLoadingHistorico(true);
     try {
       const { data, error } = await supabase
