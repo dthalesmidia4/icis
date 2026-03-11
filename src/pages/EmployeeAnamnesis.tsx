@@ -175,6 +175,8 @@ export default function EmployeeAnamnesis() {
     setOpenSections((prev) => ({ ...prev, [idx]: !prev[idx] }));
   };
 
+  const [generatingStrategy, setGeneratingStrategy] = useState(false);
+
   const handleSave = async () => {
     if (!agencyId || !employeeId || !user?.id) return;
     setSaving(true);
@@ -204,11 +206,45 @@ export default function EmployeeAnamnesis() {
         if (data) setExistingId((data as any).id);
       }
       toast.success("Anamnese salva com sucesso!");
+
+      // Generate strategy via GPT
+      await generateStrategy();
     } catch (err: any) {
       console.error("Erro ao salvar:", err);
       toast.error("Erro ao salvar anamnese");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const generateStrategy = async () => {
+    setGeneratingStrategy(true);
+    try {
+      toast.info("Gerando estratégia de desenvolvimento com IA...", { duration: 5000 });
+      
+      const { data, error } = await supabase.functions.invoke("generate-employee-strategy", {
+        body: {
+          employeeId,
+          employeeName,
+          tenantId: agencyId,
+          answers,
+          observerNotes,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      if (data?.strategyText) {
+        toast.success("Estratégia de desenvolvimento gerada com sucesso!", { duration: 4000 });
+        // TODO: Save strategy to a dedicated table or navigate to view it
+        console.log("Strategy generated:", data.strategyText);
+      }
+    } catch (err: any) {
+      console.error("Erro ao gerar estratégia:", err);
+      toast.error("Erro ao gerar estratégia. A anamnese foi salva normalmente.");
+    } finally {
+      setGeneratingStrategy(false);
     }
   };
 
@@ -344,13 +380,15 @@ export default function EmployeeAnamnesis() {
 
           {/* Save */}
           <div className="flex justify-end mt-6">
-            <Button onClick={handleSave} disabled={saving} size="lg">
+            <Button onClick={handleSave} disabled={saving || generatingStrategy} size="lg">
               {saving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : generatingStrategy ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : (
                 <Save className="w-4 h-4 mr-2" />
               )}
-              Salvar Anamnese
+              {saving ? "Salvando..." : generatingStrategy ? "Gerando estratégia..." : "Salvar Anamnese"}
             </Button>
           </div>
         </Card>
