@@ -112,10 +112,6 @@ const LeituraHub = () => {
   };
 
   const handleCardClick = (cardId: string) => {
-    if (cardId === "supervisao" || cardId === "historico" || cardId === "estrategia") {
-      toast.info("Em breve!");
-      return;
-    }
     setActiveAction(cardId);
     setCollaboratorModalOpen(true);
   };
