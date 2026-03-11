@@ -554,6 +554,7 @@ const LeituraHub = () => {
       </Dialog>
 
       {/* Modal: Supervisão */}
+      <Dialog open={supervisaoModalOpen} onOpenChange={setSupervisaoModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Supervisão — {selectedMember?.full_name}</DialogTitle>
