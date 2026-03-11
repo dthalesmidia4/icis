@@ -137,7 +137,7 @@ const LeituraHub = () => {
     setCollaboratorModalOpen(true);
   };
 
-  const handleSelectMember = (member: TeamMember) => {
+  const handleSelectMember = async (member: TeamMember) => {
     setSelectedMember(member);
     setCollaboratorModalOpen(false);
 
