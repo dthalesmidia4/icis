@@ -348,6 +348,25 @@ const ClientHub = () => {
     finally { setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, generating: false } : s)); }
   };
 
+  const handleSaveContentRequirements = async () => {
+    if (!selectedClient?.id) return;
+    setSavingRequirements(true);
+    try {
+      const { error } = await supabase
+        .from('tenant_companies')
+        .update({ content_requirements: contentRequirements } as any)
+        .eq('id', selectedClient.id);
+      if (error) throw error;
+      toast.success('Exigências de conteúdo salvas!');
+      setContentRequirementsModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao salvar exigências.');
+    } finally {
+      setSavingRequirements(false);
+    }
+  };
+
   const isAdmin = role === 'agency_admin' || role === 'super_admin' || role === 'agency_manager';
 
   const allActionCards = [
