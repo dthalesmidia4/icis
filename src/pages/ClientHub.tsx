@@ -69,6 +69,9 @@ const ClientHub = () => {
   const [generatingManualPost, setGeneratingManualPost] = useState(false);
   const [generatedManualPostImage, setGeneratedManualPostImage] = useState<string | null>(null);
   const [contentHubModalOpen, setContentHubModalOpen] = useState(false);
+  const [contentRequirementsModalOpen, setContentRequirementsModalOpen] = useState(false);
+  const [contentRequirements, setContentRequirements] = useState('');
+  const [savingRequirements, setSavingRequirements] = useState(false);
 
   useEffect(() => {
     if (!selectedClient?.id || !tenantId) return;
