@@ -252,7 +252,6 @@ export default function EmployeeAnamnesis() {
       if (data?.error) throw new Error(data.error);
 
       if (data?.strategyText) {
-        setStrategyText(data.strategyText);
         toast.success("Estratégia de desenvolvimento gerada com sucesso!", { duration: 4000 });
 
         // Log strategy generation to progress history (save full text)
