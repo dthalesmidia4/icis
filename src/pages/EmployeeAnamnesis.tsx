@@ -123,6 +123,7 @@ export default function EmployeeAnamnesis() {
   const [loading, setLoading] = useState(true);
   const [existingId, setExistingId] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<number, boolean>>({ 0: true });
+  const [strategyText, setStrategyText] = useState("");
 
   useEffect(() => {
     if (employeeId && agencyId) loadExisting();
