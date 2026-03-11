@@ -126,9 +126,32 @@ export default function EmployeeAnamnesis() {
   const [strategyText, setStrategyText] = useState("");
 
   useEffect(() => {
-    if (employeeId && agencyId) loadExisting();
+    if (employeeId && agencyId) {
+      loadExisting();
+      loadExistingStrategy();
+    }
     loadInterviewerName();
   }, [employeeId, agencyId]);
+
+  const loadExistingStrategy = async () => {
+    if (!employeeId || !agencyId) return;
+    const { data } = await supabase
+      .from("employee_progress_history" as any)
+      .select("event_data")
+      .eq("tenant_id", agencyId)
+      .eq("employee_id", employeeId)
+      .eq("event_type", "estrategia")
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (data && data.length > 0) {
+      const eventData = (data[0] as any).event_data;
+      if (eventData?.strategyText) {
+        setStrategyText(eventData.strategyText);
+      } else if (eventData?.strategyPreview) {
+        setStrategyText(eventData.strategyPreview);
+      }
+    }
+  };
 
   const loadInterviewerName = async () => {
     if (!user?.id) return;
