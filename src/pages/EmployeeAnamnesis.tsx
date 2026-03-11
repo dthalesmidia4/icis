@@ -248,8 +248,16 @@ export default function EmployeeAnamnesis() {
 
       if (data?.strategyText) {
         toast.success("Estratégia de desenvolvimento gerada com sucesso!", { duration: 4000 });
-        // TODO: Save strategy to a dedicated table or navigate to view it
-        console.log("Strategy generated:", data.strategyText);
+
+        // Log strategy generation to progress history
+        await logProgressEvent({
+          tenantId: agencyId!,
+          employeeId: employeeId!,
+          eventType: "estrategia",
+          eventTitle: "Estratégia geral gerada pela IA",
+          eventData: { strategyPreview: data.strategyText.substring(0, 300) },
+          createdBy: user?.id,
+        });
       }
     } catch (err: any) {
       console.error("Erro ao gerar estratégia:", err);
