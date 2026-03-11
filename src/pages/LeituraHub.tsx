@@ -510,7 +510,51 @@ const LeituraHub = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Supervisão */}
+      {/* Modal: Estratégia Geral */}
+      <Dialog open={estrategiaModalOpen} onOpenChange={setEstrategiaModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>📋 Estratégia Geral — {selectedMember?.full_name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 overflow-y-auto max-h-[55vh]">
+            {loadingEstrategia ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <p className="text-muted-foreground text-sm">Carregando estratégia...</p>
+              </div>
+            ) : estrategiaText ? (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Estratégia personalizada gerada com base nas respostas da anamnese. Você pode editar o texto abaixo.
+                </p>
+                <AutoResizeTextarea
+                  value={estrategiaText}
+                  onChange={(e) => setEstrategiaText(e.target.value)}
+                  minHeight={200}
+                  className="text-sm whitespace-pre-wrap"
+                />
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">
+                Nenhuma estratégia encontrada. Salve a anamnese do colaborador para gerar automaticamente.
+              </p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setEstrategiaModalOpen(false)}>
+              Fechar
+            </Button>
+            {estrategiaText && (
+              <Button onClick={handleSaveEstrategia} disabled={savingEstrategia}>
+                {savingEstrategia ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Salvar alterações
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
       <Dialog open={supervisaoModalOpen} onOpenChange={setSupervisaoModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh]">
           <DialogHeader>
