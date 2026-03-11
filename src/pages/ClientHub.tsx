@@ -660,8 +660,7 @@ const ClientHub = () => {
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium">Texto do Post</Label>
                   <Textarea placeholder="Escreva o texto que aparecerá no post..." value={manualPostText}
-                    onChange={(e) => setManualPostText(e.target.value.slice(0, 50))} className="min-h-[100px] resize-none" disabled={generatingManualPost} />
-                  <p className={`text-xs text-right ${manualPostText.length > 50 ? 'text-destructive' : 'text-muted-foreground'}`}>{manualPostText.length}/50</p>
+                    onChange={(e) => setManualPostText(e.target.value)} className="min-h-[100px] resize-none" disabled={generatingManualPost} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
