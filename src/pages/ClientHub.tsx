@@ -70,6 +70,7 @@ const ClientHub = () => {
   const [generatedManualPostImage, setGeneratedManualPostImage] = useState<string | null>(null);
   const [contentHubModalOpen, setContentHubModalOpen] = useState(false);
   const [contentRequirementsModalOpen, setContentRequirementsModalOpen] = useState(false);
+  const [planPeriodModalOpen, setPlanPeriodModalOpen] = useState(false);
   const [contentRequirements, setContentRequirements] = useState('');
   const [savingRequirements, setSavingRequirements] = useState(false);
 
@@ -373,13 +374,12 @@ const ClientHub = () => {
     { id: 'client_cadastro' as ClientHubButtonId, title: "Cadastro", icon: ClipboardList, action: () => navigate(`/clientes/${selectedClient.id}`) },
     { id: 'client_anamnese' as ClientHubButtonId, title: "Anamnese", icon: FileText, action: () => navigate("/client-guide") },
     { id: 'client_estrategia' as ClientHubButtonId, title: "Estratégia", icon: Lightbulb, action: () => navigate("/strategies") },
-    { id: 'client_planejar_periodo' as ClientHubButtonId, title: "Planejar Período", icon: CalendarDays, action: () => navigate("/plan-period") },
+    { id: 'client_planejar_periodo' as ClientHubButtonId, title: "Planejar Período", icon: CalendarDays, action: () => setPlanPeriodModalOpen(true) },
     { id: 'client_aprovar_producao' as ClientHubButtonId, title: "Aprovar Produção de Demandas", icon: CheckSquare, action: () => navigate("/approve-cards"), badge: pendingCardsCount > 0 ? pendingCardsCount : undefined },
     { id: 'client_demandas_reprovadas' as ClientHubButtonId, title: "Demandas Reprovadas", icon: ThumbsDown, action: () => navigate("/rejected-cards"), badge: rejectedCardsCount > 0 ? rejectedCardsCount : undefined },
     { id: 'client_cronograma_atual' as ClientHubButtonId, title: "Cronograma Atual", icon: Clock, action: () => setScheduleModalOpen(true) },
     { id: 'client_historico' as ClientHubButtonId, title: "Histórico de Períodos", icon: History, action: () => navigate("/plan-period?tab=history") },
     { id: 'client_identidade_visual' as ClientHubButtonId, title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
-    { id: 'client_exigencias_conteudo' as ClientHubButtonId, title: "Exigências de Conteúdo", icon: ScrollText, action: () => setContentRequirementsModalOpen(true) },
     { id: 'client_conteudo_avulso' as ClientHubButtonId, title: "Conteúdo Avulso", icon: PenTool, action: () => setContentHubModalOpen(true) },
   ];
 
@@ -1303,14 +1303,51 @@ const ClientHub = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Modal Planejar Período - Hub com 2 opções */}
+        <Dialog open={planPeriodModalOpen} onOpenChange={setPlanPeriodModalOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Planejar Período</DialogTitle>
+              <p className="text-sm text-muted-foreground">O que deseja fazer?</p>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 py-4">
+              <Card className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
+                onClick={() => { setPlanPeriodModalOpen(false); navigate("/plan-period"); }}>
+                <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
+                <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <CalendarDays className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                  </div>
+                  <h3 className="text-base sm:text-xl font-bold transition-colors text-primary">Planejar Período</h3>
+                  <p className="text-xs text-muted-foreground mt-2">Criar ou gerenciar períodos de conteúdo</p>
+                </div>
+              </Card>
+              <Card className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
+                onClick={() => { setPlanPeriodModalOpen(false); setContentRequirementsModalOpen(true); }}>
+                <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
+                <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <ScrollText className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                  </div>
+                  <h3 className="text-base sm:text-xl font-bold transition-colors text-primary">Exigências de Conteúdo</h3>
+                  <p className="text-xs text-muted-foreground mt-2">Definir regras e tom dos conteúdos</p>
+                </div>
+              </Card>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Modal Exigências de Conteúdo */}
         <Dialog open={contentRequirementsModalOpen} onOpenChange={setContentRequirementsModalOpen}>
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle className="text-xl flex items-center gap-2">
-                <ScrollText className="w-5 h-5" />
-                Exigências de Conteúdo
-              </DialogTitle>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setContentRequirementsModalOpen(false); setPlanPeriodModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                <DialogTitle className="text-xl flex items-center gap-2">
+                  <ScrollText className="w-5 h-5" />
+                  Exigências de Conteúdo
+                </DialogTitle>
+              </div>
               <p className="text-sm text-muted-foreground">
                 Defina as exigências e regras de como os conteúdos devem ser gerados para {displayName}. Essas instruções serão seguidas pela IA em todas as gerações.
               </p>
