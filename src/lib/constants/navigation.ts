@@ -61,7 +61,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   },
   {
     id: 'minha-empresa',
-    title: "Cadastro da Minha Empresa",
+    title: "Minha Empresa",
     icon: Briefcase,
     route: "/minha-empresa",
     requiresAgency: true,
