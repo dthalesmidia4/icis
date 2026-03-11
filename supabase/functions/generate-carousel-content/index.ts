@@ -101,7 +101,7 @@ ${mascotInfo ? "- " + mascotInfo : ""}
 
 REGRAS OBRIGATÓRIAS:
 1. Você DEVE retornar EXATAMENTE ${slideCount} slides
-2. Cada slide deve ter no MÁXIMO 50 caracteres de texto
+2. O texto de cada slide deve ser conciso e impactante, sem limite rígido de caracteres
 3. O texto deve ser impactante, direto e adequado para redes sociais
 4. O Slide 1 SEMPRE deve ser o "gancho" - a frase que atrai atenção
 5. O último slide SEMPRE deve ser o CTA (Call to Action)
