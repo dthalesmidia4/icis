@@ -112,7 +112,7 @@ REGRAS OBRIGATÓRIAS:
 
 "${idea}"
 
-Retorne exatamente ${slideCount} slides, cada um com texto curto (máx 50 caracteres) e um rótulo descritivo.`;
+Retorne exatamente ${slideCount} slides, cada um com texto impactante e um rótulo descritivo.`;
 
     console.log(`Generating carousel content: ${slideCount} slides for "${idea.substring(0, 50)}..."`);
 
