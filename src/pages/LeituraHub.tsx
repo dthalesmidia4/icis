@@ -27,8 +27,12 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useVoiceSearch } from "@/hooks/useVoiceSearch";
+import { logProgressEvent } from "@/lib/progressHistory";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface TeamMember {
   id: string;
@@ -48,6 +52,7 @@ const leituraCards = [
 const LeituraHub = () => {
   const navigate = useNavigate();
   const { agencyId } = useAgency();
+  const { user } = useAuth();
 
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -74,6 +79,11 @@ const LeituraHub = () => {
   const [resultadoModalOpen, setResultadoModalOpen] = useState(false);
   const [resultadoText, setResultadoText] = useState("");
   const [savingResultado, setSavingResultado] = useState(false);
+
+  // Histórico modal
+  const [historicoModalOpen, setHistoricoModalOpen] = useState(false);
+  const [historicoItems, setHistoricoItems] = useState<any[]>([]);
+  const [loadingHistorico, setLoadingHistorico] = useState(false);
 
   const { isListening, isSupported, startListening, stopListening } = useVoiceSearch({
     onTranscript: (text) => {
@@ -144,7 +154,8 @@ const LeituraHub = () => {
       handleGenerateSupervision(member);
       return;
     } else if (activeAction === "historico") {
-      toast.info("Em breve!");
+      setHistoricoModalOpen(true);
+      loadHistorico(member);
       return;
     }
   };
@@ -169,6 +180,18 @@ const LeituraHub = () => {
       } else if (data?.supervisionText) {
         setSupervisaoText(data.supervisionText);
         toast.success("Análise de supervisão gerada!");
+
+        // Log to history
+        if (agencyId) {
+          await logProgressEvent({
+            tenantId: agencyId,
+            employeeId: member.id,
+            eventType: "supervisao",
+            eventTitle: "Supervisão realizada",
+            eventData: { preview: data.supervisionText.substring(0, 200) },
+            createdBy: user?.id,
+          });
+        }
       }
     } catch (err: any) {
       console.error("Erro ao gerar supervisão:", err);
@@ -184,9 +207,21 @@ const LeituraHub = () => {
       return;
     }
     setSavingBook(true);
-    // TODO: Salvar no banco quando a tabela for criada
-    await new Promise((r) => setTimeout(r, 500));
-    toast.success(`Livro "${bookName}" salvo para ${selectedMember?.full_name}`);
+    try {
+      if (agencyId && selectedMember) {
+        await logProgressEvent({
+          tenantId: agencyId,
+          employeeId: selectedMember.id,
+          eventType: "livro",
+          eventTitle: `Livro adicionado: ${bookName}`,
+          eventData: { bookName, bookAuthor },
+          createdBy: user?.id,
+        });
+      }
+      toast.success(`Livro "${bookName}" salvo para ${selectedMember?.full_name}`);
+    } catch {
+      toast.error("Erro ao salvar livro");
+    }
     setSavingBook(false);
     setLivrosModalOpen(false);
   };
@@ -197,12 +232,67 @@ const LeituraHub = () => {
       return;
     }
     setSavingResultado(true);
-    // TODO: Salvar no banco quando a tabela for criada
-    await new Promise((r) => setTimeout(r, 500));
-    toast.success(`Resultado salvo para ${selectedMember?.full_name}`);
+    try {
+      if (agencyId && selectedMember) {
+        await logProgressEvent({
+          tenantId: agencyId,
+          employeeId: selectedMember.id,
+          eventType: "resultado_dia",
+          eventTitle: "Resultado do dia registrado",
+          eventData: { text: resultadoText },
+          createdBy: user?.id,
+        });
+      }
+      toast.success(`Resultado salvo para ${selectedMember?.full_name}`);
+    } catch {
+      toast.error("Erro ao salvar resultado");
+    }
     setSavingResultado(false);
     setResultadoModalOpen(false);
     if (isListening) stopListening();
+  };
+
+  const loadHistorico = async (member: TeamMember) => {
+    setLoadingHistorico(true);
+    try {
+      const { data, error } = await supabase
+        .from("employee_progress_history" as any)
+        .select("*")
+        .eq("tenant_id", agencyId!)
+        .eq("employee_id", member.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setHistoricoItems(data || []);
+    } catch (err) {
+      console.error("Erro ao carregar histórico:", err);
+      toast.error("Erro ao carregar histórico");
+    } finally {
+      setLoadingHistorico(false);
+    }
+  };
+
+  const getEventIcon = (eventType: string) => {
+    switch (eventType) {
+      case "anamnese": return "📋";
+      case "estrategia": return "📖";
+      case "livro": return "📚";
+      case "supervisao": return "👁️";
+      case "resultado_dia": return "📅";
+      default: return "📝";
+    }
+  };
+
+  const getEventColor = (eventType: string) => {
+    switch (eventType) {
+      case "anamnese": return "border-l-blue-500";
+      case "estrategia": return "border-l-green-500";
+      case "livro": return "border-l-purple-500";
+      case "supervisao": return "border-l-amber-500";
+      case "resultado_dia": return "border-l-cyan-500";
+      default: return "border-l-muted-foreground";
+    }
   };
 
   const getInitials = (name: string) =>
@@ -388,6 +478,67 @@ const LeituraHub = () => {
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setSupervisaoModalOpen(false)}>
+              Fechar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Histórico de Progresso */}
+      <Dialog open={historicoModalOpen} onOpenChange={setHistoricoModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Histórico de Progresso — {selectedMember?.full_name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 overflow-y-auto max-h-[60vh]">
+            {loadingHistorico ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : historicoItems.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">Nenhum registro encontrado.</p>
+            ) : (
+              <div className="space-y-3">
+                {historicoItems.map((item: any) => (
+                  <div
+                    key={item.id}
+                    className={`border-l-4 ${getEventColor(item.event_type)} rounded-r-lg bg-muted/30 p-4`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{getEventIcon(item.event_type)}</span>
+                        <span className="font-semibold text-sm text-foreground">{item.event_title}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {format(new Date(item.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </span>
+                    </div>
+                    {item.event_data && Object.keys(item.event_data).length > 0 && (
+                      <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                        {item.event_data.bookName && (
+                          <p>📕 {item.event_data.bookName}{item.event_data.bookAuthor ? ` — ${item.event_data.bookAuthor}` : ""}</p>
+                        )}
+                        {item.event_data.text && (
+                          <p className="line-clamp-3">{item.event_data.text}</p>
+                        )}
+                        {item.event_data.preview && (
+                          <p className="line-clamp-3">{item.event_data.preview}</p>
+                        )}
+                        {item.event_data.strategyPreview && (
+                          <p className="line-clamp-2">{item.event_data.strategyPreview}...</p>
+                        )}
+                        {item.event_data.answeredCount && (
+                          <p>✅ {item.event_data.answeredCount} perguntas respondidas</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setHistoricoModalOpen(false)}>
               Fechar
             </Button>
           </div>

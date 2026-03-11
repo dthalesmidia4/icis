@@ -13,6 +13,7 @@ import { useAgency } from "@/contexts/AgencyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { logProgressEvent } from "@/lib/progressHistory";
 
 interface AnamnesisSection {
   title: string;
@@ -207,6 +208,16 @@ export default function EmployeeAnamnesis() {
       }
       toast.success("Anamnese salva com sucesso!");
 
+      // Log to progress history
+      await logProgressEvent({
+        tenantId: agencyId,
+        employeeId,
+        eventType: "anamnese",
+        eventTitle: existingId ? "Anamnese atualizada" : "Anamnese realizada",
+        eventData: { answeredCount: Object.values(answers).filter((v) => v.trim()).length, hasObserverNotes: !!observerNotes },
+        createdBy: user.id,
+      });
+
       // Generate strategy via GPT
       await generateStrategy();
     } catch (err: any) {
@@ -237,8 +248,16 @@ export default function EmployeeAnamnesis() {
 
       if (data?.strategyText) {
         toast.success("Estratégia de desenvolvimento gerada com sucesso!", { duration: 4000 });
-        // TODO: Save strategy to a dedicated table or navigate to view it
-        console.log("Strategy generated:", data.strategyText);
+
+        // Log strategy generation to progress history
+        await logProgressEvent({
+          tenantId: agencyId!,
+          employeeId: employeeId!,
+          eventType: "estrategia",
+          eventTitle: "Estratégia geral gerada pela IA",
+          eventData: { strategyPreview: data.strategyText.substring(0, 300) },
+          createdBy: user?.id,
+        });
       }
     } catch (err: any) {
       console.error("Erro ao gerar estratégia:", err);
