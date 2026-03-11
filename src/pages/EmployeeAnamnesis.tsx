@@ -13,6 +13,7 @@ import { useAgency } from "@/contexts/AgencyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { logProgressEvent } from "@/lib/progressHistory";
 
 interface AnamnesisSection {
   title: string;
