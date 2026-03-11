@@ -57,8 +57,7 @@ const LeituraHub = () => {
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
 
-  // Anamnese modal
-  const [anamneseModalOpen, setAnamneseModalOpen] = useState(false);
+  // Livros modal (anamnese now navigates to dedicated page)
 
   // Livros modal
   const [livrosModalOpen, setLivrosModalOpen] = useState(false);
