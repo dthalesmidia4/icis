@@ -139,7 +139,30 @@ const LeituraHub = () => {
       navigate(`/anamnese-pessoal?employeeId=${member.id}&employeeName=${encodeURIComponent(member.full_name)}`);
       return;
     } else if (activeAction === "estrategia") {
-      toast.info("Em breve! A estratégia é gerada automaticamente ao salvar a anamnese.", { duration: 4000 });
+      setEstrategiaText("");
+      setEstrategiaModalOpen(true);
+      setLoadingEstrategia(true);
+      // Load existing strategy from history
+      try {
+        const { data } = await supabase
+          .from("employee_progress_history" as any)
+          .select("event_data")
+          .eq("tenant_id", agencyId!)
+          .eq("employee_id", member.id)
+          .eq("event_type", "estrategia")
+          .order("created_at", { ascending: false })
+          .limit(1);
+        if (data && data.length > 0) {
+          const eventData = (data[0] as any).event_data;
+          if (eventData?.strategyText) {
+            setEstrategiaText(eventData.strategyText);
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao carregar estratégia:", err);
+      } finally {
+        setLoadingEstrategia(false);
+      }
       return;
     } else if (activeAction === "livros") {
       setBookName("");
