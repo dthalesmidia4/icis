@@ -80,6 +80,12 @@ const LeituraHub = () => {
   const [resultadoText, setResultadoText] = useState("");
   const [savingResultado, setSavingResultado] = useState(false);
 
+  // Estratégia modal
+  const [estrategiaModalOpen, setEstrategiaModalOpen] = useState(false);
+  const [estrategiaText, setEstrategiaText] = useState("");
+  const [loadingEstrategia, setLoadingEstrategia] = useState(false);
+  const [savingEstrategia, setSavingEstrategia] = useState(false);
+
   // Histórico modal
   const [historicoModalOpen, setHistoricoModalOpen] = useState(false);
   const [historicoItems, setHistoricoItems] = useState<any[]>([]);
@@ -131,7 +137,7 @@ const LeituraHub = () => {
     setCollaboratorModalOpen(true);
   };
 
-  const handleSelectMember = (member: TeamMember) => {
+  const handleSelectMember = async (member: TeamMember) => {
     setSelectedMember(member);
     setCollaboratorModalOpen(false);
 
@@ -139,7 +145,30 @@ const LeituraHub = () => {
       navigate(`/anamnese-pessoal?employeeId=${member.id}&employeeName=${encodeURIComponent(member.full_name)}`);
       return;
     } else if (activeAction === "estrategia") {
-      toast.info("Em breve! A estratégia é gerada automaticamente ao salvar a anamnese.", { duration: 4000 });
+      setEstrategiaText("");
+      setEstrategiaModalOpen(true);
+      setLoadingEstrategia(true);
+      // Load existing strategy from history
+      try {
+        const { data } = await supabase
+          .from("employee_progress_history" as any)
+          .select("event_data")
+          .eq("tenant_id", agencyId!)
+          .eq("employee_id", member.id)
+          .eq("event_type", "estrategia")
+          .order("created_at", { ascending: false })
+          .limit(1);
+        if (data && data.length > 0) {
+          const eventData = (data[0] as any).event_data;
+          if (eventData?.strategyText) {
+            setEstrategiaText(eventData.strategyText);
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao carregar estratégia:", err);
+      } finally {
+        setLoadingEstrategia(false);
+      }
       return;
     } else if (activeAction === "livros") {
       setBookName("");
@@ -252,7 +281,32 @@ const LeituraHub = () => {
     if (isListening) stopListening();
   };
 
-  const loadHistorico = async (member: TeamMember) => {
+  const handleSaveEstrategia = async () => {
+    if (!estrategiaText.trim()) {
+      toast.error("Nenhuma estratégia para salvar");
+      return;
+    }
+    setSavingEstrategia(true);
+    try {
+      if (agencyId && selectedMember) {
+        await logProgressEvent({
+          tenantId: agencyId,
+          employeeId: selectedMember.id,
+          eventType: "estrategia",
+          eventTitle: "Estratégia geral atualizada",
+          eventData: { strategyText: estrategiaText, strategyPreview: estrategiaText.substring(0, 300) },
+          createdBy: user?.id,
+        });
+      }
+      toast.success("Estratégia salva com sucesso!");
+      setEstrategiaModalOpen(false);
+    } catch {
+      toast.error("Erro ao salvar estratégia");
+    } finally {
+      setSavingEstrategia(false);
+    }
+  };
+
     setLoadingHistorico(true);
     try {
       const { data, error } = await supabase
@@ -363,7 +417,6 @@ const LeituraHub = () => {
         </DialogContent>
       </Dialog>
 
-
       {/* Modal: Livros sendo usados */}
       <Dialog open={livrosModalOpen} onOpenChange={setLivrosModalOpen}>
         <DialogContent className="sm:max-w-md">
@@ -452,6 +505,50 @@ const LeituraHub = () => {
               {savingResultado ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Salvar
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Estratégia Geral */}
+      <Dialog open={estrategiaModalOpen} onOpenChange={setEstrategiaModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>📋 Estratégia Geral — {selectedMember?.full_name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 overflow-y-auto max-h-[55vh]">
+            {loadingEstrategia ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <p className="text-muted-foreground text-sm">Carregando estratégia...</p>
+              </div>
+            ) : estrategiaText ? (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Estratégia personalizada gerada com base nas respostas da anamnese. Você pode editar o texto abaixo.
+                </p>
+                <AutoResizeTextarea
+                  value={estrategiaText}
+                  onChange={(e) => setEstrategiaText(e.target.value)}
+                  minHeight={200}
+                  className="text-sm whitespace-pre-wrap"
+                />
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">
+                Nenhuma estratégia encontrada. Salve a anamnese do colaborador para gerar automaticamente.
+              </p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setEstrategiaModalOpen(false)}>
+              Fechar
+            </Button>
+            {estrategiaText && (
+              <Button onClick={handleSaveEstrategia} disabled={savingEstrategia}>
+                {savingEstrategia ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Salvar alterações
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

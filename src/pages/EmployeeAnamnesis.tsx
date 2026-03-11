@@ -123,35 +123,16 @@ export default function EmployeeAnamnesis() {
   const [loading, setLoading] = useState(true);
   const [existingId, setExistingId] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<number, boolean>>({ 0: true });
-  const [strategyText, setStrategyText] = useState("");
+  
 
   useEffect(() => {
     if (employeeId && agencyId) {
       loadExisting();
-      loadExistingStrategy();
+      
     }
     loadInterviewerName();
   }, [employeeId, agencyId]);
 
-  const loadExistingStrategy = async () => {
-    if (!employeeId || !agencyId) return;
-    const { data } = await supabase
-      .from("employee_progress_history" as any)
-      .select("event_data")
-      .eq("tenant_id", agencyId)
-      .eq("employee_id", employeeId)
-      .eq("event_type", "estrategia")
-      .order("created_at", { ascending: false })
-      .limit(1);
-    if (data && data.length > 0) {
-      const eventData = (data[0] as any).event_data;
-      if (eventData?.strategyText) {
-        setStrategyText(eventData.strategyText);
-      } else if (eventData?.strategyPreview) {
-        setStrategyText(eventData.strategyPreview);
-      }
-    }
-  };
 
   const loadInterviewerName = async () => {
     if (!user?.id) return;
@@ -271,7 +252,6 @@ export default function EmployeeAnamnesis() {
       if (data?.error) throw new Error(data.error);
 
       if (data?.strategyText) {
-        setStrategyText(data.strategyText);
         toast.success("Estratégia de desenvolvimento gerada com sucesso!", { duration: 4000 });
 
         // Log strategy generation to progress history (save full text)
@@ -422,23 +402,6 @@ export default function EmployeeAnamnesis() {
             />
           </div>
 
-          {/* Strategy */}
-          {strategyText && (
-            <div className="mt-8 space-y-2">
-              <Label className="text-base font-semibold text-foreground">
-                📋 Estratégia de Desenvolvimento (Gerada por IA)
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Estratégia personalizada gerada com base nas respostas da anamnese. Você pode editar o texto abaixo.
-              </p>
-              <AutoResizeTextarea
-                value={strategyText}
-                onChange={(e) => setStrategyText(e.target.value)}
-                minHeight={200}
-                className="text-sm whitespace-pre-wrap"
-              />
-            </div>
-          )}
 
           <div className="flex justify-end mt-6">
             <Button onClick={handleSave} disabled={saving || generatingStrategy} size="lg">
