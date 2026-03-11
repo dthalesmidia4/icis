@@ -149,6 +149,35 @@ const LeituraHub = () => {
     }
   };
 
+  const handleGenerateSupervision = async (member: TeamMember) => {
+    setGeneratingSupervision(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-supervision", {
+        body: {
+          employeeId: member.id,
+          employeeName: member.full_name,
+          tenantId: agencyId,
+          bookName,
+          bookAuthor,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        setSupervisaoText("");
+      } else if (data?.supervisionText) {
+        setSupervisaoText(data.supervisionText);
+        toast.success("Análise de supervisão gerada!");
+      }
+    } catch (err: any) {
+      console.error("Erro ao gerar supervisão:", err);
+      toast.error("Erro ao gerar análise de supervisão");
+    } finally {
+      setGeneratingSupervision(false);
+    }
+  };
+
   const handleSaveBook = async () => {
     if (!bookName.trim()) {
       toast.error("Informe o nome do livro");
