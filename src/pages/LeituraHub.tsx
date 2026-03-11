@@ -123,6 +123,9 @@ const LeituraHub = () => {
     if (activeAction === "anamnese") {
       navigate(`/anamnese-pessoal?employeeId=${member.id}&employeeName=${encodeURIComponent(member.full_name)}`);
       return;
+    } else if (activeAction === "estrategia") {
+      toast.info("Em breve! A estratégia é gerada automaticamente ao salvar a anamnese.", { duration: 4000 });
+      return;
     } else if (activeAction === "livros") {
       setBookName("");
       setBookAuthor("");
@@ -130,6 +133,9 @@ const LeituraHub = () => {
     } else if (activeAction === "resultado") {
       setResultadoText("");
       setResultadoModalOpen(true);
+    } else if (activeAction === "supervisao" || activeAction === "historico") {
+      toast.info("Em breve!");
+      return;
     }
   };
 
