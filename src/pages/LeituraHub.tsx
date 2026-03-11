@@ -138,7 +138,12 @@ const LeituraHub = () => {
     } else if (activeAction === "resultado") {
       setResultadoText("");
       setResultadoModalOpen(true);
-    } else if (activeAction === "supervisao" || activeAction === "historico") {
+    } else if (activeAction === "supervisao") {
+      setSupervisaoText("");
+      setSupervisaoModalOpen(true);
+      handleGenerateSupervision(member);
+      return;
+    } else if (activeAction === "historico") {
       toast.info("Em breve!");
       return;
     }
