@@ -65,6 +65,11 @@ const LeituraHub = () => {
   const [bookAuthor, setBookAuthor] = useState("");
   const [savingBook, setSavingBook] = useState(false);
 
+  // Supervisão modal
+  const [supervisaoModalOpen, setSupervisaoModalOpen] = useState(false);
+  const [supervisaoText, setSupervisaoText] = useState("");
+  const [generatingSupervision, setGeneratingSupervision] = useState(false);
+
   // Resultado do dia modal
   const [resultadoModalOpen, setResultadoModalOpen] = useState(false);
   const [resultadoText, setResultadoText] = useState("");
