@@ -307,6 +307,7 @@ const LeituraHub = () => {
     }
   };
 
+  const loadHistorico = async (member: TeamMember) => {
     setLoadingHistorico(true);
     try {
       const { data, error } = await supabase
