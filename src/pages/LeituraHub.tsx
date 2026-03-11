@@ -483,6 +483,67 @@ const LeituraHub = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal: Histórico de Progresso */}
+      <Dialog open={historicoModalOpen} onOpenChange={setHistoricoModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Histórico de Progresso — {selectedMember?.full_name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 overflow-y-auto max-h-[60vh]">
+            {loadingHistorico ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : historicoItems.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">Nenhum registro encontrado.</p>
+            ) : (
+              <div className="space-y-3">
+                {historicoItems.map((item: any) => (
+                  <div
+                    key={item.id}
+                    className={`border-l-4 ${getEventColor(item.event_type)} rounded-r-lg bg-muted/30 p-4`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{getEventIcon(item.event_type)}</span>
+                        <span className="font-semibold text-sm text-foreground">{item.event_title}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {format(new Date(item.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </span>
+                    </div>
+                    {item.event_data && Object.keys(item.event_data).length > 0 && (
+                      <div className="mt-2 text-xs text-muted-foreground space-y-1">
+                        {item.event_data.bookName && (
+                          <p>📕 {item.event_data.bookName}{item.event_data.bookAuthor ? ` — ${item.event_data.bookAuthor}` : ""}</p>
+                        )}
+                        {item.event_data.text && (
+                          <p className="line-clamp-3">{item.event_data.text}</p>
+                        )}
+                        {item.event_data.preview && (
+                          <p className="line-clamp-3">{item.event_data.preview}</p>
+                        )}
+                        {item.event_data.strategyPreview && (
+                          <p className="line-clamp-2">{item.event_data.strategyPreview}...</p>
+                        )}
+                        {item.event_data.answeredCount && (
+                          <p>✅ {item.event_data.answeredCount} perguntas respondidas</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setHistoricoModalOpen(false)}>
+              Fechar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
