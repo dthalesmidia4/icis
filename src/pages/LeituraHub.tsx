@@ -365,6 +365,34 @@ const LeituraHub = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal: Supervisão */}
+      <Dialog open={supervisaoModalOpen} onOpenChange={setSupervisaoModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Supervisão — {selectedMember?.full_name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 overflow-y-auto max-h-[60vh]">
+            {generatingSupervision ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <p className="text-muted-foreground text-sm">Gerando análise de supervisão...</p>
+              </div>
+            ) : supervisaoText ? (
+              <div className="prose prose-sm max-w-none dark:prose-invert whitespace-pre-wrap text-foreground">
+                {supervisaoText}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">Nenhuma análise disponível.</p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setSupervisaoModalOpen(false)}>
+              Fechar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
