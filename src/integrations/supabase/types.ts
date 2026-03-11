@@ -522,6 +522,50 @@ export type Database = {
           },
         ]
       }
+      employee_anamnesis: {
+        Row: {
+          answers: Json
+          created_at: string
+          employee_id: string
+          id: string
+          interview_date: string
+          interviewer_id: string
+          observer_notes: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          answers?: Json
+          created_at?: string
+          employee_id: string
+          id?: string
+          interview_date?: string
+          interviewer_id: string
+          observer_notes?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          answers?: Json
+          created_at?: string
+          employee_id?: string
+          id?: string
+          interview_date?: string
+          interviewer_id?: string
+          observer_notes?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_anamnesis_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_contents: {
         Row: {
           client_id: string

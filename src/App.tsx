@@ -47,6 +47,7 @@ import InstallApp from "./pages/InstallApp";
 import NotFound from "./pages/NotFound";
 import CompletedDemands from "./pages/CompletedDemands";
 import LeituraHub from "./pages/LeituraHub";
+import EmployeeAnamnesis from "./pages/EmployeeAnamnesis";
 import ApproveCards from "./pages/ApproveCards";
 import RejectedCards from "./pages/RejectedCards";
 import ContentHistory from "./pages/ContentHistory";
@@ -307,6 +308,15 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <LeituraHub />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/anamnese-pessoal" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <EmployeeAnamnesis />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>

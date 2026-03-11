@@ -57,8 +57,7 @@ const LeituraHub = () => {
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
 
-  // Anamnese modal
-  const [anamneseModalOpen, setAnamneseModalOpen] = useState(false);
+  // Livros modal (anamnese now navigates to dedicated page)
 
   // Livros modal
   const [livrosModalOpen, setLivrosModalOpen] = useState(false);
@@ -126,7 +125,8 @@ const LeituraHub = () => {
     setCollaboratorModalOpen(false);
 
     if (activeAction === "anamnese") {
-      setAnamneseModalOpen(true);
+      navigate(`/anamnese-pessoal?employeeId=${member.id}&employeeName=${encodeURIComponent(member.full_name)}`);
+      return;
     } else if (activeAction === "livros") {
       setBookName("");
       setBookAuthor("");
@@ -232,19 +232,6 @@ const LeituraHub = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Anamnese Pessoal */}
-      <Dialog open={anamneseModalOpen} onOpenChange={setAnamneseModalOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Anamnese Pessoal — {selectedMember?.full_name}</DialogTitle>
-          </DialogHeader>
-          <div className="py-6 text-center text-muted-foreground">
-            <ClipboardList className="w-12 h-12 mx-auto mb-3 text-primary/40" />
-            <p>Formulário em construção.</p>
-            <p className="text-sm mt-1">Em breve você poderá preencher e editar a anamnese aqui.</p>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Modal: Livros sendo usados */}
       <Dialog open={livrosModalOpen} onOpenChange={setLivrosModalOpen}>
