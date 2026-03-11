@@ -52,6 +52,7 @@ const leituraCards = [
 const LeituraHub = () => {
   const navigate = useNavigate();
   const { agencyId } = useAgency();
+  const { user } = useAuth();
 
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
