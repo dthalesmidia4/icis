@@ -80,6 +80,12 @@ const LeituraHub = () => {
   const [resultadoText, setResultadoText] = useState("");
   const [savingResultado, setSavingResultado] = useState(false);
 
+  // Estratégia modal
+  const [estrategiaModalOpen, setEstrategiaModalOpen] = useState(false);
+  const [estrategiaText, setEstrategiaText] = useState("");
+  const [loadingEstrategia, setLoadingEstrategia] = useState(false);
+  const [savingEstrategia, setSavingEstrategia] = useState(false);
+
   // Histórico modal
   const [historicoModalOpen, setHistoricoModalOpen] = useState(false);
   const [historicoItems, setHistoricoItems] = useState<any[]>([]);
