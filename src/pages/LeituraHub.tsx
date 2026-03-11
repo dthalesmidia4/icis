@@ -252,6 +252,49 @@ const LeituraHub = () => {
     if (isListening) stopListening();
   };
 
+  const loadHistorico = async (member: TeamMember) => {
+    setLoadingHistorico(true);
+    try {
+      const { data, error } = await supabase
+        .from("employee_progress_history" as any)
+        .select("*")
+        .eq("tenant_id", agencyId!)
+        .eq("employee_id", member.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setHistoricoItems(data || []);
+    } catch (err) {
+      console.error("Erro ao carregar histórico:", err);
+      toast.error("Erro ao carregar histórico");
+    } finally {
+      setLoadingHistorico(false);
+    }
+  };
+
+  const getEventIcon = (eventType: string) => {
+    switch (eventType) {
+      case "anamnese": return "📋";
+      case "estrategia": return "📖";
+      case "livro": return "📚";
+      case "supervisao": return "👁️";
+      case "resultado_dia": return "📅";
+      default: return "📝";
+    }
+  };
+
+  const getEventColor = (eventType: string) => {
+    switch (eventType) {
+      case "anamnese": return "border-l-blue-500";
+      case "estrategia": return "border-l-green-500";
+      case "livro": return "border-l-purple-500";
+      case "supervisao": return "border-l-amber-500";
+      case "resultado_dia": return "border-l-cyan-500";
+      default: return "border-l-muted-foreground";
+    }
+  };
+
   const getInitials = (name: string) =>
     name
       .split(" ")
