@@ -159,7 +159,7 @@ ${mascotInfo}
 ${contentReqsSection}
 REGRAS:
 1. Retorne EXATAMENTE ${slideCount} slides
-2. Cada slide: MÁXIMO 50 caracteres
+2. Texto conciso e impactante, sem limite rígido de caracteres
 3. Slide 1: gancho de atenção
 4. Último slide: CTA
 5. Use a função "create_carousel_slides"`;

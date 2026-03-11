@@ -143,7 +143,7 @@ Retorne exatamente ${slideCount} slides, cada um com texto impactante e um rótu
                     items: {
                       type: "object",
                       properties: {
-                        text: { type: "string", description: "Texto do slide (máx 50 caracteres)" },
+                        text: { type: "string", description: "Texto do slide" },
                         label: { type: "string", description: "Rótulo descritivo do slide, ex: Gancho (Atração), Conteúdo, Chamada para Ação (CTA)" },
                       },
                       required: ["text", "label"],
