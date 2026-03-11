@@ -208,6 +208,16 @@ export default function EmployeeAnamnesis() {
       }
       toast.success("Anamnese salva com sucesso!");
 
+      // Log to progress history
+      await logProgressEvent({
+        tenantId: agencyId,
+        employeeId,
+        eventType: "anamnese",
+        eventTitle: existingId ? "Anamnese atualizada" : "Anamnese realizada",
+        eventData: { answeredCount: Object.values(answers).filter((v) => v.trim()).length, hasObserverNotes: !!observerNotes },
+        createdBy: user.id,
+      });
+
       // Generate strategy via GPT
       await generateStrategy();
     } catch (err: any) {
