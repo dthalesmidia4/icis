@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.auto-generate-carousel]
 verify_jwt = false
+
+[functions.generate-employee-strategy]
+verify_jwt = false
