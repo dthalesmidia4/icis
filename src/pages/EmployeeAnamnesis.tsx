@@ -128,7 +128,7 @@ export default function EmployeeAnamnesis() {
   useEffect(() => {
     if (employeeId && agencyId) {
       loadExisting();
-      loadExistingStrategy();
+      
     }
     loadInterviewerName();
   }, [employeeId, agencyId]);
