@@ -271,15 +271,16 @@ export default function EmployeeAnamnesis() {
       if (data?.error) throw new Error(data.error);
 
       if (data?.strategyText) {
+        setStrategyText(data.strategyText);
         toast.success("Estratégia de desenvolvimento gerada com sucesso!", { duration: 4000 });
 
-        // Log strategy generation to progress history
+        // Log strategy generation to progress history (save full text)
         await logProgressEvent({
           tenantId: agencyId!,
           employeeId: employeeId!,
           eventType: "estrategia",
           eventTitle: "Estratégia geral gerada pela IA",
-          eventData: { strategyPreview: data.strategyText.substring(0, 300) },
+          eventData: { strategyText: data.strategyText, strategyPreview: data.strategyText.substring(0, 300) },
           createdBy: user?.id,
         });
       }
