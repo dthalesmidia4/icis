@@ -80,6 +80,11 @@ const LeituraHub = () => {
   const [resultadoText, setResultadoText] = useState("");
   const [savingResultado, setSavingResultado] = useState(false);
 
+  // Histórico modal
+  const [historicoModalOpen, setHistoricoModalOpen] = useState(false);
+  const [historicoItems, setHistoricoItems] = useState<any[]>([]);
+  const [loadingHistorico, setLoadingHistorico] = useState(false);
+
   const { isListening, isSupported, startListening, stopListening } = useVoiceSearch({
     onTranscript: (text) => {
       setResultadoText((prev) => (prev ? prev + " " + text : text));
