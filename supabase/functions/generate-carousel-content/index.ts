@@ -21,17 +21,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Fetch OpenAI API key from api_keys table
+    const { data: apiKeyData } = await supabase
+      .from("api_keys")
+      .select("key_value")
+      .eq("key_name", "OPENAI_API_KEY")
+      .single();
+
+    const OPENAI_API_KEY = apiKeyData?.key_value;
+    if (!OPENAI_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }),
+        JSON.stringify({ error: "Chave 'OPENAI_API_KEY' não encontrada na tabela api_keys." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // (supabase client already created above)
 
     // 1. Fetch client branding
     const { data: client } = await supabase
@@ -116,15 +125,15 @@ Retorne exatamente ${slideCount} slides, cada um com texto impactante e um rótu
 
     console.log(`Generating carousel content: ${slideCount} slides for "${idea.substring(0, 50)}..."`);
 
-    // 7. Call Lovable AI Gateway with tool calling for structured output
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // 7. Call OpenAI API directly with tool calling for structured output
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openai/gpt-5-mini",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -223,7 +232,7 @@ Retorne exatamente ${slideCount} slides, cada um com texto impactante e um rótu
       JSON.stringify({
         success: true,
         slides: slides.map((s: any) => ({
-          text: (s.text || "").substring(0, 50),
+          text: s.text || "",
           label: s.label || "Conteúdo",
         })),
       }),
