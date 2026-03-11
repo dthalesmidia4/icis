@@ -232,9 +232,21 @@ const LeituraHub = () => {
       return;
     }
     setSavingResultado(true);
-    // TODO: Salvar no banco quando a tabela for criada
-    await new Promise((r) => setTimeout(r, 500));
-    toast.success(`Resultado salvo para ${selectedMember?.full_name}`);
+    try {
+      if (agencyId && selectedMember) {
+        await logProgressEvent({
+          tenantId: agencyId,
+          employeeId: selectedMember.id,
+          eventType: "resultado_dia",
+          eventTitle: "Resultado do dia registrado",
+          eventData: { text: resultadoText },
+          createdBy: user?.id,
+        });
+      }
+      toast.success(`Resultado salvo para ${selectedMember?.full_name}`);
+    } catch {
+      toast.error("Erro ao salvar resultado");
+    }
     setSavingResultado(false);
     setResultadoModalOpen(false);
     if (isListening) stopListening();
