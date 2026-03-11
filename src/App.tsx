@@ -312,6 +312,15 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      <Route path="/anamnese-pessoal" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <EmployeeAnamnesis />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
       <Route path="/minha-empresa" element={
         <ProtectedRoute>
           <RequireTenant>
