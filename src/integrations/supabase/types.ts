@@ -566,6 +566,47 @@ export type Database = {
           },
         ]
       }
+      employee_progress_history: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          event_data: Json | null
+          event_title: string
+          event_type: string
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          event_data?: Json | null
+          event_title: string
+          event_type: string
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          event_data?: Json | null
+          event_title?: string
+          event_type?: string
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_progress_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_contents: {
         Row: {
           client_id: string
