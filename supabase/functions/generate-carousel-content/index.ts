@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     // 1. Fetch client branding
     const { data: client } = await supabase
       .from("tenant_companies")
-      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, sector, products_services")
+      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, sector, products_services, content_requirements")
       .eq("id", clientId)
       .single();
 
@@ -85,10 +85,14 @@ Deno.serve(async (req) => {
       ? `O cliente possui um mascote oficial. ${client?.mascot_description ? `Descrição: ${client.mascot_description}.` : ""} Considere referenciá-lo nos textos quando relevante.`
       : "";
 
+    const contentReqsSection = (client as any)?.content_requirements
+      ? `\nEXIGÊNCIAS DE CONTEÚDO DO CLIENTE (SIGA OBRIGATORIAMENTE):\n${(client as any).content_requirements}\n`
+      : '';
+
     // 6. Build the prompt for text generation
     const systemPrompt = `Você é um copywriter especialista em marketing digital e conteúdo para redes sociais. Sua função é criar textos para carrosséis de posts.
 
-${basePrompt ? "DIRETRIZES DO SISTEMA:\n" + basePrompt + "\n\n" : ""}${strategyText ? "ESTRATÉGIA GERAL DO CLIENTE:\n" + strategyText + "\n\n" : ""}CONTEXTO DO CLIENTE:
+${basePrompt ? "DIRETRIZES DO SISTEMA:\n" + basePrompt + "\n\n" : ""}${strategyText ? "ESTRATÉGIA GERAL DO CLIENTE:\n" + strategyText + "\n\n" : ""}${contentReqsSection}CONTEXTO DO CLIENTE:
 - Marca: ${brandName}
 - Setor: ${client?.sector || "N/A"}
 - Produtos/Serviços: ${client?.products_services || "N/A"}

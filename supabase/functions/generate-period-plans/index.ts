@@ -142,6 +142,10 @@ Deno.serve(async (req) => {
     }
 
     // Build COMPACT context
+    const contentReqs = company.content_requirements
+      ? `\nEXIGÊNCIAS DE CONTEÚDO DO CLIENTE (PRIORIDADE ALTA - SIGA OBRIGATORIAMENTE): ${company.content_requirements}`
+      : '';
+
     const context = `Empresa: ${company.name} (${company.fantasy_name || ''}) | Setor: ${company.sector} | Porte: ${company.size}
 Produtos: ${company.products_services}
 Estratégia: ${strategyText.substring(0, 800) || 'Não definida'}
@@ -149,7 +153,7 @@ ${questionsSnippet ? `Contexto: ${questionsSnippet}` : ''}
 Período: ${periodPlan.period_title} (${periodPlan.period_start} a ${periodPlan.period_end})
 Objetivo: ${periodPlan.objective}
 Canal OBRIGATÓRIO: ${periodPlan.priority_channel}
-Observações: ${periodPlan.observations || 'Nenhuma'}${calendarCtx}${successCtx}${avoidCtx}${recentCtx}`;
+Observações: ${periodPlan.observations || 'Nenhuma'}${contentReqs}${calendarCtx}${successCtx}${avoidCtx}${recentCtx}`;
 
     // Fetch custom prompt - truncate to save tokens
     const { data: customPromptData, error: promptError } = await supabase

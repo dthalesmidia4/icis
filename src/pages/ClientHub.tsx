@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play, ChevronLeft, ChevronRight } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play, ChevronLeft, ChevronRight, ScrollText } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useHubPermissions, type ClientHubButtonId } from "@/hooks/useHubPermissions";
 import { useAgencyRole } from "@/hooks/useAgencyRole";
@@ -69,6 +69,9 @@ const ClientHub = () => {
   const [generatingManualPost, setGeneratingManualPost] = useState(false);
   const [generatedManualPostImage, setGeneratedManualPostImage] = useState<string | null>(null);
   const [contentHubModalOpen, setContentHubModalOpen] = useState(false);
+  const [contentRequirementsModalOpen, setContentRequirementsModalOpen] = useState(false);
+  const [contentRequirements, setContentRequirements] = useState('');
+  const [savingRequirements, setSavingRequirements] = useState(false);
 
   useEffect(() => {
     if (!selectedClient?.id || !tenantId) return;
@@ -105,6 +108,19 @@ const ClientHub = () => {
       navigate('/home');
     }
   }, [isInitialized, selectedClient, navigate]);
+
+  useEffect(() => {
+    if (!selectedClient?.id || !tenantId) return;
+    const fetchRequirements = async () => {
+      const { data } = await supabase
+        .from('tenant_companies')
+        .select('content_requirements')
+        .eq('id', selectedClient.id)
+        .single();
+      if (data) setContentRequirements((data as any).content_requirements || '');
+    };
+    fetchRequirements();
+  }, [selectedClient?.id, tenantId]);
 
   useEffect(() => {
     if (!selectedClient || !tenantId) return;
@@ -332,6 +348,25 @@ const ClientHub = () => {
     finally { setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, generating: false } : s)); }
   };
 
+  const handleSaveContentRequirements = async () => {
+    if (!selectedClient?.id) return;
+    setSavingRequirements(true);
+    try {
+      const { error } = await supabase
+        .from('tenant_companies')
+        .update({ content_requirements: contentRequirements } as any)
+        .eq('id', selectedClient.id);
+      if (error) throw error;
+      toast.success('Exigências de conteúdo salvas!');
+      setContentRequirementsModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao salvar exigências.');
+    } finally {
+      setSavingRequirements(false);
+    }
+  };
+
   const isAdmin = role === 'agency_admin' || role === 'super_admin' || role === 'agency_manager';
 
   const allActionCards = [
@@ -344,6 +379,7 @@ const ClientHub = () => {
     { id: 'client_cronograma_atual' as ClientHubButtonId, title: "Cronograma Atual", icon: Clock, action: () => setScheduleModalOpen(true) },
     { id: 'client_historico' as ClientHubButtonId, title: "Histórico de Períodos", icon: History, action: () => navigate("/plan-period?tab=history") },
     { id: 'client_identidade_visual' as ClientHubButtonId, title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
+    { id: 'client_exigencias_conteudo' as ClientHubButtonId, title: "Exigências de Conteúdo", icon: ScrollText, action: () => setContentRequirementsModalOpen(true) },
     { id: 'client_conteudo_avulso' as ClientHubButtonId, title: "Conteúdo Avulso", icon: PenTool, action: () => setContentHubModalOpen(true) },
   ];
 
@@ -1264,6 +1300,37 @@ const ClientHub = () => {
                 </div>
               </>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal Exigências de Conteúdo */}
+        <Dialog open={contentRequirementsModalOpen} onOpenChange={setContentRequirementsModalOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <ScrollText className="w-5 h-5" />
+                Exigências de Conteúdo
+              </DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Defina as exigências e regras de como os conteúdos devem ser gerados para {displayName}. Essas instruções serão seguidas pela IA em todas as gerações.
+              </p>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <Textarea
+                placeholder="Ex: Posts devem ser super explicativos, com linguagem acessível e detalhamento técnico dos veículos. Não usar gírias. Sempre incluir chamada para ação com link..."
+                value={contentRequirements}
+                onChange={(e) => setContentRequirements(e.target.value)}
+                className="min-h-[200px]"
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setContentRequirementsModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleSaveContentRequirements} disabled={savingRequirements}>
+                  {savingRequirements ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : 'Salvar'}
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

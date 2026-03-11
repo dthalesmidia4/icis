@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     // 1. Fetch client branding
     const { data: client } = await supabase
       .from("tenant_companies")
-      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description")
+      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, content_requirements")
       .eq("id", clientId)
       .single();
 
@@ -106,8 +106,12 @@ Deno.serve(async (req) => {
       ? `A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""} OBRIGATÓRIO: Reproduza o mascote EXATAMENTE como na imagem de referência fornecida. O mascote DEVE aparecer no design de forma integrada e harmoniosa.`
       : `NÃO inclua personagens, mascotes ou figuras humanas no design.`;
 
+    const contentReqsSection = (client as any)?.content_requirements
+      ? `\nEXIGÊNCIAS DE CONTEÚDO DO CLIENTE (SIGA OBRIGATORIAMENTE):\n${(client as any).content_requirements}\n`
+      : '';
+
     const imagePrompt = `
-${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}Crie uma imagem profissional de post para rede social.
+${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${contentReqsSection}Crie uma imagem profissional de post para rede social.
 
 IDEIA DO USUÁRIO: "${idea}"
 
