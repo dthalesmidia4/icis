@@ -1,16 +1,35 @@
 import { Button } from "@/components/ui/button";
-import { Save, RotateCcw } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Save, RotateCcw, Plus, ChevronDown, Trash2 } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import { useTenant } from "@/contexts/TenantContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import BackButton from "@/components/BackButton";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-const DEFAULT_STRATEGY_PROMPT = `Você é um estrategista de marketing sênior com mais de 15 anos de experiência em criar estratégias globais e atemporais para negócios de diversos setores.
+const DEFAULT_PROMPTS: Record<string, { title: string; content: string }> = {
+  generate_strategy_prompt: {
+    title: "Prompt de Geração de Estratégia",
+    content: `Você é um estrategista de marketing sênior com mais de 15 anos de experiência em criar estratégias globais e atemporais para negócios de diversos setores.
 
 Sua tarefa é criar uma ESTRATÉGIA GLOBAL DE MARKETING baseada nas informações do cliente e nas respostas do questionário estratégico.
 
@@ -49,448 +68,223 @@ Indique como medir o sucesso das ações de marketing.
 
 Escreva em português brasileiro, de forma profissional mas acessível.
 Seja específico e evite generalizações vazias.
-Baseie todas as recomendações nas informações fornecidas pelo cliente.`;
-
-const DEFAULT_POSTS_PROMPT = `Você é um redator e criador de conteúdo especializado em marketing digital com foco em redes sociais.
-
-Sua tarefa é gerar o CONTEÚDO COMPLETO de um post para publicação, com base nas informações da demanda, estratégia do cliente e dados cadastrais da empresa.
-
-CONTEXTO DISPONÍVEL:
-- Dados cadastrais da empresa (razão social, nome fantasia, setor, tamanho, produtos/serviços)
-- Estratégia global de marketing previamente definida
-- Informações da demanda (título, descrição, tipo de conteúdo, canal, objetivo)
-
-REGRAS OBRIGATÓRIAS:
-1. O texto deve ser adequado ao canal especificado (Instagram, LinkedIn, Facebook, etc.)
-2. Respeite o tom de voz definido na estratégia do cliente
-3. Inclua chamadas para ação (CTAs) quando apropriado
-4. Use hashtags relevantes quando o canal permitir
-5. Adapte o tamanho do texto ao formato do canal
-6. Seja criativo, engajante e alinhado à marca do cliente
-7. Considere o objetivo específico da demanda
-
-FORMATO DE RESPOSTA:
-Retorne o texto do post pronto para publicação, sem formatação JSON.
-Se necessário, inclua sugestões de imagem/visual entre colchetes [descrição da imagem sugerida].`;
-
-const DEFAULT_DEMANDAS_PROMPT = `Você é um estrategista de marketing digital premium. Sua tarefa é gerar DUAS linhas de demandas para um período de campanha.
-
-CONTEXTO DISPONÍVEL:
-- Dados cadastrais da empresa (razão social, nome fantasia, setor, tamanho, produtos/serviços)
-- Estratégia global de marketing previamente definida
-- Respostas das perguntas guias estratégicas
-- Período selecionado (título, datas, orçamento, objetivo, canal prioritário, observações/restrições)
-
-REGRAS OBRIGATÓRIAS:
-1. Cada demanda DEVE ter: titulo (curto e objetivo), descricao (2-4 frases: O QUE CRIAR, COMO EXECUTAR, RESULTADO ESPERADO), tipo_conteudo, canal, data_sugerida
-2. As datas DEVEM estar DENTRO do período especificado (entre data_inicio e data_fim)
-3. Gere entre 8 a 15 demandas para cada linha
-4. Considere o orçamento e restrições mencionadas nas observações
-5. Respeite os formatos que o cliente NÃO deseja usar (se mencionados)
-6. Distribua as demandas de forma equilibrada ao longo do período
-7. Seja específico e contextualizado - use as informações do cliente para criar demandas personalizadas
-
-LINHA NORMAL (default_plan):
-- Demandas tradicionais, operacionais e seguras
-- Conteúdos comprovados que funcionam no mercado
-- Abordagem conservadora e consistente
-- Foco em resultados previsíveis e mensuráveis
-
-LINHA ULTRA (ultra_plan):
-- Demandas ousadas, criativas e fora da caixa
-- Ideias inovadoras com potencial viral
-- Campanhas disruptivas e diferenciadas
-- Abordagem de alto risco/alto impacto
+Baseie todas as recomendações nas informações fornecidas pelo cliente.`,
+  },
+  generate_demandas_prompt: {
+    title: "Prompt de Geração de Demandas",
+    content: `Você é um estrategista de marketing digital premium. Sua tarefa é gerar DUAS linhas de demandas para um período de campanha.
 
 FORMATO DE RESPOSTA (JSON válido):
 {
-  "default_plan": [
-    {
-      "titulo": "...",
-      "descricao": "...",
-      "tipo_conteudo": "...",
-      "canal": "...",
-      "data_sugerida": "YYYY-MM-DD"
-    }
-  ],
+  "default_plan": [{ "titulo": "...", "descricao": "...", "tipo_conteudo": "...", "canal": "...", "data_sugerida": "YYYY-MM-DD" }],
   "ultra_plan": [...],
-  "normal_summary": "Descrição breve do tom e abordagem do plano normal",
-  "ultra_summary": "Descrição breve do tom e abordagem do plano ultra"
-}`;
+  "normal_summary": "...",
+  "ultra_summary": "..."
+}`,
+  },
+  generate_posts_prompt: {
+    title: "Prompt de Geração de Posts",
+    content: `Você é um redator e criador de conteúdo especializado em marketing digital com foco em redes sociais.
+
+Sua tarefa é gerar o CONTEÚDO COMPLETO de um post para publicação, com base nas informações da demanda, estratégia do cliente e dados cadastrais da empresa.
+
+FORMATO DE RESPOSTA:
+Retorne o texto do post pronto para publicação, sem formatação JSON.`,
+  },
+  reavaliacao_prompt: {
+    title: "Prompt de Reavaliação",
+    content: "",
+  },
+  generate_video_prompt: {
+    title: "Prompt de Geração de Vídeo",
+    content: "",
+  },
+};
+
+interface PromptItem {
+  id?: string;
+  prompt_key: string;
+  prompt_title: string;
+  prompt_content: string;
+  isNew?: boolean;
+}
 
 const DevPrompts = () => {
   const { tenantId } = useTenant();
   const queryClient = useQueryClient();
-  const [strategyPromptContent, setStrategyPromptContent] = useState("");
-  const [demandasPromptContent, setDemandasPromptContent] = useState("");
-  const [postsPromptContent, setPostsPromptContent] = useState("");
-  const [reavaliacaoPromptContent, setReavaliacaoPromptContent] = useState("");
-  const [videoPromptContent, setVideoPromptContent] = useState("");
+  const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
+  const [editedContents, setEditedContents] = useState<Record<string, string>>({});
+  const [savingKeys, setSavingKeys] = useState<Record<string, boolean>>({});
+  const [newPrompts, setNewPrompts] = useState<PromptItem[]>([]);
 
-  // Buscar o prompt de geração de estratégia
-  const { data: strategyPromptData, isLoading: isLoadingStrategy } = useQuery({
-    queryKey: ["system-prompt", "generate_strategy_prompt", tenantId],
+  // Fetch ALL prompts for this tenant
+  const { data: allPrompts, isLoading } = useQuery({
+    queryKey: ["system-prompts-all", tenantId],
     queryFn: async () => {
-      if (!tenantId) return null;
+      if (!tenantId) return [];
       const { data, error } = await supabase
         .from("system_prompts")
         .select("*")
         .eq("tenant_id", tenantId)
-        .eq("prompt_key", "generate_strategy_prompt")
-        .maybeSingle();
-
+        .order("created_at", { ascending: true });
       if (error) throw error;
-      return data;
+      return data || [];
     },
     enabled: !!tenantId,
   });
 
-  // Buscar o prompt de geração de demandas
-  const { data: demandasPromptData, isLoading: isLoadingDemandas } = useQuery({
-    queryKey: ["system-prompt", "generate_demandas_prompt", tenantId],
-    queryFn: async () => {
-      if (!tenantId) return null;
+  // Build the combined list: DB prompts + known defaults not yet in DB
+  const getPromptsList = (): PromptItem[] => {
+    const dbPrompts = (allPrompts || []).map((p) => ({
+      id: p.id,
+      prompt_key: p.prompt_key,
+      prompt_title: p.prompt_title,
+      prompt_content: p.prompt_content,
+    }));
+
+    const dbKeys = new Set(dbPrompts.map((p) => p.prompt_key));
+
+    // Add default prompts that aren't in DB yet (as virtual items)
+    const defaultItems: PromptItem[] = Object.entries(DEFAULT_PROMPTS)
+      .filter(([key]) => !dbKeys.has(key))
+      .map(([key, val]) => ({
+        prompt_key: key,
+        prompt_title: val.title,
+        prompt_content: val.content,
+      }));
+
+    return [...dbPrompts, ...defaultItems, ...newPrompts];
+  };
+
+  const getContent = (prompt: PromptItem) => {
+    if (editedContents[prompt.prompt_key] !== undefined) {
+      return editedContents[prompt.prompt_key];
+    }
+    return prompt.prompt_content;
+  };
+
+  const toggleItem = (key: string) => {
+    setOpenItems((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleSave = async (prompt: PromptItem) => {
+    if (!tenantId) return;
+    const content = getContent(prompt);
+    setSavingKeys((prev) => ({ ...prev, [prompt.prompt_key]: true }));
+
+    try {
+      if (prompt.id) {
+        // Update existing
+        const { error } = await supabase
+          .from("system_prompts")
+          .update({ prompt_content: content })
+          .eq("id", prompt.id);
+        if (error) throw error;
+      } else {
+        // Insert new
+        const { error } = await supabase.from("system_prompts").insert({
+          tenant_id: tenantId,
+          prompt_key: prompt.prompt_key,
+          prompt_title: prompt.prompt_title,
+          prompt_content: content,
+        });
+        if (error) throw error;
+      }
+
+      // Remove from newPrompts if it was there
+      setNewPrompts((prev) => prev.filter((p) => p.prompt_key !== prompt.prompt_key));
+      setEditedContents((prev) => {
+        const next = { ...prev };
+        delete next[prompt.prompt_key];
+        return next;
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["system-prompts-all"] });
+      queryClient.invalidateQueries({ queryKey: ["system-prompt"] });
+      toast.success(`"${prompt.prompt_title}" salvo com sucesso!`);
+    } catch (error) {
+      console.error("Erro ao salvar prompt:", error);
+      toast.error("Erro ao salvar o prompt");
+    } finally {
+      setSavingKeys((prev) => ({ ...prev, [prompt.prompt_key]: false }));
+    }
+  };
+
+  const handleDelete = async (prompt: PromptItem) => {
+    if (prompt.isNew) {
+      setNewPrompts((prev) => prev.filter((p) => p.prompt_key !== prompt.prompt_key));
+      return;
+    }
+    if (!prompt.id) {
+      toast.info("Este prompt ainda não foi salvo no banco.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("system_prompts").delete().eq("id", prompt.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["system-prompts-all"] });
+      queryClient.invalidateQueries({ queryKey: ["system-prompt"] });
+      toast.success(`"${prompt.prompt_title}" excluído!`);
+    } catch (error) {
+      console.error("Erro ao excluir:", error);
+      toast.error("Erro ao excluir o prompt");
+    }
+  };
+
+  const handleRestoreDefault = (prompt: PromptItem) => {
+    const def = DEFAULT_PROMPTS[prompt.prompt_key];
+    if (def) {
+      setEditedContents((prev) => ({ ...prev, [prompt.prompt_key]: def.content }));
+      toast.success("Restaurado para o padrão!");
+    }
+  };
+
+  const handleAddNew = async () => {
+    if (!tenantId) return;
+
+    const newKey = `custom_prompt_${Date.now()}`;
+    const newTitle = "Novo Prompt";
+
+    // Insert into DB immediately
+    try {
       const { data, error } = await supabase
         .from("system_prompts")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("prompt_key", "generate_demandas_prompt")
-        .maybeSingle();
+        .insert({
+          tenant_id: tenantId,
+          prompt_key: newKey,
+          prompt_title: newTitle,
+          prompt_content: "",
+        })
+        .select()
+        .single();
 
       if (error) throw error;
-      return data;
-    },
-    enabled: !!tenantId,
-  });
 
-  useEffect(() => {
-    if (strategyPromptData) {
-      setStrategyPromptContent(strategyPromptData.prompt_content);
-    } else {
-      setStrategyPromptContent(DEFAULT_STRATEGY_PROMPT);
+      queryClient.invalidateQueries({ queryKey: ["system-prompts-all"] });
+      setOpenItems((prev) => ({ ...prev, [newKey]: true }));
+      toast.success("Novo prompt criado!");
+    } catch (error) {
+      console.error("Erro ao criar prompt:", error);
+      toast.error("Erro ao criar novo prompt");
     }
-  }, [strategyPromptData]);
+  };
 
-  useEffect(() => {
-    if (demandasPromptData) {
-      setDemandasPromptContent(demandasPromptData.prompt_content);
-    } else {
-      setDemandasPromptContent(DEFAULT_DEMANDAS_PROMPT);
-    }
-  }, [demandasPromptData]);
-
-  // Buscar o prompt de geração de posts
-  const { data: postsPromptData, isLoading: isLoadingPosts } = useQuery({
-    queryKey: ["system-prompt", "generate_posts_prompt", tenantId],
-    queryFn: async () => {
-      if (!tenantId) return null;
-      const { data, error } = await supabase
+  const handleTitleChange = async (prompt: PromptItem, newTitle: string) => {
+    if (!prompt.id) return;
+    try {
+      const { error } = await supabase
         .from("system_prompts")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("prompt_key", "generate_posts_prompt")
-        .maybeSingle();
+        .update({ prompt_title: newTitle })
+        .eq("id", prompt.id);
       if (error) throw error;
-      return data;
-    },
-    enabled: !!tenantId,
-  });
-
-  useEffect(() => {
-    if (postsPromptData) {
-      setPostsPromptContent(postsPromptData.prompt_content);
-    } else {
-      setPostsPromptContent(DEFAULT_POSTS_PROMPT);
+      queryClient.invalidateQueries({ queryKey: ["system-prompts-all"] });
+    } catch {
+      // silent - will save on blur
     }
-  }, [postsPromptData]);
-
-  // Buscar o prompt de reavaliação
-  const { data: reavaliacaoPromptData, isLoading: isLoadingReavaliacao } = useQuery({
-    queryKey: ["system-prompt", "reavaliacao_prompt", tenantId],
-    queryFn: async () => {
-      if (!tenantId) return null;
-      const { data, error } = await supabase
-        .from("system_prompts")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("prompt_key", "reavaliacao_prompt")
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!tenantId,
-  });
-
-  useEffect(() => {
-    if (reavaliacaoPromptData) {
-      setReavaliacaoPromptContent(reavaliacaoPromptData.prompt_content);
-    } else {
-      setReavaliacaoPromptContent("");
-    }
-  }, [reavaliacaoPromptData]);
-
-  // Buscar o prompt de vídeo
-  const { data: videoPromptData, isLoading: isLoadingVideo } = useQuery({
-    queryKey: ["system-prompt", "generate_video_prompt", tenantId],
-    queryFn: async () => {
-      if (!tenantId) return null;
-      const { data, error } = await supabase
-        .from("system_prompts")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("prompt_key", "generate_video_prompt")
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!tenantId,
-  });
-
-  useEffect(() => {
-    if (videoPromptData) {
-      setVideoPromptContent(videoPromptData.prompt_content);
-    } else {
-      setVideoPromptContent("");
-    }
-  }, [videoPromptData]);
-
-  // Mutation para salvar o prompt de estratégia
-  const saveStrategyPromptMutation = useMutation({
-    mutationFn: async (content: string) => {
-      if (!tenantId) throw new Error("Tenant ID não encontrado");
-
-      const { data: existing } = await supabase
-        .from("system_prompts")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("prompt_key", "generate_strategy_prompt")
-        .maybeSingle();
-
-      if (existing) {
-        const { error } = await supabase
-          .from("system_prompts")
-          .update({ prompt_content: content })
-          .eq("tenant_id", tenantId)
-          .eq("prompt_key", "generate_strategy_prompt");
-
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("system_prompts")
-          .insert({
-            tenant_id: tenantId,
-            prompt_key: "generate_strategy_prompt",
-            prompt_title: "Prompt de Geração de Estratégia",
-            prompt_content: content,
-          });
-
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["system-prompt"] });
-      toast.success("Prompt de estratégia salvo com sucesso!");
-    },
-    onError: (error) => {
-      console.error("Erro ao salvar prompt:", error);
-      toast.error("Erro ao salvar o prompt");
-    },
-  });
-
-  // Mutation para salvar o prompt de demandas
-  const saveDemandasPromptMutation = useMutation({
-    mutationFn: async (content: string) => {
-      if (!tenantId) throw new Error("Tenant ID não encontrado");
-
-      const { data: existing } = await supabase
-        .from("system_prompts")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("prompt_key", "generate_demandas_prompt")
-        .maybeSingle();
-
-      if (existing) {
-        const { error } = await supabase
-          .from("system_prompts")
-          .update({ prompt_content: content })
-          .eq("tenant_id", tenantId)
-          .eq("prompt_key", "generate_demandas_prompt");
-
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("system_prompts")
-          .insert({
-            tenant_id: tenantId,
-            prompt_key: "generate_demandas_prompt",
-            prompt_title: "Prompt de Geração de Demandas",
-            prompt_content: content,
-          });
-
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["system-prompt"] });
-      toast.success("Prompt de demandas salvo com sucesso!");
-    },
-    onError: (error) => {
-      console.error("Erro ao salvar prompt:", error);
-      toast.error("Erro ao salvar o prompt");
-    },
-  });
-
-  const handleSaveStrategy = () => {
-    saveStrategyPromptMutation.mutate(strategyPromptContent);
   };
 
-  const handleRestoreStrategyDefault = () => {
-    setStrategyPromptContent(DEFAULT_STRATEGY_PROMPT);
-    toast.success("Prompt de estratégia restaurado para a versão padrão!");
-  };
-
-  const handleSaveDemandas = () => {
-    saveDemandasPromptMutation.mutate(demandasPromptContent);
-  };
-
-  const handleRestoreDemandasDefault = () => {
-    setDemandasPromptContent(DEFAULT_DEMANDAS_PROMPT);
-    toast.success("Prompt de demandas restaurado para a versão padrão!");
-  };
-
-  // Mutation para salvar o prompt de posts
-  const savePostsPromptMutation = useMutation({
-    mutationFn: async (content: string) => {
-      if (!tenantId) throw new Error("Tenant ID não encontrado");
-      const { data: existing } = await supabase
-        .from("system_prompts")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("prompt_key", "generate_posts_prompt")
-        .maybeSingle();
-      if (existing) {
-        const { error } = await supabase
-          .from("system_prompts")
-          .update({ prompt_content: content })
-          .eq("tenant_id", tenantId)
-          .eq("prompt_key", "generate_posts_prompt");
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("system_prompts")
-          .insert({
-            tenant_id: tenantId,
-            prompt_key: "generate_posts_prompt",
-            prompt_title: "Prompt de Geração de Posts",
-            prompt_content: content,
-          });
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["system-prompt"] });
-      toast.success("Prompt de posts salvo com sucesso!");
-    },
-    onError: (error) => {
-      console.error("Erro ao salvar prompt:", error);
-      toast.error("Erro ao salvar o prompt");
-    },
-  });
-
-  const handleSavePosts = () => {
-    savePostsPromptMutation.mutate(postsPromptContent);
-  };
-
-  const handleRestorePostsDefault = () => {
-    setPostsPromptContent(DEFAULT_POSTS_PROMPT);
-    toast.success("Prompt de posts restaurado para a versão padrão!");
-  };
-
-  // Mutation para salvar o prompt de reavaliação
-  const saveReavaliacaoPromptMutation = useMutation({
-    mutationFn: async (content: string) => {
-      if (!tenantId) throw new Error("Tenant ID não encontrado");
-      const { data: existing } = await supabase
-        .from("system_prompts")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("prompt_key", "reavaliacao_prompt")
-        .maybeSingle();
-      if (existing) {
-        const { error } = await supabase
-          .from("system_prompts")
-          .update({ prompt_content: content })
-          .eq("tenant_id", tenantId)
-          .eq("prompt_key", "reavaliacao_prompt");
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("system_prompts")
-          .insert({
-            tenant_id: tenantId,
-            prompt_key: "reavaliacao_prompt",
-            prompt_title: "Prompt de Reavaliação",
-            prompt_content: content,
-          });
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["system-prompt"] });
-      toast.success("Prompt de reavaliação salvo com sucesso!");
-    },
-    onError: (error) => {
-      console.error("Erro ao salvar prompt:", error);
-      toast.error("Erro ao salvar o prompt");
-    },
-  });
-
-  const handleSaveReavaliacao = () => {
-    saveReavaliacaoPromptMutation.mutate(reavaliacaoPromptContent);
-  };
-
-  // Mutation para salvar o prompt de vídeo
-  const saveVideoPromptMutation = useMutation({
-    mutationFn: async (content: string) => {
-      if (!tenantId) throw new Error("Tenant ID não encontrado");
-      const { data: existing } = await supabase
-        .from("system_prompts")
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .eq("prompt_key", "generate_video_prompt")
-        .maybeSingle();
-      if (existing) {
-        const { error } = await supabase
-          .from("system_prompts")
-          .update({ prompt_content: content })
-          .eq("tenant_id", tenantId)
-          .eq("prompt_key", "generate_video_prompt");
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("system_prompts")
-          .insert({
-            tenant_id: tenantId,
-            prompt_key: "generate_video_prompt",
-            prompt_title: "Prompt de Geração de Vídeo",
-            prompt_content: content,
-          });
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["system-prompt"] });
-      toast.success("Prompt de vídeo salvo com sucesso!");
-    },
-    onError: (error) => {
-      console.error("Erro ao salvar prompt:", error);
-      toast.error("Erro ao salvar o prompt");
-    },
-  });
-
-  const handleSaveVideo = () => {
-    saveVideoPromptMutation.mutate(videoPromptContent);
-  };
+  const prompts = getPromptsList();
 
   return (
     <div className="container max-w-5xl mx-auto px-6 py-8">
@@ -504,218 +298,123 @@ const DevPrompts = () => {
         </p>
       </div>
 
-      <div className="space-y-6">
-        <Tabs defaultValue="strategy" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="strategy">Estratégia</TabsTrigger>
-            <TabsTrigger value="demandas">Demandas</TabsTrigger>
-            <TabsTrigger value="posts">Posts</TabsTrigger>
-            <TabsTrigger value="reavaliacao">Reavaliação</TabsTrigger>
-            <TabsTrigger value="video">Vídeo</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="strategy">
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {strategyPromptData?.prompt_title || "Prompt de Geração de Estratégia"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isLoadingStrategy ? (
-                  <div className="text-muted-foreground">Carregando...</div>
-                ) : (
-                  <>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Este prompt é usado para gerar a estratégia global de marketing a partir das respostas das perguntas guias. Utiliza GPT-5 Mini.
-                    </p>
-                    <Textarea
-                      value={strategyPromptContent}
-                      onChange={(e) => setStrategyPromptContent(e.target.value)}
-                      placeholder="Digite o prompt de geração de estratégia aqui..."
-                      className="min-h-[400px] font-mono text-sm"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={handleRestoreStrategyDefault}
-                      >
-                        <RotateCcw className="h-4 w-4 mr-2" />
-                        Restaurar Padrão
-                      </Button>
-                      <Button
-                        onClick={handleSaveStrategy}
-                        disabled={saveStrategyPromptMutation.isPending}
-                      >
-                        <Save className="h-4 w-4 mr-2" />
-                        {saveStrategyPromptMutation.isPending ? "Salvando..." : "Salvar"}
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="demandas">
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {demandasPromptData?.prompt_title || "Prompt de Geração de Demandas"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isLoadingDemandas ? (
-                  <div className="text-muted-foreground">Carregando...</div>
-                ) : (
-                  <>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Este prompt é usado para gerar as demandas do período, combinando estratégia geral, informações do período e dados cadastrais da empresa. O prompt completo é enviado sem truncamento.
-                    </p>
-                    <Textarea
-                      value={demandasPromptContent}
-                      onChange={(e) => setDemandasPromptContent(e.target.value)}
-                      placeholder="Digite o prompt de geração de demandas aqui..."
-                      className="min-h-[400px] font-mono text-sm"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={handleRestoreDemandasDefault}
-                      >
-                        <RotateCcw className="h-4 w-4 mr-2" />
-                        Restaurar Padrão
-                      </Button>
-                      <Button
-                        onClick={handleSaveDemandas}
-                        disabled={saveDemandasPromptMutation.isPending}
-                      >
-                        <Save className="h-4 w-4 mr-2" />
-                        {saveDemandasPromptMutation.isPending ? "Salvando..." : "Salvar"}
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+      {isLoading ? (
+        <div className="text-muted-foreground py-8 text-center">Carregando prompts...</div>
+      ) : (
+        <div className="space-y-3">
+          {prompts.map((prompt) => {
+            const isOpen = openItems[prompt.prompt_key] || false;
+            const hasDefault = !!DEFAULT_PROMPTS[prompt.prompt_key];
+            const isSaving = savingKeys[prompt.prompt_key] || false;
+            const isCustom = !hasDefault;
 
-          <TabsContent value="posts">
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {postsPromptData?.prompt_title || "Prompt de Geração de Posts"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isLoadingPosts ? (
-                  <div className="text-muted-foreground">Carregando...</div>
-                ) : (
-                  <>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Este prompt é usado como base para gerar o conteúdo dos posts a partir das informações da demanda e estratégia do cliente.
-                    </p>
-                    <Textarea
-                      value={postsPromptContent}
-                      onChange={(e) => setPostsPromptContent(e.target.value)}
-                      placeholder="Digite o prompt de geração de posts aqui..."
-                      className="min-h-[400px] font-mono text-sm"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={handleRestorePostsDefault}
-                      >
-                        <RotateCcw className="h-4 w-4 mr-2" />
-                        Restaurar Padrão
-                      </Button>
-                      <Button
-                        onClick={handleSavePosts}
-                        disabled={savePostsPromptMutation.isPending}
-                      >
-                        <Save className="h-4 w-4 mr-2" />
-                        {savePostsPromptMutation.isPending ? "Salvando..." : "Salvar"}
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+            return (
+              <Collapsible
+                key={prompt.prompt_key}
+                open={isOpen}
+                onOpenChange={() => toggleItem(prompt.prompt_key)}
+              >
+                <Card className="overflow-hidden">
+                  <CollapsibleTrigger asChild>
+                    <button className="w-full flex items-center justify-between px-6 py-4 hover:bg-muted/50 transition-colors text-left">
+                      <div className="flex items-center gap-3">
+                        <ChevronDown
+                          className={`h-4 w-4 text-muted-foreground transition-transform ${
+                            isOpen ? "rotate-0" : "-rotate-90"
+                          }`}
+                        />
+                        <div>
+                          <p className="font-semibold text-sm">{prompt.prompt_title}</p>
+                          <p className="text-xs text-muted-foreground">{prompt.prompt_key}</p>
+                        </div>
+                      </div>
+                      {prompt.id && (
+                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                          Salvo
+                        </span>
+                      )}
+                    </button>
+                  </CollapsibleTrigger>
 
-          <TabsContent value="reavaliacao">
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {reavaliacaoPromptData?.prompt_title || "Prompt de Reavaliação"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isLoadingReavaliacao ? (
-                  <div className="text-muted-foreground">Carregando...</div>
-                ) : (
-                  <>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Este prompt é usado para a função de reavaliação. Configure as instruções conforme necessário.
-                    </p>
-                    <Textarea
-                      value={reavaliacaoPromptContent}
-                      onChange={(e) => setReavaliacaoPromptContent(e.target.value)}
-                      placeholder="Digite o prompt de reavaliação aqui..."
-                      className="min-h-[400px] font-mono text-sm"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        onClick={handleSaveReavaliacao}
-                        disabled={saveReavaliacaoPromptMutation.isPending}
-                      >
-                        <Save className="h-4 w-4 mr-2" />
-                        {saveReavaliacaoPromptMutation.isPending ? "Salvando..." : "Salvar"}
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0 pb-4 space-y-4">
+                      {/* Editable title for custom prompts */}
+                      {isCustom && prompt.id && (
+                        <Input
+                          value={prompt.prompt_title}
+                          onChange={(e) => handleTitleChange(prompt, e.target.value)}
+                          placeholder="Nome do prompt"
+                          className="font-semibold"
+                        />
+                      )}
 
-          <TabsContent value="video">
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {videoPromptData?.prompt_title || "Prompt de Geração de Vídeo"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isLoadingVideo ? (
-                  <div className="text-muted-foreground">Carregando...</div>
-                ) : (
-                  <>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Este prompt é usado para gerar roteiros e storyboards de vídeo. Configure as instruções conforme necessário.
-                    </p>
-                    <Textarea
-                      value={videoPromptContent}
-                      onChange={(e) => setVideoPromptContent(e.target.value)}
-                      placeholder="Digite o prompt de geração de vídeo aqui..."
-                      className="min-h-[400px] font-mono text-sm"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        onClick={handleSaveVideo}
-                        disabled={saveVideoPromptMutation.isPending}
-                      >
-                        <Save className="h-4 w-4 mr-2" />
-                        {saveVideoPromptMutation.isPending ? "Salvando..." : "Salvar"}
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+                      <Textarea
+                        value={getContent(prompt)}
+                        onChange={(e) =>
+                          setEditedContents((prev) => ({
+                            ...prev,
+                            [prompt.prompt_key]: e.target.value,
+                          }))
+                        }
+                        placeholder="Digite o conteúdo do prompt aqui..."
+                        className="min-h-[300px] font-mono text-sm"
+                      />
+
+                      <div className="flex justify-between">
+                        <div>
+                          {(isCustom || prompt.id) && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                                  <Trash2 className="h-4 w-4 mr-1" />
+                                  Excluir
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Excluir prompt?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Tem certeza que deseja excluir "{prompt.prompt_title}"? Esta ação não pode ser desfeita.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDelete(prompt)}>
+                                    Excluir
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
+
+                        <div className="flex gap-2">
+                          {hasDefault && (
+                            <Button variant="outline" size="sm" onClick={() => handleRestoreDefault(prompt)}>
+                              <RotateCcw className="h-4 w-4 mr-1" />
+                              Restaurar Padrão
+                            </Button>
+                          )}
+                          <Button size="sm" onClick={() => handleSave(prompt)} disabled={isSaving}>
+                            <Save className="h-4 w-4 mr-1" />
+                            {isSaving ? "Salvando..." : "Salvar"}
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+            );
+          })}
+
+          {/* Add new prompt button */}
+          <Button variant="outline" className="w-full border-dashed" onClick={handleAddNew}>
+            <Plus className="h-4 w-4 mr-2" />
+            Adicionar Novo Prompt
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
