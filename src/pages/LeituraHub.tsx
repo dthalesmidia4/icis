@@ -154,7 +154,8 @@ const LeituraHub = () => {
       handleGenerateSupervision(member);
       return;
     } else if (activeAction === "historico") {
-      toast.info("Em breve!");
+      setHistoricoModalOpen(true);
+      loadHistorico(member);
       return;
     }
   };
