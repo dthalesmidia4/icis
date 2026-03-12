@@ -806,309 +806,298 @@ export default function TaskCard({
               {/* === COLUNA DIREITA: Publicação + Controles === */}
               <div className="space-y-4 sticky top-0 self-start">
                 {/* Início de Produção */}
-                <Card>
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-sm flex items-center gap-2">
-                        <CalendarIcon className="h-4 w-4 text-amber-500" />
-                        Início de Produção
-                      </h3>
-                      {!readOnly && card.due_date && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            onCardChange({ ...card, due_date: '', due_time: '' });
-                            await onSave('due_date', '');
-                            await onSave('due_time', '');
-                          }}
-                          className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded"
-                          title="Remover data"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                    {readOnly ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm">
-                          {card.due_date ? (
-                            <span className="capitalize">{formatFullDate(card.due_date)}</span>
-                          ) : (
-                            <span className="text-muted-foreground">Sem data definida</span>
-                          )}
-                        </div>
-                        {card.due_time && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{card.due_time}</span>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
-                              <CalendarIcon className="h-3.5 w-3.5" />
-                              {card.due_date ? (
-                                <span className="capitalize">{formatShortDate(card.due_date)}</span>
-                              ) : (
-                                <span className="text-muted-foreground">Definir data</span>
-                              )}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar 
-                              mode="single" 
-                              selected={card.due_date ? new Date(card.due_date + 'T00:00:00') : undefined} 
-                              onSelect={async (date) => {
-                                if (date) {
-                                  const formatted = date.toISOString().split('T')[0];
-                                  onCardChange({ ...card, due_date: formatted });
-                                  await onSave('due_date', formatted);
-                                }
-                              }} 
-                              initialFocus 
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          <Input
-                            type="time"
-                            value={card.due_time || '09:00'}
-                            onChange={async (e) => {
-                              const time = e.target.value;
-                              onCardChange({ ...card, due_time: time });
-                              await onSave('due_time', time);
+                {(!readOnly && !card.due_date) ? (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
+                        <Plus className="h-3.5 w-3.5 text-amber-500" />
+                        <span className="text-muted-foreground">Adicionar Início de Produção</span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar 
+                        mode="single" 
+                        selected={undefined} 
+                        onSelect={async (date) => {
+                          if (date) {
+                            const formatted = date.toISOString().split('T')[0];
+                            onCardChange({ ...card, due_date: formatted, due_time: '09:00' });
+                            await onSave('due_date', formatted);
+                            await onSave('due_time', '09:00');
+                          }
+                        }} 
+                        initialFocus 
+                      />
+                    </PopoverContent>
+                  </Popover>
+                ) : (card.due_date || readOnly) ? (
+                  <Card>
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-sm flex items-center gap-2">
+                          <CalendarIcon className="h-4 w-4 text-amber-500" />
+                          Início de Produção
+                        </h3>
+                        {!readOnly && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              onCardChange({ ...card, due_date: '', due_time: '' });
+                              await onSave('due_date', '');
+                              await onSave('due_time', '');
                             }}
-                            className="h-9 flex-1 text-sm"
-                            aria-label="Horário de início de produção"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Data de Entrega */}
-                <Card>
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-sm flex items-center gap-2">
-                        <CalendarIcon className="h-4 w-4 text-emerald-500" />
-                        Data de Entrega
-                      </h3>
-                      {!readOnly && card.delivery_date && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            onCardChange({ ...card, delivery_date: '', delivery_time: '' });
-                            await onSave('delivery_date', '');
-                            await onSave('delivery_time', '');
-                          }}
-                          className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded"
-                          title="Remover data"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                    {readOnly ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm">
-                          {card.delivery_date ? (
-                            <span className="capitalize">{formatFullDate(card.delivery_date)}</span>
-                          ) : (
-                            <span className="text-muted-foreground">Sem data definida</span>
-                          )}
-                        </div>
-                        {card.delivery_time && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{card.delivery_time}</span>
-                          </div>
+                            className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded"
+                            title="Remover data"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
                         )}
                       </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
-                              <CalendarIcon className="h-3.5 w-3.5" />
-                              {card.delivery_date ? (
-                                <span className="capitalize">{formatShortDate(card.delivery_date)}</span>
-                              ) : (
-                                <span className="text-muted-foreground">Definir data</span>
-                              )}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar 
-                              mode="single" 
-                              selected={card.delivery_date ? new Date(card.delivery_date + 'T00:00:00') : undefined} 
-                              onSelect={(date) => {
-                                if (date) {
-                                  const formatted = date.toISOString().split('T')[0];
-                                  onCardChange({ ...card, delivery_date: formatted });
-                                  handleFieldSave('delivery_date', formatted);
-                                }
-                              }} 
-                              initialFocus 
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          <Input
-                            type="time"
-                            value={card.delivery_time || '09:00'}
-                            onChange={async (e) => {
-                              const time = e.target.value;
-                              onCardChange({ ...card, delivery_time: time });
-                              await onSave('delivery_time', time);
-                            }}
-                            className="h-9 flex-1 text-sm"
-                            aria-label="Horário de entrega"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Data de Publicação */}
-                <Card>
-                  <CardContent className="p-4 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-sm flex items-center gap-2">
-                        <CalendarIcon className="h-4 w-4 text-primary" />
-                        Data de Publicação
-                      </h3>
-                      {!readOnly && card.publish_date && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            onCardChange({ ...card, publish_date: '', publish_time: '', additional_publish_dates: [] });
-                            await onSave('publish_date', '');
-                            await onSave('publish_time', '');
-                            try {
-                              await supabase.from("demands").update({ additional_publish_dates: [] }).eq("id", card.id);
-                            } catch (e) { console.error(e); }
-                          }}
-                          className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded"
-                          title="Remover data de publicação"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                    
-                    {readOnly ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm">
-                          <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                          {card.publish_date ? (
-                            <span className="capitalize">{formatFullDate(card.publish_date)}</span>
-                          ) : (
-                            <span className="text-muted-foreground">Sem data definida</span>
-                          )}
-                        </div>
-                        {card.publish_time && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{card.publish_time}</span>
-                          </div>
-                        )}
-                        {additionalDates.length > 0 && (
-                          <>
-                            <Separator className="my-2" />
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Datas adicionais</p>
-                            {additionalDates.map((dateStr) => (
-                              <div key={dateStr} className="flex items-center gap-2 text-sm">
-                                <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span className="capitalize">{formatFullDate(dateStr)}</span>
-                              </div>
-                            ))}
-                          </>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {/* Date Picker */}
-                        <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
-                              <CalendarIcon className="h-3.5 w-3.5" />
-                              {card.publish_date ? (
-                                <span className="capitalize">{formatShortDate(card.publish_date)}</span>
-                              ) : (
-                                <span className="text-muted-foreground">Definir data</span>
-                              )}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar 
-                              mode="single" 
-                              selected={card.publish_date ? new Date(card.publish_date + 'T00:00:00') : undefined} 
-                              onSelect={handlePublishDateChange} 
-                              initialFocus 
-                              className="p-3 pointer-events-auto" 
-                            />
-                          </PopoverContent>
-                        </Popover>
-
-                        {/* Time Input */}
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          <Input
-                            type="time"
-                            value={card.publish_time || '09:00'}
-                            onChange={(e) => handlePublishTimeChange(e.target.value)}
-                            className="h-9 flex-1 text-sm"
-                            aria-label="Horário de publicação"
-                          />
-                        </div>
-
-                        {/* Additional Publish Dates */}
-                        <Separator />
+                      {readOnly ? (
                         <div className="space-y-2">
-                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Datas adicionais</h4>
-                          {additionalDates.map((dateStr) => (
-                            <div key={dateStr} className="flex items-center gap-2 text-sm">
-                              <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span className="capitalize flex-1">{formatShortDate(dateStr)}</span>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveAdditionalDate(dateStr)}
-                                className="text-muted-foreground hover:text-destructive transition-colors p-0.5 rounded"
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          ))}
-                          <Popover open={isAdditionalDatePickerOpen} onOpenChange={setIsAdditionalDatePickerOpen}>
+                          {card.due_date && <div className="flex items-center gap-2 text-sm"><span className="capitalize">{formatFullDate(card.due_date)}</span></div>}
+                          {card.due_time && <div className="flex items-center gap-2 text-sm"><Clock className="h-3.5 w-3.5 text-muted-foreground" /><span>{card.due_time}</span></div>}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Popover>
                             <PopoverTrigger asChild>
-                              <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-xs h-8 text-muted-foreground">
-                                <Plus className="h-3.5 w-3.5" />
-                                Adicionar data
+                              <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
+                                <CalendarIcon className="h-3.5 w-3.5" />
+                                <span className="capitalize">{formatShortDate(card.due_date)}</span>
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={undefined}
-                                onSelect={handleAddAdditionalDate}
-                                initialFocus
-                                className="p-3 pointer-events-auto"
+                              <Calendar 
+                                mode="single" 
+                                selected={card.due_date ? new Date(card.due_date + 'T00:00:00') : undefined} 
+                                onSelect={async (date) => {
+                                  if (date) {
+                                    const formatted = date.toISOString().split('T')[0];
+                                    onCardChange({ ...card, due_date: formatted });
+                                    await onSave('due_date', formatted);
+                                  }
+                                }} 
+                                initialFocus 
                               />
                             </PopoverContent>
                           </Popover>
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                            <Input type="time" value={card.due_time || '09:00'} onChange={async (e) => { const time = e.target.value; onCardChange({ ...card, due_time: time }); await onSave('due_time', time); }} className="h-9 flex-1 text-sm" aria-label="Horário de início de produção" />
+                          </div>
                         </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ) : null}
+
+                {/* Data de Entrega */}
+                {(!readOnly && !card.delivery_date) ? (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
+                        <Plus className="h-3.5 w-3.5 text-emerald-500" />
+                        <span className="text-muted-foreground">Adicionar Data de Entrega</span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar 
+                        mode="single" 
+                        selected={undefined} 
+                        onSelect={async (date) => {
+                          if (date) {
+                            const formatted = date.toISOString().split('T')[0];
+                            onCardChange({ ...card, delivery_date: formatted, delivery_time: '09:00' });
+                            await onSave('delivery_date', formatted);
+                            await onSave('delivery_time', '09:00');
+                          }
+                        }} 
+                        initialFocus 
+                      />
+                    </PopoverContent>
+                  </Popover>
+                ) : (card.delivery_date || readOnly) ? (
+                  <Card>
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-sm flex items-center gap-2">
+                          <CalendarIcon className="h-4 w-4 text-emerald-500" />
+                          Data de Entrega
+                        </h3>
+                        {!readOnly && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              onCardChange({ ...card, delivery_date: '', delivery_time: '' });
+                              await onSave('delivery_date', '');
+                              await onSave('delivery_time', '');
+                            }}
+                            className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded"
+                            title="Remover data"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
+                      {readOnly ? (
+                        <div className="space-y-2">
+                          {card.delivery_date && <div className="flex items-center gap-2 text-sm"><span className="capitalize">{formatFullDate(card.delivery_date)}</span></div>}
+                          {card.delivery_time && <div className="flex items-center gap-2 text-sm"><Clock className="h-3.5 w-3.5 text-muted-foreground" /><span>{card.delivery_time}</span></div>}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
+                                <CalendarIcon className="h-3.5 w-3.5" />
+                                <span className="capitalize">{formatShortDate(card.delivery_date)}</span>
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar 
+                                mode="single" 
+                                selected={card.delivery_date ? new Date(card.delivery_date + 'T00:00:00') : undefined} 
+                                onSelect={async (date) => {
+                                  if (date) {
+                                    const formatted = date.toISOString().split('T')[0];
+                                    onCardChange({ ...card, delivery_date: formatted });
+                                    handleFieldSave('delivery_date', formatted);
+                                  }
+                                }} 
+                                initialFocus 
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                            <Input type="time" value={card.delivery_time || '09:00'} onChange={async (e) => { const time = e.target.value; onCardChange({ ...card, delivery_time: time }); await onSave('delivery_time', time); }} className="h-9 flex-1 text-sm" aria-label="Horário de entrega" />
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ) : null}
+
+                {/* Data de Publicação */}
+                {(!readOnly && !card.publish_date) ? (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
+                        <Plus className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-muted-foreground">Adicionar Data de Publicação</span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar 
+                        mode="single" 
+                        selected={undefined} 
+                        onSelect={async (date) => {
+                          if (date) {
+                            const formatted = date.toISOString().split('T')[0];
+                            onCardChange({ ...card, publish_date: formatted, publish_time: '09:00' });
+                            await onSave('publish_date', formatted);
+                            await onSave('publish_time', '09:00');
+                          }
+                        }} 
+                        initialFocus 
+                      />
+                    </PopoverContent>
+                  </Popover>
+                ) : (card.publish_date || readOnly) ? (
+                  <Card>
+                    <CardContent className="p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-sm flex items-center gap-2">
+                          <CalendarIcon className="h-4 w-4 text-primary" />
+                          Data de Publicação
+                        </h3>
+                        {!readOnly && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              onCardChange({ ...card, publish_date: '', publish_time: '', additional_publish_dates: [] });
+                              await onSave('publish_date', '');
+                              await onSave('publish_time', '');
+                              try { await supabase.from("demands").update({ additional_publish_dates: [] }).eq("id", card.id); } catch (e) { console.error(e); }
+                            }}
+                            className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded"
+                            title="Remover data de publicação"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      
+                      {readOnly ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm">
+                            <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="capitalize">{formatFullDate(card.publish_date)}</span>
+                          </div>
+                          {card.publish_time && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>{card.publish_time}</span>
+                            </div>
+                          )}
+                          {additionalDates.length > 0 && (
+                            <>
+                              <Separator className="my-2" />
+                              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Datas adicionais</p>
+                              {additionalDates.map((dateStr) => (
+                                <div key={dateStr} className="flex items-center gap-2 text-sm">
+                                  <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <span className="capitalize">{formatFullDate(dateStr)}</span>
+                                </div>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
+                                <CalendarIcon className="h-3.5 w-3.5" />
+                                <span className="capitalize">{formatShortDate(card.publish_date)}</span>
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar mode="single" selected={card.publish_date ? new Date(card.publish_date + 'T00:00:00') : undefined} onSelect={handlePublishDateChange} initialFocus className="p-3 pointer-events-auto" />
+                            </PopoverContent>
+                          </Popover>
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                            <Input type="time" value={card.publish_time || '09:00'} onChange={(e) => handlePublishTimeChange(e.target.value)} className="h-9 flex-1 text-sm" aria-label="Horário de publicação" />
+                          </div>
+                          <Separator />
+                          <div className="space-y-2">
+                            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Datas adicionais</h4>
+                            {additionalDates.map((dateStr) => (
+                              <div key={dateStr} className="flex items-center gap-2 text-sm">
+                                <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="capitalize flex-1">{formatShortDate(dateStr)}</span>
+                                <button type="button" onClick={() => handleRemoveAdditionalDate(dateStr)} className="text-muted-foreground hover:text-destructive transition-colors p-0.5 rounded"><X className="h-3.5 w-3.5" /></button>
+                              </div>
+                            ))}
+                            <Popover open={isAdditionalDatePickerOpen} onOpenChange={setIsAdditionalDatePickerOpen}>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-xs h-8 text-muted-foreground">
+                                  <Plus className="h-3.5 w-3.5" />
+                                  Adicionar data
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar mode="single" selected={undefined} onSelect={handleAddAdditionalDate} initialFocus className="p-3 pointer-events-auto" />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ) : null}
 
                 {/* Period linking for unlinked demands */}
                 {!readOnly && !card.period_plan_id && periodPlans.length > 0 && (
