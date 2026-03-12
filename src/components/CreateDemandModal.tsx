@@ -112,6 +112,7 @@ export function CreateDemandModal({
   const [channel, setChannel] = useState("");
   const [publishDate, setPublishDate] = useState<Date | undefined>();
   const [dueDate, setDueDate] = useState<Date | undefined>();
+  const [deliveryDate, setDeliveryDate] = useState<Date | undefined>();
   const [selectedPeriodPlanId, setSelectedPeriodPlanId] = useState<string>("");
 
   // Data state
