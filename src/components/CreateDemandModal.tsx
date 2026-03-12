@@ -381,10 +381,7 @@ export function CreateDemandModal({
       return;
     }
 
-    if (!periodPlanId && !selectedPeriodPlanId) {
-      toast.error("Selecione um período");
-      return;
-    }
+    // Período é opcional - não bloquear criação sem período
 
     if (!title.trim()) {
       toast.error("Informe um título");
@@ -484,7 +481,7 @@ export function CreateDemandModal({
               
               {!periodPlanId &&
               <div className="space-y-2">
-                  <Label>Período *</Label>
+                  <Label>Período</Label>
                   <Select value={selectedPeriodPlanId} onValueChange={setSelectedPeriodPlanId} disabled={loadingPeriodPlans || !clientId}>
                     <SelectTrigger>
                       <SelectValue placeholder={!clientId ? "Selecione o cliente primeiro" : loadingPeriodPlans ? "Carregando..." : periodPlans.length === 0 ? "Nenhum período ativo" : "Selecione o período *"} />
