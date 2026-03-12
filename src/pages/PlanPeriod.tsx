@@ -498,6 +498,7 @@ const PlanPeriod = () => {
       setPollingProgress(100);
 
       const { error: ultraSaveError } = await supabase.from('period_plans').update({
+        default_plan: planData as unknown as null,
         ultra_plan: ultraData as unknown as null,
         status: 'generated',
         final_plan: [...planData, ...ultraData] as unknown as null
