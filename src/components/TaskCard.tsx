@@ -806,17 +806,72 @@ export default function TaskCard({
               {/* === COLUNA DIREITA: Publicação + Controles === */}
               <div className="space-y-4 sticky top-0 self-start">
                 {/* Início de Produção */}
-                {card.due_date && (
-                  <Card>
-                    <CardContent className="p-4 space-y-2">
+                <Card>
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
                       <h3 className="font-semibold text-sm flex items-center gap-2">
                         <CalendarIcon className="h-4 w-4 text-amber-500" />
                         Início de Produção
                       </h3>
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="capitalize">{formatFullDate(card.due_date)}</span>
+                      {!readOnly && card.due_date && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            onCardChange({ ...card, due_date: '', due_time: '' });
+                            await onSave('due_date', '');
+                            await onSave('due_time', '');
+                          }}
+                          className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded"
+                          title="Remover data"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    {readOnly ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          {card.due_date ? (
+                            <span className="capitalize">{formatFullDate(card.due_date)}</span>
+                          ) : (
+                            <span className="text-muted-foreground">Sem data definida</span>
+                          )}
+                        </div>
+                        {card.due_time && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>{card.due_time}</span>
+                          </div>
+                        )}
                       </div>
-                      {!readOnly ? (
+                    ) : (
+                      <div className="space-y-2">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
+                              <CalendarIcon className="h-3.5 w-3.5" />
+                              {card.due_date ? (
+                                <span className="capitalize">{formatShortDate(card.due_date)}</span>
+                              ) : (
+                                <span className="text-muted-foreground">Definir data</span>
+                              )}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar 
+                              mode="single" 
+                              selected={card.due_date ? new Date(card.due_date + 'T00:00:00') : undefined} 
+                              onSelect={async (date) => {
+                                if (date) {
+                                  const formatted = date.toISOString().split('T')[0];
+                                  onCardChange({ ...card, due_date: formatted });
+                                  await onSave('due_date', formatted);
+                                }
+                              }} 
+                              initialFocus 
+                            />
+                          </PopoverContent>
+                        </Popover>
                         <div className="flex items-center gap-2">
                           <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                           <Input
@@ -831,15 +886,10 @@ export default function TaskCard({
                             aria-label="Horário de início de produção"
                           />
                         </div>
-                      ) : card.due_time ? (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>{card.due_time}</span>
-                        </div>
-                      ) : null}
-                    </CardContent>
-                  </Card>
-                )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
                 {/* Data de Entrega */}
                 <Card>
