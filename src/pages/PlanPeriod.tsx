@@ -487,6 +487,7 @@ const PlanPeriod = () => {
         toast.warning('Demandas normais geradas! Ultra não pôde ser gerado.');
         await supabase.from('period_plans').update({
           status: 'generated',
+          default_plan: planData as unknown as null,
           final_plan: planData as unknown as null
         }).eq('id', periodPlan.id);
         navigate('/approve-cards');

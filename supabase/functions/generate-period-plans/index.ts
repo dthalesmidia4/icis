@@ -306,13 +306,14 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
       if (planType === 'default') {
         earlySaveData.default_plan = planDemands;
         earlySaveData.status = 'generating_ultra';
-      } else {
-        earlySaveData.ultra_plan = planDemands;
-        earlySaveData.status = 'generated';
-        // Also set final_plan for ultra
-        const currentDefault = periodPlan.default_plan && Array.isArray(periodPlan.default_plan) ? periodPlan.default_plan : [];
-        earlySaveData.final_plan = [...currentDefault, ...planDemands];
-      }
+    } else {
+      earlySaveData.ultra_plan = planDemands;
+      earlySaveData.status = 'generated';
+      // Also set final_plan for ultra and explicitly re-save default_plan to prevent race conditions
+      const currentDefault = periodPlan.default_plan && Array.isArray(periodPlan.default_plan) ? periodPlan.default_plan : [];
+      earlySaveData.default_plan = currentDefault;
+      earlySaveData.final_plan = [...currentDefault, ...planDemands];
+    }
       const { error: earlySaveErr } = await (supabase as any).from('period_plans').update(earlySaveData).eq('id', periodPlanId);
       if (earlySaveErr) {
         console.error('EARLY SAVE FAILED:', JSON.stringify(earlySaveErr));
