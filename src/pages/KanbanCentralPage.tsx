@@ -948,14 +948,16 @@ const KanbanCentralPage = () => {
                                 )}
                               >
                                  <KanbanCard
-                                   title={card.title}
-                                   subtitle={card.clientName}
-                                   dueDate={card.due_date}
-                                   cardDeliveryDate={card.delivery_date || undefined}
-                                   isDragging={snapshot.isDragging}
-                                   isOverdue={isCardOverdue(card)}
-                                   onClick={() => handleCardClick(card)}
-                                 />
+                                    title={card.title}
+                                    subtitle={card.clientName}
+                                    dueDate={card.due_date}
+                                    dueTime={card.due_time || undefined}
+                                    cardDeliveryDate={card.delivery_date || undefined}
+                                    deliveryTime={card.delivery_time || undefined}
+                                    isDragging={snapshot.isDragging}
+                                    isOverdue={isCardOverdue(card)}
+                                    onClick={() => handleCardClick(card)}
+                                  />
                               </div>
                             )}
                           </Draggable>
