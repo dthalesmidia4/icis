@@ -418,6 +418,13 @@ export function CreateDemandModal({
       const result = data as {success?: boolean;demand_id?: string;error?: string;} | null;
 
       if (result?.success) {
+        // Update delivery_date if provided (not in RPC params)
+        if (deliveryDate && result.demand_id) {
+          await supabase
+            .from("demands")
+            .update({ delivery_date: format(deliveryDate, "yyyy-MM-dd") })
+            .eq("id", result.demand_id);
+        }
         toast.success("Demanda criada com sucesso!");
         onOpenChange(false);
         onDemandCreated?.();
