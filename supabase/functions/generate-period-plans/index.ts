@@ -363,9 +363,12 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
       }
     } else {
       updateData.ultra_plan = planDemands;
-      // Check if default already exists
+      // Explicitly preserve default_plan to prevent race conditions
       const currentPlan = periodPlan;
-      if (currentPlan.default_plan && Array.isArray(currentPlan.default_plan) && currentPlan.default_plan.length > 0) {
+      const currentDefault = currentPlan.default_plan && Array.isArray(currentPlan.default_plan) ? currentPlan.default_plan : [];
+      updateData.default_plan = currentDefault;
+      updateData.final_plan = [...currentDefault, ...planDemands];
+      if (currentDefault.length > 0) {
         updateData.status = 'generated';
       } else {
         updateData.status = 'generating_default';
