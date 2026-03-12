@@ -58,8 +58,11 @@ const isCardOverdue = (card: { delivery_date?: string | null; delivery_time?: st
   if (!card.delivery_date) return false;
   const statusLower = (card.status || '').toLowerCase();
   if (FINAL_STATUS_NAMES.includes(statusLower)) return false;
-  const time = card.delivery_time || '23:59';
-  const deadline = new Date(`${card.delivery_date}T${time}:00`);
+  const rawTime = card.delivery_time || '23:59';
+  // Normalize time to HH:MM:SS format (handle both HH:MM and HH:MM:SS)
+  const time = rawTime.length === 5 ? `${rawTime}:00` : rawTime;
+  const deadline = new Date(`${card.delivery_date}T${time}`);
+  if (isNaN(deadline.getTime())) return false;
   return new Date() >= deadline;
 };
 
