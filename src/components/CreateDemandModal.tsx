@@ -184,6 +184,7 @@ export function CreateDemandModal({
     setChannel("");
     setPublishDate(undefined);
     setDueDate(undefined);
+    setDeliveryDate(undefined);
     setSuggestions([]);
     setStrategySnippet("");
     setSelectedTemplateId(null);
