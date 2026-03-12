@@ -656,41 +656,9 @@ export function CreateDemandModal({
 
             
             {/* Dates */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>
-                  Data de Publicação
-                  {statuses.find((s) => s.id === statusId)?.requires_fields?.includes("publish_date") &&
-                  <span className="text-destructive ml-1">*</span>
-                  }
-                </Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !publishDate && "text-muted-foreground"
-                      )}>
-
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {publishDate ? format(publishDate, "PPP", { locale: ptBR }) : "Selecione"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={publishDate}
-                      onSelect={setPublishDate}
-                      initialFocus
-                      className="pointer-events-auto" />
-
-                  </PopoverContent>
-                </Popover>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Início de Produção <span className="text-destructive">*</span></Label>
+                <Label>Início de Produção</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -699,7 +667,6 @@ export function CreateDemandModal({
                         "w-full justify-start text-left font-normal",
                         !dueDate && "text-muted-foreground"
                       )}>
-
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {dueDate ? format(dueDate, "PPP", { locale: ptBR }) : "Selecione"}
                     </Button>
@@ -711,7 +678,56 @@ export function CreateDemandModal({
                       onSelect={setDueDate}
                       initialFocus
                       className="pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+              </div>
 
+              <div className="space-y-2">
+                <Label>Data de Entrega</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !deliveryDate && "text-muted-foreground"
+                      )}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {deliveryDate ? format(deliveryDate, "PPP", { locale: ptBR }) : "Selecione"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={deliveryDate}
+                      onSelect={setDeliveryDate}
+                      initialFocus
+                      className="pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Data de Publicação</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !publishDate && "text-muted-foreground"
+                      )}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {publishDate ? format(publishDate, "PPP", { locale: ptBR }) : "Selecione"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={publishDate}
+                      onSelect={setPublishDate}
+                      initialFocus
+                      className="pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
               </div>
