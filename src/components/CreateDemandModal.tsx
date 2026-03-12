@@ -482,7 +482,7 @@ export function CreateDemandModal({
               
               {!periodPlanId &&
               <div className="space-y-2">
-                  <Label>Período *</Label>
+                  <Label>Período</Label>
                   <Select value={selectedPeriodPlanId} onValueChange={setSelectedPeriodPlanId} disabled={loadingPeriodPlans || !clientId}>
                     <SelectTrigger>
                       <SelectValue placeholder={!clientId ? "Selecione o cliente primeiro" : loadingPeriodPlans ? "Carregando..." : periodPlans.length === 0 ? "Nenhum período ativo" : "Selecione o período *"} />
