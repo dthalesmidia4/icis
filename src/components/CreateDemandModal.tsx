@@ -389,10 +389,6 @@ export function CreateDemandModal({
       return;
     }
 
-    if (!dueDate) {
-      toast.error("Informe a data de Início de Produção");
-      return;
-    }
 
     // Check required fields for selected status
     const selectedStatus = statuses.find((s) => s.id === statusId);
