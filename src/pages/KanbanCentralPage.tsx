@@ -399,13 +399,29 @@ const KanbanCentralPage = () => {
 
     const { source, destination, draggableId } = result;
 
-    if (source.droppableId === destination.droppableId) return;
+    // Same column reorder
+    if (source.droppableId === destination.droppableId) {
+      if (source.index === destination.index) return;
+
+      setCards((prev) => {
+        const columnName = source.droppableId;
+        // Get cards in this column in current order
+        const columnCards = prev.filter((c) => c.status === columnName);
+        const otherCards = prev.filter((c) => c.status !== columnName);
+
+        // Reorder within column
+        const [movedCard] = columnCards.splice(source.index, 1);
+        columnCards.splice(destination.index, 0, movedCard);
+
+        return [...otherCards, ...columnCards];
+      });
+      return;
+    }
 
     const card = cards.find((c) => c.id === draggableId);
     if (!card) return;
 
     const newColumnName = destination.droppableId;
-    const newStatus = getStatusFromColumn(newColumnName);
 
     // Interceptar "Agendar Publicação" → abrir modal de agendamento
     if (newColumnName === "Agendar Publicação") {
@@ -421,13 +437,17 @@ const KanbanCentralPage = () => {
       return;
     }
 
-    setCards((prev) =>
-      prev.map((c) =>
-        c.id === draggableId
-          ? { ...c, status: newColumnName }
-          : c
-      )
-    );
+    setCards((prev) => {
+      const updated = prev.map((c) =>
+        c.id === draggableId ? { ...c, status: newColumnName } : c
+      );
+      // Move card to correct position in destination column
+      const destCards = updated.filter((c) => c.status === newColumnName && c.id !== draggableId);
+      const movedCard = updated.find((c) => c.id === draggableId)!;
+      destCards.splice(destination.index, 0, movedCard);
+      const otherCards = updated.filter((c) => c.status !== newColumnName);
+      return [...otherCards, ...destCards];
+    });
 
     try {
       const { data: statusData } = await supabase
