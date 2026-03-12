@@ -381,9 +381,7 @@ export function CreateDemandModal({
       return;
     }
 
-    if (!periodPlanId && !selectedPeriodPlanId) {
-      toast.error("Selecione um período");
-      return;
+    // Período é opcional - não bloquear criação sem período
     }
 
     if (!title.trim()) {
