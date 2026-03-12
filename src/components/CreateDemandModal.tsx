@@ -382,7 +382,6 @@ export function CreateDemandModal({
     }
 
     // Período é opcional - não bloquear criação sem período
-    }
 
     if (!title.trim()) {
       toast.error("Informe um título");
