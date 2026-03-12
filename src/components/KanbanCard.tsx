@@ -61,7 +61,7 @@ const KanbanCard = ({
                 <CalendarClock className="h-3.5 w-3.5" />
                 <span>{formattedDueDate}</span>
                 {formattedDueTime && (
-                  <span className="opacity-70">• {formattedDueTime}</span>
+                  <span>• {formattedDueTime}</span>
                 )}
               </div>
             )}
@@ -73,7 +73,7 @@ const KanbanCard = ({
                 <Calendar className="h-3.5 w-3.5" />
                 <span>{formattedCardDeliveryDate}</span>
                 {formattedDeliveryTime && (
-                  <span className="opacity-70">• {formattedDeliveryTime}</span>
+                  <span>• {formattedDeliveryTime}</span>
                 )}
               </div>
             )}
