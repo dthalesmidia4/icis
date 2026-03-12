@@ -980,10 +980,29 @@ export default function TaskCard({
                 {/* Data de Publicação */}
                 <Card>
                   <CardContent className="p-4 space-y-4">
-                    <h3 className="font-semibold text-sm flex items-center gap-2">
-                      <CalendarIcon className="h-4 w-4 text-primary" />
-                      Data de Publicação
-                    </h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-sm flex items-center gap-2">
+                        <CalendarIcon className="h-4 w-4 text-primary" />
+                        Data de Publicação
+                      </h3>
+                      {!readOnly && card.publish_date && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            onCardChange({ ...card, publish_date: '', publish_time: '', additional_publish_dates: [] });
+                            await onSave('publish_date', '');
+                            await onSave('publish_time', '');
+                            try {
+                              await supabase.from("demands").update({ additional_publish_dates: [] }).eq("id", card.id);
+                            } catch (e) { console.error(e); }
+                          }}
+                          className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded"
+                          title="Remover data de publicação"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                     
                     {readOnly ? (
                       <div className="space-y-2">
