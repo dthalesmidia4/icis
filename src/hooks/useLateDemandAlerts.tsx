@@ -88,10 +88,12 @@ export function useLateDemandAlerts() {
         if (statusName === 'feito' || statusName === 'feitos' || statusName === 'publicado') continue;
 
         const deliveryDate = demand.delivery_date as string;
-        const deliveryTime = (demand.delivery_time as string) || '23:59';
+        const rawTime = (demand.delivery_time as string) || '23:59';
+        // Normalize time to HH:MM:SS format (handle both HH:MM and HH:MM:SS)
+        const normalizedTime = rawTime.length === 5 ? `${rawTime}:00` : rawTime;
 
         // Build the full delivery datetime
-        const deliveryDatetime = new Date(`${deliveryDate}T${deliveryTime}:00`);
+        const deliveryDatetime = new Date(`${deliveryDate}T${normalizedTime}`);
 
         if (now >= deliveryDatetime) {
           checkedIds.current.add(demand.id);
