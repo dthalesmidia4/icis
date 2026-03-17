@@ -187,6 +187,64 @@ const ClientHub = () => {
     fetchRejectedCount();
   }, [selectedClient, tenantId]);
 
+  // Handle opening content from history navigation state
+  useEffect(() => {
+    const state = location.state as { openContentFromHistory?: { type: string; prompt: string; title: string; metadata?: any; image_urls?: string[]; content_type?: string } } | null;
+    if (!state?.openContentFromHistory || !isInitialized || !selectedClient) return;
+
+    const { type, prompt, metadata, image_urls, content_type } = state.openContentFromHistory;
+
+    // Clear the state so it doesn't re-trigger
+    window.history.replaceState({}, document.title);
+
+    // Small delay to let component mount fully
+    setTimeout(() => {
+      if (type === "post") {
+        setPostIdea(prompt || "");
+        setAiPostModalOpen(true);
+        if (image_urls?.length) {
+          setGeneratedPostImage(image_urls[0]);
+        }
+      } else if (type === "carousel") {
+        setCarouselIdea(prompt || "");
+        setAiCarouselModalOpen(true);
+        if (image_urls?.length) {
+          setCarouselGeneratedImages(image_urls.map((url, i) => ({ slideIndex: i, imageUrl: url })));
+          setCarouselStep(2);
+          // Reconstruct slides from metadata if available
+          if (metadata?.slides && Array.isArray(metadata.slides)) {
+            setCarouselSlides(metadata.slides);
+          } else {
+            setCarouselSlides(image_urls.map((_, i) => ({ text: '', label: `Slide ${i + 1}` })));
+          }
+        }
+      } else if (type === "video") {
+        setVideoIdea(prompt || "");
+        setVideoModalOpen(true);
+        // If it's a storyboard with metadata scenes, restore them
+        if (metadata?.scenes && Array.isArray(metadata.scenes)) {
+          setVideoScenes(metadata.scenes.map((s: any) => ({
+            scene_description: s.scene_description || '',
+            mascot_speech: s.mascot_speech || '',
+            frame0_url: s.frame0_url || undefined,
+            video_url: s.video_url || undefined,
+            generating: false,
+          })));
+          setVideoStep(2);
+        } else if (content_type === "video_scene" && image_urls?.length) {
+          // Single scene - go to step 2 with the video
+          setVideoScenes([{
+            scene_description: prompt || '',
+            mascot_speech: '',
+            video_url: image_urls[0],
+            generating: false,
+          }]);
+          setVideoStep(2);
+        }
+      }
+    }, 100);
+  }, [location.state, isInitialized, selectedClient]);
+
   if (!isInitialized || !selectedClient) return null;
 
   const displayName = selectedClient.fantasy_name || selectedClient.name;
