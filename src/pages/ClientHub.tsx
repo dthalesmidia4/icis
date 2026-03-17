@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play, ChevronLeft, ChevronRight, ScrollText } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play, ChevronLeft, ChevronRight, ScrollText, MessageSquareX, Check } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useHubPermissions, type ClientHubButtonId } from "@/hooks/useHubPermissions";
 import { useAgencyRole } from "@/hooks/useAgencyRole";
@@ -73,6 +73,13 @@ const ClientHub = () => {
   const [planPeriodModalOpen, setPlanPeriodModalOpen] = useState(false);
   const [contentRequirements, setContentRequirements] = useState('');
   const [savingRequirements, setSavingRequirements] = useState(false);
+  const [rejectedByClientStep, setRejectedByClientStep] = useState<0 | 1 | 2>(0); // 0=closed, 1=select client, 2=select demand
+  const [rejectedByClientSearch, setRejectedByClientSearch] = useState('');
+  const [rejectedByClientClients, setRejectedByClientClients] = useState<Array<{ id: string; name: string; fantasy_name: string | null; logo_url: string | null }>>([]);
+  const [rejectedByClientSelectedClient, setRejectedByClientSelectedClient] = useState<{ id: string; name: string; fantasy_name: string | null } | null>(null);
+  const [rejectedByClientDemands, setRejectedByClientDemands] = useState<Array<{ id: string; title: string; demand_type: string | null; channel: string | null; publish_date: string | null }>>([]);
+  const [rejectedByClientSelectedDemandId, setRejectedByClientSelectedDemandId] = useState<string | null>(null);
+  const [rejectedByClientLoading, setRejectedByClientLoading] = useState(false);
 
   useEffect(() => {
     if (!selectedClient?.id || !tenantId) return;
@@ -397,6 +404,59 @@ const ClientHub = () => {
     }
   };
 
+  // --- Rejected by client flow ---
+  const openRejectedByClientFlow = async () => {
+    setRejectedByClientStep(1);
+    setRejectedByClientSearch('');
+    setRejectedByClientSelectedClient(null);
+    setRejectedByClientSelectedDemandId(null);
+    setRejectedByClientLoading(true);
+    try {
+      const { data } = await supabase
+        .from('tenant_companies')
+        .select('id, name, fantasy_name, logo_url')
+        .eq('tenant_id', tenantId!)
+        .order('fantasy_name', { ascending: true, nullsFirst: false });
+      setRejectedByClientClients(data || []);
+    } finally {
+      setRejectedByClientLoading(false);
+    }
+  };
+
+  const handleRejectedByClientSelectClient = async (client: { id: string; name: string; fantasy_name: string | null }) => {
+    setRejectedByClientSelectedClient(client);
+    setRejectedByClientStep(2);
+    setRejectedByClientLoading(true);
+    setRejectedByClientSelectedDemandId(null);
+    try {
+      // Get active period plans for this client
+      const { data: periods } = await supabase
+        .from('period_plans')
+        .select('id')
+        .eq('company_id', client.id)
+        .eq('tenant_id', tenantId!)
+        .eq('operational_status', 'em_andamento');
+      const periodIds = (periods || []).map(p => p.id);
+      if (periodIds.length === 0) {
+        setRejectedByClientDemands([]);
+        setRejectedByClientLoading(false);
+        return;
+      }
+      // Get demands linked to those periods that are not archived
+      const { data: demands } = await supabase
+        .from('demands')
+        .select('id, title, demand_type, channel, publish_date')
+        .eq('client_id', client.id)
+        .eq('tenant_id', tenantId!)
+        .is('archived_at', null)
+        .in('period_plan_id', periodIds)
+        .order('created_at', { ascending: false });
+      setRejectedByClientDemands(demands || []);
+    } finally {
+      setRejectedByClientLoading(false);
+    }
+  };
+
   const isAdmin = role === 'agency_admin' || role === 'super_admin' || role === 'agency_manager';
 
   const allActionCards = [
@@ -406,6 +466,7 @@ const ClientHub = () => {
     { id: 'client_planejar_periodo' as ClientHubButtonId, title: "Planejar Período", icon: CalendarDays, action: () => setPlanPeriodModalOpen(true) },
     { id: 'client_aprovar_producao' as ClientHubButtonId, title: "Aprovar Produção de Demandas", icon: CheckSquare, action: () => navigate("/approve-cards"), badge: pendingCardsCount > 0 ? pendingCardsCount : undefined },
     { id: 'client_demandas_reprovadas' as ClientHubButtonId, title: "Demandas Reprovadas", icon: ThumbsDown, action: () => navigate("/rejected-cards"), badge: rejectedCardsCount > 0 ? rejectedCardsCount : undefined },
+    { id: 'client_reprovada_cliente' as ClientHubButtonId, title: "Demanda Reprovada pelo Cliente", icon: MessageSquareX, action: () => openRejectedByClientFlow() },
     { id: 'client_cronograma_atual' as ClientHubButtonId, title: "Cronograma Atual", icon: Clock, action: () => setScheduleModalOpen(true) },
     { id: 'client_historico' as ClientHubButtonId, title: "Histórico de Períodos", icon: History, action: () => navigate("/plan-period?tab=history") },
     { id: 'client_identidade_visual' as ClientHubButtonId, title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
@@ -1418,6 +1479,110 @@ const ClientHub = () => {
                   {savingRequirements ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : 'Salvar'}
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+        {/* Modal Demanda Reprovada pelo Cliente - Step 1: Select Client */}
+        <Dialog open={rejectedByClientStep === 1} onOpenChange={(open) => { if (!open) setRejectedByClientStep(0); }}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold text-center">Qual cliente reprovou a demanda?</DialogTitle>
+            </DialogHeader>
+            <div className="py-2">
+              <input
+                type="text"
+                placeholder="Buscar cliente..."
+                value={rejectedByClientSearch}
+                onChange={(e) => setRejectedByClientSearch(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mb-4"
+              />
+              {rejectedByClientLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+              ) : (
+                <div className="max-h-[400px] overflow-y-auto space-y-2">
+                  {rejectedByClientClients
+                    .filter(c => {
+                      const s = rejectedByClientSearch.toLowerCase();
+                      return !s || (c.fantasy_name || c.name).toLowerCase().includes(s);
+                    })
+                    .map(client => (
+                      <div
+                        key={client.id}
+                        className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-accent transition-colors"
+                        onClick={() => handleRejectedByClientSelectClient(client)}
+                      >
+                        {client.logo_url ? (
+                          <img src={client.logo_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center"><User className="w-5 h-5 text-muted-foreground" /></div>
+                        )}
+                        <span className="font-medium">{client.fantasy_name || client.name}</span>
+                      </div>
+                    ))}
+                  {rejectedByClientClients.filter(c => {
+                    const s = rejectedByClientSearch.toLowerCase();
+                    return !s || (c.fantasy_name || c.name).toLowerCase().includes(s);
+                  }).length === 0 && !rejectedByClientLoading && (
+                    <p className="text-center text-muted-foreground py-8">Nenhum cliente encontrado.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal Demanda Reprovada pelo Cliente - Step 2: Select Demand */}
+        <Dialog open={rejectedByClientStep === 2} onOpenChange={(open) => { if (!open) setRejectedByClientStep(0); }}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setRejectedByClientStep(1)} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                <DialogTitle className="text-2xl font-bold">Qual demanda foi reprovada?</DialogTitle>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Selecione a demanda de <span className="font-semibold text-foreground">{rejectedByClientSelectedClient?.fantasy_name || rejectedByClientSelectedClient?.name}</span> que foi reprovada pelo cliente.
+              </p>
+            </DialogHeader>
+            <div className="py-2">
+              {rejectedByClientLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+              ) : rejectedByClientDemands.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">Nenhuma demanda encontrada no período em andamento.</p>
+              ) : (
+                <>
+                  <div className="max-h-[400px] overflow-y-auto space-y-2">
+                    {rejectedByClientDemands.map(demand => (
+                      <div
+                        key={demand.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${rejectedByClientSelectedDemandId === demand.id ? 'border-primary bg-primary/10' : 'hover:bg-accent'}`}
+                        onClick={() => setRejectedByClientSelectedDemandId(demand.id)}
+                      >
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${rejectedByClientSelectedDemandId === demand.id ? 'border-primary bg-primary' : 'border-muted-foreground/30'}`}>
+                          {rejectedByClientSelectedDemandId === demand.id && <Check className="w-3 h-3 text-primary-foreground" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{demand.title}</p>
+                          <div className="flex gap-2 text-xs text-muted-foreground mt-0.5">
+                            {demand.demand_type && <span>{demand.demand_type}</span>}
+                            {demand.channel && <span>• {demand.channel}</span>}
+                            {demand.publish_date && <span>• {new Date(demand.publish_date + 'T00:00:00').toLocaleDateString('pt-BR')}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <Button
+                      disabled={!rejectedByClientSelectedDemandId}
+                      onClick={() => {
+                        toast.info('Funcionalidade em desenvolvimento.');
+                      }}
+                    >
+                      Prosseguir
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </DialogContent>
         </Dialog>
