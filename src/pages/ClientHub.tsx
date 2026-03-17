@@ -73,6 +73,13 @@ const ClientHub = () => {
   const [planPeriodModalOpen, setPlanPeriodModalOpen] = useState(false);
   const [contentRequirements, setContentRequirements] = useState('');
   const [savingRequirements, setSavingRequirements] = useState(false);
+  const [rejectedByClientStep, setRejectedByClientStep] = useState<0 | 1 | 2>(0); // 0=closed, 1=select client, 2=select demand
+  const [rejectedByClientSearch, setRejectedByClientSearch] = useState('');
+  const [rejectedByClientClients, setRejectedByClientClients] = useState<Array<{ id: string; name: string; fantasy_name: string | null; logo_url: string | null }>>([]);
+  const [rejectedByClientSelectedClient, setRejectedByClientSelectedClient] = useState<{ id: string; name: string; fantasy_name: string | null } | null>(null);
+  const [rejectedByClientDemands, setRejectedByClientDemands] = useState<Array<{ id: string; title: string; demand_type: string | null; channel: string | null; publish_date: string | null }>>([]);
+  const [rejectedByClientSelectedDemandId, setRejectedByClientSelectedDemandId] = useState<string | null>(null);
+  const [rejectedByClientLoading, setRejectedByClientLoading] = useState(false);
 
   useEffect(() => {
     if (!selectedClient?.id || !tenantId) return;
