@@ -144,8 +144,7 @@ const ClientHub = () => {
               .from('demands')
               .select('title')
               .eq('period_plan_id', p.id)
-              .eq('client_id', selectedClient.id)
-              .is('archived_at', null);
+              .eq('client_id', selectedClient.id);
             const approvedTitles = new Set((existingDemands || []).map(d => d.title));
             const allItems = [...dp, ...up] as any[];
             const pending = allItems.filter(item => {

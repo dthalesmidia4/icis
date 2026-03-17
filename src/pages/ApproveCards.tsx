@@ -148,8 +148,7 @@ const ApproveCards = () => {
             .from('demands')
             .select('title')
             .eq('period_plan_id', bestPeriod.id)
-            .eq('client_id', selectedClient.id)
-            .is('archived_at', null);
+            .eq('client_id', selectedClient.id);
 
           if (existingDemands) {
             const savedTitles = new Set(existingDemands.map(d => d.title));
