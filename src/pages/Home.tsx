@@ -290,7 +290,7 @@ const Home = () => {
           <DialogHeader>
             <div className="flex items-center gap-2">
               <button onClick={() => setRejectedByClientStep(1)} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
-              <DialogTitle className="text-2xl font-bold">Qual demanda foi reprovada?</DialogTitle>
+              <DialogTitle className="text-3xl sm:text-4xl font-bold">Qual demanda foi reprovada?</DialogTitle>
             </div>
             <p className="text-sm text-muted-foreground">
               Selecione a demanda de <span className="font-semibold text-foreground">{rejectedByClientSelectedClient?.fantasy_name || rejectedByClientSelectedClient?.name}</span> que foi reprovada pelo cliente.
