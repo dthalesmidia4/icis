@@ -404,6 +404,59 @@ const ClientHub = () => {
     }
   };
 
+  // --- Rejected by client flow ---
+  const openRejectedByClientFlow = async () => {
+    setRejectedByClientStep(1);
+    setRejectedByClientSearch('');
+    setRejectedByClientSelectedClient(null);
+    setRejectedByClientSelectedDemandId(null);
+    setRejectedByClientLoading(true);
+    try {
+      const { data } = await supabase
+        .from('tenant_companies')
+        .select('id, name, fantasy_name, logo_url')
+        .eq('tenant_id', tenantId!)
+        .order('fantasy_name', { ascending: true, nullsFirst: false });
+      setRejectedByClientClients(data || []);
+    } finally {
+      setRejectedByClientLoading(false);
+    }
+  };
+
+  const handleRejectedByClientSelectClient = async (client: { id: string; name: string; fantasy_name: string | null }) => {
+    setRejectedByClientSelectedClient(client);
+    setRejectedByClientStep(2);
+    setRejectedByClientLoading(true);
+    setRejectedByClientSelectedDemandId(null);
+    try {
+      // Get active period plans for this client
+      const { data: periods } = await supabase
+        .from('period_plans')
+        .select('id')
+        .eq('company_id', client.id)
+        .eq('tenant_id', tenantId!)
+        .eq('operational_status', 'em_andamento');
+      const periodIds = (periods || []).map(p => p.id);
+      if (periodIds.length === 0) {
+        setRejectedByClientDemands([]);
+        setRejectedByClientLoading(false);
+        return;
+      }
+      // Get demands linked to those periods that are not archived
+      const { data: demands } = await supabase
+        .from('demands')
+        .select('id, title, demand_type, channel, publish_date')
+        .eq('client_id', client.id)
+        .eq('tenant_id', tenantId!)
+        .is('archived_at', null)
+        .in('period_plan_id', periodIds)
+        .order('created_at', { ascending: false });
+      setRejectedByClientDemands(demands || []);
+    } finally {
+      setRejectedByClientLoading(false);
+    }
+  };
+
   const isAdmin = role === 'agency_admin' || role === 'super_admin' || role === 'agency_manager';
 
   const allActionCards = [
