@@ -173,7 +173,7 @@ const KanbanCentralPage = () => {
     }, 3000);
   }, [selectedClientFilter]);
 
-  // Unified realtime handler
+  // Unified realtime handler for attachment updates
   const handleRealtimeUpdate = useCallback((itemId: string, attachments: Attachment[]) => {
     setCards(prevCards => 
       prevCards.map(card => 
@@ -190,9 +190,139 @@ const KanbanCentralPage = () => {
     );
   }, []);
 
+  const handleDemandFullUpdate = useCallback((demandId: string, payload: Record<string, any>) => {
+    const newStatusId = payload.status_id as string;
+    const newArchivedAt = payload.archived_at;
+    
+    // Handle archive: remove from active cards
+    if (newArchivedAt) {
+      setCards(prev => prev.filter(c => c.id !== demandId));
+      return;
+    }
+    
+    // Look up status name from columns state
+    setColumns(currentColumns => {
+      const statusCol = currentColumns.find(col => col.id === newStatusId);
+      const newStatusName = statusCol?.name;
+      
+      if (newStatusName) {
+        setCards(prevCards => 
+          prevCards.map(card => {
+            if (card.id !== demandId) return card;
+            return {
+              ...card,
+              status: newStatusName,
+              title: payload.title ?? card.title,
+              publish_date: payload.publish_date ?? card.publish_date,
+              publish_time: payload.publish_time ?? card.publish_time,
+              delivery_date: payload.delivery_date ?? card.delivery_date,
+              delivery_time: payload.delivery_time ?? card.delivery_time,
+              due_date: payload.due_date ?? card.due_date,
+              due_time: payload.due_time ?? card.due_time,
+              objective: payload.objective ?? card.objective,
+              observations: payload.observations ?? card.observations,
+              instructions: payload.instructions ?? card.instructions,
+              description: payload.instructions || payload.description || card.description,
+            };
+          })
+        );
+        setSelectedCard(prev => 
+          prev && prev.id === demandId ? { ...prev, status: newStatusName, title: payload.title ?? prev.title } : prev
+        );
+      }
+      
+      return currentColumns; // Don't change columns
+    });
+  }, []);
+
+  // Handle new demands created by other users
+  const handleDemandInsert = useCallback(async (demandId: string, payload: Record<string, any>) => {
+    if (!tenantId) return;
+    // Re-fetch to get full joined data
+    try {
+      const { data, error } = await supabase
+        .from("demands")
+        .select(`
+          *,
+          pipeline_statuses!demands_status_id_fkey (name, color, position),
+          tenant_companies!demands_client_id_fkey (id, fantasy_name, name),
+          period_plans!demands_period_plan_id_fkey (id, operational_status)
+        `)
+        .eq("id", demandId)
+        .maybeSingle();
+
+      if (error || !data) return;
+
+      const statusName = data.pipeline_statuses?.name || "Planejamento";
+      const company = data.tenant_companies;
+      const period = data.period_plans;
+      
+      const newCard: CentralKanbanCard = {
+        id: data.id,
+        title: data.title,
+        description: data.instructions || data.description || null,
+        objective: data.objective || null,
+        instructions: data.instructions || null,
+        observations: data.observations || null,
+        status: statusName,
+        due_date: data.due_date || data.publish_date || new Date().toISOString().split('T')[0],
+        channel: data.channel || null,
+        attachments: (data.attachments as unknown as Attachment[] | null) || [],
+        publish_date: data.publish_date || null,
+        publish_time: data.publish_time || null,
+        tenant_id: data.tenant_id,
+        delivery_date: data.delivery_date || null,
+        due_time: data.due_time || null,
+        delivery_time: data.delivery_time || null,
+        period_plan_id: data.period_plan_id,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        clientName: company?.fantasy_name || company?.name || "Cliente",
+        clientId: company?.id || data.client_id || "",
+        periodPlanId: period?.id || "",
+        isArchived: !!data.archived_at,
+        archived_at: data.archived_at,
+        source: data.source,
+        demand_id: data.id,
+        demand_type: data.demand_type,
+        additional_publish_dates: Array.isArray(data.additional_publish_dates) ? (data.additional_publish_dates as unknown as string[]) : []
+      };
+
+      if (data.archived_at) {
+        setArchivedCards(prev => {
+          if (prev.some(c => c.id === demandId)) return prev;
+          return [...prev, newCard];
+        });
+      } else {
+        setCards(prev => {
+          if (prev.some(c => c.id === demandId)) return prev;
+          return [...prev, newCard];
+        });
+      }
+    } catch (err) {
+      console.error('[Realtime] Error fetching inserted demand:', err);
+    }
+  }, [tenantId]);
+
+  // Handle demands deleted by other users
+  const handleDemandDelete = useCallback((demandId: string) => {
+    setCards(prev => prev.filter(c => c.id !== demandId));
+    setArchivedCards(prev => prev.filter(c => c.id !== demandId));
+    setSelectedCard(prev => {
+      if (prev?.id === demandId) {
+        setIsTaskCardOpen(false);
+        return null;
+      }
+      return prev;
+    });
+  }, []);
+
   useRealtimeAttachments({
     tenantId,
     onAttachmentUpdate: handleRealtimeUpdate,
+    onDemandFullUpdate: handleDemandFullUpdate,
+    onDemandInsert: handleDemandInsert,
+    onDemandDelete: handleDemandDelete,
     enabled: !!tenantId
   });
 

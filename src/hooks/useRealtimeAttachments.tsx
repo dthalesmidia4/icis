@@ -7,7 +7,10 @@ interface UseRealtimeAttachmentsOptions {
   tenantId: string | null;
   periodPlanId?: string | null;
   onAttachmentUpdate?: (itemId: string, attachments: Attachment[]) => void;
-  // Legacy callbacks - kept for backward compatibility, both map to onAttachmentUpdate
+  onDemandFullUpdate?: (demandId: string, payload: Record<string, any>) => void;
+  onDemandInsert?: (demandId: string, payload: Record<string, any>) => void;
+  onDemandDelete?: (demandId: string) => void;
+  // Legacy callbacks - kept for backward compatibility
   onCardUpdate?: (cardId: string, attachments: Attachment[]) => void;
   onDemandUpdate?: (demandId: string, attachments: Attachment[]) => void;
   enabled?: boolean;
@@ -17,13 +20,15 @@ export function useRealtimeAttachments({
   tenantId,
   periodPlanId,
   onAttachmentUpdate,
+  onDemandFullUpdate,
+  onDemandInsert,
+  onDemandDelete,
   onCardUpdate,
   onDemandUpdate,
   enabled = true
 }: UseRealtimeAttachmentsOptions) {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // Unified handler for demand updates (now all items are in demands table)
   const handleDemandChange = useCallback((
     payload: RealtimePostgresChangesPayload<{ [key: string]: any }>
   ) => {
@@ -33,70 +38,59 @@ export function useRealtimeAttachments({
       const attachments = (newData.attachments as Attachment[]) || [];
       const source = newData.source as string;
       
-      console.log('[Realtime] Demand updated:', demandId, 'source:', source, 'attachments:', attachments.length);
+      console.log('[Realtime] Demand updated:', demandId, 'source:', source);
       
-      // Use unified callback if available
+      // Full update callback (includes status_id, title, etc.)
+      onDemandFullUpdate?.(demandId, newData);
+      
+      // Attachment-specific callback
       onAttachmentUpdate?.(demandId, attachments);
       
-      // Legacy support: call appropriate callback based on source
+      // Legacy support
       if (source === 'card') {
         onCardUpdate?.(demandId, attachments);
       } else {
         onDemandUpdate?.(demandId, attachments);
       }
+    } else if (payload.eventType === 'INSERT' && payload.new) {
+      const newData = payload.new;
+      console.log('[Realtime] Demand inserted:', newData.id);
+      onDemandInsert?.(newData.id as string, newData);
+    } else if (payload.eventType === 'DELETE' && payload.old) {
+      const oldData = payload.old;
+      console.log('[Realtime] Demand deleted:', oldData.id);
+      onDemandDelete?.(oldData.id as string);
     }
-  }, [onAttachmentUpdate, onCardUpdate, onDemandUpdate]);
+  }, [onAttachmentUpdate, onDemandFullUpdate, onDemandInsert, onDemandDelete, onCardUpdate, onDemandUpdate]);
 
   useEffect(() => {
     if (!enabled || !tenantId) {
       return;
     }
 
-    // Create unique channel name
     const channelName = periodPlanId 
-      ? `attachments-${tenantId}-${periodPlanId}` 
-      : `attachments-${tenantId}`;
+      ? `realtime-demands-${tenantId}-${periodPlanId}` 
+      : `realtime-demands-${tenantId}`;
 
     console.log('[Realtime] Setting up subscription:', channelName);
 
-    // Create the channel with subscriptions
     const channel = supabase.channel(channelName);
 
-    // Subscribe to demands table updates (unified table now)
-    if (periodPlanId) {
-      // Filtered by period_plan_id for specific period views
-      channel.on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'demands',
-          filter: `period_plan_id=eq.${periodPlanId}`
-        },
-        handleDemandChange
-      );
-    } else {
-      // Subscribe to all updates for tenant (for central views)
-      channel.on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'demands',
-          filter: `tenant_id=eq.${tenantId}`
-        },
-        handleDemandChange
-      );
-    }
+    const filter = periodPlanId
+      ? `period_plan_id=eq.${periodPlanId}`
+      : `tenant_id=eq.${tenantId}`;
 
-    // Subscribe to the channel
+    channel
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'demands', filter }, handleDemandChange)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'demands', filter }, handleDemandChange)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'demands', filter }, handleDemandChange);
+
     channel.subscribe((status) => {
       console.log('[Realtime] Subscription status:', status);
     });
 
     channelRef.current = channel;
 
-    // Cleanup on unmount or dependency change
     return () => {
       console.log('[Realtime] Cleaning up subscription:', channelName);
       if (channelRef.current) {
