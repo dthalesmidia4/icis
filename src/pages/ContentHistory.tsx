@@ -10,10 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Image, LayoutGrid, Video, Film, Calendar, Loader2, Play, Users } from "lucide-react";
+import { Download, Image, LayoutGrid, Video, Film, Calendar, Loader2, Play, Users, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
 interface GeneratedContent {
   id: string;
   content_type: string;
@@ -46,7 +45,7 @@ const isVideoUrl = (url: string) => {
 
 const ContentHistory = () => {
   const navigate = useNavigate();
-  const { selectedClient } = useSelectedClient();
+  const { selectedClient, setSelectedClient } = useSelectedClient();
   const { tenantId } = useTenant();
   const [contents, setContents] = useState<GeneratedContent[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
@@ -55,6 +54,52 @@ const ContentHistory = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewContent, setPreviewContent] = useState<GeneratedContent | null>(null);
 
+  const handleOpenInGenerator = async (content: GeneratedContent) => {
+    // Ensure the correct client is selected
+    const client = clients.find(c => c.id === content.client_id);
+    if (!client) {
+      toast.error("Cliente não encontrado.");
+      return;
+    }
+
+    // Fetch full client data for context
+    const { data: fullClient } = await supabase
+      .from("tenant_companies")
+      .select("id, name, fantasy_name, cnpj_cpf, email, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, mascot_url, tenant_id")
+      .eq("id", content.client_id)
+      .single();
+
+    if (fullClient) {
+      setSelectedClient(fullClient as any);
+    }
+
+    setPreviewOpen(false);
+
+    // Map content_type to the modal to open
+    let openModal: string;
+    if (content.content_type === "post") {
+      openModal = "post";
+    } else if (content.content_type === "carousel") {
+      openModal = "carousel";
+    } else if (content.content_type === "video_storyboard" || content.content_type === "video_scene" || content.content_type === "video") {
+      openModal = "video";
+    } else {
+      openModal = "post";
+    }
+
+    navigate("/client-hub", {
+      state: {
+        openContentFromHistory: {
+          type: openModal,
+          prompt: content.prompt || "",
+          title: content.title || "",
+          metadata: content.metadata,
+          image_urls: content.image_urls,
+          content_type: content.content_type,
+        },
+      },
+    });
+  };
   // Load clients for filter
   useEffect(() => {
     if (!tenantId) return;
@@ -305,11 +350,21 @@ const ContentHistory = () => {
                     </div>
                   </div>
                 )}
-                {previewContent.image_urls.length > 1 && (
-                  <Button variant="outline" className="mt-4 w-full" onClick={() => previewContent.image_urls.forEach((url, i) => handleDownload(url, i))}>
-                    <Download className="w-4 h-4 mr-2" />Baixar Todas ({previewContent.image_urls.length} mídias)
+                <div className="flex gap-3 mt-4">
+                  <Button
+                    variant="default"
+                    className="flex-1"
+                    onClick={() => previewContent && handleOpenInGenerator(previewContent)}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Abrir no Gerador
                   </Button>
-                )}
+                  {previewContent.image_urls.length > 1 && (
+                    <Button variant="outline" className="flex-1" onClick={() => previewContent.image_urls.forEach((url, i) => handleDownload(url, i))}>
+                      <Download className="w-4 h-4 mr-2" />Baixar Todas ({previewContent.image_urls.length})
+                    </Button>
+                  )}
+                </div>
               </>
             )}
           </DialogContent>
