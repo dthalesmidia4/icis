@@ -15,6 +15,7 @@ export const HUB_SECTIONS = [
   { id: 'financeiro', label: 'Financeiro', description: 'Gestão financeira da agência' },
   { id: 'logins-plataformas', label: 'Logins das Plataformas', description: 'Credenciais das plataformas dos clientes' },
   { id: 'dev-hub', label: 'Hub de Desenvolvimento', description: 'Ferramentas de desenvolvimento' },
+  { id: 'reprovada-cliente', label: 'Demanda Reprovada pelo Cliente', description: 'Gestão de demandas reprovadas pelo cliente' },
 ] as const;
 
 // Botões dentro do Hub do Cliente que podem ter permissões controladas
@@ -25,7 +26,6 @@ export const CLIENT_HUB_BUTTONS = [
   { id: 'client_planejar_periodo', label: 'Planejar Período', description: 'Planejamento de períodos' },
   { id: 'client_aprovar_producao', label: 'Aprovar Produção', description: 'Aprovação de demandas' },
   { id: 'client_demandas_reprovadas', label: 'Demandas Reprovadas', description: 'Visualização de demandas reprovadas' },
-  { id: 'client_reprovada_cliente', label: 'Demanda Reprovada pelo Cliente', description: 'Gestão de demandas reprovadas pelo cliente' },
   { id: 'client_cronograma_atual', label: 'Cronograma Atual', description: 'Cronograma do período atual' },
   { id: 'client_historico', label: 'Histórico de Períodos', description: 'Histórico de períodos anteriores' },
   { id: 'client_identidade_visual', label: 'Identidade Visual', description: 'Gestão da identidade visual' },

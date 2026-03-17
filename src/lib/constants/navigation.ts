@@ -9,6 +9,7 @@ import {
   FilePlus2,
   DollarSign,
   KeyRound,
+  MessageSquareX,
 } from "lucide-react";
 import type { HubSectionId } from "@/hooks/useHubPermissions";
 
@@ -21,6 +22,8 @@ export interface NavigationItem {
   requiresAgency?: boolean;
   /** When true, Home will open the client selection modal instead of navigating */
   opensClientModal?: boolean;
+  /** When true, Home will open the rejected-by-client flow */
+  opensRejectedByClientModal?: boolean;
 }
 
 /**
@@ -58,6 +61,13 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     title: "Demandas Completas",
     icon: CheckCircle2,
     route: "/demandas-completas",
+  },
+  {
+    id: 'reprovada-cliente',
+    title: "Demanda Reprovada pelo Cliente",
+    icon: MessageSquareX,
+    route: "",
+    opensRejectedByClientModal: true,
   },
   {
     id: 'minha-empresa',
