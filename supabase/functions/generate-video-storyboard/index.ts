@@ -21,10 +21,21 @@ Deno.serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
+    // Fetch OpenAI API key from api_keys table
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: openaiKeyData } = await supabase
+      .from("api_keys")
+      .select("key_value")
+      .eq("key_name", "OPENAI_API_KEY")
+      .single();
+
+    const OPENAI_API_KEY = openaiKeyData?.key_value;
+    if (!OPENAI_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }),
+        JSON.stringify({ error: "OPENAI_API_KEY não encontrada na tabela api_keys" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
