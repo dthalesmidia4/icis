@@ -813,9 +813,34 @@ const ClientHub = () => {
               </div>
             </div>
 
-            <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" disabled={manualSlides.every(s => !s.text.trim())}
-              onClick={() => { setManualCarouselOpen(false); toast.info("Geração de Post em breve!"); }}>
-              <Clapperboard className="w-4 h-4 mr-2" />Gerar Post
+            <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" disabled={manualSlides.every(s => !s.text.trim()) || generatingCarouselImages}
+              onClick={async () => {
+                const validSlides = manualSlides.filter(s => s.text.trim());
+                if (validSlides.length === 0) return;
+                setCarouselSlides(validSlides);
+                setManualCarouselOpen(false);
+                setCarouselGeneratedImages([]);
+                setGeneratingCarouselImages(true);
+                setCarouselImageProgress(`Gerando ${validSlides.length} imagens... Isso pode levar alguns minutos.`);
+                setAiCarouselModalOpen(true);
+                setCarouselStep(2);
+                try {
+                  const selectedMascotUrls = mascotImages.filter(m => selectedMascotIds.includes(m.id)).map(m => m.image_url);
+                  const { data, error } = await supabase.functions.invoke('generate-carousel-images', {
+                    body: { slides: validSlides, aspectRatio: '1:1', aiModel: 'nanobanana3', presetId: selectedPresetId, mascotImageUrls: selectedMascotUrls, clientId: selectedClient.id, tenantId },
+                  });
+                  if (error) { console.error('Edge function error:', error); toast.error('Erro ao gerar imagens do carrossel.'); return; }
+                  if (data?.error) { toast.error(data.error); if (data.partialImages?.length > 0) setCarouselGeneratedImages(data.partialImages); return; }
+                  if (data?.images && Array.isArray(data.images)) {
+                    setCarouselGeneratedImages(data.images);
+                    toast.success(`${data.totalGenerated}/${data.totalRequested} imagens geradas com sucesso!`);
+                    const urls = data.images.map((img: any) => img.imageUrl).filter(Boolean);
+                    if (urls.length > 0) await saveGeneratedContent('carousel', 'Carrossel Manual', 'Manual', urls);
+                  } else { toast.error('Nenhuma imagem retornada.'); }
+                } catch (err) { console.error('Generate carousel images error:', err); toast.error('Erro inesperado ao gerar imagens.'); }
+                finally { setGeneratingCarouselImages(false); setCarouselImageProgress(''); }
+              }}>
+              {generatingCarouselImages ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />Gerar Imagens do Carrossel</>)}
             </Button>
           </DialogContent>
         </Dialog>
