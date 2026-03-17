@@ -350,11 +350,21 @@ const ContentHistory = () => {
                     </div>
                   </div>
                 )}
-                {previewContent.image_urls.length > 1 && (
-                  <Button variant="outline" className="mt-4 w-full" onClick={() => previewContent.image_urls.forEach((url, i) => handleDownload(url, i))}>
-                    <Download className="w-4 h-4 mr-2" />Baixar Todas ({previewContent.image_urls.length} mídias)
+                <div className="flex gap-3 mt-4">
+                  <Button
+                    variant="default"
+                    className="flex-1"
+                    onClick={() => previewContent && handleOpenInGenerator(previewContent)}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Abrir no Gerador
                   </Button>
-                )}
+                  {previewContent.image_urls.length > 1 && (
+                    <Button variant="outline" className="flex-1" onClick={() => previewContent.image_urls.forEach((url, i) => handleDownload(url, i))}>
+                      <Download className="w-4 h-4 mr-2" />Baixar Todas ({previewContent.image_urls.length})
+                    </Button>
+                  )}
+                </div>
               </>
             )}
           </DialogContent>
