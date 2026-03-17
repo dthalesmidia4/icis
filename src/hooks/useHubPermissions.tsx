@@ -15,6 +15,7 @@ export const HUB_SECTIONS = [
   { id: 'financeiro', label: 'Financeiro', description: 'Gestão financeira da agência' },
   { id: 'logins-plataformas', label: 'Logins das Plataformas', description: 'Credenciais das plataformas dos clientes' },
   { id: 'dev-hub', label: 'Hub de Desenvolvimento', description: 'Ferramentas de desenvolvimento' },
+  { id: 'reprovada-cliente', label: 'Demanda Reprovada pelo Cliente', description: 'Gestão de demandas reprovadas pelo cliente' },
 ] as const;
 
 // Botões dentro do Hub do Cliente que podem ter permissões controladas
