@@ -45,7 +45,7 @@ const isVideoUrl = (url: string) => {
 
 const ContentHistory = () => {
   const navigate = useNavigate();
-  const { selectedClient } = useSelectedClient();
+  const { selectedClient, setSelectedClient } = useSelectedClient();
   const { tenantId } = useTenant();
   const [contents, setContents] = useState<GeneratedContent[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
@@ -54,6 +54,52 @@ const ContentHistory = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewContent, setPreviewContent] = useState<GeneratedContent | null>(null);
 
+  const handleOpenInGenerator = async (content: GeneratedContent) => {
+    // Ensure the correct client is selected
+    const client = clients.find(c => c.id === content.client_id);
+    if (!client) {
+      toast.error("Cliente não encontrado.");
+      return;
+    }
+
+    // Fetch full client data for context
+    const { data: fullClient } = await supabase
+      .from("tenant_companies")
+      .select("id, name, fantasy_name, cnpj_cpf, email, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, mascot_url, tenant_id")
+      .eq("id", content.client_id)
+      .single();
+
+    if (fullClient) {
+      setSelectedClient(fullClient as any);
+    }
+
+    setPreviewOpen(false);
+
+    // Map content_type to the modal to open
+    let openModal: string;
+    if (content.content_type === "post") {
+      openModal = "post";
+    } else if (content.content_type === "carousel") {
+      openModal = "carousel";
+    } else if (content.content_type === "video_storyboard" || content.content_type === "video_scene" || content.content_type === "video") {
+      openModal = "video";
+    } else {
+      openModal = "post";
+    }
+
+    navigate("/client-hub", {
+      state: {
+        openContentFromHistory: {
+          type: openModal,
+          prompt: content.prompt || "",
+          title: content.title || "",
+          metadata: content.metadata,
+          image_urls: content.image_urls,
+          content_type: content.content_type,
+        },
+      },
+    });
+  };
   // Load clients for filter
   useEffect(() => {
     if (!tenantId) return;
