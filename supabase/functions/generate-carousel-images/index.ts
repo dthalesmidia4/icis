@@ -13,7 +13,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { slides, aspectRatio, aiModel, presetId, mascotImageUrls, clientId, tenantId } = await req.json();
+    const { slides, allSlides, batchOffset, aspectRatio, aiModel, presetId, mascotImageUrls, clientId, tenantId } = await req.json();
+    const contextSlides = allSlides || slides;
+    const slideOffset = batchOffset || 0;
 
     if (!slides || !Array.isArray(slides) || slides.length === 0 || !clientId || !tenantId) {
       return new Response(
@@ -140,8 +142,8 @@ Deno.serve(async (req) => {
     // 5. Generate images one by one
     for (let i = 0; i < slides.length; i++) {
       const slide = slides[i];
-      const slideNumber = i + 1;
-      const totalSlides = slides.length;
+      const slideNumber = slideOffset + i + 1;
+      const totalSlides = contextSlides.length;
 
       const imagePrompt = `
 ${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}Crie uma imagem profissional para o SLIDE ${slideNumber} de ${totalSlides} de um carrossel para rede social.
@@ -152,7 +154,7 @@ TEXTO DESTE SLIDE:
 TIPO DO SLIDE: ${slide.label}
 
 CONTEXTO DO CARROSSEL COMPLETO:
-${slides.map((s: any, idx: number) => `Slide ${idx + 1} (${s.label}): "${s.text}"`).join("\n")}
+${contextSlides.map((s: any, idx: number) => `Slide ${idx + 1} (${s.label}): "${s.text}"`).join("\n")}
 
 BRANDING:
 - Cor primária: ${presetColors.primary}
