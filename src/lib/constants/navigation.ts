@@ -70,6 +70,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     opensRejectedByClientModal: true,
   },
   {
+    id: 'minha-empresa',
     title: "Minha Empresa",
     icon: Briefcase,
     route: "/minha-empresa",
