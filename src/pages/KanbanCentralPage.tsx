@@ -285,7 +285,7 @@ const KanbanCentralPage = () => {
         source: data.source,
         demand_id: data.id,
         demand_type: data.demand_type,
-        additional_publish_dates: Array.isArray(data.additional_publish_dates) ? data.additional_publish_dates : []
+        additional_publish_dates: Array.isArray(data.additional_publish_dates) ? (data.additional_publish_dates as unknown as string[]) : []
       };
 
       if (data.archived_at) {
