@@ -1482,6 +1482,110 @@ const ClientHub = () => {
             </div>
           </DialogContent>
         </Dialog>
+        {/* Modal Demanda Reprovada pelo Cliente - Step 1: Select Client */}
+        <Dialog open={rejectedByClientStep === 1} onOpenChange={(open) => { if (!open) setRejectedByClientStep(0); }}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold text-center">Qual cliente reprovou a demanda?</DialogTitle>
+            </DialogHeader>
+            <div className="py-2">
+              <input
+                type="text"
+                placeholder="Buscar cliente..."
+                value={rejectedByClientSearch}
+                onChange={(e) => setRejectedByClientSearch(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 mb-4"
+              />
+              {rejectedByClientLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+              ) : (
+                <div className="max-h-[400px] overflow-y-auto space-y-2">
+                  {rejectedByClientClients
+                    .filter(c => {
+                      const s = rejectedByClientSearch.toLowerCase();
+                      return !s || (c.fantasy_name || c.name).toLowerCase().includes(s);
+                    })
+                    .map(client => (
+                      <div
+                        key={client.id}
+                        className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-accent transition-colors"
+                        onClick={() => handleRejectedByClientSelectClient(client)}
+                      >
+                        {client.logo_url ? (
+                          <img src={client.logo_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center"><User className="w-5 h-5 text-muted-foreground" /></div>
+                        )}
+                        <span className="font-medium">{client.fantasy_name || client.name}</span>
+                      </div>
+                    ))}
+                  {rejectedByClientClients.filter(c => {
+                    const s = rejectedByClientSearch.toLowerCase();
+                    return !s || (c.fantasy_name || c.name).toLowerCase().includes(s);
+                  }).length === 0 && !rejectedByClientLoading && (
+                    <p className="text-center text-muted-foreground py-8">Nenhum cliente encontrado.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal Demanda Reprovada pelo Cliente - Step 2: Select Demand */}
+        <Dialog open={rejectedByClientStep === 2} onOpenChange={(open) => { if (!open) setRejectedByClientStep(0); }}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setRejectedByClientStep(1)} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                <DialogTitle className="text-2xl font-bold">Qual demanda foi reprovada?</DialogTitle>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Selecione a demanda de <span className="font-semibold text-foreground">{rejectedByClientSelectedClient?.fantasy_name || rejectedByClientSelectedClient?.name}</span> que foi reprovada pelo cliente.
+              </p>
+            </DialogHeader>
+            <div className="py-2">
+              {rejectedByClientLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+              ) : rejectedByClientDemands.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">Nenhuma demanda encontrada no período em andamento.</p>
+              ) : (
+                <>
+                  <div className="max-h-[400px] overflow-y-auto space-y-2">
+                    {rejectedByClientDemands.map(demand => (
+                      <div
+                        key={demand.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${rejectedByClientSelectedDemandId === demand.id ? 'border-primary bg-primary/10' : 'hover:bg-accent'}`}
+                        onClick={() => setRejectedByClientSelectedDemandId(demand.id)}
+                      >
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${rejectedByClientSelectedDemandId === demand.id ? 'border-primary bg-primary' : 'border-muted-foreground/30'}`}>
+                          {rejectedByClientSelectedDemandId === demand.id && <Check className="w-3 h-3 text-primary-foreground" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{demand.title}</p>
+                          <div className="flex gap-2 text-xs text-muted-foreground mt-0.5">
+                            {demand.demand_type && <span>{demand.demand_type}</span>}
+                            {demand.channel && <span>• {demand.channel}</span>}
+                            {demand.publish_date && <span>• {new Date(demand.publish_date + 'T00:00:00').toLocaleDateString('pt-BR')}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <Button
+                      disabled={!rejectedByClientSelectedDemandId}
+                      onClick={() => {
+                        toast.info('Funcionalidade em desenvolvimento.');
+                      }}
+                    >
+                      Prosseguir
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
