@@ -190,12 +190,17 @@ const KanbanCentralPage = () => {
     );
   }, []);
 
-  // Handle full demand updates (status changes, title changes, etc.)
   const handleDemandFullUpdate = useCallback((demandId: string, payload: Record<string, any>) => {
     const newStatusId = payload.status_id as string;
     const newArchivedAt = payload.archived_at;
     
-    // Look up status name from columns
+    // Handle archive: remove from active cards
+    if (newArchivedAt) {
+      setCards(prev => prev.filter(c => c.id !== demandId));
+      return;
+    }
+    
+    // Look up status name from columns state
     setColumns(currentColumns => {
       const statusCol = currentColumns.find(col => col.id === newStatusId);
       const newStatusName = statusCol?.name;
@@ -221,19 +226,14 @@ const KanbanCentralPage = () => {
             };
           })
         );
+        setSelectedCard(prev => 
+          prev && prev.id === demandId ? { ...prev, status: newStatusName, title: payload.title ?? prev.title } : prev
+        );
       }
       
-      // Handle archive/unarchive
-      if (newArchivedAt && !prevCards_hasArchived(demandId)) {
-        setCards(prev => prev.filter(c => c.id !== demandId));
-      }
-      
-      return currentColumns; // Don't actually change columns
+      return currentColumns; // Don't change columns
     });
   }, []);
-
-  // Helper to avoid stale closure - we check inside setColumns callback
-  const prevCards_hasArchived = useCallback((_id: string) => false, []);
 
   // Handle new demands created by other users
   const handleDemandInsert = useCallback(async (demandId: string, payload: Record<string, any>) => {
