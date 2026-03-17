@@ -21,17 +21,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
+    // Fetch OpenAI API key from api_keys table
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: openaiKeyData } = await supabase
+      .from("api_keys")
+      .select("key_value")
+      .eq("key_name", "OPENAI_API_KEY")
+      .single();
+
+    const OPENAI_API_KEY = openaiKeyData?.key_value;
+    if (!OPENAI_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }),
+        JSON.stringify({ error: "OPENAI_API_KEY não encontrada na tabela api_keys" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // supabase client already created above
 
     // 1. Fetch client branding
     const { data: client } = await supabase
@@ -126,15 +135,15 @@ LEMBRE-SE:
 
     console.log(`Generating video storyboard: ${sceneCount} scenes for "${idea.substring(0, 50)}..."`);
 
-    // 7. Call Lovable AI Gateway with tool calling
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // 7. Call OpenAI API directly with tool calling
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openai/gpt-5-mini",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -173,7 +182,7 @@ LEMBRE-SE:
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
+      console.error("OpenAI API error:", response.status, errorText);
 
       if (response.status === 429) {
         return new Response(
@@ -181,15 +190,9 @@ LEMBRE-SE:
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Créditos insuficientes. Adicione créditos ao workspace." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
 
       return new Response(
-        JSON.stringify({ error: `Erro do gateway de IA: ${response.status}` }),
+        JSON.stringify({ error: `Erro da API OpenAI: ${response.status}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
