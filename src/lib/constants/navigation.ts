@@ -9,6 +9,7 @@ import {
   FilePlus2,
   DollarSign,
   KeyRound,
+  MessageSquareX,
 } from "lucide-react";
 import type { HubSectionId } from "@/hooks/useHubPermissions";
 
