@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 const ClientHub = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { selectedClient, isInitialized } = useSelectedClient();
   const { tenantId } = useTenant();
   const { canAccess: canAccessButton } = useHubPermissions();
