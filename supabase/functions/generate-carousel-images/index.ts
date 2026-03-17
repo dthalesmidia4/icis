@@ -13,7 +13,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { slides, aspectRatio, aiModel, presetId, mascotImageUrls, clientId, tenantId } = await req.json();
+    const { slides, allSlides, batchOffset, aspectRatio, aiModel, presetId, mascotImageUrls, clientId, tenantId } = await req.json();
+    const contextSlides = allSlides || slides;
+    const slideOffset = batchOffset || 0;
 
     if (!slides || !Array.isArray(slides) || slides.length === 0 || !clientId || !tenantId) {
       return new Response(
