@@ -22,6 +22,8 @@ export interface NavigationItem {
   requiresAgency?: boolean;
   /** When true, Home will open the client selection modal instead of navigating */
   opensClientModal?: boolean;
+  /** When true, Home will open the rejected-by-client flow */
+  opensRejectedByClientModal?: boolean;
 }
 
 /**
