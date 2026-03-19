@@ -27,7 +27,6 @@ import DevWebhooks from "./pages/DevWebhooks";
 import Financial from "./pages/Financial";
 import BillsList from "./pages/BillsList";
 import ToolExpenses from "./pages/ToolExpenses";
-import BillsDueByDate from "./pages/BillsDueByDate";
 import PlatformLogins from "./pages/PlatformLogins";
 
 import PlanPeriod from "./pages/PlanPeriod";
@@ -345,15 +344,6 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <BillsList />
-            </Layout>
-          </RequireTenant>
-        </ProtectedRoute>
-      } />
-      <Route path="/financeiro/vencimentos" element={
-        <ProtectedRoute>
-          <RequireTenant>
-            <Layout>
-              <BillsDueByDate />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>

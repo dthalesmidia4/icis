@@ -1,60 +1,30 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Receipt, Wrench, CalendarClock, CalendarPlus, ClipboardList } from "lucide-react";
+import { Receipt, Wrench } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import BackButton from "@/components/BackButton";
 import NewBillModal from "@/components/NewBillModal";
-import { format, addDays } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 const Financial = () => {
   const [billsModalOpen, setBillsModalOpen] = useState(false);
   const [newBillModalOpen, setNewBillModalOpen] = useState(false);
   const navigate = useNavigate();
 
-  const today = new Date();
-  const tomorrow = addDays(today, 1);
-  const todayDisplay = format(today, "dd/MM", { locale: ptBR });
-  const tomorrowDisplay = format(tomorrow, "dd/MM", { locale: ptBR });
-
   const handleNewBill = () => {
     setBillsModalOpen(false);
     setNewBillModalOpen(true);
   };
 
+  const handleViewBills = () => {
+    setBillsModalOpen(false);
+    navigate("/financeiro/contas");
+  };
+
   const hubCards = [
-    {
-      title: "Contas a Pagar",
-      subtitle: "Cadastrar nova conta",
-      icon: Receipt,
-      onClick: () => setBillsModalOpen(true),
-    },
-    {
-      title: "Ver Contas",
-      subtitle: "Todas as contas cadastradas",
-      icon: ClipboardList,
-      onClick: () => navigate("/financeiro/contas"),
-    },
-    {
-      title: `Contas que vencem hoje (${todayDisplay})`,
-      subtitle: "Vencimentos do dia",
-      icon: CalendarClock,
-      onClick: () => navigate("/financeiro/vencimentos?offset=0"),
-    },
-    {
-      title: `Contas que vencem amanhã (${tomorrowDisplay})`,
-      subtitle: "Vencimentos de amanhã",
-      icon: CalendarPlus,
-      onClick: () => navigate("/financeiro/vencimentos?offset=1"),
-    },
-    {
-      title: "Controle de Gasto de Ferramentas",
-      subtitle: "Assinaturas e ferramentas",
-      icon: Wrench,
-      onClick: () => navigate("/financeiro/gastos-ferramentas"),
-    },
+    { title: "Contas a Pagar", icon: Receipt, onClick: () => setBillsModalOpen(true) },
+    { title: "Controle de Gasto de Ferramentas", icon: Wrench, onClick: () => navigate("/financeiro/gastos-ferramentas") },
   ];
 
   return (
@@ -87,11 +57,6 @@ const Financial = () => {
                 <h3 className="text-base sm:text-xl font-bold transition-colors text-primary">
                   {card.title}
                 </h3>
-                {card.subtitle && (
-                  <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                    {card.subtitle}
-                  </p>
-                )}
               </div>
             </Card>
           ))}
@@ -106,6 +71,9 @@ const Financial = () => {
           <div className="flex flex-col gap-3 pt-2">
             <Button onClick={handleNewBill} className="w-full h-12 text-base">
               Nova Conta
+            </Button>
+            <Button onClick={handleViewBills} variant="outline" className="w-full h-12 text-base">
+              Ver Contas
             </Button>
           </div>
         </DialogContent>
