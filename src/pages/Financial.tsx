@@ -1,29 +1,34 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Receipt, Wrench } from "lucide-react";
+import { Receipt, Wrench, CalendarCheck, CalendarClock, List } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import BackButton from "@/components/BackButton";
 import NewBillModal from "@/components/NewBillModal";
+import { format, addDays } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const Financial = () => {
   const [billsModalOpen, setBillsModalOpen] = useState(false);
   const [newBillModalOpen, setNewBillModalOpen] = useState(false);
   const navigate = useNavigate();
 
+  const today = new Date();
+  const tomorrow = addDays(today, 1);
+  const todayDisplay = format(today, "dd/MM", { locale: ptBR });
+  const tomorrowDisplay = format(tomorrow, "dd/MM", { locale: ptBR });
+
   const handleNewBill = () => {
     setBillsModalOpen(false);
     setNewBillModalOpen(true);
   };
 
-  const handleViewBills = () => {
-    setBillsModalOpen(false);
-    navigate("/financeiro/contas");
-  };
-
   const hubCards = [
     { title: "Contas a Pagar", icon: Receipt, onClick: () => setBillsModalOpen(true) },
+    { title: "Ver Contas", icon: List, onClick: () => navigate("/financeiro/contas") },
+    { title: `Contas que vencem hoje ${todayDisplay}`, icon: CalendarCheck, onClick: () => navigate("/financeiro/vencimento/0") },
+    { title: `Contas que vencem amanhã ${tomorrowDisplay}`, icon: CalendarClock, onClick: () => navigate("/financeiro/vencimento/1") },
     { title: "Controle de Gasto de Ferramentas", icon: Wrench, onClick: () => navigate("/financeiro/gastos-ferramentas") },
   ];
 
@@ -71,9 +76,6 @@ const Financial = () => {
           <div className="flex flex-col gap-3 pt-2">
             <Button onClick={handleNewBill} className="w-full h-12 text-base">
               Nova Conta
-            </Button>
-            <Button onClick={handleViewBills} variant="outline" className="w-full h-12 text-base">
-              Ver Contas
             </Button>
           </div>
         </DialogContent>

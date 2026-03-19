@@ -26,6 +26,7 @@ import DevApis from "./pages/DevApis";
 import DevWebhooks from "./pages/DevWebhooks";
 import Financial from "./pages/Financial";
 import BillsList from "./pages/BillsList";
+import BillsDueByDate from "./pages/BillsDueByDate";
 import ToolExpenses from "./pages/ToolExpenses";
 import PlatformLogins from "./pages/PlatformLogins";
 
@@ -344,6 +345,15 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <BillsList />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/financeiro/vencimento/:offset" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <BillsDueByDate />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>
