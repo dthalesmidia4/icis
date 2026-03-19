@@ -349,6 +349,15 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      <Route path="/financeiro/vencimento/:offset" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <BillsDueByDate />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
       <Route path="/financeiro/gastos-ferramentas" element={
         <ProtectedRoute>
           <RequireTenant>
