@@ -114,10 +114,15 @@ const ApproveCards = () => {
 
       if (error) throw error;
 
-      // Always pick the most recent period (ordered by created_at DESC)
+      // Pick the most recent period that has generated plans; fallback to latest overall
       let bestPeriod: PeriodData | null = null;
       if (periods && periods.length > 0) {
-        bestPeriod = periods[0] as PeriodData;
+        const withPlans = periods.find(p => {
+          const dp = Array.isArray(p.default_plan) ? p.default_plan : [];
+          const up = Array.isArray(p.ultra_plan) ? p.ultra_plan : [];
+          return dp.length > 0 || up.length > 0;
+        });
+        bestPeriod = (withPlans || periods[0]) as PeriodData;
       }
 
       setPeriod(bestPeriod);
