@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
+import JSZip from "jszip";
 import { Card } from "@/components/ui/card";
 import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play, ChevronLeft, ChevronRight, ScrollText } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
@@ -1398,12 +1399,28 @@ const ClientHub = () => {
                     Voltar
                   </Button>
                   {videoScenes.some(s => s.video_url) && (
-                    <Button variant="outline" className="h-11 text-sm font-semibold flex-1" onClick={() => {
-                      videoScenes.forEach((s, idx) => {
-                        if (s.video_url) {
-                          const link = document.createElement('a'); link.href = s.video_url; link.download = `scene-${idx + 1}-${Date.now()}.mp4`; link.click();
-                        }
-                      });
+                    <Button variant="outline" className="h-11 text-sm font-semibold flex-1" onClick={async () => {
+                      try {
+                        toast.info('Preparando ZIP com todas as cenas...');
+                        const zip = new JSZip();
+                        const scenesWithVideo = videoScenes.filter(s => s.video_url);
+                        await Promise.all(scenesWithVideo.map(async (s, idx) => {
+                          const response = await fetch(s.video_url!);
+                          const blob = await response.blob();
+                          zip.file(`cena-${idx + 1}.mp4`, blob);
+                        }));
+                        const zipBlob = await zip.generateAsync({ type: 'blob' });
+                        const url = URL.createObjectURL(zipBlob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `videos-${selectedClient?.name || 'cliente'}-${Date.now()}.zip`;
+                        link.click();
+                        URL.revokeObjectURL(url);
+                        toast.success('ZIP baixado com sucesso!');
+                      } catch (err) {
+                        console.error(err);
+                        toast.error('Erro ao gerar ZIP');
+                      }
                     }}>
                       <Download className="w-4 h-4 mr-2" />Baixar Todos
                     </Button>
