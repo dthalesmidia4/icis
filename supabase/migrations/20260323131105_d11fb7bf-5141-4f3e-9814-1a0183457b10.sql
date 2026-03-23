@@ -1,0 +1,1 @@
+DELETE FROM period_plans WHERE id = 'aa485a51-8b1d-4b28-bab3-d1d59b675155';
