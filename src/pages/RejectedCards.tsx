@@ -99,10 +99,11 @@ const RejectedCards = () => {
       if (savedPeriodId) {
         const saved = (periods || []).find(p => p.id === savedPeriodId);
         if (saved) {
-          bestPeriod = {
-            ...saved,
-            rejected_plan: Array.isArray((saved as any).rejected_plan) ? (saved as any).rejected_plan : [],
-          } as PeriodData;
+          const rp = Array.isArray((saved as any).rejected_plan) ? (saved as any).rejected_plan : [];
+          // Only use saved period if it actually has rejected cards
+          if (rp.length > 0) {
+            bestPeriod = { ...saved, rejected_plan: rp } as PeriodData;
+          }
         }
       }
 
