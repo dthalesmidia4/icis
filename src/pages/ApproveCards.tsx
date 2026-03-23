@@ -114,19 +114,9 @@ const ApproveCards = () => {
 
       if (error) throw error;
 
-      // Priority 1: first (most recent) period with plans in JSON
+      // Always pick the most recent period (ordered by created_at DESC)
       let bestPeriod: PeriodData | null = null;
-      for (const p of (periods || [])) {
-        const dp = Array.isArray(p.default_plan) ? p.default_plan : [];
-        const up = Array.isArray(p.ultra_plan) ? p.ultra_plan : [];
-        if (dp.length > 0 || up.length > 0) {
-          bestPeriod = p as PeriodData;
-          break;
-        }
-      }
-
-      // Priority 2: latest period
-      if (!bestPeriod && periods && periods.length > 0) {
+      if (periods && periods.length > 0) {
         bestPeriod = periods[0] as PeriodData;
       }
 
