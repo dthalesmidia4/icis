@@ -479,6 +479,8 @@ export default function TaskCard({
 
   const handleGenerateImages = async () => {
     if (!card) return;
+    // Guard against concurrent generation
+    if (generatingImages || regeneratingAll) return;
     setGeneratingImages(true);
 
     try {
@@ -494,22 +496,32 @@ export default function TaskCard({
         return;
       }
 
-      toast.success(isCarousel 
-        ? "Carrossel gerado com sucesso!" 
-        : `${data?.generated || 0} imagem(ns) gerada(s) com sucesso!`);
+      if (isCarousel) {
+        const archivedMsg = data?.archivedSlides > 0 
+          ? ` (${data.archivedSlides} slides anteriores movidos para histórico)` 
+          : "";
+        toast.success(`Carrossel gerado com sucesso!${archivedMsg}`);
+      } else {
+        toast.success(`${data?.generated || 0} imagem(ns) gerada(s) com sucesso!`);
+      }
 
       // Refetch demand to get updated attachments
       const { data: updatedDemand } = await supabase
         .from("demands")
-        .select("attachments")
+        .select("attachments, rejected_attachments")
         .eq("id", card.id)
         .single();
       if (updatedDemand) {
-        onCardChange({ ...card, attachments: updatedDemand.attachments as unknown as Attachment[] });
+        onCardChange({ 
+          ...card, 
+          attachments: updatedDemand.attachments as unknown as Attachment[],
+          rejected_attachments: updatedDemand.rejected_attachments as any,
+        });
       }
     } catch (error: any) {
       console.error("Error generating images:", error);
-      toast.error(error.message || "Erro ao gerar imagens");
+      const msg = error?.message || "Erro ao gerar imagens";
+      toast.error(msg.includes("non-2xx") ? "Erro na geração. Tente novamente em alguns segundos." : msg);
     } finally {
       setGeneratingImages(false);
       setGenerationProgress(null);
