@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
       .from("system_prompts")
       .select("prompt_content")
       .eq("tenant_id", demand.tenant_id)
-      .eq("prompt_key", "generate_posts_prompt")
+      .eq("prompt_key", "generate_carousel_prompt")
       .single();
 
     const basePrompt = promptData?.prompt_content || "";
@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
 
     const systemPrompt = `Você é um copywriter especialista em marketing digital. Crie textos para carrosséis.
 
-${strategyText ? "ESTRATÉGIA:\n" + strategyText + "\n\n" : ""}CLIENTE: ${brandName} | ${client?.sector || "N/A"} | ${client?.products_services || "N/A"}
+${basePrompt ? "DIRETRIZES DO SISTEMA (PROMPT DO CARROSSEL):\n" + basePrompt + "\n\n" : ""}${strategyText ? "ESTRATÉGIA:\n" + strategyText + "\n\n" : ""}CLIENTE: ${brandName} | ${client?.sector || "N/A"} | ${client?.products_services || "N/A"}
 ${mascotInfo}
 ${contentReqsSection}
 REGRAS:
@@ -173,7 +173,7 @@ REGRAS:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "o4-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
