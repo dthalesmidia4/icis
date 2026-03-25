@@ -277,21 +277,11 @@ CONTEÚDO COMPLETO DO CARD:
 ${cardContent}`;
           })();
 
-      const isFirstSlide = slide.slideNumber === 1;
-      const firstSlideInstruction = isFirstSlide && totalSlidesForPrompt > 1
-        ? `\nIMPORTANTE - SLIDE DE ABERTURA (GANCHO):
-- Este é o PRIMEIRO slide de um carrossel. Ele DEVE funcionar como um GANCHO de atenção.
-- O texto deve ser curto, impactante e provocativo para fazer o usuário parar o scroll e continuar lendo.
-- Use tipografia GRANDE, BOLD e centralizada para máximo impacto visual.
-- O design deve ser visualmente marcante e criar curiosidade imediata.
-- NÃO coloque informações detalhadas neste slide — apenas a frase de atração.\n`
-        : "";
-
       const imagePrompt = `
 ${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${contentReqsSection}Crie uma imagem profissional de post para rede social.
 
 ${slideContentSection}
-${firstSlideInstruction}
+
 BRANDING:
 - Marca: "${brandName}" | ${client?.sector || "N/A"} | ${client?.products_services || "N/A"}
 - Cor primária: ${presetColors.primary}
