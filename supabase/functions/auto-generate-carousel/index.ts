@@ -91,6 +91,33 @@ Deno.serve(async (req) => {
       .eq("id", demand.client_id)
       .single();
 
+    // 3b. Fetch visual identity preset (4 colors + font)
+    let presetColors = {
+      primary: client?.brand_primary_color || "#000000",
+      secondary: client?.brand_secondary_color || "#FFFFFF",
+      highlight: null as string | null,
+      text: null as string | null,
+      font: client?.brand_font || "Montserrat",
+    };
+
+    const { data: viPreset } = await supabase
+      .from("visual_identity_presets")
+      .select("primary_color, secondary_color, highlight_color, text_color, font_name")
+      .eq("company_id", demand.client_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (viPreset) {
+      presetColors = {
+        primary: viPreset.primary_color || presetColors.primary,
+        secondary: viPreset.secondary_color || presetColors.secondary,
+        highlight: viPreset.highlight_color,
+        text: viPreset.text_color,
+        font: viPreset.font_name || presetColors.font,
+      };
+    }
+
     const brandName = client?.fantasy_name || client?.name || "Marca";
 
     // 4. Fetch mascot images (limit to 1 to save memory)
@@ -256,8 +283,10 @@ REGRAS:
     console.log(`Step 2: Generating ${slides.length} slide images via Gemini 3 Pro Image...`);
 
     const mascotSection = mascotImageUrl
-      ? `MASCOTE: ${client?.mascot_description || "Reproduza fielmente o mascote da referência."}`
-      : `NÃO inclua personagens ou figuras humanas.`;
+      ? `MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""} OBRIGATÓRIO: Reproduza o mascote EXATAMENTE como na imagem de referência — mesma aparência, cabelo, roupa, proporções. O mascote DEVE aparecer integrado ao design como protagonista visual.`
+      : client?.has_mascot
+        ? `A marca possui um mascote (${client?.mascot_description || "sem descrição"}), mas nenhuma imagem de referência está disponível. Tente incluí-lo baseado na descrição.`
+        : `NÃO inclua personagens ou figuras humanas.`;
 
     // Fetch mascot image ONCE, keep reference
     let mascotInline: { mimeType: string; data: string } | null = null;
@@ -294,9 +323,25 @@ REGRAS:
 
 TEXTO: "${slide.text}" (${slide.label})
 CONTEXTO: ${slideContext}
-CORES: ${client?.brand_primary_color || "#000"} / ${client?.brand_secondary_color || "#FFF"}
-FONTE: ${client?.brand_font || "Montserrat"}
+MARCA: "${brandName}" | ${client?.sector || "N/A"} | ${client?.products_services || "N/A"}
+
+PALETA DE CORES:
+- Cor primária: ${presetColors.primary}
+- Cor secundária: ${presetColors.secondary}
+${presetColors.highlight ? `- Cor de destaque: ${presetColors.highlight}` : ""}
+${presetColors.text ? `- Cor do texto: ${presetColors.text}` : ""}
+- Tipografia: ${presetColors.font}
 ${mascotSection}
+
+ESTILO VISUAL OBRIGATÓRIO:
+- Crie designs com estilo de ilustração 3D estilizada, moderna e profissional
+- Use cenários detalhados e realistas como background (escritórios, ambientes temáticos, paisagens relevantes ao tema)
+- Tipografia bold, grande e impactante integrada ao design (não sobreposta de forma genérica)
+- Composição dinâmica com profundidade e camadas visuais
+- Qualidade de design de agência profissional de alto nível
+- Contraste alto entre texto e fundo para legibilidade perfeita
+- Elementos gráficos decorativos sutis que enriquecem o layout
+- Cores vibrantes e paleta coerente com a identidade visual da marca
 
 REGRAS: Formato 1:1 (1024x1024). O texto "${slide.text}" DEVE aparecer legível. Design coerente entre slides. Indicador ${slideNumber}/${slides.length} discreto. SEM logo/marca d'água.`.trim();
 
