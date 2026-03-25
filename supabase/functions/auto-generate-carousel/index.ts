@@ -7,6 +7,58 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Helper: check if attachment is an AI-generated carousel slide
+function isAiCarouselSlide(att: any): boolean {
+  if (!att) return false;
+  const uploaderId = att.uploadedBy?.id || "";
+  if (["auto-generator", "ai-generator"].includes(uploaderId)) return true;
+  const name = (att.name || "").toLowerCase();
+  if (/carrossel\s*slide\s*\d+/i.test(name)) return true;
+  if (/carousel\s*slide\s*\d+/i.test(name)) return true;
+  if (/^slide\s*\d+/i.test(name)) return true;
+  return false;
+}
+
+// Helper: archive existing AI carousel slides, return manual-only attachments
+async function archiveExistingCarouselSlides(
+  supabase: any,
+  demandId: string
+): Promise<{ archivedCount: number }> {
+  const { data: demand } = await supabase
+    .from("demands")
+    .select("attachments, rejected_attachments")
+    .eq("id", demandId)
+    .single();
+
+  if (!demand) return { archivedCount: 0 };
+
+  const currentAttachments = Array.isArray(demand.attachments) ? demand.attachments : [];
+  const existingRejected = Array.isArray(demand.rejected_attachments) ? demand.rejected_attachments : [];
+
+  const aiSlides = currentAttachments.filter((a: any) => isAiCarouselSlide(a));
+  const manualAttachments = currentAttachments.filter((a: any) => !isAiCarouselSlide(a));
+
+  if (aiSlides.length === 0) return { archivedCount: 0 };
+
+  console.log(`  → Archiving ${aiSlides.length} existing AI carousel slides to history`);
+
+  const rejectedBatch = {
+    rejected_at: new Date().toISOString(),
+    reason: "carousel_regeneration",
+    attachments: aiSlides,
+  };
+
+  await supabase
+    .from("demands")
+    .update({
+      attachments: manualAttachments,
+      rejected_attachments: [...existingRejected, rejectedBatch],
+    })
+    .eq("id", demandId);
+
+  return { archivedCount: aiSlides.length };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -83,6 +135,12 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Auto-generating carousel for demand ${demandId} (type: ${demand.demand_type})`);
+
+    // ============ STEP 0: Archive existing AI slides ============
+    const { archivedCount } = await archiveExistingCarouselSlides(supabase, demandId);
+    if (archivedCount > 0) {
+      console.log(`✅ Step 0: Archived ${archivedCount} previous AI slides to history`);
+    }
 
     // 3. Fetch client branding
     const { data: client } = await supabase
@@ -169,7 +227,7 @@ Deno.serve(async (req) => {
     const slideCount = 5;
 
     // ============ STEP 1: Generate slide texts via OpenAI ============
-    console.log(`Step 1: Generating ${slideCount} slide texts via OpenAI GPT-4o-mini...`);
+    console.log(`Step 1: Generating ${slideCount} slide texts via OpenAI o4-mini...`);
 
     const mascotInfo = mascotImageUrl
       ? `O cliente possui um mascote oficial. ${client?.mascot_description ? `Descrição: ${client.mascot_description}.` : ""}`
@@ -427,7 +485,7 @@ REGRAS: Formato 1:1 (1024x1024). O texto "${slide.text}" DEVE aparecer legível.
           clientId: demand.client_id,
         };
 
-        // Attach incrementally - fetch current, append, update
+        // Attach incrementally — fetch current, replace any AI slide with same number, append new
         const { data: currentDemand } = await supabase
           .from("demands")
           .select("attachments")
@@ -435,9 +493,17 @@ REGRAS: Formato 1:1 (1024x1024). O texto "${slide.text}" DEVE aparecer legível.
           .single();
 
         const currentAttachments = Array.isArray(currentDemand?.attachments) ? currentDemand.attachments : [];
+        
+        // Remove any existing AI slide with the same slide number to prevent duplicates
+        const slideNamePattern = new RegExp(`Carrossel Slide ${slideNumber}\\b`, "i");
+        const filteredAttachments = currentAttachments.filter((a: any) => {
+          if (!isAiCarouselSlide(a)) return true; // keep manual attachments
+          return !slideNamePattern.test(a.name || ""); // remove same-number AI slide
+        });
+
         await supabase
           .from("demands")
-          .update({ attachments: [...currentAttachments, newAttachment] })
+          .update({ attachments: [...filteredAttachments, newAttachment] })
           .eq("id", demandId);
 
         totalGenerated++;
@@ -458,13 +524,14 @@ REGRAS: Formato 1:1 (1024x1024). O texto "${slide.text}" DEVE aparecer legível.
       );
     }
 
-    console.log(`✅ Auto-generated ${totalGenerated} carousel slides for demand ${demandId}`);
+    console.log(`✅ Auto-generated ${totalGenerated} carousel slides for demand ${demandId} (archived ${archivedCount} previous)`);
 
     return new Response(
       JSON.stringify({
         success: true,
         totalGenerated,
         totalSlides: slides.length,
+        archivedSlides: archivedCount,
         demandId,
         message: `${totalGenerated} slides do carrossel gerados e anexados!`,
       }),
