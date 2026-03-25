@@ -283,8 +283,10 @@ REGRAS:
     console.log(`Step 2: Generating ${slides.length} slide images via Gemini 3 Pro Image...`);
 
     const mascotSection = mascotImageUrl
-      ? `MASCOTE: ${client?.mascot_description || "Reproduza fielmente o mascote da referência."}`
-      : `NÃO inclua personagens ou figuras humanas.`;
+      ? `MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""} OBRIGATÓRIO: Reproduza o mascote EXATAMENTE como na imagem de referência — mesma aparência, cabelo, roupa, proporções. O mascote DEVE aparecer integrado ao design como protagonista visual.`
+      : client?.has_mascot
+        ? `A marca possui um mascote (${client?.mascot_description || "sem descrição"}), mas nenhuma imagem de referência está disponível. Tente incluí-lo baseado na descrição.`
+        : `NÃO inclua personagens ou figuras humanas.`;
 
     // Fetch mascot image ONCE, keep reference
     let mascotInline: { mimeType: string; data: string } | null = null;
