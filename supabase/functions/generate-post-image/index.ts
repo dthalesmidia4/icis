@@ -245,23 +245,35 @@ Deno.serve(async (req) => {
 
     // 8. Generate images for each slide
     for (const slide of slidesToGenerate) {
-      const cardContent = [
-        demand.title ? `Título: ${demand.title}` : "",
-        demand.objective ? `Objetivo: ${demand.objective}` : "",
-        demand.instructions ? `Instruções: ${demand.instructions.replace(/<[^>]*>/g, " ").trim()}` : "",
-        demand.description ? `Descrição: ${demand.description.replace(/<[^>]*>/g, " ").trim()}` : "",
-        demand.observations ? `Observações: ${demand.observations?.replace(/<[^>]*>/g, " ").trim()}` : "",
-      ].filter(Boolean).join("\n");
+      // When regenerating a single slide, use ONLY that slide's specific content
+      // When generating all slides, include full card context for richer prompts
+      const isSingleSlideRegen = !!slideNumber;
 
-      const imagePrompt = `
-${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${contentReqsSection}Crie uma imagem profissional de post para rede social.
-
-CONTEÚDO DO SLIDE ${slide.slideNumber}/${totalSlidesForPrompt}:
+      const slideContentSection = isSingleSlideRegen
+        ? `CONTEÚDO ESPECÍFICO DESTE SLIDE (use SOMENTE este conteúdo para gerar a imagem):
+Texto principal: "${slide.title}"
+${slide.body ? `Texto complementar/detalhes: "${slide.body}"` : ""}
+${demand.objective ? `Objetivo geral do card: ${demand.objective}` : ""}`
+        : (() => {
+            const cardContent = [
+              demand.title ? `Título: ${demand.title}` : "",
+              demand.objective ? `Objetivo: ${demand.objective}` : "",
+              demand.instructions ? `Instruções: ${demand.instructions.replace(/<[^>]*>/g, " ").trim()}` : "",
+              demand.description ? `Descrição: ${demand.description.replace(/<[^>]*>/g, " ").trim()}` : "",
+              demand.observations ? `Observações: ${demand.observations?.replace(/<[^>]*>/g, " ").trim()}` : "",
+            ].filter(Boolean).join("\n");
+            return `CONTEÚDO DO SLIDE ${slide.slideNumber}/${totalSlidesForPrompt}:
 Texto principal: "${slide.title}"
 ${slide.body ? `Texto complementar: "${slide.body}"` : ""}
 
 CONTEÚDO COMPLETO DO CARD:
-${cardContent}
+${cardContent}`;
+          })();
+
+      const imagePrompt = `
+${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${contentReqsSection}Crie uma imagem profissional de post para rede social.
+
+${slideContentSection}
 
 BRANDING:
 - Marca: "${brandName}" | ${client?.sector || "N/A"} | ${client?.products_services || "N/A"}
