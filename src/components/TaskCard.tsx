@@ -526,7 +526,7 @@ export default function TaskCard({
         const manualAttachments = card.attachments?.filter(a => a.uploadedBy?.id !== 'ai-generator') || [];
         await supabase
           .from("demands")
-          .update({ attachments: manualAttachments })
+          .update({ attachments: manualAttachments as unknown as any })
           .eq("id", card.id);
         
         onCardChange({ ...card, attachments: manualAttachments });
