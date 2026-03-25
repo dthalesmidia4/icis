@@ -7,19 +7,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const MASCOT_KEYWORDS = [
-  "mascote", "mascot", "personagem", "character",
-  "boneco", "avatar da marca", "figura da marca",
-  "usar o mascote", "com mascote", "com o mascote",
-  "incluir mascote", "incluir o mascote",
-];
-
-function textMentionsMascot(text: string): boolean {
-  if (!text) return false;
-  const lower = text.replace(/<[^>]*>/g, " ").toLowerCase();
-  return MASCOT_KEYWORDS.some((kw) => lower.includes(kw));
-}
-
 function parseSlides(description: string): { slideNumber: number; title: string; body: string }[] {
   if (!description) return [];
   const text = description.replace(/<[^>]*>/g, "\n").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
@@ -99,14 +86,78 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 2. Fetch client branding
+    // 2. Fetch client branding (including content_requirements)
     const { data: client } = await supabase
       .from("tenant_companies")
-      .select("name, fantasy_name, logo_url, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_url, mascot_description")
+      .select("name, fantasy_name, logo_url, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_url, mascot_description, sector, products_services, content_requirements")
       .eq("id", demand.client_id)
       .single();
 
-    // 3. Fetch posts prompt
+    // 3. Fetch visual identity preset (4 colors + font)
+    let presetColors = {
+      primary: client?.brand_primary_color || "#000000",
+      secondary: client?.brand_secondary_color || "#FFFFFF",
+      highlight: null as string | null,
+      text: null as string | null,
+      font: client?.brand_font || "Montserrat",
+    };
+
+    const { data: preset } = await supabase
+      .from("visual_identity_presets")
+      .select("primary_color, secondary_color, highlight_color, text_color, font_name")
+      .eq("company_id", demand.client_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (preset) {
+      presetColors = {
+        primary: preset.primary_color || presetColors.primary,
+        secondary: preset.secondary_color || presetColors.secondary,
+        highlight: preset.highlight_color,
+        text: preset.text_color,
+        font: preset.font_name || presetColors.font,
+      };
+    }
+
+    // 4. Fetch mascot images from gallery (ALWAYS when has_mascot, no keyword check)
+    let mascotInlineImages: { mimeType: string; data: string }[] = [];
+    const hasMascot = client?.has_mascot || false;
+
+    if (hasMascot) {
+      const { data: mascotImages } = await supabase
+        .from("company_mascot_images")
+        .select("image_url")
+        .eq("company_id", demand.client_id)
+        .order("position", { ascending: true })
+        .limit(2);
+
+      if (mascotImages && mascotImages.length > 0) {
+        for (const mi of mascotImages) {
+          try {
+            const imgResp = await fetch(mi.image_url);
+            if (imgResp.ok) {
+              const imgBuffer = await imgResp.arrayBuffer();
+              const bytes = new Uint8Array(imgBuffer);
+              let binary = "";
+              const chunkSize = 8192;
+              for (let i = 0; i < bytes.length; i += chunkSize) {
+                binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+              }
+              mascotInlineImages.push({
+                mimeType: imgResp.headers.get("content-type") || "image/png",
+                data: btoa(binary),
+              });
+              console.log("  → Mascot reference image pre-fetched from gallery");
+            }
+          } catch (e) {
+            console.error("Failed to fetch mascot image:", e);
+          }
+        }
+      }
+    }
+
+    // 5. Fetch posts prompt
     const { data: promptData } = await supabase
       .from("system_prompts")
       .select("prompt_content")
@@ -114,7 +165,7 @@ Deno.serve(async (req) => {
       .eq("prompt_key", "generate_posts_prompt")
       .single();
 
-    // 4. Fetch active strategy
+    // 6. Fetch active strategy
     const { data: strategy } = await supabase
       .from("strategies")
       .select("strategy_text")
@@ -124,7 +175,7 @@ Deno.serve(async (req) => {
       .limit(1)
       .single();
 
-    // 5. Parse slides
+    // 7. Parse slides
     let allSlides = parseSlides(demand.description || "");
     if (allSlides.length === 0) {
       const fallbackText = demand.title || "Post";
@@ -150,87 +201,81 @@ Deno.serve(async (req) => {
 
     const aspectInfo = getAspectRatioInfo(demand.demand_type, demand.channel);
     const brandName = client?.fantasy_name || client?.name || "Marca";
-    const primaryColor = client?.brand_primary_color || "#000000";
-    const secondaryColor = client?.brand_secondary_color || "#FFFFFF";
-    const brandFont = client?.brand_font || "Montserrat";
-    const hasMascot = client?.has_mascot || false;
-    const mascotUrl = client?.mascot_url || null;
-    const mascotDescription = client?.mascot_description || null;
-
-    const fullText = [demand.description, demand.instructions, demand.observations, demand.title].join(" ");
-    const mentionsMascot = textMentionsMascot(fullText);
-    const useMascotReference = hasMascot && mentionsMascot && mascotUrl;
-
     const basePrompt = promptData?.prompt_content || "";
     const strategySnippet = strategy?.strategy_text
-      ? `Tom de voz: ${strategy.strategy_text.substring(0, 300)}`
+      ? `Tom de voz e estratégia da marca: ${strategy.strategy_text.substring(0, 500)}`
       : "";
+
+    const contentReqsSection = client?.content_requirements
+      ? `\nEXIGÊNCIAS DE CONTEÚDO DO CLIENTE (SIGA OBRIGATORIAMENTE):\n${client.content_requirements}\n`
+      : "";
+
+    const mascotSection = mascotInlineImages.length > 0
+      ? `- MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""} OBRIGATÓRIO: Reproduza o mascote EXATAMENTE como na imagem de referência fornecida — mesma aparência, cabelo, roupa, proporções e características físicas. NÃO altere nenhuma característica do mascote. O mascote DEVE aparecer no design de forma integrada e harmoniosa como protagonista visual.`
+      : hasMascot
+        ? `- A marca possui um mascote (${client?.mascot_description || "sem descrição"}), mas nenhuma imagem de referência está disponível. Tente incluí-lo se possível baseado na descrição.`
+        : `- NÃO inclua personagens, mascotes ou figuras humanas no design.`;
 
     const generatedAttachments: any[] = [];
     const existingAttachments = demand.attachments || [];
     const errors: string[] = [];
 
-    // 6. Generate images for each slide using Gemini 3 Pro Image via Google AI Studio
+    // 8. Generate images for each slide
     for (const slide of slidesToGenerate) {
-      const mascotInstruction = hasMascot
-        ? mentionsMascot
-          ? `- MASCOTE: A marca possui um mascote oficial que DEVE aparecer neste design.${mascotDescription ? `\n  DESCRIÇÃO DETALHADA DO MASCOTE: ${mascotDescription}` : ""}${useMascotReference ? `\n  REFERÊNCIA VISUAL: Uma imagem de referência do mascote foi anexada. Reproduza fielmente suas características visuais, cores e estilo conforme a imagem de referência e a descrição acima.` : ""}\n  O mascote deve ser um elemento de DESTAQUE no design, integrado harmoniosamente à composição do post. NÃO gere apenas o mascote isolado — crie o POST COMPLETO para rede social com o mascote como parte da composição.`
-          : `- A marca possui um mascote, mas ele NÃO foi solicitado neste slide. NÃO inclua personagens ou mascotes.`
-        : `- NÃO inclua personagens ou mascotes no design.`;
+      const cardContent = [
+        demand.title ? `Título: ${demand.title}` : "",
+        demand.objective ? `Objetivo: ${demand.objective}` : "",
+        demand.instructions ? `Instruções: ${demand.instructions.replace(/<[^>]*>/g, " ").trim()}` : "",
+        demand.description ? `Descrição: ${demand.description.replace(/<[^>]*>/g, " ").trim()}` : "",
+        demand.observations ? `Observações: ${demand.observations?.replace(/<[^>]*>/g, " ").trim()}` : "",
+      ].filter(Boolean).join("\n");
 
       const imagePrompt = `
-${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}Crie uma imagem profissional para post de rede social.
+${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${contentReqsSection}Crie uma imagem profissional de post para rede social.
 
 CONTEÚDO DO SLIDE ${slide.slideNumber}/${allSlides.length}:
 Texto principal: "${slide.title}"
 ${slide.body ? `Texto complementar: "${slide.body}"` : ""}
-${demand.objective ? `\nOBJETIVO DA DEMANDA:\n${demand.objective}` : ""}
-${demand.instructions ? `\nINSTRUÇÕES ESPECÍFICAS (SIGA COM PRIORIDADE MÁXIMA):\n${demand.instructions}` : ""}
-${demand.observations ? `\nOBSERVAÇÕES ADICIONAIS (SIGA COM PRIORIDADE MÁXIMA):\n${demand.observations}` : ""}
 
-DESCRIÇÃO COMPLETA DA ATIVIDADE (SIGA RIGOROSAMENTE CADA DETALHE DESCRITO ABAIXO):
-${demand.description ? demand.description.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").trim() : "Criar post profissional para rede social"}
+CONTEÚDO COMPLETO DO CARD:
+${cardContent}
 
 BRANDING:
-- Marca: "${brandName}"
-- Cor primária: ${primaryColor}
-- Cor secundária: ${secondaryColor}
-- Tipografia: ${brandFont}
-- Incluir nome da marca sutilmente no canto inferior
-${mascotInstruction}
+- Marca: "${brandName}" | ${client?.sector || "N/A"} | ${client?.products_services || "N/A"}
+- Cor primária: ${presetColors.primary}
+- Cor secundária: ${presetColors.secondary}
+${presetColors.highlight ? `- Cor de destaque: ${presetColors.highlight}` : ""}
+${presetColors.text ? `- Cor do texto: ${presetColors.text}` : ""}
+- Tipografia: ${presetColors.font}
+${mascotSection}
 
-ESTILO:
+ESTILO VISUAL OBRIGATÓRIO:
+- Crie designs com estilo de ilustração 3D estilizada, moderna e profissional
+- Use cenários detalhados e realistas como background (escritórios, ambientes temáticos, paisagens relevantes ao tema)
+- Tipografia bold, grande e impactante integrada ao design (não sobreposta de forma genérica)
+- Composição dinâmica com profundidade e camadas visuais
+- Qualidade de design de agência profissional de alto nível
+- Contraste alto entre texto e fundo para legibilidade perfeita
+- Elementos gráficos decorativos sutis que enriquecem o layout
+- Cores vibrantes e paleta coerente com a identidade visual da marca
+- O texto do post DEVE aparecer legível e bem posicionado na imagem
+
+REGRAS OBRIGATÓRIAS:
+- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem
 - Design profissional para redes sociais
 - Formato/Proporção: ${aspectInfo.label}
 - IMPORTANTE: Gere um POST COMPLETO para rede social, não apenas um elemento isolado
-- IMPORTANTE: Siga EXATAMENTE o cenário, ambiente e background descritos na atividade acima.
+- IMPORTANTE: Siga EXATAMENTE o cenário, ambiente e background descritos na atividade
 `.trim();
 
-      console.log(`Generating image for slide ${slide.slideNumber} via Gemini 3 Pro Image...${useMascotReference ? " (with mascot reference)" : ""}`);
+      console.log(`Generating image for slide ${slide.slideNumber} via Gemini 3 Pro Image...${mascotInlineImages.length > 0 ? " (with mascot reference)" : ""}`);
 
       try {
-        // Build parts for Google AI Studio
         const parts: any[] = [{ text: imagePrompt }];
 
-        if (useMascotReference) {
-          try {
-            const imgResp = await fetch(mascotUrl);
-            if (imgResp.ok) {
-              const imgBuffer = await imgResp.arrayBuffer();
-              const bytes = new Uint8Array(imgBuffer);
-              let binary = "";
-              const chunkSize = 8192;
-              for (let i = 0; i < bytes.length; i += chunkSize) {
-                binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-              }
-              const imgBase64 = btoa(binary);
-              const contentType = imgResp.headers.get("content-type") || "image/png";
-              parts.push({ inlineData: { mimeType: contentType, data: imgBase64 } });
-              console.log("  → Mascot reference image attached as inline_data");
-            }
-          } catch (e) {
-            console.error("Failed to fetch mascot image:", e);
-          }
+        // Attach mascot reference images
+        for (const mascotImg of mascotInlineImages) {
+          parts.push({ inlineData: mascotImg });
         }
 
         const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
@@ -240,34 +285,27 @@ ESTILO:
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contents: [{ parts }],
-            generationConfig: {
-              responseModalities: ["IMAGE", "TEXT"],
-            },
+            generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
           }),
         });
 
         if (!response.ok) {
           const errorText = await response.text();
           console.error(`Gemini 3 Pro error for slide ${slide.slideNumber}:`, response.status, errorText);
-
           if (response.status === 429) {
             errors.push(`Slide ${slide.slideNumber}: Rate limit excedido. Tente novamente em alguns minutos.`);
             continue;
           }
-
           errors.push(`Slide ${slide.slideNumber}: Erro ${response.status}`);
           continue;
         }
 
         const data = await response.json();
 
-        // Extract base64 image from Gemini response
         let imageBase64 = "";
         let imageMimeType = "image/png";
-        const candidates = data.candidates || [];
-        for (const candidate of candidates) {
-          const candidateParts = candidate.content?.parts || [];
-          for (const part of candidateParts) {
+        for (const candidate of (data.candidates || [])) {
+          for (const part of (candidate.content?.parts || [])) {
             const inlineData = part.inlineData || part.inline_data;
             if (inlineData) {
               imageBase64 = inlineData.data;
@@ -279,23 +317,21 @@ ESTILO:
         }
 
         if (!imageBase64) {
-          console.error(`No image in response for slide ${slide.slideNumber}:`, JSON.stringify(data).substring(0, 500));
+          console.error(`No image in response for slide ${slide.slideNumber}`);
           errors.push(`Slide ${slide.slideNumber}: Nenhuma imagem retornada pelo modelo`);
           continue;
         }
 
-        // Upload to storage
         const imageBytes = decodeBase64(imageBase64);
+        imageBase64 = "";
+
         const ext = imageMimeType.includes("jpeg") ? "jpg" : "png";
         const fileName = `ai-generated-slide-${slide.slideNumber}-${Date.now()}.${ext}`;
         const storagePath = `${demand.client_id}/${demand.id}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from("card-attachments")
-          .upload(storagePath, imageBytes, {
-            contentType: imageMimeType,
-            upsert: true,
-          });
+          .upload(storagePath, imageBytes, { contentType: imageMimeType, upsert: true });
 
         if (uploadError) {
           console.error(`Upload error for slide ${slide.slideNumber}:`, uploadError);
@@ -307,7 +343,7 @@ ESTILO:
           .from("card-attachments")
           .getPublicUrl(storagePath);
 
-        const attachment = {
+        generatedAttachments.push({
           url: urlData.publicUrl,
           name: `Slide ${slide.slideNumber} - ${brandName}.${ext}`,
           type: imageMimeType,
@@ -318,10 +354,9 @@ ESTILO:
           cardId: demand.id,
           tenantId: demand.tenant_id,
           clientId: demand.client_id,
-        };
+        });
 
-        generatedAttachments.push(attachment);
-        console.log(`✅ Slide ${slide.slideNumber} generated and uploaded successfully via Gemini 3 Pro Image`);
+        console.log(`✅ Slide ${slide.slideNumber} generated successfully`);
       } catch (slideError) {
         console.error(`Exception generating slide ${slide.slideNumber}:`, slideError);
         errors.push(`Slide ${slide.slideNumber}: ${slideError instanceof Error ? slideError.message : "Erro desconhecido"}`);
@@ -330,35 +365,30 @@ ESTILO:
 
     if (generatedAttachments.length === 0) {
       return new Response(
-        JSON.stringify({
-          error: "Nenhuma imagem foi gerada. Verifique os logs para mais detalhes.",
-          details: errors,
-        }),
+        JSON.stringify({ error: "Nenhuma imagem foi gerada.", details: errors }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // 7. Update demand attachments
+    // 9. Update demand attachments
     let updatedAttachments;
     if (replaceSlide && slideNumber && generatedAttachments.length === 1) {
-      // Replace mode: find and replace the specific slide attachment
       const slidePattern = new RegExp(`Slide\\s*${slideNumber}\\b`, 'i');
-      const rejectedAttachment = existingAttachments.find((a: any) => 
-        slidePattern.test(a.name || '') && a.uploadedBy?.id === 'ai-generator'
+      const rejectedAttachment = existingAttachments.find((a: any) =>
+        slidePattern.test(a.name || '') && (a.uploadedBy?.id === 'ai-generator' || a.uploadedBy?.id === 'auto-generator')
       );
 
-      // Save rejected to rejected_attachments
       if (rejectedAttachment) {
         const { data: currentDemand } = await supabase
           .from("demands")
           .select("rejected_attachments")
           .eq("id", demandId)
           .single();
-        
+
         const existingRejected = (currentDemand?.rejected_attachments as any[]) || [];
         await supabase
           .from("demands")
-          .update({ 
+          .update({
             rejected_attachments: [...existingRejected, {
               rejected_at: new Date().toISOString(),
               attachments: [rejectedAttachment],
@@ -368,18 +398,18 @@ ESTILO:
       }
 
       updatedAttachments = existingAttachments.map((a: any) => {
-        if (slidePattern.test(a.name || '') && a.uploadedBy?.id === 'ai-generator') {
+        if (slidePattern.test(a.name || '') && (a.uploadedBy?.id === 'ai-generator' || a.uploadedBy?.id === 'auto-generator')) {
           return generatedAttachments[0];
         }
         return a;
       });
-      // If no match found, append
       if (JSON.stringify(updatedAttachments) === JSON.stringify(existingAttachments)) {
         updatedAttachments = [...existingAttachments, ...generatedAttachments];
       }
     } else {
       updatedAttachments = [...existingAttachments, ...generatedAttachments];
     }
+
     const { error: updateError } = await supabase
       .from("demands")
       .update({ attachments: updatedAttachments })
@@ -399,8 +429,6 @@ ESTILO:
         generated: generatedAttachments.length,
         total_slides: allSlides.length,
         message: `${generatedAttachments.length} imagem(ns) gerada(s) com sucesso`,
-        used_mascot_reference: !!useMascotReference,
-        used_mascot_in_prompt: !!(hasMascot && mentionsMascot),
         errors: errors.length > 0 ? errors : undefined,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
