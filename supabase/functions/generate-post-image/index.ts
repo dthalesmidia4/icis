@@ -38,6 +38,11 @@ function getAspectRatioInfo(demandType: string | null, _channel: string | null):
   return { label: "1:1 (square)", width: 1024, height: 1024 };
 }
 
+function stripHtml(input: string | null | undefined): string {
+  if (!input) return "";
+  return input.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").trim();
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -188,7 +193,24 @@ Deno.serve(async (req) => {
           const exact = allSlides.filter((s) => s.slideNumber === slideNumber);
           if (exact.length > 0) return exact;
           const idx = slideNumber - 1;
-          return idx >= 0 && idx < allSlides.length ? [allSlides[idx]] : [];
+          if (idx >= 0 && idx < allSlides.length) return [allSlides[idx]];
+
+          // Fallback for legacy cards where description does not contain parsable slide blocks.
+          // Allows single-slide regeneration to proceed instead of returning 400.
+          if (replaceSlide) {
+            const fallbackTitle = demand.title?.trim() || `Slide ${slideNumber}`;
+            const fallbackBody = [
+              stripHtml(demand.description),
+              stripHtml(demand.objective),
+              stripHtml(demand.instructions),
+              stripHtml(demand.observations),
+            ].find(Boolean) || "";
+
+            console.warn(`Slide ${slideNumber} not found in parsed description, using fallback content.`);
+            return [{ slideNumber, title: fallbackTitle, body: fallbackBody }];
+          }
+
+          return [];
         })()
       : allSlides;
 
@@ -219,6 +241,7 @@ Deno.serve(async (req) => {
     const generatedAttachments: any[] = [];
     const existingAttachments = demand.attachments || [];
     const errors: string[] = [];
+    const totalSlidesForPrompt = slideNumber ? Math.max(allSlides.length, slideNumber) : allSlides.length;
 
     // 8. Generate images for each slide
     for (const slide of slidesToGenerate) {
@@ -233,7 +256,7 @@ Deno.serve(async (req) => {
       const imagePrompt = `
 ${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${contentReqsSection}Crie uma imagem profissional de post para rede social.
 
-CONTEÚDO DO SLIDE ${slide.slideNumber}/${allSlides.length}:
+CONTEÚDO DO SLIDE ${slide.slideNumber}/${totalSlidesForPrompt}:
 Texto principal: "${slide.title}"
 ${slide.body ? `Texto complementar: "${slide.body}"` : ""}
 
