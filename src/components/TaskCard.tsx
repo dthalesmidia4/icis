@@ -461,7 +461,9 @@ export default function TaskCard({
 
     try {
       setGenerationProgress({ current: 1, total: 1 });
-      const { data, error } = await supabase.functions.invoke("generate-post-image", {
+      
+      const functionName = isCarousel ? "auto-generate-carousel" : "generate-post-image";
+      const { data, error } = await supabase.functions.invoke(functionName, {
         body: { demandId: card.id },
       });
       if (error) throw error;
@@ -469,13 +471,10 @@ export default function TaskCard({
         toast.error(data.error, { description: data.details?.join(", ") });
         return;
       }
-      const successCount = data?.generated || 0;
 
-      if (successCount > 0) {
-        toast.success(`${successCount} imagem(ns) gerada(s) com sucesso!`);
-      } else {
-        toast.error("Nenhuma imagem foi gerada");
-      }
+      toast.success(isCarousel 
+        ? "Carrossel gerado com sucesso!" 
+        : `${data?.generated || 0} imagem(ns) gerada(s) com sucesso!`);
 
       // Refetch demand to get updated attachments
       const { data: updatedDemand } = await supabase
@@ -1294,25 +1293,29 @@ export default function TaskCard({
                       {uploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
                       {!readOnly && (
                         <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => generatingImages ? null : setShowGenerateConfirm(true)}
-                            disabled={generatingImages || regeneratingAll}
-                            className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
-                          >
-                            {generatingImages ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Wand2 className="h-4 w-4" />
-                            )}
-                            {generatingImages && generationProgress
-                              ? `Gerando ${generationProgress.current}/${generationProgress.total}...`
-                              : generatingImages
+                          {/* Generate button - label and action based on demand type */}
+                          {!hasAiAttachments && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => generatingImages ? null : setShowGenerateConfirm(true)}
+                              disabled={generatingImages || regeneratingAll}
+                              className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                            >
+                              {generatingImages ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Wand2 className="h-4 w-4" />
+                              )}
+                              {generatingImages
                                 ? 'Gerando...'
-                                : 'Gerar estáticos com IA'}
-                          </Button>
+                                : isCarousel
+                                  ? 'Gerar carrossel com IA'
+                                  : 'Gerar estático com IA'}
+                            </Button>
+                          )}
 
+                          {/* Regenerate all - shows when there are AI attachments */}
                           {hasAiAttachments && (
                             <Button
                               variant="outline"
@@ -1326,7 +1329,11 @@ export default function TaskCard({
                               ) : (
                                 <RefreshCw className="h-4 w-4" />
                               )}
-                              {regeneratingAll ? 'Regenerando...' : 'Regenerar tudo'}
+                              {regeneratingAll
+                                ? 'Regenerando...'
+                                : isCarousel
+                                  ? 'Regenerar tudo'
+                                  : 'Regenerar estático'}
                             </Button>
                           )}
                         </>
