@@ -10,10 +10,11 @@ const corsHeaders = {
 function parseSlides(description: string): { slideNumber: number; title: string; body: string }[] {
   if (!description) return [];
   const text = description.replace(/<[^>]*>/g, "\n").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
-  const slideRegex = /(?:SLIDE|FRAME|CENA|IMAGEM)\s*(\d+)\s*[—\-:]\s*(.*?)(?=(?:SLIDE|FRAME|CENA|IMAGEM)\s*\d+|$)/gis;
+  const normalizedText = text.replace(/\r/g, "\n").replace(/\n{3,}/g, "\n\n");
+  const slideRegex = /(?:SLIDE|FRAME|CENA|IMAGEM)\s*(\d+)\b\s*(?:[—\-:]\s*)?([\s\S]*?)(?=(?:SLIDE|FRAME|CENA|IMAGEM)\s*\d+\b|$)/gi;
   const slides: { slideNumber: number; title: string; body: string }[] = [];
   let match;
-  while ((match = slideRegex.exec(text)) !== null) {
+  while ((match = slideRegex.exec(normalizedText)) !== null) {
     const slideNumber = parseInt(match[1]);
     const content = match[2].trim();
     const lines = content.split(/\n+/).filter((l: string) => l.trim());
@@ -21,8 +22,8 @@ function parseSlides(description: string): { slideNumber: number; title: string;
     const body = lines.slice(1).join("\n").trim();
     slides.push({ slideNumber, title, body });
   }
-  if (slides.length === 0 && text.trim()) {
-    slides.push({ slideNumber: 1, title: text.trim().substring(0, 100), body: text.trim() });
+  if (slides.length === 0 && normalizedText.trim()) {
+    slides.push({ slideNumber: 1, title: normalizedText.trim().substring(0, 100), body: normalizedText.trim() });
   }
   return slides;
 }
