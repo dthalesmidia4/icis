@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline } from "lucide-react";
+import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
