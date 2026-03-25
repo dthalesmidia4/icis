@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { demandId, slideNumber } = await req.json();
+    const { demandId, slideNumber, replaceSlide } = await req.json();
 
     if (!demandId) {
       return new Response(JSON.stringify({ error: "demandId é obrigatório" }), {
@@ -339,7 +339,47 @@ ESTILO:
     }
 
     // 7. Update demand attachments
-    const updatedAttachments = [...existingAttachments, ...generatedAttachments];
+    let updatedAttachments;
+    if (replaceSlide && slideNumber && generatedAttachments.length === 1) {
+      // Replace mode: find and replace the specific slide attachment
+      const slidePattern = new RegExp(`Slide\\s*${slideNumber}\\b`, 'i');
+      const rejectedAttachment = existingAttachments.find((a: any) => 
+        slidePattern.test(a.name || '') && a.uploadedBy?.id === 'ai-generator'
+      );
+
+      // Save rejected to rejected_attachments
+      if (rejectedAttachment) {
+        const { data: currentDemand } = await supabase
+          .from("demands")
+          .select("rejected_attachments")
+          .eq("id", demandId)
+          .single();
+        
+        const existingRejected = (currentDemand?.rejected_attachments as any[]) || [];
+        await supabase
+          .from("demands")
+          .update({ 
+            rejected_attachments: [...existingRejected, {
+              rejected_at: new Date().toISOString(),
+              attachments: [rejectedAttachment],
+            }]
+          })
+          .eq("id", demandId);
+      }
+
+      updatedAttachments = existingAttachments.map((a: any) => {
+        if (slidePattern.test(a.name || '') && a.uploadedBy?.id === 'ai-generator') {
+          return generatedAttachments[0];
+        }
+        return a;
+      });
+      // If no match found, append
+      if (JSON.stringify(updatedAttachments) === JSON.stringify(existingAttachments)) {
+        updatedAttachments = [...existingAttachments, ...generatedAttachments];
+      }
+    } else {
+      updatedAttachments = [...existingAttachments, ...generatedAttachments];
+    }
     const { error: updateError } = await supabase
       .from("demands")
       .update({ attachments: updatedAttachments })
