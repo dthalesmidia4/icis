@@ -250,10 +250,9 @@ Deno.serve(async (req) => {
       const isSingleSlideRegen = !!slideNumber;
 
       const slideContentSection = isSingleSlideRegen
-        ? `CONTEÚDO ESPECÍFICO DESTE SLIDE (use SOMENTE este conteúdo para gerar a imagem):
+        ? `CONTEÚDO DESTE SLIDE (use EXCLUSIVAMENTE este conteúdo para gerar a imagem, NÃO use conteúdo de outros slides):
 Texto principal: "${slide.title}"
-${slide.body ? `Texto complementar/detalhes: "${slide.body}"` : ""}
-${demand.objective ? `Objetivo geral do card: ${demand.objective}` : ""}`
+${slide.body ? `Texto complementar/detalhes: "${slide.body}"` : ""}`
         : (() => {
             const cardContent = [
               demand.title ? `Título: ${demand.title}` : "",
