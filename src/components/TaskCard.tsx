@@ -515,7 +515,6 @@ export default function TaskCard({
         onCardChange({ 
           ...card, 
           attachments: updatedDemand.attachments as unknown as Attachment[],
-          rejected_attachments: updatedDemand.rejected_attachments as any,
         });
       }
     } catch (error: any) {
