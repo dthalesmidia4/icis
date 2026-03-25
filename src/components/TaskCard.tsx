@@ -290,6 +290,8 @@ export default function TaskCard({
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
+  const [regeneratingAll, setRegeneratingAll] = useState(false);
+  const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
   const [periodTitle, setPeriodTitle] = useState<string | null>(null);
 
   // Fetch period title when card has a period_plan_id
