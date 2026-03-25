@@ -180,11 +180,18 @@ Deno.serve(async (req) => {
       .limit(1)
       .single();
 
-    // 7. Parse slides
+    // 7. Parse slides — try description first, then instructions
     let allSlides = parseSlides(demand.description || "");
+    if (allSlides.length <= 1) {
+      const fromInstructions = parseSlides(demand.instructions || "");
+      if (fromInstructions.length > allSlides.length) {
+        allSlides = fromInstructions;
+        console.log(`Slides parsed from instructions field: ${allSlides.length} slides found`);
+      }
+    }
     if (allSlides.length === 0) {
       const fallbackText = demand.title || "Post";
-      const fallbackBody = demand.description?.replace(/<[^>]*>/g, "").trim() || demand.objective || "";
+      const fallbackBody = stripHtml(demand.description) || stripHtml(demand.instructions) || demand.objective || "";
       allSlides = [{ slideNumber: 1, title: fallbackText, body: fallbackBody }];
     }
 
