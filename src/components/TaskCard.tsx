@@ -1290,27 +1290,46 @@ export default function TaskCard({
                       )}
                     </button>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {uploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
                       {!readOnly && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => generatingImages ? null : setShowGenerateConfirm(true)}
-                          disabled={generatingImages}
-                          className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
-                        >
-                          {generatingImages ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Wand2 className="h-4 w-4" />
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => generatingImages ? null : setShowGenerateConfirm(true)}
+                            disabled={generatingImages || regeneratingAll}
+                            className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                          >
+                            {generatingImages ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Wand2 className="h-4 w-4" />
+                            )}
+                            {generatingImages && generationProgress
+                              ? `Gerando ${generationProgress.current}/${generationProgress.total}...`
+                              : generatingImages
+                                ? 'Gerando...'
+                                : 'Gerar estáticos com IA'}
+                          </Button>
+
+                          {hasAiAttachments && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleRegenerateAll}
+                              disabled={regeneratingAll || generatingImages}
+                              className="gap-2 border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+                            >
+                              {regeneratingAll ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <RefreshCw className="h-4 w-4" />
+                              )}
+                              {regeneratingAll ? 'Regenerando...' : 'Regenerar tudo'}
+                            </Button>
                           )}
-                          {generatingImages && generationProgress
-                            ? `Gerando ${generationProgress.current}/${generationProgress.total}...`
-                            : generatingImages
-                              ? 'Gerando...'
-                              : 'Gerar estáticos com IA'}
-                        </Button>
+                        </>
                       )}
                     </div>
                   </div>
