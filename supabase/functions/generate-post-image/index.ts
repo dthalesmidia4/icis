@@ -281,12 +281,19 @@ ${cardContent}`;
       const firstSlideHook = isFirstSlide && totalSlidesForPrompt > 1
         ? `\nREGRA OBRIGATÓRIA PARA O PRIMEIRO SLIDE (GANCHO):
 - Este é o PRIMEIRO slide de um carrossel com ${totalSlidesForPrompt} slides.
-- Ele DEVE funcionar como um GANCHO para prender a atenção do usuário.
+- Ele DEVE funcionar como um GANCHO visual para prender a atenção do usuário.
 - Use uma frase curta, impactante e que faça sentido com o tema do carrossel.
 - A frase NÃO precisa ser provocativa, mas DEVE despertar curiosidade e ter conexão clara com o conteúdo que virá nos próximos slides.
-- Tipografia GRANDE, BOLD e CENTRALIZADA.
+- DESIGN VISUAL DO GANCHO (OBRIGATÓRIO): O texto do gancho DEVE ser apresentado de forma visualmente impactante e artística, NÃO como texto simples sobre o fundo. Use recursos visuais como:
+  * Caixas/boxes coloridos com bordas arredondadas envolvendo o texto (estilo speech bubble ou card)
+  * Faixas ou banners com cor de destaque por trás do texto
+  * Elementos gráficos decorativos (ícones, emojis 3D, setas, formas geométricas) ao redor do texto
+  * Contraste forte entre o fundo do box e o texto para máxima legibilidade
+  * Camadas visuais com profundidade (sombras, gradientes nos boxes)
+- Tipografia GRANDE, BOLD e bem posicionada dentro dos elementos visuais.
 - NÃO inclua informações detalhadas — apenas o gancho visual e textual.
-- O objetivo é fazer o usuário querer deslizar para o próximo slide.\n`
+- O objetivo é fazer o usuário querer deslizar para o próximo slide.
+- REFERÊNCIA DE ESTILO: Pense em posts profissionais de Instagram onde o texto principal aparece dentro de balões coloridos ou cards estilizados com ícones temáticos, criando uma composição rica e chamativa.\n`
         : "";
 
       const imagePrompt = `
