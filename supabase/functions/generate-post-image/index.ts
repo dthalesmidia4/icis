@@ -277,8 +277,20 @@ CONTEÚDO COMPLETO DO CARD:
 ${cardContent}`;
           })();
 
+      const isFirstSlide = slide.slideNumber === 1;
+      const firstSlideHook = isFirstSlide && totalSlidesForPrompt > 1
+        ? `\nREGRA OBRIGATÓRIA PARA O PRIMEIRO SLIDE (GANCHO):
+- Este é o PRIMEIRO slide de um carrossel com ${totalSlidesForPrompt} slides.
+- Ele DEVE funcionar como um GANCHO para prender a atenção do usuário.
+- Use uma frase curta, impactante e que faça sentido com o tema do carrossel.
+- A frase NÃO precisa ser provocativa, mas DEVE despertar curiosidade e ter conexão clara com o conteúdo que virá nos próximos slides.
+- Tipografia GRANDE, BOLD e CENTRALIZADA.
+- NÃO inclua informações detalhadas — apenas o gancho visual e textual.
+- O objetivo é fazer o usuário querer deslizar para o próximo slide.\n`
+        : "";
+
       const imagePrompt = `
-${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${contentReqsSection}Crie uma imagem profissional de post para rede social.
+${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${contentReqsSection}${firstSlideHook}Crie uma imagem profissional de post para rede social.
 
 ${slideContentSection}
 
