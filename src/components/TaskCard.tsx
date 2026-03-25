@@ -494,6 +494,114 @@ export default function TaskCard({
       setGenerationProgress(null);
     }
   };
+
+  const isCarousel = card?.demand_type?.toLowerCase().includes('carrossel') || card?.demand_type?.toLowerCase().includes('carousel');
+  const aiAttachments = card?.attachments?.filter(a => a.uploadedBy?.id === 'ai-generator') || [];
+  const hasAiAttachments = aiAttachments.length > 0;
+
+  const handleRegenerateAll = async () => {
+    if (!card) return;
+    setRegeneratingAll(true);
+    try {
+      // Save current AI attachments to rejected_attachments
+      if (hasAiAttachments) {
+        const { data: currentDemand } = await supabase
+          .from("demands")
+          .select("rejected_attachments")
+          .eq("id", card.id)
+          .single();
+        
+        const existingRejected = (currentDemand?.rejected_attachments as any[]) || [];
+        const rejectedBatch = {
+          rejected_at: new Date().toISOString(),
+          attachments: aiAttachments,
+        };
+        
+        await supabase
+          .from("demands")
+          .update({ rejected_attachments: [...existingRejected, rejectedBatch] })
+          .eq("id", card.id);
+
+        // Remove AI attachments from current list
+        const manualAttachments = card.attachments?.filter(a => a.uploadedBy?.id !== 'ai-generator') || [];
+        await supabase
+          .from("demands")
+          .update({ attachments: manualAttachments })
+          .eq("id", card.id);
+        
+        onCardChange({ ...card, attachments: manualAttachments });
+      }
+
+      // Regenerate based on type
+      if (isCarousel) {
+        const { data, error } = await supabase.functions.invoke("auto-generate-carousel", {
+          body: { demandId: card.id },
+        });
+        if (error) throw error;
+        if (data?.error) {
+          toast.error(data.error);
+          return;
+        }
+        toast.success("Carrossel regenerado com sucesso!");
+      } else {
+        const { data, error } = await supabase.functions.invoke("generate-post-image", {
+          body: { demandId: card.id },
+        });
+        if (error) throw error;
+        if (data?.error) {
+          toast.error(data.error, { description: data.details?.join(", ") });
+          return;
+        }
+        toast.success(`${data?.generated || 0} imagem(ns) regenerada(s)!`);
+      }
+
+      // Refetch
+      const { data: updatedDemand } = await supabase
+        .from("demands")
+        .select("attachments")
+        .eq("id", card.id)
+        .single();
+      if (updatedDemand) {
+        onCardChange({ ...card, attachments: updatedDemand.attachments as unknown as Attachment[] });
+      }
+    } catch (error: any) {
+      console.error("Error regenerating:", error);
+      toast.error(error.message || "Erro ao regenerar");
+    } finally {
+      setRegeneratingAll(false);
+    }
+  };
+
+  const handleRegenerateSlide = async (slideNumber: number) => {
+    if (!card) return;
+    setRegeneratingSlide(slideNumber);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-post-image", {
+        body: { demandId: card.id, slideNumber, replaceSlide: true },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+      toast.success(`Slide ${slideNumber} regenerado com sucesso!`);
+
+      // Refetch
+      const { data: updatedDemand } = await supabase
+        .from("demands")
+        .select("attachments")
+        .eq("id", card.id)
+        .single();
+      if (updatedDemand) {
+        onCardChange({ ...card, attachments: updatedDemand.attachments as unknown as Attachment[] });
+      }
+    } catch (error: any) {
+      console.error("Error regenerating slide:", error);
+      toast.error(error.message || "Erro ao regenerar slide");
+    } finally {
+      setRegeneratingSlide(null);
+    }
+  };
   const handlePublishDateChange = async (newDate: Date | undefined) => {
     if (!newDate || !card) return;
     
