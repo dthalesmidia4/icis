@@ -1,0 +1,1 @@
+ALTER TABLE public.demands ADD COLUMN IF NOT EXISTS rejected_attachments jsonb NOT NULL DEFAULT '[]'::jsonb;
