@@ -115,6 +115,28 @@ interface TaskCardProps {
   onScheduleRequest?: (card: KanbanCardData) => void;
 }
 const isImageFile = (type: string) => type.startsWith('image/');
+const AI_UPLOADER_IDS = new Set(["ai-generator", "auto-generator"]);
+
+const isAiGeneratedAttachment = (attachment: Attachment) => {
+  const uploaderId = attachment.uploadedBy?.id?.toLowerCase() || "";
+  const uploaderEmail = attachment.uploadedBy?.email?.toLowerCase() || "";
+  return AI_UPLOADER_IDS.has(uploaderId) || uploaderEmail === "system@ai";
+};
+
+const inferDemandType = (card: KanbanCardData | null) => {
+  const explicitType = card?.demand_type?.trim();
+  if (explicitType) return explicitType;
+
+  const hasSlidePattern = card?.attachments?.some((attachment) => /slide\s*\d+/i.test(attachment.name || ""));
+  if (hasSlidePattern) return "Carrossel";
+
+  const searchableText = `${card?.title || ""} ${card?.description || ""} ${card?.instructions || ""}`.toLowerCase();
+  if (searchableText.includes("carrossel") || searchableText.includes("carousel")) return "Carrossel";
+  if (searchableText.includes("post estático") || searchableText.includes("post estatico") || searchableText.includes("estático") || searchableText.includes("estatico")) return "Post Estático";
+
+  return null;
+};
+
 const formatFileSize = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -494,8 +516,9 @@ export default function TaskCard({
     }
   };
 
-  const isCarousel = card?.demand_type?.toLowerCase().includes('carrossel') || card?.demand_type?.toLowerCase().includes('carousel');
-  const aiAttachments = card?.attachments?.filter(a => a.uploadedBy?.id === 'ai-generator') || [];
+  const resolvedDemandType = inferDemandType(card);
+  const isCarousel = !!resolvedDemandType?.toLowerCase().includes('carrossel') || !!resolvedDemandType?.toLowerCase().includes('carousel');
+  const aiAttachments = card?.attachments?.filter(isAiGeneratedAttachment) || [];
   const hasAiAttachments = aiAttachments.length > 0;
 
   const handleRegenerateAll = async () => {
@@ -522,7 +545,7 @@ export default function TaskCard({
           .eq("id", card.id);
 
         // Remove AI attachments from current list
-        const manualAttachments = card.attachments?.filter(a => a.uploadedBy?.id !== 'ai-generator') || [];
+        const manualAttachments = card.attachments?.filter(a => !isAiGeneratedAttachment(a)) || [];
         await supabase
           .from("demands")
           .update({ attachments: manualAttachments as unknown as any })
@@ -1401,27 +1424,30 @@ export default function TaskCard({
                                         </div>
 
                                         {/* Per-slide regenerate button for AI-generated carousel slides */}
-                                        {!readOnly && isCarousel && attachment.uploadedBy?.id === 'ai-generator' && (
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-5 w-full text-[9px] px-1 gap-0.5 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700"
-                                            disabled={regeneratingSlide !== null || regeneratingAll}
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              const slideMatch = attachment.name?.match(/Slide\s*(\d+)/i);
-                                              const slideNum = slideMatch ? parseInt(slideMatch[1]) : idx + 1;
-                                              handleRegenerateSlide(slideNum);
-                                            }}
-                                          >
-                                            {regeneratingSlide === (attachment.name?.match(/Slide\s*(\d+)/i) ? parseInt(attachment.name.match(/Slide\s*(\d+)/i)![1]) : idx + 1) ? (
-                                              <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                                            ) : (
-                                              <RotateCcw className="h-2.5 w-2.5" />
-                                            )}
-                                            Regenerar
-                                          </Button>
-                                        )}
+                                        {!readOnly && isCarousel && isAiGeneratedAttachment(attachment) && (() => {
+                                          const slideMatch = attachment.name?.match(/Slide\s*(\d+)/i);
+                                          const slideNum = slideMatch ? parseInt(slideMatch[1], 10) : idx + 1;
+
+                                          return (
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-5 w-full text-[9px] px-1 gap-0.5 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700"
+                                              disabled={regeneratingSlide !== null || regeneratingAll}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleRegenerateSlide(slideNum);
+                                              }}
+                                            >
+                                              {regeneratingSlide === slideNum ? (
+                                                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                              ) : (
+                                                <RotateCcw className="h-2.5 w-2.5" />
+                                              )}
+                                              Regenerar Slide {slideNum}
+                                            </Button>
+                                          );
+                                        })()}
                                       </div>
                                     )}
                                   </Draggable>
@@ -1503,9 +1529,13 @@ export default function TaskCard({
       <AlertDialog open={showGenerateConfirm} onOpenChange={setShowGenerateConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Gerar estáticos com IA?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {isCarousel ? "Gerar carrossel com IA?" : "Gerar estático com IA?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              A IA irá analisar o conteúdo da atividade e gerar imagens para cada slide identificado. Isso pode levar alguns minutos dependendo da quantidade de slides.
+              {isCarousel
+                ? "A IA irá analisar a atividade e gerar imagens para os slides do carrossel. Isso pode levar alguns minutos."
+                : "A IA irá analisar a atividade e gerar a imagem do post estático. Isso pode levar alguns minutos."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
@@ -1521,7 +1551,7 @@ export default function TaskCard({
               }}
             >
               <Wand2 className="h-4 w-4 mr-2" />
-              Gerar estáticos
+              {isCarousel ? "Gerar carrossel" : "Gerar estático"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
