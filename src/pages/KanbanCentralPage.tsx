@@ -1080,6 +1080,7 @@ const KanbanCentralPage = () => {
                                  <KanbanCard
                                     title={card.title}
                                     subtitle={card.clientName}
+                                    demandType={card.demand_type}
                                     dueDate={card.due_date}
                                     dueTime={card.due_time || undefined}
                                     cardDeliveryDate={card.delivery_date || undefined}

@@ -1,10 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Calendar, CalendarClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface KanbanCardProps {
   title: string;
   subtitle?: string;
+  demandType?: string | null;
   dueDate?: string;
   dueTime?: string;
   cardDeliveryDate?: string;
@@ -14,9 +16,30 @@ interface KanbanCardProps {
   onClick?: () => void;
 }
 
+const DEMAND_TYPE_COLORS: Record<string, string> = {
+  carrossel: "bg-violet-500/15 text-violet-600 border-violet-500/30 dark:text-violet-400",
+  post: "bg-blue-500/15 text-blue-600 border-blue-500/30 dark:text-blue-400",
+  reel: "bg-pink-500/15 text-pink-600 border-pink-500/30 dark:text-pink-400",
+  reels: "bg-pink-500/15 text-pink-600 border-pink-500/30 dark:text-pink-400",
+  stories: "bg-orange-500/15 text-orange-600 border-orange-500/30 dark:text-orange-400",
+  story: "bg-orange-500/15 text-orange-600 border-orange-500/30 dark:text-orange-400",
+  captação: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30 dark:text-emerald-400",
+  video: "bg-red-500/15 text-red-600 border-red-500/30 dark:text-red-400",
+  vídeo: "bg-red-500/15 text-red-600 border-red-500/30 dark:text-red-400",
+};
+
+const getDemandTypeColor = (type: string): string => {
+  const lower = type.toLowerCase();
+  for (const [key, value] of Object.entries(DEMAND_TYPE_COLORS)) {
+    if (lower.includes(key)) return value;
+  }
+  return "bg-muted text-muted-foreground border-border";
+};
+
 const KanbanCard = ({
   title,
   subtitle,
+  demandType,
   dueDate,
   dueTime,
   cardDeliveryDate,
@@ -41,9 +64,16 @@ const KanbanCard = ({
     >
       {/* Title */}
       <CardHeader className="px-3 pt-3 pb-2">
-        {subtitle && (
-          <p className="text-xs text-muted-foreground mb-1 line-clamp-1">{subtitle}</p>
-        )}
+        <div className="flex items-center gap-1.5 mb-1">
+          {subtitle && (
+            <p className="text-xs text-muted-foreground line-clamp-1">{subtitle}</p>
+          )}
+          {demandType && (
+            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4 font-medium shrink-0 border", getDemandTypeColor(demandType))}>
+              {demandType}
+            </Badge>
+          )}
+        </div>
         <CardTitle className="text-sm font-semibold leading-snug line-clamp-2 text-foreground">
           {title}
         </CardTitle>

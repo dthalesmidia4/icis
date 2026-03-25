@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline } from "lucide-react";
+import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
@@ -290,6 +290,8 @@ export default function TaskCard({
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
+  const [regeneratingAll, setRegeneratingAll] = useState(false);
+  const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
   const [periodTitle, setPeriodTitle] = useState<string | null>(null);
 
   // Fetch period title when card has a period_plan_id
@@ -490,6 +492,114 @@ export default function TaskCard({
     } finally {
       setGeneratingImages(false);
       setGenerationProgress(null);
+    }
+  };
+
+  const isCarousel = card?.demand_type?.toLowerCase().includes('carrossel') || card?.demand_type?.toLowerCase().includes('carousel');
+  const aiAttachments = card?.attachments?.filter(a => a.uploadedBy?.id === 'ai-generator') || [];
+  const hasAiAttachments = aiAttachments.length > 0;
+
+  const handleRegenerateAll = async () => {
+    if (!card) return;
+    setRegeneratingAll(true);
+    try {
+      // Save current AI attachments to rejected_attachments
+      if (hasAiAttachments) {
+        const { data: currentDemand } = await supabase
+          .from("demands")
+          .select("rejected_attachments")
+          .eq("id", card.id)
+          .single();
+        
+        const existingRejected = (currentDemand?.rejected_attachments as any[]) || [];
+        const rejectedBatch = {
+          rejected_at: new Date().toISOString(),
+          attachments: aiAttachments,
+        };
+        
+        await supabase
+          .from("demands")
+          .update({ rejected_attachments: [...existingRejected, rejectedBatch] })
+          .eq("id", card.id);
+
+        // Remove AI attachments from current list
+        const manualAttachments = card.attachments?.filter(a => a.uploadedBy?.id !== 'ai-generator') || [];
+        await supabase
+          .from("demands")
+          .update({ attachments: manualAttachments as unknown as any })
+          .eq("id", card.id);
+        
+        onCardChange({ ...card, attachments: manualAttachments });
+      }
+
+      // Regenerate based on type
+      if (isCarousel) {
+        const { data, error } = await supabase.functions.invoke("auto-generate-carousel", {
+          body: { demandId: card.id },
+        });
+        if (error) throw error;
+        if (data?.error) {
+          toast.error(data.error);
+          return;
+        }
+        toast.success("Carrossel regenerado com sucesso!");
+      } else {
+        const { data, error } = await supabase.functions.invoke("generate-post-image", {
+          body: { demandId: card.id },
+        });
+        if (error) throw error;
+        if (data?.error) {
+          toast.error(data.error, { description: data.details?.join(", ") });
+          return;
+        }
+        toast.success(`${data?.generated || 0} imagem(ns) regenerada(s)!`);
+      }
+
+      // Refetch
+      const { data: updatedDemand } = await supabase
+        .from("demands")
+        .select("attachments")
+        .eq("id", card.id)
+        .single();
+      if (updatedDemand) {
+        onCardChange({ ...card, attachments: updatedDemand.attachments as unknown as Attachment[] });
+      }
+    } catch (error: any) {
+      console.error("Error regenerating:", error);
+      toast.error(error.message || "Erro ao regenerar");
+    } finally {
+      setRegeneratingAll(false);
+    }
+  };
+
+  const handleRegenerateSlide = async (slideNumber: number) => {
+    if (!card) return;
+    setRegeneratingSlide(slideNumber);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-post-image", {
+        body: { demandId: card.id, slideNumber, replaceSlide: true },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+      toast.success(`Slide ${slideNumber} regenerado com sucesso!`);
+
+      // Refetch
+      const { data: updatedDemand } = await supabase
+        .from("demands")
+        .select("attachments")
+        .eq("id", card.id)
+        .single();
+      if (updatedDemand) {
+        onCardChange({ ...card, attachments: updatedDemand.attachments as unknown as Attachment[] });
+      }
+    } catch (error: any) {
+      console.error("Error regenerating slide:", error);
+      toast.error(error.message || "Erro ao regenerar slide");
+    } finally {
+      setRegeneratingSlide(null);
     }
   };
   const handlePublishDateChange = async (newDate: Date | undefined) => {
@@ -1180,27 +1290,46 @@ export default function TaskCard({
                       )}
                     </button>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {uploading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
                       {!readOnly && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => generatingImages ? null : setShowGenerateConfirm(true)}
-                          disabled={generatingImages}
-                          className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
-                        >
-                          {generatingImages ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Wand2 className="h-4 w-4" />
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => generatingImages ? null : setShowGenerateConfirm(true)}
+                            disabled={generatingImages || regeneratingAll}
+                            className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                          >
+                            {generatingImages ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Wand2 className="h-4 w-4" />
+                            )}
+                            {generatingImages && generationProgress
+                              ? `Gerando ${generationProgress.current}/${generationProgress.total}...`
+                              : generatingImages
+                                ? 'Gerando...'
+                                : 'Gerar estáticos com IA'}
+                          </Button>
+
+                          {hasAiAttachments && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleRegenerateAll}
+                              disabled={regeneratingAll || generatingImages}
+                              className="gap-2 border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+                            >
+                              {regeneratingAll ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <RefreshCw className="h-4 w-4" />
+                              )}
+                              {regeneratingAll ? 'Regenerando...' : 'Regenerar tudo'}
+                            </Button>
                           )}
-                          {generatingImages && generationProgress
-                            ? `Gerando ${generationProgress.current}/${generationProgress.total}...`
-                            : generatingImages
-                              ? 'Gerando...'
-                              : 'Gerar estáticos com IA'}
-                        </Button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -1263,6 +1392,29 @@ export default function TaskCard({
                                           <p className="text-[10px] font-medium truncate text-foreground">{attachment.name}</p>
                                           <p className="text-[9px] text-muted-foreground">{formatFileSize(attachment.size)}</p>
                                         </div>
+
+                                        {/* Per-slide regenerate button for AI-generated carousel slides */}
+                                        {!readOnly && isCarousel && attachment.uploadedBy?.id === 'ai-generator' && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-5 w-full text-[9px] px-1 gap-0.5 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700"
+                                            disabled={regeneratingSlide !== null || regeneratingAll}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              const slideMatch = attachment.name?.match(/Slide\s*(\d+)/i);
+                                              const slideNum = slideMatch ? parseInt(slideMatch[1]) : idx + 1;
+                                              handleRegenerateSlide(slideNum);
+                                            }}
+                                          >
+                                            {regeneratingSlide === (attachment.name?.match(/Slide\s*(\d+)/i) ? parseInt(attachment.name.match(/Slide\s*(\d+)/i)![1]) : idx + 1) ? (
+                                              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                            ) : (
+                                              <RotateCcw className="h-2.5 w-2.5" />
+                                            )}
+                                            Regenerar
+                                          </Button>
+                                        )}
                                       </div>
                                     )}
                                   </Draggable>

@@ -419,6 +419,7 @@ export type Database = {
           pipeline_id: string
           publish_date: string | null
           publish_time: string | null
+          rejected_attachments: Json
           source: string
           status_id: string
           template_id: string | null
@@ -448,6 +449,7 @@ export type Database = {
           pipeline_id: string
           publish_date?: string | null
           publish_time?: string | null
+          rejected_attachments?: Json
           source?: string
           status_id: string
           template_id?: string | null
@@ -477,6 +479,7 @@ export type Database = {
           pipeline_id?: string
           publish_date?: string | null
           publish_time?: string | null
+          rejected_attachments?: Json
           source?: string
           status_id?: string
           template_id?: string | null
