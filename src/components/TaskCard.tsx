@@ -1392,6 +1392,29 @@ export default function TaskCard({
                                           <p className="text-[10px] font-medium truncate text-foreground">{attachment.name}</p>
                                           <p className="text-[9px] text-muted-foreground">{formatFileSize(attachment.size)}</p>
                                         </div>
+
+                                        {/* Per-slide regenerate button for AI-generated carousel slides */}
+                                        {!readOnly && isCarousel && attachment.uploadedBy?.id === 'ai-generator' && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-5 w-full text-[9px] px-1 gap-0.5 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700"
+                                            disabled={regeneratingSlide !== null || regeneratingAll}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              const slideMatch = attachment.name?.match(/Slide\s*(\d+)/i);
+                                              const slideNum = slideMatch ? parseInt(slideMatch[1]) : idx + 1;
+                                              handleRegenerateSlide(slideNum);
+                                            }}
+                                          >
+                                            {regeneratingSlide === (attachment.name?.match(/Slide\s*(\d+)/i) ? parseInt(attachment.name.match(/Slide\s*(\d+)/i)![1]) : idx + 1) ? (
+                                              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                            ) : (
+                                              <RotateCcw className="h-2.5 w-2.5" />
+                                            )}
+                                            Regenerar
+                                          </Button>
+                                        )}
                                       </div>
                                     )}
                                   </Draggable>
