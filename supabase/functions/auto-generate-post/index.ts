@@ -173,6 +173,7 @@ CONTEÚDO DO CARD APROVADO:
 ${cardContent}
 
 BRANDING:
+- Marca: "${brandName}" | ${client?.sector || "N/A"} | ${(client as any)?.products_services || "N/A"}
 - Cor primária: ${presetColors.primary}
 - Cor secundária: ${presetColors.secondary}
 ${presetColors.highlight ? `- Cor de destaque: ${presetColors.highlight}` : ""}
@@ -180,14 +181,22 @@ ${presetColors.text ? `- Cor do texto: ${presetColors.text}` : ""}
 - Tipografia: ${presetColors.font}
 ${mascotSection}
 
+ESTILO VISUAL OBRIGATÓRIO:
+- Crie designs com estilo de ilustração 3D estilizada, moderna e profissional
+- Use cenários detalhados e realistas como background (escritórios, ambientes temáticos, paisagens relevantes ao tema)
+- Tipografia bold, grande e impactante integrada ao design (não sobreposta de forma genérica)
+- Composição dinâmica com profundidade e camadas visuais
+- Qualidade de design de agência profissional de alto nível
+- Contraste alto entre texto e fundo para legibilidade perfeita
+- Elementos gráficos decorativos sutis que enriquecem o layout
+- Cores vibrantes e paleta coerente com a identidade visual da marca
+- O texto do post DEVE aparecer legível e bem posicionado na imagem
+
 REGRAS OBRIGATÓRIAS:
 - NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem
-- NÃO adicione texto com o nome da marca em nenhum lugar da imagem
 - Design profissional para redes sociais
 - Formato: 1:1 (quadrado, 1024x1024)
 - IMPORTANTE: Gere um POST COMPLETO para rede social, não apenas um elemento isolado
-- Cores vibrantes e contraste alto
-- Texto legível e bem posicionado
 `.trim();
 
     console.log("Calling Gemini 3 Pro Image (gemini-3-pro-image-preview) via Google AI Studio...");
