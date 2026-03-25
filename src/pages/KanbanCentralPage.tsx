@@ -66,6 +66,25 @@ const isCardOverdue = (card: { delivery_date?: string | null; delivery_time?: st
   return new Date() >= deadline;
 };
 
+const getDisplayDemandType = (
+  demandType: string | null | undefined,
+  title?: string | null,
+  description?: string | null,
+  attachments?: Attachment[] | null
+) => {
+  const explicitType = demandType?.trim();
+  if (explicitType) return explicitType;
+
+  const hasSlidePattern = attachments?.some((attachment) => /slide\s*\d+/i.test(attachment.name || ""));
+  if (hasSlidePattern) return "Carrossel";
+
+  const searchableText = `${title || ""} ${description || ""}`.toLowerCase();
+  if (searchableText.includes("carrossel") || searchableText.includes("carousel")) return "Carrossel";
+  if (searchableText.includes("post estático") || searchableText.includes("post estatico") || searchableText.includes("estático") || searchableText.includes("estatico")) return "Post Estático";
+
+  return null;
+};
+
 const KanbanCentralPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { tenantId, isLoading: tenantLoading } = useTenant();
@@ -213,6 +232,7 @@ const KanbanCentralPage = () => {
               ...card,
               status: newStatusName,
               title: payload.title ?? card.title,
+              demand_type: payload.demand_type ?? card.demand_type,
               publish_date: payload.publish_date ?? card.publish_date,
               publish_time: payload.publish_time ?? card.publish_time,
               delivery_date: payload.delivery_date ?? card.delivery_date,
@@ -620,6 +640,7 @@ const KanbanCentralPage = () => {
   const handleCardChange = (updatedCard: KanbanCardData) => {
     const updatedCentralCard = {
       ...updatedCard,
+      demand_type: updatedCard.demand_type ?? selectedCard?.demand_type ?? null,
       clientName: selectedCard?.clientName || "Cliente",
       clientId: selectedCard?.clientId || "",
       periodPlanId: selectedCard?.periodPlanId || ""
@@ -1080,7 +1101,7 @@ const KanbanCentralPage = () => {
                                  <KanbanCard
                                     title={card.title}
                                     subtitle={card.clientName}
-                                    demandType={card.demand_type}
+                                    demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
                                     dueDate={card.due_date}
                                     dueTime={card.due_time || undefined}
                                     cardDeliveryDate={card.delivery_date || undefined}
