@@ -461,7 +461,9 @@ export default function TaskCard({
 
     try {
       setGenerationProgress({ current: 1, total: 1 });
-      const { data, error } = await supabase.functions.invoke("generate-post-image", {
+      
+      const functionName = isCarousel ? "auto-generate-carousel" : "generate-post-image";
+      const { data, error } = await supabase.functions.invoke(functionName, {
         body: { demandId: card.id },
       });
       if (error) throw error;
@@ -469,13 +471,10 @@ export default function TaskCard({
         toast.error(data.error, { description: data.details?.join(", ") });
         return;
       }
-      const successCount = data?.generated || 0;
 
-      if (successCount > 0) {
-        toast.success(`${successCount} imagem(ns) gerada(s) com sucesso!`);
-      } else {
-        toast.error("Nenhuma imagem foi gerada");
-      }
+      toast.success(isCarousel 
+        ? "Carrossel gerado com sucesso!" 
+        : `${data?.generated || 0} imagem(ns) gerada(s) com sucesso!`);
 
       // Refetch demand to get updated attachments
       const { data: updatedDemand } = await supabase
