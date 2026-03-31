@@ -100,14 +100,52 @@ A análise deve incluir:
 
 Seja objetivo, prático e construtivo.`;
 
-    // 5. Build the user message with all context
+    // 5. Fetch the most recent books for THIS specific employee from history
+    const { data: bookEvents } = await supabase
+      .from("employee_progress_history")
+      .select("event_data, event_title, created_at")
+      .eq("tenant_id", tenantId)
+      .eq("employee_id", employeeId)
+      .eq("event_type", "livro")
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    // Also fetch the latest strategy for this employee
+    const { data: strategyEvent } = await supabase
+      .from("employee_progress_history")
+      .select("event_data")
+      .eq("tenant_id", tenantId)
+      .eq("employee_id", employeeId)
+      .eq("event_type", "estrategia")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    // 6. Build the user message with all context
     let userMessage = formattedAnswers;
 
-    if (strategyPromptData?.prompt_content) {
+    // Add the saved strategy if it exists
+    if (strategyEvent && strategyEvent.length > 0) {
+      const savedStrategy = (strategyEvent[0] as any).event_data?.strategyText;
+      if (savedStrategy) {
+        userMessage += `\n\n---\n## Estratégia Geral de Desenvolvimento:\n${savedStrategy}\n`;
+      }
+    } else if (strategyPromptData?.prompt_content) {
       userMessage += `\n\n---\n## Contexto do Prompt de Estratégia:\n${strategyPromptData.prompt_content}\n`;
     }
 
-    if (bookName) {
+    // Add books from this employee's history (not from component state)
+    if (bookEvents && bookEvents.length > 0) {
+      userMessage += `\n\n---\n## Livros em Uso pelo Colaborador:\n`;
+      for (const book of bookEvents) {
+        const bd = (book as any).event_data;
+        if (bd?.bookName) {
+          userMessage += `- **Livro**: ${bd.bookName}`;
+          if (bd.bookAuthor) userMessage += ` — **Autor**: ${bd.bookAuthor}`;
+          userMessage += `\n`;
+        }
+      }
+    } else if (bookName) {
+      // Fallback to passed params (backwards compatibility)
       userMessage += `\n\n---\n## Livro Atual em Uso:\n`;
       userMessage += `- **Livro**: ${bookName}\n`;
       if (bookAuthor) {
