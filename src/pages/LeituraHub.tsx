@@ -46,6 +46,7 @@ const leituraCards = [
   { id: "estrategia", title: "Estratégia Geral", icon: BookOpen },
   { id: "livros", title: "Livros sendo usados", icon: Library },
   { id: "supervisao", title: "Supervisão", icon: Eye },
+  { id: "desafio", title: "Desafio", icon: Trophy },
   { id: "resultado", title: "Resultado do dia", icon: CalendarCheck },
   { id: "historico", title: "Histórico de progresso", icon: History },
 ];
