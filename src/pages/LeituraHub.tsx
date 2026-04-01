@@ -320,6 +320,58 @@ const LeituraHub = () => {
     }
   };
 
+  const handleGenerateDesafio = async (member: TeamMember) => {
+    setGeneratingDesafio(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-challenge", {
+        body: {
+          employeeId: member.id,
+          employeeName: member.full_name,
+          tenantId: agencyId,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        setDesafioText("");
+      } else if (data?.challengeText) {
+        setDesafioText(data.challengeText);
+        toast.success("Desafio gerado com sucesso!");
+      }
+    } catch (err: any) {
+      console.error("Erro ao gerar desafio:", err);
+      toast.error("Erro ao gerar desafio");
+    } finally {
+      setGeneratingDesafio(false);
+    }
+  };
+
+  const handleSaveDesafio = async () => {
+    if (!desafioText.trim()) {
+      toast.error("Nenhum desafio para salvar");
+      return;
+    }
+    setSavingDesafio(true);
+    try {
+      if (agencyId && selectedMember) {
+        await logProgressEvent({
+          tenantId: agencyId,
+          employeeId: selectedMember.id,
+          eventType: "desafio",
+          eventTitle: "Desafio gerado",
+          eventData: { text: desafioText, preview: desafioText.substring(0, 200) },
+          createdBy: user?.id,
+        });
+      }
+      toast.success("Desafio salvo no histórico!");
+      setDesafioModalOpen(false);
+    } catch {
+      toast.error("Erro ao salvar desafio");
+    } finally {
+      setSavingDesafio(false);
+    }
+
   const loadHistorico = async (member: TeamMember) => {
     setLoadingHistorico(true);
     try {
