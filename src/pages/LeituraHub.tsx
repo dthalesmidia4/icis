@@ -93,6 +93,12 @@ const LeituraHub = () => {
   const [historicoItems, setHistoricoItems] = useState<any[]>([]);
   const [loadingHistorico, setLoadingHistorico] = useState(false);
 
+  // Desafio modal
+  const [desafioModalOpen, setDesafioModalOpen] = useState(false);
+  const [desafioText, setDesafioText] = useState("");
+  const [generatingDesafio, setGeneratingDesafio] = useState(false);
+  const [savingDesafio, setSavingDesafio] = useState(false);
+
   const { isListening, isSupported, startListening, stopListening } = useVoiceSearch({
     onTranscript: (text) => {
       setResultadoText((prev) => (prev ? prev + " " + text : text));
