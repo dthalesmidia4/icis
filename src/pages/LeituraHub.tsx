@@ -190,6 +190,11 @@ const LeituraHub = () => {
       setSupervisaoModalOpen(true);
       handleGenerateSupervision(member);
       return;
+    } else if (activeAction === "desafio") {
+      setDesafioText("");
+      setDesafioModalOpen(true);
+      handleGenerateDesafio(member);
+      return;
     } else if (activeAction === "historico") {
       setHistoricoModalOpen(true);
       loadHistorico(member);
