@@ -110,7 +110,8 @@ const ClientHub = () => {
       toast.error("Nenhum cliente selecionado");
       navigate('/home');
     }
-  }, [isInitialized, selectedClient, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialized]);
 
   useEffect(() => {
     if (!selectedClient?.id || !tenantId) return;
