@@ -650,6 +650,48 @@ const LeituraHub = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Modal: Desafio */}
+      <Dialog open={desafioModalOpen} onOpenChange={setDesafioModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>🏆 Desafio — {selectedMember?.full_name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 overflow-y-auto max-h-[55vh]">
+            {generatingDesafio ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <p className="text-muted-foreground text-sm">Gerando desafio personalizado...</p>
+              </div>
+            ) : desafioText ? (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Desafio gerado com base na anamnese e estratégia do colaborador. Você pode editar antes de salvar.
+                </p>
+                <AutoResizeTextarea
+                  value={desafioText}
+                  onChange={(e) => setDesafioText(e.target.value)}
+                  minHeight={200}
+                  className="text-sm whitespace-pre-wrap"
+                />
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">Nenhum desafio disponível.</p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setDesafioModalOpen(false)}>
+              Fechar
+            </Button>
+            {desafioText && (
+              <Button onClick={handleSaveDesafio} disabled={savingDesafio}>
+                {savingDesafio ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Salvar no histórico
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal: Histórico de Progresso */}
       <Dialog open={historicoModalOpen} onOpenChange={setHistoricoModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh]">
