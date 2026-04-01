@@ -371,6 +371,7 @@ const LeituraHub = () => {
     } finally {
       setSavingDesafio(false);
     }
+  };
 
   const loadHistorico = async (member: TeamMember) => {
     setLoadingHistorico(true);
