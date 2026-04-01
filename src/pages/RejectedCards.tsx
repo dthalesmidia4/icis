@@ -57,7 +57,8 @@ const RejectedCards = () => {
       return;
     }
     fetchData();
-  }, [isInitialized, selectedClient]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialized]);
 
   const fetchData = async () => {
     if (!selectedClient || !tenantId) return;
