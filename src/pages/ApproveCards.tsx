@@ -76,7 +76,8 @@ const ApproveCards = () => {
       return;
     }
     fetchData();
-  }, [isInitialized, selectedClient]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialized]);
 
   // No longer using localStorage for period persistence - always show most recent period with plans
 

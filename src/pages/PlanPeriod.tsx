@@ -203,7 +203,8 @@ const PlanPeriod = () => {
       toast.error("Nenhum cliente selecionado");
       navigate('/home');
     }
-  }, [selectedClient, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!selectedClient || !tenantId) return null;
   const displayName = selectedClient.fantasy_name || selectedClient.name;

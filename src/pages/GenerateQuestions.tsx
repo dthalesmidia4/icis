@@ -134,7 +134,8 @@ export default function GenerateQuestions() {
       sonnerToast.error("Nenhum cliente selecionado");
       navigate("/home");
     }
-  }, [selectedClient, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data: questionSession, isLoading: loadingSession } = useQuery({
     queryKey: ["question-session", selectedClient?.id, tenantId],

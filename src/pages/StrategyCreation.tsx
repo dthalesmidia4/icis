@@ -30,7 +30,8 @@ export default function StrategyCreation() {
       toast.error('Nenhum cliente selecionado');
       navigate('/home');
     }
-  }, [selectedClient, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (selectedClient && tenantId) {
