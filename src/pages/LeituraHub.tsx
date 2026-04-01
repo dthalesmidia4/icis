@@ -24,6 +24,7 @@ import {
   Mic,
   MicOff,
   Save,
+  Trophy,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
@@ -45,6 +46,7 @@ const leituraCards = [
   { id: "estrategia", title: "Estratégia Geral", icon: BookOpen },
   { id: "livros", title: "Livros sendo usados", icon: Library },
   { id: "supervisao", title: "Supervisão", icon: Eye },
+  { id: "desafio", title: "Desafio", icon: Trophy },
   { id: "resultado", title: "Resultado do dia", icon: CalendarCheck },
   { id: "historico", title: "Histórico de progresso", icon: History },
 ];
@@ -90,6 +92,12 @@ const LeituraHub = () => {
   const [historicoModalOpen, setHistoricoModalOpen] = useState(false);
   const [historicoItems, setHistoricoItems] = useState<any[]>([]);
   const [loadingHistorico, setLoadingHistorico] = useState(false);
+
+  // Desafio modal
+  const [desafioModalOpen, setDesafioModalOpen] = useState(false);
+  const [desafioText, setDesafioText] = useState("");
+  const [generatingDesafio, setGeneratingDesafio] = useState(false);
+  const [savingDesafio, setSavingDesafio] = useState(false);
 
   const { isListening, isSupported, startListening, stopListening } = useVoiceSearch({
     onTranscript: (text) => {
@@ -181,6 +189,11 @@ const LeituraHub = () => {
       setSupervisaoText("");
       setSupervisaoModalOpen(true);
       handleGenerateSupervision(member);
+      return;
+    } else if (activeAction === "desafio") {
+      setDesafioText("");
+      setDesafioModalOpen(true);
+      handleGenerateDesafio(member);
       return;
     } else if (activeAction === "historico") {
       setHistoricoModalOpen(true);
@@ -307,6 +320,59 @@ const LeituraHub = () => {
     }
   };
 
+  const handleGenerateDesafio = async (member: TeamMember) => {
+    setGeneratingDesafio(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-challenge", {
+        body: {
+          employeeId: member.id,
+          employeeName: member.full_name,
+          tenantId: agencyId,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        setDesafioText("");
+      } else if (data?.challengeText) {
+        setDesafioText(data.challengeText);
+        toast.success("Desafio gerado com sucesso!");
+      }
+    } catch (err: any) {
+      console.error("Erro ao gerar desafio:", err);
+      toast.error("Erro ao gerar desafio");
+    } finally {
+      setGeneratingDesafio(false);
+    }
+  };
+
+  const handleSaveDesafio = async () => {
+    if (!desafioText.trim()) {
+      toast.error("Nenhum desafio para salvar");
+      return;
+    }
+    setSavingDesafio(true);
+    try {
+      if (agencyId && selectedMember) {
+        await logProgressEvent({
+          tenantId: agencyId,
+          employeeId: selectedMember.id,
+          eventType: "desafio",
+          eventTitle: "Desafio gerado",
+          eventData: { text: desafioText, preview: desafioText.substring(0, 200) },
+          createdBy: user?.id,
+        });
+      }
+      toast.success("Desafio salvo no histórico!");
+      setDesafioModalOpen(false);
+    } catch {
+      toast.error("Erro ao salvar desafio");
+    } finally {
+      setSavingDesafio(false);
+    }
+  };
+
   const loadHistorico = async (member: TeamMember) => {
     setLoadingHistorico(true);
     try {
@@ -335,6 +401,7 @@ const LeituraHub = () => {
       case "livro": return "📚";
       case "supervisao": return "👁️";
       case "resultado_dia": return "📅";
+      case "desafio": return "🏆";
       default: return "📝";
     }
   };
@@ -346,6 +413,7 @@ const LeituraHub = () => {
       case "livro": return "border-l-purple-500";
       case "supervisao": return "border-l-amber-500";
       case "resultado_dia": return "border-l-cyan-500";
+      case "desafio": return "border-l-orange-500";
       default: return "border-l-muted-foreground";
     }
   };
@@ -578,6 +646,48 @@ const LeituraHub = () => {
             <Button variant="outline" onClick={() => setSupervisaoModalOpen(false)}>
               Fechar
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Desafio */}
+      <Dialog open={desafioModalOpen} onOpenChange={setDesafioModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>🏆 Desafio — {selectedMember?.full_name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 overflow-y-auto max-h-[55vh]">
+            {generatingDesafio ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <p className="text-muted-foreground text-sm">Gerando desafio personalizado...</p>
+              </div>
+            ) : desafioText ? (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Desafio gerado com base na anamnese e estratégia do colaborador. Você pode editar antes de salvar.
+                </p>
+                <AutoResizeTextarea
+                  value={desafioText}
+                  onChange={(e) => setDesafioText(e.target.value)}
+                  minHeight={200}
+                  className="text-sm whitespace-pre-wrap"
+                />
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">Nenhum desafio disponível.</p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setDesafioModalOpen(false)}>
+              Fechar
+            </Button>
+            {desafioText && (
+              <Button onClick={handleSaveDesafio} disabled={savingDesafio}>
+                {savingDesafio ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Salvar no histórico
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
