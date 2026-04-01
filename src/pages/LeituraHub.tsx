@@ -401,6 +401,7 @@ const LeituraHub = () => {
       case "livro": return "📚";
       case "supervisao": return "👁️";
       case "resultado_dia": return "📅";
+      case "desafio": return "🏆";
       default: return "📝";
     }
   };
@@ -412,6 +413,7 @@ const LeituraHub = () => {
       case "livro": return "border-l-purple-500";
       case "supervisao": return "border-l-amber-500";
       case "resultado_dia": return "border-l-cyan-500";
+      case "desafio": return "border-l-orange-500";
       default: return "border-l-muted-foreground";
     }
   };
