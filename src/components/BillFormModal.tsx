@@ -187,7 +187,7 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
           }
           if (futureBills.length > 0) {
             const { error: recError } = await supabase
-              .from("bills_payable" as any)
+              .from("bills_payable")
               .insert(futureBills as any);
             if (recError) throw recError;
           }
