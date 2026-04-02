@@ -51,6 +51,27 @@ const RECURRENCE_OPTIONS = [
   { value: "24", label: "24 meses" },
 ];
 
+function formatCurrencyBR(value: number): string {
+  return value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function parseCurrencyBR(formatted: string): number | null {
+  if (!formatted) return null;
+  // Remove dots (thousands) and replace comma with dot (decimal)
+  const cleaned = formatted.replace(/\./g, "").replace(",", ".");
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : num;
+}
+
+function maskCurrency(raw: string): string {
+  // Keep only digits
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  const cents = parseInt(digits, 10);
+  const value = cents / 100;
+  return formatCurrencyBR(value);
+}
+
 function addMonths(dateStr: string, months: number): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   const date = new Date(y, m - 1 + months, d);
