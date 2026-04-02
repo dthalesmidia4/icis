@@ -145,6 +145,25 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
     }
   };
 
+  const handleMarkPaid = async () => {
+    if (!bill) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("bills_payable" as any)
+        .update({ paid_at: new Date().toISOString() } as any)
+        .eq("id", bill.id);
+      if (error) throw error;
+      toast.success("Conta marcada como paga!");
+      onOpenChange(false);
+      onSuccess?.();
+    } catch (err: any) {
+      toast.error("Erro ao marcar como paga: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleRemoveAttachment = () => {
     setFile(null);
     setExistingAttachment(null);
