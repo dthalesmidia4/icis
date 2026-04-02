@@ -151,18 +151,18 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
 
       if (isEditing && bill) {
         const { error } = await supabase
-          .from("bills_payable" as any)
-          .update(payload as any)
+          .from("bills_payable")
+          .update(payload)
           .eq("id", bill.id);
         if (error) throw error;
         toast.success("Conta atualizada com sucesso!");
       } else {
         // Insert the main bill
-        const { data: inserted, error } = await supabase.from("bills_payable" as any).insert({
+        const { data: inserted, error } = await supabase.from("bills_payable").insert({
           ...payload,
           tenant_id: agencyId,
           created_by: user?.id,
-        } as any).select("id").single();
+        }).select("id").single();
         if (error) throw error;
 
         // If recurring, create future copies
