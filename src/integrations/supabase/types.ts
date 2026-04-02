@@ -49,6 +49,7 @@ export type Database = {
           id: string
           name: string
           observations: string | null
+          paid_at: string | null
           payment_method: string | null
           tenant_id: string
           updated_at: string
@@ -63,6 +64,7 @@ export type Database = {
           id?: string
           name: string
           observations?: string | null
+          paid_at?: string | null
           payment_method?: string | null
           tenant_id: string
           updated_at?: string
@@ -77,6 +79,7 @@ export type Database = {
           id?: string
           name?: string
           observations?: string | null
+          paid_at?: string | null
           payment_method?: string | null
           tenant_id?: string
           updated_at?: string
