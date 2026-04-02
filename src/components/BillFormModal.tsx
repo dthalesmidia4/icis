@@ -20,6 +20,7 @@ export interface BillData {
   attachment_name: string | null;
   amount: number | null;
   payment_method: string | null;
+  paid_at: string | null;
 }
 
 interface BillFormModalProps {
