@@ -165,6 +165,9 @@ export default function BillsList() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {bill.name}
+                          {(bill as any).is_recurring && (
+                            <Repeat className="h-3.5 w-3.5 text-muted-foreground" title="Conta recorrente" />
+                          )}
                           {bill.paid_at && (
                             <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 text-xs gap-1">
                               <CheckCircle2 className="h-3 w-3" />
