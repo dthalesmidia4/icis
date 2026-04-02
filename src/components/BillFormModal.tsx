@@ -52,7 +52,7 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
   const { agencyId } = useAgency();
   const { user } = useAuth();
 
-  const isEditing = !!bill;
+  const isEditing = !!bill?.id;
 
   useEffect(() => {
     if (open && bill) {

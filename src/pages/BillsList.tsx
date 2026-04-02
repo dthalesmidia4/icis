@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Paperclip, Download, Eye, Loader2, Plus } from "lucide-react";
+import { Paperclip, Download, Eye, Loader2, Plus, CheckCircle2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
@@ -70,7 +71,8 @@ export default function BillsList() {
   };
 
   const handleNewBill = () => {
-    setEditingBill(null);
+    const defaultDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
+    setEditingBill({ id: "", name: "", due_date: defaultDate, observations: null, attachment_url: null, attachment_name: null, amount: null, payment_method: null, paid_at: null } as any);
     setFormOpen(true);
   };
 
@@ -160,7 +162,17 @@ export default function BillsList() {
                       onClick={() => handleRowClick(bill)}
                     >
                       <TableCell className="whitespace-nowrap">{formatDate(bill.due_date)}</TableCell>
-                      <TableCell>{bill.name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {bill.name}
+                          {bill.paid_at && (
+                            <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 text-xs gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Pago
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="whitespace-nowrap">{formatCurrency(bill.amount)}</TableCell>
                       <TableCell>{bill.payment_method || "—"}</TableCell>
                       <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">
