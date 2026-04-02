@@ -215,8 +215,8 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
     setSaving(true);
     try {
       const { error } = await supabase
-        .from("bills_payable" as any)
-        .update({ paid_at: new Date().toISOString() } as any)
+        .from("bills_payable")
+        .update({ paid_at: new Date().toISOString() })
         .eq("id", bill.id);
       if (error) throw error;
       toast.success("Conta marcada como paga!");
