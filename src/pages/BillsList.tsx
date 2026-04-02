@@ -9,8 +9,17 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import BillFormModal, { type BillData } from "@/components/BillFormModal";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const MONTH_NAMES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
 
 export default function BillsList() {
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [bills, setBills] = useState<BillData[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -20,13 +29,22 @@ export default function BillsList() {
   const [editingBill, setEditingBill] = useState<BillData | null>(null);
   const { agencyId } = useAgency();
 
+  const years = Array.from({ length: 4 }, (_, i) => now.getFullYear() - 2 + i);
+
   const fetchBills = async () => {
     if (!agencyId) return;
     setLoading(true);
+    const firstDay = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
+    const nextMonth = selectedMonth === 11 ? 0 : selectedMonth + 1;
+    const nextYear = selectedMonth === 11 ? selectedYear + 1 : selectedYear;
+    const lastDay = `${nextYear}-${String(nextMonth + 1).padStart(2, "0")}-01`;
+
     const { data, error } = await supabase
       .from("bills_payable" as any)
       .select("*")
       .eq("tenant_id", agencyId)
+      .gte("due_date", firstDay)
+      .lt("due_date", lastDay)
       .order("due_date", { ascending: true });
 
     if (!error && data) {
@@ -37,7 +55,7 @@ export default function BillsList() {
 
   useEffect(() => {
     fetchBills();
-  }, [agencyId]);
+  }, [agencyId, selectedMonth, selectedYear]);
 
   const handlePreview = (e: React.MouseEvent, url: string, name: string) => {
     e.stopPropagation();
@@ -79,7 +97,7 @@ export default function BillsList() {
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold">Contas a Pagar</h1>
                 <p className="text-sm text-muted-foreground">
-                  Todas as contas cadastradas
+                  Contas de {MONTH_NAMES[selectedMonth]}/{selectedYear}
                 </p>
               </div>
             </div>
@@ -89,14 +107,37 @@ export default function BillsList() {
             </Button>
           </div>
 
+          <div className="flex items-center gap-3">
+            <Select value={String(selectedMonth)} onValueChange={(v) => setSelectedMonth(Number(v))}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTH_NAMES.map((name, i) => (
+                  <SelectItem key={i} value={String(i)}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
+              <SelectTrigger className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {years.map((y) => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : bills.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <p className="text-lg font-medium">Nenhuma conta cadastrada</p>
-              <p className="text-sm">Cadastre sua primeira conta a pagar.</p>
+              <p className="text-lg font-medium">Nenhuma conta neste período</p>
+              <p className="text-sm">Selecione outro mês ou cadastre uma nova conta.</p>
             </div>
           ) : (
             <div className="rounded-lg border bg-card">
