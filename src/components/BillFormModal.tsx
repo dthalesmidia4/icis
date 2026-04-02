@@ -412,7 +412,7 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
               variant="secondary"
               onClick={handleMarkPaid}
               disabled={saving}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-emerald-600 hover:bg-emerald-700 text-emerald-50"
             >
               {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
               Pago
