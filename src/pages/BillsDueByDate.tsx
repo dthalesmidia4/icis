@@ -32,13 +32,13 @@ export default function BillsDueByDate() {
     if (!agencyId) return;
     setLoading(true);
     supabase
-      .from("bills_payable" as any)
+      .from("bills_payable")
       .select("*")
       .eq("tenant_id", agencyId)
       .eq("due_date", targetDateStr)
       .order("name")
       .then(({ data, error }) => {
-        if (!error && data) setBills(data as any);
+        if (!error && data) setBills(data as unknown as BillData[]);
         setLoading(false);
       });
   };
