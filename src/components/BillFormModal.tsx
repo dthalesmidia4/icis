@@ -253,6 +253,9 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
   const handleRemoveAttachment = () => {
     setFile(null);
     setExistingAttachment(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const hasAttachment = file || existingAttachment;
