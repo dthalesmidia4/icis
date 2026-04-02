@@ -1,35 +1,25 @@
 
 
-## Plano: Tornar contas editáveis + novos campos (valor, forma de pagamento, recibo)
+## Plano: Adicionar filtro por mês/ano na listagem de Contas a Pagar
 
-### 1. Migração de banco de dados
-Adicionar 2 novas colunas à tabela `bills_payable`:
-- `amount` (numeric, nullable, default null) — valor da conta
-- `payment_method` (text, nullable) — forma de pagamento
+### O que muda
+Adicionar dois selects (mês e ano) acima da tabela em `BillsList.tsx`. A query ao Supabase será filtrada pelo período selecionado, usando `gte` e `lt` na coluna `due_date`. O filtro inicia no mês/ano atual por padrão.
 
-### 2. Refatorar `NewBillModal` → `BillFormModal`
-Transformar o modal existente para suportar criação e edição:
-- Aceitar prop opcional `bill` com dados existentes para edição
-- Quando `bill` é passado, preencher formulário e usar `UPDATE` ao invés de `INSERT`
-- Título dinâmico: "Nova Conta a Pagar" vs "Editar Conta"
-- Novos campos no formulário:
-  - **Valor** — input numérico com placeholder "R$ 0,00"
-  - **Forma de Pagamento** — select com opções: Pix, Boleto, Cartão de Crédito, Cartão de Débito, Transferência, Dinheiro
-  - **Recibo de Pagamento** — botão de upload separado do anexo principal, usando os campos `attachment_url` e `attachment_name` já existentes para o anexo original, e um segundo upload para recibo que será salvo no mesmo bucket `bill-attachments` porém em campos separados no formulário (exibido como segundo anexo no mesmo modal)
-- Mostrar anexo existente com opção de substituir
+### Alterações em `src/pages/BillsList.tsx`
 
-### 3. Atualizar `BillsList`
-- Tornar cada linha da tabela clicável → abrir `BillFormModal` em modo edição
-- Adicionar colunas "Valor" e "Forma Pgto" na tabela
-- Atualizar interface `Bill` com os novos campos
+1. **Novo estado**: `selectedMonth` (0-11, default: mês atual) e `selectedYear` (default: ano atual)
 
-### 4. Atualizar `Financial.tsx`
-- Atualizar import do modal renomeado
+2. **Filtro na query**: Calcular primeiro e último dia do mês selecionado e adicionar `.gte("due_date", firstDay).lt("due_date", lastDay)` na query existente
 
-### Arquivos modificados
-- **Migração SQL** — adicionar colunas `amount`, `payment_method`
-- **`src/components/NewBillModal.tsx`** → renomear para `BillFormModal`, adicionar modo edição + novos campos
-- **`src/pages/BillsList.tsx`** — linhas clicáveis, novas colunas, modal de edição
-- **`src/pages/Financial.tsx`** — atualizar import
-- **`src/pages/BillsDueByDate.tsx`** — atualizar interface e exibição das novas colunas
+3. **UI do filtro**: Dois `<Select>` (componente shadcn) lado a lado, entre o header e a tabela:
+   - Mês: Janeiro a Dezembro
+   - Ano: lista dinâmica (ano atual - 2 até ano atual + 1)
+
+4. **Re-fetch ao mudar filtro**: Adicionar `selectedMonth` e `selectedYear` como dependências do `useEffect`
+
+5. **Atualizar subtítulo**: Mostrar "Contas de Janeiro/2026" ao invés de "Todas as contas cadastradas"
+
+### Nenhuma alteração de banco de dados necessária
+
+A filtragem usa a coluna `due_date` já existente.
 
