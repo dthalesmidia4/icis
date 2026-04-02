@@ -105,7 +105,7 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
       setName(bill.name);
       setDueDate(bill.due_date);
       setObservations(bill.observations || "");
-      setAmount(bill.amount != null ? String(bill.amount) : "");
+      setAmount(bill.amount != null ? formatCurrencyBR(bill.amount) : "");
       setPaymentMethod(bill.payment_method || "");
       setIsRecurring(bill.is_recurring || false);
       setRecurrenceMonths(bill.recurrence_months ? String(bill.recurrence_months) : "12");
