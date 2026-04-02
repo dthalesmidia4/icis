@@ -41,7 +41,7 @@ export default function BillsList() {
     const lastDay = `${nextYear}-${String(nextMonth + 1).padStart(2, "0")}-01`;
 
     const { data, error } = await supabase
-      .from("bills_payable" as any)
+      .from("bills_payable")
       .select("*")
       .eq("tenant_id", agencyId)
       .gte("due_date", firstDay)
@@ -49,7 +49,7 @@ export default function BillsList() {
       .order("due_date", { ascending: true });
 
     if (!error && data) {
-      setBills(data as any);
+      setBills(data as unknown as BillData[]);
     }
     setLoading(false);
   };
