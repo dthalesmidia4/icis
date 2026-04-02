@@ -47,10 +47,13 @@ export type Database = {
           created_by: string | null
           due_date: string
           id: string
+          is_recurring: boolean
           name: string
           observations: string | null
           paid_at: string | null
+          parent_bill_id: string | null
           payment_method: string | null
+          recurrence_months: number | null
           tenant_id: string
           updated_at: string
         }
@@ -62,10 +65,13 @@ export type Database = {
           created_by?: string | null
           due_date: string
           id?: string
+          is_recurring?: boolean
           name: string
           observations?: string | null
           paid_at?: string | null
+          parent_bill_id?: string | null
           payment_method?: string | null
+          recurrence_months?: number | null
           tenant_id: string
           updated_at?: string
         }
@@ -77,14 +83,24 @@ export type Database = {
           created_by?: string | null
           due_date?: string
           id?: string
+          is_recurring?: boolean
           name?: string
           observations?: string | null
           paid_at?: string | null
+          parent_bill_id?: string | null
           payment_method?: string | null
+          recurrence_months?: number | null
           tenant_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "bills_payable_parent_bill_id_fkey"
+            columns: ["parent_bill_id"]
+            isOneToOne: false
+            referencedRelation: "bills_payable"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "bills_payable_tenant_id_fkey"
             columns: ["tenant_id"]

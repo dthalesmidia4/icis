@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Paperclip, Download, Eye, Loader2, Plus, CheckCircle2 } from "lucide-react";
+import { Paperclip, Download, Eye, Loader2, Plus, CheckCircle2, Repeat } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -165,6 +165,9 @@ export default function BillsList() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {bill.name}
+                          {(bill as any).is_recurring && (
+                            <span title="Conta recorrente"><Repeat className="h-3.5 w-3.5 text-muted-foreground" /></span>
+                          )}
                           {bill.paid_at && (
                             <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 text-xs gap-1">
                               <CheckCircle2 className="h-3 w-3" />
