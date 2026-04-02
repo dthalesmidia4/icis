@@ -8,25 +8,16 @@ import { Paperclip, Download, Eye, Loader2, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
-import NewBillModal from "@/components/NewBillModal";
-
-interface Bill {
-  id: string;
-  name: string;
-  due_date: string;
-  observations: string | null;
-  attachment_url: string | null;
-  attachment_name: string | null;
-  created_at: string;
-}
+import BillFormModal, { type BillData } from "@/components/BillFormModal";
 
 export default function BillsList() {
-  const [bills, setBills] = useState<Bill[]>([]);
+  const [bills, setBills] = useState<BillData[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewName, setPreviewName] = useState("");
-  const [newBillOpen, setNewBillOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingBill, setEditingBill] = useState<BillData | null>(null);
   const { agencyId } = useAgency();
 
   const fetchBills = async () => {
@@ -48,10 +39,21 @@ export default function BillsList() {
     fetchBills();
   }, [agencyId]);
 
-  const handlePreview = (url: string, name: string) => {
+  const handlePreview = (e: React.MouseEvent, url: string, name: string) => {
+    e.stopPropagation();
     setPreviewUrl(url);
     setPreviewName(name);
     setPreviewOpen(true);
+  };
+
+  const handleRowClick = (bill: BillData) => {
+    setEditingBill(bill);
+    setFormOpen(true);
+  };
+
+  const handleNewBill = () => {
+    setEditingBill(null);
+    setFormOpen(true);
   };
 
   const formatDate = (dateStr: string) => {
@@ -60,6 +62,11 @@ export default function BillsList() {
     } catch {
       return dateStr;
     }
+  };
+
+  const formatCurrency = (value: number | null) => {
+    if (value == null) return "—";
+    return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   };
 
   return (
@@ -76,7 +83,7 @@ export default function BillsList() {
                 </p>
               </div>
             </div>
-            <Button onClick={() => setNewBillOpen(true)} size="sm">
+            <Button onClick={handleNewBill} size="sm">
               <Plus className="h-4 w-4 mr-1" />
               Nova Conta
             </Button>
@@ -98,15 +105,23 @@ export default function BillsList() {
                   <TableRow>
                     <TableHead className="font-bold text-foreground uppercase text-xs tracking-wider">Vencimento</TableHead>
                     <TableHead className="font-bold text-foreground uppercase text-xs tracking-wider">Nome</TableHead>
+                    <TableHead className="font-bold text-foreground uppercase text-xs tracking-wider">Valor</TableHead>
+                    <TableHead className="font-bold text-foreground uppercase text-xs tracking-wider">Forma Pgto</TableHead>
                     <TableHead className="font-bold text-foreground uppercase text-xs tracking-wider">Observação</TableHead>
                     <TableHead className="font-bold text-foreground uppercase text-xs tracking-wider text-center">Anexo</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {bills.map((bill) => (
-                    <TableRow key={bill.id}>
+                    <TableRow
+                      key={bill.id}
+                      className="cursor-pointer hover:bg-muted/30"
+                      onClick={() => handleRowClick(bill)}
+                    >
                       <TableCell className="whitespace-nowrap">{formatDate(bill.due_date)}</TableCell>
                       <TableCell>{bill.name}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatCurrency(bill.amount)}</TableCell>
+                      <TableCell>{bill.payment_method || "—"}</TableCell>
                       <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">
                         {bill.observations || "—"}
                       </TableCell>
@@ -118,11 +133,17 @@ export default function BillsList() {
                               size="icon"
                               className="h-8 w-8"
                               title="Visualizar"
-                              onClick={() => handlePreview(bill.attachment_url!, bill.attachment_name || "Anexo")}
+                              onClick={(e) => handlePreview(e, bill.attachment_url!, bill.attachment_name || "Anexo")}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <a href={bill.attachment_url} download={bill.attachment_name || "anexo"} target="_blank" rel="noopener noreferrer">
+                            <a
+                              href={bill.attachment_url}
+                              download={bill.attachment_name || "anexo"}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               <Button variant="ghost" size="icon" className="h-8 w-8" title="Baixar">
                                 <Download className="h-4 w-4" />
                               </Button>
@@ -148,10 +169,11 @@ export default function BillsList() {
         fileName={previewName}
       />
 
-      <NewBillModal
-        open={newBillOpen}
-        onOpenChange={setNewBillOpen}
+      <BillFormModal
+        open={formOpen}
+        onOpenChange={setFormOpen}
         onSuccess={fetchBills}
+        bill={editingBill}
       />
     </div>
   );

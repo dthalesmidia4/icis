@@ -1,36 +1,84 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Paperclip, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
-interface NewBillModalProps {
+export interface BillData {
+  id: string;
+  name: string;
+  due_date: string;
+  observations: string | null;
+  attachment_url: string | null;
+  attachment_name: string | null;
+  amount: number | null;
+  payment_method: string | null;
+}
+
+interface BillFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  bill?: BillData | null;
 }
 
-export default function NewBillModal({ open, onOpenChange, onSuccess }: NewBillModalProps) {
+const PAYMENT_METHODS = [
+  "Pix",
+  "Boleto",
+  "Cartão de Crédito",
+  "Cartão de Débito",
+  "Transferência",
+  "Dinheiro",
+];
+
+export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: BillFormModalProps) {
   const [name, setName] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [observations, setObservations] = useState("");
+  const [amount, setAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [existingAttachment, setExistingAttachment] = useState<{ url: string; name: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { agencyId } = useAgency();
   const { user } = useAuth();
 
+  const isEditing = !!bill;
+
+  useEffect(() => {
+    if (open && bill) {
+      setName(bill.name);
+      setDueDate(bill.due_date);
+      setObservations(bill.observations || "");
+      setAmount(bill.amount != null ? String(bill.amount) : "");
+      setPaymentMethod(bill.payment_method || "");
+      setFile(null);
+      if (bill.attachment_url) {
+        setExistingAttachment({ url: bill.attachment_url, name: bill.attachment_name || "Anexo" });
+      } else {
+        setExistingAttachment(null);
+      }
+    } else if (open && !bill) {
+      resetForm();
+    }
+  }, [open, bill]);
+
   const resetForm = () => {
     setName("");
     setDueDate("");
     setObservations("");
+    setAmount("");
+    setPaymentMethod("");
     setFile(null);
+    setExistingAttachment(null);
   };
 
   const handleSave = async () => {
@@ -41,8 +89,8 @@ export default function NewBillModal({ open, onOpenChange, onSuccess }: NewBillM
 
     setSaving(true);
     try {
-      let attachmentUrl: string | null = null;
-      let attachmentName: string | null = null;
+      let attachmentUrl: string | null = existingAttachment?.url || null;
+      let attachmentName: string | null = existingAttachment?.name || null;
 
       if (file) {
         const ext = file.name.split(".").pop();
@@ -59,19 +107,33 @@ export default function NewBillModal({ open, onOpenChange, onSuccess }: NewBillM
         attachmentName = file.name;
       }
 
-      const { error } = await supabase.from("bills_payable" as any).insert({
-        tenant_id: agencyId,
+      const payload: Record<string, any> = {
         name: name.trim(),
         due_date: dueDate,
         observations: observations.trim() || null,
         attachment_url: attachmentUrl,
         attachment_name: attachmentName,
-        created_by: user?.id,
-      } as any);
+        amount: amount ? parseFloat(amount) : null,
+        payment_method: paymentMethod || null,
+      };
 
-      if (error) throw error;
+      if (isEditing && bill) {
+        const { error } = await supabase
+          .from("bills_payable" as any)
+          .update(payload as any)
+          .eq("id", bill.id);
+        if (error) throw error;
+        toast.success("Conta atualizada com sucesso!");
+      } else {
+        const { error } = await supabase.from("bills_payable" as any).insert({
+          ...payload,
+          tenant_id: agencyId,
+          created_by: user?.id,
+        } as any);
+        if (error) throw error;
+        toast.success("Conta cadastrada com sucesso!");
+      }
 
-      toast.success("Conta cadastrada com sucesso!");
       resetForm();
       onOpenChange(false);
       onSuccess?.();
@@ -82,11 +144,18 @@ export default function NewBillModal({ open, onOpenChange, onSuccess }: NewBillM
     }
   };
 
+  const handleRemoveAttachment = () => {
+    setFile(null);
+    setExistingAttachment(null);
+  };
+
+  const hasAttachment = file || existingAttachment;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Nova Conta a Pagar</DialogTitle>
+          <DialogTitle>{isEditing ? "Editar Conta" : "Nova Conta a Pagar"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-2">
@@ -108,6 +177,31 @@ export default function NewBillModal({ open, onOpenChange, onSuccess }: NewBillM
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="bill-amount">Valor (R$)</Label>
+            <Input
+              id="bill-amount"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0,00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Forma de Pagamento</Label>
+            <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione..." />
+              </SelectTrigger>
+              <SelectContent>
+                {PAYMENT_METHODS.map((m) => (
+                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="bill-obs">Observação</Label>
             <Textarea
               id="bill-obs"
@@ -123,13 +217,18 @@ export default function NewBillModal({ open, onOpenChange, onSuccess }: NewBillM
               ref={fileInputRef}
               type="file"
               className="hidden"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              onChange={(e) => {
+                setFile(e.target.files?.[0] || null);
+                setExistingAttachment(null);
+              }}
             />
-            {file ? (
+            {hasAttachment ? (
               <div className="flex items-center gap-2 p-2 rounded-md border bg-muted/30">
                 <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="text-sm truncate flex-1">{file.name}</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setFile(null)}>
+                <span className="text-sm truncate flex-1">
+                  {file ? file.name : existingAttachment?.name}
+                </span>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleRemoveAttachment}>
                   <X className="h-3 w-3" />
                 </Button>
               </div>
@@ -151,7 +250,7 @@ export default function NewBillModal({ open, onOpenChange, onSuccess }: NewBillM
           </Button>
           <Button onClick={handleSave} disabled={saving}>
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Salvar
+            {isEditing ? "Atualizar" : "Salvar"}
           </Button>
         </DialogFooter>
       </DialogContent>

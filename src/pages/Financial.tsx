@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import BackButton from "@/components/BackButton";
-import NewBillModal from "@/components/NewBillModal";
+import BillFormModal from "@/components/BillFormModal";
 import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -81,7 +81,7 @@ const Financial = () => {
         </DialogContent>
       </Dialog>
 
-      <NewBillModal
+      <BillFormModal
         open={newBillModalOpen}
         onOpenChange={setNewBillModalOpen}
       />

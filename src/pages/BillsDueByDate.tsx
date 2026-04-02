@@ -9,15 +9,7 @@ import { Download, Eye, Loader2 } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
-
-interface Bill {
-  id: string;
-  name: string;
-  due_date: string;
-  observations: string | null;
-  attachment_url: string | null;
-  attachment_name: string | null;
-}
+import BillFormModal, { type BillData } from "@/components/BillFormModal";
 
 export default function BillsDueByDate() {
   const { offset } = useParams<{ offset: string }>();
@@ -27,14 +19,16 @@ export default function BillsDueByDate() {
   const displayDate = format(targetDate, "dd/MM/yyyy", { locale: ptBR });
   const label = daysOffset === 0 ? "Hoje" : "Amanhã";
 
-  const [bills, setBills] = useState<Bill[]>([]);
+  const [bills, setBills] = useState<BillData[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewName, setPreviewName] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingBill, setEditingBill] = useState<BillData | null>(null);
   const { agencyId } = useAgency();
 
-  useEffect(() => {
+  const fetchBills = () => {
     if (!agencyId) return;
     setLoading(true);
     supabase
@@ -47,12 +41,27 @@ export default function BillsDueByDate() {
         if (!error && data) setBills(data as any);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchBills();
   }, [agencyId, targetDateStr]);
 
-  const handlePreview = (url: string, name: string) => {
+  const handlePreview = (e: React.MouseEvent, url: string, name: string) => {
+    e.stopPropagation();
     setPreviewUrl(url);
     setPreviewName(name);
     setPreviewOpen(true);
+  };
+
+  const handleRowClick = (bill: BillData) => {
+    setEditingBill(bill);
+    setFormOpen(true);
+  };
+
+  const formatCurrency = (value: number | null) => {
+    if (value == null) return "—";
+    return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   };
 
   return (
@@ -84,14 +93,22 @@ export default function BillsDueByDate() {
                 <TableHeader className="bg-muted/50">
                   <TableRow>
                     <TableHead className="font-bold text-foreground uppercase text-xs tracking-wider">Nome</TableHead>
+                    <TableHead className="font-bold text-foreground uppercase text-xs tracking-wider">Valor</TableHead>
+                    <TableHead className="font-bold text-foreground uppercase text-xs tracking-wider">Forma Pgto</TableHead>
                     <TableHead className="font-bold text-foreground uppercase text-xs tracking-wider">Observação</TableHead>
                     <TableHead className="font-bold text-foreground uppercase text-xs tracking-wider text-center">Anexo</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {bills.map((bill) => (
-                    <TableRow key={bill.id}>
+                    <TableRow
+                      key={bill.id}
+                      className="cursor-pointer hover:bg-muted/30"
+                      onClick={() => handleRowClick(bill)}
+                    >
                       <TableCell>{bill.name}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatCurrency(bill.amount)}</TableCell>
+                      <TableCell>{bill.payment_method || "—"}</TableCell>
                       <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">
                         {bill.observations || "—"}
                       </TableCell>
@@ -103,11 +120,17 @@ export default function BillsDueByDate() {
                               size="icon"
                               className="h-8 w-8"
                               title="Visualizar"
-                              onClick={() => handlePreview(bill.attachment_url!, bill.attachment_name || "Anexo")}
+                              onClick={(e) => handlePreview(e, bill.attachment_url!, bill.attachment_name || "Anexo")}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <a href={bill.attachment_url} download={bill.attachment_name || "anexo"} target="_blank" rel="noopener noreferrer">
+                            <a
+                              href={bill.attachment_url}
+                              download={bill.attachment_name || "anexo"}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               <Button variant="ghost" size="icon" className="h-8 w-8" title="Baixar">
                                 <Download className="h-4 w-4" />
                               </Button>
@@ -131,6 +154,13 @@ export default function BillsDueByDate() {
         onClose={() => setPreviewOpen(false)}
         fileUrl={previewUrl}
         fileName={previewName}
+      />
+
+      <BillFormModal
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        onSuccess={fetchBills}
+        bill={editingBill}
       />
     </div>
   );
