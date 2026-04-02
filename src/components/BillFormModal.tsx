@@ -164,7 +164,7 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
         observations: observations.trim() || null,
         attachment_url: attachmentUrl,
         attachment_name: attachmentName,
-        amount: amount ? parseFloat(amount) : null,
+        amount: parseCurrencyBR(amount),
         payment_method: paymentMethod || null,
         is_recurring: isRecurring,
         recurrence_months: isRecurring ? parseInt(recurrenceMonths) : null,
