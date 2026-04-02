@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useState, useRef, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -253,6 +253,9 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
   const handleRemoveAttachment = () => {
     setFile(null);
     setExistingAttachment(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const hasAttachment = file || existingAttachment;
@@ -262,6 +265,9 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar Conta" : "Nova Conta a Pagar"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {isEditing ? "Formulário para editar conta a pagar" : "Formulário para cadastrar nova conta a pagar"}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-2 max-h-[65vh] overflow-y-auto pr-1">
           <div className="space-y-2">
@@ -407,7 +413,7 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
               variant="secondary"
               onClick={handleMarkPaid}
               disabled={saving}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-emerald-600 hover:bg-emerald-700 text-emerald-50"
             >
               {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
               Pago
