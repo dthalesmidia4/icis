@@ -286,12 +286,11 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
             <Label htmlFor="bill-amount">Valor (R$)</Label>
             <Input
               id="bill-amount"
-              type="number"
-              step="0.01"
-              min="0"
+              type="text"
+              inputMode="numeric"
               placeholder="0,00"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => setAmount(maskCurrency(e.target.value))}
             />
           </div>
           <div className="space-y-2">
