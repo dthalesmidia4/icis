@@ -162,7 +162,17 @@ export default function BillsList() {
                       onClick={() => handleRowClick(bill)}
                     >
                       <TableCell className="whitespace-nowrap">{formatDate(bill.due_date)}</TableCell>
-                      <TableCell>{bill.name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {bill.name}
+                          {bill.paid_at && (
+                            <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 text-xs gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Pago
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="whitespace-nowrap">{formatCurrency(bill.amount)}</TableCell>
                       <TableCell>{bill.payment_method || "—"}</TableCell>
                       <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">
