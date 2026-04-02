@@ -71,7 +71,8 @@ export default function BillsList() {
   };
 
   const handleNewBill = () => {
-    setEditingBill(null);
+    const defaultDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
+    setEditingBill({ id: "", name: "", due_date: defaultDate, observations: null, attachment_url: null, attachment_name: null, amount: null, payment_method: null, paid_at: null } as any);
     setFormOpen(true);
   };
 
