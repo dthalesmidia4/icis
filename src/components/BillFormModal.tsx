@@ -160,9 +160,9 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
         // Insert the main bill
         const { data: inserted, error } = await supabase.from("bills_payable").insert({
           ...payload,
-          tenant_id: agencyId,
+          tenant_id: agencyId!,
           created_by: user?.id,
-        }).select("id").single();
+        } as any).select("id").single();
         if (error) throw error;
 
         // If recurring, create future copies
