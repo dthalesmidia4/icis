@@ -311,10 +311,9 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
                   id="bill-recurring"
                   checked={isRecurring}
                   onCheckedChange={setIsRecurring}
-                  disabled={isEditing}
                 />
               </div>
-              {isRecurring && !isEditing && (
+              {isRecurring && (
                 <div className="space-y-2">
                   <Label>Duração da recorrência</Label>
                   <Select value={recurrenceMonths} onValueChange={setRecurrenceMonths}>
@@ -328,14 +327,11 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Serão criados {recurrenceMonths} lançamentos a partir de {dueDate || "a data informada"}.
+                    {isEditing
+                      ? "A duração será atualizada nesta conta."
+                      : `Serão criados ${recurrenceMonths} lançamentos a partir de ${dueDate || "a data informada"}.`}
                   </p>
                 </div>
-              )}
-              {isRecurring && isEditing && (
-                <p className="text-xs text-muted-foreground">
-                  Esta conta faz parte de uma recorrência de {bill?.recurrence_months} meses. A recorrência não pode ser alterada após a criação.
-                </p>
               )}
             </div>
           )}
