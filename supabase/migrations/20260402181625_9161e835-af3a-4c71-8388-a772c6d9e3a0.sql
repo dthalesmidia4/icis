@@ -1,0 +1,1 @@
+ALTER TABLE public.bills_payable ADD COLUMN paid_at timestamp with time zone NULL;
