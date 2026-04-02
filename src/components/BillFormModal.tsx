@@ -268,6 +268,7 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
           <DialogDescription className="sr-only">
             {isEditing ? "Formulário para editar conta a pagar" : "Formulário para cadastrar nova conta a pagar"}
           </DialogDescription>
+        </DialogHeader>
         <div className="space-y-4 pt-2 max-h-[65vh] overflow-y-auto pr-1">
           <div className="space-y-2">
             <Label htmlFor="bill-due-date">Data de Vencimento *</Label>
