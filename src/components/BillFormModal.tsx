@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Paperclip, X, Loader2, Check } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Paperclip, X, Loader2, Check, Repeat } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,6 +22,9 @@ export interface BillData {
   amount: number | null;
   payment_method: string | null;
   paid_at: string | null;
+  is_recurring?: boolean;
+  recurrence_months?: number | null;
+  parent_bill_id?: string | null;
 }
 
 interface BillFormModalProps {
@@ -39,6 +43,24 @@ const PAYMENT_METHODS = [
   "Dinheiro",
 ];
 
+const RECURRENCE_OPTIONS = [
+  { value: "2", label: "2 meses" },
+  { value: "3", label: "3 meses" },
+  { value: "6", label: "6 meses" },
+  { value: "12", label: "12 meses" },
+  { value: "24", label: "24 meses" },
+];
+
+function addMonths(dateStr: string, months: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1 + months, d);
+  // Handle month overflow (e.g. Jan 31 + 1 month = Feb 28)
+  if (date.getDate() !== d) {
+    date.setDate(0); // last day of previous month
+  }
+  return date.toISOString().slice(0, 10);
+}
+
 export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: BillFormModalProps) {
   const [name, setName] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -48,11 +70,14 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
   const [file, setFile] = useState<File | null>(null);
   const [existingAttachment, setExistingAttachment] = useState<{ url: string; name: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceMonths, setRecurrenceMonths] = useState("12");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { agencyId } = useAgency();
   const { user } = useAuth();
 
   const isEditing = !!bill?.id;
+  const isChildRecurring = !!bill?.parent_bill_id;
 
   useEffect(() => {
     if (open && bill) {
@@ -61,6 +86,8 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
       setObservations(bill.observations || "");
       setAmount(bill.amount != null ? String(bill.amount) : "");
       setPaymentMethod(bill.payment_method || "");
+      setIsRecurring(bill.is_recurring || false);
+      setRecurrenceMonths(bill.recurrence_months ? String(bill.recurrence_months) : "12");
       setFile(null);
       if (bill.attachment_url) {
         setExistingAttachment({ url: bill.attachment_url, name: bill.attachment_name || "Anexo" });
@@ -80,6 +107,8 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
     setPaymentMethod("");
     setFile(null);
     setExistingAttachment(null);
+    setIsRecurring(false);
+    setRecurrenceMonths("12");
   };
 
   const handleSave = async () => {
@@ -116,6 +145,8 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
         attachment_name: attachmentName,
         amount: amount ? parseFloat(amount) : null,
         payment_method: paymentMethod || null,
+        is_recurring: isRecurring,
+        recurrence_months: isRecurring ? parseInt(recurrenceMonths) : null,
       };
 
       if (isEditing && bill) {
@@ -126,13 +157,47 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
         if (error) throw error;
         toast.success("Conta atualizada com sucesso!");
       } else {
-        const { error } = await supabase.from("bills_payable" as any).insert({
+        // Insert the main bill
+        const { data: inserted, error } = await supabase.from("bills_payable" as any).insert({
           ...payload,
           tenant_id: agencyId,
           created_by: user?.id,
-        } as any);
+        } as any).select("id").single();
         if (error) throw error;
-        toast.success("Conta cadastrada com sucesso!");
+
+        // If recurring, create future copies
+        if (isRecurring && inserted) {
+          const months = parseInt(recurrenceMonths);
+          const futureBills = [];
+          for (let i = 1; i < months; i++) {
+            futureBills.push({
+              name: name.trim(),
+              due_date: addMonths(dueDate, i),
+              observations: observations.trim() || null,
+              attachment_url: attachmentUrl,
+              attachment_name: attachmentName,
+              amount: amount ? parseFloat(amount) : null,
+              payment_method: paymentMethod || null,
+              is_recurring: true,
+              recurrence_months: months,
+              parent_bill_id: (inserted as any).id,
+              tenant_id: agencyId,
+              created_by: user?.id,
+            });
+          }
+          if (futureBills.length > 0) {
+            const { error: recError } = await supabase
+              .from("bills_payable" as any)
+              .insert(futureBills as any);
+            if (recError) throw recError;
+          }
+        }
+
+        toast.success(
+          isRecurring
+            ? `Conta cadastrada com ${parseInt(recurrenceMonths)} lançamentos!`
+            : "Conta cadastrada com sucesso!"
+        );
       }
 
       resetForm();
@@ -177,7 +242,7 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar Conta" : "Nova Conta a Pagar"}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
+        <div className="space-y-4 pt-2 max-h-[65vh] overflow-y-auto pr-1">
           <div className="space-y-2">
             <Label htmlFor="bill-due-date">Data de Vencimento *</Label>
             <Input
@@ -231,6 +296,59 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
               rows={3}
             />
           </div>
+
+          {/* Recurrence section - only for new bills or editing the parent */}
+          {!isChildRecurring && (
+            <div className="space-y-3 rounded-lg border p-3 bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Repeat className="h-4 w-4 text-muted-foreground" />
+                  <Label htmlFor="bill-recurring" className="cursor-pointer font-medium">
+                    Conta recorrente mensal
+                  </Label>
+                </div>
+                <Switch
+                  id="bill-recurring"
+                  checked={isRecurring}
+                  onCheckedChange={setIsRecurring}
+                  disabled={isEditing}
+                />
+              </div>
+              {isRecurring && !isEditing && (
+                <div className="space-y-2">
+                  <Label>Duração da recorrência</Label>
+                  <Select value={recurrenceMonths} onValueChange={setRecurrenceMonths}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RECURRENCE_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Serão criados {recurrenceMonths} lançamentos a partir de {dueDate || "a data informada"}.
+                  </p>
+                </div>
+              )}
+              {isRecurring && isEditing && (
+                <p className="text-xs text-muted-foreground">
+                  Esta conta faz parte de uma recorrência de {bill?.recurrence_months} meses. A recorrência não pode ser alterada após a criação.
+                </p>
+              )}
+            </div>
+          )}
+
+          {isChildRecurring && (
+            <div className="flex items-center gap-2 rounded-lg border p-3 bg-muted/30">
+              <Repeat className="h-4 w-4 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">
+                Esta conta foi gerada automaticamente por uma recorrência.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label>Anexo</Label>
             <input
