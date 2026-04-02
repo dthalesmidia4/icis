@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +51,27 @@ const RECURRENCE_OPTIONS = [
   { value: "24", label: "24 meses" },
 ];
 
+function formatCurrencyBR(value: number): string {
+  return value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function parseCurrencyBR(formatted: string): number | null {
+  if (!formatted) return null;
+  // Remove dots (thousands) and replace comma with dot (decimal)
+  const cleaned = formatted.replace(/\./g, "").replace(",", ".");
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : num;
+}
+
+function maskCurrency(raw: string): string {
+  // Keep only digits
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  const cents = parseInt(digits, 10);
+  const value = cents / 100;
+  return formatCurrencyBR(value);
+}
+
 function addMonths(dateStr: string, months: number): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   const date = new Date(y, m - 1 + months, d);
@@ -84,7 +105,7 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
       setName(bill.name);
       setDueDate(bill.due_date);
       setObservations(bill.observations || "");
-      setAmount(bill.amount != null ? String(bill.amount) : "");
+      setAmount(bill.amount != null ? formatCurrencyBR(bill.amount) : "");
       setPaymentMethod(bill.payment_method || "");
       setIsRecurring(bill.is_recurring || false);
       setRecurrenceMonths(bill.recurrence_months ? String(bill.recurrence_months) : "12");
@@ -143,7 +164,7 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
         observations: observations.trim() || null,
         attachment_url: attachmentUrl,
         attachment_name: attachmentName,
-        amount: amount ? parseFloat(amount) : null,
+        amount: parseCurrencyBR(amount),
         payment_method: paymentMethod || null,
         is_recurring: isRecurring,
         recurrence_months: isRecurring ? parseInt(recurrenceMonths) : null,
@@ -176,7 +197,7 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
               observations: observations.trim() || null,
               attachment_url: attachmentUrl,
               attachment_name: attachmentName,
-              amount: amount ? parseFloat(amount) : null,
+              amount: parseCurrencyBR(amount),
               payment_method: paymentMethod || null,
               is_recurring: true,
               recurrence_months: months,
@@ -265,12 +286,11 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
             <Label htmlFor="bill-amount">Valor (R$)</Label>
             <Input
               id="bill-amount"
-              type="number"
-              step="0.01"
-              min="0"
+              type="text"
+              inputMode="numeric"
               placeholder="0,00"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => setAmount(maskCurrency(e.target.value))}
             />
           </div>
           <div className="space-y-2">
