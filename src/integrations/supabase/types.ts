@@ -40,6 +40,7 @@ export type Database = {
       }
       bills_payable: {
         Row: {
+          amount: number | null
           attachment_name: string | null
           attachment_url: string | null
           created_at: string
@@ -48,10 +49,12 @@ export type Database = {
           id: string
           name: string
           observations: string | null
+          payment_method: string | null
           tenant_id: string
           updated_at: string
         }
         Insert: {
+          amount?: number | null
           attachment_name?: string | null
           attachment_url?: string | null
           created_at?: string
@@ -60,10 +63,12 @@ export type Database = {
           id?: string
           name: string
           observations?: string | null
+          payment_method?: string | null
           tenant_id: string
           updated_at?: string
         }
         Update: {
+          amount?: number | null
           attachment_name?: string | null
           attachment_url?: string | null
           created_at?: string
@@ -72,6 +77,7 @@ export type Database = {
           id?: string
           name?: string
           observations?: string | null
+          payment_method?: string | null
           tenant_id?: string
           updated_at?: string
         }
