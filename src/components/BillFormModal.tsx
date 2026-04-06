@@ -268,12 +268,40 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
     if (!bill) return;
     setSaving(true);
     try {
+      let attachmentUrl: string | null = existingAttachment?.url || null;
+      let attachmentName: string | null = existingAttachment?.name || null;
+
+      if (file) {
+        const ext = file.name.split(".").pop();
+        const path = `${agencyId}/${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("bill-attachments")
+          .upload(path, file);
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+          .from("bill-attachments")
+          .getPublicUrl(path);
+        attachmentUrl = urlData.publicUrl;
+        attachmentName = file.name;
+      }
+
       const { error } = await supabase
         .from("bills_payable")
-        .update({ paid_at: new Date().toISOString() })
+        .update({
+          name: name.trim(),
+          due_date: dueDate,
+          observations: observations.trim() || null,
+          attachment_url: attachmentUrl,
+          attachment_name: attachmentName,
+          amount: parseCurrencyBR(amount),
+          payment_method: paymentMethod || null,
+          paid_at: new Date().toISOString(),
+        })
         .eq("id", bill.id);
       if (error) throw error;
       toast.success("Conta marcada como paga!");
+      resetForm();
       onOpenChange(false);
       onSuccess?.();
     } catch (err: any) {
