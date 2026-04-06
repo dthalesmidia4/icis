@@ -6,11 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Paperclip, X, Loader2, Check, Repeat } from "lucide-react";
+import { Paperclip, X, Loader2, Check, Repeat, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
 
 export interface BillData {
   id: string;
