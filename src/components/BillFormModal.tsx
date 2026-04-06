@@ -491,26 +491,53 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
           </div>
         </div>
         <DialogFooter className="pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancelar
-          </Button>
-          {isEditing && !bill?.paid_at && (
-            <Button
-              variant="secondary"
-              onClick={handleMarkPaid}
-              disabled={saving}
-              className="bg-emerald-600 hover:bg-emerald-700 text-emerald-50"
-            >
-              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-              Pago
-            </Button>
-          )}
-          <Button onClick={handleSave} disabled={saving}>
-            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {isEditing ? "Atualizar" : "Salvar"}
-          </Button>
+          <div className="flex w-full items-center justify-between">
+            <div>
+              {isEditing && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setConfirmDeleteOpen(true)}
+                  disabled={saving}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Excluir
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+                Cancelar
+              </Button>
+              {isEditing && !bill?.paid_at && (
+                <Button
+                  variant="secondary"
+                  onClick={handleMarkPaid}
+                  disabled={saving}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-emerald-50"
+                >
+                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                  Pago
+                </Button>
+              )}
+              <Button onClick={handleSave} disabled={saving}>
+                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {isEditing ? "Atualizar" : "Salvar"}
+              </Button>
+            </div>
+          </div>
         </DialogFooter>
       </DialogContent>
+
+      <ConfirmationModal
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="Excluir conta"
+        description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita."
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </Dialog>
   );
 }
