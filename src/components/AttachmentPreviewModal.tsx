@@ -238,15 +238,9 @@ export const AttachmentPreviewModal: React.FC<AttachmentPreviewModalProps> = ({
         return (
           <div className="w-full h-full overflow-auto">
             <iframe
-              src={`${fileUrl}#view=FitH`}
+              src={`https://docs.google.com/gview?url=${encodeURIComponent(fileUrl)}&embedded=true`}
               className="w-full h-full border-0"
               title={fileName}
-              style={{
-                transform: `scale(${zoom / 100})`,
-                transformOrigin: "top left",
-                width: `${10000 / zoom}%`,
-                height: `${10000 / zoom}%`,
-              }}
             />
           </div>
         );
