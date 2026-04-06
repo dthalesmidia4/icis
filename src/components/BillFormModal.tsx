@@ -320,6 +320,30 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
     }
   };
 
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!bill?.id) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("bills_payable")
+        .delete()
+        .eq("id", bill.id);
+      if (error) throw error;
+      toast.success("Conta excluída com sucesso!");
+      setConfirmDeleteOpen(false);
+      resetForm();
+      onOpenChange(false);
+      onSuccess?.();
+    } catch (err: any) {
+      toast.error("Erro ao excluir: " + err.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const hasAttachment = file || existingAttachment;
 
   return (
