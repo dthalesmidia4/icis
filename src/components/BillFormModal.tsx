@@ -6,11 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Paperclip, X, Loader2, Check, Repeat } from "lucide-react";
+import { Paperclip, X, Loader2, Check, Repeat, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { ConfirmationModal } from "@/components/ConfirmationModal";
 
 export interface BillData {
   id: string;
@@ -319,6 +320,30 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
     }
   };
 
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!bill?.id) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("bills_payable")
+        .delete()
+        .eq("id", bill.id);
+      if (error) throw error;
+      toast.success("Conta excluída com sucesso!");
+      setConfirmDeleteOpen(false);
+      resetForm();
+      onOpenChange(false);
+      onSuccess?.();
+    } catch (err: any) {
+      toast.error("Erro ao excluir: " + err.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const hasAttachment = file || existingAttachment;
 
   return (
@@ -466,26 +491,53 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
           </div>
         </div>
         <DialogFooter className="pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancelar
-          </Button>
-          {isEditing && !bill?.paid_at && (
-            <Button
-              variant="secondary"
-              onClick={handleMarkPaid}
-              disabled={saving}
-              className="bg-emerald-600 hover:bg-emerald-700 text-emerald-50"
-            >
-              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-              Pago
-            </Button>
-          )}
-          <Button onClick={handleSave} disabled={saving}>
-            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {isEditing ? "Atualizar" : "Salvar"}
-          </Button>
+          <div className="flex w-full items-center justify-between">
+            <div>
+              {isEditing && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setConfirmDeleteOpen(true)}
+                  disabled={saving}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Excluir
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+                Cancelar
+              </Button>
+              {isEditing && !bill?.paid_at && (
+                <Button
+                  variant="secondary"
+                  onClick={handleMarkPaid}
+                  disabled={saving}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-emerald-50"
+                >
+                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                  Pago
+                </Button>
+              )}
+              <Button onClick={handleSave} disabled={saving}>
+                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {isEditing ? "Atualizar" : "Salvar"}
+              </Button>
+            </div>
+          </div>
         </DialogFooter>
       </DialogContent>
+
+      <ConfirmationModal
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="Excluir conta"
+        description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita."
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </Dialog>
   );
 }
