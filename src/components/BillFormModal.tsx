@@ -176,7 +176,40 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
           .update(payload)
           .eq("id", bill.id);
         if (error) throw error;
-        toast.success("Conta atualizada com sucesso!");
+
+        // If recurrence was just enabled on edit and no children exist, create them
+        if (isRecurring && !bill.is_recurring && !bill.parent_bill_id) {
+          const months = parseInt(recurrenceMonths);
+          const futureBills = [];
+          for (let i = 1; i < months; i++) {
+            futureBills.push({
+              name: name.trim(),
+              due_date: addMonths(dueDate, i),
+              observations: observations.trim() || null,
+              attachment_url: attachmentUrl,
+              attachment_name: attachmentName,
+              amount: parseCurrencyBR(amount),
+              payment_method: paymentMethod || null,
+              is_recurring: true,
+              recurrence_months: months,
+              parent_bill_id: bill.id,
+              tenant_id: agencyId,
+              created_by: user?.id,
+            });
+          }
+          if (futureBills.length > 0) {
+            const { error: recError } = await supabase
+              .from("bills_payable")
+              .insert(futureBills as any);
+            if (recError) throw recError;
+          }
+        }
+
+        toast.success(
+          isRecurring && !bill.is_recurring
+            ? `Conta atualizada com ${parseInt(recurrenceMonths)} lançamentos!`
+            : "Conta atualizada com sucesso!"
+        );
       } else {
         // Insert the main bill
         const { data: inserted, error } = await supabase.from("bills_payable").insert({
