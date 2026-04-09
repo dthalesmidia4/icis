@@ -1,49 +1,47 @@
 
 
-# Correção: Uso Harmônico de Cores da Marca nos Posts
+# Correção: Capa Impactante nos Carrosséis
 
 ## Problema
 
-Os prompts de todas as Edge Functions de geração de imagem listam as cores da marca de forma crua ("Cor primária: #1c7449"), sem instruir a IA sobre **onde** aplicar cada cor. O Gemini interpreta literalmente e tinge sujeitos inteiros (como um leão) na cor primária, criando resultados visuais absurdos.
+Os prompts de geração de imagens de carrossel tratam **todos os slides igualmente**. O slide 1 (capa/gancho) não recebe instruções especiais para ser visualmente impactante. O resultado é uma capa genérica que não se diferencia dos demais slides e não incentiva o público a deslizar.
 
 ## Solução
 
-Substituir a seção `BRANDING` genérica por uma seção `PALETA DE CORES E APLICAÇÃO` com regras claras de **onde** cada cor deve ser usada, em todas as 4 Edge Functions de geração de imagem.
+Adicionar uma seção condicional nos prompts de imagem que, **quando `slideNumber === 1`**, injeta regras específicas de design de capa. Isso será aplicado nas 2 Edge Functions que geram imagens de carrossel:
 
-A nova instrução explica:
-- **Cor primária** → fundos, banners, elementos gráficos dominantes
-- **Cor secundária** → acentos, bordas, elementos complementares
-- **Cor de destaque** → botões, badges, CTAs, destaques visuais
-- **Cor do texto** → tipografia sobre fundos claros/escuros
-- **Regra crítica**: Objetos, pessoas, animais e elementos realistas devem manter suas cores naturais. As cores da marca se aplicam apenas a elementos gráficos de design (fundos, boxes, banners, shapes, tipografia).
+1. `supabase/functions/generate-carousel-images/index.ts` (geração manual)
+2. `supabase/functions/auto-generate-carousel/index.ts` (geração automática)
+
+## Instruções da Capa (slide 1)
+
+Quando `slideNumber === 1`, o prompt incluirá:
+
+```text
+REGRAS ESPECIAIS PARA CAPA (SLIDE 1 - OBRIGATÓRIO):
+Este é o slide de CAPA do carrossel — o mais importante de todos.
+- Design VISUALMENTE IMPACTANTE e CHAMATIVO que capture atenção imediata no feed
+- Use elementos gráficos bold: boxes coloridos grandes, banners vibrantes, balões de fala (speech bubbles) ou shapes dinâmicos para conter o texto
+- Tipografia EXTRA BOLD, centralizada e com tamanho grande — o texto deve ser o protagonista visual
+- Composição com profundidade: sombras, gradientes e camadas visuais que criem dimensão
+- Use ícones ou emojis 3D estilizados para enriquecer o layout
+- O design deve transmitir "profissionalismo de agência" e incentivar o usuário a DESLIZAR para ver mais
+- A capa deve comunicar CLARAMENTE o tema do carrossel de forma concisa e atraente
+- NÃO use layouts simples ou minimalistas — a capa deve ser visualmente rica e elaborada
+```
+
+Para slides que **não são a capa**, adicionar uma instrução mais leve:
+
+```text
+CONTINUIDADE VISUAL: Mantenha o estilo visual coerente com a capa, mas com layout adequado para conteúdo informativo.
+```
 
 ## Arquivos Alterados
 
-| Arquivo | Seção alterada |
-|---------|---------------|
-| `supabase/functions/generate-standalone-post/index.ts` | Seção BRANDING (linhas ~118-133) |
-| `supabase/functions/auto-generate-post/index.ts` | Seção BRANDING (linhas ~175-200) |
-| `supabase/functions/generate-post-image/index.ts` | Seção BRANDING (linhas ~304-311) |
-| `supabase/functions/generate-carousel-images/index.ts` | Seção BRANDING (linhas ~159-165) |
-| `supabase/functions/auto-generate-carousel/index.ts` | Seção PALETA DE CORES (linhas ~386-404) |
+| Arquivo | Alteração |
+|---------|-----------|
+| `supabase/functions/generate-carousel-images/index.ts` | Adicionar bloco condicional de capa no prompt (~linha 174) |
+| `supabase/functions/auto-generate-carousel/index.ts` | Adicionar bloco condicional de capa no prompt (~linha 401) |
 
-## Nova Seção de Prompt (aplicada em todas)
-
-```text
-PALETA DE CORES E APLICAÇÃO (REGRAS CRÍTICAS):
-- Cor primária (${primary}): Use em fundos, banners, boxes, shapes e elementos gráficos dominantes do layout
-- Cor secundária (${secondary}): Use em acentos, bordas, elementos complementares e variações de fundo
-- Cor de destaque (${highlight}): Use em botões, badges, CTAs, ícones e pequenos destaques visuais
-- Cor do texto (${text}): Use na tipografia principal sobre os fundos
-- Tipografia: ${font}
-
-REGRA CRÍTICA DE APLICAÇÃO DE CORES:
-As cores da marca devem ser aplicadas APENAS em elementos de design gráfico (fundos, gradientes, boxes, banners, shapes, tipografia, ícones, bordas).
-NUNCA aplique as cores da marca em objetos reais, pessoas, animais ou elementos figurativos.
-Exemplo: se a cor primária é verde, o fundo e os boxes devem ser verdes, mas um leão deve ter cores NATURAIS realistas.
-Os sujeitos e ilustrações figurativas devem manter aparência NATURAL e REALISTA.
-A paleta de cores cria a identidade visual através do LAYOUT e DESIGN, não tingindo os elementos figurativos.
-```
-
-Após a alteração, todas as 5 funções serão redeployadas.
+Ambas as funções serão redeployadas após a alteração.
 
