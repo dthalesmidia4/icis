@@ -107,10 +107,22 @@ Deno.serve(async (req) => {
       ? `- MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""} OBRIGATÓRIO: Reproduza o mascote EXATAMENTE como na imagem de referência fornecida — mesma aparência, cabelo, roupa, proporções e características físicas. NÃO altere nenhuma característica do mascote. O mascote DEVE aparecer no design de forma integrada e harmoniosa.`
       : `- NÃO inclua personagens, mascotes ou figuras humanas no design.`;
 
+    // Logo settings
+    const logoUrl = (client as any)?.logo_url;
+    const logoPosition = (client as any)?.logo_position || "bottom-right";
+    const logoSize = (client as any)?.logo_size || "medium";
+    const logoSizeMap: Record<string, string> = { small: "~8%", medium: "~12%", large: "~18%" };
+    const logoSizeUpMap: Record<string, string> = { small: "~12%", medium: "~18%", large: "~22%" };
+    const logoPositionMap: Record<string, string> = {
+      "top-left": "canto superior esquerdo", "top-right": "canto superior direito",
+      "bottom-left": "canto inferior esquerdo", "bottom-right": "canto inferior direito",
+      "bottom-center": "centro inferior",
+    };
+
     console.log(`Generating ${slides.length} carousel images with Gemini 3 Pro Image, ratio: ${aspectRatio}`);
 
     // Pre-fetch mascot images as base64
-    const mascotInlineData: Array<{ mime_type: string; data: string }> = [];
+    const mascotInlineData: Array<{ mimeType: string; data: string }> = [];
     if (mascotImageUrls && mascotImageUrls.length > 0) {
       for (const url of mascotImageUrls) {
         try {
@@ -123,17 +135,30 @@ Deno.serve(async (req) => {
             for (let i = 0; i < bytes.length; i += chunkSize) {
               binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
             }
-            const imgBase64 = btoa(binary);
-            const contentType = imgResp.headers.get("content-type") || "image/png";
-            mascotInlineData.push({ mimeType: contentType, data: imgBase64 });
+            mascotInlineData.push({ mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) });
           }
-        } catch (e) {
-          console.error("Failed to fetch mascot image:", e);
+        } catch (e) { console.error("Failed to fetch mascot image:", e); }
+      }
+      if (mascotInlineData.length > 0) console.log(`  → ${mascotInlineData.length} mascot reference image(s) pre-fetched`);
+    }
+
+    // Pre-fetch logo as base64
+    let logoInlineData: { mimeType: string; data: string } | null = null;
+    if (logoUrl) {
+      try {
+        const imgResp = await fetch(logoUrl);
+        if (imgResp.ok) {
+          const imgBuffer = await imgResp.arrayBuffer();
+          const bytes = new Uint8Array(imgBuffer);
+          let binary = "";
+          const chunkSize = 8192;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+          }
+          logoInlineData = { mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) };
+          console.log("  → Logo reference image pre-fetched");
         }
-      }
-      if (mascotInlineData.length > 0) {
-        console.log(`  → ${mascotInlineData.length} mascot reference image(s) pre-fetched`);
-      }
+      } catch (e) { console.error("Failed to fetch logo:", e); }
     }
 
     const generatedImages: Array<{ slideIndex: number; imageUrl: string }> = [];
@@ -163,6 +188,14 @@ ${presetColors.highlight ? `- Cor de destaque (${presetColors.highlight}): Use e
 ${presetColors.text ? `- Cor do texto (${presetColors.text}): Use na tipografia principal sobre os fundos` : ""}
 - Tipografia: ${presetColors.font}
 ${mascotSection}
+${logoUrl ? `
+LOGO DA MARCA (OBRIGATÓRIO):
+- A logo da marca está fornecida como imagem de referência. INCLUA a logo no design OBRIGATORIAMENTE.
+- Posição: ${logoPositionMap[logoPosition] || logoPosition}
+- Tamanho: ${(slideNumber === 1 || slideNumber === totalSlides) ? logoSizeUpMap[logoSize] || "~18%" : logoSizeMap[logoSize] || "~12%"} da área da imagem
+${(slideNumber === 1 || slideNumber === totalSlides) ? "- Este é um slide de DESTAQUE — a logo deve ser PROEMINENTE e mais visível" : "- Mantenha a logo discreta mas visível"}
+- NÃO distorça, altere cores ou modifique a logo de nenhuma forma
+- Reproduza a logo EXATAMENTE como na imagem de referência fornecida` : ""}
 
 REGRA CRÍTICA DE APLICAÇÃO DE CORES:
 As cores da marca devem ser aplicadas APENAS em elementos de design gráfico (fundos, gradientes, boxes, banners, shapes, tipografia, ícones, bordas).
@@ -178,8 +211,7 @@ REGRAS DE DESIGN:
 - Design profissional para redes sociais
 - Cores vibrantes e contraste alto
 - Incluir indicador de slide (${slideNumber}/${totalSlides}) discretamente
-- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem
-- NÃO adicione texto com o nome da marca em nenhum lugar da imagem
+${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem\n- NÃO adicione texto com o nome da marca em nenhum lugar da imagem"}
 
 ${slideNumber === 1 ? `REGRAS ESPECIAIS PARA CAPA (SLIDE 1 - OBRIGATÓRIO):
 Este é o slide de CAPA do carrossel — o mais importante de todos.
