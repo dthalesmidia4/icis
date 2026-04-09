@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Palette, Dog, Save, Upload, Trash2, GripVertical, ArrowLeft, Plus, Check, Pencil } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Palette, Dog, Save, Upload, Trash2, GripVertical, ArrowLeft, Plus, Check, Pencil, ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -17,7 +18,7 @@ interface VisualIdentityModalProps {
   tenantId: string;
 }
 
-type Tab = "menu" | "visual" | "mascot";
+type Tab = "menu" | "visual" | "mascot" | "logo";
 
 interface MascotImage {
   id: string;
@@ -36,6 +37,20 @@ interface Preset {
   font_name: string | null;
   is_active: boolean;
 }
+
+const LOGO_POSITIONS = [
+  { value: "top-left", label: "Canto Superior Esquerdo" },
+  { value: "top-right", label: "Canto Superior Direito" },
+  { value: "bottom-left", label: "Canto Inferior Esquerdo" },
+  { value: "bottom-right", label: "Canto Inferior Direito" },
+  { value: "bottom-center", label: "Centro Inferior" },
+];
+
+const LOGO_SIZES = [
+  { value: "small", label: "Pequeno" },
+  { value: "medium", label: "Médio" },
+  { value: "large", label: "Grande" },
+];
 
 const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenantId }: VisualIdentityModalProps) => {
   const [tab, setTab] = useState<Tab>("menu");
@@ -65,11 +80,19 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
 
+  // Logo fields
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoPosition, setLogoPosition] = useState("bottom-right");
+  const [logoSize, setLogoSize] = useState("medium");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [savingLogo, setSavingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
   const fetchCompanyData = async () => {
     setLoadingCompany(true);
     const { data } = await supabase
       .from('tenant_companies')
-      .select('brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, mascot_url')
+      .select('brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, mascot_url, logo_url, logo_position, logo_size')
       .eq('id', companyId)
       .single();
     if (data) {
@@ -77,6 +100,9 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
       setSecondaryColor(data.brand_secondary_color || "#000000");
       setFontName(data.brand_font || "");
       setMascotDescription(data.mascot_description || "");
+      setLogoUrl((data as any).logo_url || null);
+      setLogoPosition((data as any).logo_position || "bottom-right");
+      setLogoSize((data as any).logo_size || "medium");
     }
     setLoadingCompany(false);
   };
@@ -116,7 +142,6 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
     }
     setSavingVisual(true);
     try {
-      // Save to tenant_companies
       await supabase
         .from('tenant_companies')
         .update({
@@ -126,7 +151,6 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
         })
         .eq('id', companyId);
 
-      // Save as preset
       await supabase.from('visual_identity_presets').insert({
         company_id: companyId,
         tenant_id: tenantId,
@@ -172,7 +196,7 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
     setEditingPresetName("");
   };
 
-  // Mascot handlers (unchanged)
+  // Mascot handlers
   const handleMascotUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setUploadingMascot(true);
@@ -238,6 +262,54 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
   }, [mascotImages.length]);
   const handleFileDragOver = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); };
 
+  // Logo handlers
+  const handleLogoUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (!file.type.startsWith('image/')) { toast.error("Selecione um arquivo de imagem"); return; }
+    setUploadingLogo(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${companyId}/logo-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('company-logos').upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(path);
+      const newUrl = urlData.publicUrl;
+      await supabase.from('tenant_companies').update({ logo_url: newUrl } as any).eq('id', companyId);
+      setLogoUrl(newUrl);
+      toast.success("Logo enviada com sucesso!");
+    } catch { toast.error("Erro ao enviar logo"); }
+    finally { setUploadingLogo(false); }
+  };
+
+  const handleRemoveLogo = async () => {
+    try {
+      if (logoUrl) {
+        const urlParts = logoUrl.split('/company-logos/');
+        if (urlParts.length > 1) await supabase.storage.from('company-logos').remove([urlParts[1]]);
+      }
+      await supabase.from('tenant_companies').update({ logo_url: null } as any).eq('id', companyId);
+      setLogoUrl(null);
+      toast.success("Logo removida");
+    } catch { toast.error("Erro ao remover logo"); }
+  };
+
+  const handleSaveLogo = async () => {
+    setSavingLogo(true);
+    try {
+      await supabase.from('tenant_companies').update({
+        logo_position: logoPosition,
+        logo_size: logoSize,
+      } as any).eq('id', companyId);
+      toast.success("Configurações da logo salvas!");
+    } catch { toast.error("Erro ao salvar configurações"); }
+    finally { setSavingLogo(false); }
+  };
+
+  const handleLogoDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation(); handleLogoUpload(e.dataTransfer.files);
+  }, []);
+
   const ColorInput = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
     <div className="space-y-2">
       <Label className="text-sm font-medium">{label}</Label>
@@ -269,6 +341,7 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
               {tab === "menu" && "Identidade Visual"}
               {tab === "visual" && "Editar Identidade Visual"}
               {tab === "mascot" && "Mascote da Marca"}
+              {tab === "logo" && "Logo da Marca"}
             </DialogTitle>
           </div>
           <p className="text-sm text-muted-foreground">{companyName}</p>
@@ -277,7 +350,7 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
         <div className="flex-1 overflow-y-auto min-h-0">
           {/* Menu */}
           {tab === "menu" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 py-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 py-4">
               <Card className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]" onClick={() => setTab("visual")}>
                 <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
                 <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
@@ -295,7 +368,17 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
                     <Dog className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
                   </div>
                   <h3 className="text-base sm:text-lg font-bold transition-colors text-primary mb-2">Mascote</h3>
-                  <p className="text-xs text-muted-foreground">Imagens de referência e descrição do mascote da marca.</p>
+                  <p className="text-xs text-muted-foreground">Imagens de referência e descrição do mascote.</p>
+                </div>
+              </Card>
+              <Card className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]" onClick={() => setTab("logo")}>
+                <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
+                <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <ImageIcon className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold transition-colors text-primary mb-2">Logo</h3>
+                  <p className="text-xs text-muted-foreground">Upload e configuração da logo nos posts gerados.</p>
                 </div>
               </Card>
             </div>
@@ -341,7 +424,6 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
                       className="rounded-xl border border-border hover:border-primary/50 p-3 cursor-pointer transition-all hover:shadow-md group"
                       onClick={() => handleLoadPreset(preset)}
                     >
-                      {/* Color preview dots */}
                       <div className="flex items-center gap-1.5 mb-2">
                         {[preset.primary_color, preset.secondary_color, preset.highlight_color, preset.text_color]
                           .filter(Boolean)
@@ -349,7 +431,6 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
                             <div key={i} className="w-5 h-5 rounded-full border border-border shrink-0" style={{ backgroundColor: color || '#000' }} />
                           ))}
                       </div>
-                      {/* Name */}
                       {editingPresetId === preset.id ? (
                         <div className="flex items-center gap-1">
                           <Input
@@ -434,6 +515,94 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
               <Button onClick={handleSaveMascot} disabled={savingMascot} className="w-full">
                 <Save className="w-4 h-4 mr-2" />
                 {savingMascot ? "Salvando..." : "Salvar Mascote"}
+              </Button>
+            </div>
+          )}
+
+          {/* Logo Tab */}
+          {tab === "logo" && (
+            <div className="space-y-6 py-4">
+              {/* Logo Preview */}
+              {logoUrl ? (
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Logo Atual</Label>
+                  <div className="flex items-start gap-4">
+                    <div className="w-32 h-32 rounded-xl border-2 border-border overflow-hidden bg-muted flex items-center justify-center">
+                      <img src={logoUrl} alt="Logo" className="max-w-full max-h-full object-contain p-2" />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Button variant="outline" size="sm" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo}>
+                        <Upload className="w-4 h-4 mr-2" />
+                        {uploadingLogo ? "Enviando..." : "Trocar Logo"}
+                      </Button>
+                      <Button variant="outline" size="sm" className="text-destructive" onClick={handleRemoveLogo}>
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Remover
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onDrop={handleLogoDrop}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onClick={() => logoInputRef.current?.click()}
+                  className="border-2 border-dashed border-primary/30 hover:border-primary/60 rounded-xl p-8 text-center cursor-pointer transition-colors"
+                >
+                  <ImageIcon className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
+                  <p className="text-sm font-medium">Arraste e solte a logo aqui</p>
+                  <p className="text-xs text-muted-foreground mt-1">ou clique para selecionar</p>
+                  {uploadingLogo && <p className="text-xs text-primary mt-2 animate-pulse">Enviando...</p>}
+                </div>
+              )}
+              <input ref={logoInputRef} type="file" accept="image/*" className="hidden"
+                onChange={(e) => handleLogoUpload(e.target.files)} />
+
+              {/* Logo Settings */}
+              <div className="space-y-4 pt-2">
+                <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-4">
+                  <h4 className="text-sm font-semibold">Configurações da Logo nos Posts</h4>
+                  <p className="text-xs text-muted-foreground">Defina como a logo aparecerá nos posts e carrosséis gerados por IA.</p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Posição</Label>
+                      <Select value={logoPosition} onValueChange={setLogoPosition}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LOGO_POSITIONS.map(p => (
+                            <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Tamanho</Label>
+                      <Select value={logoSize} onValueChange={setLogoSize}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LOGO_SIZES.map(s => (
+                            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>📌 <strong>Carrosséis:</strong> A logo aparecerá maior na capa e no último slide.</p>
+                    <p>📐 <strong>Tamanhos:</strong> Pequeno (~8%), Médio (~12%), Grande (~18%) da área do post.</p>
+                  </div>
+                </div>
+              </div>
+
+              <Button onClick={handleSaveLogo} disabled={savingLogo} className="w-full">
+                <Save className="w-4 h-4 mr-2" />
+                {savingLogo ? "Salvando..." : "Salvar Configurações"}
               </Button>
             </div>
           )}
