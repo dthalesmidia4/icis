@@ -349,7 +349,7 @@ ${presetColors.highlight ? `- Cor de destaque (${presetColors.highlight}): Use e
 ${presetColors.text ? `- Cor do texto (${presetColors.text}): Use na tipografia principal sobre os fundos` : ""}
 - Tipografia: ${presetColors.font}
 ${mascotSection}
-
+${logoSection}
 REGRA CRÍTICA DE APLICAÇÃO DE CORES:
 As cores da marca devem ser aplicadas APENAS em elementos de design gráfico (fundos, gradientes, boxes, banners, shapes, tipografia, ícones, bordas).
 NUNCA aplique as cores da marca em objetos reais, pessoas, animais ou elementos figurativos.
@@ -369,7 +369,7 @@ ESTILO VISUAL OBRIGATÓRIO:
 - O texto do post DEVE aparecer legível e bem posicionado na imagem
 
 REGRAS OBRIGATÓRIAS:
-- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem
+${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem"}
 - Design profissional para redes sociais
 - Formato/Proporção: ${aspectInfo.label}
 - IMPORTANTE: Gere um POST COMPLETO para rede social, não apenas um elemento isolado
@@ -384,6 +384,10 @@ REGRAS OBRIGATÓRIAS:
         // Attach mascot reference images
         for (const mascotImg of mascotInlineImages) {
           parts.push({ inlineData: mascotImg });
+        }
+        // Attach logo reference image
+        if (logoInlineImage) {
+          parts.push({ inlineData: logoInlineImage });
         }
 
         const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
