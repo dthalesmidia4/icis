@@ -25,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import jsPDF from "jspdf";
+
 import { useQuery } from "@tanstack/react-query";
 import { toast as sonnerToast } from "sonner";
 import { LoadingScreen } from "@/components/LoadingScreen";
@@ -251,63 +251,53 @@ export default function GenerateQuestions() {
   };
 
   const handleExportPDF = () => {
-    const doc = new jsPDF();
-    let yPosition = 20;
+    const clientName = selectedClient?.fantasy_name || selectedClient?.name || "Cliente";
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast({ title: "Erro", description: "Não foi possível abrir a janela de impressão. Verifique se pop-ups estão permitidos.", variant: "destructive" });
+      return;
+    }
 
-    doc.setFontSize(16);
-    doc.text("Anamnese - Planejamento de Conteúdo", 20, yPosition);
-    yPosition += 10;
-
-    doc.setFontSize(12);
-    doc.text(selectedClient?.fantasy_name || selectedClient?.name || "", 20, yPosition);
-    yPosition += 15;
-
-    doc.setFontSize(10);
-
-    strategicQuestions.forEach((question, idx) => {
+    const questionsHtml = strategicQuestions.map((question, idx) => {
       const key = `question_${idx}`;
       const answer = answers[key]?.trim() || "";
-
-      // Quebrar pergunta em múltiplas linhas para caber na página
-      doc.setFont("helvetica", "bold");
-      const questionText = `${idx + 1}. ${question}`;
-      const questionLines = doc.splitTextToSize(questionText, 170);
-      
-      // Verificar se cabe na página (pergunta + espaço para resposta)
-      const neededSpace = answer ? 50 : 60;
-      if (yPosition + (questionLines.length * 5) + neededSpace > 280) {
-        doc.addPage();
-        yPosition = 20;
-      }
-
-      questionLines.forEach((line: string) => {
-        doc.text(line, 20, yPosition);
-        yPosition += 5;
-      });
-      yPosition += 3;
-
-      if (answer) {
-        // Se há resposta, exibir normalmente
-        doc.setFont("helvetica", "normal");
-        const answerLines = doc.splitTextToSize(answer, 170);
-        answerLines.forEach((line: string) => {
-          if (yPosition > 275) {
-            doc.addPage();
-            yPosition = 20;
+      return `
+        <div class="question-block">
+          <p class="question"><strong>${idx + 1}. ${question}</strong></p>
+          ${answer
+            ? `<p class="answer">${answer.replace(/\n/g, "<br>")}</p>`
+            : `<div class="blank-space"></div>`
           }
-          doc.text(line, 20, yPosition);
-          yPosition += 5;
-        });
-        yPosition += 10;
-      } else {
-        // Se não há resposta, deixar espaço em branco maior para escrita manual
-        yPosition += 45;
-      }
-    });
+        </div>
+      `;
+    }).join("");
 
-    doc.save(
-      `Anamnese_${selectedClient?.fantasy_name || selectedClient?.name}.pdf`
-    );
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Anamnese - ${clientName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; color: #333; line-height: 1.5; }
+          h1 { font-size: 18px; margin-bottom: 4px; }
+          h2 { font-size: 14px; font-weight: normal; color: #666; margin-bottom: 24px; }
+          .question-block { margin-bottom: 16px; page-break-inside: avoid; }
+          .question { margin: 0 0 4px 0; font-size: 12px; }
+          .answer { margin: 0; font-size: 12px; color: #444; white-space: pre-wrap; }
+          .blank-space { height: 50px; border-bottom: 1px solid #ccc; margin-bottom: 8px; }
+          @media print { body { margin: 20px; } }
+        </style>
+      </head>
+      <body>
+        <h1>Anamnese - Planejamento de Conteúdo</h1>
+        <h2>${clientName}</h2>
+        ${questionsHtml}
+        <script>window.onload = function() { window.print(); }</script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
 
     toast({
       title: "PDF exportado",
