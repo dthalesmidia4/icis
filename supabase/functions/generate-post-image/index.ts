@@ -246,6 +246,46 @@ Deno.serve(async (req) => {
         ? `- A marca possui um mascote (${client?.mascot_description || "sem descrição"}), mas nenhuma imagem de referência está disponível. Tente incluí-lo se possível baseado na descrição.`
         : `- NÃO inclua personagens, mascotes ou figuras humanas no design.`;
 
+    // Logo settings
+    const logoUrl = (client as any)?.logo_url;
+    const logoPosition = (client as any)?.logo_position || "bottom-right";
+    const logoSize = (client as any)?.logo_size || "medium";
+    const logoSizeMap: Record<string, string> = { small: "~8%", medium: "~12%", large: "~18%" };
+    const logoPositionMap: Record<string, string> = {
+      "top-left": "canto superior esquerdo", "top-right": "canto superior direito",
+      "bottom-left": "canto inferior esquerdo", "bottom-right": "canto inferior direito",
+      "bottom-center": "centro inferior",
+    };
+    const logoSection = logoUrl
+      ? `\nLOGO DA MARCA (OBRIGATÓRIO):
+- A logo da marca está fornecida como imagem de referência. INCLUA a logo no design OBRIGATORIAMENTE.
+- Posição: ${logoPositionMap[logoPosition] || logoPosition}
+- Tamanho: ${logoSizeMap[logoSize] || "~12%"} da área da imagem
+- A logo deve ser nítida, legível e integrada harmoniosamente ao layout
+- NÃO distorça, altere cores ou modifique a logo de nenhuma forma\n`
+      : "";
+
+    // Pre-fetch logo as inline data
+    let logoInlineImage: { mimeType: string; data: string } | null = null;
+    if (logoUrl) {
+      try {
+        const imgResp = await fetch(logoUrl);
+        if (imgResp.ok) {
+          const imgBuffer = await imgResp.arrayBuffer();
+          const bytes = new Uint8Array(imgBuffer);
+          let binary = "";
+          const chunkSize = 8192;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+          }
+          logoInlineImage = { mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) };
+          console.log("  → Logo reference image pre-fetched");
+        }
+      } catch (e) {
+        console.error("Failed to fetch logo:", e);
+      }
+    }
+
     const generatedAttachments: any[] = [];
     const existingAttachments = demand.attachments || [];
     const errors: string[] = [];
