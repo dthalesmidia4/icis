@@ -100,9 +100,9 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
       setSecondaryColor(data.brand_secondary_color || "#000000");
       setFontName(data.brand_font || "");
       setMascotDescription(data.mascot_description || "");
-      setLogoUrl((data as any).logo_url || null);
-      setLogoPosition((data as any).logo_position || "bottom-right");
-      setLogoSize((data as any).logo_size || "medium");
+      setLogoUrl(data.logo_url || null);
+      setLogoPosition(data.logo_position || "bottom-right");
+      setLogoSize(data.logo_size || "medium");
     }
     setLoadingCompany(false);
   };
@@ -275,7 +275,7 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(path);
       const newUrl = urlData.publicUrl;
-      await supabase.from('tenant_companies').update({ logo_url: newUrl } as any).eq('id', companyId);
+      await supabase.from('tenant_companies').update({ logo_url: newUrl }).eq('id', companyId);
       setLogoUrl(newUrl);
       toast.success("Logo enviada com sucesso!");
     } catch { toast.error("Erro ao enviar logo"); }
@@ -288,7 +288,7 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
         const urlParts = logoUrl.split('/company-logos/');
         if (urlParts.length > 1) await supabase.storage.from('company-logos').remove([urlParts[1]]);
       }
-      await supabase.from('tenant_companies').update({ logo_url: null } as any).eq('id', companyId);
+      await supabase.from('tenant_companies').update({ logo_url: null }).eq('id', companyId);
       setLogoUrl(null);
       toast.success("Logo removida");
     } catch { toast.error("Erro ao remover logo"); }
@@ -300,7 +300,7 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
       await supabase.from('tenant_companies').update({
         logo_position: logoPosition,
         logo_size: logoSize,
-      } as any).eq('id', companyId);
+      }).eq('id', companyId);
       toast.success("Configurações da logo salvas!");
     } catch { toast.error("Erro ao salvar configurações"); }
     finally { setSavingLogo(false); }
