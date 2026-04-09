@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
     // 2. Fetch client branding (including content_requirements)
     const { data: client } = await supabase
       .from("tenant_companies")
-      .select("name, fantasy_name, logo_url, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_url, mascot_description, sector, products_services, content_requirements")
+      .select("name, fantasy_name, logo_url, logo_position, logo_size, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_url, mascot_description, sector, products_services, content_requirements")
       .eq("id", demand.client_id)
       .single();
 
@@ -246,6 +246,46 @@ Deno.serve(async (req) => {
         ? `- A marca possui um mascote (${client?.mascot_description || "sem descrição"}), mas nenhuma imagem de referência está disponível. Tente incluí-lo se possível baseado na descrição.`
         : `- NÃO inclua personagens, mascotes ou figuras humanas no design.`;
 
+    // Logo settings
+    const logoUrl = (client as any)?.logo_url;
+    const logoPosition = (client as any)?.logo_position || "bottom-right";
+    const logoSize = (client as any)?.logo_size || "medium";
+    const logoSizeMap: Record<string, string> = { small: "~8%", medium: "~12%", large: "~18%" };
+    const logoPositionMap: Record<string, string> = {
+      "top-left": "canto superior esquerdo", "top-right": "canto superior direito",
+      "bottom-left": "canto inferior esquerdo", "bottom-right": "canto inferior direito",
+      "bottom-center": "centro inferior",
+    };
+    const logoSection = logoUrl
+      ? `\nLOGO DA MARCA (OBRIGATÓRIO):
+- A logo da marca está fornecida como imagem de referência. INCLUA a logo no design OBRIGATORIAMENTE.
+- Posição: ${logoPositionMap[logoPosition] || logoPosition}
+- Tamanho: ${logoSizeMap[logoSize] || "~12%"} da área da imagem
+- A logo deve ser nítida, legível e integrada harmoniosamente ao layout
+- NÃO distorça, altere cores ou modifique a logo de nenhuma forma\n`
+      : "";
+
+    // Pre-fetch logo as inline data
+    let logoInlineImage: { mimeType: string; data: string } | null = null;
+    if (logoUrl) {
+      try {
+        const imgResp = await fetch(logoUrl);
+        if (imgResp.ok) {
+          const imgBuffer = await imgResp.arrayBuffer();
+          const bytes = new Uint8Array(imgBuffer);
+          let binary = "";
+          const chunkSize = 8192;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+          }
+          logoInlineImage = { mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) };
+          console.log("  → Logo reference image pre-fetched");
+        }
+      } catch (e) {
+        console.error("Failed to fetch logo:", e);
+      }
+    }
+
     const generatedAttachments: any[] = [];
     const existingAttachments = demand.attachments || [];
     const errors: string[] = [];
@@ -309,7 +349,7 @@ ${presetColors.highlight ? `- Cor de destaque (${presetColors.highlight}): Use e
 ${presetColors.text ? `- Cor do texto (${presetColors.text}): Use na tipografia principal sobre os fundos` : ""}
 - Tipografia: ${presetColors.font}
 ${mascotSection}
-
+${logoSection}
 REGRA CRÍTICA DE APLICAÇÃO DE CORES:
 As cores da marca devem ser aplicadas APENAS em elementos de design gráfico (fundos, gradientes, boxes, banners, shapes, tipografia, ícones, bordas).
 NUNCA aplique as cores da marca em objetos reais, pessoas, animais ou elementos figurativos.
@@ -329,7 +369,7 @@ ESTILO VISUAL OBRIGATÓRIO:
 - O texto do post DEVE aparecer legível e bem posicionado na imagem
 
 REGRAS OBRIGATÓRIAS:
-- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem
+${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem"}
 - Design profissional para redes sociais
 - Formato/Proporção: ${aspectInfo.label}
 - IMPORTANTE: Gere um POST COMPLETO para rede social, não apenas um elemento isolado
@@ -344,6 +384,10 @@ REGRAS OBRIGATÓRIAS:
         // Attach mascot reference images
         for (const mascotImg of mascotInlineImages) {
           parts.push({ inlineData: mascotImg });
+        }
+        // Attach logo reference image
+        if (logoInlineImage) {
+          parts.push({ inlineData: logoInlineImage });
         }
 
         const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;

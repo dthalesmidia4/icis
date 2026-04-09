@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     // 3. Fetch client branding
     const { data: client } = await supabase
       .from("tenant_companies")
-      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, content_requirements")
+      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, content_requirements, logo_url, logo_position, logo_size")
       .eq("id", demand.client_id)
       .single();
 
@@ -155,7 +155,27 @@ Deno.serve(async (req) => {
       demand.observations ? `Observações: ${demand.observations.replace(/<[^>]*>/g, " ").trim()}` : "",
     ].filter(Boolean).join("\n");
 
-    // 8. Build image prompt
+    // 8. Logo settings
+    const logoUrl = (client as any)?.logo_url;
+    const logoPosition = (client as any)?.logo_position || "bottom-right";
+    const logoSize = (client as any)?.logo_size || "medium";
+    const logoSizeMap: Record<string, string> = { small: "~8%", medium: "~12%", large: "~18%" };
+    const logoPositionMap: Record<string, string> = {
+      "top-left": "canto superior esquerdo", "top-right": "canto superior direito",
+      "bottom-left": "canto inferior esquerdo", "bottom-right": "canto inferior direito",
+      "bottom-center": "centro inferior",
+    };
+    const logoSection = logoUrl
+      ? `\nLOGO DA MARCA (OBRIGATÓRIO):
+- A logo da marca está fornecida como imagem de referência. INCLUA a logo no design OBRIGATORIAMENTE.
+- Posição: ${logoPositionMap[logoPosition] || logoPosition}
+- Tamanho: ${logoSizeMap[logoSize] || "~12%"} da área da imagem
+- A logo deve ser nítida, legível e integrada harmoniosamente ao layout
+- NÃO distorça, altere cores ou modifique a logo de nenhuma forma
+- Reproduza a logo EXATAMENTE como na imagem de referência fornecida\n`
+      : "";
+
+    // 8b. Build image prompt
     const mascotSection = mascotImageUrls.length > 0
       ? `- MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""} OBRIGATÓRIO: Reproduza o mascote EXATAMENTE como na imagem de referência fornecida — mesma aparência, cabelo, roupa, proporções e características físicas. NÃO altere nenhuma característica do mascote. O mascote DEVE aparecer no design de forma integrada e harmoniosa.`
       : client?.has_mascot
@@ -180,7 +200,7 @@ ${presetColors.highlight ? `- Cor de destaque (${presetColors.highlight}): Use e
 ${presetColors.text ? `- Cor do texto (${presetColors.text}): Use na tipografia principal sobre os fundos` : ""}
 - Tipografia: ${presetColors.font}
 ${mascotSection}
-
+${logoSection}
 REGRA CRÍTICA DE APLICAÇÃO DE CORES:
 As cores da marca devem ser aplicadas APENAS em elementos de design gráfico (fundos, gradientes, boxes, banners, shapes, tipografia, ícones, bordas).
 NUNCA aplique as cores da marca em objetos reais, pessoas, animais ou elementos figurativos.
@@ -200,7 +220,7 @@ ESTILO VISUAL OBRIGATÓRIO:
 - O texto do post DEVE aparecer legível e bem posicionado na imagem
 
 REGRAS OBRIGATÓRIAS:
-- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem
+${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem"}
 - Design profissional para redes sociais
 - Formato: 1:1 (quadrado, 1024x1024)
 - IMPORTANTE: Gere um POST COMPLETO para rede social, não apenas um elemento isolado
@@ -208,29 +228,42 @@ REGRAS OBRIGATÓRIAS:
 
     console.log("Calling Gemini 3 Pro Image (gemini-3-pro-image-preview) via Google AI Studio...");
 
-    // 9. Build parts with optional mascot reference images
+    // 9. Build parts with optional mascot + logo reference images
     const parts: any[] = [{ text: imagePrompt }];
+
+    const fetchImageInline = async (url: string): Promise<{ mimeType: string; data: string } | null> => {
+      try {
+        const imgResp = await fetch(url);
+        if (!imgResp.ok) return null;
+        const imgBuffer = await imgResp.arrayBuffer();
+        const bytes = new Uint8Array(imgBuffer);
+        let binary = "";
+        const chunkSize = 8192;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+        }
+        return { mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) };
+      } catch (e) {
+        console.error("Failed to fetch image:", e);
+        return null;
+      }
+    };
 
     if (mascotImageUrls.length > 0) {
       for (const url of mascotImageUrls) {
-        try {
-          const imgResp = await fetch(url);
-          if (imgResp.ok) {
-            const imgBuffer = await imgResp.arrayBuffer();
-            const bytes = new Uint8Array(imgBuffer);
-            let binary = "";
-            const chunkSize = 8192;
-            for (let i = 0; i < bytes.length; i += chunkSize) {
-              binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-            }
-            const imgBase64 = btoa(binary);
-            const contentType = imgResp.headers.get("content-type") || "image/png";
-            parts.push({ inlineData: { mimeType: contentType, data: imgBase64 } });
-            console.log(`  → Mascot reference image attached as inline_data`);
-          }
-        } catch (e) {
-          console.error("Failed to fetch mascot image:", e);
+        const inline = await fetchImageInline(url);
+        if (inline) {
+          parts.push({ inlineData: inline });
+          console.log(`  → Mascot reference image attached as inline_data`);
         }
+      }
+    }
+
+    if (logoUrl) {
+      const logoInline = await fetchImageInline(logoUrl);
+      if (logoInline) {
+        parts.push({ inlineData: logoInline });
+        console.log("  → Logo reference image attached as inline_data");
       }
     }
 

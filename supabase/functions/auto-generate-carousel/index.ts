@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
     // 3. Fetch client branding
     const { data: client } = await supabase
       .from("tenant_companies")
-      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, sector, products_services, content_requirements")
+      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, sector, products_services, content_requirements, logo_url, logo_position, logo_size")
       .eq("id", demand.client_id)
       .single();
 
@@ -346,6 +346,18 @@ REGRAS:
         ? `A marca possui um mascote (${client?.mascot_description || "sem descrição"}), mas nenhuma imagem de referência está disponível. Tente incluí-lo baseado na descrição.`
         : `NÃO inclua personagens ou figuras humanas.`;
 
+    // Logo settings
+    const logoUrl = (client as any)?.logo_url;
+    const logoPosition = (client as any)?.logo_position || "bottom-right";
+    const logoSize = (client as any)?.logo_size || "medium";
+    const logoSizeMap: Record<string, string> = { small: "~8%", medium: "~12%", large: "~18%" };
+    const logoSizeUpMap: Record<string, string> = { small: "~12%", medium: "~18%", large: "~22%" };
+    const logoPositionMap: Record<string, string> = {
+      "top-left": "canto superior esquerdo", "top-right": "canto superior direito",
+      "bottom-left": "canto inferior esquerdo", "bottom-right": "canto inferior direito",
+      "bottom-center": "centro inferior",
+    };
+
     // Fetch mascot image ONCE, keep reference
     let mascotInline: { mimeType: string; data: string } | null = null;
     if (mascotImageUrl) {
@@ -364,6 +376,27 @@ REGRAS:
         }
       } catch (e) {
         console.error("Failed to fetch mascot:", e);
+      }
+    }
+
+    // Fetch logo image ONCE
+    let logoInline: { mimeType: string; data: string } | null = null;
+    if (logoUrl) {
+      try {
+        const imgResp = await fetch(logoUrl);
+        if (imgResp.ok) {
+          const imgBuffer = await imgResp.arrayBuffer();
+          const bytes = new Uint8Array(imgBuffer);
+          let binary = "";
+          const chunkSize = 8192;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+          }
+          logoInline = { mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) };
+          console.log("  → Logo reference image pre-fetched");
+        }
+      } catch (e) {
+        console.error("Failed to fetch logo:", e);
       }
     }
 

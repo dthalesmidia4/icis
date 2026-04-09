@@ -1178,6 +1178,8 @@ export type Database = {
           fantasy_name: string | null
           has_mascot: boolean
           id: string
+          logo_position: string | null
+          logo_size: string | null
           logo_url: string | null
           mascot_description: string | null
           mascot_url: string | null
@@ -1200,6 +1202,8 @@ export type Database = {
           fantasy_name?: string | null
           has_mascot?: boolean
           id?: string
+          logo_position?: string | null
+          logo_size?: string | null
           logo_url?: string | null
           mascot_description?: string | null
           mascot_url?: string | null
@@ -1222,6 +1226,8 @@ export type Database = {
           fantasy_name?: string | null
           has_mascot?: boolean
           id?: string
+          logo_position?: string | null
+          logo_size?: string | null
           logo_url?: string | null
           mascot_description?: string | null
           mascot_url?: string | null
