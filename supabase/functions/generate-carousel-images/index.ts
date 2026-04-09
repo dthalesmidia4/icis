@@ -231,6 +231,9 @@ Este é o slide de CAPA do carrossel — o mais importante de todos.
       for (const mascot of mascotInlineData) {
         parts.push({ inlineData: mascot });
       }
+      if (logoInlineData) {
+        parts.push({ inlineData: logoInlineData });
+      }
 
       try {
         const response = await fetch(googleApiUrl, {
