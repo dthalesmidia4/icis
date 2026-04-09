@@ -1,25 +1,55 @@
 
 
-## Plano: Adicionar filtro por mês/ano na listagem de Contas a Pagar
+# Plano de Correção de Segurança
 
-### O que muda
-Adicionar dois selects (mês e ano) acima da tabela em `BillsList.tsx`. A query ao Supabase será filtrada pelo período selecionado, usando `gte` e `lt` na coluna `due_date`. O filtro inicia no mês/ano atual por padrão.
+## Problemas Identificados
 
-### Alterações em `src/pages/BillsList.tsx`
+Dos 5 erros listados, 3 estão marcados como "outdated" (já podem ter sido corrigidos). Os 2 problemas ativos são:
 
-1. **Novo estado**: `selectedMonth` (0-11, default: mês atual) e `selectedYear` (default: ano atual)
+### Erro 1: Códigos de convite e emails publicamente legíveis
+A política `anyone_can_validate_invitation` na tabela `invitations` permite que **qualquer usuário anônimo** leia convites ativos — expondo códigos e emails.
 
-2. **Filtro na query**: Calcular primeiro e último dia do mês selecionado e adicionar `.gte("due_date", firstDay).lt("due_date", lastDay)` na query existente
+**Correção:** Substituir a política SELECT pública por uma função `SECURITY DEFINER` que valida o código sem expor dados diretamente. A Edge Function `validate-invitation` já usa `SERVICE_ROLE_KEY`, então podemos restringir o SELECT apenas para usuários autenticados com acesso ao tenant, sem quebrar o fluxo de validação.
 
-3. **UI do filtro**: Dois `<Select>` (componente shadcn) lado a lado, entre o header e a tabela:
-   - Mês: Janeiro a Dezembro
-   - Ano: lista dinâmica (ano atual - 2 até ano atual + 1)
+**Migração SQL:**
+```sql
+-- Remover política permissiva
+DROP POLICY IF EXISTS "anyone_can_validate_invitation" ON public.invitations;
 
-4. **Re-fetch ao mudar filtro**: Adicionar `selectedMonth` e `selectedYear` como dependências do `useEffect`
+-- Permitir leitura apenas para admins do tenant (listagem)
+CREATE POLICY "tenant_admins_read_invitations" ON public.invitations
+FOR SELECT TO authenticated
+USING (
+  has_role(auth.uid(), 'super_admin'::app_role)
+  OR is_agency_admin(tenant_id)
+);
+```
 
-5. **Atualizar subtítulo**: Mostrar "Contas de Janeiro/2026" ao invés de "Todas as contas cadastradas"
+A validação de convites continua funcionando porque a Edge Function usa a `SERVICE_ROLE_KEY` que ignora RLS.
 
-### Nenhuma alteração de banco de dados necessária
+### Erro 2: Vulnerabilidades críticas no jsPDF
+O pacote `jspdf` tem vulnerabilidades conhecidas (Path Traversal, PDF Injection, DoS).
 
-A filtragem usa a coluna `due_date` já existente.
+**Correção:** Atualizar o `jspdf` para a versão mais recente disponível que contenha os patches. Caso não haja versão corrigida, avaliar alternativa como `@react-pdf/renderer`.
+
+**Ação:**
+- Executar `npm update jspdf` ou substituir por alternativa segura.
+
+---
+
+### Erros "outdated" (verificação rápida)
+
+3. **Legacy Companies Table** — Verificar se a tabela `companies` ainda existe e dropar a política permissiva.
+4. **API Keys acessíveis** — Já corrigido (política atual `super_admins_manage_api_keys` restringe a super admins).
+5. **Edge Functions sem validação** — Adicionar validação de input básica nas funções críticas.
+
+## Resumo de Ações
+
+| # | Ação | Dificuldade |
+|---|------|-------------|
+| 1 | Migração SQL: restringir política da tabela `invitations` | Fácil |
+| 2 | Atualizar/substituir `jspdf` | Fácil |
+| 3 | Verificar e limpar tabela `companies` legada | Fácil |
+| 4 | Já corrigido — nenhuma ação | — |
+| 5 | Adicionar validação de input nas Edge Functions | Médio |
 
