@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
     // 2. Fetch client branding (including content_requirements)
     const { data: client } = await supabase
       .from("tenant_companies")
-      .select("name, fantasy_name, logo_url, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_url, mascot_description, sector, products_services, content_requirements")
+      .select("name, fantasy_name, logo_url, logo_position, logo_size, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_url, mascot_description, sector, products_services, content_requirements")
       .eq("id", demand.client_id)
       .single();
 
