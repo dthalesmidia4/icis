@@ -1,55 +1,41 @@
 
 
-# Plano de Correção de Segurança
+# Correção da Vulnerabilidade do jsPDF
 
-## Problemas Identificados
+## Problema
 
-Dos 5 erros listados, 3 estão marcados como "outdated" (já podem ter sido corrigidos). Os 2 problemas ativos são:
+O pacote `jspdf` v3.0.4 tem uma vulnerabilidade crítica de **Local File Inclusion / Path Traversal** (GHSA-f8cm-6447-x5h2). Não existe versão corrigida disponível do jsPDF para esta vulnerabilidade.
 
-### Erro 1: Códigos de convite e emails publicamente legíveis
-A política `anyone_can_validate_invitation` na tabela `invitations` permite que **qualquer usuário anônimo** leia convites ativos — expondo códigos e emails.
+## Uso Atual
 
-**Correção:** Substituir a política SELECT pública por uma função `SECURITY DEFINER` que valida o código sem expor dados diretamente. A Edge Function `validate-invitation` já usa `SERVICE_ROLE_KEY`, então podemos restringir o SELECT apenas para usuários autenticados com acesso ao tenant, sem quebrar o fluxo de validação.
+O `jspdf` é usado **apenas** em `src/pages/GenerateQuestions.tsx` para exportar a anamnese como PDF. O uso é simples: gerar texto em páginas e salvar como `.pdf`.
 
-**Migração SQL:**
-```sql
--- Remover política permissiva
-DROP POLICY IF EXISTS "anyone_can_validate_invitation" ON public.invitations;
+## Solução Proposta
 
--- Permitir leitura apenas para admins do tenant (listagem)
-CREATE POLICY "tenant_admins_read_invitations" ON public.invitations
-FOR SELECT TO authenticated
-USING (
-  has_role(auth.uid(), 'super_admin'::app_role)
-  OR is_agency_admin(tenant_id)
-);
-```
+Substituir `jspdf` por **geração de PDF via `window.print()`** com CSS `@media print`, eliminando a dependência vulnerável:
 
-A validação de convites continua funcionando porque a Edge Function usa a `SERVICE_ROLE_KEY` que ignora RLS.
+1. **Remover `jspdf`** do `package.json`
+2. **Reescrever `handleExportPDF`** para criar uma janela temporária com o conteúdo formatado em HTML/CSS e chamar `window.print()`, que permite salvar como PDF nativamente no navegador
+3. **Atualizar o scan de segurança** marcando o finding como corrigido
 
-### Erro 2: Vulnerabilidades críticas no jsPDF
-O pacote `jspdf` tem vulnerabilidades conhecidas (Path Traversal, PDF Injection, DoS).
+## Vantagens
 
-**Correção:** Atualizar o `jspdf` para a versão mais recente disponível que contenha os patches. Caso não haja versão corrigida, avaliar alternativa como `@react-pdf/renderer`.
+- Elimina completamente a dependência vulnerável
+- O resultado visual do PDF fica melhor (suporte a UTF-8, formatação rica)
+- Zero dependências externas
 
-**Ação:**
-- Executar `npm update jspdf` ou substituir por alternativa segura.
+## Desvantagens
 
----
+- O usuário precisa escolher "Salvar como PDF" no diálogo de impressão (comportamento padrão dos navegadores modernos)
 
-### Erros "outdated" (verificação rápida)
+## Alternativa
 
-3. **Legacy Companies Table** — Verificar se a tabela `companies` ainda existe e dropar a política permissiva.
-4. **API Keys acessíveis** — Já corrigido (política atual `super_admins_manage_api_keys` restringe a super admins).
-5. **Edge Functions sem validação** — Adicionar validação de input básica nas funções críticas.
+Se preferir manter geração programática sem diálogo de impressão, posso substituir por `pdf-lib` (sem vulnerabilidades conhecidas), porém com mais código para formatar texto.
 
-## Resumo de Ações
+## Arquivos Alterados
 
-| # | Ação | Dificuldade |
-|---|------|-------------|
-| 1 | Migração SQL: restringir política da tabela `invitations` | Fácil |
-| 2 | Atualizar/substituir `jspdf` | Fácil |
-| 3 | Verificar e limpar tabela `companies` legada | Fácil |
-| 4 | Já corrigido — nenhuma ação | — |
-| 5 | Adicionar validação de input nas Edge Functions | Médio |
+| Arquivo | Alteração |
+|---------|-----------|
+| `package.json` | Remover `jspdf` |
+| `src/pages/GenerateQuestions.tsx` | Substituir import e `handleExportPDF` por versão com `window.print()` |
 
