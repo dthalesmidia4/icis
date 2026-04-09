@@ -410,6 +410,18 @@ REGRAS:
       const slide = slides[i];
       const slideNumber = i + 1;
 
+      const isFirstOrLast = slideNumber === 1 || slideNumber === slides.length;
+      const logoPromptSection = logoUrl
+        ? `
+LOGO DA MARCA (OBRIGATÓRIO):
+- A logo da marca está fornecida como imagem de referência. INCLUA a logo no design OBRIGATORIAMENTE.
+- Posição: ${logoPositionMap[logoPosition] || logoPosition}
+- Tamanho: ${isFirstOrLast ? logoSizeUpMap[logoSize] || "~18%" : logoSizeMap[logoSize] || "~12%"} da área da imagem
+${isFirstOrLast ? "- Este é um slide de DESTAQUE — a logo deve ser PROEMINENTE e mais visível" : "- Mantenha a logo discreta mas visível"}
+- NÃO distorça, altere cores ou modifique a logo de nenhuma forma
+- Reproduza a logo EXATAMENTE como na imagem de referência fornecida`
+        : "";
+
       const imagePrompt = `Crie imagem profissional para SLIDE ${slideNumber}/${slides.length} de carrossel social.
 
 TEXTO: "${slide.text}" (${slide.label})
@@ -423,6 +435,7 @@ ${presetColors.highlight ? `- Cor de destaque (${presetColors.highlight}): Use e
 ${presetColors.text ? `- Cor do texto (${presetColors.text}): Use na tipografia principal sobre os fundos` : ""}
 - Tipografia: ${presetColors.font}
 ${mascotSection}
+${logoPromptSection}
 
 REGRA CRÍTICA DE APLICAÇÃO DE CORES:
 As cores da marca devem ser aplicadas APENAS em elementos de design gráfico (fundos, gradientes, boxes, banners, shapes, tipografia, ícones, bordas).
@@ -452,7 +465,8 @@ Este é o slide de CAPA do carrossel — o mais importante de todos.
 - A capa deve comunicar CLARAMENTE o tema do carrossel de forma concisa e atraente
 - NÃO use layouts simples ou minimalistas — a capa deve ser visualmente rica e elaborada` : `CONTINUIDADE VISUAL: Mantenha o estilo visual coerente com a capa, mas com layout adequado para conteúdo informativo.`}
 
-REGRAS: Formato 1:1 (1024x1024). O texto "${slide.text}" DEVE aparecer legível. Design coerente entre slides. Indicador ${slideNumber}/${slides.length} discreto. SEM logo/marca d'água.`.trim();
+REGRAS: Formato 1:1 (1024x1024). O texto "${slide.text}" DEVE aparecer legível. Design coerente entre slides. Indicador ${slideNumber}/${slides.length} discreto.
+${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem"}`.trim();
 
       console.log(`  → Generating slide ${slideNumber}/${slides.length}...`);
 
