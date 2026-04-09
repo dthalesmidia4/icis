@@ -408,6 +408,17 @@ ESTILO VISUAL OBRIGATÓRIO:
 - Elementos gráficos decorativos sutis que enriquecem o layout
 - Cores vibrantes e paleta coerente com a identidade visual da marca
 
+${slideNumber === 1 ? `REGRAS ESPECIAIS PARA CAPA (SLIDE 1 - OBRIGATÓRIO):
+Este é o slide de CAPA do carrossel — o mais importante de todos.
+- Design VISUALMENTE IMPACTANTE e CHAMATIVO que capture atenção imediata no feed
+- Use elementos gráficos bold: boxes coloridos grandes, banners vibrantes, balões de fala (speech bubbles) ou shapes dinâmicos para conter o texto
+- Tipografia EXTRA BOLD, centralizada e com tamanho grande — o texto deve ser o protagonista visual
+- Composição com profundidade: sombras, gradientes e camadas visuais que criem dimensão
+- Use ícones ou emojis 3D estilizados para enriquecer o layout
+- O design deve transmitir "profissionalismo de agência" e incentivar o usuário a DESLIZAR para ver mais
+- A capa deve comunicar CLARAMENTE o tema do carrossel de forma concisa e atraente
+- NÃO use layouts simples ou minimalistas — a capa deve ser visualmente rica e elaborada` : `CONTINUIDADE VISUAL: Mantenha o estilo visual coerente com a capa, mas com layout adequado para conteúdo informativo.`}
+
 REGRAS: Formato 1:1 (1024x1024). O texto "${slide.text}" DEVE aparecer legível. Design coerente entre slides. Indicador ${slideNumber}/${slides.length} discreto. SEM logo/marca d'água.`.trim();
 
       console.log(`  → Generating slide ${slideNumber}/${slides.length}...`);
