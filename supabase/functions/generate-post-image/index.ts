@@ -301,14 +301,21 @@ ${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\
 
 ${slideContentSection}
 
-BRANDING:
+PALETA DE CORES E APLICAÇÃO (REGRAS CRÍTICAS):
 - Marca: "${brandName}" | ${client?.sector || "N/A"} | ${client?.products_services || "N/A"}
-- Cor primária: ${presetColors.primary}
-- Cor secundária: ${presetColors.secondary}
-${presetColors.highlight ? `- Cor de destaque: ${presetColors.highlight}` : ""}
-${presetColors.text ? `- Cor do texto: ${presetColors.text}` : ""}
+- Cor primária (${presetColors.primary}): Use em fundos, banners, boxes, shapes e elementos gráficos dominantes do layout
+- Cor secundária (${presetColors.secondary}): Use em acentos, bordas, elementos complementares e variações de fundo
+${presetColors.highlight ? `- Cor de destaque (${presetColors.highlight}): Use em botões, badges, CTAs, ícones e pequenos destaques visuais` : ""}
+${presetColors.text ? `- Cor do texto (${presetColors.text}): Use na tipografia principal sobre os fundos` : ""}
 - Tipografia: ${presetColors.font}
 ${mascotSection}
+
+REGRA CRÍTICA DE APLICAÇÃO DE CORES:
+As cores da marca devem ser aplicadas APENAS em elementos de design gráfico (fundos, gradientes, boxes, banners, shapes, tipografia, ícones, bordas).
+NUNCA aplique as cores da marca em objetos reais, pessoas, animais ou elementos figurativos.
+Exemplo: se a cor primária é verde, o fundo e os boxes devem ser verdes, mas um leão deve ter cores NATURAIS realistas.
+Os sujeitos e ilustrações figurativas devem manter aparência NATURAL e REALISTA.
+A paleta de cores cria a identidade visual através do LAYOUT e DESIGN, não tingindo os elementos figurativos.
 
 ESTILO VISUAL OBRIGATÓRIO:
 - Crie designs com estilo de ilustração 3D estilizada, moderna e profissional
