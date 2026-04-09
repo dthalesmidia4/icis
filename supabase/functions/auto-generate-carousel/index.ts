@@ -474,6 +474,9 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
       if (mascotInline) {
         parts.push({ inlineData: mascotInline });
       }
+      if (logoInline) {
+        parts.push({ inlineData: logoInline });
+      }
 
       try {
         const imgResponse = await fetch(googleApiUrl, {
