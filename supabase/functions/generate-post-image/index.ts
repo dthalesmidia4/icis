@@ -371,7 +371,7 @@ ESTILO VISUAL OBRIGATÓRIO:
 - Contraste alto entre texto e fundo para legibilidade perfeita
 - Elementos gráficos decorativos sutis que enriquecem o layout
 - Cores vibrantes e paleta coerente com a identidade visual da marca
-- O texto do post DEVE aparecer legível e bem posicionado na imagem
+- Apenas o TÍTULO do post deve aparecer legível e bem posicionado na imagem
 
 REGRAS OBRIGATÓRIAS:
 ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem"}
