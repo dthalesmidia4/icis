@@ -302,19 +302,24 @@ Deno.serve(async (req) => {
 Texto principal: "${slide.title}"
 ${slide.body ? `Texto complementar/detalhes: "${slide.body}"` : ""}`
         : (() => {
-            const cardContent = [
-              demand.title ? `Título: ${demand.title}` : "",
-              demand.objective ? `Objetivo: ${demand.objective}` : "",
-              demand.instructions ? `Instruções: ${demand.instructions.replace(/<[^>]*>/g, " ").trim()}` : "",
-              demand.description ? `Descrição: ${demand.description.replace(/<[^>]*>/g, " ").trim()}` : "",
-              demand.observations ? `Observações: ${demand.observations?.replace(/<[^>]*>/g, " ").trim()}` : "",
+            const titleLine = demand.title ? `TÍTULO DO POST (pode aparecer como texto na imagem):\n"${demand.title}"` : "";
+            const objectiveLine = demand.objective ? `OBJETIVO DO POST (contexto temático para o design):\n${demand.objective}` : "";
+            const descriptionLine = demand.description ? `CONTEXTO TEMÁTICO (NÃO inclua este texto na imagem — é a legenda para a descrição da rede social):\n${demand.description.replace(/<[^>]*>/g, " ").trim()}` : "";
+            const instructionsLine = demand.instructions ? `INSTRUÇÕES DE PRODUÇÃO VISUAL (siga estas diretrizes para o design):\n${demand.instructions.replace(/<[^>]*>/g, " ").trim()}` : "";
+            return [
+              `CONTEÚDO DO SLIDE ${slide.slideNumber}/${totalSlidesForPrompt}:`,
+              `Texto principal: "${slide.title}"`,
+              slide.body ? `Texto complementar: "${slide.body}"` : "",
+              "",
+              titleLine,
+              objectiveLine,
+              descriptionLine,
+              instructionsLine,
+              "",
+              `REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO:`,
+              `- O campo "CONTEXTO TEMÁTICO" contém a LEGENDA que será publicada na DESCRIÇÃO do post. Este texto NÃO deve aparecer na imagem.`,
+              `- Apenas o TÍTULO e textos curtos de gancho/CTA devem aparecer como tipografia na imagem.`,
             ].filter(Boolean).join("\n");
-            return `CONTEÚDO DO SLIDE ${slide.slideNumber}/${totalSlidesForPrompt}:
-Texto principal: "${slide.title}"
-${slide.body ? `Texto complementar: "${slide.body}"` : ""}
-
-CONTEÚDO COMPLETO DO CARD:
-${cardContent}`;
           })();
 
       const isFirstSlide = slide.slideNumber === 1;
@@ -366,7 +371,7 @@ ESTILO VISUAL OBRIGATÓRIO:
 - Contraste alto entre texto e fundo para legibilidade perfeita
 - Elementos gráficos decorativos sutis que enriquecem o layout
 - Cores vibrantes e paleta coerente com a identidade visual da marca
-- O texto do post DEVE aparecer legível e bem posicionado na imagem
+- Apenas o TÍTULO do post deve aparecer legível e bem posicionado na imagem
 
 REGRAS OBRIGATÓRIAS:
 ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem"}

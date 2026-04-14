@@ -147,13 +147,10 @@ Deno.serve(async (req) => {
       : "";
 
     // 7. Build content from the demand card
-    const cardContent = [
-      demand.title ? `Título: ${demand.title}` : "",
-      demand.objective ? `Objetivo: ${demand.objective}` : "",
-      demand.instructions ? `Instruções: ${demand.instructions.replace(/<[^>]*>/g, " ").trim()}` : "",
-      demand.description ? `Descrição: ${demand.description.replace(/<[^>]*>/g, " ").trim()}` : "",
-      demand.observations ? `Observações: ${demand.observations.replace(/<[^>]*>/g, " ").trim()}` : "",
-    ].filter(Boolean).join("\n");
+    const demandTitle = demand.title || "";
+    const demandDescription = demand.description ? demand.description.replace(/<[^>]*>/g, " ").trim() : "";
+    const demandInstructions = demand.instructions ? demand.instructions.replace(/<[^>]*>/g, " ").trim() : "";
+    const demandObjective = demand.objective || "";
 
     // 8. Logo settings
     const logoUrl = (client as any)?.logo_url;
@@ -189,8 +186,17 @@ Deno.serve(async (req) => {
     const imagePrompt = `
 ${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${contentReqsSection}Crie uma imagem profissional de post para rede social.
 
-CONTEÚDO DO CARD APROVADO:
-${cardContent}
+TÍTULO DO POST (pode aparecer como texto na imagem):
+"${demandTitle}"
+
+${demandObjective ? `OBJETIVO DO POST (contexto temático para o design):\n${demandObjective}\n` : ""}
+${demandDescription ? `CONTEXTO TEMÁTICO (NÃO inclua este texto na imagem — é a legenda para a descrição da rede social):\n${demandDescription}\n` : ""}
+${demandInstructions ? `INSTRUÇÕES DE PRODUÇÃO VISUAL (siga estas diretrizes para o design):\n${demandInstructions}\n` : ""}
+
+REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO:
+- O campo "CONTEXTO TEMÁTICO" contém a LEGENDA que será publicada na DESCRIÇÃO do post na rede social. Este texto NÃO deve aparecer na imagem.
+- Apenas o TÍTULO e textos curtos de gancho/CTA devem aparecer como tipografia na imagem.
+- A legenda serve apenas para você entender o tema e tom do post.
 
 PALETA DE CORES E APLICAÇÃO (REGRAS CRÍTICAS):
 - Marca: "${brandName}" | ${client?.sector || "N/A"} | ${(client as any)?.products_services || "N/A"}
@@ -217,7 +223,7 @@ ESTILO VISUAL OBRIGATÓRIO:
 - Contraste alto entre texto e fundo para legibilidade perfeita
 - Elementos gráficos decorativos sutis que enriquecem o layout
 - Cores vibrantes e paleta coerente com a identidade visual da marca
-- O texto do post DEVE aparecer legível e bem posicionado na imagem
+- Apenas o TÍTULO do post deve aparecer legível e bem posicionado na imagem
 
 REGRAS OBRIGATÓRIAS:
 ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem"}

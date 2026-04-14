@@ -264,7 +264,7 @@ const RejectedCards = () => {
       const cta = card.cta_recomendado || null;
       const dateStr = card.data_sugerida || card.suggested_date || card.date || null;
 
-      const instructionParts = [conteudo, instrucoes, cta ? `CTA: ${cta}` : ''].filter(Boolean);
+      const instructionParts = [instrucoes, cta ? `CTA: ${cta}` : ''].filter(Boolean);
 
       const { data: insertedData, error: insertError } = await supabase.from('demands').insert({
         tenant_id: tenantId,
@@ -274,6 +274,7 @@ const RejectedCards = () => {
         period_plan_id: period.id,
         title,
         objective: objetivo,
+        description: conteudo || null,
         instructions: instructionParts.join('\n\n') || null,
         publish_date: dateStr || null,
         channel,

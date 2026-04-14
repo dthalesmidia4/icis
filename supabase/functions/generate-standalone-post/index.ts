@@ -134,7 +134,12 @@ Deno.serve(async (req) => {
     const imagePrompt = `
 ${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${contentReqsSection}Crie uma imagem profissional de post para rede social.
 
-IDEIA DO USUÁRIO: "${idea}"
+IDEIA DO USUÁRIO (use como tema/contexto, NÃO reproduza este texto integralmente na imagem): "${idea}"
+
+REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO:
+- A ideia acima descreve o TEMA do post. NÃO copie o texto da ideia literalmente na imagem.
+- Crie um TÍTULO CURTO e impactante baseado na ideia para usar como tipografia na imagem.
+- Apenas títulos curtos e textos de gancho/CTA devem aparecer como tipografia na imagem.
 
 PALETA DE CORES E APLICAÇÃO (REGRAS CRÍTICAS):
 - Cor primária (${presetColors.primary}): Use em fundos, banners, boxes, shapes e elementos gráficos dominantes do layout
