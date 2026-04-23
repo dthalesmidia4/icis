@@ -193,15 +193,22 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 5. Fetch posts prompt
-    const { data: promptData } = await supabase
+    // 5. Fetch carousel prompt — busca em duas chaves possíveis:
+    //    - generate_carousel_prompt (chave canônica)
+    //    - custom_prompt_1774297057852 (chave usada pelo "Prompt Gerador de Carrossel" salvo na UI)
+    // Usa a primeira que tiver conteúdo. Caso nenhuma exista, mantém fallback hardcoded.
+    const { data: carouselPrompts } = await supabase
       .from("system_prompts")
-      .select("prompt_content")
+      .select("prompt_key, prompt_content")
       .eq("tenant_id", demand.tenant_id)
-      .eq("prompt_key", "generate_carousel_prompt")
-      .single();
+      .in("prompt_key", ["generate_carousel_prompt", "custom_prompt_1774297057852"]);
 
-    const basePrompt = promptData?.prompt_content || "";
+    const canonical = carouselPrompts?.find(p => p.prompt_key === "generate_carousel_prompt" && p.prompt_content?.trim());
+    const customCarousel = carouselPrompts?.find(p => p.prompt_key === "custom_prompt_1774297057852" && p.prompt_content?.trim());
+    const selectedCarouselPrompt = canonical || customCarousel;
+
+    const basePrompt = selectedCarouselPrompt?.prompt_content || "";
+    console.log(`📋 Carrossel usando prompt: ${selectedCarouselPrompt?.prompt_key || "FALLBACK_HARDCODED"}`);
 
     // 6. Fetch active strategy (shorter snippet to save memory)
     const { data: strategy } = await supabase
