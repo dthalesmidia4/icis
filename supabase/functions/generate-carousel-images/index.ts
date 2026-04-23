@@ -240,7 +240,7 @@ Este é o slide de CAPA do carrossel — o mais importante de todos.
           form.append("prompt", imagePrompt);
           form.append("size", sizeForGpt);
           form.append("quality", "high");
-          form.append("input_fidelity", "high"); // keep mascot/logo faithful
+          // Note: gpt-image-2 does NOT support input_fidelity (gpt-image-1 only).
           form.append("n", "1");
           for (const ref of referenceImages) {
             form.append("image[]", ref.blob, ref.filename);
