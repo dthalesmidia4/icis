@@ -78,7 +78,21 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch OpenAI API key (used for both o4-mini text generation and GPT Image 2 visuals)
+    // Fetch API keys
+    const { data: googleKeyData } = await supabase
+      .from("api_keys")
+      .select("key_value")
+      .eq("key_name", "Google AI Studio")
+      .single();
+
+    const GOOGLE_API_KEY = googleKeyData?.key_value;
+    if (!GOOGLE_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { data: openaiKeyData } = await supabase
       .from("api_keys")
       .select("key_value")
@@ -323,8 +337,8 @@ REGRAS:
 
     console.log(`✅ Step 1 complete: ${slides.length} slide texts generated`);
 
-    // ============ STEP 2: Generate images one at a time via GPT Image 2 ============
-    console.log(`Step 2: Generating ${slides.length} slide images via GPT Image 2 (OpenAI)...`);
+    // ============ STEP 2: Generate images one at a time, attach incrementally ============
+    console.log(`Step 2: Generating ${slides.length} slide images via Gemini 3 Pro Image...`);
 
     const mascotSection = mascotImageUrl
       ? `MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""} OBRIGATÓRIO: Reproduza o mascote EXATAMENTE como na imagem de referência — mesma aparência, cabelo, roupa, proporções. O mascote DEVE aparecer integrado ao design como protagonista visual.`
@@ -344,47 +358,56 @@ REGRAS:
       "bottom-center": "centro inferior",
     };
 
-    // Helper: fetch a remote image into a Blob (for OpenAI multipart endpoints)
-    const fetchImageBlob = async (url: string): Promise<{ blob: Blob; filename: string } | null> => {
-      try {
-        const r = await fetch(url);
-        if (!r.ok) return null;
-        const ct = r.headers.get("content-type") || "image/png";
-        const buf = await r.arrayBuffer();
-        const ext = ct.includes("jpeg") ? "jpg" : ct.includes("webp") ? "webp" : "png";
-        const filename = `ref-${crypto.randomUUID()}.${ext}`;
-        return { blob: new Blob([buf], { type: ct }), filename };
-      } catch (e) {
-        console.error("Failed to fetch reference image:", e);
-        return null;
-      }
-    };
-
-    // Pre-fetch reference images ONCE (mascot + logo)
-    const referenceImages: { blob: Blob; filename: string }[] = [];
+    // Fetch mascot image ONCE, keep reference
+    let mascotInline: { mimeType: string; data: string } | null = null;
     if (mascotImageUrl) {
-      const ref = await fetchImageBlob(mascotImageUrl);
-      if (ref) {
-        referenceImages.push(ref);
-        console.log("  → Mascot reference image pre-fetched");
-      }
-    }
-    if (logoUrl) {
-      const logoRef = await fetchImageBlob(logoUrl);
-      if (logoRef) {
-        referenceImages.push(logoRef);
-        console.log("  → Logo reference image pre-fetched");
+      try {
+        const imgResp = await fetch(mascotImageUrl);
+        if (imgResp.ok) {
+          const imgBuffer = await imgResp.arrayBuffer();
+          const bytes = new Uint8Array(imgBuffer);
+          let binary = "";
+          const chunkSize = 8192;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+          }
+          mascotInline = { mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) };
+          console.log(`  → Mascot reference image pre-fetched`);
+        }
+      } catch (e) {
+        console.error("Failed to fetch mascot:", e);
       }
     }
 
+    // Fetch logo image ONCE
+    let logoInline: { mimeType: string; data: string } | null = null;
+    if (logoUrl) {
+      try {
+        const imgResp = await fetch(logoUrl);
+        if (imgResp.ok) {
+          const imgBuffer = await imgResp.arrayBuffer();
+          const bytes = new Uint8Array(imgBuffer);
+          let binary = "";
+          const chunkSize = 8192;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+          }
+          logoInline = { mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) };
+          console.log("  → Logo reference image pre-fetched");
+        }
+      } catch (e) {
+        console.error("Failed to fetch logo:", e);
+      }
+    }
+
+    const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
     let totalGenerated = 0;
 
     // Build slide context once (short)
     const slideContext = slides.map((s, idx) => `S${idx + 1}: "${s.text}"`).join(" | ");
 
-    // Generate slides IN PARALLEL with GPT Image 2 (medium quality to fit 150s edge timeout).
-    // Sequential mode would blow the limit since each slide takes ~30-60s.
-    const slideJobs = slides.map((slide, i) => {
+    for (let i = 0; i < slides.length; i++) {
+      const slide = slides[i];
       const slideNumber = i + 1;
 
       const isFirstOrLast = slideNumber === 1 || slideNumber === slides.length;
@@ -445,130 +468,122 @@ Este é o slide de CAPA do carrossel — o mais importante de todos.
 REGRAS: Formato 1:1 (1024x1024). O texto "${slide.text}" DEVE aparecer legível. Design coerente entre slides. Indicador ${slideNumber}/${slides.length} discreto.
 ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem"}`.trim();
 
-      console.log(`  → Queueing slide ${slideNumber}/${slides.length} via GPT Image 2 (parallel)...`);
+      console.log(`  → Generating slide ${slideNumber}/${slides.length}...`);
 
-      return (async () => {
-        try {
-          let openaiResp: Response;
+      const parts: any[] = [{ text: imagePrompt }];
+      if (mascotInline) {
+        parts.push({ inlineData: mascotInline });
+      }
+      if (logoInline) {
+        parts.push({ inlineData: logoInline });
+      }
 
-          if (referenceImages.length > 0) {
-            const form = new FormData();
-            form.append("model", "gpt-image-2");
-            form.append("prompt", imagePrompt);
-            form.append("size", "1024x1024");
-            form.append("quality", "medium"); // medium para caber no limite de 150s da edge function
-            form.append("n", "1");
-            for (const ref of referenceImages) {
-              form.append("image[]", ref.blob, ref.filename);
-            }
-            openaiResp = await fetch("https://api.openai.com/v1/images/edits", {
-              method: "POST",
-              headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
-              body: form,
-            });
-          } else {
-            openaiResp = await fetch("https://api.openai.com/v1/images/generations", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${OPENAI_API_KEY}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                model: "gpt-image-2",
-                prompt: imagePrompt,
-                size: "1024x1024",
-                quality: "medium",
-                n: 1,
-              }),
-            });
+      try {
+        const imgResponse = await fetch(googleApiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+          }),
+        });
+
+        if (!imgResponse.ok) {
+          const errText = await imgResponse.text();
+          console.error(`Slide ${slideNumber} error:`, imgResponse.status, errText);
+          if (imgResponse.status === 429) {
+            console.warn(`Rate limit at slide ${slideNumber}, stopping`);
+            break;
           }
-
-          if (!openaiResp.ok) {
-            const errText = await openaiResp.text();
-            console.error(`Slide ${slideNumber} GPT Image 2 error:`, openaiResp.status, errText);
-            return null;
-          }
-
-          const imgData = await openaiResp.json();
-          let imageBase64: string | undefined = imgData?.data?.[0]?.b64_json;
-
-          if (!imageBase64) {
-            console.warn(`  ⚠ No image for slide ${slideNumber}`);
-            return null;
-          }
-
-          const imageBytes = decodeBase64(imageBase64);
-          imageBase64 = "";
-
-          const fileName = `auto-generated/${demand.client_id}/${demandId}/carousel-slide-${slideNumber}-${crypto.randomUUID()}.png`;
-
-          const { error: uploadError } = await supabase.storage
-            .from("card-attachments")
-            .upload(fileName, imageBytes, { contentType: "image/png", upsert: false });
-
-          if (uploadError) {
-            console.error(`Upload error slide ${slideNumber}:`, uploadError);
-            return null;
-          }
-
-          const { data: publicUrlData } = supabase.storage
-            .from("card-attachments")
-            .getPublicUrl(fileName);
-
-          const newAttachment = {
-            url: publicUrlData.publicUrl,
-            name: `Carrossel Slide ${slideNumber} - ${brandName}.png`,
-            type: "image/png",
-            size: imageBytes.length,
-            storagePath: fileName,
-            uploadedAt: new Date().toISOString(),
-            uploadedBy: { id: "auto-generator", email: "system@ai", name: "IA - GPT Image 2 (Carrossel Auto)" },
-            cardId: demandId,
-            tenantId: demand.tenant_id,
-            clientId: demand.client_id,
-          };
-
-          console.log(`  ✅ Slide ${slideNumber} generated`);
-          return { slideNumber, attachment: newAttachment };
-        } catch (slideError) {
-          console.error(`Exception on slide ${slideNumber}:`, slideError);
-          return null;
+          continue;
         }
-      })();
-    });
 
-    const slideResults = await Promise.all(slideJobs);
-    const successfulSlides = slideResults.filter((r): r is { slideNumber: number; attachment: any } => r !== null);
-    let totalGenerated = successfulSlides.length;
+        const imgData = await imgResponse.json();
 
-    // Now write all attachments at once (avoids race conditions from parallel updates)
-    if (successfulSlides.length > 0) {
-      const { data: currentDemand } = await supabase
-        .from("demands")
-        .select("attachments")
-        .eq("id", demandId)
-        .single();
+        // Extract base64 image
+        let imageBase64 = "";
+        let imageMimeType = "image/png";
+        for (const candidate of (imgData.candidates || [])) {
+          for (const part of (candidate.content?.parts || [])) {
+            const inlineData = part.inlineData || part.inline_data;
+            if (inlineData) {
+              imageBase64 = inlineData.data;
+              imageMimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
+              break;
+            }
+          }
+          if (imageBase64) break;
+        }
 
-      const currentAttachments = Array.isArray(currentDemand?.attachments) ? currentDemand.attachments : [];
+        if (!imageBase64) {
+          console.warn(`  ⚠ No image for slide ${slideNumber}`);
+          continue;
+        }
 
-      // Remove any existing AI slides with the same numbers we just generated
-      const generatedNumbers = new Set(successfulSlides.map((s) => s.slideNumber));
-      const filteredAttachments = currentAttachments.filter((a: any) => {
-        if (!isAiCarouselSlide(a)) return true;
-        const m = (a.name || "").match(/Carrossel Slide (\d+)/i);
-        if (!m) return true;
-        return !generatedNumbers.has(parseInt(m[1], 10));
-      });
+        // Decode, upload, then clear base64 from memory
+        const imageBytes = decodeBase64(imageBase64);
+        imageBase64 = ""; // Free memory immediately
 
-      const newAttachments = successfulSlides
-        .sort((a, b) => a.slideNumber - b.slideNumber)
-        .map((s) => s.attachment);
+        const ext = imageMimeType.includes("jpeg") ? "jpg" : "png";
+        const fileName = `auto-generated/${demand.client_id}/${demandId}/carousel-slide-${slideNumber}-${crypto.randomUUID()}.${ext}`;
 
-      await supabase
-        .from("demands")
-        .update({ attachments: [...filteredAttachments, ...newAttachments] })
-        .eq("id", demandId);
+        const { error: uploadError } = await supabase.storage
+          .from("card-attachments")
+          .upload(fileName, imageBytes, { contentType: imageMimeType, upsert: false });
+
+        if (uploadError) {
+          console.error(`Upload error slide ${slideNumber}:`, uploadError);
+          continue;
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from("card-attachments")
+          .getPublicUrl(fileName);
+
+        const newAttachment = {
+          url: publicUrlData.publicUrl,
+          name: `Carrossel Slide ${slideNumber} - ${brandName}.${ext}`,
+          type: imageMimeType,
+          size: imageBytes.length,
+          storagePath: fileName,
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: { id: "auto-generator", email: "system@ai", name: "IA - Gemini 3 Pro Image (Carrossel)" },
+          cardId: demandId,
+          tenantId: demand.tenant_id,
+          clientId: demand.client_id,
+        };
+
+        // Attach incrementally — fetch current, replace any AI slide with same number, append new
+        const { data: currentDemand } = await supabase
+          .from("demands")
+          .select("attachments")
+          .eq("id", demandId)
+          .single();
+
+        const currentAttachments = Array.isArray(currentDemand?.attachments) ? currentDemand.attachments : [];
+        
+        // Remove any existing AI slide with the same slide number to prevent duplicates
+        const slideNamePattern = new RegExp(`Carrossel Slide ${slideNumber}\\b`, "i");
+        const filteredAttachments = currentAttachments.filter((a: any) => {
+          if (!isAiCarouselSlide(a)) return true; // keep manual attachments
+          return !slideNamePattern.test(a.name || ""); // remove same-number AI slide
+        });
+
+        await supabase
+          .from("demands")
+          .update({ attachments: [...filteredAttachments, newAttachment] })
+          .eq("id", demandId);
+
+        totalGenerated++;
+        console.log(`  ✅ Slide ${slideNumber} generated and attached`);
+      } catch (slideError) {
+        console.error(`Exception on slide ${slideNumber}:`, slideError);
+        continue;
+      }
     }
+
+    // Free mascot from memory
+    mascotInline = null;
 
     if (totalGenerated === 0) {
       return new Response(
@@ -577,7 +592,7 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
       );
     }
 
-    console.log(`✅ Auto-generated ${totalGenerated} carousel slides for demand ${demandId} via GPT Image 2 (archived ${archivedCount} previous)`);
+    console.log(`✅ Auto-generated ${totalGenerated} carousel slides for demand ${demandId} (archived ${archivedCount} previous)`);
 
     return new Response(
       JSON.stringify({

@@ -7,22 +7,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Helper: fetch a remote image into a Blob (for OpenAI multipart endpoints)
-async function fetchImageBlob(url: string): Promise<{ blob: Blob; filename: string } | null> {
-  try {
-    const r = await fetch(url);
-    if (!r.ok) return null;
-    const ct = r.headers.get("content-type") || "image/png";
-    const buf = await r.arrayBuffer();
-    const ext = ct.includes("jpeg") ? "jpg" : ct.includes("webp") ? "webp" : "png";
-    const filename = `ref-${crypto.randomUUID()}.${ext}`;
-    return { blob: new Blob([buf], { type: ct }), filename };
-  } catch (e) {
-    console.error("Failed to fetch reference image:", e);
-    return null;
-  }
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -42,17 +26,17 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch OpenAI API key (GPT Image 2 lives at OpenAI)
+    // Fetch Google AI Studio API key
     const { data: apiKeyData } = await supabase
       .from("api_keys")
       .select("key_value")
-      .eq("key_name", "OPENAI_API_KEY")
+      .eq("key_name", "Google AI Studio")
       .single();
 
-    const OPENAI_API_KEY = apiKeyData?.key_value;
-    if (!OPENAI_API_KEY) {
+    const GOOGLE_API_KEY = apiKeyData?.key_value;
+    if (!GOOGLE_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "Chave 'OPENAI_API_KEY' não encontrada na tabela api_keys." }),
+        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -85,12 +69,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Auto-generating post image for demand ${demandId} (type: ${demand.demand_type}) via GPT Image 2`);
+    console.log(`Auto-generating post image for demand ${demandId} (type: ${demand.demand_type})`);
 
     // 3. Fetch client branding
     const { data: client } = await supabase
       .from("tenant_companies")
-      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, sector, products_services, content_requirements, logo_url, logo_position, logo_size")
+      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, content_requirements, logo_url, logo_position, logo_size")
       .eq("id", demand.client_id)
       .single();
 
@@ -248,92 +232,101 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
 - IMPORTANTE: Gere um POST COMPLETO para rede social, não apenas um elemento isolado
 `.trim();
 
-    // 9. Pre-fetch reference images (mascot + logo) for GPT Image 2 /images/edits
-    const referenceImages: { blob: Blob; filename: string }[] = [];
-    for (const url of mascotImageUrls) {
-      const ref = await fetchImageBlob(url);
-      if (ref) {
-        referenceImages.push(ref);
-        console.log("  → Mascot reference attached");
+    console.log("Calling Gemini 3 Pro Image (gemini-3-pro-image-preview) via Google AI Studio...");
+
+    // 9. Build parts with optional mascot + logo reference images
+    const parts: any[] = [{ text: imagePrompt }];
+
+    const fetchImageInline = async (url: string): Promise<{ mimeType: string; data: string } | null> => {
+      try {
+        const imgResp = await fetch(url);
+        if (!imgResp.ok) return null;
+        const imgBuffer = await imgResp.arrayBuffer();
+        const bytes = new Uint8Array(imgBuffer);
+        let binary = "";
+        const chunkSize = 8192;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+        }
+        return { mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) };
+      } catch (e) {
+        console.error("Failed to fetch image:", e);
+        return null;
+      }
+    };
+
+    if (mascotImageUrls.length > 0) {
+      for (const url of mascotImageUrls) {
+        const inline = await fetchImageInline(url);
+        if (inline) {
+          parts.push({ inlineData: inline });
+          console.log(`  → Mascot reference image attached as inline_data`);
+        }
       }
     }
+
     if (logoUrl) {
-      const logoRef = await fetchImageBlob(logoUrl);
-      if (logoRef) {
-        referenceImages.push(logoRef);
-        console.log("  → Logo reference attached");
+      const logoInline = await fetchImageInline(logoUrl);
+      if (logoInline) {
+        parts.push({ inlineData: logoInline });
+        console.log("  → Logo reference image attached as inline_data");
       }
     }
 
-    // 10. Call GPT Image 2 — /images/edits when refs exist, /images/generations otherwise.
-    console.log(`Calling GPT Image 2 (refs: ${referenceImages.length})...`);
+    // 10. Call Gemini 3 Pro Image via Google AI Studio
+    const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
 
-    let openaiResponse: Response;
-
-    if (referenceImages.length > 0) {
-      const form = new FormData();
-      form.append("model", "gpt-image-2");
-      form.append("prompt", imagePrompt);
-      form.append("size", "1024x1024");
-      form.append("quality", "high");
-      // Note: gpt-image-2 does NOT support input_fidelity (gpt-image-1 only).
-      form.append("n", "1");
-      for (const ref of referenceImages) {
-        form.append("image[]", ref.blob, ref.filename);
-      }
-
-      openaiResponse = await fetch("https://api.openai.com/v1/images/edits", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
-        body: form,
-      });
-    } else {
-      openaiResponse = await fetch("https://api.openai.com/v1/images/generations", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
+    const response = await fetch(googleApiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts }],
+        generationConfig: {
+          responseModalities: ["IMAGE", "TEXT"],
         },
-        body: JSON.stringify({
-          model: "gpt-image-2",
-          prompt: imagePrompt,
-          size: "1024x1024",
-          quality: "high",
-          n: 1,
-        }),
-      });
-    }
+      }),
+    });
 
-    if (!openaiResponse.ok) {
-      const errorText = await openaiResponse.text();
-      console.error("GPT Image 2 error:", openaiResponse.status, errorText);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Gemini 3 Pro Image error:", response.status, errorText);
 
-      if (openaiResponse.status === 429) {
+      if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit excedido na OpenAI. Tente novamente em alguns minutos." }),
+          JSON.stringify({ error: "Rate limit excedido. Tente novamente em alguns minutos." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (openaiResponse.status === 401) {
-        return new Response(
-          JSON.stringify({ error: "Chave OpenAI inválida ou sem permissão para gpt-image-2." }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       return new Response(
-        JSON.stringify({ error: `Erro do GPT Image 2: ${openaiResponse.status} - ${errorText.substring(0, 300)}` }),
+        JSON.stringify({ error: `Erro do Google AI Studio: ${response.status}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const data = await openaiResponse.json();
-    const imageBase64: string | undefined = data?.data?.[0]?.b64_json;
+    const data = await response.json();
+
+    // Extract base64 image from Gemini response
+    let imageBase64 = "";
+    let imageMimeType = "image/png";
+    const candidates = data.candidates || [];
+    for (const candidate of candidates) {
+      const candidateParts = candidate.content?.parts || [];
+      for (const part of candidateParts) {
+        const inlineData = part.inlineData || part.inline_data;
+        if (inlineData) {
+          imageBase64 = inlineData.data;
+          imageMimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
+          break;
+        }
+      }
+      if (imageBase64) break;
+    }
 
     if (!imageBase64) {
-      console.error("No image in GPT Image 2 response:", JSON.stringify(data).substring(0, 500));
+      console.error("No image in response:", JSON.stringify(data).substring(0, 500));
       return new Response(
-        JSON.stringify({ error: "Nenhuma imagem foi retornada pela OpenAI (gpt-image-2)." }),
+        JSON.stringify({ error: "Nenhuma imagem foi retornada pelo modelo." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -342,12 +335,13 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
     console.log("Uploading generated image to storage...");
 
     const imageBytes = decodeBase64(imageBase64);
-    const fileName = `auto-generated/${demand.client_id}/${demandId}/${crypto.randomUUID()}.png`;
+    const ext = imageMimeType.includes("jpeg") ? "jpg" : "png";
+    const fileName = `auto-generated/${demand.client_id}/${demandId}/${crypto.randomUUID()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from("card-attachments")
       .upload(fileName, imageBytes, {
-        contentType: "image/png",
+        contentType: imageMimeType,
         upsert: false,
       });
 
@@ -369,12 +363,12 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
     const existingAttachments = Array.isArray(demand.attachments) ? demand.attachments : [];
     const newAttachment = {
       url: imageUrl,
-      name: `Post Gerado - ${brandName}.png`,
-      type: "image/png",
+      name: `Post Gerado - ${brandName}.${ext}`,
+      type: imageMimeType,
       size: imageBytes.length,
       storagePath: fileName,
       uploadedAt: new Date().toISOString(),
-      uploadedBy: { id: "auto-generator", email: "system@ai", name: "IA - GPT Image 2 (Auto)" },
+      uploadedBy: { id: "auto-generator", email: "system@ai", name: "IA - Gemini 3 Pro Image (Auto)" },
       cardId: demandId,
       tenantId: demand.tenant_id,
       clientId: demand.client_id,
@@ -395,14 +389,13 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
       );
     }
 
-    console.log(`✅ Auto-generated post image attached to demand ${demandId} (GPT Image 2)`);
+    console.log(`✅ Auto-generated post image attached to demand ${demandId}`);
 
     return new Response(
       JSON.stringify({
         success: true,
         imageUrl,
         demandId,
-        model: "gpt-image-2",
         message: "Post gerado e anexado automaticamente!",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

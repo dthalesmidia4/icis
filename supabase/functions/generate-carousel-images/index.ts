@@ -7,36 +7,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Helper: fetch a remote image as a Blob (for OpenAI multipart endpoints)
-async function fetchImageBlob(url: string): Promise<{ blob: Blob; filename: string } | null> {
-  try {
-    const r = await fetch(url);
-    if (!r.ok) return null;
-    const ct = r.headers.get("content-type") || "image/png";
-    const buf = await r.arrayBuffer();
-    const ext = ct.includes("jpeg") ? "jpg" : ct.includes("webp") ? "webp" : "png";
-    return { blob: new Blob([buf], { type: ct }), filename: `ref-${crypto.randomUUID()}.${ext}` };
-  } catch (e) {
-    console.error("Failed to fetch reference image:", e);
-    return null;
-  }
-}
-
-// Map aspect ratio strings to GPT Image 2 supported sizes.
-function mapAspectToGptSize(aspectRatio: string | undefined): string {
-  const r = (aspectRatio || "1:1").trim();
-  if (r === "16:9" || r === "1.91:1") return "1536x1024";
-  if (r === "9:16" || r === "4:5" || r === "3:4" || r === "2:3") return "1024x1536";
-  return "1024x1024"; // default 1:1
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { slides, allSlides, batchOffset, aspectRatio, presetId, mascotImageUrls, clientId, tenantId } = await req.json();
+    const { slides, allSlides, batchOffset, aspectRatio, aiModel, presetId, mascotImageUrls, clientId, tenantId } = await req.json();
     const contextSlides = allSlides || slides;
     const slideOffset = batchOffset || 0;
 
@@ -51,17 +28,17 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch OpenAI API key (GPT Image 2 lives at OpenAI)
+    // Fetch Google AI Studio API key
     const { data: apiKeyData } = await supabase
       .from("api_keys")
       .select("key_value")
-      .eq("key_name", "OPENAI_API_KEY")
+      .eq("key_name", "Google AI Studio")
       .single();
 
-    const OPENAI_API_KEY = apiKeyData?.key_value;
-    if (!OPENAI_API_KEY) {
+    const GOOGLE_API_KEY = apiKeyData?.key_value;
+    if (!GOOGLE_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "Chave 'OPENAI_API_KEY' não encontrada na tabela api_keys." }),
+        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -142,40 +119,59 @@ Deno.serve(async (req) => {
       "bottom-center": "centro inferior",
     };
 
-    const sizeForGpt = mapAspectToGptSize(aspectRatio);
-    console.log(`Generating ${slides.length} carousel images with GPT Image 2, size: ${sizeForGpt}`);
+    console.log(`Generating ${slides.length} carousel images with Gemini 3 Pro Image, ratio: ${aspectRatio}`);
 
-    // Pre-fetch reference images (mascot + logo) as Blobs (for /images/edits)
-    const referenceImages: { blob: Blob; filename: string }[] = [];
-
-    if (mascotImageUrls && Array.isArray(mascotImageUrls)) {
+    // Pre-fetch mascot images as base64
+    const mascotInlineData: Array<{ mimeType: string; data: string }> = [];
+    if (mascotImageUrls && mascotImageUrls.length > 0) {
       for (const url of mascotImageUrls) {
-        const ref = await fetchImageBlob(url);
-        if (ref) {
-          referenceImages.push(ref);
-          console.log("  → Mascot reference attached");
-        }
+        try {
+          const imgResp = await fetch(url);
+          if (imgResp.ok) {
+            const imgBuffer = await imgResp.arrayBuffer();
+            const bytes = new Uint8Array(imgBuffer);
+            let binary = "";
+            const chunkSize = 8192;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+              binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+            }
+            mascotInlineData.push({ mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) });
+          }
+        } catch (e) { console.error("Failed to fetch mascot image:", e); }
       }
+      if (mascotInlineData.length > 0) console.log(`  → ${mascotInlineData.length} mascot reference image(s) pre-fetched`);
     }
 
+    // Pre-fetch logo as base64
+    let logoInlineData: { mimeType: string; data: string } | null = null;
     if (logoUrl) {
-      const logoRef = await fetchImageBlob(logoUrl);
-      if (logoRef) {
-        referenceImages.push(logoRef);
-        console.log("  → Logo reference attached");
-      }
+      try {
+        const imgResp = await fetch(logoUrl);
+        if (imgResp.ok) {
+          const imgBuffer = await imgResp.arrayBuffer();
+          const bytes = new Uint8Array(imgBuffer);
+          let binary = "";
+          const chunkSize = 8192;
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+          }
+          logoInlineData = { mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) };
+          console.log("  → Logo reference image pre-fetched");
+        }
+      } catch (e) { console.error("Failed to fetch logo:", e); }
     }
 
     const generatedImages: Array<{ slideIndex: number; imageUrl: string }> = [];
+    const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
 
-    // 5. Generate images IN PARALLEL with GPT Image 2 (medium quality to fit 150s edge timeout)
-    //    Sequential mode would exceed limits since each slide takes ~30-60s.
-    const slideJobs = slides.map((slide, i) => {
+    // 5. Generate images one by one
+    for (let i = 0; i < slides.length; i++) {
+      const slide = slides[i];
       const slideNumber = slideOffset + i + 1;
       const totalSlides = contextSlides.length;
 
       const imagePrompt = `
-${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}Crie uma imagem profissional para o SLIDE ${slideNumber} de ${totalSlides} de um carrossel para rede social da marca "${brandName}".
+${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}Crie uma imagem profissional para o SLIDE ${slideNumber} de ${totalSlides} de um carrossel para rede social.
 
 TEXTO DESTE SLIDE:
 "${slide.text}"
@@ -209,7 +205,7 @@ Os sujeitos e ilustrações figurativas devem manter aparência NATURAL e REALIS
 A paleta de cores cria a identidade visual através do LAYOUT e DESIGN, não tingindo os elementos figurativos.
 
 REGRAS DE DESIGN:
-- Formato: ${aspectRatio || "1:1"} (saída ${sizeForGpt})
+- Formato: ${aspectRatio || "1:1"} (1024x1024px)
 - Este é o slide ${slideNumber} de ${totalSlides} — mantenha coerência visual com os outros slides
 - O texto "${slide.text}" DEVE aparecer legível e bem posicionado na imagem
 - Design profissional para redes sociais
@@ -229,91 +225,99 @@ Este é o slide de CAPA do carrossel — o mais importante de todos.
 - NÃO use layouts simples ou minimalistas — a capa deve ser visualmente rica e elaborada` : `CONTINUIDADE VISUAL: Mantenha o estilo visual coerente com a capa, mas com layout adequado para conteúdo informativo.`}
 `.trim();
 
-      console.log(`  → Queueing slide ${slideNumber}/${totalSlides} via GPT Image 2 (parallel)...`);
+      console.log(`  → Generating slide ${slideNumber}/${totalSlides}...`);
 
-      return (async () => {
-        try {
-          let openaiResp: Response;
+      const parts: any[] = [{ text: imagePrompt }];
+      for (const mascot of mascotInlineData) {
+        parts.push({ inlineData: mascot });
+      }
+      if (logoInlineData) {
+        parts.push({ inlineData: logoInlineData });
+      }
 
-          if (referenceImages.length > 0) {
-            const form = new FormData();
-            form.append("model", "gpt-image-2");
-            form.append("prompt", imagePrompt);
-            form.append("size", sizeForGpt);
-            form.append("quality", "medium"); // medium ≈ 25-40s/slide; "high" estoura o limite de 150s em paralelo
-            form.append("n", "1");
-            for (const ref of referenceImages) {
-              form.append("image[]", ref.blob, ref.filename);
-            }
-            openaiResp = await fetch("https://api.openai.com/v1/images/edits", {
-              method: "POST",
-              headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
-              body: form,
-            });
-          } else {
-            openaiResp = await fetch("https://api.openai.com/v1/images/generations", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${OPENAI_API_KEY}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                model: "gpt-image-2",
-                prompt: imagePrompt,
-                size: sizeForGpt,
-                quality: "medium",
-                n: 1,
-              }),
-            });
+      try {
+        const response = await fetch(googleApiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: {
+              responseModalities: ["IMAGE", "TEXT"],
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Slide ${slideNumber} error:`, response.status, errorText);
+
+          if (response.status === 429) {
+            return new Response(
+              JSON.stringify({ error: `Rate limit excedido no slide ${slideNumber}. Tente novamente.`, partialImages: generatedImages }),
+              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
           }
 
-          if (!openaiResp.ok) {
-            const errorText = await openaiResp.text();
-            console.error(`Slide ${slideNumber} GPT Image 2 error:`, openaiResp.status, errorText);
-            return null;
-          }
-
-          const data = await openaiResp.json();
-          const imageBase64: string | undefined = data?.data?.[0]?.b64_json;
-
-          if (!imageBase64) {
-            console.warn(`  ⚠ No image returned for slide ${slideNumber}`);
-            return null;
-          }
-
-          const imageBytes = decodeBase64(imageBase64);
-          const fileName = `carousel-posts/${clientId}/${crypto.randomUUID()}.png`;
-
-          const { error: uploadError } = await supabase.storage
-            .from("card-attachments")
-            .upload(fileName, imageBytes, {
-              contentType: "image/png",
-              upsert: false,
-            });
-
-          if (uploadError) {
-            console.error(`Storage upload error for slide ${slideNumber}:`, uploadError);
-            return null;
-          }
-
-          const { data: publicUrlData } = supabase.storage
-            .from("card-attachments")
-            .getPublicUrl(fileName);
-
-          console.log(`  ✅ Slide ${slideNumber} generated successfully (GPT Image 2)`);
-          return { slideIndex: i, imageUrl: publicUrlData.publicUrl };
-        } catch (slideError) {
-          console.error(`Exception on slide ${slideNumber}:`, slideError);
-          return null;
+          console.warn(`  ⚠ Skipping slide ${slideNumber} due to error`);
+          continue;
         }
-      })();
-    });
 
-    const results = await Promise.all(slideJobs);
-    for (const r of results) {
-      if (r) generatedImages.push(r);
+        const data = await response.json();
+
+        // Extract base64 image from Gemini response
+        let imageBase64 = "";
+        let imageMimeType = "image/png";
+        const candidates = data.candidates || [];
+        for (const candidate of candidates) {
+          const candidateParts = candidate.content?.parts || [];
+          for (const part of candidateParts) {
+            const inlineData = part.inlineData || part.inline_data;
+            if (inlineData) {
+              imageBase64 = inlineData.data;
+              imageMimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
+              break;
+            }
+          }
+          if (imageBase64) break;
+        }
+
+        if (!imageBase64) {
+          console.warn(`  ⚠ No image returned for slide ${slideNumber}`);
+          continue;
+        }
+
+        // Upload to storage
+        const imageBytes = decodeBase64(imageBase64);
+        const ext = imageMimeType.includes("jpeg") ? "jpg" : "png";
+        const fileName = `carousel-posts/${clientId}/${crypto.randomUUID()}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("card-attachments")
+          .upload(fileName, imageBytes, {
+            contentType: imageMimeType,
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error(`Storage upload error for slide ${slideNumber}:`, uploadError);
+          continue;
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from("card-attachments")
+          .getPublicUrl(fileName);
+
+        generatedImages.push({
+          slideIndex: i,
+          imageUrl: publicUrlData.publicUrl,
+        });
+
+        console.log(`  ✅ Slide ${slideNumber} generated successfully`);
+      } catch (slideError) {
+        console.error(`Exception on slide ${slideNumber}:`, slideError);
+        continue;
+      }
     }
-    generatedImages.sort((a, b) => a.slideIndex - b.slideIndex);
 
     if (generatedImages.length === 0) {
       return new Response(
@@ -322,7 +326,7 @@ Este é o slide de CAPA do carrossel — o mais importante de todos.
       );
     }
 
-    console.log(`✅ Generated ${generatedImages.length}/${slides.length} carousel images with GPT Image 2`);
+    console.log(`✅ Generated ${generatedImages.length}/${slides.length} carousel images with Gemini 3 Pro Image`);
 
     return new Response(
       JSON.stringify({
@@ -330,7 +334,6 @@ Este é o slide de CAPA do carrossel — o mais importante de todos.
         images: generatedImages,
         totalGenerated: generatedImages.length,
         totalRequested: slides.length,
-        model: "gpt-image-2",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
