@@ -1,60 +1,61 @@
 
 
-# Separação de Legendas e Conteúdo Visual nos Posts (sem alterações em carrosséis)
+# Diagnóstico e correção dos prompts não retornados
 
-## Resumo
+## O que está acontecendo
 
-Separar o campo `conteudo` (legenda para redes sociais) do conteúdo visual nos posts estáticos, evitando que legendas longas sejam renderizadas dentro da imagem. Carrosséis permanecem inalterados.
+Você relatou dois pontos:
 
-## Alterações
+1. **"Plano de Marketing — `generate_marketing_plan_prompt` ⚠️ Não retornado"**
+2. **"Não retornado (pode usar `generate_posts_prompt` como fallback no código)"**
 
-### 1. Mapeamento de campos na aprovação de cards
+### Auditoria feita
 
-**Arquivos:** `src/pages/ApproveCards.tsx` e `src/pages/RejectedCards.tsx`
+Listei o que existe hoje no banco (`system_prompts`) e o que cada Edge Function realmente busca:
 
-- `conteudo` → campo `description` da demanda (legenda/caption — contexto, NÃO visual)
-- `instrucoes_de_producao` → campo `instructions` (guia de produção visual)
-- `cta_recomendado` → concatenado em `instructions`
-- `objetivo` → campo `objective`
+| Prompt salvo no banco | Chave real | Function que consome | Status |
+|---|---|---|---|
+| Prompt de Geração de Plano de Marketing | `generate_plan_prompt` (5858 chars, 22/04) | `generate-period-plans` | ✅ Funcionando |
+| Prompt de Planejamento Avançado | `advanced_planning_prompt` (5073 chars) | `generate-period-plans` (apenas plano ultra) | ✅ Funcionando |
+| Prompt Gerador de Carrossel | `custom_prompt_1774297057852` (4446 chars, 17/04) | nenhuma — functions buscam `generate_carousel_prompt` | ❌ Não consumido |
+| Prompt de Geração de Posts | `generate_posts_prompt` (4443 chars) | post + carrossel (conteúdo + imagens) | ✅ Funcionando |
 
-### 2. Ajustar prompts em 3 Edge Functions (posts estáticos)
+### Causa real dos avisos
 
-**Funções:**
-- `generate-standalone-post/index.ts`
-- `auto-generate-post/index.ts`
-- `generate-post-image/index.ts`
+- A chave `generate_marketing_plan_prompt` **não existe e nunca existiu**. O nome correto é **`generate_plan_prompt`**, que JÁ está integrado e funcionando desde o último ajuste. Não há nada quebrado aqui — é só um nome diferente do que a tela de auditoria estava esperando.
+- O alerta de "fallback para `generate_posts_prompt`" se refere ao **prompt de carrossel**: a function `auto-generate-carousel` procura uma chave (`generate_carousel_prompt`) que não existe no banco, então cai num bloco hardcoded. Suas edições no "Prompt Gerador de Carrossel" (chave `custom_prompt_1774297057852`) **não estão chegando à IA**.
 
-Em cada uma, separar claramente no prompt:
+---
 
-```text
-TÍTULO DO POST (pode aparecer como texto na imagem):
-"${demand.title}"
+## Correções propostas
 
-CONTEXTO TEMÁTICO (NÃO inclua este texto na imagem — é a legenda para a descrição da rede social):
-${demand.description}
+### Correção 1 — Reconhecer `generate_plan_prompt` como o "Plano de Marketing"
+Sem mudança de código necessária. Apenas confirmar: a chave oficial usada pelo sistema é `generate_plan_prompt`. Se houver alguma tela/relatório procurando `generate_marketing_plan_prompt`, ajusto para apontar para a chave correta.
 
-INSTRUÇÕES DE PRODUÇÃO VISUAL:
-${demand.instructions}
+### Correção 2 — Conectar o Prompt Gerador de Carrossel
+Alterar `supabase/functions/auto-generate-carousel/index.ts` para buscar a chave real onde o prompt está salvo:
 
-REGRA CRÍTICA DE SEPARAÇÃO:
-- O "CONTEXTO TEMÁTICO" é a LEGENDA da rede social. NÃO deve aparecer na imagem.
-- Apenas o TÍTULO e textos curtos de gancho/CTA devem aparecer como tipografia.
-```
+- Buscar em paralelo as duas chaves (`generate_carousel_prompt` E `custom_prompt_1774297057852`).
+- Usar a primeira que tiver conteúdo.
+- Se nenhuma existir, manter o fallback hardcoded atual.
 
-### 3. Arquivos excluídos (sem alteração)
+Isso faz com que suas edições salvas em **/dev/prompts → Prompt Gerador de Carrossel** passem a ser efetivamente aplicadas na geração automática de carrosséis.
 
-- `generate-carousel-images/index.ts` — mantém como está
-- `auto-generate-carousel/index.ts` — mantém como está
+### Correção 3 — Validação no console
+Adicionar um log claro no `auto-generate-carousel` informando qual chave foi carregada (ex.: `📋 Carrossel usando: custom_prompt_1774297057852`), para que futuras auditorias mostrem a origem real do prompt.
 
-## Arquivos Alterados
+---
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/pages/ApproveCards.tsx` | Separar `conteudo` → `description`, `instrucoes` → `instructions` |
-| `src/pages/RejectedCards.tsx` | Mesma separação |
-| `supabase/functions/auto-generate-post/index.ts` | Marcar `description` como contexto não-visual |
-| `supabase/functions/generate-standalone-post/index.ts` | Idem |
-| `supabase/functions/generate-post-image/index.ts` | Idem |
+## Resumo após as correções
 
-As 3 Edge Functions serão redeployadas após as alterações.
+| Etapa | Prompt aplicado | Origem |
+|---|---|---|
+| Plano de período (comum) | `generate_demandas_prompt` + `generate_plan_prompt` | Banco |
+| Plano de período (ultra) | acima + `advanced_planning_prompt` | Banco |
+| Geração de Post | `generate_posts_prompt` | Banco |
+| Geração de Carrossel (texto) | `generate_posts_prompt` | Banco (já funciona) |
+| Geração de Carrossel (auto) | `custom_prompt_1774297057852` | Banco (passará a funcionar) |
+| Imagens dos slides | `generate_posts_prompt` | Banco |
+
+Após sua aprovação, aplico apenas as Correções 2 e 3 (a 1 não exige código).
 
