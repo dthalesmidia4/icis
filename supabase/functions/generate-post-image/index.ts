@@ -389,9 +389,8 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
 - IMPORTANTE: Siga EXATAMENTE o cenário, ambiente e background descritos na atividade
 `.trim();
 
-      // Decide model: static post (single slide, no slideNumber requested) → GPT Image 2.
-      // Carousel slides (multiple slides OR a specific slideNumber requested) → keep Gemini.
-      const useGptImage2 = !slideNumber && allSlides.length === 1;
+      // GPT Image 2 is now used for both static posts AND carousel slides (single regen or full).
+      const useGptImage2 = true;
 
       console.log(
         `Generating image for slide ${slide.slideNumber} via ${useGptImage2 ? "GPT Image 2 (OpenAI)" : "Gemini 3 Pro Image"}...` +
