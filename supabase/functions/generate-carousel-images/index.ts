@@ -168,9 +168,9 @@ Deno.serve(async (req) => {
 
     const generatedImages: Array<{ slideIndex: number; imageUrl: string }> = [];
 
-    // 5. Generate images one by one with GPT Image 2
-    for (let i = 0; i < slides.length; i++) {
-      const slide = slides[i];
+    // 5. Generate images IN PARALLEL with GPT Image 2 (medium quality to fit 150s edge timeout)
+    //    Sequential mode would exceed limits since each slide takes ~30-60s.
+    const slideJobs = slides.map((slide, i) => {
       const slideNumber = slideOffset + i + 1;
       const totalSlides = contextSlides.length;
 
