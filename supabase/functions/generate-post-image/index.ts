@@ -389,56 +389,143 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
 - IMPORTANTE: Siga EXATAMENTE o cenário, ambiente e background descritos na atividade
 `.trim();
 
-      console.log(`Generating image for slide ${slide.slideNumber} via Gemini 3 Pro Image...${mascotInlineImages.length > 0 ? " (with mascot reference)" : ""}`);
+      // Decide model: static post (single slide, no slideNumber requested) → GPT Image 2.
+      // Carousel slides (multiple slides OR a specific slideNumber requested) → keep Gemini.
+      const useGptImage2 = !slideNumber && allSlides.length === 1;
+
+      console.log(
+        `Generating image for slide ${slide.slideNumber} via ${useGptImage2 ? "GPT Image 2 (OpenAI)" : "Gemini 3 Pro Image"}...` +
+        `${mascotInlineImages.length > 0 ? " (with mascot reference)" : ""}`
+      );
 
       try {
-        const parts: any[] = [{ text: imagePrompt }];
-
-        // Attach mascot reference images
-        for (const mascotImg of mascotInlineImages) {
-          parts.push({ inlineData: mascotImg });
-        }
-        // Attach logo reference image
-        if (logoInlineImage) {
-          parts.push({ inlineData: logoInlineImage });
-        }
-
-        const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
-
-        const response = await fetch(googleApiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts }],
-            generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-          }),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Gemini 3 Pro error for slide ${slide.slideNumber}:`, response.status, errorText);
-          if (response.status === 429) {
-            errors.push(`Slide ${slide.slideNumber}: Rate limit excedido. Tente novamente em alguns minutos.`);
-            continue;
-          }
-          errors.push(`Slide ${slide.slideNumber}: Erro ${response.status}`);
-          continue;
-        }
-
-        const data = await response.json();
-
         let imageBase64 = "";
         let imageMimeType = "image/png";
-        for (const candidate of (data.candidates || [])) {
-          for (const part of (candidate.content?.parts || [])) {
-            const inlineData = part.inlineData || part.inline_data;
-            if (inlineData) {
-              imageBase64 = inlineData.data;
-              imageMimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
-              break;
-            }
+
+        if (useGptImage2) {
+          // ---------- GPT Image 2 path (static posts only) ----------
+          if (!OPENAI_API_KEY) {
+            errors.push(`Slide ${slide.slideNumber}: OPENAI_API_KEY não configurada.`);
+            continue;
           }
-          if (imageBase64) break;
+
+          // Map aspect ratio to GPT Image 2 supported sizes
+          const sizeForGpt = aspectInfo.width === aspectInfo.height
+            ? "1024x1024"
+            : aspectInfo.width > aspectInfo.height ? "1536x1024" : "1024x1536";
+
+          // Build reference Blobs from already-fetched inline data (mascot + logo)
+          const refBlobs: { blob: Blob; filename: string }[] = [];
+          for (let i = 0; i < mascotInlineImages.length; i++) {
+            const m = mascotInlineImages[i];
+            const bytes = decodeBase64(m.data);
+            const ext = m.mimeType.includes("jpeg") ? "jpg" : m.mimeType.includes("webp") ? "webp" : "png";
+            refBlobs.push({
+              blob: new Blob([bytes], { type: m.mimeType }),
+              filename: `mascot-${i}.${ext}`,
+            });
+          }
+          if (logoInlineImage) {
+            const bytes = decodeBase64(logoInlineImage.data);
+            const ext = logoInlineImage.mimeType.includes("jpeg") ? "jpg" : logoInlineImage.mimeType.includes("webp") ? "webp" : "png";
+            refBlobs.push({
+              blob: new Blob([bytes], { type: logoInlineImage.mimeType }),
+              filename: `logo.${ext}`,
+            });
+          }
+
+          let openaiResp: Response;
+          if (refBlobs.length > 0) {
+            const form = new FormData();
+            form.append("model", "gpt-image-2");
+            form.append("prompt", imagePrompt);
+            form.append("size", sizeForGpt);
+            form.append("quality", "high");
+            form.append("input_fidelity", "high");
+            form.append("n", "1");
+            for (const ref of refBlobs) {
+              form.append("image[]", ref.blob, ref.filename);
+            }
+            openaiResp = await fetch("https://api.openai.com/v1/images/edits", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+              body: form,
+            });
+          } else {
+            openaiResp = await fetch("https://api.openai.com/v1/images/generations", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${OPENAI_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model: "gpt-image-2",
+                prompt: imagePrompt,
+                size: sizeForGpt,
+                quality: "high",
+                n: 1,
+              }),
+            });
+          }
+
+          if (!openaiResp.ok) {
+            const errorText = await openaiResp.text();
+            console.error(`GPT Image 2 error for slide ${slide.slideNumber}:`, openaiResp.status, errorText);
+            if (openaiResp.status === 429) {
+              errors.push(`Slide ${slide.slideNumber}: Rate limit excedido na OpenAI.`);
+              continue;
+            }
+            errors.push(`Slide ${slide.slideNumber}: GPT Image 2 erro ${openaiResp.status} - ${errorText.substring(0, 200)}`);
+            continue;
+          }
+
+          const data = await openaiResp.json();
+          imageBase64 = data?.data?.[0]?.b64_json || "";
+          imageMimeType = "image/png";
+        } else {
+          // ---------- Gemini 3 Pro Image path (carousel slides — kept intact) ----------
+          const parts: any[] = [{ text: imagePrompt }];
+          for (const mascotImg of mascotInlineImages) {
+            parts.push({ inlineData: mascotImg });
+          }
+          if (logoInlineImage) {
+            parts.push({ inlineData: logoInlineImage });
+          }
+
+          const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
+
+          const response = await fetch(googleApiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts }],
+              generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Gemini 3 Pro error for slide ${slide.slideNumber}:`, response.status, errorText);
+            if (response.status === 429) {
+              errors.push(`Slide ${slide.slideNumber}: Rate limit excedido. Tente novamente em alguns minutos.`);
+              continue;
+            }
+            errors.push(`Slide ${slide.slideNumber}: Erro ${response.status}`);
+            continue;
+          }
+
+          const data = await response.json();
+          for (const candidate of (data.candidates || [])) {
+            for (const part of (candidate.content?.parts || [])) {
+              const inlineData = part.inlineData || part.inline_data;
+              if (inlineData) {
+                imageBase64 = inlineData.data;
+                imageMimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
+                break;
+              }
+            }
+            if (imageBase64) break;
+          }
         }
 
         if (!imageBase64) {
