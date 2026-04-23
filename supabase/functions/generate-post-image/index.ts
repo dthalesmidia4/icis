@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch Google AI Studio API key
+    // Fetch Google AI Studio API key (used for carousel slides — kept intact)
     const { data: apiKeyData } = await supabase
       .from("api_keys")
       .select("key_value")
@@ -77,6 +77,14 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Fetch OpenAI API key (used for static posts via GPT Image 2)
+    const { data: openaiKeyData } = await supabase
+      .from("api_keys")
+      .select("key_value")
+      .eq("key_name", "OPENAI_API_KEY")
+      .single();
+    const OPENAI_API_KEY = openaiKeyData?.key_value || "";
 
     // 1. Fetch the demand
     const { data: demand, error: demandError } = await supabase
