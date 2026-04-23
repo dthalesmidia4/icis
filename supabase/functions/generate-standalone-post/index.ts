@@ -212,7 +212,7 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
       form.append("prompt", imagePrompt);
       form.append("size", "1024x1024");
       form.append("quality", "high");
-      form.append("input_fidelity", "high"); // GPT Image 2: keep references faithful
+      // Note: gpt-image-2 does NOT support input_fidelity (gpt-image-1 only). References are honored via /images/edits.
       form.append("n", "1");
       for (const ref of referenceImages) {
         form.append("image[]", ref.blob, ref.filename);

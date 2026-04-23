@@ -78,21 +78,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch API keys
-    const { data: googleKeyData } = await supabase
-      .from("api_keys")
-      .select("key_value")
-      .eq("key_name", "Google AI Studio")
-      .single();
-
-    const GOOGLE_API_KEY = googleKeyData?.key_value;
-    if (!GOOGLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
+    // Fetch OpenAI API key (used for both o4-mini text generation and GPT Image 2 visuals)
     const { data: openaiKeyData } = await supabase
       .from("api_keys")
       .select("key_value")
@@ -337,8 +323,8 @@ REGRAS:
 
     console.log(`✅ Step 1 complete: ${slides.length} slide texts generated`);
 
-    // ============ STEP 2: Generate images one at a time, attach incrementally ============
-    console.log(`Step 2: Generating ${slides.length} slide images via Gemini 3 Pro Image...`);
+    // ============ STEP 2: Generate images one at a time via GPT Image 2 ============
+    console.log(`Step 2: Generating ${slides.length} slide images via GPT Image 2 (OpenAI)...`);
 
     const mascotSection = mascotImageUrl
       ? `MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""} OBRIGATÓRIO: Reproduza o mascote EXATAMENTE como na imagem de referência — mesma aparência, cabelo, roupa, proporções. O mascote DEVE aparecer integrado ao design como protagonista visual.`
@@ -358,49 +344,39 @@ REGRAS:
       "bottom-center": "centro inferior",
     };
 
-    // Fetch mascot image ONCE, keep reference
-    let mascotInline: { mimeType: string; data: string } | null = null;
+    // Helper: fetch a remote image into a Blob (for OpenAI multipart endpoints)
+    const fetchImageBlob = async (url: string): Promise<{ blob: Blob; filename: string } | null> => {
+      try {
+        const r = await fetch(url);
+        if (!r.ok) return null;
+        const ct = r.headers.get("content-type") || "image/png";
+        const buf = await r.arrayBuffer();
+        const ext = ct.includes("jpeg") ? "jpg" : ct.includes("webp") ? "webp" : "png";
+        const filename = `ref-${crypto.randomUUID()}.${ext}`;
+        return { blob: new Blob([buf], { type: ct }), filename };
+      } catch (e) {
+        console.error("Failed to fetch reference image:", e);
+        return null;
+      }
+    };
+
+    // Pre-fetch reference images ONCE (mascot + logo)
+    const referenceImages: { blob: Blob; filename: string }[] = [];
     if (mascotImageUrl) {
-      try {
-        const imgResp = await fetch(mascotImageUrl);
-        if (imgResp.ok) {
-          const imgBuffer = await imgResp.arrayBuffer();
-          const bytes = new Uint8Array(imgBuffer);
-          let binary = "";
-          const chunkSize = 8192;
-          for (let i = 0; i < bytes.length; i += chunkSize) {
-            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-          }
-          mascotInline = { mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) };
-          console.log(`  → Mascot reference image pre-fetched`);
-        }
-      } catch (e) {
-        console.error("Failed to fetch mascot:", e);
+      const ref = await fetchImageBlob(mascotImageUrl);
+      if (ref) {
+        referenceImages.push(ref);
+        console.log("  → Mascot reference image pre-fetched");
       }
     }
-
-    // Fetch logo image ONCE
-    let logoInline: { mimeType: string; data: string } | null = null;
     if (logoUrl) {
-      try {
-        const imgResp = await fetch(logoUrl);
-        if (imgResp.ok) {
-          const imgBuffer = await imgResp.arrayBuffer();
-          const bytes = new Uint8Array(imgBuffer);
-          let binary = "";
-          const chunkSize = 8192;
-          for (let i = 0; i < bytes.length; i += chunkSize) {
-            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-          }
-          logoInline = { mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) };
-          console.log("  → Logo reference image pre-fetched");
-        }
-      } catch (e) {
-        console.error("Failed to fetch logo:", e);
+      const logoRef = await fetchImageBlob(logoUrl);
+      if (logoRef) {
+        referenceImages.push(logoRef);
+        console.log("  → Logo reference image pre-fetched");
       }
     }
 
-    const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
     let totalGenerated = 0;
 
     // Build slide context once (short)
@@ -468,52 +444,56 @@ Este é o slide de CAPA do carrossel — o mais importante de todos.
 REGRAS: Formato 1:1 (1024x1024). O texto "${slide.text}" DEVE aparecer legível. Design coerente entre slides. Indicador ${slideNumber}/${slides.length} discreto.
 ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem"}`.trim();
 
-      console.log(`  → Generating slide ${slideNumber}/${slides.length}...`);
-
-      const parts: any[] = [{ text: imagePrompt }];
-      if (mascotInline) {
-        parts.push({ inlineData: mascotInline });
-      }
-      if (logoInline) {
-        parts.push({ inlineData: logoInline });
-      }
+      console.log(`  → Generating slide ${slideNumber}/${slides.length} via GPT Image 2...`);
 
       try {
-        const imgResponse = await fetch(googleApiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts }],
-            generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-          }),
-        });
+        let openaiResp: Response;
 
-        if (!imgResponse.ok) {
-          const errText = await imgResponse.text();
-          console.error(`Slide ${slideNumber} error:`, imgResponse.status, errText);
-          if (imgResponse.status === 429) {
+        if (referenceImages.length > 0) {
+          const form = new FormData();
+          form.append("model", "gpt-image-2");
+          form.append("prompt", imagePrompt);
+          form.append("size", "1024x1024");
+          form.append("quality", "high");
+          // Note: gpt-image-2 does NOT support input_fidelity (gpt-image-1 only).
+          form.append("n", "1");
+          for (const ref of referenceImages) {
+            form.append("image[]", ref.blob, ref.filename);
+          }
+          openaiResp = await fetch("https://api.openai.com/v1/images/edits", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+            body: form,
+          });
+        } else {
+          openaiResp = await fetch("https://api.openai.com/v1/images/generations", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${OPENAI_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "gpt-image-2",
+              prompt: imagePrompt,
+              size: "1024x1024",
+              quality: "high",
+              n: 1,
+            }),
+          });
+        }
+
+        if (!openaiResp.ok) {
+          const errText = await openaiResp.text();
+          console.error(`Slide ${slideNumber} GPT Image 2 error:`, openaiResp.status, errText);
+          if (openaiResp.status === 429) {
             console.warn(`Rate limit at slide ${slideNumber}, stopping`);
             break;
           }
           continue;
         }
 
-        const imgData = await imgResponse.json();
-
-        // Extract base64 image
-        let imageBase64 = "";
-        let imageMimeType = "image/png";
-        for (const candidate of (imgData.candidates || [])) {
-          for (const part of (candidate.content?.parts || [])) {
-            const inlineData = part.inlineData || part.inline_data;
-            if (inlineData) {
-              imageBase64 = inlineData.data;
-              imageMimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
-              break;
-            }
-          }
-          if (imageBase64) break;
-        }
+        const imgData = await openaiResp.json();
+        let imageBase64: string | undefined = imgData?.data?.[0]?.b64_json;
 
         if (!imageBase64) {
           console.warn(`  ⚠ No image for slide ${slideNumber}`);
@@ -524,12 +504,11 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
         const imageBytes = decodeBase64(imageBase64);
         imageBase64 = ""; // Free memory immediately
 
-        const ext = imageMimeType.includes("jpeg") ? "jpg" : "png";
-        const fileName = `auto-generated/${demand.client_id}/${demandId}/carousel-slide-${slideNumber}-${crypto.randomUUID()}.${ext}`;
+        const fileName = `auto-generated/${demand.client_id}/${demandId}/carousel-slide-${slideNumber}-${crypto.randomUUID()}.png`;
 
         const { error: uploadError } = await supabase.storage
           .from("card-attachments")
-          .upload(fileName, imageBytes, { contentType: imageMimeType, upsert: false });
+          .upload(fileName, imageBytes, { contentType: "image/png", upsert: false });
 
         if (uploadError) {
           console.error(`Upload error slide ${slideNumber}:`, uploadError);
@@ -542,12 +521,12 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
 
         const newAttachment = {
           url: publicUrlData.publicUrl,
-          name: `Carrossel Slide ${slideNumber} - ${brandName}.${ext}`,
-          type: imageMimeType,
+          name: `Carrossel Slide ${slideNumber} - ${brandName}.png`,
+          type: "image/png",
           size: imageBytes.length,
           storagePath: fileName,
           uploadedAt: new Date().toISOString(),
-          uploadedBy: { id: "auto-generator", email: "system@ai", name: "IA - Gemini 3 Pro Image (Carrossel)" },
+          uploadedBy: { id: "auto-generator", email: "system@ai", name: "IA - GPT Image 2 (Carrossel Auto)" },
           cardId: demandId,
           tenantId: demand.tenant_id,
           clientId: demand.client_id,
@@ -561,7 +540,7 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
           .single();
 
         const currentAttachments = Array.isArray(currentDemand?.attachments) ? currentDemand.attachments : [];
-        
+
         // Remove any existing AI slide with the same slide number to prevent duplicates
         const slideNamePattern = new RegExp(`Carrossel Slide ${slideNumber}\\b`, "i");
         const filteredAttachments = currentAttachments.filter((a: any) => {
@@ -582,9 +561,6 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
       }
     }
 
-    // Free mascot from memory
-    mascotInline = null;
-
     if (totalGenerated === 0) {
       return new Response(
         JSON.stringify({ error: "Nenhuma imagem de carrossel foi gerada." }),
@@ -592,7 +568,7 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
       );
     }
 
-    console.log(`✅ Auto-generated ${totalGenerated} carousel slides for demand ${demandId} (archived ${archivedCount} previous)`);
+    console.log(`✅ Auto-generated ${totalGenerated} carousel slides for demand ${demandId} via GPT Image 2 (archived ${archivedCount} previous)`);
 
     return new Response(
       JSON.stringify({
