@@ -78,21 +78,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch API keys
-    const { data: googleKeyData } = await supabase
-      .from("api_keys")
-      .select("key_value")
-      .eq("key_name", "Google AI Studio")
-      .single();
-
-    const GOOGLE_API_KEY = googleKeyData?.key_value;
-    if (!GOOGLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
+    // Fetch OpenAI API key (used for both o4-mini text generation and GPT Image 2 visuals)
     const { data: openaiKeyData } = await supabase
       .from("api_keys")
       .select("key_value")
