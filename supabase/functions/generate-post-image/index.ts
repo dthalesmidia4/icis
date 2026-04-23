@@ -561,7 +561,7 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
           size: imageBytes.length,
           storagePath,
           uploadedAt: new Date().toISOString(),
-          uploadedBy: { id: "ai-generator", email: "system@ai", name: useGptImage2 ? "IA - GPT Image 2" : "IA - Gemini 3 Pro Image" },
+          uploadedBy: { id: "ai-generator", email: "system@ai", name: "IA - GPT Image 2" },
           cardId: demand.id,
           tenantId: demand.tenant_id,
           clientId: demand.client_id,
