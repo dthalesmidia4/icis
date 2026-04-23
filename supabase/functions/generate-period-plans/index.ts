@@ -155,21 +155,56 @@ Objetivo: ${periodPlan.objective}
 Canal OBRIGATÓRIO: ${periodPlan.priority_channel}
 Observações: ${periodPlan.observations || 'Nenhuma'}${contentReqs}${calendarCtx}${successCtx}${avoidCtx}${recentCtx}`;
 
-    // Fetch custom prompt - truncate to save tokens
-    const { data: customPromptData, error: promptError } = await supabase
-      .from('system_prompts')
-      .select('prompt_content')
-      .eq('tenant_id', tenantId)
-      .eq('prompt_key', 'generate_demandas_prompt')
-      .maybeSingle();
+    // Fetch ALL relevant prompts in parallel:
+    // - generate_demandas_prompt: regras táticas para gerar a lista de demandas (obrigatório)
+    // - generate_plan_prompt: diretrizes gerais do plano de marketing (opcional, contexto macro)
+    // - advanced_planning_prompt: regras extras aplicadas apenas no plano "ultra" (opcional)
+    const [demandasPromptRes, planPromptRes, advancedPromptRes] = await Promise.all([
+      supabase
+        .from('system_prompts')
+        .select('prompt_content')
+        .eq('tenant_id', tenantId)
+        .eq('prompt_key', 'generate_demandas_prompt')
+        .maybeSingle(),
+      supabase
+        .from('system_prompts')
+        .select('prompt_content')
+        .eq('tenant_id', tenantId)
+        .eq('prompt_key', 'generate_plan_prompt')
+        .maybeSingle(),
+      supabase
+        .from('system_prompts')
+        .select('prompt_content')
+        .eq('tenant_id', tenantId)
+        .eq('prompt_key', 'advanced_planning_prompt')
+        .maybeSingle(),
+    ]);
 
-    if (promptError) throw new Error('Erro ao buscar prompt');
-    const customPrompt = customPromptData as any;
-    if (!customPrompt?.prompt_content) {
+    if (demandasPromptRes.error) throw new Error('Erro ao buscar prompt de demandas');
+    const demandasPrompt = (demandasPromptRes.data as any)?.prompt_content;
+    if (!demandasPrompt) {
       throw new Error('Prompt de demandas não configurado. Acesse /dev/prompts para configurar.');
     }
 
-    const systemPrompt = customPrompt.prompt_content;
+    const planPrompt = (planPromptRes.data as any)?.prompt_content?.trim() || '';
+    const advancedPrompt = (advancedPromptRes.data as any)?.prompt_content?.trim() || '';
+
+    // Compose final system prompt:
+    //  1. Plano de marketing (visão estratégica geral) — sempre incluído quando existe
+    //  2. Demandas (regras táticas) — sempre incluído
+    //  3. Planejamento avançado — incluído APENAS no plano ultra
+    const promptSections: string[] = [];
+    if (planPrompt) {
+      promptSections.push(`# DIRETRIZES GERAIS DE PLANO DE MARKETING\n${planPrompt}`);
+    }
+    promptSections.push(`# REGRAS DE GERAÇÃO DE DEMANDAS\n${demandasPrompt}`);
+    if (planType === 'ultra' && advancedPrompt) {
+      promptSections.push(`# REGRAS DE PLANEJAMENTO AVANÇADO (PLANO ULTRA)\n${advancedPrompt}`);
+    }
+
+    const systemPrompt = promptSections.join('\n\n---\n\n');
+
+    console.log(`📋 Prompts carregados: demandas=✓, plano_marketing=${planPrompt ? '✓' : '✗'}, avançado=${advancedPrompt && planType === 'ultra' ? '✓' : '—'}`);
 
     // Fetch OpenAI API key
     const { data: apiKeyDataResult, error: apiKeyError } = await supabase
