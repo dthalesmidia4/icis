@@ -382,8 +382,9 @@ REGRAS:
     // Build slide context once (short)
     const slideContext = slides.map((s, idx) => `S${idx + 1}: "${s.text}"`).join(" | ");
 
-    for (let i = 0; i < slides.length; i++) {
-      const slide = slides[i];
+    // Generate slides IN PARALLEL with GPT Image 2 (medium quality to fit 150s edge timeout).
+    // Sequential mode would blow the limit since each slide takes ~30-60s.
+    const slideJobs = slides.map((slide, i) => {
       const slideNumber = i + 1;
 
       const isFirstOrLast = slideNumber === 1 || slideNumber === slides.length;
@@ -444,121 +445,129 @@ Este é o slide de CAPA do carrossel — o mais importante de todos.
 REGRAS: Formato 1:1 (1024x1024). O texto "${slide.text}" DEVE aparecer legível. Design coerente entre slides. Indicador ${slideNumber}/${slides.length} discreto.
 ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem"}`.trim();
 
-      console.log(`  → Generating slide ${slideNumber}/${slides.length} via GPT Image 2...`);
+      console.log(`  → Queueing slide ${slideNumber}/${slides.length} via GPT Image 2 (parallel)...`);
 
-      try {
-        let openaiResp: Response;
+      return (async () => {
+        try {
+          let openaiResp: Response;
 
-        if (referenceImages.length > 0) {
-          const form = new FormData();
-          form.append("model", "gpt-image-2");
-          form.append("prompt", imagePrompt);
-          form.append("size", "1024x1024");
-          form.append("quality", "high");
-          // Note: gpt-image-2 does NOT support input_fidelity (gpt-image-1 only).
-          form.append("n", "1");
-          for (const ref of referenceImages) {
-            form.append("image[]", ref.blob, ref.filename);
+          if (referenceImages.length > 0) {
+            const form = new FormData();
+            form.append("model", "gpt-image-2");
+            form.append("prompt", imagePrompt);
+            form.append("size", "1024x1024");
+            form.append("quality", "medium"); // medium para caber no limite de 150s da edge function
+            form.append("n", "1");
+            for (const ref of referenceImages) {
+              form.append("image[]", ref.blob, ref.filename);
+            }
+            openaiResp = await fetch("https://api.openai.com/v1/images/edits", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+              body: form,
+            });
+          } else {
+            openaiResp = await fetch("https://api.openai.com/v1/images/generations", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${OPENAI_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model: "gpt-image-2",
+                prompt: imagePrompt,
+                size: "1024x1024",
+                quality: "medium",
+                n: 1,
+              }),
+            });
           }
-          openaiResp = await fetch("https://api.openai.com/v1/images/edits", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
-            body: form,
-          });
-        } else {
-          openaiResp = await fetch("https://api.openai.com/v1/images/generations", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${OPENAI_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "gpt-image-2",
-              prompt: imagePrompt,
-              size: "1024x1024",
-              quality: "high",
-              n: 1,
-            }),
-          });
-        }
 
-        if (!openaiResp.ok) {
-          const errText = await openaiResp.text();
-          console.error(`Slide ${slideNumber} GPT Image 2 error:`, openaiResp.status, errText);
-          if (openaiResp.status === 429) {
-            console.warn(`Rate limit at slide ${slideNumber}, stopping`);
-            break;
+          if (!openaiResp.ok) {
+            const errText = await openaiResp.text();
+            console.error(`Slide ${slideNumber} GPT Image 2 error:`, openaiResp.status, errText);
+            return null;
           }
-          continue;
+
+          const imgData = await openaiResp.json();
+          let imageBase64: string | undefined = imgData?.data?.[0]?.b64_json;
+
+          if (!imageBase64) {
+            console.warn(`  ⚠ No image for slide ${slideNumber}`);
+            return null;
+          }
+
+          const imageBytes = decodeBase64(imageBase64);
+          imageBase64 = "";
+
+          const fileName = `auto-generated/${demand.client_id}/${demandId}/carousel-slide-${slideNumber}-${crypto.randomUUID()}.png`;
+
+          const { error: uploadError } = await supabase.storage
+            .from("card-attachments")
+            .upload(fileName, imageBytes, { contentType: "image/png", upsert: false });
+
+          if (uploadError) {
+            console.error(`Upload error slide ${slideNumber}:`, uploadError);
+            return null;
+          }
+
+          const { data: publicUrlData } = supabase.storage
+            .from("card-attachments")
+            .getPublicUrl(fileName);
+
+          const newAttachment = {
+            url: publicUrlData.publicUrl,
+            name: `Carrossel Slide ${slideNumber} - ${brandName}.png`,
+            type: "image/png",
+            size: imageBytes.length,
+            storagePath: fileName,
+            uploadedAt: new Date().toISOString(),
+            uploadedBy: { id: "auto-generator", email: "system@ai", name: "IA - GPT Image 2 (Carrossel Auto)" },
+            cardId: demandId,
+            tenantId: demand.tenant_id,
+            clientId: demand.client_id,
+          };
+
+          console.log(`  ✅ Slide ${slideNumber} generated`);
+          return { slideNumber, attachment: newAttachment };
+        } catch (slideError) {
+          console.error(`Exception on slide ${slideNumber}:`, slideError);
+          return null;
         }
+      })();
+    });
 
-        const imgData = await openaiResp.json();
-        let imageBase64: string | undefined = imgData?.data?.[0]?.b64_json;
+    const slideResults = await Promise.all(slideJobs);
+    const successfulSlides = slideResults.filter((r): r is { slideNumber: number; attachment: any } => r !== null);
+    let totalGenerated = successfulSlides.length;
 
-        if (!imageBase64) {
-          console.warn(`  ⚠ No image for slide ${slideNumber}`);
-          continue;
-        }
+    // Now write all attachments at once (avoids race conditions from parallel updates)
+    if (successfulSlides.length > 0) {
+      const { data: currentDemand } = await supabase
+        .from("demands")
+        .select("attachments")
+        .eq("id", demandId)
+        .single();
 
-        // Decode, upload, then clear base64 from memory
-        const imageBytes = decodeBase64(imageBase64);
-        imageBase64 = ""; // Free memory immediately
+      const currentAttachments = Array.isArray(currentDemand?.attachments) ? currentDemand.attachments : [];
 
-        const fileName = `auto-generated/${demand.client_id}/${demandId}/carousel-slide-${slideNumber}-${crypto.randomUUID()}.png`;
+      // Remove any existing AI slides with the same numbers we just generated
+      const generatedNumbers = new Set(successfulSlides.map((s) => s.slideNumber));
+      const filteredAttachments = currentAttachments.filter((a: any) => {
+        if (!isAiCarouselSlide(a)) return true;
+        const m = (a.name || "").match(/Carrossel Slide (\d+)/i);
+        if (!m) return true;
+        return !generatedNumbers.has(parseInt(m[1], 10));
+      });
 
-        const { error: uploadError } = await supabase.storage
-          .from("card-attachments")
-          .upload(fileName, imageBytes, { contentType: "image/png", upsert: false });
+      const newAttachments = successfulSlides
+        .sort((a, b) => a.slideNumber - b.slideNumber)
+        .map((s) => s.attachment);
 
-        if (uploadError) {
-          console.error(`Upload error slide ${slideNumber}:`, uploadError);
-          continue;
-        }
-
-        const { data: publicUrlData } = supabase.storage
-          .from("card-attachments")
-          .getPublicUrl(fileName);
-
-        const newAttachment = {
-          url: publicUrlData.publicUrl,
-          name: `Carrossel Slide ${slideNumber} - ${brandName}.png`,
-          type: "image/png",
-          size: imageBytes.length,
-          storagePath: fileName,
-          uploadedAt: new Date().toISOString(),
-          uploadedBy: { id: "auto-generator", email: "system@ai", name: "IA - GPT Image 2 (Carrossel Auto)" },
-          cardId: demandId,
-          tenantId: demand.tenant_id,
-          clientId: demand.client_id,
-        };
-
-        // Attach incrementally — fetch current, replace any AI slide with same number, append new
-        const { data: currentDemand } = await supabase
-          .from("demands")
-          .select("attachments")
-          .eq("id", demandId)
-          .single();
-
-        const currentAttachments = Array.isArray(currentDemand?.attachments) ? currentDemand.attachments : [];
-
-        // Remove any existing AI slide with the same slide number to prevent duplicates
-        const slideNamePattern = new RegExp(`Carrossel Slide ${slideNumber}\\b`, "i");
-        const filteredAttachments = currentAttachments.filter((a: any) => {
-          if (!isAiCarouselSlide(a)) return true; // keep manual attachments
-          return !slideNamePattern.test(a.name || ""); // remove same-number AI slide
-        });
-
-        await supabase
-          .from("demands")
-          .update({ attachments: [...filteredAttachments, newAttachment] })
-          .eq("id", demandId);
-
-        totalGenerated++;
-        console.log(`  ✅ Slide ${slideNumber} generated and attached`);
-      } catch (slideError) {
-        console.error(`Exception on slide ${slideNumber}:`, slideError);
-        continue;
-      }
+      await supabase
+        .from("demands")
+        .update({ attachments: [...filteredAttachments, ...newAttachments] })
+        .eq("id", demandId);
     }
 
     if (totalGenerated === 0) {
