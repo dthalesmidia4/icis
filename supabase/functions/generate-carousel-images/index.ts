@@ -229,104 +229,91 @@ Este é o slide de CAPA do carrossel — o mais importante de todos.
 - NÃO use layouts simples ou minimalistas — a capa deve ser visualmente rica e elaborada` : `CONTINUIDADE VISUAL: Mantenha o estilo visual coerente com a capa, mas com layout adequado para conteúdo informativo.`}
 `.trim();
 
-      console.log(`  → Generating slide ${slideNumber}/${totalSlides} via GPT Image 2...`);
+      console.log(`  → Queueing slide ${slideNumber}/${totalSlides} via GPT Image 2 (parallel)...`);
 
-      try {
-        let openaiResp: Response;
+      return (async () => {
+        try {
+          let openaiResp: Response;
 
-        if (referenceImages.length > 0) {
-          const form = new FormData();
-          form.append("model", "gpt-image-2");
-          form.append("prompt", imagePrompt);
-          form.append("size", sizeForGpt);
-          form.append("quality", "high");
-          // Note: gpt-image-2 does NOT support input_fidelity (gpt-image-1 only).
-          form.append("n", "1");
-          for (const ref of referenceImages) {
-            form.append("image[]", ref.blob, ref.filename);
-          }
-          openaiResp = await fetch("https://api.openai.com/v1/images/edits", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
-            body: form,
-          });
-        } else {
-          openaiResp = await fetch("https://api.openai.com/v1/images/generations", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${OPENAI_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "gpt-image-2",
-              prompt: imagePrompt,
-              size: sizeForGpt,
-              quality: "high",
-              n: 1,
-            }),
-          });
-        }
-
-        if (!openaiResp.ok) {
-          const errorText = await openaiResp.text();
-          console.error(`Slide ${slideNumber} GPT Image 2 error:`, openaiResp.status, errorText);
-
-          if (openaiResp.status === 429) {
-            return new Response(
-              JSON.stringify({ error: `Rate limit excedido no slide ${slideNumber}. Tente novamente.`, partialImages: generatedImages }),
-              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-          }
-          if (openaiResp.status === 401) {
-            return new Response(
-              JSON.stringify({ error: "Chave OpenAI inválida ou sem permissão para gpt-image-2.", partialImages: generatedImages }),
-              { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
+          if (referenceImages.length > 0) {
+            const form = new FormData();
+            form.append("model", "gpt-image-2");
+            form.append("prompt", imagePrompt);
+            form.append("size", sizeForGpt);
+            form.append("quality", "medium"); // medium ≈ 25-40s/slide; "high" estoura o limite de 150s em paralelo
+            form.append("n", "1");
+            for (const ref of referenceImages) {
+              form.append("image[]", ref.blob, ref.filename);
+            }
+            openaiResp = await fetch("https://api.openai.com/v1/images/edits", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+              body: form,
+            });
+          } else {
+            openaiResp = await fetch("https://api.openai.com/v1/images/generations", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${OPENAI_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model: "gpt-image-2",
+                prompt: imagePrompt,
+                size: sizeForGpt,
+                quality: "medium",
+                n: 1,
+              }),
+            });
           }
 
-          console.warn(`  ⚠ Skipping slide ${slideNumber} due to error`);
-          continue;
+          if (!openaiResp.ok) {
+            const errorText = await openaiResp.text();
+            console.error(`Slide ${slideNumber} GPT Image 2 error:`, openaiResp.status, errorText);
+            return null;
+          }
+
+          const data = await openaiResp.json();
+          const imageBase64: string | undefined = data?.data?.[0]?.b64_json;
+
+          if (!imageBase64) {
+            console.warn(`  ⚠ No image returned for slide ${slideNumber}`);
+            return null;
+          }
+
+          const imageBytes = decodeBase64(imageBase64);
+          const fileName = `carousel-posts/${clientId}/${crypto.randomUUID()}.png`;
+
+          const { error: uploadError } = await supabase.storage
+            .from("card-attachments")
+            .upload(fileName, imageBytes, {
+              contentType: "image/png",
+              upsert: false,
+            });
+
+          if (uploadError) {
+            console.error(`Storage upload error for slide ${slideNumber}:`, uploadError);
+            return null;
+          }
+
+          const { data: publicUrlData } = supabase.storage
+            .from("card-attachments")
+            .getPublicUrl(fileName);
+
+          console.log(`  ✅ Slide ${slideNumber} generated successfully (GPT Image 2)`);
+          return { slideIndex: i, imageUrl: publicUrlData.publicUrl };
+        } catch (slideError) {
+          console.error(`Exception on slide ${slideNumber}:`, slideError);
+          return null;
         }
+      })();
+    });
 
-        const data = await openaiResp.json();
-        const imageBase64: string | undefined = data?.data?.[0]?.b64_json;
-
-        if (!imageBase64) {
-          console.warn(`  ⚠ No image returned for slide ${slideNumber}`);
-          continue;
-        }
-
-        // Upload to storage
-        const imageBytes = decodeBase64(imageBase64);
-        const fileName = `carousel-posts/${clientId}/${crypto.randomUUID()}.png`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("card-attachments")
-          .upload(fileName, imageBytes, {
-            contentType: "image/png",
-            upsert: false,
-          });
-
-        if (uploadError) {
-          console.error(`Storage upload error for slide ${slideNumber}:`, uploadError);
-          continue;
-        }
-
-        const { data: publicUrlData } = supabase.storage
-          .from("card-attachments")
-          .getPublicUrl(fileName);
-
-        generatedImages.push({
-          slideIndex: i,
-          imageUrl: publicUrlData.publicUrl,
-        });
-
-        console.log(`  ✅ Slide ${slideNumber} generated successfully (GPT Image 2)`);
-      } catch (slideError) {
-        console.error(`Exception on slide ${slideNumber}:`, slideError);
-        continue;
-      }
+    const results = await Promise.all(slideJobs);
+    for (const r of results) {
+      if (r) generatedImages.push(r);
     }
+    generatedImages.sort((a, b) => a.slideIndex - b.slideIndex);
 
     if (generatedImages.length === 0) {
       return new Response(
