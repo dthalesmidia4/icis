@@ -1,5 +1,5 @@
 // Plan Period Page
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
@@ -100,13 +100,8 @@ const PlanPeriod = () => {
   const [observations, setObservations] = useState("");
   const [excludedFormats, setExcludedFormats] = useState<string[]>([]);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
-  // Linha de produção fixa - definida automaticamente
-  const productionLine = [
-    { type: 'Vídeos Curtos', quantity: 2 },
-    { type: 'Carrossel', quantity: 4 },
-    { type: 'Post Estático', quantity: 4 },
-  ];
-  const productionLineTotal = 10;
+  // Linha de produção - distribuição proporcional baseada em quantidadeConteudos (proporção 4:2:4)
+  // A definição real de productionLine acontece via useMemo após quantidadeConteudos ser declarado.
   
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
@@ -141,6 +136,33 @@ const PlanPeriod = () => {
   const [temMateriaisNovos, setTemMateriaisNovos] = useState<'sim' | 'nao' | ''>('');
   const [materiaisNovosDescricao, setMateriaisNovosDescricao] = useState("");
   const [quantidadeConteudos, setQuantidadeConteudos] = useState<number>(10);
+
+  // Linha de produção derivada da quantidade escolhida (proporção 4:2:4 = Post/Vídeo/Carrossel)
+  const productionLine = useMemo(() => {
+    const target = Math.max(1, Math.min(50, Number(quantidadeConteudos) || 10));
+    const base = [
+      { type: 'Post Estático', ratio: 4 },
+      { type: 'Vídeos Curtos', ratio: 2 },
+      { type: 'Carrossel', ratio: 4 },
+    ];
+    if (target === 10) return base.map(b => ({ type: b.type, quantity: b.ratio }));
+    const raw = base.map(b => ({ type: b.type, quantity: Math.max(1, Math.round((b.ratio / 10) * target)) }));
+    let diff = target - raw.reduce((s, r) => s + r.quantity, 0);
+    while (diff !== 0) {
+      const idx = diff > 0
+        ? raw.indexOf(raw.reduce((a, b) => (a.quantity >= b.quantity ? a : b)))
+        : raw.indexOf(raw.reduce((a, b) => (a.quantity <= b.quantity ? a : b)));
+      raw[idx].quantity += diff > 0 ? 1 : -1;
+      if (raw[idx].quantity < 1) raw[idx].quantity = 1;
+      diff = target - raw.reduce((s, r) => s + r.quantity, 0);
+      if (raw.every(r => r.quantity <= 1) && diff < 0) break;
+    }
+    return raw;
+  }, [quantidadeConteudos]);
+  const productionLineTotal = useMemo(
+    () => productionLine.reduce((s, r) => s + r.quantity, 0),
+    [productionLine]
+  );
 
   // Process state
   const [currentStep, setCurrentStep] = useState<Step>('form');
@@ -329,8 +351,9 @@ const PlanPeriod = () => {
   const generateSinglePlan = async (planId: string, planType: 'default' | 'ultra'): Promise<{ success: boolean; plan?: any[]; error?: string }> => {
     // Start edge function (don't await - it may timeout)
     let directResult: any = null;
+    const customQuantity = Math.max(1, Math.min(50, Number(quantidadeConteudos) || productionLineTotal));
     const edgeFunctionPromise = supabase.functions.invoke('generate-period-plans', {
-      body: { periodPlanId: planId, tenantId, planType }
+      body: { periodPlanId: planId, tenantId, planType, customQuantity }
     }).then(({ data, error }) => {
       console.log(`[PlanPeriod] Edge function response (${planType}):`, { data: data ? 'received' : null, error });
       if (!error && data?.success && data?.plan && Array.isArray(data.plan) && data.plan.length > 0) {
