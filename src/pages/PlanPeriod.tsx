@@ -137,6 +137,33 @@ const PlanPeriod = () => {
   const [materiaisNovosDescricao, setMateriaisNovosDescricao] = useState("");
   const [quantidadeConteudos, setQuantidadeConteudos] = useState<number>(10);
 
+  // Linha de produção derivada da quantidade escolhida (proporção 4:2:4 = Post/Vídeo/Carrossel)
+  const productionLine = useMemo(() => {
+    const target = Math.max(1, Math.min(50, Number(quantidadeConteudos) || 10));
+    const base = [
+      { type: 'Post Estático', ratio: 4 },
+      { type: 'Vídeos Curtos', ratio: 2 },
+      { type: 'Carrossel', ratio: 4 },
+    ];
+    if (target === 10) return base.map(b => ({ type: b.type, quantity: b.ratio }));
+    const raw = base.map(b => ({ type: b.type, quantity: Math.max(1, Math.round((b.ratio / 10) * target)) }));
+    let diff = target - raw.reduce((s, r) => s + r.quantity, 0);
+    while (diff !== 0) {
+      const idx = diff > 0
+        ? raw.indexOf(raw.reduce((a, b) => (a.quantity >= b.quantity ? a : b)))
+        : raw.indexOf(raw.reduce((a, b) => (a.quantity <= b.quantity ? a : b)));
+      raw[idx].quantity += diff > 0 ? 1 : -1;
+      if (raw[idx].quantity < 1) raw[idx].quantity = 1;
+      diff = target - raw.reduce((s, r) => s + r.quantity, 0);
+      if (raw.every(r => r.quantity <= 1) && diff < 0) break;
+    }
+    return raw;
+  }, [quantidadeConteudos]);
+  const productionLineTotal = useMemo(
+    () => productionLine.reduce((s, r) => s + r.quantity, 0),
+    [productionLine]
+  );
+
   // Process state
   const [currentStep, setCurrentStep] = useState<Step>('form');
   const [periodPlanId, setPeriodPlanId] = useState<string | null>(null);
