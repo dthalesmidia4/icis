@@ -329,8 +329,9 @@ const PlanPeriod = () => {
   const generateSinglePlan = async (planId: string, planType: 'default' | 'ultra'): Promise<{ success: boolean; plan?: any[]; error?: string }> => {
     // Start edge function (don't await - it may timeout)
     let directResult: any = null;
+    const customQuantity = Math.max(1, Math.min(50, Number(quantidadeConteudos) || productionLineTotal));
     const edgeFunctionPromise = supabase.functions.invoke('generate-period-plans', {
-      body: { periodPlanId: planId, tenantId, planType }
+      body: { periodPlanId: planId, tenantId, planType, customQuantity }
     }).then(({ data, error }) => {
       console.log(`[PlanPeriod] Edge function response (${planType}):`, { data: data ? 'received' : null, error });
       if (!error && data?.success && data?.plan && Array.isArray(data.plan) && data.plan.length > 0) {
