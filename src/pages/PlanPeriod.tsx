@@ -759,30 +759,6 @@ const PlanPeriod = () => {
         </div>
       </Card>
 
-      {/* Production Line - Informativo */}
-      <Card className="p-4 sm:p-6">
-        <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
-          <List className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-          Linha de Produção
-        </h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          A IA irá gerar automaticamente a seguinte distribuição de conteúdo:
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-          {productionLine.map((item) => (
-            <div key={item.type} className="flex flex-col items-center gap-2 p-4 rounded-lg border border-border/50 bg-muted/30">
-              <Label className="text-sm font-medium">{item.type}</Label>
-              <span className="text-2xl font-bold text-primary">{item.quantity}</span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 flex items-center px-1">
-          <span className="text-sm font-semibold">
-            Total: {productionLineTotal} conteúdos
-          </span>
-        </div>
-      </Card>
-
       {/* Bloco 1 — Objetivo do período */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
