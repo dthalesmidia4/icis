@@ -463,7 +463,30 @@ const PlanPeriod = () => {
     setCurrentStep('loading-normal');
     try {
       const priorityChannel = selectedChannels.length === 0 ? 'Multi-canal' : selectedChannels.length === 1 ? selectedChannels[0].charAt(0).toUpperCase() + selectedChannels[0].slice(1) : selectedChannels.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ');
-      const fullObservations = observations || null;
+      const objetivosTexto = [...objetivosSelecionados, objetivoOutro.trim()].filter(Boolean).join(', ');
+      const respostasBlocos = [
+        '=== BLOCO 1 — OBJETIVO DO PERÍODO ===',
+        `Objetivo principal: ${objetivosTexto || 'Não informado'}`,
+        `Meta numérica: ${metaNumerica || 'Não informada'}`,
+        `Por que é prioridade agora: ${porqueObjetivo || 'Não informado'}`,
+        '',
+        '=== BLOCO 2 — PRODUTO/SERVIÇO EM FOCO ===',
+        `Produto/serviço foco: ${produtoFoco || 'Não informado'}`,
+        `Promoção/bônus/condição: ${temPromocao === 'sim' ? `Sim — ${promocaoDescricao || 'sem detalhes'}` : temPromocao === 'nao' ? 'Não' : 'Não informado'}`,
+        `Como comprar/contato: ${comoComprar || 'Não informado'}`,
+        '',
+        '=== BLOCO 3 — CONTEXTO DO PERÍODO ===',
+        `Data comemorativa/evento: ${temDataComemorativa === 'sim' ? `Sim — ${dataComemorativaDescricao || 'sem detalhes'}` : temDataComemorativa === 'nao' ? 'Não' : 'Não informado'}`,
+        `Novidade no negócio: ${temNovidade === 'sim' ? `Sim — ${novidadeDescricao || 'sem detalhes'}` : temNovidade === 'nao' ? 'Não' : 'Não informado'}`,
+        '',
+        '=== BLOCO 4 — CAPACIDADE DE PRODUÇÃO DO PERÍODO ===',
+        `Disponibilidade para gravar vídeos: ${disponibilidadeVideo || 'Não informado'}`,
+        `Fotos/materiais visuais novos: ${temMateriaisNovos === 'sim' ? `Sim — ${materiaisNovosDescricao || 'sem detalhes'}` : temMateriaisNovos === 'nao' ? 'Não' : 'Não informado'}`,
+        `Quantidade de conteúdos desejada no período: ${quantidadeConteudos}`,
+        '',
+        observations ? `=== OBSERVAÇÕES ADICIONAIS ===\n${observations}` : '',
+      ].filter(Boolean).join('\n');
+      const fullObservations = respostasBlocos;
 
       const activeProductionLine = productionLine.filter(item => item.quantity > 0);
       const { data: periodPlan, error: createError } = await supabase.from('period_plans').insert({
