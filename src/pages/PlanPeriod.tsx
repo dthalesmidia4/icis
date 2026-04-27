@@ -760,40 +760,148 @@ const PlanPeriod = () => {
         </div>
       </Card>
 
-      {/* Observations */}
+      {/* Bloco 1 — Objetivo do período */}
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Shield className="w-5 h-5 text-muted-foreground" />
-          Restrições do Período
+        <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
+          🎯 Bloco 1 — Objetivo do período
         </h3>
-        
-        <div className="space-y-6">
-          <div className="space-y-4">
-            {[{
-              id: 'no-video-appearance', category: 'Disponibilidade para aparecer', label: 'O cliente NÃO pode aparecer em vídeos.'
-            }, {
-              id: 'no-products-environment', category: 'Ambiente e recursos visuais', label: 'O cliente NÃO pode disponibilizar produtos/ambiente para fotos/vídeos.'
-            }, {
-              id: 'no-clients-patients', category: 'Limitações legais do segmento', label: 'O cliente NÃO pode mostrar clientes/pacientes.'
-            }, {
-              id: 'no-visual-materials', category: 'Limitações operacionais', label: 'O cliente NÃO possui materiais visuais suficientes (fotos/vídeos).'
-            }, {
-              id: 'no-promotional-content', category: 'Restrições de narrativa e posicionamento', label: 'O cliente NÃO quer conteúdos promocionais.'
-            }].map(restriction => <div key={restriction.id} className="flex items-start space-x-3 p-3 rounded-lg border border-border/50 bg-muted/30 hover:bg-muted/50 transition-colors">
-              <Checkbox id={restriction.id} checked={excludedFormats.includes(restriction.id)} onCheckedChange={checked => {
-                if (checked) setExcludedFormats([...excludedFormats, restriction.id]);
-                else setExcludedFormats(excludedFormats.filter(f => f !== restriction.id));
-              }} className="mt-0.5" />
-              <label htmlFor={restriction.id} className="cursor-pointer flex-1">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide block mb-1">{restriction.category}</span>
-                <span className="text-sm leading-snug">{restriction.label}</span>
-              </label>
-            </div>)}
-          </div>
-
+        <p className="text-sm text-muted-foreground mb-4">O que esse período precisa gerar para o negócio</p>
+        <div className="space-y-5">
           <div>
-            <Label htmlFor="observations">Observações Adicionais (opcional)</Label>
-            <Textarea id="observations" placeholder="Informe restrições, datas comemorativas importantes, produtos em foco, ou qualquer informação relevante..." value={observations} onChange={e => setObservations(e.target.value)} rows={4} />
+            <Label className="text-sm">Qual é o objetivo principal deste período?</Label>
+            <p className="text-xs text-muted-foreground mb-2">Ex: gerar vendas, atrair leads, lançar produto, crescer seguidores, educar o mercado</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {OBJETIVO_OPCOES.map(op => (
+                <label key={op} className="flex items-center gap-2 p-2 rounded-md border border-border/50 hover:bg-muted/30 cursor-pointer">
+                  <Checkbox
+                    checked={objetivosSelecionados.includes(op)}
+                    onCheckedChange={(checked) => {
+                      if (checked) setObjetivosSelecionados([...objetivosSelecionados, op]);
+                      else setObjetivosSelecionados(objetivosSelecionados.filter(o => o !== op));
+                    }}
+                  />
+                  <span className="text-sm">{op}</span>
+                </label>
+              ))}
+            </div>
+            <Input className="mt-2" placeholder="Outro objetivo (campo livre)" value={objetivoOutro} onChange={e => setObjetivoOutro(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-sm">Você tem uma meta numérica para este período?</Label>
+            <p className="text-xs text-muted-foreground mb-2">Ex: 30 vendas, 50 leads, 200 novos seguidores — deixe em branco se não tiver</p>
+            <Input placeholder="Meta numérica (opcional)" value={metaNumerica} onChange={e => setMetaNumerica(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-sm">Por que esse objetivo é prioridade agora? O que está acontecendo?</Label>
+            <p className="text-xs text-muted-foreground mb-2">Ex: lançamento próximo, mês fraco no histórico, concorrente crescendo, estoque parado</p>
+            <Textarea rows={3} value={porqueObjetivo} onChange={e => setPorqueObjetivo(e.target.value)} />
+          </div>
+        </div>
+      </Card>
+
+      {/* Bloco 2 — Produto/serviço em foco */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
+          🛍️ Bloco 2 — Produto ou serviço em foco
+        </h3>
+        <p className="text-sm text-muted-foreground mb-4">O que será promovido e como será vendido</p>
+        <div className="space-y-5">
+          <div>
+            <Label className="text-sm">Qual produto ou serviço será o foco principal deste período?</Label>
+            <p className="text-xs text-muted-foreground mb-2">Se tiver mais de um, qual é o prioritário?</p>
+            <Input value={produtoFoco} onChange={e => setProdutoFoco(e.target.value)} />
+          </div>
+          <div>
+            <Label className="text-sm">Vai ter promoção, bônus ou condição especial neste período?</Label>
+            <p className="text-xs text-muted-foreground mb-2">Ex: desconto de 20%, bônus de consultoria, parcelamento especial, vagas limitadas</p>
+            <RadioGroup value={temPromocao} onValueChange={(v) => setTemPromocao(v as any)} className="flex gap-4 mb-2">
+              <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="sim" /> <span className="text-sm">Sim</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="nao" /> <span className="text-sm">Não</span></label>
+            </RadioGroup>
+            {temPromocao === 'sim' && (
+              <Textarea rows={2} placeholder="Descreva a promoção/bônus/condição" value={promocaoDescricao} onChange={e => setPromocaoDescricao(e.target.value)} />
+            )}
+          </div>
+          <div>
+            <Label className="text-sm">Como o cliente faz para comprar ou entrar em contato?</Label>
+            <p className="text-xs text-muted-foreground mb-2">Ex: link do site, WhatsApp, DM, formulário, telefone</p>
+            <Input value={comoComprar} onChange={e => setComoComprar(e.target.value)} />
+          </div>
+        </div>
+      </Card>
+
+      {/* Bloco 3 — Contexto do período */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
+          📆 Bloco 3 — Contexto do período
+        </h3>
+        <p className="text-sm text-muted-foreground mb-4">O que torna este período diferente dos outros</p>
+        <div className="space-y-5">
+          <div>
+            <Label className="text-sm">Existe alguma data comemorativa, evento ou marco importante neste período?</Label>
+            <p className="text-xs text-muted-foreground mb-2">Ex: Dia das Mães, aniversário da empresa, feriado prolongado, evento do setor</p>
+            <RadioGroup value={temDataComemorativa} onValueChange={(v) => setTemDataComemorativa(v as any)} className="flex gap-4 mb-2">
+              <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="sim" /> <span className="text-sm">Sim</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="nao" /> <span className="text-sm">Não</span></label>
+            </RadioGroup>
+            {temDataComemorativa === 'sim' && (
+              <Textarea rows={2} placeholder="Quais datas/eventos/marcos?" value={dataComemorativaDescricao} onChange={e => setDataComemorativaDescricao(e.target.value)} />
+            )}
+          </div>
+          <div>
+            <Label className="text-sm">Tem alguma novidade no negócio que precisa ser comunicada agora?</Label>
+            <p className="text-xs text-muted-foreground mb-2">Ex: novo serviço, mudança de preço, nova estrutura, parceria, conquista recente</p>
+            <RadioGroup value={temNovidade} onValueChange={(v) => setTemNovidade(v as any)} className="flex gap-4 mb-2">
+              <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="sim" /> <span className="text-sm">Sim</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="nao" /> <span className="text-sm">Não</span></label>
+            </RadioGroup>
+            {temNovidade === 'sim' && (
+              <Textarea rows={2} placeholder="Qual é a novidade?" value={novidadeDescricao} onChange={e => setNovidadeDescricao(e.target.value)} />
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {/* Bloco 4 — Capacidade de produção do período */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
+          🎬 Bloco 4 — Capacidade de produção do período
+        </h3>
+        <p className="text-sm text-muted-foreground mb-4">O que é possível entregar neste período específico</p>
+        <div className="space-y-5">
+          <div>
+            <Label className="text-sm">Neste período você terá disponibilidade para gravar vídeos?</Label>
+            <p className="text-xs text-muted-foreground mb-2">Pode mudar a cada período — férias, agenda cheia, viagem</p>
+            <RadioGroup value={disponibilidadeVideo} onValueChange={(v) => setDisponibilidadeVideo(v as any)} className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="sim" /> <span className="text-sm">Sim</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="nao" /> <span className="text-sm">Não</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="talvez" /> <span className="text-sm">Talvez</span></label>
+            </RadioGroup>
+          </div>
+          <div>
+            <Label className="text-sm">Terá acesso a fotos ou materiais visuais novos para usar?</Label>
+            <p className="text-xs text-muted-foreground mb-2">Ex: ensaio fotográfico marcado, registro de evento, produto novo chegando</p>
+            <RadioGroup value={temMateriaisNovos} onValueChange={(v) => setTemMateriaisNovos(v as any)} className="flex gap-4 mb-2">
+              <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="sim" /> <span className="text-sm">Sim</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="nao" /> <span className="text-sm">Não</span></label>
+            </RadioGroup>
+            {temMateriaisNovos === 'sim' && (
+              <Textarea rows={2} placeholder="Descreva os materiais visuais novos" value={materiaisNovosDescricao} onChange={e => setMateriaisNovosDescricao(e.target.value)} />
+            )}
+          </div>
+          <div>
+            <Label className="text-sm">Quantos conteúdos você quer produzir neste período?</Label>
+            <p className="text-xs text-muted-foreground mb-2">Sugerido pela estratégia: {productionLineTotal} conteúdos — ajuste conforme necessário</p>
+            <Input
+              type="number"
+              min={1}
+              value={quantidadeConteudos}
+              onChange={e => setQuantidadeConteudos(Number(e.target.value) || 0)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="observations" className="text-sm">Observações adicionais (opcional)</Label>
+            <Textarea id="observations" placeholder="Qualquer informação adicional relevante..." value={observations} onChange={e => setObservations(e.target.value)} rows={3} />
           </div>
         </div>
       </Card>
