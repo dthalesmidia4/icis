@@ -110,6 +110,37 @@ const PlanPeriod = () => {
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
 
+  // Bloco 1 — Objetivo do período
+  const OBJETIVO_OPCOES = [
+    'Gerar vendas',
+    'Atrair leads',
+    'Lançar produto',
+    'Crescer seguidores',
+    'Educar o mercado',
+  ];
+  const [objetivosSelecionados, setObjetivosSelecionados] = useState<string[]>([]);
+  const [objetivoOutro, setObjetivoOutro] = useState("");
+  const [metaNumerica, setMetaNumerica] = useState("");
+  const [porqueObjetivo, setPorqueObjetivo] = useState("");
+
+  // Bloco 2 — Produto/serviço em foco
+  const [produtoFoco, setProdutoFoco] = useState("");
+  const [temPromocao, setTemPromocao] = useState<'sim' | 'nao' | ''>('');
+  const [promocaoDescricao, setPromocaoDescricao] = useState("");
+  const [comoComprar, setComoComprar] = useState("");
+
+  // Bloco 3 — Contexto do período
+  const [temDataComemorativa, setTemDataComemorativa] = useState<'sim' | 'nao' | ''>('');
+  const [dataComemorativaDescricao, setDataComemorativaDescricao] = useState("");
+  const [temNovidade, setTemNovidade] = useState<'sim' | 'nao' | ''>('');
+  const [novidadeDescricao, setNovidadeDescricao] = useState("");
+
+  // Bloco 4 — Capacidade de produção do período
+  const [disponibilidadeVideo, setDisponibilidadeVideo] = useState<'sim' | 'nao' | 'talvez' | ''>('');
+  const [temMateriaisNovos, setTemMateriaisNovos] = useState<'sim' | 'nao' | ''>('');
+  const [materiaisNovosDescricao, setMateriaisNovosDescricao] = useState("");
+  const [quantidadeConteudos, setQuantidadeConteudos] = useState<number>(10);
+
   // Process state
   const [currentStep, setCurrentStep] = useState<Step>('form');
   const [periodPlanId, setPeriodPlanId] = useState<string | null>(null);
