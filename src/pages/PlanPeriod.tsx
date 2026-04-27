@@ -1,5 +1,5 @@
 // Plan Period Page
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
