@@ -224,18 +224,41 @@ Observações: ${periodPlan.observations || 'Nenhuma'}${contentReqs}${calendarCt
     // JSON instruction - ALWAYS use fixed production line
     const planLabel = planType === 'ultra' ? 'ultra (ousado, criativo, inovador)' : 'normal (seguro, operacional)';
     
-    // Fixed production line: 4 Post Estático, 2 Vídeos Curtos, 4 Carrossel
-    const fixedProductionLine = [
-      { type: 'Post Estático', quantity: 4 },
-      { type: 'Vídeos Curtos', quantity: 2 },
-      { type: 'Carrossel', quantity: 4 },
+    // Production line: default 4 Post Estático, 2 Vídeos Curtos, 4 Carrossel (proporção 4:2:4)
+    // Se customQuantity for fornecido, redistribui mantendo a mesma proporção (mínimo 1 por tipo).
+    const baseLine = [
+      { type: 'Post Estático', ratio: 4 },
+      { type: 'Vídeos Curtos', ratio: 2 },
+      { type: 'Carrossel', ratio: 4 },
     ];
+    const baseTotal = 10;
+    const targetTotal = customQuantity ?? baseTotal;
+    
+    let fixedProductionLine: { type: string; quantity: number }[];
+    if (targetTotal === baseTotal) {
+      fixedProductionLine = baseLine.map(b => ({ type: b.type, quantity: b.ratio }));
+    } else {
+      // Distribuição proporcional com arredondamento + ajuste no maior bucket
+      const raw = baseLine.map(b => ({ type: b.type, quantity: Math.max(1, Math.round((b.ratio / baseTotal) * targetTotal)) }));
+      let diff = targetTotal - raw.reduce((s, r) => s + r.quantity, 0);
+      // Ajusta no maior item (Post Estático ou Carrossel) para bater o total exato
+      while (diff !== 0) {
+        const idx = diff > 0
+          ? raw.indexOf(raw.reduce((a, b) => (a.quantity >= b.quantity ? a : b)))
+          : raw.indexOf(raw.reduce((a, b) => (a.quantity <= b.quantity ? a : b)));
+        raw[idx].quantity += diff > 0 ? 1 : -1;
+        if (raw[idx].quantity < 1) raw[idx].quantity = 1;
+        diff = targetTotal - raw.reduce((s, r) => s + r.quantity, 0);
+        if (raw.every(r => r.quantity <= 1) && diff < 0) break;
+      }
+      fixedProductionLine = raw;
+    }
     
     let volumeInstruction = '';
     let demandLimit: number;
     
     if (planType === 'default') {
-      demandLimit = 10;
+      demandLimit = fixedProductionLine.reduce((s, r) => s + r.quantity, 0);
       const distribution = fixedProductionLine.map(item => `${item.quantity} ${item.type}`).join(', ');
       volumeInstruction = `
 REGRA OBRIGATÓRIA DE VOLUME:
