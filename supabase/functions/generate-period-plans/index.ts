@@ -19,6 +19,9 @@ Deno.serve(async (req) => {
     periodPlanId = body.periodPlanId;
     const tenantId = body.tenantId;
     const planType: 'default' | 'ultra' = body.planType || 'default';
+    const customQuantity: number | undefined = typeof body.customQuantity === 'number' && body.customQuantity > 0
+      ? Math.min(50, Math.floor(body.customQuantity))
+      : undefined;
 
     console.log('=== GENERATE-PERIOD-PLANS START ===');
     console.log('periodPlanId:', periodPlanId, '| planType:', planType);
