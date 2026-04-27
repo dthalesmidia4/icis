@@ -100,13 +100,8 @@ const PlanPeriod = () => {
   const [observations, setObservations] = useState("");
   const [excludedFormats, setExcludedFormats] = useState<string[]>([]);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
-  // Linha de produção fixa - definida automaticamente
-  const productionLine = [
-    { type: 'Vídeos Curtos', quantity: 2 },
-    { type: 'Carrossel', quantity: 4 },
-    { type: 'Post Estático', quantity: 4 },
-  ];
-  const productionLineTotal = 10;
+  // Linha de produção - distribuição proporcional baseada em quantidadeConteudos (proporção 4:2:4)
+  // A definição real de productionLine acontece via useMemo após quantidadeConteudos ser declarado.
   
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
