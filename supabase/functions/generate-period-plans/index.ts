@@ -22,9 +22,22 @@ Deno.serve(async (req) => {
     const customQuantity: number | undefined = typeof body.customQuantity === 'number' && body.customQuantity > 0
       ? Math.min(50, Math.floor(body.customQuantity))
       : undefined;
+    // NEW: optional batch parameter to generate only a slice of the default plan.
+    // Allows splitting a heavy default generation into multiple smaller calls
+    // (e.g. one per format) so each fits comfortably inside the edge timeout.
+    const batchType: string | undefined = typeof body.batchType === 'string' && body.batchType.trim()
+      ? body.batchType.trim()
+      : undefined;
+    const batchQuantity: number | undefined = typeof body.batchQuantity === 'number' && body.batchQuantity > 0
+      ? Math.min(20, Math.floor(body.batchQuantity))
+      : undefined;
+    const isFinalBatch: boolean = body.isFinalBatch === true;
 
     console.log('=== GENERATE-PERIOD-PLANS START ===');
-    console.log('periodPlanId:', periodPlanId, '| planType:', planType);
+    console.log('periodPlanId:', periodPlanId, '| planType:', planType, '| batchType:', batchType || '(full)', '| batchQuantity:', batchQuantity || '(default)');
+
+    // Persist intent immediately so a draft is never left silently.
+    // (best-effort: ignore errors here; main try/catch will set 'error' on failure)
 
     if (!periodPlanId || !tenantId) {
       throw new Error('periodPlanId e tenantId são obrigatórios');
@@ -46,6 +59,16 @@ Deno.serve(async (req) => {
     }
     
     const periodPlan = periodPlanData as any;
+
+    // Mark plan as actively generating ASAP so it never stays as silent 'draft'
+    try {
+      const intentStatus = planType === 'ultra' ? 'generating_ultra' : 'generating_default';
+      if (periodPlan.status === 'draft' || periodPlan.status === 'error') {
+        await (supabase as any).from('period_plans').update({ status: intentStatus }).eq('id', periodPlanId);
+      }
+    } catch (e) {
+      console.warn('Failed to set early intent status:', e);
+    }
 
     // Fetch company data
     const { data: companyData, error: companyError } = await supabase
@@ -256,15 +279,25 @@ Observações: ${periodPlan.observations || 'Nenhuma'}${contentReqs}${calendarCt
     
     let volumeInstruction = '';
     let demandLimit: number;
-    
+
     if (planType === 'default') {
-      demandLimit = fixedProductionLine.reduce((s, r) => s + r.quantity, 0);
-      const distribution = fixedProductionLine.map(item => `${item.quantity} ${item.type}`).join(', ');
-      volumeInstruction = `
+      if (batchType && batchQuantity) {
+        // BATCH MODE: generate only this single format type
+        demandLimit = batchQuantity;
+        volumeInstruction = `
+REGRA OBRIGATÓRIA DE VOLUME (LOTE ÚNICO):
+Gere exatamente ${batchQuantity} demandas, TODAS do tipo "${batchType}".
+O campo "tipo" de CADA demanda DEVE ser exatamente "${batchType}".
+NÃO gere outros formatos.`;
+      } else {
+        demandLimit = fixedProductionLine.reduce((s, r) => s + r.quantity, 0);
+        const distribution = fixedProductionLine.map(item => `${item.quantity} ${item.type}`).join(', ');
+        volumeInstruction = `
 REGRA OBRIGATÓRIA DE VOLUME:
 Gere exatamente: ${distribution}.
 Total: ${demandLimit} demandas. O campo "tipo" de cada demanda DEVE corresponder exatamente ao tipo definido.
 NÃO gere formatos não listados. NÃO compense quantidade de um formato com outro.`;
+      }
     } else {
       demandLimit = 3;
     }
@@ -284,10 +317,16 @@ Cada demanda: {"tipo":"...","titulo":"...","objetivo":"...","conteudo":"conteúd
 Formato: {"plan":[...],"summary":"resumo curto"}`;
     console.log('Calling OpenAI for planType:', planType);
     
-    // AbortController with 110s timeout to guarantee 40s for early save before 150s wall clock
+    // Adaptive timeout: small batches finish fast, give them less budget so the
+    // edge function can return well within the 150s wall clock and the early
+    // save always has time to persist.
+    const isBatch = !!(batchType && batchQuantity);
+    const timeoutMs = isBatch ? 80000 : 110000;
+    const maxTokens = isBatch ? Math.min(3500, batchQuantity! * 700 + 800) : 6000;
+
     const abortController = new AbortController();
-    const fetchTimeout = setTimeout(() => abortController.abort(), 110000);
-    
+    const fetchTimeout = setTimeout(() => abortController.abort(), timeoutMs);
+
     let response: Response;
     try {
       response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -302,9 +341,7 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
             { role: 'developer', content: systemPrompt + jsonInstruction },
             { role: 'user', content: context }
           ],
-          // Reduzido de 10000 → 6000 para diminuir latência da resposta da LLM
-          // e garantir que a geração caiba na janela de 110s antes do early save.
-          max_completion_tokens: 6000,
+          max_completion_tokens: maxTokens,
           response_format: { type: 'json_object' },
         }),
         signal: abortController.signal,
@@ -312,7 +349,7 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
     } catch (fetchErr: any) {
       clearTimeout(fetchTimeout);
       if (fetchErr.name === 'AbortError') {
-        console.error('OpenAI fetch aborted after 110s timeout');
+        console.error(`OpenAI fetch aborted after ${timeoutMs}ms timeout`);
         throw new Error('A geração demorou muito. Tente novamente com menos observações ou reduza a quantidade de conteúdos.');
       }
       throw fetchErr;
@@ -363,39 +400,47 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
 
     console.log(`${planType} plan demands:`, planDemands.length);
 
+    // Compute the merged default_plan when running in batch mode (append)
+    const existingDefault = (periodPlan.default_plan && Array.isArray(periodPlan.default_plan))
+      ? periodPlan.default_plan as any[]
+      : [];
+    const mergedDefault = (planType === 'default' && isBatch)
+      ? [...existingDefault, ...planDemands]
+      : planDemands;
+
     // EARLY SAVE: persist to DB immediately to avoid timeout killing the save
     {
       const earlySaveData: any = { updated_at: new Date().toISOString() };
       if (planType === 'default') {
-        earlySaveData.default_plan = planDemands;
-        earlySaveData.status = 'generating_ultra';
-    } else {
-      earlySaveData.ultra_plan = planDemands;
-      earlySaveData.status = 'generated';
-      // Also set final_plan for ultra and explicitly re-save default_plan to prevent race conditions
-      const currentDefault = periodPlan.default_plan && Array.isArray(periodPlan.default_plan) ? periodPlan.default_plan : [];
-      earlySaveData.default_plan = currentDefault;
-      earlySaveData.final_plan = [...currentDefault, ...planDemands];
-    }
+        earlySaveData.default_plan = mergedDefault;
+        if (isBatch && !isFinalBatch) {
+          earlySaveData.status = 'generating_default';
+        } else {
+          earlySaveData.status = 'generating_ultra';
+        }
+      } else {
+        earlySaveData.ultra_plan = planDemands;
+        earlySaveData.status = 'generated';
+        earlySaveData.default_plan = existingDefault;
+        earlySaveData.final_plan = [...existingDefault, ...planDemands];
+      }
       const { error: earlySaveErr } = await (supabase as any).from('period_plans').update(earlySaveData).eq('id', periodPlanId);
       if (earlySaveErr) {
         console.error('EARLY SAVE FAILED:', JSON.stringify(earlySaveErr));
       } else {
-        console.log(`EARLY SAVE OK: ${planDemands.length} demands saved for ${planType}`);
+        console.log(`EARLY SAVE OK: ${planDemands.length} demands saved for ${planType}${isBatch ? ` (batch ${batchType}, total default=${mergedDefault.length})` : ''}`);
       }
     }
 
-    // Validate production line compliance (log only, no retry to save time)
     if (planType === 'default') {
       const typeCounts: Record<string, number> = {};
       planDemands.forEach((d: any) => {
         const tipo = (d.tipo || '').trim();
         typeCounts[tipo] = (typeCounts[tipo] || 0) + 1;
       });
-      console.log('[ProductionLine] Distribution:', JSON.stringify(typeCounts));
+      console.log('[ProductionLine] Distribution (this batch):', JSON.stringify(typeCounts));
     }
 
-    // Batch insert fingerprints
     if (planDemands.length > 0) {
       const fingerprints = planDemands.map((demand: any) => ({
         tenant_id: tenantId,
@@ -413,25 +458,22 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
       }
     }
 
-    // Update the specific plan field
+    // Final consistency update (idempotent with early save)
     const updateData: any = { updated_at: new Date().toISOString() };
     if (planType === 'default') {
-      updateData.default_plan = planDemands;
-      // Check if ultra already exists to set status
-      const currentPlan = periodPlan;
-      if (currentPlan.ultra_plan && Array.isArray(currentPlan.ultra_plan) && currentPlan.ultra_plan.length > 0) {
+      updateData.default_plan = mergedDefault;
+      if (isBatch && !isFinalBatch) {
+        updateData.status = 'generating_default';
+      } else if (periodPlan.ultra_plan && Array.isArray(periodPlan.ultra_plan) && periodPlan.ultra_plan.length > 0) {
         updateData.status = 'generated';
       } else {
         updateData.status = 'generating_ultra';
       }
     } else {
       updateData.ultra_plan = planDemands;
-      // Explicitly preserve default_plan to prevent race conditions
-      const currentPlan = periodPlan;
-      const currentDefault = currentPlan.default_plan && Array.isArray(currentPlan.default_plan) ? currentPlan.default_plan : [];
-      updateData.default_plan = currentDefault;
-      updateData.final_plan = [...currentDefault, ...planDemands];
-      if (currentDefault.length > 0) {
+      updateData.default_plan = existingDefault;
+      updateData.final_plan = [...existingDefault, ...planDemands];
+      if (existingDefault.length > 0) {
         updateData.status = 'generated';
       } else {
         updateData.status = 'generating_default';
@@ -451,7 +493,10 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
     return new Response(JSON.stringify({
       success: true,
       planType,
+      batchType: batchType || null,
+      isFinalBatch,
       plan: planDemands,
+      mergedDefaultPlan: planType === 'default' ? mergedDefault : undefined,
       summary,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -462,17 +507,25 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
 
     if (periodPlanId && supabase) {
       try {
+        // If we already saved some default demands, keep a recoverable status
+        // (generating_default) instead of marking the whole period as 'error'.
+        const { data: cur } = await (supabase as any)
+          .from('period_plans')
+          .select('default_plan')
+          .eq('id', periodPlanId)
+          .maybeSingle();
+        const hasPartial = cur?.default_plan && Array.isArray(cur.default_plan) && cur.default_plan.length > 0;
         await (supabase as any)
           .from('period_plans')
-          .update({ status: 'error' })
+          .update({ status: hasPartial ? 'generating_default' : 'error' })
           .eq('id', periodPlanId);
       } catch {
         // ignore
       }
     }
 
-    return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Erro desconhecido' 
+    return new Response(JSON.stringify({
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
