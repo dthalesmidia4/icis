@@ -390,39 +390,47 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
 
     console.log(`${planType} plan demands:`, planDemands.length);
 
+    // Compute the merged default_plan when running in batch mode (append)
+    const existingDefault = (periodPlan.default_plan && Array.isArray(periodPlan.default_plan))
+      ? periodPlan.default_plan as any[]
+      : [];
+    const mergedDefault = (planType === 'default' && isBatch)
+      ? [...existingDefault, ...planDemands]
+      : planDemands;
+
     // EARLY SAVE: persist to DB immediately to avoid timeout killing the save
     {
       const earlySaveData: any = { updated_at: new Date().toISOString() };
       if (planType === 'default') {
-        earlySaveData.default_plan = planDemands;
-        earlySaveData.status = 'generating_ultra';
-    } else {
-      earlySaveData.ultra_plan = planDemands;
-      earlySaveData.status = 'generated';
-      // Also set final_plan for ultra and explicitly re-save default_plan to prevent race conditions
-      const currentDefault = periodPlan.default_plan && Array.isArray(periodPlan.default_plan) ? periodPlan.default_plan : [];
-      earlySaveData.default_plan = currentDefault;
-      earlySaveData.final_plan = [...currentDefault, ...planDemands];
-    }
+        earlySaveData.default_plan = mergedDefault;
+        if (isBatch && !isFinalBatch) {
+          earlySaveData.status = 'generating_default';
+        } else {
+          earlySaveData.status = 'generating_ultra';
+        }
+      } else {
+        earlySaveData.ultra_plan = planDemands;
+        earlySaveData.status = 'generated';
+        earlySaveData.default_plan = existingDefault;
+        earlySaveData.final_plan = [...existingDefault, ...planDemands];
+      }
       const { error: earlySaveErr } = await (supabase as any).from('period_plans').update(earlySaveData).eq('id', periodPlanId);
       if (earlySaveErr) {
         console.error('EARLY SAVE FAILED:', JSON.stringify(earlySaveErr));
       } else {
-        console.log(`EARLY SAVE OK: ${planDemands.length} demands saved for ${planType}`);
+        console.log(`EARLY SAVE OK: ${planDemands.length} demands saved for ${planType}${isBatch ? ` (batch ${batchType}, total default=${mergedDefault.length})` : ''}`);
       }
     }
 
-    // Validate production line compliance (log only, no retry to save time)
     if (planType === 'default') {
       const typeCounts: Record<string, number> = {};
       planDemands.forEach((d: any) => {
         const tipo = (d.tipo || '').trim();
         typeCounts[tipo] = (typeCounts[tipo] || 0) + 1;
       });
-      console.log('[ProductionLine] Distribution:', JSON.stringify(typeCounts));
+      console.log('[ProductionLine] Distribution (this batch):', JSON.stringify(typeCounts));
     }
 
-    // Batch insert fingerprints
     if (planDemands.length > 0) {
       const fingerprints = planDemands.map((demand: any) => ({
         tenant_id: tenantId,
@@ -440,25 +448,22 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
       }
     }
 
-    // Update the specific plan field
+    // Final consistency update (idempotent with early save)
     const updateData: any = { updated_at: new Date().toISOString() };
     if (planType === 'default') {
-      updateData.default_plan = planDemands;
-      // Check if ultra already exists to set status
-      const currentPlan = periodPlan;
-      if (currentPlan.ultra_plan && Array.isArray(currentPlan.ultra_plan) && currentPlan.ultra_plan.length > 0) {
+      updateData.default_plan = mergedDefault;
+      if (isBatch && !isFinalBatch) {
+        updateData.status = 'generating_default';
+      } else if (periodPlan.ultra_plan && Array.isArray(periodPlan.ultra_plan) && periodPlan.ultra_plan.length > 0) {
         updateData.status = 'generated';
       } else {
         updateData.status = 'generating_ultra';
       }
     } else {
       updateData.ultra_plan = planDemands;
-      // Explicitly preserve default_plan to prevent race conditions
-      const currentPlan = periodPlan;
-      const currentDefault = currentPlan.default_plan && Array.isArray(currentPlan.default_plan) ? currentPlan.default_plan : [];
-      updateData.default_plan = currentDefault;
-      updateData.final_plan = [...currentDefault, ...planDemands];
-      if (currentDefault.length > 0) {
+      updateData.default_plan = existingDefault;
+      updateData.final_plan = [...existingDefault, ...planDemands];
+      if (existingDefault.length > 0) {
         updateData.status = 'generated';
       } else {
         updateData.status = 'generating_default';
