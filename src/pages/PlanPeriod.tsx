@@ -262,8 +262,8 @@ const PlanPeriod = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!selectedClient || !tenantId) return null;
-  const displayName = selectedClient.fantasy_name || selectedClient.name;
+  if ((!selectedClient || !tenantId) && currentStep === 'form') return null;
+  const displayName = selectedClient?.fantasy_name || selectedClient?.name || '';
 
   // Resume incomplete period
   const handleResumeIncomplete = async () => {
