@@ -22,9 +22,22 @@ Deno.serve(async (req) => {
     const customQuantity: number | undefined = typeof body.customQuantity === 'number' && body.customQuantity > 0
       ? Math.min(50, Math.floor(body.customQuantity))
       : undefined;
+    // NEW: optional batch parameter to generate only a slice of the default plan.
+    // Allows splitting a heavy default generation into multiple smaller calls
+    // (e.g. one per format) so each fits comfortably inside the edge timeout.
+    const batchType: string | undefined = typeof body.batchType === 'string' && body.batchType.trim()
+      ? body.batchType.trim()
+      : undefined;
+    const batchQuantity: number | undefined = typeof body.batchQuantity === 'number' && body.batchQuantity > 0
+      ? Math.min(20, Math.floor(body.batchQuantity))
+      : undefined;
+    const isFinalBatch: boolean = body.isFinalBatch === true;
 
     console.log('=== GENERATE-PERIOD-PLANS START ===');
-    console.log('periodPlanId:', periodPlanId, '| planType:', planType);
+    console.log('periodPlanId:', periodPlanId, '| planType:', planType, '| batchType:', batchType || '(full)', '| batchQuantity:', batchQuantity || '(default)');
+
+    // Persist intent immediately so a draft is never left silently.
+    // (best-effort: ignore errors here; main try/catch will set 'error' on failure)
 
     if (!periodPlanId || !tenantId) {
       throw new Error('periodPlanId e tenantId são obrigatórios');
