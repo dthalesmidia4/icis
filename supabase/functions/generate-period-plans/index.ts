@@ -483,7 +483,10 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
     return new Response(JSON.stringify({
       success: true,
       planType,
+      batchType: batchType || null,
+      isFinalBatch,
       plan: planDemands,
+      mergedDefaultPlan: planType === 'default' ? mergedDefault : undefined,
       summary,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
