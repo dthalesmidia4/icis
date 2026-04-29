@@ -573,19 +573,49 @@ const PlanPeriod = () => {
       if (createError) throw createError;
       setPeriodPlanId(periodPlan.id);
 
-      // Generate ONLY the normal plan
+      // Generate the normal plan in BATCHES per format type.
+      // Splitting the heavy single call into 3 smaller ones (one per format)
+      // dramatically reduces per-call latency and avoids the 150s edge timeout,
+      // while still saving partial progress between batches.
       setLoadingMessage("Gerando demandas normais...");
-      setPollingProgress(10);
-      const defaultResult = await generateSinglePlan(periodPlan.id, 'default');
-      if (!defaultResult.success) {
-        throw new Error(defaultResult.error || 'Erro ao gerar plano Normal');
+      setPollingProgress(5);
+      // Reset local default state for this fresh generation
+      setDefaultPlan([]);
+
+      const batches = activeProductionLine
+        .filter(b => b.quantity > 0)
+        .map(b => ({ type: b.type, quantity: b.quantity }));
+
+      let accumulatedDefault: PlanItem[] = [];
+      for (let i = 0; i < batches.length; i++) {
+        const b = batches[i];
+        const isFinalBatch = i === batches.length - 1;
+        setLoadingMessage(`Gerando ${b.quantity} ${b.type} (${i + 1}/${batches.length})...`);
+        // Update local state so the polling slice math uses the right baseline
+        setDefaultPlan(accumulatedDefault);
+        const batchResult = await generateSinglePlan(periodPlan.id, 'default', {
+          batchType: b.type,
+          batchQuantity: b.quantity,
+          isFinalBatch,
+        });
+        if (!batchResult.success) {
+          // Surface clear error AND keep what was already saved on DB.
+          throw new Error(batchResult.error || `Falha ao gerar ${b.type}`);
+        }
+        // Prefer mergedDefaultPlan from edge function for accuracy
+        if (batchResult.mergedDefaultPlan && Array.isArray(batchResult.mergedDefaultPlan)) {
+          accumulatedDefault = batchResult.mergedDefaultPlan as PlanItem[];
+        } else {
+          accumulatedDefault = [...accumulatedDefault, ...((batchResult.plan as PlanItem[]) || [])];
+        }
+        setDefaultPlan(accumulatedDefault);
       }
-      setDefaultPlan(defaultResult.plan as PlanItem[] || []);
+
+      const planData = accumulatedDefault;
       setPollingProgress(100);
 
-      // Save plan data to DB (fallback in case edge function didn't persist)
-      const planData = defaultResult.plan as PlanItem[] || [];
-      const { error: saveError } = await supabase.from('period_plans').update({ 
+      // Final consistency save
+      const { error: saveError } = await supabase.from('period_plans').update({
         status: 'review_normal_done',
         default_plan: planData as unknown as null
       }).eq('id', periodPlan.id);
