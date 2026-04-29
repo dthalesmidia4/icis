@@ -307,10 +307,16 @@ Cada demanda: {"tipo":"...","titulo":"...","objetivo":"...","conteudo":"conteúd
 Formato: {"plan":[...],"summary":"resumo curto"}`;
     console.log('Calling OpenAI for planType:', planType);
     
-    // AbortController with 110s timeout to guarantee 40s for early save before 150s wall clock
+    // Adaptive timeout: small batches finish fast, give them less budget so the
+    // edge function can return well within the 150s wall clock and the early
+    // save always has time to persist.
+    const isBatch = !!(batchType && batchQuantity);
+    const timeoutMs = isBatch ? 80000 : 110000;
+    const maxTokens = isBatch ? Math.min(3500, batchQuantity! * 700 + 800) : 6000;
+
     const abortController = new AbortController();
-    const fetchTimeout = setTimeout(() => abortController.abort(), 110000);
-    
+    const fetchTimeout = setTimeout(() => abortController.abort(), timeoutMs);
+
     let response: Response;
     try {
       response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -325,9 +331,7 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
             { role: 'developer', content: systemPrompt + jsonInstruction },
             { role: 'user', content: context }
           ],
-          // Reduzido de 10000 → 6000 para diminuir latência da resposta da LLM
-          // e garantir que a geração caiba na janela de 110s antes do early save.
-          max_completion_tokens: 6000,
+          max_completion_tokens: maxTokens,
           response_format: { type: 'json_object' },
         }),
         signal: abortController.signal,
@@ -335,7 +339,7 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
     } catch (fetchErr: any) {
       clearTimeout(fetchTimeout);
       if (fetchErr.name === 'AbortError') {
-        console.error('OpenAI fetch aborted after 110s timeout');
+        console.error(`OpenAI fetch aborted after ${timeoutMs}ms timeout`);
         throw new Error('A geração demorou muito. Tente novamente com menos observações ou reduza a quantidade de conteúdos.');
       }
       throw fetchErr;
