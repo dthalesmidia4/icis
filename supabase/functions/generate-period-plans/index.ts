@@ -302,7 +302,9 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
             { role: 'developer', content: systemPrompt + jsonInstruction },
             { role: 'user', content: context }
           ],
-          max_completion_tokens: 10000,
+          // Reduzido de 10000 → 6000 para diminuir latência da resposta da LLM
+          // e garantir que a geração caiba na janela de 110s antes do early save.
+          max_completion_tokens: 6000,
           response_format: { type: 'json_object' },
         }),
         signal: abortController.signal,
@@ -310,8 +312,8 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
     } catch (fetchErr: any) {
       clearTimeout(fetchTimeout);
       if (fetchErr.name === 'AbortError') {
-        console.error('OpenAI fetch aborted after 140s timeout');
-        throw new Error('A geração demorou muito. Tente novamente com menos observações.');
+        console.error('OpenAI fetch aborted after 110s timeout');
+        throw new Error('A geração demorou muito. Tente novamente com menos observações ou reduza a quantidade de conteúdos.');
       }
       throw fetchErr;
     }
