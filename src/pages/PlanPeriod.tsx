@@ -253,15 +253,17 @@ const PlanPeriod = () => {
   }, [loadingHistory, periodHistory]);
 
   useEffect(() => {
-    if (!selectedClient) {
+    // Só redireciona se não houver cliente E não estiver no meio de uma geração
+    // Evita kick-out durante operações longas quando o contexto pode oscilar
+    if (!selectedClient && currentStep === 'form') {
       toast.error("Nenhum cliente selecionado");
       navigate('/home');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!selectedClient || !tenantId) return null;
-  const displayName = selectedClient.fantasy_name || selectedClient.name;
+  if ((!selectedClient || !tenantId) && currentStep === 'form') return null;
+  const displayName = selectedClient?.fantasy_name || selectedClient?.name || '';
 
   // Resume incomplete period
   const handleResumeIncomplete = async () => {
