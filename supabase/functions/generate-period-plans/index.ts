@@ -497,17 +497,25 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
 
     if (periodPlanId && supabase) {
       try {
+        // If we already saved some default demands, keep a recoverable status
+        // (generating_default) instead of marking the whole period as 'error'.
+        const { data: cur } = await (supabase as any)
+          .from('period_plans')
+          .select('default_plan')
+          .eq('id', periodPlanId)
+          .maybeSingle();
+        const hasPartial = cur?.default_plan && Array.isArray(cur.default_plan) && cur.default_plan.length > 0;
         await (supabase as any)
           .from('period_plans')
-          .update({ status: 'error' })
+          .update({ status: hasPartial ? 'generating_default' : 'error' })
           .eq('id', periodPlanId);
       } catch {
         // ignore
       }
     }
 
-    return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Erro desconhecido' 
+    return new Response(JSON.stringify({
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
