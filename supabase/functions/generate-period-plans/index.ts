@@ -284,9 +284,9 @@ Cada demanda: {"tipo":"...","titulo":"...","objetivo":"...","conteudo":"conteúd
 Formato: {"plan":[...],"summary":"resumo curto"}`;
     console.log('Calling OpenAI for planType:', planType);
     
-    // AbortController with 115s timeout to guarantee time for early save before 150s wall clock
+    // AbortController with 110s timeout to guarantee 40s for early save before 150s wall clock
     const abortController = new AbortController();
-    const fetchTimeout = setTimeout(() => abortController.abort(), 140000);
+    const fetchTimeout = setTimeout(() => abortController.abort(), 110000);
     
     let response: Response;
     try {

@@ -253,7 +253,9 @@ const PlanPeriod = () => {
   }, [loadingHistory, periodHistory]);
 
   useEffect(() => {
-    if (!selectedClient) {
+    // Só redireciona se não houver cliente E não estiver no meio de uma geração
+    // Evita kick-out durante operações longas quando o contexto pode oscilar
+    if (!selectedClient && currentStep === 'form') {
       toast.error("Nenhum cliente selecionado");
       navigate('/home');
     }
