@@ -60,6 +60,16 @@ Deno.serve(async (req) => {
     
     const periodPlan = periodPlanData as any;
 
+    // Mark plan as actively generating ASAP so it never stays as silent 'draft'
+    try {
+      const intentStatus = planType === 'ultra' ? 'generating_ultra' : 'generating_default';
+      if (periodPlan.status === 'draft' || periodPlan.status === 'error') {
+        await (supabase as any).from('period_plans').update({ status: intentStatus }).eq('id', periodPlanId);
+      }
+    } catch (e) {
+      console.warn('Failed to set early intent status:', e);
+    }
+
     // Fetch company data
     const { data: companyData, error: companyError } = await supabase
       .from('tenant_companies')
