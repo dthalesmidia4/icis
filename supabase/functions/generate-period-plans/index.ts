@@ -269,15 +269,25 @@ Observações: ${periodPlan.observations || 'Nenhuma'}${contentReqs}${calendarCt
     
     let volumeInstruction = '';
     let demandLimit: number;
-    
+
     if (planType === 'default') {
-      demandLimit = fixedProductionLine.reduce((s, r) => s + r.quantity, 0);
-      const distribution = fixedProductionLine.map(item => `${item.quantity} ${item.type}`).join(', ');
-      volumeInstruction = `
+      if (batchType && batchQuantity) {
+        // BATCH MODE: generate only this single format type
+        demandLimit = batchQuantity;
+        volumeInstruction = `
+REGRA OBRIGATÓRIA DE VOLUME (LOTE ÚNICO):
+Gere exatamente ${batchQuantity} demandas, TODAS do tipo "${batchType}".
+O campo "tipo" de CADA demanda DEVE ser exatamente "${batchType}".
+NÃO gere outros formatos.`;
+      } else {
+        demandLimit = fixedProductionLine.reduce((s, r) => s + r.quantity, 0);
+        const distribution = fixedProductionLine.map(item => `${item.quantity} ${item.type}`).join(', ');
+        volumeInstruction = `
 REGRA OBRIGATÓRIA DE VOLUME:
 Gere exatamente: ${distribution}.
 Total: ${demandLimit} demandas. O campo "tipo" de cada demanda DEVE corresponder exatamente ao tipo definido.
 NÃO gere formatos não listados. NÃO compense quantidade de um formato com outro.`;
+      }
     } else {
       demandLimit = 3;
     }
