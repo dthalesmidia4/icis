@@ -185,8 +185,16 @@ const PlanPeriod = () => {
         const historyData = data as unknown as PeriodPlanHistory[] || [];
         setPeriodHistory(historyData);
 
-        // Check for incomplete periods
-        const incomplete = historyData.find(p => p.status === 'generating_default' || p.status === 'generating_ultra');
+        // Check for incomplete periods.
+        // Includes anything that's mid-flight OR a draft/error that already has
+        // partial demands persisted from an early save (so users can resume).
+        const incomplete = historyData.find(p => {
+          const recoverableStatus = p.status === 'generating_default' || p.status === 'generating_ultra';
+          const hasPartial = Array.isArray(p.default_plan) && p.default_plan.length > 0
+            && (!Array.isArray(p.final_plan) || p.final_plan.length === 0);
+          const stuckDraft = (p.status === 'draft' || p.status === 'error') && hasPartial;
+          return recoverableStatus || stuckDraft;
+        });
         if (incomplete) {
           setIncompletePeriod(incomplete);
         }
