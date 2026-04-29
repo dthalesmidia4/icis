@@ -350,50 +350,72 @@ const PlanPeriod = () => {
   };
 
   // Generate a single plan type - use direct response, polling as fallback
-  const generateSinglePlan = async (planId: string, planType: 'default' | 'ultra'): Promise<{ success: boolean; plan?: any[]; error?: string }> => {
-    // Start edge function (don't await - it may timeout)
+  const generateSinglePlan = async (
+    planId: string,
+    planType: 'default' | 'ultra',
+    options?: { batchType?: string; batchQuantity?: number; isFinalBatch?: boolean }
+  ): Promise<{ success: boolean; plan?: any[]; mergedDefaultPlan?: any[]; error?: string }> => {
     let directResult: any = null;
+    let directMerged: any = null;
     const customQuantity = Math.max(1, Math.min(50, Number(quantidadeConteudos) || productionLineTotal));
+    const invokeBody: Record<string, any> = { periodPlanId: planId, tenantId, planType, customQuantity };
+    if (options?.batchType) invokeBody.batchType = options.batchType;
+    if (options?.batchQuantity) invokeBody.batchQuantity = options.batchQuantity;
+    if (options?.isFinalBatch) invokeBody.isFinalBatch = true;
+
+    let directError: any = null;
     const edgeFunctionPromise = supabase.functions.invoke('generate-period-plans', {
-      body: { periodPlanId: planId, tenantId, planType, customQuantity }
+      body: invokeBody
     }).then(({ data, error }) => {
-      console.log(`[PlanPeriod] Edge function response (${planType}):`, { data: data ? 'received' : null, error });
-      if (!error && data?.success && data?.plan && Array.isArray(data.plan) && data.plan.length > 0) {
+      console.log(`[PlanPeriod] Edge function response (${planType}${options?.batchType ? `/${options.batchType}` : ''}):`, { hasData: !!data, error });
+      if (error) {
+        directError = error;
+        return;
+      }
+      if (data?.success && Array.isArray(data?.plan) && data.plan.length > 0) {
         directResult = data.plan;
+        directMerged = Array.isArray(data?.mergedDefaultPlan) ? data.mergedDefaultPlan : null;
       }
     }).catch(err => {
-      console.warn(`[PlanPeriod] Edge function invocation failed (${planType}):`, err);
+      directError = err;
+      console.warn(`[PlanPeriod] Edge function invocation failed:`, err);
     });
 
-    // Poll DB in parallel - edge function saves early now
     const fieldName = planType === 'default' ? 'default_plan' : 'ultra_plan';
-    for (let attempt = 0; attempt < 60; attempt++) {
-      setPollingProgress(Math.min(10 + attempt * 1.5, 95));
-      
-      // Check if direct response came through
+    const initialCount = (planType === 'default' && options?.batchType)
+      ? (defaultPlan?.length || 0)
+      : 0;
+
+    // Poll up to ~90s for batches, ~180s for full
+    const maxAttempts = options?.batchType ? 30 : 60;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      setPollingProgress(Math.min(10 + attempt * (options?.batchType ? 3 : 1.5), 95));
+
       if (directResult) {
-        console.log(`[PlanPeriod] Direct response: ${directResult.length} demands for ${planType}`);
-        return { success: true, plan: directResult };
+        return { success: true, plan: directResult, mergedDefaultPlan: directMerged };
+      }
+      if (directError) {
+        // Edge function returned a real error → stop polling immediately
+        break;
       }
 
       await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Poll DB
+
       try {
         const { data, error } = await supabase
           .from('period_plans')
           .select(`status, ${fieldName}`)
           .eq('id', planId)
           .single();
-        
+
         if (!error && data) {
-          if (data.status === 'error') {
+          if ((data as any).status === 'error') {
             return { success: false, error: 'Erro na geração. Verifique o prompt em /dev/prompts' };
           }
           const planData = (data as any)[fieldName];
-          if (planData && Array.isArray(planData) && planData.length > 0) {
-            console.log(`[PlanPeriod] Polling success: ${planData.length} demands for ${planType}`);
-            return { success: true, plan: planData };
+          if (planData && Array.isArray(planData) && planData.length > initialCount) {
+            const newSlice = planData.slice(initialCount);
+            return { success: true, plan: newSlice, mergedDefaultPlan: planData };
           }
         }
       } catch (pollErr) {
@@ -401,14 +423,12 @@ const PlanPeriod = () => {
       }
     }
 
-    // Final check on direct result
     await edgeFunctionPromise;
     if (directResult) {
-      return { success: true, plan: directResult };
+      return { success: true, plan: directResult, mergedDefaultPlan: directMerged };
     }
 
-    // (6) Re-hidratação final: checa o DB uma última vez antes de declarar falha.
-    // O early save da edge function pode ter persistido o plano mesmo após o timeout.
+    // Final DB check
     try {
       const { data: finalCheck } = await supabase
         .from('period_plans')
@@ -416,15 +436,18 @@ const PlanPeriod = () => {
         .eq('id', planId)
         .single();
       const finalPlan = (finalCheck as any)?.[fieldName];
-      if (finalPlan && Array.isArray(finalPlan) && finalPlan.length > 0) {
-        console.log(`[PlanPeriod] Recovered ${finalPlan.length} demands from early save (${planType})`);
-        return { success: true, plan: finalPlan };
+      if (finalPlan && Array.isArray(finalPlan) && finalPlan.length > initialCount) {
+        const newSlice = finalPlan.slice(initialCount);
+        return { success: true, plan: newSlice, mergedDefaultPlan: finalPlan };
       }
     } catch (finalErr) {
       console.warn('[PlanPeriod] Final DB check failed:', finalErr);
     }
 
-    return { success: false, error: 'Tempo limite excedido. Acesse a aba Histórico para retomar.' };
+    const errMsg = directError
+      ? (typeof directError === 'object' && directError?.message ? directError.message : 'Erro na geração')
+      : 'Tempo limite excedido. Acesse a aba Histórico para retomar.';
+    return { success: false, error: errMsg };
   };
 
   // Helper: save demands to Kanban
