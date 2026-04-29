@@ -407,7 +407,24 @@ const PlanPeriod = () => {
       return { success: true, plan: directResult };
     }
 
-    return { success: false, error: 'Tempo limite excedido. Tente retomar pela aba Histórico.' };
+    // (6) Re-hidratação final: checa o DB uma última vez antes de declarar falha.
+    // O early save da edge function pode ter persistido o plano mesmo após o timeout.
+    try {
+      const { data: finalCheck } = await supabase
+        .from('period_plans')
+        .select(`status, ${fieldName}`)
+        .eq('id', planId)
+        .single();
+      const finalPlan = (finalCheck as any)?.[fieldName];
+      if (finalPlan && Array.isArray(finalPlan) && finalPlan.length > 0) {
+        console.log(`[PlanPeriod] Recovered ${finalPlan.length} demands from early save (${planType})`);
+        return { success: true, plan: finalPlan };
+      }
+    } catch (finalErr) {
+      console.warn('[PlanPeriod] Final DB check failed:', finalErr);
+    }
+
+    return { success: false, error: 'Tempo limite excedido. Acesse a aba Histórico para retomar.' };
   };
 
   // Helper: save demands to Kanban
