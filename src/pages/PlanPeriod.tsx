@@ -748,7 +748,7 @@ const PlanPeriod = () => {
     } catch (error) {
       console.error('Error generating ultra:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao gerar planos ultra');
-      setCurrentStep('choose-ultra');
+      navigate('/approve-cards');
     }
   };
 
