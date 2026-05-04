@@ -350,7 +350,10 @@ Se faltar espaço, reduza o tamanho do campo "conteudo" antes de omitir itens do
     // save always has time to persist.
     const isBatch = !!(batchType && batchQuantity);
     const timeoutMs = isBatch ? 80000 : 110000;
-    const maxTokens = isBatch ? Math.min(2200, batchQuantity! * 420 + 500) : 3200;
+    // gpt-5-mini consumes a large slice of max_completion_tokens on internal
+    // reasoning. Give the model enough headroom so the JSON content is never
+    // truncated to an empty string (finish_reason=length).
+    const maxTokens = isBatch ? Math.min(8000, batchQuantity! * 1200 + 3500) : 12000;
 
     const abortController = new AbortController();
     const fetchTimeout = setTimeout(() => abortController.abort(), timeoutMs);
