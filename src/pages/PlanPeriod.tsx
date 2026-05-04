@@ -273,19 +273,15 @@ const PlanPeriod = () => {
   if ((!selectedClient || !tenantId) && currentStep === 'form') return null;
   const displayName = selectedClient?.fantasy_name || selectedClient?.name || '';
 
-  // Resume incomplete period
+  // Resume incomplete period: just go straight to approval (auto flow).
   const handleResumeIncomplete = async () => {
     if (!incompletePeriod) return;
     setPeriodPlanId(incompletePeriod.id);
     setDefaultPlan(incompletePeriod.default_plan as PlanItem[] || []);
     setUltraPlan(incompletePeriod.ultra_plan as PlanItem[] || []);
-    
-    if (incompletePeriod.default_plan && incompletePeriod.default_plan.length > 0) {
-      setNormalSavedCount(incompletePeriod.default_plan.length);
-      setCurrentStep('choose-ultra');
-    }
     setIncompletePeriod(null);
-    toast.success("Período retomado com sucesso!");
+    toast.success("Período retomado. Abrindo aprovação...");
+    navigate('/approve-cards');
   };
 
   const dismissIncomplete = () => {
@@ -595,28 +591,53 @@ const PlanPeriod = () => {
         .map(b => ({ type: b.type, quantity: b.quantity }));
 
       let accumulatedDefault: PlanItem[] = [];
-      for (let i = 0; i < batches.length; i++) {
-        const b = batches[i];
-        const isFinalBatch = i === batches.length - 1;
-        setLoadingMessage(`Gerando ${b.quantity} ${b.type} (${i + 1}/${batches.length})...`);
-        // Update local state so the polling slice math uses the right baseline
+      const missing: { type: string; quantity: number }[] = [];
+
+      const runBatch = async (b: { type: string; quantity: number }, isFinalBatch: boolean) => {
+        const before = accumulatedDefault.length;
         setDefaultPlan(accumulatedDefault);
         const batchResult = await generateSinglePlan(periodPlan.id, 'default', {
           batchType: b.type,
           batchQuantity: b.quantity,
           isFinalBatch,
         });
-        if (!batchResult.success) {
-          // Surface clear error AND keep what was already saved on DB.
-          throw new Error(batchResult.error || `Falha ao gerar ${b.type}`);
-        }
-        // Prefer mergedDefaultPlan from edge function for accuracy
-        if (batchResult.mergedDefaultPlan && Array.isArray(batchResult.mergedDefaultPlan)) {
+        if (batchResult.success && Array.isArray(batchResult.mergedDefaultPlan)) {
           accumulatedDefault = batchResult.mergedDefaultPlan as PlanItem[];
-        } else {
-          accumulatedDefault = [...accumulatedDefault, ...((batchResult.plan as PlanItem[]) || [])];
+        } else if (batchResult.success && Array.isArray(batchResult.plan)) {
+          accumulatedDefault = [...accumulatedDefault, ...(batchResult.plan as PlanItem[])];
         }
         setDefaultPlan(accumulatedDefault);
+        const generated = accumulatedDefault.length - before;
+        return { ok: batchResult.success === true && generated >= b.quantity, generated };
+      };
+
+      for (let i = 0; i < batches.length; i++) {
+        const b = batches[i];
+        const isFinalBatch = i === batches.length - 1;
+        setLoadingMessage(`Gerando ${b.quantity} ${b.type} (${i + 1}/${batches.length})...`);
+        const { ok, generated } = await runBatch(b, isFinalBatch);
+        if (!ok) {
+          const remaining = Math.max(0, b.quantity - generated);
+          if (remaining > 0) missing.push({ type: b.type, quantity: remaining });
+          console.warn(`[PlanPeriod] Batch ${b.type} incompleto: gerou ${generated}/${b.quantity}`);
+        }
+      }
+
+      // Auto-retry missing batches once
+      if (missing.length > 0) {
+        setLoadingMessage(`Refazendo ${missing.length} lote(s) que falharam...`);
+        const stillMissing: { type: string; quantity: number }[] = [];
+        for (const m of missing) {
+          const { ok, generated } = await runBatch(m, true);
+          if (!ok) {
+            const remaining = Math.max(0, m.quantity - generated);
+            if (remaining > 0) stillMissing.push({ type: m.type, quantity: remaining });
+          }
+        }
+        if (stillMissing.length > 0) {
+          const list = stillMissing.map(s => `${s.quantity} ${s.type}`).join(', ');
+          toast.warning(`Algumas demandas não puderam ser geradas: ${list}. Você pode refazer depois.`);
+        }
       }
 
       const planData = accumulatedDefault;
@@ -727,7 +748,7 @@ const PlanPeriod = () => {
     } catch (error) {
       console.error('Error generating ultra:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao gerar planos ultra');
-      setCurrentStep('choose-ultra');
+      navigate('/approve-cards');
     }
   };
 
@@ -1367,43 +1388,8 @@ const PlanPeriod = () => {
       {currentStep === 'loading-normal' && renderLoading(loadingMessage)}
       {currentStep === 'loading-ultra' && renderLoading(loadingMessage)}
 
-      {currentStep === 'choose-ultra' && (
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center mb-4">
-            <Check className="w-8 h-8 text-white" />
-          </div>
-          <h2 className="text-2xl font-bold mb-2">Demandas Geradas!</h2>
-          <p className="text-muted-foreground mb-8">
-            {normalSavedCount} demandas foram geradas. O que deseja fazer agora?
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Card 
-              className="p-6 cursor-pointer hover:border-primary/50 hover:shadow-md transition-all text-left"
-              onClick={handleFinalizePlanning}
-            >
-              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                <Check className="w-6 h-6 text-foreground" />
-              </div>
-              <h3 className="font-semibold text-lg mb-2">Finalizar Planejamento</h3>
-              <p className="text-sm text-muted-foreground">
-                Ir para a tela de aprovação e revisar as demandas geradas.
-              </p>
-            </Card>
-            <Card 
-              className="p-6 cursor-pointer hover:border-primary/50 hover:shadow-md transition-all text-left border-primary/20 bg-primary/5"
-              onClick={handleGenerateUltra}
-            >
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center mb-4">
-                <Zap className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="font-semibold text-lg mb-2">Gerar Planos Ultra</h3>
-              <p className="text-sm text-muted-foreground">
-                Criar 3 demandas extras de alto impacto com ideias criativas e diferenciadas.
-              </p>
-            </Card>
-          </div>
-        </div>
-      )}
+      {/* choose-ultra step removed: flow now auto-generates ultra and goes
+          straight to /approve-cards. Kept type for backward compat only. */}
 
       {currentStep === 'completed' && renderCompleted()}
     </div>

@@ -355,79 +355,103 @@ Se faltar espaço, reduza o tamanho do campo "conteudo" antes de omitir itens do
     // truncated to an empty string (finish_reason=length).
     const maxTokens = isBatch ? Math.min(8000, batchQuantity! * 1200 + 3500) : 12000;
 
-    const abortController = new AbortController();
-    const fetchTimeout = setTimeout(() => abortController.abort(), timeoutMs);
-
-    let response: Response;
-    try {
-      response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKeyData.key_value}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-5-mini',
-          messages: [
-            { role: 'developer', content: systemPrompt + jsonInstruction },
-            { role: 'user', content: context }
-          ],
-          reasoning_effort: 'low',
-          max_completion_tokens: maxTokens,
-          response_format: { type: 'json_object' },
-        }),
-        signal: abortController.signal,
-      });
-    } catch (fetchErr: any) {
-      clearTimeout(fetchTimeout);
-      if (fetchErr.name === 'AbortError') {
-        console.error(`OpenAI fetch aborted after ${timeoutMs}ms timeout`);
-        throw new Error('A geração demorou muito. Tente novamente com menos observações ou reduza a quantidade de conteúdos.');
+    // Retry loop: gpt-5-mini sometimes burns all completion tokens on internal
+    // reasoning and returns empty content. Retry up to 3x with bigger budget.
+    let parsed: any = null;
+    let lastErr = '';
+    const attempts = 3;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      const attemptTokens = Math.min(16000, Math.round(maxTokens * (1 + 0.5 * (attempt - 1))));
+      const abortController = new AbortController();
+      const fetchTimeout = setTimeout(() => abortController.abort(), timeoutMs);
+      let response: Response;
+      try {
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKeyData.key_value}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-5-mini',
+            messages: [
+              { role: 'developer', content: systemPrompt + jsonInstruction },
+              { role: 'user', content: context }
+            ],
+            reasoning_effort: 'low',
+            max_completion_tokens: attemptTokens,
+            response_format: { type: 'json_object' },
+          }),
+          signal: abortController.signal,
+        });
+      } catch (fetchErr: any) {
+        clearTimeout(fetchTimeout);
+        lastErr = fetchErr?.name === 'AbortError' ? `timeout ${timeoutMs}ms` : (fetchErr?.message || 'fetch error');
+        console.error(`[attempt ${attempt}/${attempts}] OpenAI fetch failed: ${lastErr}`);
+        if (attempt === attempts) break;
+        continue;
       }
-      throw fetchErr;
-    }
-    clearTimeout(fetchTimeout);
+      clearTimeout(fetchTimeout);
 
-    const responseText = await response.text();
-    console.log('OpenAI response status:', response.status);
-    console.log('OpenAI response preview:', responseText.substring(0, 500));
+      const responseText = await response.text();
+      console.log(`[attempt ${attempt}/${attempts}] OpenAI status:`, response.status);
 
-    if (!response.ok) {
-      if (response.status === 429) throw new Error('Rate limit excedido. Tente novamente.');
-      if (response.status === 401) throw new Error('API Key inválida.');
-      throw new Error(`OpenAI API error: ${response.status} - ${responseText.substring(0, 200)}`);
-    }
+      if (!response.ok) {
+        lastErr = `HTTP ${response.status}: ${responseText.substring(0, 200)}`;
+        console.error(`[attempt ${attempt}/${attempts}] ${lastErr}`);
+        if (response.status === 401) break;
+        if (attempt === attempts) break;
+        continue;
+      }
 
-    let aiResponse;
-    try {
-      aiResponse = JSON.parse(responseText);
-    } catch {
-      throw new Error('Erro ao processar resposta da API OpenAI');
-    }
+      let aiResponse: any;
+      try { aiResponse = JSON.parse(responseText); } catch { lastErr = 'invalid JSON envelope'; continue; }
+      const finishReason = aiResponse.choices?.[0]?.finish_reason;
+      const content = extractMessageContent(aiResponse);
+      console.log(`[attempt ${attempt}/${attempts}] finish_reason: ${finishReason} | content length: ${content?.length || 0}`);
 
-    const finishReason = aiResponse.choices?.[0]?.finish_reason;
-    const content = extractMessageContent(aiResponse);
-    console.log('finish_reason:', finishReason, '| content length:', content?.length || 0);
+      if (!content) {
+        lastErr = `empty content (finish_reason: ${finishReason})`;
+        if (attempt === attempts) break;
+        continue;
+      }
 
-    if (!content) {
-      console.error('Full AI response:', JSON.stringify(aiResponse).substring(0, 1000));
-      throw new Error(`Resposta vazia da IA (finish_reason: ${finishReason}). Tente novamente.`);
-    }
-
-    // Parse JSON response
-    let parsed;
-    try {
-      let cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      const jsonMatch = cleanContent.match(/\{[\s\S]*"plan"[\s\S]*\}/);
-      if (jsonMatch) cleanContent = jsonMatch[0];
-      parsed = JSON.parse(cleanContent);
-    } catch {
-      throw new Error('Resposta da IA não está em formato JSON válido.');
+      try {
+        let cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const jsonMatch = cleanContent.match(/\{[\s\S]*"plan"[\s\S]*\}/);
+        if (jsonMatch) cleanContent = jsonMatch[0];
+        parsed = JSON.parse(cleanContent);
+        break;
+      } catch (e: any) {
+        lastErr = `JSON parse error: ${e?.message || e}`;
+        if (attempt === attempts) break;
+      }
     }
 
-    // Ensure correct channel
+    if (!parsed) {
+      console.error(`All ${attempts} attempts failed: ${lastErr}`);
+      // Return 200 + success:false so the caller can move on to the next batch
+      // instead of aborting the whole sequence.
+      return new Response(JSON.stringify({
+        success: false,
+        partial: true,
+        planType,
+        batchType: batchType || null,
+        batchQuantity: batchQuantity || null,
+        isFinalBatch,
+        plan: [],
+        error: `IA não retornou conteúdo após ${attempts} tentativas (${lastErr}).`,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // Ensure correct channel + normalize tipo to requested batchType (avoids
+    // accent/case mismatches deflating the count).
     const priorityChannel = periodPlan.priority_channel;
-    const planDemands = (parsed.plan || []).map((d: any) => ({ ...d, canal: priorityChannel }));
+    const planDemands = (parsed.plan || []).map((d: any) => ({
+      ...d,
+      canal: priorityChannel,
+      tipo: batchType ? batchType : (d.tipo || d.demand_type || ''),
+    }));
     const summary = parsed.summary || '';
 
     console.log(`${planType} plan demands:`, planDemands.length);
