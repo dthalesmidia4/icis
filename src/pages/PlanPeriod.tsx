@@ -1388,43 +1388,8 @@ const PlanPeriod = () => {
       {currentStep === 'loading-normal' && renderLoading(loadingMessage)}
       {currentStep === 'loading-ultra' && renderLoading(loadingMessage)}
 
-      {currentStep === 'choose-ultra' && (
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center mb-4">
-            <Check className="w-8 h-8 text-white" />
-          </div>
-          <h2 className="text-2xl font-bold mb-2">Demandas Geradas!</h2>
-          <p className="text-muted-foreground mb-8">
-            {normalSavedCount} demandas foram geradas. O que deseja fazer agora?
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Card 
-              className="p-6 cursor-pointer hover:border-primary/50 hover:shadow-md transition-all text-left"
-              onClick={handleFinalizePlanning}
-            >
-              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                <Check className="w-6 h-6 text-foreground" />
-              </div>
-              <h3 className="font-semibold text-lg mb-2">Finalizar Planejamento</h3>
-              <p className="text-sm text-muted-foreground">
-                Ir para a tela de aprovação e revisar as demandas geradas.
-              </p>
-            </Card>
-            <Card 
-              className="p-6 cursor-pointer hover:border-primary/50 hover:shadow-md transition-all text-left border-primary/20 bg-primary/5"
-              onClick={handleGenerateUltra}
-            >
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center mb-4">
-                <Zap className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="font-semibold text-lg mb-2">Gerar Planos Ultra</h3>
-              <p className="text-sm text-muted-foreground">
-                Criar 3 demandas extras de alto impacto com ideias criativas e diferenciadas.
-              </p>
-            </Card>
-          </div>
-        </div>
-      )}
+      {/* choose-ultra step removed: flow now auto-generates ultra and goes
+          straight to /approve-cards. Kept type for backward compat only. */}
 
       {currentStep === 'completed' && renderCompleted()}
     </div>
