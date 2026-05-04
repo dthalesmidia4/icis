@@ -273,19 +273,15 @@ const PlanPeriod = () => {
   if ((!selectedClient || !tenantId) && currentStep === 'form') return null;
   const displayName = selectedClient?.fantasy_name || selectedClient?.name || '';
 
-  // Resume incomplete period
+  // Resume incomplete period: just go straight to approval (auto flow).
   const handleResumeIncomplete = async () => {
     if (!incompletePeriod) return;
     setPeriodPlanId(incompletePeriod.id);
     setDefaultPlan(incompletePeriod.default_plan as PlanItem[] || []);
     setUltraPlan(incompletePeriod.ultra_plan as PlanItem[] || []);
-    
-    if (incompletePeriod.default_plan && incompletePeriod.default_plan.length > 0) {
-      setNormalSavedCount(incompletePeriod.default_plan.length);
-      setCurrentStep('choose-ultra');
-    }
     setIncompletePeriod(null);
-    toast.success("Período retomado com sucesso!");
+    toast.success("Período retomado. Abrindo aprovação...");
+    navigate('/approve-cards');
   };
 
   const dismissIncomplete = () => {
