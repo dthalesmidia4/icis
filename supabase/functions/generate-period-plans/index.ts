@@ -444,9 +444,14 @@ Se faltar espaço, reduza o tamanho do campo "conteudo" antes de omitir itens do
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Ensure correct channel
+    // Ensure correct channel + normalize tipo to requested batchType (avoids
+    // accent/case mismatches deflating the count).
     const priorityChannel = periodPlan.priority_channel;
-    const planDemands = (parsed.plan || []).map((d: any) => ({ ...d, canal: priorityChannel }));
+    const planDemands = (parsed.plan || []).map((d: any) => ({
+      ...d,
+      canal: priorityChannel,
+      tipo: batchType ? batchType : (d.tipo || d.demand_type || ''),
+    }));
     const summary = parsed.summary || '';
 
     console.log(`${planType} plan demands:`, planDemands.length);
