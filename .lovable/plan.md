@@ -1,74 +1,42 @@
-Diagnóstico atual
+# Correção: 404 do modelo nas funções auto-generate-*
 
-A geração ainda está falhando no backend antes de salvar qualquer demanda.
+## Causa raiz confirmada
 
-Evidências confirmadas:
-- O último período criado (`a40b7e08-6343-4e1f-a56e-a074f1ebee4a`, 20:51 UTC) continua com `status = draft` e `default_plan = 0`, `ultra_plan = 0`, `final_plan = 0`.
-- Os 4 últimos testes recentes estão no mesmo padrão: criam o registro, mas não persistem demandas.
-- Os logs da Edge Function `generate-period-plans` mostram a sequência:
-  1. início normal da função
-  2. prompts carregados com sucesso
-  3. chamada ao OpenAI para `planType: default`
-  4. aborto após 110s
-  5. erro: “A geração demorou muito...”
-- O payload ainda está pesado: prompts ativos com ~6.6k + ~5.8k caracteres, além de respostas da anamnese com ~5.4k caracteres. Mesmo com truncamentos, a chamada continua grande para uma geração única.
-- No frontend, a barra de progresso ainda é sintética e o polling pode continuar por até 180s, então o usuário vê “carregando” por bastante tempo mesmo quando o backend já falhou.
-- A lógica de retomada não cobre bem esse caso porque os registros presos continuam em `draft`, então não entram como “período incompleto”.
+1. **Secret ausente**: `GOOGLE_API_KEY` não existe no projeto. Só `LOVABLE_API_KEY` está configurada.
+2. **Modelo inválido na API pública**: `gemini-3-pro-image-preview` só existe no Lovable AI Gateway. Na API pública do Google seria `gemini-2.5-flash-image-preview`.
+3. **Inconsistência**: `generate-video-scene` usa `GEMINI_API_KEY`, enquanto `auto-generate-*` tenta `GOOGLE_API_KEY` — duas variáveis diferentes para a mesma plataforma.
 
-Conclusão
+## Solução: usar Lovable AI Gateway
 
-As correções anteriores melhoraram a estabilidade da tela, mas o gargalo principal continua sendo a geração do plano default em uma única chamada muito pesada. O problema agora é predominantemente de arquitetura do fluxo de geração, não mais apenas de navegação/redirect.
+Já temos `LOVABLE_API_KEY` configurada e a memória do projeto define que o gateway é o caminho preferencial para imagens (Nano Banana Pro = `google/gemini-3-pro-image-preview`).
 
-Plano de correção
+### Mudanças em `supabase/functions/auto-generate-post/index.ts`
 
-1. Tornar o status persistente desde o primeiro segundo
-- Atualizar o fluxo para gravar `status = generating_default` imediatamente antes da chamada pesada.
-- Garantir que timeout/erro gravem um estado recuperável em vez de deixar o período preso em `draft`.
-- Fazer a retomada considerar também drafts recentes sem plano salvo, para não “sumirem” da recuperação.
+- Substituir endpoint `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`
+- Por: `https://ai.gateway.lovable.dev/v1/chat/completions`
+- Header: `Authorization: Bearer ${Deno.env.get("LOVABLE_API_KEY")}`
+- Body: formato OpenAI-compatible com `model: "google/gemini-3-pro-image-preview"`, `modalities: ["image","text"]`, mensagens com `image_url` (base64) para anexos de referência
+- Parsear retorno: `data.choices[0].message.images[0].image_url.url` (data URL base64)
+- Tratar 429 (rate limit) e 402 (créditos esgotados) com mensagem clara ao frontend
 
-2. Quebrar a geração default em lotes menores
-- Em vez de pedir todas as demandas de uma vez, dividir a geração do plano normal em blocos menores.
-- A melhor divisão aqui é por linha de produção ou pequenos batches (ex.: 4 estáticos, 2 vídeos, 4 carrosséis em etapas separadas).
-- Salvar parcialmente no `default_plan` após cada lote concluído.
-- Se um lote falhar, preservar o que já foi gerado e permitir retomada.
+### Mudanças em `supabase/functions/auto-generate-carousel/index.ts`
 
-3. Enxugar o contexto enviado para a IA
-- Reduzir o contexto da chamada default para o estritamente necessário.
-- Usar uma versão resumida da estratégia/perguntas para o plano normal.
-- Reservar instruções mais extensas e “macro” para o plano ultra, onde faz mais sentido.
-- Revisar o limite de tokens e o modelo usado na chamada default para priorizar velocidade.
+- Mesma migração na linha 410 (geração de cada slide)
+- Manter loop sequencial de slides e a lógica de batch já existente
 
-4. Corrigir o feedback do frontend
-- Parar o polling assim que a invoke retornar erro real, sem manter a barra falsa por muito tempo.
-- Mostrar erro específico de timeout logo que ele acontecer.
-- Exibir opção clara de “retomar geração” ou “tentar novamente a partir do que já foi salvo”.
-- Ajustar o critério de período incompleto para incluir esse cenário atual.
+### Validação
 
-5. Validar com teste real do fluxo
-- Executar novo teste no mesmo cliente.
-- Confirmar no banco que o período sai de `draft` imediatamente.
-- Confirmar nos logs que cada lote conclui dentro da janela.
-- Confirmar que, se houver falha, o usuário consegue retomar sem perder tudo.
+- Após deploy, chamar manualmente `auto-generate-post` via curl_edge_functions com payload mínimo (uma demanda existente) e checar:
+  - Status 200 + URL de imagem salva no storage
+  - Logs sem 404
+- Repetir para `auto-generate-carousel` com 1 slide
 
-Detalhes técnicos
+### Não faz parte deste plano
 
-Arquivos mais prováveis de alteração:
-- `supabase/functions/generate-period-plans/index.ts`
-- `src/pages/PlanPeriod.tsx`
+- Re-adicionar dropdowns Tipo/Canal no `CreateDemandModal` (problema #1 da imagem) — fica para próxima rodada se você confirmar.
+- Mexer em `generate-video-scene` (funciona, usa Veo direto com `GEMINI_API_KEY` que já existe).
 
-Mudanças técnicas previstas:
-- Persistência antecipada de status.
-- Geração incremental com early save parcial.
-- Redução do payload/contexto do plano normal.
-- Polling alinhado ao estado real da Edge Function.
-- Reidratação/retomada para períodos presos em `draft` ou parcialmente gerados.
+## Arquivos afetados
 
-Resultado esperado
-
-Após essas mudanças, o fluxo deixa de depender de uma única resposta longa da IA. Mesmo se houver lentidão, o sistema passa a:
-- mostrar estado correto,
-- salvar progresso parcial,
-- permitir retomada,
-- e evitar que o usuário fique preso vendo porcentagem sem geração concluída.
-
-Se você aprovar, eu sigo com essa correção estrutural agora.
+- `supabase/functions/auto-generate-post/index.ts`
+- `supabase/functions/auto-generate-carousel/index.ts`
