@@ -226,12 +226,12 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
 - IMPORTANTE: Gere um POST COMPLETO para rede social, não apenas um elemento isolado
 `.trim();
 
-    console.log("Calling Gemini 3 Pro Image (gemini-3-pro-image-preview) via Google AI Studio...");
+    console.log("Calling Nano Banana Pro (google/gemini-3-pro-image-preview) via Lovable AI Gateway...");
 
-    // 9. Build parts with optional mascot + logo reference images
-    const parts: any[] = [{ text: imagePrompt }];
+    // 9. Build user content with optional mascot + logo reference images
+    const userContent: any[] = [{ type: "text", text: imagePrompt }];
 
-    const fetchImageInline = async (url: string): Promise<{ mimeType: string; data: string } | null> => {
+    const fetchImageDataUrl = async (url: string): Promise<string | null> => {
       try {
         const imgResp = await fetch(url);
         if (!imgResp.ok) return null;
@@ -242,7 +242,8 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
         for (let i = 0; i < bytes.length; i += chunkSize) {
           binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
         }
-        return { mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) };
+        const mime = imgResp.headers.get("content-type") || "image/png";
+        return `data:${mime};base64,${btoa(binary)}`;
       } catch (e) {
         console.error("Failed to fetch image:", e);
         return null;
@@ -251,39 +252,39 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
 
     if (mascotImageUrls.length > 0) {
       for (const url of mascotImageUrls) {
-        const inline = await fetchImageInline(url);
-        if (inline) {
-          parts.push({ inlineData: inline });
-          console.log(`  → Mascot reference image attached as inline_data`);
+        const dataUrl = await fetchImageDataUrl(url);
+        if (dataUrl) {
+          userContent.push({ type: "image_url", image_url: { url: dataUrl } });
+          console.log("  → Mascot reference image attached");
         }
       }
     }
 
     if (logoUrl) {
-      const logoInline = await fetchImageInline(logoUrl);
-      if (logoInline) {
-        parts.push({ inlineData: logoInline });
-        console.log("  → Logo reference image attached as inline_data");
+      const logoDataUrl = await fetchImageDataUrl(logoUrl);
+      if (logoDataUrl) {
+        userContent.push({ type: "image_url", image_url: { url: logoDataUrl } });
+        console.log("  → Logo reference image attached");
       }
     }
 
-    // 10. Call Gemini 3 Pro Image via Google AI Studio
-    const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
-
-    const response = await fetch(googleApiUrl, {
+    // 10. Call Nano Banana Pro via Lovable AI Gateway
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: {
-          responseModalities: ["IMAGE", "TEXT"],
-        },
+        model: "google/gemini-3-pro-image-preview",
+        messages: [{ role: "user", content: userContent }],
+        modalities: ["image", "text"],
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Gemini 3 Pro Image error:", response.status, errorText);
+      console.error("Lovable AI Gateway error:", response.status, errorText);
 
       if (response.status === 429) {
         return new Response(
@@ -291,30 +292,31 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "Créditos do Lovable AI esgotados. Adicione créditos em Settings > Workspace > Usage." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       return new Response(
-        JSON.stringify({ error: `Erro do Google AI Studio: ${response.status}` }),
+        JSON.stringify({ error: `Erro do Lovable AI Gateway: ${response.status}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const data = await response.json();
 
-    // Extract base64 image from Gemini response
+    // Extract base64 image from Lovable AI Gateway response (data URL format)
+    const imageDataUrl: string | undefined = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
     let imageBase64 = "";
     let imageMimeType = "image/png";
-    const candidates = data.candidates || [];
-    for (const candidate of candidates) {
-      const candidateParts = candidate.content?.parts || [];
-      for (const part of candidateParts) {
-        const inlineData = part.inlineData || part.inline_data;
-        if (inlineData) {
-          imageBase64 = inlineData.data;
-          imageMimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
-          break;
-        }
+    if (imageDataUrl && imageDataUrl.startsWith("data:")) {
+      const match = imageDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        imageMimeType = match[1];
+        imageBase64 = match[2];
       }
-      if (imageBase64) break;
     }
 
     if (!imageBase64) {
