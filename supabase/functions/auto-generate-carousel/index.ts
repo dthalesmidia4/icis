@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
     const slideCount = 5;
 
     // ============ STEP 1: Generate slide texts via OpenAI ============
-    console.log(`Step 1: Generating ${slideCount} slide texts via OpenAI o4-mini...`);
+    console.log(`Step 1: Generating ${slideCount} slide texts via OpenAI gpt-5-mini...`);
 
     const mascotInfo = mascotImageUrl
       ? `O cliente possui um mascote oficial. ${client?.mascot_description ? `Descrição: ${client.mascot_description}.` : ""}`
