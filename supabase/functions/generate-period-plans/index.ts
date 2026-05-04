@@ -5,6 +5,31 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const truncateText = (value: unknown, maxLength: number) => {
+  const normalized = typeof value === 'string'
+    ? value.replace(/\s+/g, ' ').trim()
+    : '';
+
+  if (!normalized) return '';
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
+};
+
+const extractMessageContent = (aiResponse: any) => {
+  const rawContent = aiResponse?.choices?.[0]?.message?.content;
+
+  if (typeof rawContent === 'string') return rawContent.trim();
+
+  if (Array.isArray(rawContent)) {
+    return rawContent
+      .map((part: any) => typeof part === 'string' ? part : part?.text || '')
+      .join('')
+      .trim();
+  }
+
+  return '';
+};
+
 Deno.serve(async (req) => {
   const startTime = Date.now();
   if (req.method === 'OPTIONS') {
