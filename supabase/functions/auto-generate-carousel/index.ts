@@ -78,11 +78,17 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Use Lovable AI Gateway (Nano Banana Pro)
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
+    // Fetch keys from api_keys table (Dev > APIs do Sistema)
+    const { data: googleKeyData } = await supabase
+      .from("api_keys")
+      .select("key_value")
+      .eq("key_name", "Google AI Studio")
+      .single();
+
+    const GOOGLE_API_KEY = googleKeyData?.key_value;
+    if (!GOOGLE_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "LOVABLE_API_KEY não configurada." }),
+        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys (Dev > APIs do Sistema)." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -96,7 +102,7 @@ Deno.serve(async (req) => {
     const OPENAI_API_KEY = openaiKeyData?.key_value;
     if (!OPENAI_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "Chave 'OPENAI_API_KEY' não encontrada na tabela api_keys." }),
+        JSON.stringify({ error: "Chave 'OPENAI_API_KEY' não encontrada na tabela api_keys (Dev > APIs do Sistema)." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -228,7 +234,7 @@ Deno.serve(async (req) => {
     const slideCount = 5;
 
     // ============ STEP 1: Generate slide texts via OpenAI ============
-    console.log(`Step 1: Generating ${slideCount} slide texts via OpenAI o4-mini...`);
+    console.log(`Step 1: Generating ${slideCount} slide texts via OpenAI gpt-5-mini...`);
 
     const mascotInfo = mascotImageUrl
       ? `O cliente possui um mascote oficial. ${client?.mascot_description ? `Descrição: ${client.mascot_description}.` : ""}`
@@ -259,7 +265,7 @@ REGRAS:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "o4-mini",
+        model: "gpt-5-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -454,33 +460,41 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
 
       console.log(`  → Generating slide ${slideNumber}/${slides.length}...`);
 
-      const userContent: any[] = [{ type: "text", text: imagePrompt }];
+      // Build Google AI Studio parts (text + optional inline reference images)
+      const parts: any[] = [{ text: imagePrompt }];
+
+      // Convert pre-fetched data URLs into Google inlineData format
+      const dataUrlToInline = (dataUrl: string): { mimeType: string; data: string } | null => {
+        const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (!m) return null;
+        return { mimeType: m[1], data: m[2] };
+      };
+
       if (mascotDataUrl) {
-        userContent.push({ type: "image_url", image_url: { url: mascotDataUrl } });
+        const inline = dataUrlToInline(mascotDataUrl);
+        if (inline) parts.push({ inlineData: inline });
       }
       if (logoDataUrl) {
-        userContent.push({ type: "image_url", image_url: { url: logoDataUrl } });
+        const inline = dataUrlToInline(logoDataUrl);
+        if (inline) parts.push({ inlineData: inline });
       }
 
       try {
-        const imgResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
+        const imgResponse = await fetch(googleApiUrl, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "google/gemini-3-pro-image-preview",
-            messages: [{ role: "user", content: userContent }],
-            modalities: ["image", "text"],
+            contents: [{ parts }],
+            generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
           }),
         });
 
         if (!imgResponse.ok) {
           const errText = await imgResponse.text();
           console.error(`Slide ${slideNumber} error:`, imgResponse.status, errText);
-          if (imgResponse.status === 429 || imgResponse.status === 402) {
-            console.warn(`Rate limit / credits at slide ${slideNumber}, stopping`);
+          if (imgResponse.status === 429) {
+            console.warn(`Rate limit at slide ${slideNumber}, stopping`);
             break;
           }
           continue;
@@ -488,16 +502,21 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
 
         const imgData = await imgResponse.json();
 
-        // Extract base64 image from Lovable AI Gateway response (data URL format)
-        const imageDataUrlResp: string | undefined = imgData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        // Extract base64 image from Gemini response
         let imageBase64 = "";
         let imageMimeType = "image/png";
-        if (imageDataUrlResp && imageDataUrlResp.startsWith("data:")) {
-          const match = imageDataUrlResp.match(/^data:([^;]+);base64,(.+)$/);
-          if (match) {
-            imageMimeType = match[1];
-            imageBase64 = match[2];
+        const candidates = imgData.candidates || [];
+        for (const candidate of candidates) {
+          const candidateParts = candidate.content?.parts || [];
+          for (const part of candidateParts) {
+            const inlineData = part.inlineData || part.inline_data;
+            if (inlineData) {
+              imageBase64 = inlineData.data;
+              imageMimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
+              break;
+            }
           }
+          if (imageBase64) break;
         }
 
         if (!imageBase64) {
