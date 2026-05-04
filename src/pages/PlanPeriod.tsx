@@ -595,28 +595,53 @@ const PlanPeriod = () => {
         .map(b => ({ type: b.type, quantity: b.quantity }));
 
       let accumulatedDefault: PlanItem[] = [];
-      for (let i = 0; i < batches.length; i++) {
-        const b = batches[i];
-        const isFinalBatch = i === batches.length - 1;
-        setLoadingMessage(`Gerando ${b.quantity} ${b.type} (${i + 1}/${batches.length})...`);
-        // Update local state so the polling slice math uses the right baseline
+      const missing: { type: string; quantity: number }[] = [];
+
+      const runBatch = async (b: { type: string; quantity: number }, isFinalBatch: boolean) => {
+        const before = accumulatedDefault.length;
         setDefaultPlan(accumulatedDefault);
         const batchResult = await generateSinglePlan(periodPlan.id, 'default', {
           batchType: b.type,
           batchQuantity: b.quantity,
           isFinalBatch,
         });
-        if (!batchResult.success) {
-          // Surface clear error AND keep what was already saved on DB.
-          throw new Error(batchResult.error || `Falha ao gerar ${b.type}`);
-        }
-        // Prefer mergedDefaultPlan from edge function for accuracy
-        if (batchResult.mergedDefaultPlan && Array.isArray(batchResult.mergedDefaultPlan)) {
+        if (batchResult.success && Array.isArray(batchResult.mergedDefaultPlan)) {
           accumulatedDefault = batchResult.mergedDefaultPlan as PlanItem[];
-        } else {
-          accumulatedDefault = [...accumulatedDefault, ...((batchResult.plan as PlanItem[]) || [])];
+        } else if (batchResult.success && Array.isArray(batchResult.plan)) {
+          accumulatedDefault = [...accumulatedDefault, ...(batchResult.plan as PlanItem[])];
         }
         setDefaultPlan(accumulatedDefault);
+        const generated = accumulatedDefault.length - before;
+        return { ok: batchResult.success === true && generated >= b.quantity, generated };
+      };
+
+      for (let i = 0; i < batches.length; i++) {
+        const b = batches[i];
+        const isFinalBatch = i === batches.length - 1;
+        setLoadingMessage(`Gerando ${b.quantity} ${b.type} (${i + 1}/${batches.length})...`);
+        const { ok, generated } = await runBatch(b, isFinalBatch);
+        if (!ok) {
+          const remaining = Math.max(0, b.quantity - generated);
+          if (remaining > 0) missing.push({ type: b.type, quantity: remaining });
+          console.warn(`[PlanPeriod] Batch ${b.type} incompleto: gerou ${generated}/${b.quantity}`);
+        }
+      }
+
+      // Auto-retry missing batches once
+      if (missing.length > 0) {
+        setLoadingMessage(`Refazendo ${missing.length} lote(s) que falharam...`);
+        const stillMissing: { type: string; quantity: number }[] = [];
+        for (const m of missing) {
+          const { ok, generated } = await runBatch(m, true);
+          if (!ok) {
+            const remaining = Math.max(0, m.quantity - generated);
+            if (remaining > 0) stillMissing.push({ type: m.type, quantity: remaining });
+          }
+        }
+        if (stillMissing.length > 0) {
+          const list = stillMissing.map(s => `${s.quantity} ${s.type}`).join(', ');
+          toast.warning(`Algumas demandas não puderam ser geradas: ${list}. Você pode refazer depois.`);
+        }
       }
 
       const planData = accumulatedDefault;
