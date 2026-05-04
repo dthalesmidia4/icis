@@ -1,42 +1,44 @@
-# Correção: 404 do modelo nas funções auto-generate-*
+## Diagnóstico
 
-## Causa raiz confirmada
+Verifiquei o último período no banco e os logs da edge function:
 
-1. **Secret ausente**: `GOOGLE_API_KEY` não existe no projeto. Só `LOVABLE_API_KEY` está configurada.
-2. **Modelo inválido na API pública**: `gemini-3-pro-image-preview` só existe no Lovable AI Gateway. Na API pública do Google seria `gemini-2.5-flash-image-preview`.
-3. **Inconsistência**: `generate-video-scene` usa `GEMINI_API_KEY`, enquanto `auto-generate-*` tenta `GOOGLE_API_KEY` — duas variáveis diferentes para a mesma plataforma.
+- O `production_line` salvo era **4 Post Estático / 2 Vídeos Curtos / 4 Carrossel** (total 10), exatamente como você escolheu.
+- Mas no `default_plan` ficaram salvas apenas **2 demandas (Vídeos Curtos)**.
+- Nos logs da `generate-period-plans` só aparece **uma chamada bem-sucedida** (lote "Vídeos Curtos", 2 demandas). Os lotes "Post Estático" e "Carrossel" não chegaram a completar — provavelmente um deles deu timeout ou retornou vazio do `gpt-5-mini`, o `for` em `handleCreatePeriod` lançou erro e parou o restante.
+- Como o EARLY SAVE acontece por lote, os 2 vídeos ficaram persistidos. Ao voltar à tela, o "Resume Incomplete" detectou o período inacabado e te jogou direto na tela **"Demandas Geradas! / Gerar Planos Ultra"** (`currentStep = 'choose-ultra'`) — por isso ela apareceu agora pela primeira vez. Antes, quando todos os lotes terminavam, o fluxo já gerava o Ultra automaticamente e ia direto para "Aprovar Produção".
 
-## Solução: usar Lovable AI Gateway
+Ou seja, são **dois problemas combinados**: lote fragilizado quebrando antes do fim + UI de retomada que para no meio do caminho.
 
-Já temos `LOVABLE_API_KEY` configurada e a memória do projeto define que o gateway é o caminho preferencial para imagens (Nano Banana Pro = `google/gemini-3-pro-image-preview`).
+## O que vou ajustar
 
-### Mudanças em `supabase/functions/auto-generate-post/index.ts`
+### 1) Edge `generate-period-plans` — robustez por lote
+- Adicionar **retry interno** (até 2 tentativas) quando o `gpt-5-mini` devolver `content` vazio (`finish_reason=length` ou similar) ou quando a chamada abortar por timeout. Na 2ª tentativa, reduzir ainda mais o contexto e subir `max_completion_tokens` para o lote.
+- Ao falhar definitivamente um lote, **retornar 200 com `success:false` + `partial:true`** (sem 5xx) para o frontend continuar com os próximos lotes em vez de abortar tudo.
+- Garantir que o `tipo` retornado seja normalizado para o `batchType` solicitado (alguns retornos vêm com variações de acento/caixa, que somem da contagem).
 
-- Substituir endpoint `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`
-- Por: `https://ai.gateway.lovable.dev/v1/chat/completions`
-- Header: `Authorization: Bearer ${Deno.env.get("LOVABLE_API_KEY")}`
-- Body: formato OpenAI-compatible com `model: "google/gemini-3-pro-image-preview"`, `modalities: ["image","text"]`, mensagens com `image_url` (base64) para anexos de referência
-- Parsear retorno: `data.choices[0].message.images[0].image_url.url` (data URL base64)
-- Tratar 429 (rate limit) e 402 (créditos esgotados) com mensagem clara ao frontend
+### 2) Frontend `PlanPeriod.tsx` — não abortar a sequência
+- No `for` de batches, trocar `throw` por **acumular falhas**: se um lote falha, segue para o próximo e guarda o tipo+quantidade que faltou.
+- Ao final, se faltar algum lote, fazer **uma rodada de retry automática** só dos lotes que faltaram (mesma chamada com `batchType`/`batchQuantity`).
+- Se ainda assim sobrar gap (ex.: 2 carrosséis faltando), exibir um `toast.warning` claro ("Geramos 8 de 10 demandas, faltou X — clique em Refazer faltantes") e um botão **"Gerar faltantes"** dentro de "Aprovar Produção" (chama a mesma edge só para o que falta).
 
-### Mudanças em `supabase/functions/auto-generate-carousel/index.ts`
+### 3) Voltar ao fluxo 100% automático (remover a tela "Gerar Planos Ultra")
+- A tela `choose-ultra` deixa de ser uma decisão do usuário no caminho feliz. Após todos os lotes default terminarem, o frontend já dispara o Ultra automaticamente e navega para `/approve-cards` (esse caminho já existe — vou só garantir que ele rode mesmo com falhas parciais).
+- No **"Resume Incomplete"** (caso o usuário recarregue no meio), em vez de cair em `choose-ultra`, vou:
+  - Detectar o que falta (lotes default não atingiram a meta? ultra não existe?).
+  - Disparar automaticamente as chamadas restantes (default faltando → ultra) e seguir para `/approve-cards`.
+  - O passo `choose-ultra` será removido do fluxo (e do tipo `Step`).
 
-- Mesma migração na linha 410 (geração de cada slide)
-- Manter loop sequencial de slides e a lógica de batch já existente
+### 4) Limpeza do período atual ("campanha teste maio 1")
+- Apenas como ação de uma vez: oferecer um botão "Gerar demandas faltantes" nesse período já existente para completar os 4 Post Estático e 4 Carrossel que ficaram faltando, sem precisar refazer o planejamento do zero.
 
-### Validação
+## Arquivos a editar
 
-- Após deploy, chamar manualmente `auto-generate-post` via curl_edge_functions com payload mínimo (uma demanda existente) e checar:
-  - Status 200 + URL de imagem salva no storage
-  - Logs sem 404
-- Repetir para `auto-generate-carousel` com 1 slide
+- `supabase/functions/generate-period-plans/index.ts` — retry interno, normalização de `tipo`, resposta `partial`.
+- `src/pages/PlanPeriod.tsx` — loop tolerante a falha + retry de lotes faltantes, remoção do passo `choose-ultra`, `handleResumeIncomplete` automático.
+- `src/pages/ApproveCards.tsx` — botão "Gerar faltantes" quando `default_plan.length < soma(production_line)`.
 
-### Não faz parte deste plano
+## Resultado esperado
 
-- Re-adicionar dropdowns Tipo/Canal no `CreateDemandModal` (problema #1 da imagem) — fica para próxima rodada se você confirmar.
-- Mexer em `generate-video-scene` (funciona, usa Veo direto com `GEMINI_API_KEY` que já existe).
-
-## Arquivos afetados
-
-- `supabase/functions/auto-generate-post/index.ts`
-- `supabase/functions/auto-generate-carousel/index.ts`
+- Você escolhe 10 (ou qualquer número) no "Planejar Período" → o sistema gera os 10 (com retry transparente nos lotes que falharem).
+- A tela "Demandas Geradas! / Gerar Planos Ultra" some — volta a ir direto para "Aprovar Produção" com normais + ultra prontos.
+- Se acontecer uma falha catastrófica, você tem um botão claro para completar o que faltou em vez de perder o trabalho.
