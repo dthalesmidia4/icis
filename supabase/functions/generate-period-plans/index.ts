@@ -197,14 +197,20 @@ Deno.serve(async (req) => {
       ? `\nEXIGÊNCIAS DE CONTEÚDO DO CLIENTE (PRIORIDADE ALTA - SIGA OBRIGATORIAMENTE): ${company.content_requirements}`
       : '';
 
-    const context = `Empresa: ${company.name} (${company.fantasy_name || ''}) | Setor: ${company.sector} | Porte: ${company.size}
-Produtos: ${company.products_services}
-Estratégia: ${strategyText.substring(0, 800) || 'Não definida'}
-${questionsSnippet ? `Contexto: ${questionsSnippet}` : ''}
-Período: ${periodPlan.period_title} (${periodPlan.period_start} a ${periodPlan.period_end})
-Objetivo: ${periodPlan.objective}
-Canal OBRIGATÓRIO: ${periodPlan.priority_channel}
-Observações: ${periodPlan.observations || 'Nenhuma'}${contentReqs}${calendarCtx}${successCtx}${avoidCtx}${recentCtx}`;
+    const compactStrategy = truncateText(strategyText, 420) || 'Não definida';
+    const compactQuestions = truncateText(questionsSnippet, 320);
+    const compactObservations = truncateText(periodPlan.observations, 420) || 'Nenhuma';
+    const compactProducts = truncateText(company.products_services, 260) || 'Não informado';
+    const compactContentReqs = contentReqs ? `\nExigências: ${truncateText(company.content_requirements, 320)}` : '';
+
+    const context = `Empresa: ${truncateText(company.name, 120)} (${truncateText(company.fantasy_name || '', 120)}) | Setor: ${truncateText(company.sector, 120)} | Porte: ${truncateText(company.size, 80)}
+Produtos: ${compactProducts}
+Estratégia: ${compactStrategy}
+${compactQuestions ? `Contexto: ${compactQuestions}` : ''}
+Período: ${truncateText(periodPlan.period_title, 120)} (${periodPlan.period_start} a ${periodPlan.period_end})
+Objetivo: ${truncateText(periodPlan.objective, 180)}
+Canal OBRIGATÓRIO: ${truncateText(periodPlan.priority_channel, 120)}
+Observações: ${compactObservations}${compactContentReqs}${truncateText(calendarCtx, 220)}${truncateText(successCtx, 220)}${truncateText(avoidCtx, 220)}${truncateText(recentCtx, 240)}`;
 
     // Fetch ALL relevant prompts in parallel:
     // - generate_demandas_prompt: regras táticas para gerar a lista de demandas (obrigatório)
@@ -253,7 +259,9 @@ Observações: ${periodPlan.observations || 'Nenhuma'}${contentReqs}${calendarCt
       promptSections.push(`# REGRAS DE PLANEJAMENTO AVANÇADO (PLANO ULTRA)\n${advancedPrompt}`);
     }
 
-    const systemPrompt = promptSections.join('\n\n---\n\n');
+    const systemPrompt = promptSections
+      .map(section => truncateText(section, 2200))
+      .join('\n\n---\n\n');
 
     console.log(`📋 Prompts carregados: demandas=✓, plano_marketing=${planPrompt ? '✓' : '✗'}, avançado=${advancedPrompt && planType === 'ultra' ? '✓' : '—'}`);
 
@@ -328,7 +336,7 @@ NÃO gere formatos não listados. NÃO compense quantidade de um formato com out
     }
     
     const jsonInstruction = `
-Responda APENAS JSON. Canal: "${periodPlan.priority_channel}". Plano ${planLabel}.
+Responda APENAS JSON válido, sem markdown, sem comentários e sem texto fora do objeto. Canal: "${periodPlan.priority_channel}". Plano ${planLabel}.
 IMPORTANTE: Gere exatamente ${demandLimit} demandas, nem mais nem menos.${volumeInstruction}
 
 REGRA CRÍTICA DE DIVERSIDADE:
@@ -339,7 +347,8 @@ REGRA CRÍTICA DE DIVERSIDADE:
 - Se o setor tem poucos temas, explore ângulos completamente diferentes para cada demanda.
 
 Cada demanda: {"tipo":"...","titulo":"...","objetivo":"...","conteudo":"conteúdo markdown","instrucoes_de_producao":"...","cta_recomendado":"...","canal":"${periodPlan.priority_channel}","data_sugerida":"YYYY-MM-DD"}
-Formato: {"plan":[...],"summary":"resumo curto"}`;
+Formato: {"plan":[...],"summary":"resumo curto"}
+Se faltar espaço, reduza o tamanho do campo "conteudo" antes de omitir itens do JSON.`;
     console.log('Calling OpenAI for planType:', planType);
     
     // Adaptive timeout: small batches finish fast, give them less budget so the
@@ -347,7 +356,7 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
     // save always has time to persist.
     const isBatch = !!(batchType && batchQuantity);
     const timeoutMs = isBatch ? 80000 : 110000;
-    const maxTokens = isBatch ? Math.min(3500, batchQuantity! * 700 + 800) : 6000;
+    const maxTokens = isBatch ? Math.min(2200, batchQuantity! * 420 + 500) : 3200;
 
     const abortController = new AbortController();
     const fetchTimeout = setTimeout(() => abortController.abort(), timeoutMs);
@@ -366,6 +375,7 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
             { role: 'developer', content: systemPrompt + jsonInstruction },
             { role: 'user', content: context }
           ],
+          reasoning_effort: 'low',
           max_completion_tokens: maxTokens,
           response_format: { type: 'json_object' },
         }),
@@ -399,7 +409,7 @@ Formato: {"plan":[...],"summary":"resumo curto"}`;
     }
 
     const finishReason = aiResponse.choices?.[0]?.finish_reason;
-    const content = aiResponse.choices?.[0]?.message?.content;
+    const content = extractMessageContent(aiResponse);
     console.log('finish_reason:', finishReason, '| content length:', content?.length || 0);
 
     if (!content) {
