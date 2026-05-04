@@ -359,50 +359,33 @@ REGRAS:
       "bottom-center": "centro inferior",
     };
 
-    // Fetch mascot image ONCE, keep reference
-    let mascotInline: { mimeType: string; data: string } | null = null;
-    if (mascotImageUrl) {
+    const fetchImageDataUrl = async (url: string): Promise<string | null> => {
       try {
-        const imgResp = await fetch(mascotImageUrl);
-        if (imgResp.ok) {
-          const imgBuffer = await imgResp.arrayBuffer();
-          const bytes = new Uint8Array(imgBuffer);
-          let binary = "";
-          const chunkSize = 8192;
-          for (let i = 0; i < bytes.length; i += chunkSize) {
-            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-          }
-          mascotInline = { mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) };
-          console.log(`  → Mascot reference image pre-fetched`);
+        const imgResp = await fetch(url);
+        if (!imgResp.ok) return null;
+        const imgBuffer = await imgResp.arrayBuffer();
+        const bytes = new Uint8Array(imgBuffer);
+        let binary = "";
+        const chunkSize = 8192;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
         }
+        const mime = imgResp.headers.get("content-type") || "image/png";
+        return `data:${mime};base64,${btoa(binary)}`;
       } catch (e) {
-        console.error("Failed to fetch mascot:", e);
+        console.error("Failed to fetch reference image:", e);
+        return null;
       }
-    }
+    };
 
-    // Fetch logo image ONCE
-    let logoInline: { mimeType: string; data: string } | null = null;
-    if (logoUrl) {
-      try {
-        const imgResp = await fetch(logoUrl);
-        if (imgResp.ok) {
-          const imgBuffer = await imgResp.arrayBuffer();
-          const bytes = new Uint8Array(imgBuffer);
-          let binary = "";
-          const chunkSize = 8192;
-          for (let i = 0; i < bytes.length; i += chunkSize) {
-            binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-          }
-          logoInline = { mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) };
-          console.log("  → Logo reference image pre-fetched");
-        }
-      } catch (e) {
-        console.error("Failed to fetch logo:", e);
-      }
-    }
+    const mascotDataUrl = mascotImageUrl ? await fetchImageDataUrl(mascotImageUrl) : null;
+    if (mascotDataUrl) console.log("  → Mascot reference image pre-fetched");
 
-    const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
+    const logoDataUrl = logoUrl ? await fetchImageDataUrl(logoUrl) : null;
+    if (logoDataUrl) console.log("  → Logo reference image pre-fetched");
+
     let totalGenerated = 0;
+
 
     // Build slide context once (short)
     const slideContext = slides.map((s, idx) => `S${idx + 1}: "${s.text}"`).join(" | ");
