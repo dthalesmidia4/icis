@@ -622,9 +622,10 @@ const PlanPeriod = () => {
       const planData = accumulatedDefault;
       setPollingProgress(100);
 
-      // Final consistency save
+      // Final consistency save (status enum only allows draft/generated/mode_selected/completed,
+      // so keep 'draft' until ultra is generated, then flip to 'generated').
       const { error: saveError } = await supabase.from('period_plans').update({
-        status: 'review_normal_done',
+        status: 'draft',
         default_plan: planData as unknown as null
       }).eq('id', periodPlan.id);
       if (saveError) {

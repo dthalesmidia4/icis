@@ -85,15 +85,9 @@ Deno.serve(async (req) => {
     
     const periodPlan = periodPlanData as any;
 
-    // Mark plan as actively generating ASAP so it never stays as silent 'draft'
-    try {
-      const intentStatus = planType === 'ultra' ? 'generating_ultra' : 'generating_default';
-      if (periodPlan.status === 'draft' || periodPlan.status === 'error') {
-        await (supabase as any).from('period_plans').update({ status: intentStatus }).eq('id', periodPlanId);
-      }
-    } catch (e) {
-      console.warn('Failed to set early intent status:', e);
-    }
+    // NOTE: status enum is restricted to draft/generated/mode_selected/completed.
+    // We keep the plan as 'draft' during generation and only switch to 'generated'
+    // once the relevant slice of the plan was persisted.
 
     // Fetch company data
     const { data: companyData, error: companyError } = await supabase
@@ -356,7 +350,10 @@ Se faltar espaço, reduza o tamanho do campo "conteudo" antes de omitir itens do
     // save always has time to persist.
     const isBatch = !!(batchType && batchQuantity);
     const timeoutMs = isBatch ? 80000 : 110000;
-    const maxTokens = isBatch ? Math.min(2200, batchQuantity! * 420 + 500) : 3200;
+    // gpt-5-mini consumes a large slice of max_completion_tokens on internal
+    // reasoning. Give the model enough headroom so the JSON content is never
+    // truncated to an empty string (finish_reason=length).
+    const maxTokens = isBatch ? Math.min(8000, batchQuantity! * 1200 + 3500) : 12000;
 
     const abortController = new AbortController();
     const fetchTimeout = setTimeout(() => abortController.abort(), timeoutMs);
@@ -443,21 +440,20 @@ Se faltar espaço, reduza o tamanho do campo "conteudo" antes de omitir itens do
       ? [...existingDefault, ...planDemands]
       : planDemands;
 
-    // EARLY SAVE: persist to DB immediately to avoid timeout killing the save
+    // EARLY SAVE: persist to DB immediately to avoid timeout killing the save.
+    // Status enum only allows draft/generated/mode_selected/completed, so we keep
+    // 'draft' while batches are still pending and only flip to 'generated' once
+    // the full default+ultra plan is persisted.
     {
       const earlySaveData: any = { updated_at: new Date().toISOString() };
       if (planType === 'default') {
         earlySaveData.default_plan = mergedDefault;
-        if (isBatch && !isFinalBatch) {
-          earlySaveData.status = 'generating_default';
-        } else {
-          earlySaveData.status = 'generating_ultra';
-        }
+        earlySaveData.status = 'draft';
       } else {
         earlySaveData.ultra_plan = planDemands;
-        earlySaveData.status = 'generated';
         earlySaveData.default_plan = existingDefault;
         earlySaveData.final_plan = [...existingDefault, ...planDemands];
+        earlySaveData.status = 'generated';
       }
       const { error: earlySaveErr } = await (supabase as any).from('period_plans').update(earlySaveData).eq('id', periodPlanId);
       if (earlySaveErr) {
@@ -497,22 +493,18 @@ Se faltar espaço, reduza o tamanho do campo "conteudo" antes de omitir itens do
     const updateData: any = { updated_at: new Date().toISOString() };
     if (planType === 'default') {
       updateData.default_plan = mergedDefault;
-      if (isBatch && !isFinalBatch) {
-        updateData.status = 'generating_default';
-      } else if (periodPlan.ultra_plan && Array.isArray(periodPlan.ultra_plan) && periodPlan.ultra_plan.length > 0) {
+      // Only flip to 'generated' when the ultra plan is already in the row;
+      // otherwise keep 'draft' so the frontend can resume the flow.
+      if (periodPlan.ultra_plan && Array.isArray(periodPlan.ultra_plan) && periodPlan.ultra_plan.length > 0) {
         updateData.status = 'generated';
       } else {
-        updateData.status = 'generating_ultra';
+        updateData.status = 'draft';
       }
     } else {
       updateData.ultra_plan = planDemands;
       updateData.default_plan = existingDefault;
       updateData.final_plan = [...existingDefault, ...planDemands];
-      if (existingDefault.length > 0) {
-        updateData.status = 'generated';
-      } else {
-        updateData.status = 'generating_default';
-      }
+      updateData.status = 'generated';
     }
 
     const { error: updateError } = await (supabase as any).from('period_plans').update(updateData).eq('id', periodPlanId);
@@ -542,17 +534,11 @@ Se faltar espaço, reduza o tamanho do campo "conteudo" antes de omitir itens do
 
     if (periodPlanId && supabase) {
       try {
-        // If we already saved some default demands, keep a recoverable status
-        // (generating_default) instead of marking the whole period as 'error'.
-        const { data: cur } = await (supabase as any)
-          .from('period_plans')
-          .select('default_plan')
-          .eq('id', periodPlanId)
-          .maybeSingle();
-        const hasPartial = cur?.default_plan && Array.isArray(cur.default_plan) && cur.default_plan.length > 0;
+        // Keep the plan as 'draft' on failure so the frontend can resume / retry.
+        // The status enum does not include 'error', so we never write that value.
         await (supabase as any)
           .from('period_plans')
-          .update({ status: hasPartial ? 'generating_default' : 'error' })
+          .update({ status: 'draft' })
           .eq('id', periodPlanId);
       } catch {
         // ignore
