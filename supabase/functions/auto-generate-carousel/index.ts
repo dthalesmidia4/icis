@@ -568,8 +568,8 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
       }
     }
 
-    // Free mascot from memory
-    mascotInline = null;
+    // (mascot/logo data URLs go out of scope after the loop)
+
 
     if (totalGenerated === 0) {
       return new Response(
