@@ -937,7 +937,7 @@ export default function TaskCard({
                               <div className="p-1.5 bg-primary/10 rounded-md">
                                 <FileText className="h-4 w-4 text-primary" />
                               </div>
-                              <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Atividade</h3>
+                              <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Instruções de Produção</h3>
                               {saving && savingField === 'instructions' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
                             </div>
                             {readOnly ? (
