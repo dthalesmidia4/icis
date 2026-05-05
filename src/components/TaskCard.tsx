@@ -891,78 +891,112 @@ export default function TaskCard({
               {/* === COLUNA ESQUERDA: Conteúdo === */}
               <div className="space-y-6">
                 <div className="space-y-5">
-                    {/* Objetivo */}
-                    <section>
-                      <button 
-                        type="button"
-                        onClick={() => toggleSection('objetivo')}
-                        className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
-                      >
-                        {collapsedSections.objetivo ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                        <div className="p-1.5 bg-primary/10 rounded-md">
-                          <Target className="h-4 w-4 text-primary" />
-                        </div>
-                        <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Objetivo</h3>
-                        {saving && savingField === 'objective' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                      </button>
-                      {!collapsedSections.objetivo && (
-                        readOnly ? (
-                          <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.objective || "") }} />
-                        ) : (
-                          <BlockEditor content={convertToHtml(card.objective || "")} onChange={value => onCardChange({ ...card, objective: value })} onBlur={() => handleFieldSave('objective', card.objective || '')} placeholder="Qual é a finalidade estratégica deste material?" minHeight="80px" />
-                        )
-                      )}
-                    </section>
+                    {(() => {
+                      const { instr: instrValue, cta: ctaValue } = splitInstructionsCTA(card.instructions);
+                      return (
+                        <>
+                          {/* Objetivo */}
+                          <section>
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="p-1.5 bg-primary/10 rounded-md">
+                                <Target className="h-4 w-4 text-primary" />
+                              </div>
+                              <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Objetivo</h3>
+                              {saving && savingField === 'objective' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
+                            </div>
+                            {readOnly ? (
+                              <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.objective || "") }} />
+                            ) : (
+                              <BlockEditor content={convertToHtml(card.objective || "")} onChange={value => onCardChange({ ...card, objective: value })} onBlur={() => handleFieldSave('objective', card.objective || '')} placeholder="Qual é a finalidade estratégica deste material?" minHeight="80px" />
+                            )}
+                          </section>
 
-                    <Separator />
+                          <Separator />
 
-                    {/* Atividade */}
-                    <section>
-                      <button 
-                        type="button"
-                        onClick={() => toggleSection('atividade')}
-                        className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
-                      >
-                        {collapsedSections.atividade ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                        <div className="p-1.5 bg-primary/10 rounded-md">
-                          <FileText className="h-4 w-4 text-primary" />
-                        </div>
-                        <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Atividade</h3>
-                        {saving && savingField === 'description' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                      </button>
-                      {!collapsedSections.atividade && (
-                        readOnly ? (
-                          <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.description || "") }} />
-                        ) : (
-                          <BlockEditor content={convertToHtml(card.description || "")} onChange={value => onCardChange({ ...card, description: value })} onBlur={() => handleFieldSave('description', card.description || '')} placeholder="Copy, roteiros, frames, instruções de produção..." minHeight="200px" />
-                        )
-                      )}
-                    </section>
+                          {/* Conteúdo */}
+                          <section>
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="p-1.5 bg-primary/10 rounded-md">
+                                <AlignLeft className="h-4 w-4 text-primary" />
+                              </div>
+                              <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Conteúdo</h3>
+                              {saving && savingField === 'description' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
+                            </div>
+                            {readOnly ? (
+                              <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.description || "") }} />
+                            ) : (
+                              <BlockEditor content={convertToHtml(card.description || "")} onChange={value => onCardChange({ ...card, description: value })} onBlur={() => handleFieldSave('description', card.description || '')} placeholder="Texto do post, legenda, copy..." minHeight="160px" />
+                            )}
+                          </section>
 
-                    <Separator />
+                          <Separator />
 
-                    {/* Observações */}
-                    <section>
-                      <button 
-                        type="button"
-                        onClick={() => toggleSection('observacoes')}
-                        className="flex items-center gap-2 mb-3 w-full text-left hover:opacity-80 transition-opacity"
-                      >
-                        {collapsedSections.observacoes ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                        <div className="p-1.5 bg-primary/10 rounded-md">
-                          <MessageSquare className="h-4 w-4 text-primary" />
-                        </div>
-                        <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Observações</h3>
-                        {saving && savingField === 'observations' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                      </button>
-                      {!collapsedSections.observacoes && (
-                        readOnly ? (
-                          <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.observations || "") }} />
-                        ) : (
-                          <BlockEditor content={convertToHtml(card.observations || "")} onChange={value => onCardChange({ ...card, observations: value })} onBlur={() => handleFieldSave('observations', card.observations || '')} placeholder="Feedbacks, ajustes, observações internas..." minHeight="100px" />
-                        )
-                      )}
-                    </section>
+                          {/* Atividade (Instruções de Produção) */}
+                          <section>
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="p-1.5 bg-primary/10 rounded-md">
+                                <FileText className="h-4 w-4 text-primary" />
+                              </div>
+                              <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Atividade</h3>
+                              {saving && savingField === 'instructions' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
+                            </div>
+                            {readOnly ? (
+                              <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(instrValue) }} />
+                            ) : (
+                              <BlockEditor
+                                content={convertToHtml(instrValue)}
+                                onChange={value => onCardChange({ ...card, instructions: combineInstructionsCTA(value, ctaValue) })}
+                                onBlur={() => handleFieldSave('instructions', combineInstructionsCTA(card.instructions ? splitInstructionsCTA(card.instructions).instr : '', ctaValue))}
+                                placeholder="Instruções de produção visual, layout, tom..."
+                                minHeight="160px"
+                              />
+                            )}
+                          </section>
+
+                          <Separator />
+
+                          {/* CTA Recomendado */}
+                          <section>
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="p-1.5 bg-primary/10 rounded-md">
+                                <Megaphone className="h-4 w-4 text-primary" />
+                              </div>
+                              <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">CTA Recomendado</h3>
+                              {saving && savingField === 'instructions' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
+                            </div>
+                            {readOnly ? (
+                              <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(ctaValue) }} />
+                            ) : (
+                              <BlockEditor
+                                content={convertToHtml(ctaValue)}
+                                onChange={value => onCardChange({ ...card, instructions: combineInstructionsCTA(instrValue, value) })}
+                                onBlur={() => handleFieldSave('instructions', combineInstructionsCTA(instrValue, splitInstructionsCTA(card.instructions).cta))}
+                                placeholder="Chamada para ação recomendada (ex: Agende pelo WhatsApp)"
+                                minHeight="80px"
+                              />
+                            )}
+                          </section>
+
+                          <Separator />
+
+                          {/* Observações */}
+                          <section>
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="p-1.5 bg-primary/10 rounded-md">
+                                <MessageSquare className="h-4 w-4 text-primary" />
+                              </div>
+                              <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Observações</h3>
+                              {saving && savingField === 'observations' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
+                            </div>
+                            {readOnly ? (
+                              <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.observations || "") }} />
+                            ) : (
+                              <BlockEditor content={convertToHtml(card.observations || "")} onChange={value => onCardChange({ ...card, observations: value })} onBlur={() => handleFieldSave('observations', card.observations || '')} placeholder="Feedbacks, ajustes, observações internas..." minHeight="100px" />
+                            )}
+                          </section>
+                        </>
+                      );
+                    })()}
                 </div>
               </div>
 
