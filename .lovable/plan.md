@@ -1,59 +1,52 @@
-## Plano corrigido
+## Correções
 
-### 1. Nome da empresa antes do título do card (KanbanCard)
+### 1. TaskCard — renomear "Atividade" → "Instruções de Produção"
 
-**Arquivo**: `src/components/KanbanCard.tsx` + `src/components/Scheduled.tsx` (origem do `subtitle`).
+**Arquivo**: `src/components/TaskCard.tsx`, linha 940.
 
-Hoje `subtitle` (nome da empresa, ex: "D'thales Veículos") é renderizado em uma linha **acima** do título, em texto pequeno cinza (linha 71–73). O usuário quer o nome da empresa **no mesmo h3 do título**, antes dele — formato `D'thales Veículos – Cuidados simples...`.
+Trocar o `<h3>` para `Instruções de Produção`. As 5 seções fixas finais ficam: **Objetivo → Conteúdo → Instruções de Produção → CTA Recomendado → Observações**.
 
-Mudança em `KanbanCard.tsx` (linhas 70–82):
+Mapeamento (já implementado, mantido):
 
-- Remover a linha separada do `subtitle`.
-- Manter o badge `demandType` na linha de cima (sozinho).
-- Renderizar `<CardTitle>` como: `{subtitle && <span className="text-muted-foreground font-normal">{subtitle} – </span>}{title}`.
+- `Conteúdo` → `card.description` (texto/copy markdown — confirmado: `- Troca de óleo... Pequenos cuidados hoje...`).
+- `Instruções de Produção` → `card.instructions` (sem o sufixo `CTA:`).
+- `CTA Recomendado` → trecho após `\n\nCTA:` em `card.instructions`.
 
-Sem alterações em `auto-generate-post` (a imagem continua sem nome da marca como sobre-título — não era o desejo).
+### 2. Nome da empresa antes do título — via prompt da IA
 
-### 2. Adicionar seções "Conteúdo" e "CTA Recomendado" no TaskCard (não colapsáveis)
+Mover a responsabilidade do prefixo da marca da UI para o prompt, conforme pedido.
 
-**Arquivo**: `src/components/TaskCard.tsx`.
+**2a. Edge function `supabase/functions/generate-period-plans/index.ts**` (linha 343):
 
-Mapeamento correto (confirmado pelo usuário):
+Alterar a especificação do JSON da demanda para instruir a IA a já entregar o título prefixado com a marca:
 
-- **Atividade** → continua exibindo `card.instructions` (Instruções de Produção). Apenas trocar a fonte de dados de `description` para `instructions` e ajustar o `placeholder` para "Instruções de produção visual...".
-- **Conteúdo** (NOVA seção) → exibe `card.description`. Inserir entre "Objetivo" e "Atividade".
-- **CTA Recomendado** (NOVA seção) → extrair o sufixo `CTA: ...` de `card.instructions` ao exibir; salvar de volta concatenando em `instructions`. Inserir entre "Atividade" e "Observações".
+```text
+Cada demanda: {"tipo":"...","titulo":"<NOME_FANTASIA_DA_MARCA> – <título da demanda>","objetivo":"...","conteudo":"conteúdo markdown","instrucoes_de_producao":"...","cta_recomendado":"...","canal":"...","data_sugerida":"YYYY-MM-DD"}
 
-Todas as 5 seções renderizadas de forma **fixa** (sem botão de colapsar / sem ChevronRight/Down). Mantém o ícone + título uppercase + `BlockEditor` no padrão visual atual, apenas substituindo o `<button onClick={toggleSection}>` por uma `<div>` estática.
-
-Persistência:
-
-- "Conteúdo" usa `handleFieldSave('description', ...)`.
-- "Atividade" e "CTA Recomendado" usam `handleFieldSave('instructions', ...)`. O CTA é serializado como sufixo `\n\nCTA: <texto>` — na leitura, separamos: tudo antes de `\n\nCTA:` vai para Atividade, o resto para CTA. Isso evita migração de schema.
-
-### 3. ApproveCards.tsx — ajuste de separador
-
-Garantir que a aprovação grave `instructions` no formato esperado pelo parser:
-
-```ts
-const instructionParts = [
-  instrucoes || '',
-  cta ? `CTA: ${cta}` : ''
-].filter(Boolean);
-// join com '\n\n'
+REGRA OBRIGATÓRIA DE TÍTULO:
+- O campo "titulo" DEVE começar com o nome fantasia da marca (ou nome oficial se não houver fantasia), seguido por " – " (espaço, en-dash, espaço), e então o título do post.
+- Exemplo: "D'thales Veículos – Cuidados simples que preservam o valor do seu seminovo".
+- NUNCA omita o nome da marca. NUNCA use outro separador.
 ```
 
-(praticamente igual ao atual; só padroniza o separador exato `\n\nCTA:` para o split funcionar).
+A variável usada será `${truncateText(company.fantasy_name || company.name, 120)}` interpolada explicitamente na regra para reforçar o valor exato.
 
-### 4. Item 3 do usuário (título card vs imagem)
+**2b. UI — remover prepend duplicado**:
 
-Sem ação. Confirmado que ambos usam `demand.title`.
+- `src/components/KanbanCard.tsx`: remover a renderização do `subtitle` antes do `title` no `<CardTitle>` (correção da rodada anterior). Manter apenas `{title}`. O badge `demandType` continua isolado acima.
+- `src/components/Scheduled.tsx` (e outros call sites do `KanbanCard`): manter passando `subtitle`, mas como o componente não vai mais usar, pode ser removido depois — não é crítico nesta rodada.
+
+Resultado: para demandas novas geradas pela IA, o `title` no banco já vem com `D'thales Veículos – ...`. Para demandas antigas/manuais sem prefixo, o card simplesmente exibirá o título puro (sem o nome da empresa). Se isso for problema, podemos adicionar um fallback futuro, mas o usuário pediu explicitamente que o prefixo venha do prompt.
+
+### 3. ApproveCards — sem alteração
+
+O título recebido da IA já contém a marca; é gravado direto em `demands.title` (linha 213/230 de `ApproveCards.tsx`).
 
 ---
 
-## Resumo das mudanças
+## Resumo
 
-- `KanbanCard.tsx`: nome da empresa colado antes do título no `<CardTitle>`.
-- `TaskCard.tsx`: 5 seções fixas — Objetivo, **Conteúdo** (nova, lê `description`), Atividade (passa a ler `instructions`), **CTA Recomendado** (nova, parseado de `instructions`), Observações. Sem colapsáveis.
-- `ApproveCards.tsx`: padronizar separador `\n\nCTA:` ao salvar.
-- Sem migração de banco, sem mudança em edge functions.
+- `src/components/TaskCard.tsx` (linha 940): renomear "Atividade" → "Instruções de Produção".
+- `supabase/functions/generate-period-plans/index.ts` (~linha 343): adicionar regra de título com prefixo da marca usando `fantasy_name`.
+- `src/components/KanbanCard.tsx`: remover o prepend visual do `subtitle` no `CardTitle`.
+- Sem migração de banco, sem alteração em `ApproveCards.tsx` ou em `auto-generate-post`.
