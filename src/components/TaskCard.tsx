@@ -14,7 +14,27 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw } from "lucide-react";
+import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone } from "lucide-react";
+
+// Split instructions field into "production instructions" and "CTA" parts.
+// Recognizes a "CTA:" marker (optionally wrapped in <p>) anywhere in the string.
+const splitInstructionsCTA = (raw: string | null | undefined): { instr: string; cta: string } => {
+  if (!raw) return { instr: '', cta: '' };
+  const ctaIdx = raw.search(/(?:<p>\s*)?CTA:\s*/i);
+  if (ctaIdx === -1) return { instr: raw, cta: '' };
+  const instr = raw.slice(0, ctaIdx).replace(/<p>\s*<\/p>\s*$/i, '').trim();
+  const ctaPart = raw.slice(ctaIdx).replace(/^[\s\S]*?CTA:\s*/i, '').replace(/<\/?p[^>]*>/gi, ' ').replace(/<br\s*\/?>(\s)*/gi, '\n').trim();
+  return { instr, cta: ctaPart };
+};
+
+// Combine production instructions (HTML) and CTA (plain text) back into the instructions field.
+const combineInstructionsCTA = (instr: string, cta: string): string => {
+  const parts: string[] = [];
+  if (instr && instr.trim()) parts.push(instr);
+  const ctaText = (cta || '').replace(/<\/?[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (ctaText) parts.push(`<p>CTA: ${ctaText}</p>`);
+  return parts.join('\n\n');
+};
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
