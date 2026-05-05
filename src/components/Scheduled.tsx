@@ -162,7 +162,7 @@ const Scheduled = () => {
           return {
             id: demand.id,
             title: demand.title,
-            description: demand.instructions || demand.description || null,
+            description: demand.description || null,
             objective: demand.objective || null,
             instructions: demand.instructions || null,
             observations: demand.observations || null,
