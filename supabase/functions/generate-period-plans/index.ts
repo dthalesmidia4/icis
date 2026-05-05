@@ -340,7 +340,13 @@ REGRA CRÍTICA DE DIVERSIDADE:
 - Varie os formatos de abordagem: educativo, storytelling, bastidores, depoimento, tendência, humor, dados/estatísticas, antes/depois, tutorial, etc.
 - Se o setor tem poucos temas, explore ângulos completamente diferentes para cada demanda.
 
-Cada demanda: {"tipo":"...","titulo":"...","objetivo":"...","conteudo":"conteúdo markdown","instrucoes_de_producao":"...","cta_recomendado":"...","canal":"${periodPlan.priority_channel}","data_sugerida":"YYYY-MM-DD"}
+Cada demanda: {"tipo":"...","titulo":"${truncateText(company.fantasy_name || company.name, 80)} – <título do post>","objetivo":"...","conteudo":"conteúdo markdown","instrucoes_de_producao":"...","cta_recomendado":"...","canal":"${periodPlan.priority_channel}","data_sugerida":"YYYY-MM-DD"}
+
+REGRA OBRIGATÓRIA DE TÍTULO:
+- O campo "titulo" DEVE SEMPRE começar com "${truncateText(company.fantasy_name || company.name, 80)} – " (nome da marca, espaço, en-dash "–", espaço), seguido pelo título criativo do post.
+- Exemplo correto: "${truncateText(company.fantasy_name || company.name, 80)} – Cuidados simples que preservam o valor do seu seminovo".
+- NUNCA omita o nome da marca. NUNCA use "-" simples no lugar de "–". NUNCA use outro separador.
+
 Formato: {"plan":[...],"summary":"resumo curto"}
 Se faltar espaço, reduza o tamanho do campo "conteudo" antes de omitir itens do JSON.`;
     console.log('Calling OpenAI for planType:', planType);

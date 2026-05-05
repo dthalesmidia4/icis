@@ -72,9 +72,6 @@ const KanbanCard = ({
           </div>
         )}
         <CardTitle className="text-sm font-semibold leading-snug line-clamp-2 text-foreground">
-          {subtitle && (
-            <span className="text-muted-foreground font-normal">{subtitle} – </span>
-          )}
           {title}
         </CardTitle>
       </CardHeader>
