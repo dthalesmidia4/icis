@@ -242,7 +242,7 @@ const KanbanCentralPage = () => {
               objective: payload.objective ?? card.objective,
               observations: payload.observations ?? card.observations,
               instructions: payload.instructions ?? card.instructions,
-              description: payload.instructions || payload.description || card.description,
+              description: payload.description ?? card.description,
             };
           })
         );
@@ -280,7 +280,7 @@ const KanbanCentralPage = () => {
       const newCard: CentralKanbanCard = {
         id: data.id,
         title: data.title,
-        description: data.instructions || data.description || null,
+        description: data.description || null,
         objective: data.objective || null,
         instructions: data.instructions || null,
         observations: data.observations || null,
@@ -502,7 +502,7 @@ const KanbanCentralPage = () => {
         return {
           id: demand.id,
           title: demand.title,
-          description: demand.instructions || demand.description || null,
+          description: demand.description || null,
           objective: demand.objective || null,
           instructions: demand.instructions || null,
           observations: demand.observations || null,

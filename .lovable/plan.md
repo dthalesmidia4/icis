@@ -1,52 +1,31 @@
-## Correções
+## Diagnóstico definitivo
 
-### 1. TaskCard — renomear "Atividade" → "Instruções de Produção"
+O campo `Conteúdo` no TaskCard lê `card.description`. O problema não está no TaskCard nem no BlockEditor — está no **mapeamento dos cards** carregados do banco no Kanban Central e na tela Scheduled.
 
-**Arquivo**: `src/components/TaskCard.tsx`, linha 940.
+Em 4 pontos do código, ao montar o objeto `card` a partir da linha de `demands`, o `description` foi escrito como:
 
-Trocar o `<h3>` para `Instruções de Produção`. As 5 seções fixas finais ficam: **Objetivo → Conteúdo → Instruções de Produção → CTA Recomendado → Observações**.
-
-Mapeamento (já implementado, mantido):
-
-- `Conteúdo` → `card.description` (texto/copy markdown — confirmado: `- Troca de óleo... Pequenos cuidados hoje...`).
-- `Instruções de Produção` → `card.instructions` (sem o sufixo `CTA:`).
-- `CTA Recomendado` → trecho após `\n\nCTA:` em `card.instructions`.
-
-### 2. Nome da empresa antes do título — via prompt da IA
-
-Mover a responsabilidade do prefixo da marca da UI para o prompt, conforme pedido.
-
-**2a. Edge function `supabase/functions/generate-period-plans/index.ts**` (linha 343):
-
-Alterar a especificação do JSON da demanda para instruir a IA a já entregar o título prefixado com a marca:
-
-```text
-Cada demanda: {"tipo":"...","titulo":"<NOME_FANTASIA_DA_MARCA> – <título da demanda>","objetivo":"...","conteudo":"conteúdo markdown","instrucoes_de_producao":"...","cta_recomendado":"...","canal":"...","data_sugerida":"YYYY-MM-DD"}
-
-REGRA OBRIGATÓRIA DE TÍTULO:
-- O campo "titulo" DEVE começar com o nome fantasia da marca (ou nome oficial se não houver fantasia), seguido por " – " (espaço, en-dash, espaço), e então o título do post.
-- Exemplo: "D'thales Veículos – Cuidados simples que preservam o valor do seu seminovo".
-- NUNCA omita o nome da marca. NUNCA use outro separador.
+```ts
+description: demand.instructions || demand.description || null
 ```
 
-A variável usada será `${truncateText(company.fantasy_name || company.name, 120)}` interpolada explicitamente na regra para reforçar o valor exato.
+Ou seja: se houver `instructions` (texto de produção tipo "Layout em lista com 3 ilustrações..."), ele **sobrescreve** o `description` real (que é o conteúdo do post: "- Troca de óleo conforme fabricante..."). Foi por isso que o Print 1 (Kanban Central) mostrou o texto de instruções no lugar do conteúdo, enquanto o Print 2 (Histórico de Cronogramas, que lê `description` puro) exibiu corretamente.
 
-**2b. UI — remover prepend duplicado**:
+## Correção
 
-- `src/components/KanbanCard.tsx`: remover a renderização do `subtitle` antes do `title` no `<CardTitle>` (correção da rodada anterior). Manter apenas `{title}`. O badge `demandType` continua isolado acima.
-- `src/components/Scheduled.tsx` (e outros call sites do `KanbanCard`): manter passando `subtitle`, mas como o componente não vai mais usar, pode ser removido depois — não é crítico nesta rodada.
+Trocar nos 4 pontos para usar `demand.description` puro (e manter `instructions` separado em seu próprio campo, como já está):
 
-Resultado: para demandas novas geradas pela IA, o `title` no banco já vem com `D'thales Veículos – ...`. Para demandas antigas/manuais sem prefixo, o card simplesmente exibirá o título puro (sem o nome da empresa). Se isso for problema, podemos adicionar um fallback futuro, mas o usuário pediu explicitamente que o prefixo venha do prompt.
+1. **`src/pages/KanbanCentralPage.tsx`**
+   - Linha 245 (handleDemandFullUpdate): `description: payload.description ?? card.description`
+   - Linha 283 (handleDemandInsert): `description: data.description || null`
+   - Linha 505 (fetchAllCards): `description: demand.description || null`
 
-### 3. ApproveCards — sem alteração
+2. **`src/components/Scheduled.tsx`**
+   - Linha 165: `description: demand.description || null`
 
-O título recebido da IA já contém a marca; é gravado direto em `demands.title` (linha 213/230 de `ApproveCards.tsx`).
+Nenhuma migração de banco, nenhuma mudança no TaskCard, BlockEditor, edge functions ou ApproveCards. O `instructions` continua intacto e separado, alimentando a seção "Instruções de Produção" via `splitInstructionsCTA`.
 
----
+## Por que essa solução é assertiva
 
-## Resumo
-
-- `src/components/TaskCard.tsx` (linha 940): renomear "Atividade" → "Instruções de Produção".
-- `supabase/functions/generate-period-plans/index.ts` (~linha 343): adicionar regra de título com prefixo da marca usando `fantasy_name`.
-- `src/components/KanbanCard.tsx`: remover o prepend visual do `subtitle` no `CardTitle`.
-- Sem migração de banco, sem alteração em `ApproveCards.tsx` ou em `auto-generate-post`.
+- A linha de `demands` no banco já tem os campos corretos e separados (confirmado pelo Histórico que renderiza `description` direto).
+- O bug era um fallback indevido (`instructions || description`) introduzido provavelmente para suportar dados legados, mas que prejudica todos os cards que têm os dois campos preenchidos.
+- Cards antigos sem `description` simplesmente exibirão vazio na seção Conteúdo (comportamento correto), e suas instruções continuam visíveis na seção Instruções de Produção.
