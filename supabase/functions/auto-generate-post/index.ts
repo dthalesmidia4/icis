@@ -174,7 +174,10 @@ Deno.serve(async (req) => {
 
     // 8b. Build image prompt
     const mascotSection = mascotImageUrls.length > 0
-      ? `- MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""} OBRIGATÓRIO: Reproduza o mascote EXATAMENTE como na imagem de referência fornecida — mesma aparência, cabelo, roupa, proporções e características físicas. NÃO altere nenhuma característica do mascote. O mascote DEVE aparecer no design de forma integrada e harmoniosa.`
+      ? `- MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""}
+  OBRIGATÓRIO PRESERVAR (identidade): mesma espécie, cores, roupa/uniforme, proporções, traços faciais e estilo de arte da imagem de referência — ele deve ser RECONHECIDO como o mesmo personagem.
+  OBRIGATÓRIO VARIAR (composição deste post): escolha pose corporal, expressão facial, ângulo de câmera e enquadramento ADEQUADOS ao tema do post; evite a pose neutra padrão da imagem de referência. O mascote DEVE interagir com o cenário/objetos do tema.
+  O mascote aparece integrado ao design como protagonista visual.`
       : client?.has_mascot
         ? `- A marca possui um mascote (${client?.mascot_description || "sem descrição"}), mas nenhuma imagem de referência está disponível. Tente incluí-lo se possível.`
         : `- NÃO inclua personagens, mascotes ou figuras humanas no design.`;
