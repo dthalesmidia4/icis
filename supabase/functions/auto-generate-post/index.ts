@@ -219,7 +219,6 @@ A paleta de cores cria a identidade visual através do LAYOUT e DESIGN, não tin
 
 ESTILO VISUAL OBRIGATÓRIO:
 - Crie designs com estilo de ilustração 3D estilizada, moderna e profissional
-- Use cenários detalhados e realistas como background (escritórios, ambientes temáticos, paisagens relevantes ao tema)
 - Tipografia bold, grande e impactante integrada ao design (não sobreposta de forma genérica)
 - Composição dinâmica com profundidade e camadas visuais
 - Qualidade de design de agência profissional de alto nível
@@ -227,6 +226,13 @@ ESTILO VISUAL OBRIGATÓRIO:
 - Elementos gráficos decorativos sutis que enriquecem o layout
 - Cores vibrantes e paleta coerente com a identidade visual da marca
 - Apenas o TÍTULO do post deve aparecer legível e bem posicionado na imagem
+
+CENÁRIO E AMBIENTAÇÃO (OBRIGATÓRIO):
+- PROIBIDO fundo chapado, gradiente puro ou apenas shapes geométricos abstratos como cenário.
+- O fundo DEVE ser um ambiente 3D real e contextual ao tema do post (ex.: clínica, sala de espera, casa, rua, escritório, oficina, loja), com props e objetos relevantes em cena.
+- Inclua múltiplas camadas de profundidade: primeiro plano (mascote/objetos próximos), plano médio (mobiliário/elementos do tema) e fundo (paredes, janelas, ambientação).
+- Use iluminação cinematográfica com sombras realistas para criar volume.
+- Os boxes/banners de texto devem CONVIVER com o cenário, não substituí-lo nem ocupar a tela inteira.
 
 REGRAS OBRIGATÓRIAS:
 ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem"}
