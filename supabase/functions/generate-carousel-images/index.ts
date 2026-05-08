@@ -188,7 +188,12 @@ ${presetColors.highlight ? `- Cor de destaque (${presetColors.highlight}): Use e
 ${presetColors.text ? `- Cor do texto (${presetColors.text}): Use na tipografia principal sobre os fundos` : ""}
 - Tipografia: ${presetColors.font}
 ${mascotSection}
-${logoUrl ? `
+${mascotInlineData.length > 0 ? `
+VARIAÇÃO OBRIGATÓRIA DO MASCOTE NESTE SLIDE ${slideNumber}:
+- O mascote DEVE aparecer em uma POSE, ÂNGULO e POSICIONAMENTO DIFERENTES dos demais slides do carrossel.
+- Varie: expressão facial, gesto das mãos/braços, direção do olhar, enquadramento (corpo inteiro, meio corpo, close), lado da composição (esquerda/direita/centro) e interação com elementos da cena.
+- NUNCA repita a mesma pose ou enquadramento usado em outro slide. Cada slide é uma cena única.
+` : ""}${logoUrl ? `
 LOGO DA MARCA (OBRIGATÓRIO):
 - A logo da marca está fornecida como imagem de referência. INCLUA a logo no design OBRIGATORIAMENTE.
 - Posição: ${logoPositionMap[logoPosition] || logoPosition}
@@ -210,7 +215,8 @@ REGRAS DE DESIGN:
 - O texto "${slide.text}" DEVE aparecer legível e bem posicionado na imagem
 - Design profissional para redes sociais
 - Cores vibrantes e contraste alto
-- Incluir indicador de slide (${slideNumber}/${totalSlides}) discretamente
+- PROIBIDO incluir qualquer numeração de slide, contador, paginação ou indicador como "1/5", "2/5", "Slide 1", "01/05", pontos/dots de paginação ou qualquer marcador de posição. A imagem NÃO pode conter números de sequência em hipótese alguma.
+- Fundo OBRIGATORIAMENTE rico e elaborado: use composição em camadas com formas orgânicas, blobs, ondas, gradientes multi-tom, padrões geométricos sutis, partículas, brilhos, sombras profundas e elementos decorativos temáticos relacionados ao conteúdo. NUNCA entregue um fundo liso, chapado, vazio ou genérico.
 ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem\n- NÃO adicione texto com o nome da marca em nenhum lugar da imagem"}
 
 ${slideNumber === 1 ? `REGRAS ESPECIAIS PARA CAPA (SLIDE 1 - OBRIGATÓRIO):
@@ -222,7 +228,7 @@ Este é o slide de CAPA do carrossel — o mais importante de todos.
 - Use ícones ou emojis 3D estilizados para enriquecer o layout
 - O design deve transmitir "profissionalismo de agência" e incentivar o usuário a DESLIZAR para ver mais
 - A capa deve comunicar CLARAMENTE o tema do carrossel de forma concisa e atraente
-- NÃO use layouts simples ou minimalistas — a capa deve ser visualmente rica e elaborada` : `CONTINUIDADE VISUAL: Mantenha o estilo visual coerente com a capa, mas com layout adequado para conteúdo informativo.`}
+- NÃO use layouts simples ou minimalistas — a capa deve ser visualmente rica e elaborada` : `CONTINUIDADE VISUAL: Mantenha a mesma identidade visual da capa (paleta, tipografia, estilo de shapes e ilustrações), mas com layout NOVO e DIFERENTE adequado ao conteúdo informativo deste slide. Varie a composição, posicionamento de elementos e enquadramento — não copie o layout da capa nem dos outros slides. O fundo deve continuar rico em elementos decorativos.`}
 `.trim();
 
       console.log(`  → Generating slide ${slideNumber}/${totalSlides}...`);
