@@ -188,7 +188,12 @@ ${presetColors.highlight ? `- Cor de destaque (${presetColors.highlight}): Use e
 ${presetColors.text ? `- Cor do texto (${presetColors.text}): Use na tipografia principal sobre os fundos` : ""}
 - Tipografia: ${presetColors.font}
 ${mascotSection}
-${logoUrl ? `
+${mascotInlineData.length > 0 ? `
+VARIAÇÃO OBRIGATÓRIA DO MASCOTE NESTE SLIDE ${slideNumber}:
+- O mascote DEVE aparecer em uma POSE, ÂNGULO e POSICIONAMENTO DIFERENTES dos demais slides do carrossel.
+- Varie: expressão facial, gesto das mãos/braços, direção do olhar, enquadramento (corpo inteiro, meio corpo, close), lado da composição (esquerda/direita/centro) e interação com elementos da cena.
+- NUNCA repita a mesma pose ou enquadramento usado em outro slide. Cada slide é uma cena única.
+` : ""}${logoUrl ? `
 LOGO DA MARCA (OBRIGATÓRIO):
 - A logo da marca está fornecida como imagem de referência. INCLUA a logo no design OBRIGATORIAMENTE.
 - Posição: ${logoPositionMap[logoPosition] || logoPosition}
