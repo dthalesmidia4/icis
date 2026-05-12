@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { slides, allSlides, batchOffset, aspectRatio, presetId, mascotImageUrls, clientId, tenantId } = await req.json();
+    const { slides, allSlides, batchOffset, aspectRatio, presetId, mascotImageUrls, clientId, tenantId, aiModel: aiModelInput } = await req.json();
     const contextSlides = allSlides || slides;
     const slideOffset = batchOffset || 0;
 
@@ -26,12 +26,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    const aiModel: ImageAiModel = (aiModelInput && IMAGE_MODELS[aiModelInput as ImageAiModel])
+      ? (aiModelInput as ImageAiModel)
+      : DEFAULT_IMAGE_MODEL;
+    const provider = IMAGE_MODELS[aiModel].provider;
+
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    let GOOGLE_API_KEY: string;
-    try { GOOGLE_API_KEY = await getGoogleAiKey(supabase); }
+    let GOOGLE_API_KEY: string | undefined;
+    let OPENAI_API_KEY: string | undefined;
+    try {
+      if (provider === "google") GOOGLE_API_KEY = await getGoogleAiKey(supabase);
+      else OPENAI_API_KEY = await getOpenAiKey(supabase);
+    }
     catch (e) {
-      const msg = e instanceof MissingApiKeyError ? e.message : "Erro ao carregar chave do Google AI Studio.";
+      const msg = e instanceof MissingApiKeyError ? e.message : "Erro ao carregar chave de API.";
       return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
