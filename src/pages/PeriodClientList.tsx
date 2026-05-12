@@ -20,6 +20,7 @@ import type { SearchableItem } from "@/hooks/useSmartSearch";
 import TaskCard, { getColumnFromStatus } from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
+import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
 
 // ─── Types ───────────────────────────────────────────────────────
 

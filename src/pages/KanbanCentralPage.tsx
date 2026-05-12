@@ -33,6 +33,7 @@ import ManageColumnsModal from "@/components/ManageColumnsModal";
 import { CreateDemandModal } from "@/components/CreateDemandModal";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { useAgencyRole } from "@/hooks/useAgencyRole";
+import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
 
 interface PipelineStatus {
   id: string;

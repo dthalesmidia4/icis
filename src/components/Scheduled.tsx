@@ -12,6 +12,7 @@ import { toast as sonnerToast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SmartSearchBar from "@/components/SmartSearchBar";
 import { cn } from "@/lib/utils";
+import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
 
 interface CentralKanbanCard extends KanbanCardData {
   clientName: string;
