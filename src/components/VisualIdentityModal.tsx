@@ -63,7 +63,9 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
   const [secondaryColor, setSecondaryColor] = useState("#000000");
   const [highlightColor, setHighlightColor] = useState("#D6D2B5");
   const [textColor, setTextColor] = useState("#FFFFFF");
+  const [auxiliaryColor, setAuxiliaryColor] = useState("");
   const [fontName, setFontName] = useState("");
+  const [secondaryFont, setSecondaryFont] = useState("");
   const [savingVisual, setSavingVisual] = useState(false);
   const [presetName, setPresetName] = useState("");
 
