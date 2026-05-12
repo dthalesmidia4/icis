@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     // 3. Fetch client branding
     const { data: client } = await supabase
       .from("tenant_companies")
-      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, content_requirements, logo_url, logo_position, logo_size")
+      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_auxiliary_color, brand_font, brand_secondary_font, has_mascot, mascot_description, content_requirements, logo_url, logo_position, logo_size")
       .eq("id", demand.client_id)
       .single();
 
@@ -86,12 +86,14 @@ Deno.serve(async (req) => {
       secondary: client?.brand_secondary_color || "#FFFFFF",
       highlight: null as string | null,
       text: null as string | null,
+      auxiliary: (client as any)?.brand_auxiliary_color || null as string | null,
       font: client?.brand_font || "Montserrat",
+      secondaryFont: (client as any)?.brand_secondary_font || null as string | null,
     };
 
     const { data: preset } = await supabase
       .from("visual_identity_presets")
-      .select("primary_color, secondary_color, highlight_color, text_color, font_name")
+      .select("primary_color, secondary_color, highlight_color, text_color, auxiliary_color, font_name, secondary_font")
       .eq("company_id", demand.client_id)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -103,7 +105,9 @@ Deno.serve(async (req) => {
         secondary: preset.secondary_color || presetColors.secondary,
         highlight: preset.highlight_color,
         text: preset.text_color,
+        auxiliary: (preset as any).auxiliary_color || presetColors.auxiliary,
         font: preset.font_name || presetColors.font,
+        secondaryFont: (preset as any).secondary_font || presetColors.secondaryFont,
       };
     }
 
