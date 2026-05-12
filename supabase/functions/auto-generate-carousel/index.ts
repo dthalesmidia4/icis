@@ -287,15 +287,10 @@ REGRAS:
         .single();
 
       const currentAttachments = Array.isArray(currentDemand?.attachments) ? currentDemand.attachments : [];
-      const slideNamePattern = new RegExp(`Carrossel Slide ${r.slideNumber}\\b`, "i");
-      const filteredAttachments = currentAttachments.filter((a: any) => {
-        if (!isAiCarouselSlide(a)) return true;
-        return !slideNamePattern.test(a.name || "");
-      });
 
       await supabase
         .from("demands")
-        .update({ attachments: [...filteredAttachments, newAttachment] })
+        .update({ attachments: [...currentAttachments, newAttachment] })
         .eq("id", demandId);
       console.log(`  ↳ Slide ${r.slideNumber} attached to demand`);
     };
