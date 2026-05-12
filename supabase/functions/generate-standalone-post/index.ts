@@ -78,60 +78,35 @@ Deno.serve(async (req) => {
       hasMascotReference: mascotInline.length > 0,
     });
 
-    console.log(`Generating standalone post via ${MODELS.IMAGE}...`);
+    console.log(`Generating standalone post via ${IMAGE_MODELS[aiModel].id} (${provider})...`);
 
-    const parts: any[] = [{ text: imagePrompt }];
-    for (const m of mascotInline) parts.push({ inlineData: m });
-    if (logoInline) parts.push({ inlineData: logoInline });
-
-    const googleApiUrl = `${GOOGLE_API_BASE}/models/${MODELS.IMAGE}:generateContent?key=${GOOGLE_API_KEY}`;
-    const response = await fetch(googleApiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseModalities: ["IMAGE", "TEXT"] } }),
+    const result = await generateImageWithModel({
+      aiModel,
+      prompt: imagePrompt,
+      mascotInline,
+      logoInline,
+      aspectLabel: "1:1 (1024x1024)",
+      googleApiKey: GOOGLE_API_KEY,
+      openaiApiKey: OPENAI_API_KEY,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Image API error:", response.status, errorText);
-      if (response.status === 429) {
+    if (!result.ok) {
+      console.error("Image API error:", result.status, result.error);
+      if (result.rateLimited) {
         return new Response(JSON.stringify({ error: "Rate limit excedido. Tente novamente em alguns minutos." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ error: `Erro na geração de imagem: ${response.status}` }), {
+      return new Response(JSON.stringify({ error: `Erro na geração de imagem: ${result.error}` }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const data = await response.json();
-    let imageBase64 = "";
-    let imageMimeType = "image/png";
-    for (const candidate of (data.candidates || [])) {
-      for (const part of (candidate.content?.parts || [])) {
-        const inlineData = part.inlineData || part.inline_data;
-        if (inlineData) {
-          imageBase64 = inlineData.data;
-          imageMimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
-          break;
-        }
-      }
-      if (imageBase64) break;
-    }
-
-    if (!imageBase64) {
-      return new Response(JSON.stringify({ error: "Nenhuma imagem foi retornada pelo modelo." }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const imageBytes = decodeBase64(imageBase64);
-    const ext = imageMimeType.includes("jpeg") ? "jpg" : "png";
-    const fileName = `standalone-posts/${clientId}/${crypto.randomUUID()}.${ext}`;
+    const fileName = `standalone-posts/${clientId}/${crypto.randomUUID()}.${result.ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from("card-attachments")
-      .upload(fileName, imageBytes, { contentType: imageMimeType, upsert: false });
+      .upload(fileName, result.imageBytes, { contentType: result.mimeType, upsert: false });
 
     if (uploadError) {
       return new Response(JSON.stringify({ error: "Falha ao salvar imagem gerada." }), {
