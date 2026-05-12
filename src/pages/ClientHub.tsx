@@ -317,7 +317,7 @@ const ClientHub = () => {
     try {
       const selectedMascotUrls = mascotImages.filter(m => selectedMascotIds.includes(m.id)).map(m => m.image_url);
       const allImages: Array<{ slideIndex: number; imageUrl: string }> = [];
-      const BATCH_SIZE = 4;
+      const BATCH_SIZE = 2;
       const totalSlides = carouselSlides.length;
 
       for (let batchStart = 0; batchStart < totalSlides; batchStart += BATCH_SIZE) {
