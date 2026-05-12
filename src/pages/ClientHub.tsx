@@ -917,17 +917,47 @@ const ClientHub = () => {
                 setCarouselStep(2);
                 try {
                   const selectedMascotUrls = mascotImages.filter(m => selectedMascotIds.includes(m.id)).map(m => m.image_url);
-                  const { data, error } = await supabase.functions.invoke('generate-carousel-images', {
-                    body: { slides: validSlides, aspectRatio: '1:1', aiModel: 'nanobanana3', presetId: selectedPresetId, mascotImageUrls: selectedMascotUrls, clientId: selectedClient.id, tenantId },
-                  });
-                  if (error) { console.error('Edge function error:', error); toast.error('Erro ao gerar imagens do carrossel.'); return; }
-                  if (data?.error) { toast.error(data.error); if (data.partialImages?.length > 0) setCarouselGeneratedImages(data.partialImages); return; }
-                  if (data?.images && Array.isArray(data.images)) {
-                    setCarouselGeneratedImages(data.images);
-                    toast.success(`${data.totalGenerated}/${data.totalRequested} imagens geradas com sucesso!`);
-                    const urls = data.images.map((img: any) => img.imageUrl).filter(Boolean);
+                  const allImages: Array<{ slideIndex: number; imageUrl: string }> = [];
+                  const BATCH_SIZE = 2;
+                  const totalSlides = validSlides.length;
+
+                  for (let batchStart = 0; batchStart < totalSlides; batchStart += BATCH_SIZE) {
+                    const batchEnd = Math.min(batchStart + BATCH_SIZE, totalSlides);
+                    const batchSlides = validSlides.slice(batchStart, batchEnd);
+                    setCarouselImageProgress(`Gerando slides ${batchStart + 1}-${batchEnd} de ${totalSlides}...`);
+
+                    const { data, error } = await supabase.functions.invoke('generate-carousel-images', {
+                      body: {
+                        slides: batchSlides,
+                        allSlides: validSlides,
+                        batchOffset: batchStart,
+                        aspectRatio: '1:1',
+                        aiModel: 'nanobanana3',
+                        presetId: selectedPresetId,
+                        mascotImageUrls: selectedMascotUrls,
+                        clientId: selectedClient.id,
+                        tenantId,
+                      },
+                    });
+                    if (error) { console.error('Edge function error (batch):', error); toast.error(`Erro ao gerar slides ${batchStart + 1}-${batchEnd}.`); continue; }
+                    if (data?.error) { toast.error(data.error); if (data.partialImages?.length > 0) allImages.push(...data.partialImages.map((img: any) => ({ slideIndex: img.slideIndex + batchStart, imageUrl: img.imageUrl }))); continue; }
+                    if (data?.images && Array.isArray(data.images)) {
+                      const adjustedImages = data.images.map((img: any) => ({
+                        slideIndex: img.slideIndex + batchStart,
+                        imageUrl: img.imageUrl,
+                      }));
+                      allImages.push(...adjustedImages);
+                      setCarouselGeneratedImages([...allImages]);
+                    }
+                  }
+
+                  if (allImages.length === 0) {
+                    toast.error('Nenhuma imagem foi gerada. Tente novamente.');
+                  } else {
+                    toast.success(`${allImages.length}/${totalSlides} imagens geradas com sucesso!`);
+                    const urls = allImages.map(img => img.imageUrl).filter(Boolean);
                     if (urls.length > 0) await saveGeneratedContent('carousel', 'Carrossel Manual', 'Manual', urls);
-                  } else { toast.error('Nenhuma imagem retornada.'); }
+                  }
                 } catch (err) { console.error('Generate carousel images error:', err); toast.error('Erro inesperado ao gerar imagens.'); }
                 finally { setGeneratingCarouselImages(false); setCarouselImageProgress(''); }
               }}>
