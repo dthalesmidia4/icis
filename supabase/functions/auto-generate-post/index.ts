@@ -211,7 +211,9 @@ PALETA DE CORES E APLICAÇÃO (REGRAS CRÍTICAS):
 - Cor secundária (${presetColors.secondary}): Use em acentos, bordas, elementos complementares e variações de fundo
 ${presetColors.highlight ? `- Cor de destaque (${presetColors.highlight}): Use em botões, badges, CTAs, ícones e pequenos destaques visuais` : ""}
 ${presetColors.text ? `- Cor do texto (${presetColors.text}): Use na tipografia principal sobre os fundos` : ""}
-- Tipografia: ${presetColors.font}
+${presetColors.auxiliary ? `- Cor auxiliar (${presetColors.auxiliary}): Use APENAS em elementos gráficos de apoio (formas decorativas, divisores, pequenos badges, gradientes secundários, fundos de seção secundários). NUNCA como cor dominante do layout — serve para enriquecer a composição e dar variedade visual.` : ""}
+- Tipografia principal: ${presetColors.font} — use em títulos e textos de impacto.
+${presetColors.secondaryFont ? `- Tipografia secundária: ${presetColors.secondaryFont} — use em subtítulos, legendas, textos de apoio e elementos secundários (NÃO use no título principal).` : ""}
 ${mascotSection}
 ${logoSection}
 REGRA CRÍTICA DE APLICAÇÃO DE CORES:
