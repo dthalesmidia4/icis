@@ -1508,6 +1508,24 @@ export default function TaskCard({
                         </DragDropContext>
                       )}
 
+                      {/* Generation shimmer placeholders */}
+                      {(generatingImages || regeneratingAll) && (
+                        <div className="flex gap-3 mb-4 overflow-x-auto pb-2 scrollbar-thin">
+                          {Array.from({ length: isCarousel ? 3 : 1 }).map((_, i) => (
+                            <div
+                              key={`shimmer-${i}`}
+                              className="relative flex flex-col items-center gap-1 p-1.5 bg-muted/30 rounded-lg border border-primary/30 w-[110px] flex-shrink-0"
+                            >
+                              <div className="relative h-[100px] w-[100px] rounded-md bg-muted flex items-center justify-center overflow-hidden">
+                                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-primary/30 to-transparent animate-shimmer" />
+                                <Sparkles className="h-6 w-6 text-primary animate-pulse relative z-10" />
+                              </div>
+                              <p className="text-[10px] font-medium text-primary animate-pulse">Gerando…</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Upload Button */}
                       {!readOnly && (
                         <label className={cn(
