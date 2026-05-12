@@ -672,7 +672,7 @@ const KanbanCentralPage = () => {
       const demandUpdateData: Record<string, any> = { updated_at: new Date().toISOString() };
       
       if (field === 'title') demandUpdateData.title = parsedValue;
-      else if (field === 'description') demandUpdateData.instructions = parsedValue;
+      else if (field === 'description') demandUpdateData.description = parsedValue;
       else if (field === 'objective') demandUpdateData.objective = parsedValue;
       else if (field === 'observations') demandUpdateData.observations = parsedValue;
       else if (field === 'attachments') demandUpdateData.attachments = parsedValue;

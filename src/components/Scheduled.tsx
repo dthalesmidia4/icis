@@ -237,7 +237,7 @@ const Scheduled = () => {
       const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
       
       if (field === 'title') updateData.title = parsedValue;
-      else if (field === 'description') updateData.instructions = parsedValue;
+      else if (field === 'description') updateData.description = parsedValue;
       else if (field === 'objective') updateData.objective = parsedValue;
       else if (field === 'observations') updateData.observations = parsedValue;
       else if (field === 'attachments') updateData.attachments = parsedValue;
