@@ -707,7 +707,18 @@ const ClientHub = () => {
                       </div>
                     )}
                   </div>
-                </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Modelo de IA</Label>
+                    <Select value={staticAiModel} onValueChange={(v) => setStaticAiModel(v as 'nanobanana3' | 'nanobanana35' | 'gpt2')} disabled={generatingPost}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="nanobanana3">Nanobanana 3</SelectItem>
+                        <SelectItem value="nanobanana35">Nanobanana 3.5</SelectItem>
+                        <SelectItem value="gpt2">GPT Image 2</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
               </div>
 
               {generatedPostImage && (
