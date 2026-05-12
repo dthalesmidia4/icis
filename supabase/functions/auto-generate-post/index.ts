@@ -112,42 +112,10 @@ Deno.serve(async (req) => {
     const demandInstructions = demand.instructions ? demand.instructions.replace(/<[^>]*>/g, " ").trim() : "";
     const demandObjective = demand.objective || "";
 
-    // 8. Logo settings
-    const logoUrl = (client as any)?.logo_url;
-    const logoPosition = (client as any)?.logo_position || "bottom-right";
-    const logoSize = (client as any)?.logo_size || "medium";
-    const logoSizeMap: Record<string, string> = { small: "~8%", medium: "~12%", large: "~18%" };
-    const logoPositionMap: Record<string, string> = {
-      "top-left": "canto superior esquerdo", "top-right": "canto superior direito",
-      "bottom-left": "canto inferior esquerdo", "bottom-right": "canto inferior direito",
-      "bottom-center": "centro inferior",
-    };
-    const logoSection = logoUrl
-      ? `\nLOGO DA MARCA (OBRIGATÓRIO):
-- A logo da marca está fornecida como imagem de referência. INCLUA a logo no design OBRIGATORIAMENTE.
-- Posição: ${logoPositionMap[logoPosition] || logoPosition}
-- Tamanho: ${logoSizeMap[logoSize] || "~12%"} da área da imagem
-- A logo deve ser nítida, legível e integrada harmoniosamente ao layout
-- NÃO distorça, altere cores ou modifique a logo de nenhuma forma
-- Reproduza a logo EXATAMENTE como na imagem de referência fornecida\n`
-      : "";
-
-    // 8b. Build image prompt
-    const mascotSection = mascotImageUrls.length > 0
-      ? `- MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""}
-  OBRIGATÓRIO PRESERVAR (identidade): mesma espécie, cores, roupa/uniforme, proporções, traços faciais e estilo de arte da imagem de referência — ele deve ser RECONHECIDO como o mesmo personagem.
-  OBRIGATÓRIO VARIAR (composição deste post): escolha pose corporal, expressão facial, ângulo de câmera e enquadramento ADEQUADOS ao tema do post; evite a pose neutra padrão da imagem de referência. O mascote DEVE interagir com o cenário/objetos do tema.
-  O mascote aparece integrado ao design como protagonista visual.`
-      : client?.has_mascot
-        ? `- A marca possui um mascote (${client?.mascot_description || "sem descrição"}), mas nenhuma imagem de referência está disponível. Tente incluí-lo se possível.`
-        : `- NÃO inclua personagens, mascotes ou figuras humanas no design.`;
-
-    const contentReqsSection = (client as any)?.content_requirements
-      ? `\nEXIGÊNCIAS DE CONTEÚDO DO CLIENTE (SIGA OBRIGATORIAMENTE):\n${(client as any).content_requirements}\n`
-      : '';
+    const logoUrl = vi.logo.url;
 
     const imagePrompt = `
-${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${contentReqsSection}Crie uma imagem profissional de post para rede social.
+${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${renderContentRequirementsBlock(vi)}Crie uma imagem profissional de post para rede social.
 
 TÍTULO DO POST (pode aparecer como texto na imagem):
 "${demandTitle}"
@@ -161,23 +129,10 @@ REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO:
 - Apenas o TÍTULO e textos curtos de gancho/CTA devem aparecer como tipografia na imagem.
 - A legenda serve apenas para você entender o tema e tom do post.
 
-PALETA DE CORES E APLICAÇÃO (REGRAS CRÍTICAS):
-- Marca: "${brandName}" | ${client?.sector || "N/A"} | ${(client as any)?.products_services || "N/A"}
-- Cor primária (${presetColors.primary}): Use em fundos, banners, boxes, shapes e elementos gráficos dominantes do layout
-- Cor secundária (${presetColors.secondary}): Use em acentos, bordas, elementos complementares e variações de fundo
-${presetColors.highlight ? `- Cor de destaque (${presetColors.highlight}): Use em botões, badges, CTAs, ícones e pequenos destaques visuais` : ""}
-${presetColors.text ? `- Cor do texto (${presetColors.text}): Use na tipografia principal sobre os fundos` : ""}
-${presetColors.auxiliary ? `- Cor auxiliar (${presetColors.auxiliary}): Use APENAS em elementos gráficos de apoio (formas decorativas, divisores, pequenos badges, gradientes secundários, fundos de seção secundários). NUNCA como cor dominante do layout — serve para enriquecer a composição e dar variedade visual.` : ""}
-- Tipografia principal: ${presetColors.font} — use em títulos e textos de impacto.
-${presetColors.secondaryFont ? `- Tipografia secundária: ${presetColors.secondaryFont} — use em subtítulos, legendas, textos de apoio e elementos secundários (NÃO use no título principal).` : ""}
-${mascotSection}
-${logoSection}
-REGRA CRÍTICA DE APLICAÇÃO DE CORES:
-As cores da marca devem ser aplicadas APENAS em elementos de design gráfico (fundos, gradientes, boxes, banners, shapes, tipografia, ícones, bordas).
-NUNCA aplique as cores da marca em objetos reais, pessoas, animais ou elementos figurativos.
-Exemplo: se a cor primária é verde, o fundo e os boxes devem ser verdes, mas um leão deve ter cores NATURAIS realistas.
-Os sujeitos e ilustrações figurativas devem manter aparência NATURAL e REALISTA.
-A paleta de cores cria a identidade visual através do LAYOUT e DESIGN, não tingindo os elementos figurativos.
+${renderColorPaletteBlock(vi)}
+${renderMascotBlock(vi, mascotImageUrls.length > 0)}
+${renderLogoBlock(vi)}
+${COLOR_APPLICATION_RULES}
 
 ESTILO VISUAL OBRIGATÓRIO:
 - Crie designs com estilo de ilustração 3D estilizada, moderna e profissional
