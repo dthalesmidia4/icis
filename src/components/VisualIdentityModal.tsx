@@ -20,6 +20,27 @@ interface VisualIdentityModalProps {
 
 type Tab = "menu" | "visual" | "mascot" | "logo";
 
+const ColorInput = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
+  <div className="space-y-2">
+    <Label className="text-sm font-medium">{label}</Label>
+    <div className="flex items-center gap-2">
+      <Input
+        value={value.replace('#', '')}
+        onChange={(e) => onChange(`#${e.target.value.replace('#', '')}`)}
+        className="flex-1 font-mono"
+        placeholder="000000"
+        maxLength={7}
+      />
+      <input
+        type="color"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-10 h-10 rounded-lg border border-input cursor-pointer p-0.5"
+      />
+    </div>
+  </div>
+);
+
 interface MascotImage {
   id: string;
   image_url: string;
