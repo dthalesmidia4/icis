@@ -106,83 +106,42 @@ Deno.serve(async (req) => {
     const demandDescription = demand.description ? demand.description.replace(/<[^>]*>/g, " ").trim() : "";
     const demandInstructions = demand.instructions ? demand.instructions.replace(/<[^>]*>/g, " ").trim() : "";
     const demandObjective = demand.objective || "";
-
     const logoUrl = vi.logo.url;
 
-    const imagePrompt = `
-${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${renderContentRequirementsBlock(vi)}Crie uma imagem profissional de post para rede social.
+    const contentSection = [
+      `TÍTULO DO POST (pode aparecer como texto na imagem):\n"${demandTitle}"`,
+      demandObjective ? `\nOBJETIVO DO POST (contexto temático para o design):\n${demandObjective}` : "",
+      demandDescription ? `\nCONTEXTO TEMÁTICO (NÃO inclua este texto na imagem — é a legenda para a descrição da rede social):\n${demandDescription}` : "",
+      demandInstructions ? `\nINSTRUÇÕES DE PRODUÇÃO VISUAL (siga estas diretrizes para o design):\n${demandInstructions}` : "",
+      "",
+      `REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO:`,
+      `- O campo "CONTEXTO TEMÁTICO" contém a LEGENDA que será publicada na DESCRIÇÃO do post na rede social. Este texto NÃO deve aparecer na imagem.`,
+      `- Apenas o TÍTULO e textos curtos de gancho/CTA devem aparecer como tipografia na imagem.`,
+      `- A legenda serve apenas para você entender o tema e tom do post.`,
+    ].filter(Boolean).join("\n");
 
-TÍTULO DO POST (pode aparecer como texto na imagem):
-"${demandTitle}"
+    const imagePrompt = buildStaticPostPrompt({
+      vi,
+      basePrompt,
+      strategySnippet,
+      contentSection,
+      hasMascotReference: mascotImageUrls.length > 0,
+    });
 
-${demandObjective ? `OBJETIVO DO POST (contexto temático para o design):\n${demandObjective}\n` : ""}
-${demandDescription ? `CONTEXTO TEMÁTICO (NÃO inclua este texto na imagem — é a legenda para a descrição da rede social):\n${demandDescription}\n` : ""}
-${demandInstructions ? `INSTRUÇÕES DE PRODUÇÃO VISUAL (siga estas diretrizes para o design):\n${demandInstructions}\n` : ""}
+    console.log(`Calling ${MODELS.IMAGE} via Google AI Studio direct API...`);
 
-REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO:
-- O campo "CONTEXTO TEMÁTICO" contém a LEGENDA que será publicada na DESCRIÇÃO do post na rede social. Este texto NÃO deve aparecer na imagem.
-- Apenas o TÍTULO e textos curtos de gancho/CTA devem aparecer como tipografia na imagem.
-- A legenda serve apenas para você entender o tema e tom do post.
-
-${renderColorPaletteBlock(vi)}
-${renderMascotBlock(vi, mascotImageUrls.length > 0)}
-${renderLogoBlock(vi)}
-${COLOR_APPLICATION_RULES}
-
-ESTILO VISUAL OBRIGATÓRIO:
-- Crie designs com estilo de ilustração 3D estilizada, moderna e profissional
-- Tipografia bold, grande e impactante integrada ao design (não sobreposta de forma genérica)
-- Composição dinâmica com profundidade e camadas visuais
-- Qualidade de design de agência profissional de alto nível
-- Contraste alto entre texto e fundo para legibilidade perfeita
-- Elementos gráficos decorativos sutis que enriquecem o layout
-- Cores vibrantes e paleta coerente com a identidade visual da marca
-- Apenas o TÍTULO do post deve aparecer legível e bem posicionado na imagem
-
-CENÁRIO E AMBIENTAÇÃO (OBRIGATÓRIO):
-- PROIBIDO fundo chapado, gradiente puro ou apenas shapes geométricos abstratos como cenário.
-- O fundo DEVE ser um ambiente 3D real e contextual ao tema do post (ex.: clínica, sala de espera, casa, rua, escritório, oficina, loja), com props e objetos relevantes em cena.
-- Inclua múltiplas camadas de profundidade: primeiro plano (mascote/objetos próximos), plano médio (mobiliário/elementos do tema) e fundo (paredes, janelas, ambientação).
-- Use iluminação cinematográfica com sombras realistas para criar volume.
-- Os boxes/banners de texto devem CONVIVER com o cenário, não substituí-lo nem ocupar a tela inteira.
-
-REGRAS OBRIGATÓRIAS:
-${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem"}
-- Design profissional para redes sociais
-- Formato: 1:1 (quadrado, 1024x1024)
-- IMPORTANTE: Gere um POST COMPLETO para rede social, não apenas um elemento isolado
-`.trim();
-
-    console.log("Calling Gemini 3 Pro Image (gemini-3-pro-image-preview) via Google AI Studio direct API...");
-
-    // 9. Build parts for Google AI Studio (with optional mascot + logo reference images)
+    // Build parts (text + optional reference images)
     const parts: any[] = [{ text: imagePrompt }];
-
-    const fetchImageInline = async (url: string): Promise<{ mimeType: string; data: string } | null> => {
-      try {
-        const imgResp = await fetch(url);
-        if (!imgResp.ok) return null;
-        const imgBuffer = await imgResp.arrayBuffer();
-        const bytes = new Uint8Array(imgBuffer);
-        let binary = "";
-        const chunkSize = 8192;
-        for (let i = 0; i < bytes.length; i += chunkSize) {
-          binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-        }
-        return { mimeType: imgResp.headers.get("content-type") || "image/png", data: btoa(binary) };
-      } catch (e) {
-        console.error("Failed to fetch image:", e);
-        return null;
-      }
-    };
-
-    if (mascotImageUrls.length > 0) {
-      for (const url of mascotImageUrls) {
-        const inline = await fetchImageInline(url);
-        if (inline) {
-          parts.push({ inlineData: inline });
-          console.log("  → Mascot reference image attached");
-        }
+    const mascotInline = await fetchInlineImages(mascotImageUrls);
+    for (const inline of mascotInline) {
+      parts.push({ inlineData: inline });
+      console.log("  → Mascot reference image attached");
+    }
+    if (logoUrl) {
+      const logoInline = await fetchInlineImage(logoUrl);
+      if (logoInline) {
+        parts.push({ inlineData: logoInline });
+        console.log("  → Logo reference image attached");
       }
     }
 
