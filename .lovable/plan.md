@@ -1,33 +1,68 @@
-# Corrigir colagem indevida no último slide do carrossel
+## Diagnóstico confirmado pelos logs
 
-## Diagnóstico
+Logs de `generate-carousel-images`:
+- Batch de 4 slides: boot às `…082842`, único `✅ Slide 1 generated` às `…193162` (~105s após o boot), `shutdown` às `…237182`. Os slides 2/3/4 nunca terminam — a função é encerrada por **wall-time** antes de logar.
+- Batch de 1 slide (slide 5, batchOffset=4): boot às `…238534`, `✅ Slide 5 generated` em ~36s. Sucesso.
 
-Ao inspecionar `supabase/functions/_shared/image-prompts.ts` (`buildCarouselSlidePrompt`, usado tanto pelo avulso `generate-carousel-images` quanto pelo período `auto-generate-carousel`), identifiquei dois gatilhos que levam o Gemini 3 Pro Image a renderizar uma grade com todos os slides — exatamente o que apareceu no slide 5 do teste:
+Causa raiz: o loop sequencial dentro de cada batch chama `gemini-3-pro-image-preview` ~30–60s por slide. Quatro slides em série excedem o limite da Edge Function. Resultado: o cliente recebe erro do batch 1 (acumulado vazio) e somente a imagem do batch 2 (slide 5) aparece — exatamente o sintoma do print.
 
-1. **Linha `CONTEXTO: S1: "..." | S2: "..." | ... | S5: "..."`** é injetada em cada chamada. O modelo de imagem interpreta a lista literalmente e, principalmente no último slide (quando o "fechamento" do carrossel é mencionado), tende a compor uma colagem/recap de todos os textos numa única arte.
-2. **Não há proibição explícita** contra montagens, grids, mosaicos ou recap de slides anteriores. Só existe proibição de "1/5", paginação e dots.
+A causa **não é o prompt** das regras anti-colagem — essas continuam válidas. A regressão é arquitetural (sequencial + modelo Pro lento, herdada da unificação que removeu a paralelização anterior).
 
-Como o mesmo builder é usado em avulso e período, a correção propaga para os dois fluxos automaticamente (já era o objetivo da unificação anterior).
+## Princípios da correção (sem duplicar verdades)
 
-## Plano
+- **Modelo:** continua único em `MODELS.IMAGE` (`gemini-3-pro-image-preview`). Não criamos `IMAGE_FAST` porque hoje o seletor da UI só expõe "Nanobanana 3" e a paridade avulso↔período exige um único modelo de imagem. Se no futuro quisermos opção rápida, ela vira **mais um valor** em `MODELS`, lido pelo helper compartilhado — não duplicado por função.
+- **Prompt:** continua centralizado em `_shared/image-prompts.ts` (`buildCarouselSlidePrompt`). Nenhuma alteração.
+- **Loop de geração de slide (fetch Gemini → parse → upload Storage):** vira um **único helper compartilhado** em `_shared/`, consumido por `generate-carousel-images` (avulso) e `auto-generate-carousel` (período). Hoje essa lógica está duplicada nos dois arquivos — é a verdadeira raiz da divergência.
 
-Editar **apenas** `supabase/functions/_shared/image-prompts.ts`:
+## Mudanças
 
-1. **Reescrever a linha de CONTEXTO** para deixar claro que é referência narrativa textual e que **não deve ser renderizada visualmente**. Ex.:
-   ```
-   CONTEXTO NARRATIVO (apenas para coerência de tom — NÃO renderize estes textos na imagem):
-   S1: "..." | S2: "..." | ...
-   ```
-2. **Adicionar regra de slide único** em `CAROUSEL_CONTINUITY` e também numa nova diretriz aplicada a TODOS os slides do carrossel:
-   - "Cada chamada gera UMA ÚNICA imagem que representa SOMENTE o slide atual (${slideNumber})."
-   - "PROIBIDO ABSOLUTO: colagens, grids, mosaicos, recap, montagens, divisão da arte em múltiplos quadros, miniaturas de outros slides ou qualquer composição que mostre mais de uma cena/slide."
-   - "Apenas o texto do slide atual ('${slideText}') deve aparecer legível — nenhum outro texto de outro slide pode aparecer."
-3. **Reforço extra no último slide** (quando `slideNumber === totalSlides`): adicionar bloco curto deixando claro que o slide final é uma cena única de fechamento/CTA, **não** um resumo visual dos slides anteriores.
+### 1. `supabase/functions/_shared/carousel-image-runner.ts` (novo)
 
-Sem mudanças de banco, sem mudanças nos callers, sem alteração de modelo. Mantém a paridade avulso ↔ período.
+Exporta `generateCarouselSlideImages(opts)` que recebe:
+- `supabase`, `googleApiKey`, `vi`, `basePrompt`, `strategySnippet`
+- `slides` (do batch), `allSlides`, `batchOffset`, `aspectLabel`
+- `mascotInline[]`, `logoInline | null`
+- `storagePathBuilder(slideNumber) => string` (avulso usa `carousel-posts/<clientId>/uuid`; período usa `auto-generated/<clientId>/<demandId>/carousel-slide-N-uuid`)
+- `onSlideDone?(result)` opcional para período persistir incremental
 
-## Validação
+Comportamento:
+- `slideContextLine` montado a partir de `allSlides` (inclui contexto completo mesmo em batches).
+- Executa as N chamadas do batch em **`Promise.allSettled`** (geração + upload juntos).
+- Cada item resolve em `{ slideIndex, slideNumber, ok, imageUrl?, attachment?, error?, status? }`.
+- `429` é capturado por slide; não aborta os demais. Retorna agregação `{ images, failures, anyRateLimited }`.
 
-Após editar:
-- Reler o arquivo para confirmar a sintaxe.
-- Pedir ao usuário para regenerar o carrossel de teste (mesmo cliente Statera) e verificar o slide 5.
+### 2. `supabase/functions/generate-carousel-images/index.ts`
+
+- Remove o `for` sequencial; chama `generateCarouselSlideImages(...)`.
+- Mantém contrato HTTP atual: `{ success, images: [{slideIndex, imageUrl}], totalGenerated, totalRequested }`.
+- Se `anyRateLimited` e nenhuma imagem, retorna `429` com `partialImages: []` (compatível com o tratamento atual no `ClientHub`).
+- Se houve parciais, retorna `200` com o que conseguiu (cliente já mescla `partialImages`).
+
+### 3. `supabase/functions/auto-generate-carousel/index.ts`
+
+- Substitui o `for (i…)` da Step 2 pela chamada ao mesmo `generateCarouselSlideImages`, passando o `storagePathBuilder` específico do período e um `onSlideDone` que faz o `update` incremental do array de attachments na demand (preservando o comportamento atual de salvar à medida que sai). Sem mudança de modelo.
+
+### 4. `src/pages/ClientHub.tsx`
+
+- Reduz `BATCH_SIZE` de 4 para **2** no fluxo "Gerar Carrossel com IA" (linha ~320). Com paralelização real, 2 chamadas Pro simultâneas cabem confortavelmente (~40–60s) e mantêm margem para upload + cold start. Carrosséis de 5 slides geram em 3 batches (2+2+1).
+- Fluxo manual (linha ~921) passa a também enviar **em batches de 2** usando o mesmo loop do fluxo IA, em vez de uma única chamada com todos os slides. Elimina a outra rota onde 4+ slides estouram o timeout.
+- Sem mudanças visuais nem nos seletores. `aiModel` continua sendo enviado e segue ignorado pelo backend (mantém compatibilidade; remoção fica para quando o seletor for repensado).
+
+### 5. Memórias
+
+- Atualizar `mem://features/automation/carousel-generation-resilience` para refletir: batches de 2 + execução paralela via helper compartilhado.
+- Atualizar `mem://architecture/edge-functions/shared-helpers` adicionando `_shared/carousel-image-runner.ts` à lista.
+
+## Fora de escopo
+
+- Não alteramos prompts (`CAROUSEL_SINGLE_SLIDE_RULE`, `CAROUSEL_FINAL_SLIDE_RULE` permanecem).
+- Não alteramos schema, RLS, nem tabelas.
+- Não criamos `MODELS.IMAGE_FAST` agora — evitaria duplicar fonte de verdade enquanto a UI não tem caso de uso real.
+- Não trocamos o seletor "Nanobanana 3 / GPT" da UI; refatorar essa escolha vira tarefa separada.
+
+## Verificação
+
+1. Carrossel avulso com IA, 5 slides, "Nanobanana 3 (Alta Qualidade)": logs devem mostrar 3 batches, cada um <90s, com 5 `✅ Slide N generated`. UI mostra 5 imagens distintas, sem colagem.
+2. Carrossel manual de 5 slides: idem.
+3. `auto-generate-carousel` (período): demand recebe 5 attachments incrementais; tempo total ≈ tempo do batch mais lento × 3, sem timeouts parciais.
+4. Conferir nos logs ausência de `shutdown` antes do último `✅ Slide N`.
