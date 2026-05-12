@@ -20,6 +20,7 @@ import type { SearchableItem } from "@/hooks/useSmartSearch";
 import TaskCard, { getColumnFromStatus } from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
+import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -103,7 +104,7 @@ const demandToCardData = (demand: DemandRow, statusName: string, clientName: str
   due_date: demand.due_date || "",
   channel: demand.channel,
   objective: demand.objective,
-  description: demand.instructions,
+  description: demand.description,
   instructions: demand.instructions,
   observations: demand.observations,
   period_plan_id: demand.period_plan_id,
@@ -348,7 +349,7 @@ const PeriodClientList = () => {
       const demandUpdateData: Record<string, any> = { updated_at: new Date().toISOString() };
 
       if (field === 'title') demandUpdateData.title = parsedValue;
-      else if (field === 'description') demandUpdateData.instructions = parsedValue;
+      else if (field === 'description') demandUpdateData.description = parsedValue;
       else if (field === 'objective') demandUpdateData.objective = parsedValue;
       else if (field === 'observations') demandUpdateData.observations = parsedValue;
       else if (field === 'attachments') demandUpdateData.attachments = parsedValue;
@@ -371,6 +372,16 @@ const PeriodClientList = () => {
         .eq("id", selectedCard.id);
 
       if (error) throw error;
+
+      if (['title', 'objective', 'description', 'instructions'].includes(field) && selectedCard.period_plan_id) {
+        const merged = {
+          title: field === 'title' ? parsedValue : selectedCard.title,
+          objective: field === 'objective' ? parsedValue : selectedCard.objective,
+          description: field === 'description' ? parsedValue : selectedCard.description,
+          instructions: field === 'instructions' ? parsedValue : selectedCard.instructions,
+        };
+        syncPeriodPlanSnapshot(selectedCard.period_plan_id, merged);
+      }
 
       if (field === 'status') {
         setSelectedCard(prev => prev ? { ...prev, status: value } : null);

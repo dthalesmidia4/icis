@@ -12,6 +12,7 @@ import { toast as sonnerToast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SmartSearchBar from "@/components/SmartSearchBar";
 import { cn } from "@/lib/utils";
+import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
 
 interface CentralKanbanCard extends KanbanCardData {
   clientName: string;
@@ -237,7 +238,7 @@ const Scheduled = () => {
       const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
       
       if (field === 'title') updateData.title = parsedValue;
-      else if (field === 'description') updateData.instructions = parsedValue;
+      else if (field === 'description') updateData.description = parsedValue;
       else if (field === 'objective') updateData.objective = parsedValue;
       else if (field === 'observations') updateData.observations = parsedValue;
       else if (field === 'attachments') updateData.attachments = parsedValue;
@@ -260,6 +261,16 @@ const Scheduled = () => {
         .eq("id", selectedCard.id);
 
       if (error) throw error;
+
+      if (['title', 'objective', 'description', 'instructions'].includes(field) && selectedCard.period_plan_id) {
+        const merged = {
+          title: field === 'title' ? parsedValue : selectedCard.title,
+          objective: field === 'objective' ? parsedValue : selectedCard.objective,
+          description: field === 'description' ? parsedValue : selectedCard.description,
+          instructions: field === 'instructions' ? parsedValue : selectedCard.instructions,
+        };
+        syncPeriodPlanSnapshot(selectedCard.period_plan_id, merged);
+      }
 
       const updateCard = (c: CentralKanbanCard) => c.id === selectedCard.id ? {
         ...c,

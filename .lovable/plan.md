@@ -1,72 +1,63 @@
-## Diagnóstico
+## Plano
 
-Após analisar `auto-generate-carousel/index.ts` e `auto-generate-post/index.ts`, identifiquei **três causas raiz** dos problemas:
+### Objetivo
+Corrigir o mapeamento dos campos no Kanban Central para que:
+- `Conteúdo` use `demands.description`
+- `Instruções de Produção` use `demands.instructions` (sem o conteúdo)
+- `CTA Recomendado` continue derivado do marcador `CTA:` dentro de `demands.instructions`
+- Kanban Central e Histórico de Períodos passem a editar a mesma informação, sem duplicar estrutura no banco
 
-### 1. Indicador "1/5" aparecendo no carrossel
-`auto-generate-carousel/index.ts` **linha 458** instrui explicitamente o modelo:
+### O que vou implementar
+
+1. **Corrigir os mapeamentos errados nas telas que usam o TaskCard**
+   - Ajustar o salvamento em `KanbanCentralPage`, `PeriodClientList` e `Scheduled` para que editar `Conteúdo` salve em `description`, e não em `instructions`.
+   - Ajustar a leitura em `PeriodClientList` para que `description` venha de `demand.description`, e não de `demand.instructions`.
+   - Manter a separação já existente no `TaskCard` entre `Instruções de Produção` e `CTA Recomendado` usando o split/combine do campo `instructions`.
+
+2. **Corrigir a origem dos dados na criação de demandas a partir de períodos**
+   - Revisar o fluxo que salva demandas vindas do planejamento para garantir que o conteúdo entre em `description` e que apenas instruções + CTA sejam gravados em `instructions`.
+   - Isso evita que novos cards aprovados voltem a nascer concatenados.
+
+3. **Definir a fonte de verdade sem criar novas colunas**
+   - Para cards aprovados e presentes no fluxo operacional, a fonte de verdade será a tabela `demands`, usando as colunas já existentes:
+     - `objective`
+     - `description`
+     - `instructions`
+     - `observations`
+   - Kanban Central e Histórico de Períodos passarão a ler e salvar esses mesmos campos.
+
+4. **Sincronizar também o snapshot do período quando houver vínculo**
+   - Quando uma demanda tiver `period_plan_id`, ao salvar no Kanban Central ou no Histórico de Períodos, atualizar também o item correspondente dentro de `period_plans.default_plan` ou `period_plans.ultra_plan` usando os campos já existentes do JSON:
+     - `conteudo`
+     - `instrucoes_de_producao`
+     - `cta_recomendado`
+   - Assim, a visualização histórica do período não fica divergente da demanda operacional.
+
+5. **Normalizar os registros já afetados**
+   - Aplicar uma correção de dados apenas nos cards vinculados a período que hoje estão com `description` vazia/nula e `instructions` contendo conteúdo + instruções + CTA concatenados.
+   - A recomposição será feita a partir do JSON já existente em `period_plans`, sem criar colunas novas e sem duplicar informação.
+
+6. **Validar o resultado**
+   - Confirmar no card do exemplo que:
+     - `Conteúdo` mostra apenas o bloco com “Troca de óleo...”
+     - `Instruções de Produção` mostra apenas “Layout em lista...”
+     - `CTA Recomendado` mostra apenas “Quer revisar um carro...”
+   - Verificar edição cruzada entre Kanban Central e Histórico de Períodos no mesmo card.
+
+### Detalhes técnicos
+- **Sem migração de schema**: a estrutura atual da tabela `demands` já suporta o ajuste.
+- **Problemas confirmados no código atual**:
+  - `KanbanCentralPage`, `PeriodClientList` e `Scheduled` salvam `description` em `instructions`.
+  - `PeriodClientList` abre o card com `description: demand.instructions`.
+  - Há ao menos um registro real no banco com `description = null` e `instructions` concatenado.
+- **Fonte única proposta**:
+```text
+period_plans (snapshot de planejamento)
+        ↓ aprovação / sincronização
+      demands (fonte operacional única)
+        ↕
+Kanban Central + Histórico de Períodos
 ```
-REGRAS: Formato 1:1 (1024x1024). O texto "..." DEVE aparecer legível.
-Design coerente entre slides. Indicador {N}/{total} discreto.
-```
-A frase "Indicador N/total discreto" **manda o modelo desenhar o número**. É exatamente por isso que o "1/5" aparece nas imagens enviadas.
 
-### 2. Mascote sempre na mesma posição/pose
-Tanto no carrossel (linhas 350–354) quanto no post estático (linhas 176–180), o prompt de mascote diz:
-```
-Reproduza o mascote EXATAMENTE como na imagem de referência —
-mesma aparência, cabelo, roupa, proporções...
-NÃO altere nenhuma característica do mascote.
-```
-Sem distinguir **identidade** (que deve ser preservada) de **pose/posição/expressão/ângulo** (que devem variar entre slides). O modelo trata "exatamente como na referência" literalmente — mesma pose em todo slide.
-
-### 3. Fundo genérico / poucos elementos
-A regra "ESTILO VISUAL OBRIGATÓRIO" pede cenário detalhado, mas é **enfraquecida** por outras regras que pedem "boxes coloridos grandes" ocupando a tela. Faltam exigências explícitas anti-fundo-chapado: ambientação contextual ao tema, props/objetos relevantes em cena, profundidade real, e proibição de fundo plano com apenas shapes geométricos.
-
----
-
-## Plano de Correção (apenas prompts — sem mudança de lógica)
-
-### Arquivo: `supabase/functions/auto-generate-carousel/index.ts`
-
-**A. Remover indicador de página (linha 458)**
-Trocar:
-```
-REGRAS: Formato 1:1 (1024x1024). O texto "..." DEVE aparecer legível. Design coerente entre slides. Indicador {N}/{total} discreto.
-```
-por:
-```
-REGRAS: Formato 1:1 (1024x1024). O texto DEVE aparecer legível. Design coerente entre slides.
-PROIBIDO: NÃO desenhe nenhum número de página, contador, "1/5", "2/5", paginação, dots indicadores ou qualquer marcação de sequência. O Instagram já mostra a posição do slide.
-```
-
-**B. Variação de pose do mascote (linhas 350–354)**
-Refinar o `mascotSection` para separar identidade vs pose:
-```
-MASCOTE: A marca possui um mascote oficial. {descrição}
-OBRIGATÓRIO PRESERVAR (identidade): mesma espécie, cores, roupa/uniforme, proporções, traços faciais e estilo de arte da imagem de referência — ele deve ser RECONHECIDO como o mesmo personagem.
-OBRIGATÓRIO VARIAR (composição por slide): pose corporal, expressão facial, ângulo da câmera, gesto das mãos, posicionamento na cena (esquerda/direita/centro), interação com objetos do cenário e enquadramento (close, médio, plano inteiro). NUNCA repita a mesma pose/posição do slide anterior nem da imagem de referência.
-Para o slide {N}, escolha uma pose/ângulo DIFERENTE dos demais slides.
-```
-
-**C. Cenário rico (reforço dentro do bloco ESTILO VISUAL, ~linha 437)**
-Adicionar:
-```
-CENÁRIO E AMBIENTAÇÃO (OBRIGATÓRIO):
-- PROIBIDO fundo chapado, gradiente puro ou apenas shapes geométricos abstratos como cenário.
-- O fundo DEVE ser um ambiente 3D real e contextual ao tema do slide (ex.: clínica, sala de espera, casa, rua, escritório), com props e objetos relevantes em cena.
-- Inclua múltiplas camadas de profundidade: primeiro plano (mascote + objetos próximos), plano médio (mobiliário/elementos do tema) e fundo (paredes, janelas, ambientação).
-- Use iluminação cinematográfica com sombras realistas para criar volume.
-- Os boxes/banners de texto devem CONVIVER com o cenário, não substituí-lo.
-```
-
-### Arquivo: `supabase/functions/auto-generate-post/index.ts`
-
-**D. Aplicar as mesmas correções B e C** no `mascotSection` (linhas 176–180) e no bloco "ESTILO VISUAL OBRIGATÓRIO" (linhas 217–226), com a mesma regra anti-fundo-chapado e mascote variando pose. (Para post estático único, B fica simplificada: "escolha uma pose adequada ao tema, evitando a pose neutra padrão da imagem de referência".)
-
----
-
-## Detalhes técnicos
-
-- Edição é **somente em strings de prompt** — nenhuma mudança em fluxo, schema, modelo ou banco.
-- Modelo continua `gemini-3-pro-image-preview` (Nano Banana Pro), conforme já validado.
-- Após editar, deploy das duas funções e testar em uma demanda de carrossel + uma demanda de post estático no Kanban Central, conferindo: (i) sem "1/5" na imagem, (ii) mascote em poses diferentes entre slides, (iii) fundo com cenário detalhado.
+### Resultado esperado
+Depois disso, o Kanban Central deixa de exibir “atividade” concatenada, os campos ficam semanticamente corretos, e editar em uma tela reflete na outra usando as colunas já existentes.
