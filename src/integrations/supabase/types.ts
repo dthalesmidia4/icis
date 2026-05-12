@@ -1170,9 +1170,11 @@ export type Database = {
         Row: {
           brand_auxiliary_color: string | null
           brand_font: string | null
+          brand_highlight_color: string | null
           brand_primary_color: string | null
           brand_secondary_color: string | null
           brand_secondary_font: string | null
+          brand_text_color: string | null
           cnpj_cpf: string
           content_requirements: string | null
           created_at: string | null
@@ -1196,9 +1198,11 @@ export type Database = {
         Insert: {
           brand_auxiliary_color?: string | null
           brand_font?: string | null
+          brand_highlight_color?: string | null
           brand_primary_color?: string | null
           brand_secondary_color?: string | null
           brand_secondary_font?: string | null
+          brand_text_color?: string | null
           cnpj_cpf: string
           content_requirements?: string | null
           created_at?: string | null
@@ -1222,9 +1226,11 @@ export type Database = {
         Update: {
           brand_auxiliary_color?: string | null
           brand_font?: string | null
+          brand_highlight_color?: string | null
           brand_primary_color?: string | null
           brand_secondary_color?: string | null
           brand_secondary_font?: string | null
+          brand_text_color?: string | null
           cnpj_cpf?: string
           content_requirements?: string | null
           created_at?: string | null
