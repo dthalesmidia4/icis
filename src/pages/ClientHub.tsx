@@ -719,6 +719,7 @@ const ClientHub = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
               </div>
 
               {generatedPostImage && (
