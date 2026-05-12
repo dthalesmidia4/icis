@@ -153,8 +153,10 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
         .update({
           brand_primary_color: primaryColor,
           brand_secondary_color: secondaryColor,
+          brand_auxiliary_color: auxiliaryColor || null,
           brand_font: fontName,
-        })
+          brand_secondary_font: secondaryFont || null,
+        } as any)
         .eq('id', companyId);
 
       await supabase.from('visual_identity_presets').insert({
@@ -165,9 +167,11 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
         secondary_color: secondaryColor,
         highlight_color: highlightColor,
         text_color: textColor,
+        auxiliary_color: auxiliaryColor || null,
         font_name: fontName,
+        secondary_font: secondaryFont || null,
         is_active: false,
-      });
+      } as any);
 
       setPresetName("");
       toast.success("Predefinição salva!");
@@ -184,7 +188,9 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
     setSecondaryColor(preset.secondary_color || "#000000");
     setHighlightColor(preset.highlight_color || "#D6D2B5");
     setTextColor(preset.text_color || "#FFFFFF");
+    setAuxiliaryColor(preset.auxiliary_color || "");
     setFontName(preset.font_name || "");
+    setSecondaryFont(preset.secondary_font || "");
     toast.success(`Predefinição "${preset.name}" carregada`);
   };
 
