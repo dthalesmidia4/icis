@@ -44,12 +44,14 @@ Deno.serve(async (req) => {
       .eq("key_name", "Google AI Studio")
       .single();
 
-    const GOOGLE_API_KEY = apiKeyData?.key_value;
-    if (!GOOGLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys (Dev > APIs do Sistema)." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    let GOOGLE_API_KEY: string;
+    try {
+      GOOGLE_API_KEY = await getGoogleAiKey(supabase);
+    } catch (e) {
+      const msg = e instanceof MissingApiKeyError ? e.message : "Erro ao carregar chave do Google AI Studio.";
+      return new Response(JSON.stringify({ error: msg }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // 1. Fetch the demand
@@ -82,70 +84,13 @@ Deno.serve(async (req) => {
 
     console.log(`Auto-generating post image for demand ${demandId} (type: ${demand.demand_type})`);
 
-    // 3. Fetch client branding
-    const { data: client } = await supabase
-      .from("tenant_companies")
-      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_auxiliary_color, brand_font, brand_secondary_font, has_mascot, mascot_description, content_requirements, logo_url, logo_position, logo_size")
-      .eq("id", demand.client_id)
-      .single();
+    // 3. Load visual identity (colors + fonts + logo + mascot) — single source of truth
+    const vi = await loadVisualIdentity(supabase, demand.client_id, { mascotImageLimit: 2 });
+    const brandName = vi.brandName;
+    const mascotImageUrls = vi.mascot.galleryUrls;
 
-    const brandName = client?.fantasy_name || client?.name || "Marca";
-
-    // 3b. Fetch visual identity preset (same as standalone)
-    let presetColors = {
-      primary: client?.brand_primary_color || "#000000",
-      secondary: client?.brand_secondary_color || "#FFFFFF",
-      highlight: null as string | null,
-      text: null as string | null,
-      auxiliary: (client as any)?.brand_auxiliary_color || null as string | null,
-      font: client?.brand_font || "Montserrat",
-      secondaryFont: (client as any)?.brand_secondary_font || null as string | null,
-    };
-
-    const { data: preset } = await supabase
-      .from("visual_identity_presets")
-      .select("primary_color, secondary_color, highlight_color, text_color, auxiliary_color, font_name, secondary_font")
-      .eq("company_id", demand.client_id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-
-    if (preset) {
-      presetColors = {
-        primary: preset.primary_color || presetColors.primary,
-        secondary: preset.secondary_color || presetColors.secondary,
-        highlight: preset.highlight_color,
-        text: preset.text_color,
-        auxiliary: (preset as any).auxiliary_color || presetColors.auxiliary,
-        font: preset.font_name || presetColors.font,
-        secondaryFont: (preset as any).secondary_font || presetColors.secondaryFont,
-      };
-    }
-
-    // 4. Fetch mascot images if client has mascot
-    let mascotImageUrls: string[] = [];
-    if (client?.has_mascot) {
-      const { data: mascotImages } = await supabase
-        .from("company_mascot_images")
-        .select("image_url")
-        .eq("company_id", demand.client_id)
-        .order("position", { ascending: true })
-        .limit(2);
-
-      if (mascotImages && mascotImages.length > 0) {
-        mascotImageUrls = mascotImages.map((m: any) => m.image_url);
-      }
-    }
-
-    // 5. Fetch posts prompt
-    const { data: promptData } = await supabase
-      .from("system_prompts")
-      .select("prompt_content")
-      .eq("tenant_id", demand.tenant_id)
-      .eq("prompt_key", "generate_posts_prompt")
-      .single();
-
-    const basePrompt = promptData?.prompt_content || "";
+    // 4. Fetch posts prompt
+    const basePrompt = await getSystemPrompt(supabase, demand.tenant_id, "generate_posts_prompt");
 
     // 6. Fetch active strategy
     const { data: strategy } = await supabase
