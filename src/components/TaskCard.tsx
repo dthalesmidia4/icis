@@ -556,36 +556,7 @@ export default function TaskCard({
     if (!card) return;
     setRegeneratingAll(true);
     try {
-      // Save current AI attachments to rejected_attachments
-      if (hasAiAttachments) {
-        const { data: currentDemand } = await supabase
-          .from("demands")
-          .select("rejected_attachments")
-          .eq("id", card.id)
-          .single();
-        
-        const existingRejected = (currentDemand?.rejected_attachments as any[]) || [];
-        const rejectedBatch = {
-          rejected_at: new Date().toISOString(),
-          attachments: aiAttachments,
-        };
-        
-        await supabase
-          .from("demands")
-          .update({ rejected_attachments: [...existingRejected, rejectedBatch] })
-          .eq("id", card.id);
-
-        // Remove AI attachments from current list
-        const manualAttachments = card.attachments?.filter(a => !isAiGeneratedAttachment(a)) || [];
-        await supabase
-          .from("demands")
-          .update({ attachments: manualAttachments as unknown as any })
-          .eq("id", card.id);
-        
-        onCardChange({ ...card, attachments: manualAttachments });
-      }
-
-      // Regenerate based on type
+      // Regenerate based on type — preserve existing attachments (new ones are appended)
       if (isCarousel) {
         const { data, error } = await supabase.functions.invoke("auto-generate-carousel", {
           body: { demandId: card.id },
