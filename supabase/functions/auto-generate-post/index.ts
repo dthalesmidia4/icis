@@ -32,13 +32,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch Google AI Studio API key from api_keys table (painel Dev > APIs do Sistema)
-    const { data: apiKeyData } = await supabase
-      .from("api_keys")
-      .select("key_value")
-      .eq("key_name", "Google AI Studio")
-      .single();
-
+    // Fetch Google AI Studio API key
     let GOOGLE_API_KEY: string;
     try {
       GOOGLE_API_KEY = await getGoogleAiKey(supabase);
