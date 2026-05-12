@@ -430,7 +430,9 @@ PALETA DE CORES E APLICAÇÃO (REGRAS CRÍTICAS):
 - Cor secundária (${presetColors.secondary}): Use em acentos, bordas, elementos complementares e variações de fundo
 ${presetColors.highlight ? `- Cor de destaque (${presetColors.highlight}): Use em botões, badges, CTAs, ícones e pequenos destaques visuais` : ""}
 ${presetColors.text ? `- Cor do texto (${presetColors.text}): Use na tipografia principal sobre os fundos` : ""}
-- Tipografia: ${presetColors.font}
+${presetColors.auxiliary ? `- Cor auxiliar (${presetColors.auxiliary}): Use APENAS em elementos gráficos de apoio (formas decorativas, divisores, badges menores, gradientes secundários, fundos de seção). NUNCA como cor dominante — serve para enriquecer e variar a composição entre slides.` : ""}
+- Tipografia principal: ${presetColors.font} — use em títulos e textos de impacto (hooks, números grandes, frases-âncora).
+${presetColors.secondaryFont ? `- Tipografia secundária: ${presetColors.secondaryFont} — use em subtítulos, legendas, listas e textos de apoio (NÃO use no título principal de cada slide).` : ""}
 ${mascotSection}
 ${logoPromptSection}
 
