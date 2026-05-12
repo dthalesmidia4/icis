@@ -698,6 +698,17 @@ const KanbanCentralPage = () => {
 
       if (error) throw error;
 
+      // Sincronizar snapshot do período (Histórico de Períodos)
+      if (['title', 'objective', 'description', 'instructions'].includes(field) && selectedCard.period_plan_id) {
+        const merged = {
+          title: field === 'title' ? parsedValue : selectedCard.title,
+          objective: field === 'objective' ? parsedValue : selectedCard.objective,
+          description: field === 'description' ? parsedValue : selectedCard.description,
+          instructions: field === 'instructions' ? parsedValue : selectedCard.instructions,
+        };
+        syncPeriodPlanSnapshot(selectedCard.period_plan_id, merged);
+      }
+
       // Atualizar estado local
       setCards(prev => prev.map(c => {
         if (c.id === selectedCard.id) {

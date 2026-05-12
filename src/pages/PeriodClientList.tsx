@@ -372,6 +372,16 @@ const PeriodClientList = () => {
 
       if (error) throw error;
 
+      if (['title', 'objective', 'description', 'instructions'].includes(field) && selectedCard.period_plan_id) {
+        const merged = {
+          title: field === 'title' ? parsedValue : selectedCard.title,
+          objective: field === 'objective' ? parsedValue : selectedCard.objective,
+          description: field === 'description' ? parsedValue : selectedCard.description,
+          instructions: field === 'instructions' ? parsedValue : selectedCard.instructions,
+        };
+        syncPeriodPlanSnapshot(selectedCard.period_plan_id, merged);
+      }
+
       if (field === 'status') {
         setSelectedCard(prev => prev ? { ...prev, status: value } : null);
       }
