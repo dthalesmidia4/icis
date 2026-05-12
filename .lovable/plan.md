@@ -1,63 +1,51 @@
-## Plano
+# Expansão da Identidade Visual
 
-### Objetivo
-Corrigir o mapeamento dos campos no Kanban Central para que:
-- `Conteúdo` use `demands.description`
-- `Instruções de Produção` use `demands.instructions` (sem o conteúdo)
-- `CTA Recomendado` continue derivado do marcador `CTA:` dentro de `demands.instructions`
-- Kanban Central e Histórico de Períodos passem a editar a mesma informação, sem duplicar estrutura no banco
+## Objetivo
+Permitir cadastrar uma **fonte secundária** (subtítulos/elementos auxiliares) e uma **5ª cor auxiliar opcional** (ex.: tons de verde da Statera para enriquecer composições), mantendo as 4 obrigatórias (Primária, Secundária, Destaque, Texto).
 
-### O que vou implementar
+## 1. Banco de Dados (migration)
 
-1. **Corrigir os mapeamentos errados nas telas que usam o TaskCard**
-   - Ajustar o salvamento em `KanbanCentralPage`, `PeriodClientList` e `Scheduled` para que editar `Conteúdo` salve em `description`, e não em `instructions`.
-   - Ajustar a leitura em `PeriodClientList` para que `description` venha de `demand.description`, e não de `demand.instructions`.
-   - Manter a separação já existente no `TaskCard` entre `Instruções de Produção` e `CTA Recomendado` usando o split/combine do campo `instructions`.
+Adicionar colunas em `tenant_companies`:
+- `brand_secondary_font` text — nome da fonte secundária
+- `brand_auxiliary_color` text — 5ª cor opcional (hex)
 
-2. **Corrigir a origem dos dados na criação de demandas a partir de períodos**
-   - Revisar o fluxo que salva demandas vindas do planejamento para garantir que o conteúdo entre em `description` e que apenas instruções + CTA sejam gravados em `instructions`.
-   - Isso evita que novos cards aprovados voltem a nascer concatenados.
+Adicionar colunas em `visual_identity_presets` (para que predefinições salvem tudo):
+- `secondary_font` text
+- `auxiliary_color` text
 
-3. **Definir a fonte de verdade sem criar novas colunas**
-   - Para cards aprovados e presentes no fluxo operacional, a fonte de verdade será a tabela `demands`, usando as colunas já existentes:
-     - `objective`
-     - `description`
-     - `instructions`
-     - `observations`
-   - Kanban Central e Histórico de Períodos passarão a ler e salvar esses mesmos campos.
+Sem mudanças de RLS (herdam as políticas existentes).
 
-4. **Sincronizar também o snapshot do período quando houver vínculo**
-   - Quando uma demanda tiver `period_plan_id`, ao salvar no Kanban Central ou no Histórico de Períodos, atualizar também o item correspondente dentro de `period_plans.default_plan` ou `period_plans.ultra_plan` usando os campos já existentes do JSON:
-     - `conteudo`
-     - `instrucoes_de_producao`
-     - `cta_recomendado`
-   - Assim, a visualização histórica do período não fica divergente da demanda operacional.
+## 2. UI — `VisualIdentityModal.tsx`
 
-5. **Normalizar os registros já afetados**
-   - Aplicar uma correção de dados apenas nos cards vinculados a período que hoje estão com `description` vazia/nula e `instructions` contendo conteúdo + instruções + CTA concatenados.
-   - A recomposição será feita a partir do JSON já existente em `period_plans`, sem criar colunas novas e sem duplicar informação.
+- **Cores**: reorganizar em grid 2 colunas mantendo Primária, Secundária, Destaque, Texto e adicionar campo **"Cor Auxiliar (opcional)"** com indicação visual de que é opcional.
+- **Fontes**: adicionar campo **"Fonte Secundária (opcional)"** abaixo de "Nome da Fonte" (renomear para "Fonte Principal").
+- Predefinições: ao salvar/carregar incluir os novos campos `secondary_font` e `auxiliary_color`.
+- Preview da predefinição na lateral: mostrar as 5 cores (5º círculo só aparece se preenchido) e listar ambas as fontes.
 
-6. **Validar o resultado**
-   - Confirmar no card do exemplo que:
-     - `Conteúdo` mostra apenas o bloco com “Troca de óleo...”
-     - `Instruções de Produção` mostra apenas “Layout em lista...”
-     - `CTA Recomendado` mostra apenas “Quer revisar um carro...”
-   - Verificar edição cruzada entre Kanban Central e Histórico de Períodos no mesmo card.
+## 3. Prompts de IA (Edge Functions)
 
-### Detalhes técnicos
-- **Sem migração de schema**: a estrutura atual da tabela `demands` já suporta o ajuste.
-- **Problemas confirmados no código atual**:
-  - `KanbanCentralPage`, `PeriodClientList` e `Scheduled` salvam `description` em `instructions`.
-  - `PeriodClientList` abre o card com `description: demand.instructions`.
-  - Há ao menos um registro real no banco com `description = null` e `instructions` concatenado.
-- **Fonte única proposta**:
-```text
-period_plans (snapshot de planejamento)
-        ↓ aprovação / sincronização
-      demands (fonte operacional única)
-        ↕
-Kanban Central + Histórico de Períodos
-```
+Atualizar `auto-generate-post/index.ts` e `auto-generate-carousel/index.ts` para injetar os novos dados nas instruções visuais:
 
-### Resultado esperado
-Depois disso, o Kanban Central deixa de exibir “atividade” concatenada, os campos ficam semanticamente corretos, e editar em uma tela reflete na outra usando as colunas já existentes.
+- **Fonte Principal**: títulos e textos de impacto.
+- **Fonte Secundária**: subtítulos, legendas e textos de apoio (quando cadastrada).
+- **Cor Auxiliar**: usar APENAS em elementos gráficos de apoio (formas, divisores, fundos secundários, badges) — nunca como cor dominante. Mantém regra existente de que cores de marca não tingem objetos/pessoas reais.
+
+Texto inserido no prompt apenas quando os campos existirem (graceful fallback para clientes antigos).
+
+## 4. Configuração da Statera (pós-deploy)
+
+Após aprovar a migration, o usuário poderá abrir a Identidade Visual da Statera e preencher:
+- Fonte Secundária: (a definir pelo usuário)
+- Cor Auxiliar: tom de verde (escuro ou claro — escolher o principal; o outro pode entrar como predefinição alternativa)
+
+## Arquivos afetados
+- `supabase/migrations/<nova>.sql` (nova)
+- `src/components/VisualIdentityModal.tsx`
+- `supabase/functions/auto-generate-post/index.ts`
+- `supabase/functions/auto-generate-carousel/index.ts`
+- `mem://features/visual-identity/centralized-management-and-presets` (atualizar memória)
+
+## Observações técnicas
+- `src/integrations/supabase/types.ts` é regenerado automaticamente após a migration.
+- Campos opcionais: UI e prompts tratam ausência sem quebrar (clientes existentes continuam funcionando).
+- Aprovação da migration é necessária antes da implementação do código.
