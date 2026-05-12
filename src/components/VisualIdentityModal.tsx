@@ -177,6 +177,8 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
           brand_primary_color: primaryColor,
           brand_secondary_color: secondaryColor,
           brand_auxiliary_color: auxiliaryColor || null,
+          brand_highlight_color: highlightColor,
+          brand_text_color: textColor,
           brand_font: fontName,
           brand_secondary_font: secondaryFont || null,
         } as any)
