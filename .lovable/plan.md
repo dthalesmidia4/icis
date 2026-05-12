@@ -1,27 +1,36 @@
 ## Objetivo
+1. Ao regerar (estático ou carrossel), **manter os anexos atuais** — os novos devem ser adicionados sem apagar / arquivar os antigos.
+2. Adicionar uma animação leve de “gerando” enquanto a IA trabalha, visível na área de anexos.
 
-Reverter o autosave. As cores e fontes só devem ser persistidas em `tenant_companies` quando o usuário clicar em **Salvar Predefinição**. Ao reabrir o modal, os campos devem refletir o que foi efetivamente salvo (e não voltar para `000000` por falta de leitura das colunas certas).
+## Mudanças
 
-## Causa do bug visual
+### 1. Frontend — `src/components/TaskCard.tsx`
 
-- `fetchCompanyData` não lia `brand_highlight_color` nem `brand_text_color`, então sempre voltavam para os defaults.
-- `handleSaveVisual` salvava só `brand_primary/secondary/auxiliary` em `tenant_companies` — destaque e texto só iam para `visual_identity_presets`.
-- Resultado: mesmo clicando em "Salvar Predefinição", destaque/texto não persistiam na empresa e sumiam ao reabrir.
+**`handleRegenerateAll`** (linhas 555–626)
+- Remover todo o bloco que move anexos de IA para `rejected_attachments` e os apaga da lista (linhas 559–586).
+- Manter apenas a chamada à edge function correspondente (`auto-generate-carousel` ou `generate-post-image`) e o refetch.
+- Resultado: as imagens novas serão **anexadas** às existentes (o backend já faz append).
 
-## Mudanças (`src/components/VisualIdentityModal.tsx`)
+**`handleRegenerateSlide`** (carrossel slide-a-slide)
+- Já é o fluxo de “substituir o slide N”. Passar uma flag para preservar o anexo antigo: enviar `replaceSlide: false` (ou novo flag `keepPrevious: true`) para que o slide regenerado seja adicionado em vez de substituir.
 
-1. **Remover o `useEffect` de autosave debounced** adicionado no último turno (o bloco que faz `supabase.from('tenant_companies').update(...)` a cada mudança de cor/fonte).
-2. **Remover** `hasLoadedCompanyRef` e seu uso (não é mais necessário).
-3. **Manter** o `fetchCompanyData` lendo também `brand_highlight_color` e `brand_text_color`, populando `setHighlightColor` / `setTextColor` (corrige o "tudo 000000" ao reabrir, lendo o que foi salvo).
-4. **Atualizar `handleSaveVisual`** para gravar em `tenant_companies` também `brand_highlight_color` e `brand_text_color`, além dos campos já existentes — assim a predefinição salva é o que aparece ao reabrir.
+**Animação de geração**
+- Enquanto `regeneratingAll`, `generatingImages` ou `regeneratingSlide` estiverem ativos, renderizar no início da lista horizontal de anexos um **placeholder card** (mesmas dimensões 110×100px) com:
+  - Fundo `bg-muted/40` + classe Tailwind existente `animate-pulse`
+  - Sobreposição `shimmer` usando `bg-gradient-to-r from-transparent via-primary/15 to-transparent` com `animate-[shimmer_1.5s_infinite]`
+  - Ícone `Sparkles` (lucide) discreto centralizado
+- Para regeneração de slide específico, colocar a animação só sobre o card do slide correspondente (overlay absoluto com mesmo shimmer).
+- Adicionar keyframe `shimmer` em `tailwind.config.ts` (`0% translateX(-100%)` → `100% translateX(100%)`) — leve, ~1.5s, GPU-friendly.
 
-## Comportamento final
+### 2. Backend — `supabase/functions/auto-generate-carousel/index.ts`
 
-- Digitar/escolher cores e fontes só altera o estado local; nada vai ao banco.
-- Clicar em **Salvar Predefinição** com nome preenchido: grava todos os campos de marca em `tenant_companies` e cria a entrada em `visual_identity_presets`.
-- Ao fechar e reabrir o modal: campos refletem exatamente o último "Salvar Predefinição" (ou os defaults se nunca houve um salvamento).
+- Remover (ou pular) `archiveExistingCarouselSlides` (linhas 30–61, chamada na 124) — não arquivar mais os slides antigos automaticamente.
+- No append por slide (linhas 286–302), **não filtrar** os anexos AI antigos com mesmo número; apenas concatenar `[...currentAttachments, newAttachment]`. Isso preserva o histórico visual no card.
 
-## Fora de escopo
+### 3. Backend — `supabase/functions/generate-post-image/index.ts`
+- Já preserva `existingAttachments` no fluxo de regeneração geral (linha 281). Sem mudanças necessárias para esse caso.
+- Para `replaceSlide`, manter como está apenas se vier explícito do frontend; o frontend deixará de enviar `replaceSlide: true`.
 
-- Migração do banco: as colunas `brand_highlight_color` e `brand_text_color` já foram criadas na migração anterior; mantemos.
-- Estrutura de presets, mascote e logo: inalteradas.
+## Notas
+- Memória “Card Regeneration History — Moves replaced AI attachments to history” fica desatualizada. Após aprovação, atualizo a memória para refletir que regeneração agora **mantém** os anexos anteriores na lista.
+- Sem mudanças de schema; nada para migrar.

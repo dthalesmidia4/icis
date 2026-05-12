@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone } from "lucide-react";
+import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles } from "lucide-react";
 
 // Split instructions field into "production instructions" and "CTA" parts.
 // Recognizes a "CTA:" marker (optionally wrapped in <p>) anywhere in the string.
@@ -556,36 +556,7 @@ export default function TaskCard({
     if (!card) return;
     setRegeneratingAll(true);
     try {
-      // Save current AI attachments to rejected_attachments
-      if (hasAiAttachments) {
-        const { data: currentDemand } = await supabase
-          .from("demands")
-          .select("rejected_attachments")
-          .eq("id", card.id)
-          .single();
-        
-        const existingRejected = (currentDemand?.rejected_attachments as any[]) || [];
-        const rejectedBatch = {
-          rejected_at: new Date().toISOString(),
-          attachments: aiAttachments,
-        };
-        
-        await supabase
-          .from("demands")
-          .update({ rejected_attachments: [...existingRejected, rejectedBatch] })
-          .eq("id", card.id);
-
-        // Remove AI attachments from current list
-        const manualAttachments = card.attachments?.filter(a => !isAiGeneratedAttachment(a)) || [];
-        await supabase
-          .from("demands")
-          .update({ attachments: manualAttachments as unknown as any })
-          .eq("id", card.id);
-        
-        onCardChange({ ...card, attachments: manualAttachments });
-      }
-
-      // Regenerate based on type
+      // Regenerate based on type — preserve existing attachments (new ones are appended)
       if (isCarousel) {
         const { data, error } = await supabase.functions.invoke("auto-generate-carousel", {
           body: { demandId: card.id },
@@ -630,7 +601,7 @@ export default function TaskCard({
     setRegeneratingSlide(slideNumber);
     try {
       const { data, error } = await supabase.functions.invoke("generate-post-image", {
-        body: { demandId: card.id, slideNumber, replaceSlide: true },
+        body: { demandId: card.id, slideNumber, replaceSlide: false },
       });
       if (error) throw error;
       if (data?.error) {
@@ -1473,7 +1444,7 @@ export default function TaskCard({
                                         </div>
                                         
                                         <div 
-                                          className="h-[100px] w-[100px] rounded-md bg-muted flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                                          className="relative h-[100px] w-[100px] rounded-md bg-muted flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
                                           onClick={(e) => { e.stopPropagation(); setPreviewAttachment(attachment); }}
                                         >
                                           {isImageFile(attachment.type) ? (
@@ -1481,6 +1452,19 @@ export default function TaskCard({
                                           ) : (
                                             <File className="h-8 w-8 text-muted-foreground" />
                                           )}
+                                          {(() => {
+                                            const slideMatch = attachment.name?.match(/Slide\s*(\d+)/i);
+                                            const slideNum = slideMatch ? parseInt(slideMatch[1], 10) : null;
+                                            if (slideNum !== null && regeneratingSlide === slideNum) {
+                                              return (
+                                                <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] flex items-center justify-center overflow-hidden">
+                                                  <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-primary/30 to-transparent animate-shimmer" />
+                                                  <Sparkles className="h-5 w-5 text-primary animate-pulse relative z-10" />
+                                                </div>
+                                              );
+                                            }
+                                            return null;
+                                          })()}
                                         </div>
 
                                         <div className="w-full text-center cursor-pointer" onClick={(e) => { e.stopPropagation(); setPreviewAttachment(attachment); }}>
@@ -1522,6 +1506,24 @@ export default function TaskCard({
                             )}
                           </Droppable>
                         </DragDropContext>
+                      )}
+
+                      {/* Generation shimmer placeholders */}
+                      {(generatingImages || regeneratingAll) && (
+                        <div className="flex gap-3 mb-4 overflow-x-auto pb-2 scrollbar-thin">
+                          {Array.from({ length: isCarousel ? 3 : 1 }).map((_, i) => (
+                            <div
+                              key={`shimmer-${i}`}
+                              className="relative flex flex-col items-center gap-1 p-1.5 bg-muted/30 rounded-lg border border-primary/30 w-[110px] flex-shrink-0"
+                            >
+                              <div className="relative h-[100px] w-[100px] rounded-md bg-muted flex items-center justify-center overflow-hidden">
+                                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-primary/30 to-transparent animate-shimmer" />
+                                <Sparkles className="h-6 w-6 text-primary animate-pulse relative z-10" />
+                              </div>
+                              <p className="text-[10px] font-medium text-primary animate-pulse">Gerando…</p>
+                            </div>
+                          ))}
+                        </div>
                       )}
 
                       {/* Upload Button */}
