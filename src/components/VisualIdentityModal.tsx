@@ -402,14 +402,47 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
               {/* Form */}
               <div className="flex-1 space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <ColorInput label="Cor Primária" value={primaryColor} onChange={setPrimaryColor} />
-                  <ColorInput label="Cor Secundária" value={secondaryColor} onChange={setSecondaryColor} />
-                  <ColorInput label="Cor de Destaque" value={highlightColor} onChange={setHighlightColor} />
-                  <ColorInput label="Cor do Texto" value={textColor} onChange={setTextColor} />
+                  <ColorInput label="Cor Primária *" value={primaryColor} onChange={setPrimaryColor} />
+                  <ColorInput label="Cor Secundária *" value={secondaryColor} onChange={setSecondaryColor} />
+                  <ColorInput label="Cor de Destaque *" value={highlightColor} onChange={setHighlightColor} />
+                  <ColorInput label="Cor do Texto *" value={textColor} onChange={setTextColor} />
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      Cor Auxiliar <span className="text-xs text-muted-foreground font-normal">(opcional — usada apenas em elementos gráficos de apoio)</span>
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={auxiliaryColor.replace('#', '')}
+                        onChange={(e) => setAuxiliaryColor(e.target.value ? `#${e.target.value.replace('#', '')}` : '')}
+                        className="flex-1 font-mono"
+                        placeholder="Ex: 1f5132 (deixe vazio para não usar)"
+                        maxLength={7}
+                      />
+                      <input
+                        type="color"
+                        value={auxiliaryColor || '#ffffff'}
+                        onChange={(e) => setAuxiliaryColor(e.target.value)}
+                        className="w-10 h-10 rounded-lg border border-input cursor-pointer p-0.5"
+                      />
+                      {auxiliaryColor && (
+                        <Button variant="ghost" size="icon" className="w-9 h-9 shrink-0" onClick={() => setAuxiliaryColor('')} title="Limpar">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Nome da Fonte</Label>
-                  <Input value={fontName} onChange={(e) => setFontName(e.target.value)} placeholder="Ex: Poppins, Montserrat, Inter..." />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Fonte Principal *</Label>
+                    <Input value={fontName} onChange={(e) => setFontName(e.target.value)} placeholder="Ex: Poppins, Montserrat..." />
+                    <p className="text-[10px] text-muted-foreground">Títulos e textos de impacto.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Fonte Secundária <span className="text-xs text-muted-foreground font-normal">(opcional)</span></Label>
+                    <Input value={secondaryFont} onChange={(e) => setSecondaryFont(e.target.value)} placeholder="Ex: Inter, Roboto..." />
+                    <p className="text-[10px] text-muted-foreground">Subtítulos, legendas e textos de apoio.</p>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Nome da Predefinição</Label>
