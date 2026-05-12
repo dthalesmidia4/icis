@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { getGoogleAiKey, MissingApiKeyError } from "../_shared/api-keys.ts";
+import { getGoogleAiKey, getOpenAiKey, MissingApiKeyError } from "../_shared/api-keys.ts";
 import { getCarouselPrompt } from "../_shared/system-prompts.ts";
-import { MODELS } from "../_shared/models.ts";
+import { IMAGE_MODELS, DEFAULT_IMAGE_MODEL, type ImageAiModel } from "../_shared/models.ts";
 import { loadVisualIdentity } from "../_shared/visual-identity.ts";
 import { fetchInlineImage, fetchInlineImages } from "../_shared/fetch-image.ts";
 import { generateCarouselSlideImages } from "../_shared/carousel-image-runner.ts";
@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { slides, allSlides, batchOffset, aspectRatio, presetId, mascotImageUrls, clientId, tenantId } = await req.json();
+    const { slides, allSlides, batchOffset, aspectRatio, presetId, mascotImageUrls, clientId, tenantId, aiModel: aiModelInput } = await req.json();
     const contextSlides = allSlides || slides;
     const slideOffset = batchOffset || 0;
 
@@ -26,12 +26,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    const aiModel: ImageAiModel = (aiModelInput && IMAGE_MODELS[aiModelInput as ImageAiModel])
+      ? (aiModelInput as ImageAiModel)
+      : DEFAULT_IMAGE_MODEL;
+    const provider = IMAGE_MODELS[aiModel].provider;
+
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    let GOOGLE_API_KEY: string;
-    try { GOOGLE_API_KEY = await getGoogleAiKey(supabase); }
+    let GOOGLE_API_KEY: string | undefined;
+    let OPENAI_API_KEY: string | undefined;
+    try {
+      if (provider === "google") GOOGLE_API_KEY = await getGoogleAiKey(supabase);
+      else OPENAI_API_KEY = await getOpenAiKey(supabase);
+    }
     catch (e) {
-      const msg = e instanceof MissingApiKeyError ? e.message : "Erro ao carregar chave do Google AI Studio.";
+      const msg = e instanceof MissingApiKeyError ? e.message : "Erro ao carregar chave de API.";
       return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -51,11 +60,13 @@ Deno.serve(async (req) => {
     const logoInline = vi.logo.url ? await fetchInlineImage(vi.logo.url) : null;
 
     const aspectLabel = aspectRatio ? `${aspectRatio} (1024x1024)` : "1:1 (1024x1024)";
-    console.log(`Generating ${slides.length} carousel images via ${MODELS.IMAGE} (parallel batch), ratio: ${aspectRatio || "1:1"}`);
+    console.log(`Generating ${slides.length} carousel images via ${IMAGE_MODELS[aiModel].id} (${provider}, parallel batch), ratio: ${aspectRatio || "1:1"}`);
 
     const { images, anyRateLimited } = await generateCarouselSlideImages({
       supabase,
-      googleApiKey: GOOGLE_API_KEY,
+      googleApiKey: GOOGLE_API_KEY ?? "",
+      openaiApiKey: OPENAI_API_KEY,
+      aiModel,
       vi,
       basePrompt,
       strategySnippet,

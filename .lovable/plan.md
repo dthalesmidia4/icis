@@ -1,36 +1,59 @@
 ## Objetivo
-1. Ao regerar (estático ou carrossel), **manter os anexos atuais** — os novos devem ser adicionados sem apagar / arquivar os antigos.
-2. Adicionar uma animação leve de “gerando” enquanto a IA trabalha, visível na área de anexos.
+1. Permitir escolher o modelo de IA no fluxo de **Post Estático Avulso** (igual ao carrossel).
+2. Cadastrar dois novos modelos disponíveis nas duas seleções:
+   - **Nanobanana 3.5** (Gemini 3.5 Pro Image — `gemini-3.5-pro-image-preview`)
+   - **GPT Image 2** (OpenAI — `gpt-image-2`, endpoint `v1/images/generations`)
+3. Wire de verdade o select do carrossel (hoje a opção "ChatGPT" cai no mesmo modelo Gemini — corrigir).
 
 ## Mudanças
 
-### 1. Frontend — `src/components/TaskCard.tsx`
+### 1. `supabase/functions/_shared/models.ts`
+Expandir `MODELS` com mapa de imagens:
+```ts
+IMAGE_MODELS: {
+  nanobanana3:  { provider: "google", id: "gemini-3-pro-image-preview" },
+  nanobanana35: { provider: "google", id: "gemini-3.5-pro-image-preview" },
+  gpt2:         { provider: "openai", id: "gpt-image-2" },
+}
+```
+Manter `IMAGE` como alias do default (`nanobanana3`) para compatibilidade. Adicionar `OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations"`.
 
-**`handleRegenerateAll`** (linhas 555–626)
-- Remover todo o bloco que move anexos de IA para `rejected_attachments` e os apaga da lista (linhas 559–586).
-- Manter apenas a chamada à edge function correspondente (`auto-generate-carousel` ou `generate-post-image`) e o refetch.
-- Resultado: as imagens novas serão **anexadas** às existentes (o backend já faz append).
+### 2. Novo helper `supabase/functions/_shared/image-generation.ts`
+Função única `generateImageWithModel({ supabase, aiModel, prompt, mascotInline, logoInline, aspectLabel })` que:
+- Resolve o `IMAGE_MODELS[aiModel]` (default `nanobanana3`).
+- Se `provider === "google"`: chamada Gemini atual (com `responseModalities`, parts inline).
+- Se `provider === "openai"`: chama `v1/images/generations` com body `{ model: "gpt-image-2", prompt, size, n: 1 }`. Como gpt-image-2 ainda não aceita imagens de referência via /generations, anexar instruções textuais resumidas sobre mascote/logo no prompt e ignorar `mascotInline/logoInline` quando provider for openai (registrar warning).
+- Retorna `{ base64, mimeType, ext }` ou lança erro com `status` (para tratar 429).
 
-**`handleRegenerateSlide`** (carrossel slide-a-slide)
-- Já é o fluxo de “substituir o slide N”. Passar uma flag para preservar o anexo antigo: enviar `replaceSlide: false` (ou novo flag `keepPrevious: true`) para que o slide regenerado seja adicionado em vez de substituir.
+### 3. `supabase/functions/generate-standalone-post/index.ts`
+- Aceitar `aiModel` no body (validar contra chaves de `IMAGE_MODELS`; default `nanobanana3`).
+- Carregar OPENAI key adicionalmente via `getOpenAiKey` quando `provider === "openai"`.
+- Substituir o bloco do `fetch` direto pelo helper `generateImageWithModel`.
 
-**Animação de geração**
-- Enquanto `regeneratingAll`, `generatingImages` ou `regeneratingSlide` estiverem ativos, renderizar no início da lista horizontal de anexos um **placeholder card** (mesmas dimensões 110×100px) com:
-  - Fundo `bg-muted/40` + classe Tailwind existente `animate-pulse`
-  - Sobreposição `shimmer` usando `bg-gradient-to-r from-transparent via-primary/15 to-transparent` com `animate-[shimmer_1.5s_infinite]`
-  - Ícone `Sparkles` (lucide) discreto centralizado
-- Para regeneração de slide específico, colocar a animação só sobre o card do slide correspondente (overlay absoluto com mesmo shimmer).
-- Adicionar keyframe `shimmer` em `tailwind.config.ts` (`0% translateX(-100%)` → `100% translateX(100%)`) — leve, ~1.5s, GPU-friendly.
+### 4. `supabase/functions/_shared/carousel-image-runner.ts`
+- Aceitar `aiModel` em `RunCarouselSlidesOptions` e `openaiKey` opcional.
+- Internamente chamar `generateImageWithModel` em vez do `fetch` direto pro Gemini, passando `aiModel`.
 
-### 2. Backend — `supabase/functions/auto-generate-carousel/index.ts`
+### 5. `supabase/functions/generate-carousel-images/index.ts`
+- Já recebe `aiModel` no body — repassar ao runner. Carregar OpenAI key quando provider for openai.
 
-- Remover (ou pular) `archiveExistingCarouselSlides` (linhas 30–61, chamada na 124) — não arquivar mais os slides antigos automaticamente.
-- No append por slide (linhas 286–302), **não filtrar** os anexos AI antigos com mesmo número; apenas concatenar `[...currentAttachments, newAttachment]`. Isso preserva o histórico visual no card.
+### 6. `supabase/functions/auto-generate-carousel/index.ts`
+- Buscar `aiModel` da request (se existir) ou default `nanobanana3`. Repassar ao runner.
 
-### 3. Backend — `supabase/functions/generate-post-image/index.ts`
-- Já preserva `existingAttachments` no fluxo de regeneração geral (linha 281). Sem mudanças necessárias para esse caso.
-- Para `replaceSlide`, manter como está apenas se vier explícito do frontend; o frontend deixará de enviar `replaceSlide: true`.
+### 7. Frontend `src/pages/ClientHub.tsx`
+- Adicionar tipo `type ImageAiModel = 'nanobanana3' | 'nanobanana35' | 'gpt2'`.
+- Novo state `staticAiModel: ImageAiModel = 'nanobanana3'`.
+- No modal "Gerar Post com IA" (após o bloco de Mascote, ~linha 708), inserir mesmo `<Select>` usado no carrossel com as 3 opções.
+- `handleGeneratePost` envia `aiModel: staticAiModel` no body do `generate-standalone-post`.
+- Resetar `staticAiModel` ao fechar o modal.
+- Atualizar `Select` do carrossel (linha 1081-1087) para 3 opções com os mesmos valores. Atualizar tipo de `carouselAiModel` e o reset no `onOpenChange` (linha 970).
+- Manter o `aiModel: 'nanobanana3'` enviado de outro lugar (linha 935) ou trocar para o default — sem novo controle visual.
 
-## Notas
-- Memória “Card Regeneration History — Moves replaced AI attachments to history” fica desatualizada. Após aprovação, atualizo a memória para refletir que regeneração agora **mantém** os anexos anteriores na lista.
-- Sem mudanças de schema; nada para migrar.
+### Notas
+- `gpt-image-2` aceita tamanhos `1024x1024`, `1024x1536`, `1536x1024` e `auto`. Mapear `aspectLabel` → size aceito no helper.
+- Endpoint `v1/images/generations` retorna `b64_json` quando `response_format: "b64_json"` — usar isso para manter o pipeline atual de upload.
+- Não há mudanças de schema. A chave `OPENAI_API_KEY` já existe em `api_keys`.
+
+## Itens fora de escopo
+- Botões "Regenerar" do TaskCard continuam usando o modelo default (não pediu seletor lá).
+- Sem nova migração ou secrets.

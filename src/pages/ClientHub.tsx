@@ -54,7 +54,8 @@ const ClientHub = () => {
   const [carouselSlides, setCarouselSlides] = useState<Array<{ text: string; label: string }>>([]);
   const [generatingCarousel, setGeneratingCarousel] = useState(false);
   const [carouselAspectRatio, setCarouselAspectRatio] = useState('1:1');
-  const [carouselAiModel, setCarouselAiModel] = useState<'nanobanana3' | 'gpt'>('nanobanana3');
+  const [carouselAiModel, setCarouselAiModel] = useState<'nanobanana3' | 'nanobanana35' | 'gpt2'>('nanobanana3');
+  const [staticAiModel, setStaticAiModel] = useState<'nanobanana3' | 'nanobanana35' | 'gpt2'>('nanobanana3');
   const [generatingCarouselImages, setGeneratingCarouselImages] = useState(false);
   const [carouselGeneratedImages, setCarouselGeneratedImages] = useState<Array<{ slideIndex: number; imageUrl: string }>>([]);
   const [carouselImageProgress, setCarouselImageProgress] = useState('');
@@ -281,7 +282,7 @@ const ClientHub = () => {
         .filter(m => selectedMascotIds.includes(m.id))
         .map(m => m.image_url);
       const { data, error } = await supabase.functions.invoke('generate-standalone-post', {
-        body: { idea, presetId: selectedPresetId, mascotImageUrls: selectedMascotUrls, clientId: selectedClient.id, tenantId },
+        body: { idea, presetId: selectedPresetId, mascotImageUrls: selectedMascotUrls, clientId: selectedClient.id, tenantId, aiModel: staticAiModel },
       });
       if (error) { console.error('Edge function error:', error); toast.error('Erro ao gerar o post. Tente novamente.'); return; }
       if (data?.error) { toast.error(data.error); return; }
@@ -647,7 +648,7 @@ const ClientHub = () => {
         </Dialog>
 
         {/* Modal Gerar Post Estático com IA */}
-        <Dialog open={aiPostModalOpen} onOpenChange={(open) => { setAiPostModalOpen(open); if (!open) { setPostIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setGeneratedPostImage(null); } }}>
+        <Dialog open={aiPostModalOpen} onOpenChange={(open) => { setAiPostModalOpen(open); if (!open) { setPostIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setGeneratedPostImage(null); setStaticAiModel('nanobanana3'); } }}>
           <DialogContent className={`!flex !flex-col overflow-hidden ${generatedPostImage ? 'sm:max-w-5xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[90vh]'}`}>
             <DialogHeader>
              <div className="flex items-center gap-2">
@@ -705,6 +706,18 @@ const ClientHub = () => {
                         })}
                       </div>
                     )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Modelo de IA</Label>
+                    <Select value={staticAiModel} onValueChange={(v) => setStaticAiModel(v as 'nanobanana3' | 'nanobanana35' | 'gpt2')} disabled={generatingPost}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="nanobanana3">Nanobanana 3</SelectItem>
+                        <SelectItem value="nanobanana35">Nanobanana 3.5</SelectItem>
+                        <SelectItem value="gpt2">GPT Image 2</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
@@ -1078,11 +1091,12 @@ const ClientHub = () => {
                       </div>
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">Modelo de IA</Label>
-                        <Select value={carouselAiModel} onValueChange={(v) => setCarouselAiModel(v as 'nanobanana3' | 'gpt')} disabled={generatingCarouselImages}>
+                        <Select value={carouselAiModel} onValueChange={(v) => setCarouselAiModel(v as 'nanobanana3' | 'nanobanana35' | 'gpt2')} disabled={generatingCarouselImages}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="nanobanana3">Nanobanana 3 (Alta Qualidade)</SelectItem>
-                            <SelectItem value="gpt">ChatGPT (Rápido)</SelectItem>
+                            <SelectItem value="nanobanana3">Nanobanana 3</SelectItem>
+                            <SelectItem value="nanobanana35">Nanobanana 3.5</SelectItem>
+                            <SelectItem value="gpt2">GPT Image 2</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

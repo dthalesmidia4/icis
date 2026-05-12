@@ -4,11 +4,11 @@
 // (generate-carousel-images) and period (auto-generate-carousel) flows so they
 // stay in lock-step.
 
-import { decodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
-import { GOOGLE_API_BASE, MODELS } from "./models.ts";
 import { buildCarouselSlidePrompt } from "./image-prompts.ts";
 import type { InlineImage } from "./fetch-image.ts";
 import type { VisualIdentity } from "./visual-identity.ts";
+import { generateImageWithModel } from "./image-generation.ts";
+import type { ImageAiModel } from "./models.ts";
 
 export type CarouselSlideInput = { text: string; label?: string };
 
@@ -40,6 +40,8 @@ export type SlideRunResult =
 export type RunCarouselSlidesOptions = {
   supabase: any;
   googleApiKey: string;
+  openaiApiKey?: string;
+  aiModel?: ImageAiModel | null;
   vi: VisualIdentity;
   basePrompt?: string;
   strategySnippet?: string;
@@ -65,7 +67,7 @@ export async function generateCarouselSlideImages(
   opts: RunCarouselSlidesOptions,
 ): Promise<RunCarouselSlidesOutput> {
   const {
-    supabase, googleApiKey, vi, basePrompt, strategySnippet,
+    supabase, googleApiKey, openaiApiKey, aiModel, vi, basePrompt, strategySnippet,
     slides, allSlides, mascotInline, logoInline,
     storagePathBuilder, onSlideDone,
   } = opts;
@@ -77,9 +79,6 @@ export async function generateCarouselSlideImages(
   const slideContextLine = allSlides
     .map((s, idx) => `S${idx + 1}: "${s.text}"`)
     .join(" | ");
-
-  const googleApiUrl =
-    `${GOOGLE_API_BASE}/models/${MODELS.IMAGE}:generateContent?key=${googleApiKey}`;
 
   const tasks = slides.map((slide, i) => async (): Promise<SlideRunResult> => {
     const slideNumber = batchOffset + i + 1;
@@ -98,57 +97,32 @@ export async function generateCarouselSlideImages(
       aspectLabel,
     });
 
-    const parts: any[] = [{ text: imagePrompt }];
-    for (const m of mascotInline) parts.push({ inlineData: m });
-    if (logoInline) parts.push({ inlineData: logoInline });
-
     try {
-      const response = await fetch(googleApiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-        }),
+      const result = await generateImageWithModel({
+        aiModel,
+        prompt: imagePrompt,
+        mascotInline,
+        logoInline,
+        aspectLabel,
+        googleApiKey,
+        openaiApiKey,
       });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error(`Slide ${slideNumber} HTTP ${response.status}:`, errText);
+      if (!result.ok) {
+        console.error(`Slide ${slideNumber} error:`, result.error);
         return {
           ok: false, slideIndex, slideNumber,
-          error: errText || `HTTP ${response.status}`,
-          status: response.status,
-          rateLimited: response.status === 429,
+          error: result.error,
+          status: result.status,
+          rateLimited: result.rateLimited,
         };
       }
 
-      const data = await response.json();
-      let imageBase64 = "";
-      let mimeType = "image/png";
-      for (const candidate of data.candidates || []) {
-        for (const part of candidate.content?.parts || []) {
-          const inlineData = part.inlineData || part.inline_data;
-          if (inlineData) {
-            imageBase64 = inlineData.data;
-            mimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
-            break;
-          }
-        }
-        if (imageBase64) break;
-      }
-
-      if (!imageBase64) {
-        return { ok: false, slideIndex, slideNumber, error: "no_image_in_response" };
-      }
-
-      const imageBytes = decodeBase64(imageBase64);
-      const ext = mimeType.includes("jpeg") ? "jpg" : "png";
-      const storagePath = storagePathBuilder(slideNumber, ext);
+      const storagePath = storagePathBuilder(slideNumber, result.ext);
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(storagePath, imageBytes, { contentType: mimeType, upsert: false });
+        .upload(storagePath, result.imageBytes, { contentType: result.mimeType, upsert: false });
       if (uploadError) {
         console.error(`Upload error slide ${slideNumber}:`, uploadError);
         return { ok: false, slideIndex, slideNumber, error: uploadError.message || "upload_failed" };
@@ -165,9 +139,9 @@ export async function generateCarouselSlideImages(
         attachment: {
           url: publicUrlData.publicUrl,
           storagePath,
-          mimeType,
-          ext,
-          bytesLength: imageBytes.length,
+          mimeType: result.mimeType,
+          ext: result.ext,
+          bytesLength: result.imageBytes.length,
         },
       };
     } catch (e) {
