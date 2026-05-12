@@ -1,5 +1,16 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { decodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
+import { getGoogleAiKey, MissingApiKeyError } from "../_shared/api-keys.ts";
+import { getSystemPrompt } from "../_shared/system-prompts.ts";
+import { MODELS, GOOGLE_API_BASE } from "../_shared/models.ts";
+import {
+  loadVisualIdentity,
+  renderColorPaletteBlock,
+  renderMascotBlock,
+  renderLogoBlock,
+  renderContentRequirementsBlock,
+  COLOR_APPLICATION_RULES,
+} from "../_shared/visual-identity.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -33,12 +44,14 @@ Deno.serve(async (req) => {
       .eq("key_name", "Google AI Studio")
       .single();
 
-    const GOOGLE_API_KEY = apiKeyData?.key_value;
-    if (!GOOGLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys (Dev > APIs do Sistema)." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    let GOOGLE_API_KEY: string;
+    try {
+      GOOGLE_API_KEY = await getGoogleAiKey(supabase);
+    } catch (e) {
+      const msg = e instanceof MissingApiKeyError ? e.message : "Erro ao carregar chave do Google AI Studio.";
+      return new Response(JSON.stringify({ error: msg }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // 1. Fetch the demand
@@ -71,70 +84,13 @@ Deno.serve(async (req) => {
 
     console.log(`Auto-generating post image for demand ${demandId} (type: ${demand.demand_type})`);
 
-    // 3. Fetch client branding
-    const { data: client } = await supabase
-      .from("tenant_companies")
-      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_auxiliary_color, brand_font, brand_secondary_font, has_mascot, mascot_description, content_requirements, logo_url, logo_position, logo_size")
-      .eq("id", demand.client_id)
-      .single();
+    // 3. Load visual identity (colors + fonts + logo + mascot) — single source of truth
+    const vi = await loadVisualIdentity(supabase, demand.client_id, { mascotImageLimit: 2 });
+    const brandName = vi.brandName;
+    const mascotImageUrls = vi.mascot.galleryUrls;
 
-    const brandName = client?.fantasy_name || client?.name || "Marca";
-
-    // 3b. Fetch visual identity preset (same as standalone)
-    let presetColors = {
-      primary: client?.brand_primary_color || "#000000",
-      secondary: client?.brand_secondary_color || "#FFFFFF",
-      highlight: null as string | null,
-      text: null as string | null,
-      auxiliary: (client as any)?.brand_auxiliary_color || null as string | null,
-      font: client?.brand_font || "Montserrat",
-      secondaryFont: (client as any)?.brand_secondary_font || null as string | null,
-    };
-
-    const { data: preset } = await supabase
-      .from("visual_identity_presets")
-      .select("primary_color, secondary_color, highlight_color, text_color, auxiliary_color, font_name, secondary_font")
-      .eq("company_id", demand.client_id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-
-    if (preset) {
-      presetColors = {
-        primary: preset.primary_color || presetColors.primary,
-        secondary: preset.secondary_color || presetColors.secondary,
-        highlight: preset.highlight_color,
-        text: preset.text_color,
-        auxiliary: (preset as any).auxiliary_color || presetColors.auxiliary,
-        font: preset.font_name || presetColors.font,
-        secondaryFont: (preset as any).secondary_font || presetColors.secondaryFont,
-      };
-    }
-
-    // 4. Fetch mascot images if client has mascot
-    let mascotImageUrls: string[] = [];
-    if (client?.has_mascot) {
-      const { data: mascotImages } = await supabase
-        .from("company_mascot_images")
-        .select("image_url")
-        .eq("company_id", demand.client_id)
-        .order("position", { ascending: true })
-        .limit(2);
-
-      if (mascotImages && mascotImages.length > 0) {
-        mascotImageUrls = mascotImages.map((m: any) => m.image_url);
-      }
-    }
-
-    // 5. Fetch posts prompt
-    const { data: promptData } = await supabase
-      .from("system_prompts")
-      .select("prompt_content")
-      .eq("tenant_id", demand.tenant_id)
-      .eq("prompt_key", "generate_posts_prompt")
-      .single();
-
-    const basePrompt = promptData?.prompt_content || "";
+    // 4. Fetch posts prompt
+    const basePrompt = await getSystemPrompt(supabase, demand.tenant_id, "generate_posts_prompt");
 
     // 6. Fetch active strategy
     const { data: strategy } = await supabase
@@ -156,42 +112,10 @@ Deno.serve(async (req) => {
     const demandInstructions = demand.instructions ? demand.instructions.replace(/<[^>]*>/g, " ").trim() : "";
     const demandObjective = demand.objective || "";
 
-    // 8. Logo settings
-    const logoUrl = (client as any)?.logo_url;
-    const logoPosition = (client as any)?.logo_position || "bottom-right";
-    const logoSize = (client as any)?.logo_size || "medium";
-    const logoSizeMap: Record<string, string> = { small: "~8%", medium: "~12%", large: "~18%" };
-    const logoPositionMap: Record<string, string> = {
-      "top-left": "canto superior esquerdo", "top-right": "canto superior direito",
-      "bottom-left": "canto inferior esquerdo", "bottom-right": "canto inferior direito",
-      "bottom-center": "centro inferior",
-    };
-    const logoSection = logoUrl
-      ? `\nLOGO DA MARCA (OBRIGATÓRIO):
-- A logo da marca está fornecida como imagem de referência. INCLUA a logo no design OBRIGATORIAMENTE.
-- Posição: ${logoPositionMap[logoPosition] || logoPosition}
-- Tamanho: ${logoSizeMap[logoSize] || "~12%"} da área da imagem
-- A logo deve ser nítida, legível e integrada harmoniosamente ao layout
-- NÃO distorça, altere cores ou modifique a logo de nenhuma forma
-- Reproduza a logo EXATAMENTE como na imagem de referência fornecida\n`
-      : "";
-
-    // 8b. Build image prompt
-    const mascotSection = mascotImageUrls.length > 0
-      ? `- MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""}
-  OBRIGATÓRIO PRESERVAR (identidade): mesma espécie, cores, roupa/uniforme, proporções, traços faciais e estilo de arte da imagem de referência — ele deve ser RECONHECIDO como o mesmo personagem.
-  OBRIGATÓRIO VARIAR (composição deste post): escolha pose corporal, expressão facial, ângulo de câmera e enquadramento ADEQUADOS ao tema do post; evite a pose neutra padrão da imagem de referência. O mascote DEVE interagir com o cenário/objetos do tema.
-  O mascote aparece integrado ao design como protagonista visual.`
-      : client?.has_mascot
-        ? `- A marca possui um mascote (${client?.mascot_description || "sem descrição"}), mas nenhuma imagem de referência está disponível. Tente incluí-lo se possível.`
-        : `- NÃO inclua personagens, mascotes ou figuras humanas no design.`;
-
-    const contentReqsSection = (client as any)?.content_requirements
-      ? `\nEXIGÊNCIAS DE CONTEÚDO DO CLIENTE (SIGA OBRIGATORIAMENTE):\n${(client as any).content_requirements}\n`
-      : '';
+    const logoUrl = vi.logo.url;
 
     const imagePrompt = `
-${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${contentReqsSection}Crie uma imagem profissional de post para rede social.
+${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${renderContentRequirementsBlock(vi)}Crie uma imagem profissional de post para rede social.
 
 TÍTULO DO POST (pode aparecer como texto na imagem):
 "${demandTitle}"
@@ -205,23 +129,10 @@ REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO:
 - Apenas o TÍTULO e textos curtos de gancho/CTA devem aparecer como tipografia na imagem.
 - A legenda serve apenas para você entender o tema e tom do post.
 
-PALETA DE CORES E APLICAÇÃO (REGRAS CRÍTICAS):
-- Marca: "${brandName}" | ${client?.sector || "N/A"} | ${(client as any)?.products_services || "N/A"}
-- Cor primária (${presetColors.primary}): Use em fundos, banners, boxes, shapes e elementos gráficos dominantes do layout
-- Cor secundária (${presetColors.secondary}): Use em acentos, bordas, elementos complementares e variações de fundo
-${presetColors.highlight ? `- Cor de destaque (${presetColors.highlight}): Use em botões, badges, CTAs, ícones e pequenos destaques visuais` : ""}
-${presetColors.text ? `- Cor do texto (${presetColors.text}): Use na tipografia principal sobre os fundos` : ""}
-${presetColors.auxiliary ? `- Cor auxiliar (${presetColors.auxiliary}): Use APENAS em elementos gráficos de apoio (formas decorativas, divisores, pequenos badges, gradientes secundários, fundos de seção secundários). NUNCA como cor dominante do layout — serve para enriquecer a composição e dar variedade visual.` : ""}
-- Tipografia principal: ${presetColors.font} — use em títulos e textos de impacto.
-${presetColors.secondaryFont ? `- Tipografia secundária: ${presetColors.secondaryFont} — use em subtítulos, legendas, textos de apoio e elementos secundários (NÃO use no título principal).` : ""}
-${mascotSection}
-${logoSection}
-REGRA CRÍTICA DE APLICAÇÃO DE CORES:
-As cores da marca devem ser aplicadas APENAS em elementos de design gráfico (fundos, gradientes, boxes, banners, shapes, tipografia, ícones, bordas).
-NUNCA aplique as cores da marca em objetos reais, pessoas, animais ou elementos figurativos.
-Exemplo: se a cor primária é verde, o fundo e os boxes devem ser verdes, mas um leão deve ter cores NATURAIS realistas.
-Os sujeitos e ilustrações figurativas devem manter aparência NATURAL e REALISTA.
-A paleta de cores cria a identidade visual através do LAYOUT e DESIGN, não tingindo os elementos figurativos.
+${renderColorPaletteBlock(vi)}
+${renderMascotBlock(vi, mascotImageUrls.length > 0)}
+${renderLogoBlock(vi)}
+${COLOR_APPLICATION_RULES}
 
 ESTILO VISUAL OBRIGATÓRIO:
 - Crie designs com estilo de ilustração 3D estilizada, moderna e profissional
@@ -289,7 +200,7 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
     }
 
     // 10. Call Gemini 3 Pro Image via Google AI Studio REST API
-    const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
+    const googleApiUrl = `${GOOGLE_API_BASE}/models/${MODELS.IMAGE}:generateContent?key=${GOOGLE_API_KEY}`;
 
     const response = await fetch(googleApiUrl, {
       method: "POST",
