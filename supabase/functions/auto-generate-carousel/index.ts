@@ -1,11 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { decodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 import { getGoogleAiKey, getOpenAiKey, MissingApiKeyError } from "../_shared/api-keys.ts";
-import { GOOGLE_API_BASE, MODELS, OPENAI_CHAT_URL } from "../_shared/models.ts";
+import { MODELS, OPENAI_CHAT_URL } from "../_shared/models.ts";
 import { loadVisualIdentity } from "../_shared/visual-identity.ts";
-import { getCarouselPrompt, getSystemPrompt } from "../_shared/system-prompts.ts";
-import { buildCarouselSlidePrompt } from "../_shared/image-prompts.ts";
+import { getCarouselPrompt } from "../_shared/system-prompts.ts";
 import { fetchInlineImage } from "../_shared/fetch-image.ts";
+import { generateCarouselSlideImages, type SlideRunResult } from "../_shared/carousel-image-runner.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -255,139 +254,79 @@ REGRAS:
 
     console.log(`✅ Step 1 complete: ${slides.length} slide texts generated`);
 
-    // ============ STEP 2: slide images ============
-    console.log(`Step 2: Generating ${slides.length} slide images via ${MODELS.IMAGE}...`);
+    // ============ STEP 2: slide images (parallel batches via shared runner) ============
+    console.log(`Step 2: Generating ${slides.length} slide images via ${MODELS.IMAGE} (parallel batches)...`);
 
-    const mascotInline = vi.mascot.galleryUrls[0]
+    const mascotInlineSingle = vi.mascot.galleryUrls[0]
       ? await fetchInlineImage(vi.mascot.galleryUrls[0])
       : null;
     const logoInline = vi.logo.url ? await fetchInlineImage(vi.logo.url) : null;
-    if (mascotInline) console.log("  → Mascot reference image pre-fetched");
+    if (mascotInlineSingle) console.log("  → Mascot reference image pre-fetched");
     if (logoInline) console.log("  → Logo reference image pre-fetched");
+    const mascotInline = mascotInlineSingle ? [mascotInlineSingle] : [];
 
-    const slideContextLine = slides.map((s, idx) => `S${idx + 1}: "${s.text}"`).join(" | ");
-    let totalGenerated = 0;
+    const strategySnippet = strategyText ? `ESTRATÉGIA:\n${strategyText}` : undefined;
 
-    for (let i = 0; i < slides.length; i++) {
-      const slide = slides[i];
-      const slideNumber = i + 1;
+    // Persist each successful slide incrementally so partial failures still show progress.
+    const persistSlide = async (r: SlideRunResult) => {
+      if (!r.ok) return;
+      const newAttachment = {
+        url: r.attachment.url,
+        name: `Carrossel Slide ${r.slideNumber} - ${vi.brandName}.${r.attachment.ext}`,
+        type: r.attachment.mimeType,
+        size: r.attachment.bytesLength,
+        storagePath: r.attachment.storagePath,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: { id: "auto-generator", email: "system@ai", name: "IA - Gemini 3 Pro Image (Carrossel)" },
+        cardId: demandId,
+        tenantId: demand.tenant_id,
+        clientId: demand.client_id,
+      };
 
-      const imagePrompt = buildCarouselSlidePrompt({
-        vi,
-        basePrompt,
-        strategySnippet: strategyText ? `ESTRATÉGIA:\n${strategyText}` : undefined,
-        slideNumber,
-        totalSlides: slides.length,
-        slideText: slide.text,
-        slideLabel: slide.label,
-        slideContextLine,
-        hasMascotReference: !!mascotInline,
+      const { data: currentDemand } = await supabase
+        .from("demands")
+        .select("attachments")
+        .eq("id", demandId)
+        .single();
+
+      const currentAttachments = Array.isArray(currentDemand?.attachments) ? currentDemand.attachments : [];
+      const slideNamePattern = new RegExp(`Carrossel Slide ${r.slideNumber}\\b`, "i");
+      const filteredAttachments = currentAttachments.filter((a: any) => {
+        if (!isAiCarouselSlide(a)) return true;
+        return !slideNamePattern.test(a.name || "");
       });
 
-      const parts: any[] = [{ text: imagePrompt }];
-      if (mascotInline) parts.push({ inlineData: mascotInline });
-      if (logoInline) parts.push({ inlineData: logoInline });
+      await supabase
+        .from("demands")
+        .update({ attachments: [...filteredAttachments, newAttachment] })
+        .eq("id", demandId);
+      console.log(`  ↳ Slide ${r.slideNumber} attached to demand`);
+    };
 
-      console.log(`  → Generating slide ${slideNumber}/${slides.length}...`);
+    const BATCH_SIZE = 2;
+    let totalGenerated = 0;
 
-      try {
-        const googleApiUrl = `${GOOGLE_API_BASE}/models/${MODELS.IMAGE}:generateContent?key=${GOOGLE_API_KEY}`;
-        const imgResponse = await fetch(googleApiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts }],
-            generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
-          }),
-        });
+    for (let batchStart = 0; batchStart < slides.length; batchStart += BATCH_SIZE) {
+      const batch = slides.slice(batchStart, batchStart + BATCH_SIZE);
+      console.log(`  → Batch ${batchStart + 1}-${batchStart + batch.length}/${slides.length}`);
 
-        if (!imgResponse.ok) {
-          const errText = await imgResponse.text();
-          console.error(`Slide ${slideNumber} error:`, imgResponse.status, errText);
-          if (imgResponse.status === 429) {
-            console.warn(`Rate limit at slide ${slideNumber}, stopping`);
-            break;
-          }
-          continue;
-        }
+      const { results } = await generateCarouselSlideImages({
+        supabase,
+        googleApiKey: GOOGLE_API_KEY,
+        vi,
+        basePrompt,
+        strategySnippet,
+        slides: batch,
+        allSlides: slides,
+        batchOffset: batchStart,
+        mascotInline,
+        logoInline,
+        storagePathBuilder: (slideNumber, ext) =>
+          `auto-generated/${demand.client_id}/${demandId}/carousel-slide-${slideNumber}-${crypto.randomUUID()}.${ext}`,
+        onSlideDone: persistSlide,
+      });
 
-        const imgData = await imgResponse.json();
-
-        let imageBase64 = "";
-        let imageMimeType = "image/png";
-        for (const candidate of imgData.candidates || []) {
-          for (const part of candidate.content?.parts || []) {
-            const inlineData = part.inlineData || part.inline_data;
-            if (inlineData) {
-              imageBase64 = inlineData.data;
-              imageMimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
-              break;
-            }
-          }
-          if (imageBase64) break;
-        }
-
-        if (!imageBase64) {
-          console.warn(`  ⚠ No image for slide ${slideNumber}`);
-          continue;
-        }
-
-        const imageBytes = decodeBase64(imageBase64);
-        imageBase64 = "";
-
-        const ext = imageMimeType.includes("jpeg") ? "jpg" : "png";
-        const fileName = `auto-generated/${demand.client_id}/${demandId}/carousel-slide-${slideNumber}-${crypto.randomUUID()}.${ext}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("card-attachments")
-          .upload(fileName, imageBytes, { contentType: imageMimeType, upsert: false });
-
-        if (uploadError) {
-          console.error(`Upload error slide ${slideNumber}:`, uploadError);
-          continue;
-        }
-
-        const { data: publicUrlData } = supabase.storage
-          .from("card-attachments")
-          .getPublicUrl(fileName);
-
-        const newAttachment = {
-          url: publicUrlData.publicUrl,
-          name: `Carrossel Slide ${slideNumber} - ${vi.brandName}.${ext}`,
-          type: imageMimeType,
-          size: imageBytes.length,
-          storagePath: fileName,
-          uploadedAt: new Date().toISOString(),
-          uploadedBy: { id: "auto-generator", email: "system@ai", name: "IA - Gemini 3 Pro Image (Carrossel)" },
-          cardId: demandId,
-          tenantId: demand.tenant_id,
-          clientId: demand.client_id,
-        };
-
-        const { data: currentDemand } = await supabase
-          .from("demands")
-          .select("attachments")
-          .eq("id", demandId)
-          .single();
-
-        const currentAttachments = Array.isArray(currentDemand?.attachments) ? currentDemand.attachments : [];
-        const slideNamePattern = new RegExp(`Carrossel Slide ${slideNumber}\\b`, "i");
-        const filteredAttachments = currentAttachments.filter((a: any) => {
-          if (!isAiCarouselSlide(a)) return true;
-          return !slideNamePattern.test(a.name || "");
-        });
-
-        await supabase
-          .from("demands")
-          .update({ attachments: [...filteredAttachments, newAttachment] })
-          .eq("id", demandId);
-
-        totalGenerated++;
-        console.log(`  ✅ Slide ${slideNumber} generated and attached`);
-      } catch (slideError) {
-        console.error(`Exception on slide ${slideNumber}:`, slideError);
-        continue;
-      }
+      totalGenerated += results.filter((r) => r.ok).length;
     }
 
     if (totalGenerated === 0) {
