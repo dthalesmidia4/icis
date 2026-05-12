@@ -60,11 +60,13 @@ Deno.serve(async (req) => {
     const logoInline = vi.logo.url ? await fetchInlineImage(vi.logo.url) : null;
 
     const aspectLabel = aspectRatio ? `${aspectRatio} (1024x1024)` : "1:1 (1024x1024)";
-    console.log(`Generating ${slides.length} carousel images via ${MODELS.IMAGE} (parallel batch), ratio: ${aspectRatio || "1:1"}`);
+    console.log(`Generating ${slides.length} carousel images via ${IMAGE_MODELS[aiModel].id} (${provider}, parallel batch), ratio: ${aspectRatio || "1:1"}`);
 
     const { images, anyRateLimited } = await generateCarouselSlideImages({
       supabase,
-      googleApiKey: GOOGLE_API_KEY,
+      googleApiKey: GOOGLE_API_KEY ?? "",
+      openaiApiKey: OPENAI_API_KEY,
+      aiModel,
       vi,
       basePrompt,
       strategySnippet,
