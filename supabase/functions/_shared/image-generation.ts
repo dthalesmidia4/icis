@@ -179,14 +179,7 @@ export async function generateImageWithModel(
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     let response: Response;
     try {
-      response = await fetch(OPENAI_IMAGES_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${input.openaiApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: requestBody,
-      });
+      response = await fetch(endpoint, requestInit);
     } catch (e) {
       lastError = e instanceof Error ? e.message : String(e);
       lastStatus = undefined;
