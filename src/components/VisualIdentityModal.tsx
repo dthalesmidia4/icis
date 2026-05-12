@@ -96,13 +96,15 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
     setLoadingCompany(true);
     const { data } = await supabase
       .from('tenant_companies')
-      .select('brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, mascot_url, logo_url, logo_position, logo_size')
+      .select('brand_primary_color, brand_secondary_color, brand_auxiliary_color, brand_font, brand_secondary_font, has_mascot, mascot_description, mascot_url, logo_url, logo_position, logo_size')
       .eq('id', companyId)
       .single();
     if (data) {
       setPrimaryColor(data.brand_primary_color || "#000000");
       setSecondaryColor(data.brand_secondary_color || "#000000");
+      setAuxiliaryColor((data as any).brand_auxiliary_color || "");
       setFontName(data.brand_font || "");
+      setSecondaryFont((data as any).brand_secondary_font || "");
       setMascotDescription(data.mascot_description || "");
       setLogoUrl(data.logo_url || null);
       setLogoPosition(data.logo_position || "bottom-right");
