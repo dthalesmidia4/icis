@@ -4,11 +4,11 @@
 // (generate-carousel-images) and period (auto-generate-carousel) flows so they
 // stay in lock-step.
 
-import { decodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
-import { GOOGLE_API_BASE, MODELS } from "./models.ts";
 import { buildCarouselSlidePrompt } from "./image-prompts.ts";
 import type { InlineImage } from "./fetch-image.ts";
 import type { VisualIdentity } from "./visual-identity.ts";
+import { generateImageWithModel } from "./image-generation.ts";
+import type { ImageAiModel } from "./models.ts";
 
 export type CarouselSlideInput = { text: string; label?: string };
 
