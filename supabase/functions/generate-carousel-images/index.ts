@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { getGoogleAiKey, MissingApiKeyError } from "../_shared/api-keys.ts";
+import { getGoogleAiKey, getOpenAiKey, MissingApiKeyError } from "../_shared/api-keys.ts";
 import { getCarouselPrompt } from "../_shared/system-prompts.ts";
-import { MODELS } from "../_shared/models.ts";
+import { IMAGE_MODELS, DEFAULT_IMAGE_MODEL, type ImageAiModel } from "../_shared/models.ts";
 import { loadVisualIdentity } from "../_shared/visual-identity.ts";
 import { fetchInlineImage, fetchInlineImages } from "../_shared/fetch-image.ts";
 import { generateCarouselSlideImages } from "../_shared/carousel-image-runner.ts";
