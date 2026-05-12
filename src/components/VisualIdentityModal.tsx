@@ -34,7 +34,9 @@ interface Preset {
   secondary_color: string | null;
   highlight_color: string | null;
   text_color: string | null;
+  auxiliary_color: string | null;
   font_name: string | null;
+  secondary_font: string | null;
   is_active: boolean;
 }
 
