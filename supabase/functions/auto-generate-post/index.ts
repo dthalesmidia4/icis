@@ -200,7 +200,7 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
     }
 
     // 10. Call Gemini 3 Pro Image via Google AI Studio REST API
-    const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
+    const googleApiUrl = `${GOOGLE_API_BASE}/models/${MODELS.IMAGE}:generateContent?key=${GOOGLE_API_KEY}`;
 
     const response = await fetch(googleApiUrl, {
       method: "POST",
