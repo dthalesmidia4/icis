@@ -1,154 +1,33 @@
-## Plano revisado — Eliminar duplicatas e propagar identidade visual
+# Corrigir colagem indevida no último slide do carrossel
 
-### Diagnóstico (inconsistências reais detectadas)
+## Diagnóstico
 
-#### A) Mesma tarefa, modelos diferentes
-| Tarefa | Função avulsa | Modelo avulso | Função período | Modelo período |
-|---|---|---|---|---|
-| Roteiro de carrossel | `generate-carousel-content` | **gpt-4o-mini** | `auto-generate-carousel` | **gpt-5-mini** |
-| Imagem de carrossel | `generate-carousel-images` | gemini-3-pro-image-preview | `auto-generate-carousel` | gemini-3-pro-image-preview ✅ |
-| Imagem estática | `generate-standalone-post` / `generate-post-image` | gemini-3-pro-image-preview | `auto-generate-post` | gemini-3-pro-image-preview ✅ |
+Ao inspecionar `supabase/functions/_shared/image-prompts.ts` (`buildCarouselSlidePrompt`, usado tanto pelo avulso `generate-carousel-images` quanto pelo período `auto-generate-carousel`), identifiquei dois gatilhos que levam o Gemini 3 Pro Image a renderizar uma grade com todos os slides — exatamente o que apareceu no slide 5 do teste:
 
-#### B) Mesma tarefa, prompts diferentes (system_prompts)
-| Função | prompt_key usado |
-|---|---|
-| `generate-standalone-post` (estático avulso) | `generate_posts_prompt` |
-| `generate-post-image` (estático regen) | `generate_posts_prompt` |
-| `auto-generate-post` (estático período) | `generate_posts_prompt` ✅ |
-| `generate-carousel-content` (carrossel avulso, texto) | **`generate_posts_prompt`** ⚠️ usa o prompt de POST estático |
-| `auto-generate-carousel` (carrossel período) | **`generate_carousel_prompt`** + custom |
-| `generate-carousel-images` (carrossel avulso, imagens) | `generate_posts_prompt` ⚠️ idem |
+1. **Linha `CONTEXTO: S1: "..." | S2: "..." | ... | S5: "..."`** é injetada em cada chamada. O modelo de imagem interpreta a lista literalmente e, principalmente no último slide (quando o "fechamento" do carrossel é mencionado), tende a compor uma colagem/recap de todos os textos numa única arte.
+2. **Não há proibição explícita** contra montagens, grids, mosaicos ou recap de slides anteriores. Só existe proibição de "1/5", paginação e dots.
 
-→ Roteiros de carrossel avulso são gerados com o prompt de post estático e modelo errado, enquanto o período usa o prompt e modelo corretos.
+Como o mesmo builder é usado em avulso e período, a correção propaga para os dois fluxos automaticamente (já era o objetivo da unificação anterior).
 
-#### C) Três funções para o mesmo "post estático"
-- `generate-standalone-post` — chamado pelo Client Hub (avulso)
-- `generate-post-image` — chamado por `TaskCard` para regenerar imagem de uma demanda
-- `auto-generate-post` — chamado em massa após aprovação de período
+## Plano
 
-Todas leem identidade visual + prompt + chamam Gemini 3 Pro Image. Lógica e prompt block duplicados em ~3 lugares.
+Editar **apenas** `supabase/functions/_shared/image-prompts.ts`:
 
-#### D) Identidade visual: campos novos só no período
-| Função | auxiliary | secondary_font |
-|---|---|---|
-| `auto-generate-post` / `auto-generate-carousel` | ✅ | ✅ |
-| `generate-post-image` / `generate-standalone-post` / `generate-carousel-images` / `generate-carousel-content` / `generate-video-storyboard` | ❌ | ❌ |
+1. **Reescrever a linha de CONTEXTO** para deixar claro que é referência narrativa textual e que **não deve ser renderizada visualmente**. Ex.:
+   ```
+   CONTEXTO NARRATIVO (apenas para coerência de tom — NÃO renderize estes textos na imagem):
+   S1: "..." | S2: "..." | ...
+   ```
+2. **Adicionar regra de slide único** em `CAROUSEL_CONTINUITY` e também numa nova diretriz aplicada a TODOS os slides do carrossel:
+   - "Cada chamada gera UMA ÚNICA imagem que representa SOMENTE o slide atual (${slideNumber})."
+   - "PROIBIDO ABSOLUTO: colagens, grids, mosaicos, recap, montagens, divisão da arte em múltiplos quadros, miniaturas de outros slides ou qualquer composição que mostre mais de uma cena/slide."
+   - "Apenas o texto do slide atual ('${slideText}') deve aparecer legível — nenhum outro texto de outro slide pode aparecer."
+3. **Reforço extra no último slide** (quando `slideNumber === totalSlides`): adicionar bloco curto deixando claro que o slide final é uma cena única de fechamento/CTA, **não** um resumo visual dos slides anteriores.
 
-E `generate-carousel-content` / `generate-video-storyboard` ainda não selecionam `highlight_color` nem `text_color` do preset.
+Sem mudanças de banco, sem mudanças nos callers, sem alteração de modelo. Mantém a paridade avulso ↔ período.
 
-#### E) Boilerplate duplicado em todas as funções
-- Buscar `OPENAI_API_KEY` / `GOOGLE_API_KEY` na tabela `api_keys`.
-- Buscar empresa + preset ativo + montar `presetColors`.
-- Carregar prompt de `system_prompts` com fallback.
-- Renderizar bloco visual no prompt.
+## Validação
 
----
-
-### Plano de correção
-
-#### 1. Criar módulo compartilhado `supabase/functions/_shared/`
-
-**`_shared/api-keys.ts`**
-- `getOpenAIKey(supabase)` → string (lança erro padronizado).
-- `getGoogleKey(supabase)` → string.
-
-**`_shared/system-prompts.ts`**
-- `getSystemPrompt(supabase, key, fallback?)` → string.
-- `getCarouselPrompt(supabase)` → resolve canonical + custom override (regra atual de `auto-generate-carousel`).
-
-**`_shared/visual-identity.ts`**
-- `loadVisualIdentity(supabase, clientId)` → objeto único:
-  ```ts
-  { name, fantasy_name, sector, products_services, content_requirements,
-    logo: { url, position, size },
-    mascot: { has, url, description, gallery_urls[] },
-    colors: { primary, secondary, highlight, text, auxiliary },
-    fonts: { primary, secondary } }
-  ```
-  Resolve tenant_companies + visual_identity_presets ativo (preset > tenant > null) **uma vez**, com todos os 5 campos de cor e 2 de fonte.
-- `renderVisualIdentityPromptBlock(vi)` → trecho de texto único usado por TODAS as funções de imagem/roteiro. Inclui regras de:
-  - Fonte Principal vs Secundária.
-  - Cor Auxiliar (apoio, nunca dominante; nunca tinge objetos/pessoas).
-  - Highlight em CTAs/badges; Texto para textos longos.
-  - Logo (posição, tamanho).
-  - Mascote (quando existir).
-
-**`_shared/models.ts`** — fonte única de verdade dos modelos:
-```ts
-export const MODELS = {
-  IMAGE: "gemini-3-pro-image-preview",          // Gemini via Google AI Studio
-  TEXT_PLANNING: "gpt-5-mini",                  // planejamento, roteiros, carrossel
-  TEXT_LIGHT: "gpt-4o-mini",                    // tarefas leves: reavaliação, supervisão, anamnese, desafios
-  VIDEO: "veo-3.1-generate-preview",
-};
-```
-Critério: tarefas que produzem **conteúdo final visível ao cliente** (post, carrossel, storyboard) usam `TEXT_PLANNING` (gpt-5-mini). Tarefas internas (reavaliação, supervisão de equipe) ficam em `TEXT_LIGHT`. Decisão registrada na memória.
-
-#### 2. Padronizar modelos das funções de conteúdo
-
-| Função | Modelo antes | Modelo depois |
-|---|---|---|
-| `generate-carousel-content` | gpt-4o-mini | **gpt-5-mini** (igualar período) |
-| `generate-video-storyboard` | gpt-4o-mini | **gpt-5-mini** (mesma classe de roteiro) |
-| `auto-generate-carousel` | gpt-5-mini | gpt-5-mini ✅ |
-| `reevaluate-card`, `generate-supervision`, `generate-employee-strategy`, `generate-challenge` | gpt-4o-mini | mantém gpt-4o-mini (tarefas internas) |
-| `generate-strategy`, `generate-period-plans` | gpt-5-mini | mantém |
-
-#### 3. Padronizar prompts das funções de conteúdo
-
-| Função | prompt_key antes | prompt_key depois |
-|---|---|---|
-| `generate-carousel-content` | generate_posts_prompt | **generate_carousel_prompt** (+ custom override, mesma regra de `auto-generate-carousel`) |
-| `generate-carousel-images` | generate_posts_prompt | mantém (é prompt visual, ok) — porém usar o helper `loadVisualIdentity` para gerar bloco visual igual ao do período |
-| `generate-standalone-post`, `generate-post-image`, `auto-generate-post` | generate_posts_prompt ✅ | mantém |
-
-#### 4. Refatorar as 8 funções para usar os helpers
-
-Cada função passa a:
-1. Carregar chaves via `_shared/api-keys`.
-2. Carregar identidade visual via `loadVisualIdentity` (todos os 5 campos + 2 fontes, propagados automaticamente).
-3. Carregar prompt via `getSystemPrompt` / `getCarouselPrompt`.
-4. Concatenar `renderVisualIdentityPromptBlock(vi)` no prompt.
-5. Chamar modelo via `MODELS.X`.
-
-Funções afetadas:
-- `auto-generate-post`
-- `auto-generate-carousel`
-- `generate-post-image`
-- `generate-standalone-post`
-- `generate-carousel-images`
-- `generate-carousel-content`
-- `generate-video-storyboard`
-- `generate-video-scene` (apenas o helper de chave)
-
-Resultado esperado: não há mais bloco de cores/fontes copiado em cada função; alterar o helper propaga para avulso e período de uma vez.
-
-#### 5. Decisão sobre as 3 funções de "post estático"
-
-Manter as três por ora (mudam o caller e o pós-processamento), **mas** com toda a lógica de prompt/visual/modelo vindo dos helpers. Em uma rodada futura podemos avaliar fundir `generate-post-image` em `auto-generate-post` (mesmo contrato). Esta consolidação fica fora do escopo atual para não acoplar a refatoração ao roteamento de regeneração.
-
-#### 6. Verificações pós-deploy
-
-- Logs das 8 funções: garantir que `loadVisualIdentity` retorna `auxiliary` e `secondaryFont` para a Statera.
-- Geração avulsa de carrossel da Statera: roteiro deve sair com gpt-5-mini e mencionar paleta completa (incluindo verde auxiliar) nas instruções dos slides.
-- Geração de período da Statera: comportamento inalterado.
-
-#### 7. Memória
-
-Atualizar:
-- `mem://architecture/ai-model/direct-api-policy-v2` → registrar mapa único de modelos (`MODELS`) e regra "mesma tarefa = mesmo modelo + mesmo prompt".
-- `mem://features/visual-identity/centralized-management-and-presets` → registrar que toda função consome `loadVisualIdentity` + `renderVisualIdentityPromptBlock`.
-- `mem://features/automation/carousel-generation-config-v1` → atualizar para gpt-5-mini também no avulso.
-
----
-
-### Resumo das respostas
-- **Duplicatas eliminadas?** Sim: modelos centralizados em `MODELS`, identidade visual em um único loader/render, prompts de carrossel unificados.
-- **Inconsistências de banco?** Não há mais. Schema do banco já comporta os 5 campos de cor e 2 fontes em `tenant_companies` e `visual_identity_presets` (verificado).
-- **Inconsistências de código corrigidas:** modelo divergente em carrossel avulso vs período, prompt errado em `generate-carousel-content`, ausência de `auxiliary`/`secondary_font` em todas as funções avulsas, ausência de `highlight`/`text` nas funções de roteiro.
-- **Avulso ↔ período sincronizados** após esta etapa, tanto nos dados quanto no prompt e modelo.
-
-### Arquivos
-- Novos: `supabase/functions/_shared/api-keys.ts`, `_shared/system-prompts.ts`, `_shared/visual-identity.ts`, `_shared/models.ts`.
-- Editados: as 8 funções listadas em §4.
-- Memória: 3 entradas atualizadas.
+Após editar:
+- Reler o arquivo para confirmar a sintaxe.
+- Pedir ao usuário para regenerar o carrossel de teste (mesmo cliente Statera) e verificar o slide 5.
