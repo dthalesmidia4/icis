@@ -282,7 +282,7 @@ const ClientHub = () => {
         .filter(m => selectedMascotIds.includes(m.id))
         .map(m => m.image_url);
       const { data, error } = await supabase.functions.invoke('generate-standalone-post', {
-        body: { idea, presetId: selectedPresetId, mascotImageUrls: selectedMascotUrls, clientId: selectedClient.id, tenantId },
+        body: { idea, presetId: selectedPresetId, mascotImageUrls: selectedMascotUrls, clientId: selectedClient.id, tenantId, aiModel: staticAiModel },
       });
       if (error) { console.error('Edge function error:', error); toast.error('Erro ao gerar o post. Tente novamente.'); return; }
       if (data?.error) { toast.error(data.error); return; }
