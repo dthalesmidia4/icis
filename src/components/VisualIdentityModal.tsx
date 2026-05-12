@@ -113,11 +113,8 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
   const [savingLogo, setSavingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
-  const hasLoadedCompanyRef = useRef(false);
-
   const fetchCompanyData = async () => {
     setLoadingCompany(true);
-    hasLoadedCompanyRef.current = false;
     const { data } = await supabase
       .from('tenant_companies')
       .select('brand_primary_color, brand_secondary_color, brand_auxiliary_color, brand_highlight_color, brand_text_color, brand_font, brand_secondary_font, has_mascot, mascot_description, mascot_url, logo_url, logo_position, logo_size')
@@ -137,8 +134,6 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
       setLogoSize(data.logo_size || "medium");
     }
     setLoadingCompany(false);
-    // Allow autosave only after the initial fetch settles
-    setTimeout(() => { hasLoadedCompanyRef.current = true; }, 0);
   };
 
   useEffect(() => {
@@ -148,31 +143,8 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
       fetchCompanyData();
       fetchMascotImages();
       fetchPresets();
-    } else {
-      hasLoadedCompanyRef.current = false;
     }
   }, [open, companyId]);
-
-  // Auto-persist brand fields to tenant_companies (debounced) so they survive reopen
-  useEffect(() => {
-    if (!open || !hasLoadedCompanyRef.current) return;
-    const t = setTimeout(() => {
-      supabase
-        .from('tenant_companies')
-        .update({
-          brand_primary_color: primaryColor,
-          brand_secondary_color: secondaryColor,
-          brand_auxiliary_color: auxiliaryColor || null,
-          brand_highlight_color: highlightColor,
-          brand_text_color: textColor,
-          brand_font: fontName,
-          brand_secondary_font: secondaryFont || null,
-        } as any)
-        .eq('id', companyId)
-        .then(() => {});
-    }, 600);
-    return () => clearTimeout(t);
-  }, [primaryColor, secondaryColor, auxiliaryColor, highlightColor, textColor, fontName, secondaryFont, open, companyId]);
 
   const fetchPresets = async () => {
     const { data } = await supabase
@@ -205,6 +177,8 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
           brand_primary_color: primaryColor,
           brand_secondary_color: secondaryColor,
           brand_auxiliary_color: auxiliaryColor || null,
+          brand_highlight_color: highlightColor,
+          brand_text_color: textColor,
           brand_font: fontName,
           brand_secondary_font: secondaryFont || null,
         } as any)
