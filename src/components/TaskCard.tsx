@@ -1444,7 +1444,7 @@ export default function TaskCard({
                                         </div>
                                         
                                         <div 
-                                          className="h-[100px] w-[100px] rounded-md bg-muted flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                                          className="relative h-[100px] w-[100px] rounded-md bg-muted flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
                                           onClick={(e) => { e.stopPropagation(); setPreviewAttachment(attachment); }}
                                         >
                                           {isImageFile(attachment.type) ? (
@@ -1452,6 +1452,19 @@ export default function TaskCard({
                                           ) : (
                                             <File className="h-8 w-8 text-muted-foreground" />
                                           )}
+                                          {(() => {
+                                            const slideMatch = attachment.name?.match(/Slide\s*(\d+)/i);
+                                            const slideNum = slideMatch ? parseInt(slideMatch[1], 10) : null;
+                                            if (slideNum !== null && regeneratingSlide === slideNum) {
+                                              return (
+                                                <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] flex items-center justify-center overflow-hidden">
+                                                  <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-primary/30 to-transparent animate-shimmer" />
+                                                  <Sparkles className="h-5 w-5 text-primary animate-pulse relative z-10" />
+                                                </div>
+                                              );
+                                            }
+                                            return null;
+                                          })()}
                                         </div>
 
                                         <div className="w-full text-center cursor-pointer" onClick={(e) => { e.stopPropagation(); setPreviewAttachment(attachment); }}>
