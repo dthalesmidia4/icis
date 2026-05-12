@@ -470,7 +470,7 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
                       onClick={() => handleLoadPreset(preset)}
                     >
                       <div className="flex items-center gap-1.5 mb-2">
-                        {[preset.primary_color, preset.secondary_color, preset.highlight_color, preset.text_color]
+                        {[preset.primary_color, preset.secondary_color, preset.highlight_color, preset.text_color, preset.auxiliary_color]
                           .filter(Boolean)
                           .map((color, i) => (
                             <div key={i} className="w-5 h-5 rounded-full border border-border shrink-0" style={{ backgroundColor: color || '#000' }} />
