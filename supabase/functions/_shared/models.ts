@@ -1,15 +1,15 @@
 // Single source of truth for AI models used across edge functions.
 // Rule: same task = same model + same prompt (avulso vs período).
 
-export type ImageAiModel = "nanobanana3" | "nanobanana35" | "gpt2";
+export type ImageAiModel = "nanobanana3" | "nanobanana25" | "gpt2";
 
 export const IMAGE_MODELS: Record<
   ImageAiModel,
   { provider: "google" | "openai"; id: string; label: string }
 > = {
-  nanobanana3:  { provider: "google", id: "gemini-3-pro-image-preview",   label: "Nanobanana 3" },
-  nanobanana35: { provider: "google", id: "gemini-3.5-pro-image-preview", label: "Nanobanana 3.5" },
-  gpt2:         { provider: "openai", id: "gpt-image-2",                  label: "GPT Image 2" },
+  nanobanana3:  { provider: "google", id: "gemini-3-pro-image-preview",     label: "Nanobanana 3 (Pro)" },
+  nanobanana25: { provider: "google", id: "gemini-2.5-flash-image-preview", label: "Nanobanana 2.5 (Flash)" },
+  gpt2:         { provider: "openai", id: "gpt-image-2",                    label: "GPT Image 2" },
 };
 
 export const DEFAULT_IMAGE_MODEL: ImageAiModel = "nanobanana3";

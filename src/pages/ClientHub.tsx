@@ -54,8 +54,8 @@ const ClientHub = () => {
   const [carouselSlides, setCarouselSlides] = useState<Array<{ text: string; label: string }>>([]);
   const [generatingCarousel, setGeneratingCarousel] = useState(false);
   const [carouselAspectRatio, setCarouselAspectRatio] = useState('1:1');
-  const [carouselAiModel, setCarouselAiModel] = useState<'nanobanana3' | 'nanobanana35' | 'gpt2'>('nanobanana3');
-  const [staticAiModel, setStaticAiModel] = useState<'nanobanana3' | 'nanobanana35' | 'gpt2'>('nanobanana3');
+  const [carouselAiModel, setCarouselAiModel] = useState<'nanobanana3' | 'nanobanana25' | 'gpt2'>('nanobanana3');
+  const [staticAiModel, setStaticAiModel] = useState<'nanobanana3' | 'nanobanana25' | 'gpt2'>('nanobanana3');
   const [generatingCarouselImages, setGeneratingCarouselImages] = useState(false);
   const [carouselGeneratedImages, setCarouselGeneratedImages] = useState<Array<{ slideIndex: number; imageUrl: string }>>([]);
   const [carouselImageProgress, setCarouselImageProgress] = useState('');
@@ -710,11 +710,11 @@ const ClientHub = () => {
 
                   <div className="space-y-1.5">
                     <Label className="text-sm font-medium">Modelo de IA</Label>
-                    <Select value={staticAiModel} onValueChange={(v) => setStaticAiModel(v as 'nanobanana3' | 'nanobanana35' | 'gpt2')} disabled={generatingPost}>
+                    <Select value={staticAiModel} onValueChange={(v) => setStaticAiModel(v as 'nanobanana3' | 'nanobanana25' | 'gpt2')} disabled={generatingPost}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="nanobanana3">Nanobanana 3</SelectItem>
-                        <SelectItem value="nanobanana35">Nanobanana 3.5</SelectItem>
+                        <SelectItem value="nanobanana3">Nanobanana 3 (Pro)</SelectItem>
+                        <SelectItem value="nanobanana25">Nanobanana 2.5 (Flash)</SelectItem>
                         <SelectItem value="gpt2">GPT Image 2</SelectItem>
                       </SelectContent>
                     </Select>
@@ -1091,11 +1091,11 @@ const ClientHub = () => {
                       </div>
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">Modelo de IA</Label>
-                        <Select value={carouselAiModel} onValueChange={(v) => setCarouselAiModel(v as 'nanobanana3' | 'nanobanana35' | 'gpt2')} disabled={generatingCarouselImages}>
+                        <Select value={carouselAiModel} onValueChange={(v) => setCarouselAiModel(v as 'nanobanana3' | 'nanobanana25' | 'gpt2')} disabled={generatingCarouselImages}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="nanobanana3">Nanobanana 3</SelectItem>
-                            <SelectItem value="nanobanana35">Nanobanana 3.5</SelectItem>
+                            <SelectItem value="nanobanana3">Nanobanana 3 (Pro)</SelectItem>
+                            <SelectItem value="nanobanana25">Nanobanana 2.5 (Flash)</SelectItem>
                             <SelectItem value="gpt2">GPT Image 2</SelectItem>
                           </SelectContent>
                         </Select>
