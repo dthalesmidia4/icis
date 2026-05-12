@@ -5,6 +5,7 @@ import {
   IMAGE_MODELS,
   DEFAULT_IMAGE_MODEL,
   OPENAI_IMAGES_URL,
+  OPENAI_IMAGES_EDIT_URL,
   type ImageAiModel,
 } from "./models.ts";
 import type { InlineImage } from "./fetch-image.ts";
