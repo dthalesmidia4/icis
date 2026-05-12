@@ -104,17 +104,69 @@ export async function generateImageWithModel(
     return { ok: false, error: "Chave OpenAI ausente." };
   }
   const size = resolveAspect(input.aspectLabel);
-  const hasReferences = (input.mascotInline?.length || 0) > 0 || !!input.logoInline;
-  const promptWithNote = hasReferences
-    ? `${input.prompt}\n\nOBSERVAÇÃO: Imagens de referência (mascote/logo) não foram anexadas porque o modelo gpt-image-2 não suporta entradas de imagem em /v1/images/generations. Siga rigorosamente as descrições escritas acima.`
-    : input.prompt;
+  const mascots = input.mascotInline || [];
+  const hasReferences = mascots.length > 0 || !!input.logoInline;
 
-  const requestBody = JSON.stringify({
-    model: cfg.id,
-    prompt: promptWithNote,
-    size,
-    n: 1,
-  });
+  // When references exist, use /v1/images/edits (multipart) which DOES accept image inputs.
+  // Otherwise, fall back to the text-only /v1/images/generations endpoint.
+  let endpoint: string;
+  let requestInit: RequestInit;
+
+  if (hasReferences) {
+    const form = new FormData();
+    form.append("model", cfg.id);
+    form.append("size", size);
+    form.append("n", "1");
+
+    // Numbered reference list helps the model preserve identity (mascote) and reuse the logo.
+    const refDescriptions: string[] = [];
+    let idx = 1;
+    for (const m of mascots) {
+      const bytes = decodeBase64(m.data);
+      const blob = new Blob([bytes], { type: m.mimeType || "image/png" });
+      form.append("image[]", new File([blob], `mascot_${idx}.png`, { type: blob.type }));
+      refDescriptions.push(
+        `Imagem ${idx}: MASCOTE/PERSONAGEM oficial — preserve EXATAMENTE rosto, idade, gênero, etnia, cabelo, roupa, proporções e estilo de ilustração. Não recrie um personagem novo.`,
+      );
+      idx++;
+    }
+    if (input.logoInline) {
+      const bytes = decodeBase64(input.logoInline.data);
+      const blob = new Blob([bytes], { type: input.logoInline.mimeType || "image/png" });
+      form.append("image[]", new File([blob], `logo.png`, { type: blob.type }));
+      refDescriptions.push(
+        `Imagem ${idx}: LOGO oficial da marca — use EXATAMENTE como fornecida, sem redesenhar, alterar cores, tipografia ou proporções.`,
+      );
+      idx++;
+    }
+
+    const promptWithRefs =
+      `${input.prompt}\n\nREFERÊNCIAS VISUAIS ANEXADAS (use-as como fonte de verdade):\n` +
+      refDescriptions.map((d) => `- ${d}`).join("\n");
+    form.append("prompt", promptWithRefs);
+
+    endpoint = OPENAI_IMAGES_EDIT_URL;
+    requestInit = {
+      method: "POST",
+      headers: { Authorization: `Bearer ${input.openaiApiKey}` },
+      body: form,
+    };
+  } else {
+    endpoint = OPENAI_IMAGES_URL;
+    requestInit = {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.openaiApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: cfg.id,
+        prompt: input.prompt,
+        size,
+        n: 1,
+      }),
+    };
+  }
 
   // Retry on transient upstream failures (502/503/504 + network errors).
   // OpenAI's image endpoint occasionally returns Cloudflare 502 after long
