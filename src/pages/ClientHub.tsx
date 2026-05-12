@@ -1079,11 +1079,12 @@ const ClientHub = () => {
                       </div>
                       <div className="space-y-2">
                         <Label className="text-sm font-medium">Modelo de IA</Label>
-                        <Select value={carouselAiModel} onValueChange={(v) => setCarouselAiModel(v as 'nanobanana3' | 'gpt')} disabled={generatingCarouselImages}>
+                        <Select value={carouselAiModel} onValueChange={(v) => setCarouselAiModel(v as 'nanobanana3' | 'nanobanana35' | 'gpt2')} disabled={generatingCarouselImages}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="nanobanana3">Nanobanana 3 (Alta Qualidade)</SelectItem>
-                            <SelectItem value="gpt">ChatGPT (Rápido)</SelectItem>
+                            <SelectItem value="nanobanana3">Nanobanana 3</SelectItem>
+                            <SelectItem value="nanobanana35">Nanobanana 3.5</SelectItem>
+                            <SelectItem value="gpt2">GPT Image 2</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
