@@ -41,6 +41,17 @@ Este é o slide de CAPA do carrossel — o mais importante de todos.
 
 const CAROUSEL_CONTINUITY = `CONTINUIDADE VISUAL: Mantenha o estilo visual coerente com a capa, mas com layout adequado para conteúdo informativo e variando a composição/pose do mascote.`;
 
+const CAROUSEL_SINGLE_SLIDE_RULE = `REGRA CRÍTICA — UMA ÚNICA CENA POR IMAGEM:
+- Esta chamada gera UMA ÚNICA imagem que representa SOMENTE o slide atual.
+- PROIBIDO ABSOLUTO: colagens, grids, mosaicos, recap, montagens, divisão da arte em múltiplos quadros/painéis, miniaturas de outros slides, "antes/depois" lado a lado representando outros slides, ou qualquer composição que mostre mais de uma cena ou mais de um slide.
+- A imagem deve ser uma cena 3D coesa e contínua (um único ambiente, uma única composição), NÃO uma página de resumo do carrossel.
+- Apenas o texto do SLIDE ATUAL pode aparecer legível na arte. NENHUM texto de outros slides (S1, S2, S3...) pode aparecer renderizado na imagem — eles foram fornecidos apenas como contexto narrativo textual.`;
+
+const CAROUSEL_FINAL_SLIDE_RULE = `REGRA ESPECIAL DO SLIDE FINAL (CTA/FECHAMENTO):
+- Este é o slide final do carrossel, mas continua sendo UMA ÚNICA cena 3D de fechamento/CTA.
+- NÃO é um slide de resumo visual: PROIBIDO mostrar miniaturas, recap, colagem ou grid dos slides anteriores.
+- Componha uma cena única que reforce a chamada para ação do texto atual, com o mascote em pose convidativa.`;
+
 export type StaticPostPromptInput = {
   vi: VisualIdentity;
   basePrompt?: string;       // generate_posts_prompt content
@@ -96,11 +107,15 @@ export function buildCarouselSlidePrompt(input: CarouselSlidePromptInput): strin
   const isCover = slideNumber === 1;
   const logoUrl = vi.logo.url;
 
+  const isFinal = slideNumber === totalSlides && totalSlides > 1;
+
   return `
 ${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${renderContentRequirementsBlock(vi)}Crie imagem profissional para SLIDE ${slideNumber}/${totalSlides} de carrossel social.
 
-TEXTO: "${slideText}"${slideLabel ? ` (${slideLabel})` : ""}
-CONTEXTO: ${slideContextLine}
+TEXTO DO SLIDE ATUAL (único texto que pode aparecer renderizado): "${slideText}"${slideLabel ? ` (${slideLabel})` : ""}
+
+CONTEXTO NARRATIVO (apenas para coerência de tom e estilo — NÃO renderize estes textos na imagem, NÃO os ilustre como slides separados):
+${slideContextLine}
 
 ${renderColorPaletteBlock(vi)}
 ${renderMascotBlock(vi, hasMascotReference)}
@@ -109,10 +124,14 @@ ${COLOR_APPLICATION_RULES}
 
 ${STATIC_POST_STYLE_BLOCK}
 
-${isCover ? CAROUSEL_COVER_RULES : CAROUSEL_CONTINUITY}
+${CAROUSEL_SINGLE_SLIDE_RULE}
 
-REGRAS: Formato ${aspect}. O texto "${slideText}" DEVE aparecer legível. Design coerente entre slides.
+${isCover ? CAROUSEL_COVER_RULES : CAROUSEL_CONTINUITY}
+${isFinal ? "\n" + CAROUSEL_FINAL_SLIDE_RULE : ""}
+
+REGRAS: Formato ${aspect}. Apenas o texto "${slideText}" DEVE aparecer legível. Design coerente entre slides, mas cada slide é UMA imagem independente.
 PROIBIDO ABSOLUTO: NÃO desenhe nenhum número de página, contador, "1/5", "2/5", "${slideNumber}/${totalSlides}", paginação, dots indicadores, badges de slide ou qualquer marcação de sequência na imagem. O Instagram já mostra a posição do slide automaticamente.
+PROIBIDO ABSOLUTO: NÃO crie colagem, grid, mosaico, recap ou montagem dos demais slides do carrossel — gere SOMENTE a cena do slide ${slideNumber}.
 ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem"}
 `.trim();
 }
