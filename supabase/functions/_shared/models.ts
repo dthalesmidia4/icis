@@ -27,3 +27,4 @@ export const MODELS = {
 export const GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 export const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
 export const OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations";
+export const OPENAI_IMAGES_EDIT_URL = "https://api.openai.com/v1/images/edits";
