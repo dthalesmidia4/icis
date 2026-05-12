@@ -40,6 +40,8 @@ export type SlideRunResult =
 export type RunCarouselSlidesOptions = {
   supabase: any;
   googleApiKey: string;
+  openaiApiKey?: string;
+  aiModel?: ImageAiModel | null;
   vi: VisualIdentity;
   basePrompt?: string;
   strategySnippet?: string;
