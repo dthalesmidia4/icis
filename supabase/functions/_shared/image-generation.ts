@@ -108,33 +108,77 @@ export async function generateImageWithModel(
     ? `${input.prompt}\n\nOBSERVAÇÃO: Imagens de referência (mascote/logo) não foram anexadas porque o modelo gpt-image-2 não suporta entradas de imagem em /v1/images/generations. Siga rigorosamente as descrições escritas acima.`
     : input.prompt;
 
-  const response = await fetch(OPENAI_IMAGES_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.openaiApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: cfg.id,
-      prompt: promptWithNote,
-      size,
-      n: 1,
-    }),
+  const requestBody = JSON.stringify({
+    model: cfg.id,
+    prompt: promptWithNote,
+    size,
+    n: 1,
   });
 
-  if (!response.ok) {
+  // Retry on transient upstream failures (502/503/504 + network errors).
+  // OpenAI's image endpoint occasionally returns Cloudflare 502 after long
+  // processing; a short retry cycle recovers most of these cases.
+  const TRANSIENT_STATUSES = new Set([502, 503, 504, 520, 521, 522, 524]);
+  const MAX_ATTEMPTS = 3;
+  let lastError = "";
+  let lastStatus: number | undefined;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    let response: Response;
+    try {
+      response = await fetch(OPENAI_IMAGES_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${input.openaiApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: requestBody,
+      });
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : String(e);
+      lastStatus = undefined;
+      console.warn(`[gpt-image-2] network error attempt ${attempt}/${MAX_ATTEMPTS}: ${lastError}`);
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, 1500 * attempt));
+        continue;
+      }
+      return { ok: false, error: `Falha de rede ao chamar OpenAI: ${lastError}` };
+    }
+
+    if (response.ok) {
+      const data = await response.json();
+      const b64 = data?.data?.[0]?.b64_json;
+      if (!b64) return { ok: false, error: "no_image_in_response" };
+      const imageBytes = decodeBase64(b64);
+      return { ok: true, imageBytes, mimeType: "image/png", ext: "png" };
+    }
+
     const errText = await response.text();
-    return {
-      ok: false,
-      error: errText || `HTTP ${response.status}`,
-      status: response.status,
-      rateLimited: response.status === 429,
-    };
+    lastError = errText || `HTTP ${response.status}`;
+    lastStatus = response.status;
+
+    const isTransient = TRANSIENT_STATUSES.has(response.status);
+    console.warn(
+      `[gpt-image-2] HTTP ${response.status} attempt ${attempt}/${MAX_ATTEMPTS}${isTransient ? " (transient, will retry)" : ""}`,
+    );
+
+    if (!isTransient || attempt === MAX_ATTEMPTS) {
+      const friendly = isTransient
+        ? "O provedor de imagem (OpenAI) está temporariamente indisponível (HTTP " +
+          response.status +
+          "). Tente novamente em instantes ou selecione outro modelo."
+        : lastError;
+      return {
+        ok: false,
+        error: friendly,
+        status: response.status,
+        rateLimited: response.status === 429,
+      };
+    }
+
+    // Exponential-ish backoff: 1.5s, 3s
+    await new Promise((r) => setTimeout(r, 1500 * attempt));
   }
 
-  const data = await response.json();
-  const b64 = data?.data?.[0]?.b64_json;
-  if (!b64) return { ok: false, error: "no_image_in_response" };
-  const imageBytes = decodeBase64(b64);
-  return { ok: true, imageBytes, mimeType: "image/png", ext: "png" };
+  return { ok: false, error: lastError || "Falha desconhecida na OpenAI", status: lastStatus };
 }
