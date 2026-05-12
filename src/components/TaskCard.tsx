@@ -601,7 +601,7 @@ export default function TaskCard({
     setRegeneratingSlide(slideNumber);
     try {
       const { data, error } = await supabase.functions.invoke("generate-post-image", {
-        body: { demandId: card.id, slideNumber, replaceSlide: true },
+        body: { demandId: card.id, slideNumber, replaceSlide: false },
       });
       if (error) throw error;
       if (data?.error) {
