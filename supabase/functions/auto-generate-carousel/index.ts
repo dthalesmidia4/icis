@@ -145,22 +145,24 @@ Deno.serve(async (req) => {
     // 3. Fetch client branding
     const { data: client } = await supabase
       .from("tenant_companies")
-      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, sector, products_services, content_requirements, logo_url, logo_position, logo_size")
+      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_auxiliary_color, brand_font, brand_secondary_font, has_mascot, mascot_description, sector, products_services, content_requirements, logo_url, logo_position, logo_size")
       .eq("id", demand.client_id)
       .single();
 
-    // 3b. Fetch visual identity preset (4 colors + font)
+    // 3b. Fetch visual identity preset (4 colors + auxiliary + 2 fonts)
     let presetColors = {
       primary: client?.brand_primary_color || "#000000",
       secondary: client?.brand_secondary_color || "#FFFFFF",
       highlight: null as string | null,
       text: null as string | null,
+      auxiliary: (client as any)?.brand_auxiliary_color || null as string | null,
       font: client?.brand_font || "Montserrat",
+      secondaryFont: (client as any)?.brand_secondary_font || null as string | null,
     };
 
     const { data: viPreset } = await supabase
       .from("visual_identity_presets")
-      .select("primary_color, secondary_color, highlight_color, text_color, font_name")
+      .select("primary_color, secondary_color, highlight_color, text_color, auxiliary_color, font_name, secondary_font")
       .eq("company_id", demand.client_id)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -172,7 +174,9 @@ Deno.serve(async (req) => {
         secondary: viPreset.secondary_color || presetColors.secondary,
         highlight: viPreset.highlight_color,
         text: viPreset.text_color,
+        auxiliary: (viPreset as any).auxiliary_color || presetColors.auxiliary,
         font: viPreset.font_name || presetColors.font,
+        secondaryFont: (viPreset as any).secondary_font || presetColors.secondaryFont,
       };
     }
 
@@ -426,7 +430,9 @@ PALETA DE CORES E APLICAÇÃO (REGRAS CRÍTICAS):
 - Cor secundária (${presetColors.secondary}): Use em acentos, bordas, elementos complementares e variações de fundo
 ${presetColors.highlight ? `- Cor de destaque (${presetColors.highlight}): Use em botões, badges, CTAs, ícones e pequenos destaques visuais` : ""}
 ${presetColors.text ? `- Cor do texto (${presetColors.text}): Use na tipografia principal sobre os fundos` : ""}
-- Tipografia: ${presetColors.font}
+${presetColors.auxiliary ? `- Cor auxiliar (${presetColors.auxiliary}): Use APENAS em elementos gráficos de apoio (formas decorativas, divisores, badges menores, gradientes secundários, fundos de seção). NUNCA como cor dominante — serve para enriquecer e variar a composição entre slides.` : ""}
+- Tipografia principal: ${presetColors.font} — use em títulos e textos de impacto (hooks, números grandes, frases-âncora).
+${presetColors.secondaryFont ? `- Tipografia secundária: ${presetColors.secondaryFont} — use em subtítulos, legendas, listas e textos de apoio (NÃO use no título principal de cada slide).` : ""}
 ${mascotSection}
 ${logoPromptSection}
 

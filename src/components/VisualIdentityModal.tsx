@@ -34,7 +34,9 @@ interface Preset {
   secondary_color: string | null;
   highlight_color: string | null;
   text_color: string | null;
+  auxiliary_color: string | null;
   font_name: string | null;
+  secondary_font: string | null;
   is_active: boolean;
 }
 
@@ -61,7 +63,9 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
   const [secondaryColor, setSecondaryColor] = useState("#000000");
   const [highlightColor, setHighlightColor] = useState("#D6D2B5");
   const [textColor, setTextColor] = useState("#FFFFFF");
+  const [auxiliaryColor, setAuxiliaryColor] = useState("");
   const [fontName, setFontName] = useState("");
+  const [secondaryFont, setSecondaryFont] = useState("");
   const [savingVisual, setSavingVisual] = useState(false);
   const [presetName, setPresetName] = useState("");
 
@@ -92,13 +96,15 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
     setLoadingCompany(true);
     const { data } = await supabase
       .from('tenant_companies')
-      .select('brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, mascot_url, logo_url, logo_position, logo_size')
+      .select('brand_primary_color, brand_secondary_color, brand_auxiliary_color, brand_font, brand_secondary_font, has_mascot, mascot_description, mascot_url, logo_url, logo_position, logo_size')
       .eq('id', companyId)
       .single();
     if (data) {
       setPrimaryColor(data.brand_primary_color || "#000000");
       setSecondaryColor(data.brand_secondary_color || "#000000");
+      setAuxiliaryColor((data as any).brand_auxiliary_color || "");
       setFontName(data.brand_font || "");
+      setSecondaryFont((data as any).brand_secondary_font || "");
       setMascotDescription(data.mascot_description || "");
       setLogoUrl(data.logo_url || null);
       setLogoPosition(data.logo_position || "bottom-right");
@@ -147,8 +153,10 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
         .update({
           brand_primary_color: primaryColor,
           brand_secondary_color: secondaryColor,
+          brand_auxiliary_color: auxiliaryColor || null,
           brand_font: fontName,
-        })
+          brand_secondary_font: secondaryFont || null,
+        } as any)
         .eq('id', companyId);
 
       await supabase.from('visual_identity_presets').insert({
@@ -159,9 +167,11 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
         secondary_color: secondaryColor,
         highlight_color: highlightColor,
         text_color: textColor,
+        auxiliary_color: auxiliaryColor || null,
         font_name: fontName,
+        secondary_font: secondaryFont || null,
         is_active: false,
-      });
+      } as any);
 
       setPresetName("");
       toast.success("Predefinição salva!");
@@ -178,7 +188,9 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
     setSecondaryColor(preset.secondary_color || "#000000");
     setHighlightColor(preset.highlight_color || "#D6D2B5");
     setTextColor(preset.text_color || "#FFFFFF");
+    setAuxiliaryColor(preset.auxiliary_color || "");
     setFontName(preset.font_name || "");
+    setSecondaryFont(preset.secondary_font || "");
     toast.success(`Predefinição "${preset.name}" carregada`);
   };
 
@@ -390,14 +402,47 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
               {/* Form */}
               <div className="flex-1 space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <ColorInput label="Cor Primária" value={primaryColor} onChange={setPrimaryColor} />
-                  <ColorInput label="Cor Secundária" value={secondaryColor} onChange={setSecondaryColor} />
-                  <ColorInput label="Cor de Destaque" value={highlightColor} onChange={setHighlightColor} />
-                  <ColorInput label="Cor do Texto" value={textColor} onChange={setTextColor} />
+                  <ColorInput label="Cor Primária *" value={primaryColor} onChange={setPrimaryColor} />
+                  <ColorInput label="Cor Secundária *" value={secondaryColor} onChange={setSecondaryColor} />
+                  <ColorInput label="Cor de Destaque *" value={highlightColor} onChange={setHighlightColor} />
+                  <ColorInput label="Cor do Texto *" value={textColor} onChange={setTextColor} />
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      Cor Auxiliar <span className="text-xs text-muted-foreground font-normal">(opcional — usada apenas em elementos gráficos de apoio)</span>
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={auxiliaryColor.replace('#', '')}
+                        onChange={(e) => setAuxiliaryColor(e.target.value ? `#${e.target.value.replace('#', '')}` : '')}
+                        className="flex-1 font-mono"
+                        placeholder="Ex: 1f5132 (deixe vazio para não usar)"
+                        maxLength={7}
+                      />
+                      <input
+                        type="color"
+                        value={auxiliaryColor || '#ffffff'}
+                        onChange={(e) => setAuxiliaryColor(e.target.value)}
+                        className="w-10 h-10 rounded-lg border border-input cursor-pointer p-0.5"
+                      />
+                      {auxiliaryColor && (
+                        <Button variant="ghost" size="icon" className="w-9 h-9 shrink-0" onClick={() => setAuxiliaryColor('')} title="Limpar">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Nome da Fonte</Label>
-                  <Input value={fontName} onChange={(e) => setFontName(e.target.value)} placeholder="Ex: Poppins, Montserrat, Inter..." />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Fonte Principal *</Label>
+                    <Input value={fontName} onChange={(e) => setFontName(e.target.value)} placeholder="Ex: Poppins, Montserrat..." />
+                    <p className="text-[10px] text-muted-foreground">Títulos e textos de impacto.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Fonte Secundária <span className="text-xs text-muted-foreground font-normal">(opcional)</span></Label>
+                    <Input value={secondaryFont} onChange={(e) => setSecondaryFont(e.target.value)} placeholder="Ex: Inter, Roboto..." />
+                    <p className="text-[10px] text-muted-foreground">Subtítulos, legendas e textos de apoio.</p>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Nome da Predefinição</Label>
@@ -425,7 +470,7 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
                       onClick={() => handleLoadPreset(preset)}
                     >
                       <div className="flex items-center gap-1.5 mb-2">
-                        {[preset.primary_color, preset.secondary_color, preset.highlight_color, preset.text_color]
+                        {[preset.primary_color, preset.secondary_color, preset.highlight_color, preset.text_color, preset.auxiliary_color]
                           .filter(Boolean)
                           .map((color, i) => (
                             <div key={i} className="w-5 h-5 rounded-full border border-border shrink-0" style={{ backgroundColor: color || '#000' }} />
@@ -459,7 +504,10 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
                         </div>
                       )}
                       {preset.font_name && (
-                        <span className="text-[10px] text-muted-foreground mt-1 block">{preset.font_name}</span>
+                        <span className="text-[10px] text-muted-foreground mt-1 block truncate">{preset.font_name}</span>
+                      )}
+                      {preset.secondary_font && (
+                        <span className="text-[10px] text-muted-foreground/70 block truncate">+ {preset.secondary_font}</span>
                       )}
                     </div>
                   ))}

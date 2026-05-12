@@ -1168,9 +1168,11 @@ export type Database = {
       }
       tenant_companies: {
         Row: {
+          brand_auxiliary_color: string | null
           brand_font: string | null
           brand_primary_color: string | null
           brand_secondary_color: string | null
+          brand_secondary_font: string | null
           cnpj_cpf: string
           content_requirements: string | null
           created_at: string | null
@@ -1192,9 +1194,11 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          brand_auxiliary_color?: string | null
           brand_font?: string | null
           brand_primary_color?: string | null
           brand_secondary_color?: string | null
+          brand_secondary_font?: string | null
           cnpj_cpf: string
           content_requirements?: string | null
           created_at?: string | null
@@ -1216,9 +1220,11 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          brand_auxiliary_color?: string | null
           brand_font?: string | null
           brand_primary_color?: string | null
           brand_secondary_color?: string | null
+          brand_secondary_font?: string | null
           cnpj_cpf?: string
           content_requirements?: string | null
           created_at?: string | null
@@ -1513,6 +1519,7 @@ export type Database = {
       }
       visual_identity_presets: {
         Row: {
+          auxiliary_color: string | null
           company_id: string
           created_at: string
           font_name: string | null
@@ -1522,11 +1529,13 @@ export type Database = {
           name: string
           primary_color: string | null
           secondary_color: string | null
+          secondary_font: string | null
           tenant_id: string
           text_color: string | null
           updated_at: string
         }
         Insert: {
+          auxiliary_color?: string | null
           company_id: string
           created_at?: string
           font_name?: string | null
@@ -1536,11 +1545,13 @@ export type Database = {
           name?: string
           primary_color?: string | null
           secondary_color?: string | null
+          secondary_font?: string | null
           tenant_id: string
           text_color?: string | null
           updated_at?: string
         }
         Update: {
+          auxiliary_color?: string | null
           company_id?: string
           created_at?: string
           font_name?: string | null
@@ -1550,6 +1561,7 @@ export type Database = {
           name?: string
           primary_color?: string | null
           secondary_color?: string | null
+          secondary_font?: string | null
           tenant_id?: string
           text_color?: string | null
           updated_at?: string
