@@ -120,11 +120,8 @@ Deno.serve(async (req) => {
 
     console.log(`Auto-generating carousel for demand ${demandId} (type: ${demand.demand_type})`);
 
-    // Step 0: archive previous AI slides
-    const { archivedCount } = await archiveExistingCarouselSlides(supabase, demandId);
-    if (archivedCount > 0) {
-      console.log(`✅ Step 0: Archived ${archivedCount} previous AI slides to history`);
-    }
+    // Step 0: previous AI slides are preserved alongside the new ones (no archiving)
+    const archivedCount = 0;
 
     // 3. Visual identity (single source of truth — covers auxiliary color + secondary font)
     const vi = await loadVisualIdentity(supabase, demand.client_id, { mascotImageLimit: 1 });
