@@ -1,5 +1,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { decodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
+import { getGoogleAiKey, getOpenAiKey, MissingApiKeyError } from "../_shared/api-keys.ts";
+import { GOOGLE_API_BASE, MODELS, OPENAI_CHAT_URL } from "../_shared/models.ts";
+import { loadVisualIdentity } from "../_shared/visual-identity.ts";
+import { getCarouselPrompt, getSystemPrompt } from "../_shared/system-prompts.ts";
+import { buildCarouselSlidePrompt } from "../_shared/image-prompts.ts";
+import { fetchInlineImage } from "../_shared/fetch-image.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,10 +25,9 @@ function isAiCarouselSlide(att: any): boolean {
   return false;
 }
 
-// Helper: archive existing AI carousel slides, return manual-only attachments
 async function archiveExistingCarouselSlides(
   supabase: any,
-  demandId: string
+  demandId: string,
 ): Promise<{ archivedCount: number }> {
   const { data: demand } = await supabase
     .from("demands")
@@ -39,8 +44,6 @@ async function archiveExistingCarouselSlides(
   const manualAttachments = currentAttachments.filter((a: any) => !isAiCarouselSlide(a));
 
   if (aiSlides.length === 0) return { archivedCount: 0 };
-
-  console.log(`  → Archiving ${aiSlides.length} existing AI carousel slides to history`);
 
   const rejectedBatch = {
     rejected_at: new Date().toISOString(),
@@ -70,41 +73,26 @@ Deno.serve(async (req) => {
     if (!demandId) {
       return new Response(
         JSON.stringify({ error: "demandId é obrigatório" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
 
-    // Fetch keys from api_keys table (Dev > APIs do Sistema)
-    const { data: googleKeyData } = await supabase
-      .from("api_keys")
-      .select("key_value")
-      .eq("key_name", "Google AI Studio")
-      .single();
-
-    const GOOGLE_API_KEY = googleKeyData?.key_value;
-    if (!GOOGLE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys (Dev > APIs do Sistema)." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const { data: openaiKeyData } = await supabase
-      .from("api_keys")
-      .select("key_value")
-      .eq("key_name", "OPENAI_API_KEY")
-      .single();
-
-    const OPENAI_API_KEY = openaiKeyData?.key_value;
-    if (!OPENAI_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: "Chave 'OPENAI_API_KEY' não encontrada na tabela api_keys (Dev > APIs do Sistema)." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    let GOOGLE_API_KEY: string;
+    let OPENAI_API_KEY: string;
+    try {
+      GOOGLE_API_KEY = await getGoogleAiKey(supabase);
+      OPENAI_API_KEY = await getOpenAiKey(supabase);
+    } catch (e) {
+      const msg = e instanceof MissingApiKeyError ? e.message : "Falha ao buscar chaves de API.";
+      return new Response(JSON.stringify({ error: msg }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // 1. Fetch the demand
@@ -115,106 +103,38 @@ Deno.serve(async (req) => {
       .single();
 
     if (demandError || !demand) {
-      console.error("Demand not found:", demandId, demandError);
       return new Response(
         JSON.stringify({ error: "Demanda não encontrada" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // 2. Check if demand type is "Carrossel"
+    // 2. Carousel guard
     const demandType = (demand.demand_type || "").toLowerCase();
     const isCarousel = demandType.includes("carrossel") || demandType.includes("carousel");
-
     if (!isCarousel) {
-      console.log(`Skipping: demand_type="${demand.demand_type}" is not a carousel`);
       return new Response(
         JSON.stringify({ success: true, skipped: true, reason: `Tipo "${demand.demand_type}" não é Carrossel` }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     console.log(`Auto-generating carousel for demand ${demandId} (type: ${demand.demand_type})`);
 
-    // ============ STEP 0: Archive existing AI slides ============
+    // Step 0: archive previous AI slides
     const { archivedCount } = await archiveExistingCarouselSlides(supabase, demandId);
     if (archivedCount > 0) {
       console.log(`✅ Step 0: Archived ${archivedCount} previous AI slides to history`);
     }
 
-    // 3. Fetch client branding
-    const { data: client } = await supabase
-      .from("tenant_companies")
-      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_auxiliary_color, brand_font, brand_secondary_font, has_mascot, mascot_description, sector, products_services, content_requirements, logo_url, logo_position, logo_size")
-      .eq("id", demand.client_id)
-      .single();
+    // 3. Visual identity (single source of truth — covers auxiliary color + secondary font)
+    const vi = await loadVisualIdentity(supabase, demand.client_id, { mascotImageLimit: 1 });
 
-    // 3b. Fetch visual identity preset (4 colors + auxiliary + 2 fonts)
-    let presetColors = {
-      primary: client?.brand_primary_color || "#000000",
-      secondary: client?.brand_secondary_color || "#FFFFFF",
-      highlight: null as string | null,
-      text: null as string | null,
-      auxiliary: (client as any)?.brand_auxiliary_color || null as string | null,
-      font: client?.brand_font || "Montserrat",
-      secondaryFont: (client as any)?.brand_secondary_font || null as string | null,
-    };
+    // 4. Carousel prompt (canonical → legacy custom → empty)
+    const { content: basePrompt, key: promptKey } = await getCarouselPrompt(supabase, demand.tenant_id);
+    console.log(`📋 Carrossel usando prompt: ${promptKey || "FALLBACK_HARDCODED"}`);
 
-    const { data: viPreset } = await supabase
-      .from("visual_identity_presets")
-      .select("primary_color, secondary_color, highlight_color, text_color, auxiliary_color, font_name, secondary_font")
-      .eq("company_id", demand.client_id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-
-    if (viPreset) {
-      presetColors = {
-        primary: viPreset.primary_color || presetColors.primary,
-        secondary: viPreset.secondary_color || presetColors.secondary,
-        highlight: viPreset.highlight_color,
-        text: viPreset.text_color,
-        auxiliary: (viPreset as any).auxiliary_color || presetColors.auxiliary,
-        font: viPreset.font_name || presetColors.font,
-        secondaryFont: (viPreset as any).secondary_font || presetColors.secondaryFont,
-      };
-    }
-
-    const brandName = client?.fantasy_name || client?.name || "Marca";
-
-    // 4. Fetch mascot images (limit to 1 to save memory)
-    let mascotImageUrl: string | null = null;
-    if (client?.has_mascot) {
-      const { data: mascotImages } = await supabase
-        .from("company_mascot_images")
-        .select("image_url")
-        .eq("company_id", demand.client_id)
-        .order("position", { ascending: true })
-        .limit(1);
-
-      if (mascotImages && mascotImages.length > 0) {
-        mascotImageUrl = mascotImages[0].image_url;
-      }
-    }
-
-    // 5. Fetch carousel prompt — busca em duas chaves possíveis:
-    //    - generate_carousel_prompt (chave canônica)
-    //    - custom_prompt_1774297057852 (chave usada pelo "Prompt Gerador de Carrossel" salvo na UI)
-    // Usa a primeira que tiver conteúdo. Caso nenhuma exista, mantém fallback hardcoded.
-    const { data: carouselPrompts } = await supabase
-      .from("system_prompts")
-      .select("prompt_key, prompt_content")
-      .eq("tenant_id", demand.tenant_id)
-      .in("prompt_key", ["generate_carousel_prompt", "custom_prompt_1774297057852"]);
-
-    const canonical = carouselPrompts?.find(p => p.prompt_key === "generate_carousel_prompt" && p.prompt_content?.trim());
-    const customCarousel = carouselPrompts?.find(p => p.prompt_key === "custom_prompt_1774297057852" && p.prompt_content?.trim());
-    const selectedCarouselPrompt = canonical || customCarousel;
-
-    const basePrompt = selectedCarouselPrompt?.prompt_content || "";
-    console.log(`📋 Carrossel usando prompt: ${selectedCarouselPrompt?.prompt_key || "FALLBACK_HARDCODED"}`);
-
-    // 6. Fetch active strategy (shorter snippet to save memory)
+    // 5. Strategy snippet (short)
     const { data: strategy } = await supabase
       .from("strategies")
       .select("strategy_text")
@@ -223,12 +143,9 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
+    const strategyText = strategy?.strategy_text ? strategy.strategy_text.substring(0, 800) : "";
 
-    const strategyText = strategy?.strategy_text
-      ? strategy.strategy_text.substring(0, 800)
-      : "";
-
-    // 7. Build card content
+    // 6. Card content
     const cardContent = [
       demand.title ? `Título: ${demand.title}` : "",
       demand.objective ? `Objetivo: ${demand.objective}` : "",
@@ -237,20 +154,19 @@ Deno.serve(async (req) => {
 
     const slideCount = 5;
 
-    // ============ STEP 1: Generate slide texts via OpenAI ============
-    console.log(`Step 1: Generating ${slideCount} slide texts via OpenAI gpt-5-mini...`);
+    // ============ STEP 1: slide texts via OpenAI ============
+    console.log(`Step 1: Generating ${slideCount} slide texts via ${MODELS.TEXT_PLANNING}...`);
 
-    const mascotInfo = mascotImageUrl
-      ? `O cliente possui um mascote oficial. ${client?.mascot_description ? `Descrição: ${client.mascot_description}.` : ""}`
+    const mascotInfo = vi.mascot.galleryUrls.length > 0
+      ? `O cliente possui um mascote oficial. ${vi.mascot.description ? `Descrição: ${vi.mascot.description}.` : ""}`
       : "";
-
-    const contentReqsSection = (client as any)?.content_requirements
-      ? `\nEXIGÊNCIAS DE CONTEÚDO DO CLIENTE (SIGA OBRIGATORIAMENTE):\n${(client as any).content_requirements}\n`
-      : '';
+    const contentReqsSection = vi.contentRequirements
+      ? `\nEXIGÊNCIAS DE CONTEÚDO DO CLIENTE (SIGA OBRIGATORIAMENTE):\n${vi.contentRequirements}\n`
+      : "";
 
     const systemPrompt = `Você é um copywriter especialista em marketing digital. Crie textos para carrosséis.
 
-${basePrompt ? "DIRETRIZES DO SISTEMA (PROMPT DO CARROSSEL):\n" + basePrompt + "\n\n" : ""}${strategyText ? "ESTRATÉGIA:\n" + strategyText + "\n\n" : ""}CLIENTE: ${brandName} | ${client?.sector || "N/A"} | ${client?.products_services || "N/A"}
+${basePrompt ? "DIRETRIZES DO SISTEMA (PROMPT DO CARROSSEL):\n" + basePrompt + "\n\n" : ""}${strategyText ? "ESTRATÉGIA:\n" + strategyText + "\n\n" : ""}CLIENTE: ${vi.brandName} | ${vi.sector || "N/A"} | ${vi.productsServices || "N/A"}
 ${mascotInfo}
 ${contentReqsSection}
 REGRAS:
@@ -262,46 +178,38 @@ REGRAS:
 
     const userPrompt = `Crie ${slideCount} slides para este card:\n\n${cardContent}`;
 
-    const contentResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+    const contentResponse = await fetch(OPENAI_CHAT_URL, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "gpt-5-mini",
+        model: MODELS.TEXT_PLANNING,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "create_carousel_slides",
-              description: "Retorna os slides do carrossel",
-              parameters: {
-                type: "object",
-                properties: {
-                  slides: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        text: { type: "string" },
-                        label: { type: "string" },
-                      },
-                      required: ["text", "label"],
-                      additionalProperties: false,
-                    },
+        tools: [{
+          type: "function",
+          function: {
+            name: "create_carousel_slides",
+            description: "Retorna os slides do carrossel",
+            parameters: {
+              type: "object",
+              properties: {
+                slides: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: { text: { type: "string" }, label: { type: "string" } },
+                    required: ["text", "label"],
+                    additionalProperties: false,
                   },
                 },
-                required: ["slides"],
-                additionalProperties: false,
               },
+              required: ["slides"],
+              additionalProperties: false,
             },
           },
-        ],
+        }],
         tool_choice: { type: "function", function: { name: "create_carousel_slides" } },
       }),
     });
@@ -311,17 +219,16 @@ REGRAS:
       console.error("OpenAI error:", contentResponse.status, errorText);
       return new Response(
         JSON.stringify({ error: `Erro OpenAI: ${contentResponse.status}` }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     const contentData = await contentResponse.json();
     const toolCall = contentData.choices?.[0]?.message?.tool_calls?.[0];
-
     if (!toolCall) {
       return new Response(
         JSON.stringify({ error: "A IA não retornou os slides estruturados." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -335,168 +242,56 @@ REGRAS:
       console.error("Failed to parse slides:", e);
       return new Response(
         JSON.stringify({ error: "Falha ao interpretar slides da IA." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     if (!Array.isArray(slides) || slides.length === 0) {
       return new Response(
         JSON.stringify({ error: "A IA não retornou slides válidos." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     console.log(`✅ Step 1 complete: ${slides.length} slide texts generated`);
 
-    // ============ STEP 2: Generate images one at a time, attach incrementally ============
-    console.log(`Step 2: Generating ${slides.length} slide images via Gemini 3 Pro Image...`);
+    // ============ STEP 2: slide images ============
+    console.log(`Step 2: Generating ${slides.length} slide images via ${MODELS.IMAGE}...`);
 
-    const mascotSection = mascotImageUrl
-      ? `MASCOTE: A marca possui um mascote oficial. ${client?.mascot_description ? `Descrição detalhada: ${client.mascot_description}.` : ""}
-OBRIGATÓRIO PRESERVAR (identidade): mesma espécie, cores, roupa/uniforme, proporções, traços faciais e estilo de arte da imagem de referência — ele deve ser RECONHECIDO como o mesmo personagem em todos os slides.
-OBRIGATÓRIO VARIAR (composição por slide): pose corporal, expressão facial, ângulo da câmera, gesto das mãos, posicionamento na cena (esquerda/direita/centro), interação com objetos do cenário e enquadramento (close, médio, plano inteiro). NUNCA repita a mesma pose/posição da imagem de referência nem dos outros slides do carrossel.
-O mascote DEVE aparecer integrado ao design como protagonista visual.`
-      : client?.has_mascot
-        ? `A marca possui um mascote (${client?.mascot_description || "sem descrição"}), mas nenhuma imagem de referência está disponível. Tente incluí-lo baseado na descrição.`
-        : `NÃO inclua personagens ou figuras humanas.`;
+    const mascotInline = vi.mascot.galleryUrls[0]
+      ? await fetchInlineImage(vi.mascot.galleryUrls[0])
+      : null;
+    const logoInline = vi.logo.url ? await fetchInlineImage(vi.logo.url) : null;
+    if (mascotInline) console.log("  → Mascot reference image pre-fetched");
+    if (logoInline) console.log("  → Logo reference image pre-fetched");
 
-    // Logo settings
-    const logoUrl = (client as any)?.logo_url;
-    const logoPosition = (client as any)?.logo_position || "bottom-right";
-    const logoSize = (client as any)?.logo_size || "medium";
-    const logoSizeMap: Record<string, string> = { small: "~8%", medium: "~12%", large: "~18%" };
-    const logoSizeUpMap: Record<string, string> = { small: "~12%", medium: "~18%", large: "~22%" };
-    const logoPositionMap: Record<string, string> = {
-      "top-left": "canto superior esquerdo", "top-right": "canto superior direito",
-      "bottom-left": "canto inferior esquerdo", "bottom-right": "canto inferior direito",
-      "bottom-center": "centro inferior",
-    };
-
-    const fetchImageDataUrl = async (url: string): Promise<string | null> => {
-      try {
-        const imgResp = await fetch(url);
-        if (!imgResp.ok) return null;
-        const imgBuffer = await imgResp.arrayBuffer();
-        const bytes = new Uint8Array(imgBuffer);
-        let binary = "";
-        const chunkSize = 8192;
-        for (let i = 0; i < bytes.length; i += chunkSize) {
-          binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-        }
-        const mime = imgResp.headers.get("content-type") || "image/png";
-        return `data:${mime};base64,${btoa(binary)}`;
-      } catch (e) {
-        console.error("Failed to fetch reference image:", e);
-        return null;
-      }
-    };
-
-    const mascotDataUrl = mascotImageUrl ? await fetchImageDataUrl(mascotImageUrl) : null;
-    if (mascotDataUrl) console.log("  → Mascot reference image pre-fetched");
-
-    const logoDataUrl = logoUrl ? await fetchImageDataUrl(logoUrl) : null;
-    if (logoDataUrl) console.log("  → Logo reference image pre-fetched");
-
+    const slideContextLine = slides.map((s, idx) => `S${idx + 1}: "${s.text}"`).join(" | ");
     let totalGenerated = 0;
-
-
-    // Build slide context once (short)
-    const slideContext = slides.map((s, idx) => `S${idx + 1}: "${s.text}"`).join(" | ");
 
     for (let i = 0; i < slides.length; i++) {
       const slide = slides[i];
       const slideNumber = i + 1;
 
-      const isFirstOrLast = slideNumber === 1 || slideNumber === slides.length;
-      const logoPromptSection = logoUrl
-        ? `
-LOGO DA MARCA (OBRIGATÓRIO):
-- A logo da marca está fornecida como imagem de referência. INCLUA a logo no design OBRIGATORIAMENTE.
-- Posição: ${logoPositionMap[logoPosition] || logoPosition}
-- Tamanho: ${isFirstOrLast ? logoSizeUpMap[logoSize] || "~18%" : logoSizeMap[logoSize] || "~12%"} da área da imagem
-${isFirstOrLast ? "- Este é um slide de DESTAQUE — a logo deve ser PROEMINENTE e mais visível" : "- Mantenha a logo discreta mas visível"}
-- NÃO distorça, altere cores ou modifique a logo de nenhuma forma
-- Reproduza a logo EXATAMENTE como na imagem de referência fornecida`
-        : "";
+      const imagePrompt = buildCarouselSlidePrompt({
+        vi,
+        basePrompt,
+        strategySnippet: strategyText ? `ESTRATÉGIA:\n${strategyText}` : undefined,
+        slideNumber,
+        totalSlides: slides.length,
+        slideText: slide.text,
+        slideLabel: slide.label,
+        slideContextLine,
+        hasMascotReference: !!mascotInline,
+      });
 
-      const imagePrompt = `Crie imagem profissional para SLIDE ${slideNumber}/${slides.length} de carrossel social.
-
-TEXTO: "${slide.text}" (${slide.label})
-CONTEXTO: ${slideContext}
-MARCA: "${brandName}" | ${client?.sector || "N/A"} | ${client?.products_services || "N/A"}
-
-PALETA DE CORES E APLICAÇÃO (REGRAS CRÍTICAS):
-- Cor primária (${presetColors.primary}): Use em fundos, banners, boxes, shapes e elementos gráficos dominantes do layout
-- Cor secundária (${presetColors.secondary}): Use em acentos, bordas, elementos complementares e variações de fundo
-${presetColors.highlight ? `- Cor de destaque (${presetColors.highlight}): Use em botões, badges, CTAs, ícones e pequenos destaques visuais` : ""}
-${presetColors.text ? `- Cor do texto (${presetColors.text}): Use na tipografia principal sobre os fundos` : ""}
-${presetColors.auxiliary ? `- Cor auxiliar (${presetColors.auxiliary}): Use APENAS em elementos gráficos de apoio (formas decorativas, divisores, badges menores, gradientes secundários, fundos de seção). NUNCA como cor dominante — serve para enriquecer e variar a composição entre slides.` : ""}
-- Tipografia principal: ${presetColors.font} — use em títulos e textos de impacto (hooks, números grandes, frases-âncora).
-${presetColors.secondaryFont ? `- Tipografia secundária: ${presetColors.secondaryFont} — use em subtítulos, legendas, listas e textos de apoio (NÃO use no título principal de cada slide).` : ""}
-${mascotSection}
-${logoPromptSection}
-
-REGRA CRÍTICA DE APLICAÇÃO DE CORES:
-As cores da marca devem ser aplicadas APENAS em elementos de design gráfico (fundos, gradientes, boxes, banners, shapes, tipografia, ícones, bordas).
-NUNCA aplique as cores da marca em objetos reais, pessoas, animais ou elementos figurativos.
-Exemplo: se a cor primária é verde, o fundo e os boxes devem ser verdes, mas um leão deve ter cores NATURAIS realistas.
-Os sujeitos e ilustrações figurativas devem manter aparência NATURAL e REALISTA.
-A paleta de cores cria a identidade visual através do LAYOUT e DESIGN, não tingindo os elementos figurativos.
-
-ESTILO VISUAL OBRIGATÓRIO:
-- Crie designs com estilo de ilustração 3D estilizada, moderna e profissional
-- Tipografia bold, grande e impactante integrada ao design (não sobreposta de forma genérica)
-- Composição dinâmica com profundidade e camadas visuais
-- Qualidade de design de agência profissional de alto nível
-- Contraste alto entre texto e fundo para legibilidade perfeita
-- Elementos gráficos decorativos sutis que enriquecem o layout
-- Cores vibrantes e paleta coerente com a identidade visual da marca
-
-CENÁRIO E AMBIENTAÇÃO (OBRIGATÓRIO):
-- PROIBIDO fundo chapado, gradiente puro ou apenas shapes geométricos abstratos como cenário.
-- O fundo DEVE ser um ambiente 3D real e contextual ao tema do slide (ex.: clínica, sala de espera, casa, rua, escritório, oficina), com props e objetos relevantes em cena.
-- Inclua múltiplas camadas de profundidade: primeiro plano (mascote + objetos próximos), plano médio (mobiliário/elementos do tema) e fundo (paredes, janelas, ambientação).
-- Use iluminação cinematográfica com sombras realistas para criar volume.
-- Os boxes/banners de texto devem CONVIVER com o cenário, não substituí-lo nem ocupar a tela inteira.
-
-${slideNumber === 1 ? `REGRAS ESPECIAIS PARA CAPA (SLIDE 1 - OBRIGATÓRIO):
-Este é o slide de CAPA do carrossel — o mais importante de todos.
-- Design VISUALMENTE IMPACTANTE e CHAMATIVO que capture atenção imediata no feed
-- Use elementos gráficos bold: boxes coloridos, banners vibrantes, balões de fala (speech bubbles) ou shapes dinâmicos para conter o texto — SEM cobrir o cenário
-- Tipografia EXTRA BOLD, centralizada e com tamanho grande — o texto deve ser o protagonista visual
-- Composição com profundidade: sombras, gradientes e camadas visuais que criem dimensão
-- Use ícones ou emojis 3D estilizados para enriquecer o layout
-- O design deve transmitir "profissionalismo de agência" e incentivar o usuário a DESLIZAR para ver mais
-- A capa deve comunicar CLARAMENTE o tema do carrossel de forma concisa e atraente
-- NÃO use layouts simples ou minimalistas — a capa deve ser visualmente rica e elaborada` : `CONTINUIDADE VISUAL: Mantenha o estilo visual coerente com a capa, mas com layout adequado para conteúdo informativo e variando a composição/pose do mascote.`}
-
-REGRAS: Formato 1:1 (1024x1024). O texto "${slide.text}" DEVE aparecer legível. Design coerente entre slides.
-PROIBIDO ABSOLUTO: NÃO desenhe nenhum número de página, contador, "1/5", "2/5", "${slideNumber}/${slides.length}", paginação, dots indicadores, badges de slide ou qualquer marcação de sequência na imagem. O Instagram já mostra a posição do slide automaticamente.
-${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem"}`.trim();
+      const parts: any[] = [{ text: imagePrompt }];
+      if (mascotInline) parts.push({ inlineData: mascotInline });
+      if (logoInline) parts.push({ inlineData: logoInline });
 
       console.log(`  → Generating slide ${slideNumber}/${slides.length}...`);
 
-      // Build Google AI Studio parts (text + optional inline reference images)
-      const parts: any[] = [{ text: imagePrompt }];
-
-      // Convert pre-fetched data URLs into Google inlineData format
-      const dataUrlToInline = (dataUrl: string): { mimeType: string; data: string } | null => {
-        const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-        if (!m) return null;
-        return { mimeType: m[1], data: m[2] };
-      };
-
-      if (mascotDataUrl) {
-        const inline = dataUrlToInline(mascotDataUrl);
-        if (inline) parts.push({ inlineData: inline });
-      }
-      if (logoDataUrl) {
-        const inline = dataUrlToInline(logoDataUrl);
-        if (inline) parts.push({ inlineData: inline });
-      }
-
       try {
-        const googleApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${GOOGLE_API_KEY}`;
+        const googleApiUrl = `${GOOGLE_API_BASE}/models/${MODELS.IMAGE}:generateContent?key=${GOOGLE_API_KEY}`;
         const imgResponse = await fetch(googleApiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -518,13 +313,10 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
 
         const imgData = await imgResponse.json();
 
-        // Extract base64 image from Gemini response
         let imageBase64 = "";
         let imageMimeType = "image/png";
-        const candidates = imgData.candidates || [];
-        for (const candidate of candidates) {
-          const candidateParts = candidate.content?.parts || [];
-          for (const part of candidateParts) {
+        for (const candidate of imgData.candidates || []) {
+          for (const part of candidate.content?.parts || []) {
             const inlineData = part.inlineData || part.inline_data;
             if (inlineData) {
               imageBase64 = inlineData.data;
@@ -540,10 +332,8 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
           continue;
         }
 
-
-        // Decode, upload, then clear base64 from memory
         const imageBytes = decodeBase64(imageBase64);
-        imageBase64 = ""; // Free memory immediately
+        imageBase64 = "";
 
         const ext = imageMimeType.includes("jpeg") ? "jpg" : "png";
         const fileName = `auto-generated/${demand.client_id}/${demandId}/carousel-slide-${slideNumber}-${crypto.randomUUID()}.${ext}`;
@@ -563,7 +353,7 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
 
         const newAttachment = {
           url: publicUrlData.publicUrl,
-          name: `Carrossel Slide ${slideNumber} - ${brandName}.${ext}`,
+          name: `Carrossel Slide ${slideNumber} - ${vi.brandName}.${ext}`,
           type: imageMimeType,
           size: imageBytes.length,
           storagePath: fileName,
@@ -574,7 +364,6 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
           clientId: demand.client_id,
         };
 
-        // Attach incrementally — fetch current, replace any AI slide with same number, append new
         const { data: currentDemand } = await supabase
           .from("demands")
           .select("attachments")
@@ -582,12 +371,10 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
           .single();
 
         const currentAttachments = Array.isArray(currentDemand?.attachments) ? currentDemand.attachments : [];
-        
-        // Remove any existing AI slide with the same slide number to prevent duplicates
         const slideNamePattern = new RegExp(`Carrossel Slide ${slideNumber}\\b`, "i");
         const filteredAttachments = currentAttachments.filter((a: any) => {
-          if (!isAiCarouselSlide(a)) return true; // keep manual attachments
-          return !slideNamePattern.test(a.name || ""); // remove same-number AI slide
+          if (!isAiCarouselSlide(a)) return true;
+          return !slideNamePattern.test(a.name || "");
         });
 
         await supabase
@@ -603,13 +390,10 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
       }
     }
 
-    // (mascot/logo data URLs go out of scope after the loop)
-
-
     if (totalGenerated === 0) {
       return new Response(
         JSON.stringify({ error: "Nenhuma imagem de carrossel foi gerada." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -624,13 +408,13 @@ ${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções 
         demandId,
         message: `${totalGenerated} slides do carrossel gerados e anexados!`,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
     console.error("auto-generate-carousel error:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Erro desconhecido" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

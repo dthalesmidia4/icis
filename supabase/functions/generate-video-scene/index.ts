@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { getGoogleAiKey, MissingApiKeyError } from "../_shared/api-keys.ts";
+import { GOOGLE_API_BASE, MODELS } from "../_shared/models.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,8 +8,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const VEO_MODEL = "veo-3.1-generate-preview";
-const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+const VEO_MODEL = MODELS.VIDEO;
+const BASE_URL = GOOGLE_API_BASE;
 
 async function imageUrlToBase64(url: string): Promise<{ base64: string; mimeType: string }> {
   const resp = await fetch(url);
@@ -62,20 +64,16 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch Google AI Studio API key
-    const { data: apiKeyData, error: apiKeyError } = await supabase
-      .from("api_keys")
-      .select("key_value")
-      .eq("key_name", "Google AI Studio")
-      .single();
-
-    if (apiKeyError || !apiKeyData?.key_value) {
-      return new Response(
-        JSON.stringify({ error: "Chave 'Google AI Studio' não encontrada na tabela api_keys." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    let GOOGLE_API_KEY: string;
+    try {
+      GOOGLE_API_KEY = await getGoogleAiKey(supabase);
+    } catch (e) {
+      const msg = e instanceof MissingApiKeyError ? e.message : "Falha ao buscar chave Google AI.";
+      return new Response(JSON.stringify({ error: msg }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
-    const GOOGLE_API_KEY = apiKeyData.key_value;
 
     // Build prompt combining scene description + mascot speech
     let prompt = sceneDescription;
