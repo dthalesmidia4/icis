@@ -504,7 +504,10 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
                         </div>
                       )}
                       {preset.font_name && (
-                        <span className="text-[10px] text-muted-foreground mt-1 block">{preset.font_name}</span>
+                        <span className="text-[10px] text-muted-foreground mt-1 block truncate">{preset.font_name}</span>
+                      )}
+                      {preset.secondary_font && (
+                        <span className="text-[10px] text-muted-foreground/70 block truncate">+ {preset.secondary_font}</span>
                       )}
                     </div>
                   ))}
