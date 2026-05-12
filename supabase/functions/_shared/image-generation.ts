@@ -119,7 +119,6 @@ export async function generateImageWithModel(
       prompt: promptWithNote,
       size,
       n: 1,
-      response_format: "b64_json",
     }),
   });
 
