@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Search, Loader2, CalendarDays, ChevronRight, ChevronDown, ChevronUp,
-  Plus, ArrowLeft, Paperclip, Building2
+  Plus, ArrowLeft, Paperclip, Building2, Settings2
 } from "lucide-react";
+import PeriodConfigViewerModal from "@/components/PeriodConfigViewerModal";
 import BackButton from "@/components/BackButton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -133,6 +134,7 @@ const PeriodClientList = () => {
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ em_andamento: true });
+  const [configPeriodId, setConfigPeriodId] = useState<string | null>(null);
 
   // Auto-select client from context (coming from client hub)
   useEffect(() => {
@@ -821,6 +823,18 @@ const PeriodClientList = () => {
                                   )}
                                 </span>
                               </div>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 shrink-0"
+                                title="Ver configurações respondidas"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setConfigPeriodId(period.id);
+                                }}
+                              >
+                                <Settings2 className="h-4 w-4" />
+                              </Button>
                               <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
                             </div>
                           ))}
