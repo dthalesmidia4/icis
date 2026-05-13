@@ -659,7 +659,18 @@ const CompanyRegistration = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="neighborhood" className="text-xs font-medium text-muted-foreground">Bairro</Label>
+                    <Input
+                      id="neighborhood"
+                      value={formData.neighborhood}
+                      onChange={e => handleChange("neighborhood", e.target.value)}
+                      placeholder="Bairro"
+                      className="h-10 border-border/60"
+                    />
+                  </div>
+
                   <div className="space-y-1.5">
                     <Label htmlFor="city" className="text-xs font-medium text-muted-foreground">Cidade</Label>
                     <Input
