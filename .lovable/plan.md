@@ -1,47 +1,40 @@
-## Objetivo
-Corrigir a geração de post estático com **GPT Image 2**, que hoje fica processando por cerca de 1 minuto e falha com **500** porque a Edge Function recebe **502 Bad Gateway** do upstream da OpenAI e encerra sem recuperação.
+# Correção: campos de Localização e contatos não persistem
 
-## O que vou implementar
-1. **Adicionar retry com exponential backoff no fluxo OpenAI de geração de imagem**
-   - Atualizar `supabase/functions/_shared/image-generation.ts` para tentar novamente quando a API retornar falhas transitórias como **502**, **503**, **504** ou erro de rede.
-   - Limitar o número de tentativas para evitar loop longo demais.
-   - Registrar logs claros por tentativa para facilitar diagnóstico futuro.
+## Causa raiz
 
-2. **Melhorar a classificação de erro retornada pela função**
-   - Marcar falhas transitórias do upstream separadamente de rate limit.
-   - Fazer `generate-standalone-post` devolver uma mensagem mais precisa quando o problema vier da OpenAI, em vez de um erro genérico de geração.
+A tabela `tenant_companies` no banco **não possui colunas** para os campos exibidos no formulário:
+- Localização: `cep`, `street`, `number`, `city`, `state`, `complement`
+- Contato: `corporate_email`, `commercial_phone`, `cpf` (CPF do responsável)
 
-3. **Manter o contrato atual do frontend**
-   - Sem mudar a UX nem o payload esperado por `ClientHub.tsx`.
-   - Apenas garantir que o backend seja mais resiliente e que a mensagem final reflita o problema real quando todas as tentativas falharem.
+Por isso:
+- Em `CompanyRegistration.tsx` (linha 194-216), o cadastro monta um `fullAddress` mas **não envia para o banco** (variável é descartada). Os campos `corporate_email`, `commercial_phone` e `cpf` também são ignorados no `insert`.
+- Em `ClientDetails.tsx`, `parseStoredData` (linhas 113-122) define todos esses campos como string vazia ao carregar — então a UI sempre mostra "Não informado". O `handleSave` (linhas 485-499) também não envia esses campos no `update`.
 
-4. **Validar a correção**
-   - Fazer deploy da função atualizada.
-   - Conferir logs da Edge Function para verificar se o retry entrou em ação corretamente.
-   - Executar um teste direto na função para confirmar que o fluxo responde de forma adequada.
+Logo, os dados nunca chegam ao banco e nunca são lidos. O preview do usuário reflete fielmente o estado real.
 
-## Arquivos envolvidos
-- `supabase/functions/_shared/image-generation.ts`
-- `supabase/functions/generate-standalone-post/index.ts`
-- Possivelmente `supabase/functions/generate-carousel-images/index.ts` ou runner compartilhado, se eu aplicar a mesma robustez ao caminho compartilhado de imagem para manter consistência.
+## Plano
 
-## Resultado esperado
-- O GPT Image 2 deixa de falhar na primeira instabilidade temporária do upstream.
-- Se a OpenAI continuar indisponível após as tentativas, o erro retorna de forma explícita como indisponibilidade temporária do provedor, em vez de parecer bug interno da aplicação.
+### 1. Migration: adicionar colunas em `tenant_companies`
+Adicionar (todos `text NULL`):
+- `cep`, `street`, `number`, `city`, `state`, `complement`
+- `corporate_email`, `commercial_phone`, `responsible_cpf`
+
+### 2. `src/pages/CompanyRegistration.tsx`
+No `insert` (linha 204), incluir os 9 novos campos a partir de `formData` (sanitizados, `null` quando vazios). Remover a montagem descartada de `fullAddress`.
+
+### 3. `src/pages/ClientDetails.tsx`
+- `parseStoredData`: preencher `cep/street/number/city/state/complement/corporate_email/commercial_phone/cpf` a partir das novas colunas do `client`.
+- `handleSave`: enviar os mesmos 9 campos no `update` (com `.trim() || null`).
+
+### 4. Regenerar tipos
+A migration aciona regeneração automática de `src/integrations/supabase/types.ts`.
+
+## Sem mudanças
+- Layout/visual da página (a tela já tem todos os inputs).
+- Outras páginas (Kanban, Hub, etc.) não dependem desses campos.
+- Bucket de logos, mascote, identidade visual — fora do escopo.
 
 ## Detalhes técnicos
-- Retry apenas para falhas transitórias: `502`, `503`, `504` e erros de rede/timeout.
-- Backoff curto e progressivo para não aumentar demais o tempo total.
-- Sem alterar banco, schema ou contratos de storage.
-- Reutilização no helper compartilhado para não duplicar lógica entre post estático e outras gerações com OpenAI.
-
-```text
-ClientHub -> generate-standalone-post -> generateImageWithModel
-                                      -> OpenAI /images/generations
-                                         | 502 transitório
-                                         v
-                                   retry controlado
-                                         |
-                       sucesso -> upload storage -> imageUrl
-                       falha final -> erro explícito ao cliente
-```
+- Os campos são opcionais (não obrigatórios na validação atual de `ClientDetails`); permanecem opcionais.
+- ViaCEP autofill já funciona localmente; passa a persistir.
+- `responsible_cpf` separado de `cnpj_cpf` (que continua sendo o documento principal da empresa).
