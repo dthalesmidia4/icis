@@ -13,6 +13,7 @@ import { AlertCircle, RefreshCw, Check, Loader2, ThumbsDown } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import ContentRequirementsDiffModal from "@/components/ContentRequirementsDiffModal";
 import { cn } from "@/lib/utils";
 
 interface PeriodData {
@@ -48,6 +49,13 @@ const RejectedCards = () => {
   const [reevalReason, setReevalReason] = useState('');
   const [reevalCardIndex, setReevalCardIndex] = useState<number | null>(null);
   const [reevalLoading, setReevalLoading] = useState(false);
+
+  // Content requirements diff modal
+  const [diffOpen, setDiffOpen] = useState(false);
+  const [diffSaving, setDiffSaving] = useState(false);
+  const [diffCurrent, setDiffCurrent] = useState('');
+  const [diffProposed, setDiffProposed] = useState('');
+  const [pendingReeval, setPendingReeval] = useState<{ updatedCard: any; cardIndex: number } | null>(null);
 
   useEffect(() => {
     if (!isInitialized) return;
