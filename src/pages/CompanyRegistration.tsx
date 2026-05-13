@@ -191,9 +191,6 @@ const CompanyRegistration = () => {
         return;
       }
 
-      const addressParts = [formData.street, formData.number && `nº ${formData.number}`, formData.city, formData.state, formData.cep && `CEP: ${formData.cep}`].filter(Boolean);
-      const fullAddress = addressParts.join(", ");
-
       const sectorValue = formData.sector === "Outros" ? formData.other_sector : formData.sector;
 
       let sizeValue = formData.size;
@@ -212,8 +209,17 @@ const CompanyRegistration = () => {
         phone: formData.phone,
         tenant_id: profile.tenant_id,
         has_mascot: formData.has_mascot || false,
-        mascot_description: formData.has_mascot ? (formData.mascot_description || null) : null
-      }]).select().single();
+        mascot_description: formData.has_mascot ? (formData.mascot_description || null) : null,
+        cep: formData.cep?.trim() || null,
+        street: formData.street?.trim() || null,
+        number: formData.number?.trim() || null,
+        city: formData.city?.trim() || null,
+        state: formData.state?.trim() || null,
+        complement: formData.complement?.trim() || null,
+        corporate_email: formData.corporate_email?.trim() || null,
+        commercial_phone: formData.commercial_phone?.trim() || null,
+        responsible_cpf: (formData as any).cpf?.trim() || null,
+      } as any]).select().single();
 
       if (error) {
         if (error.code === '23505') {
