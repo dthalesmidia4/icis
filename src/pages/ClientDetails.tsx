@@ -500,6 +500,7 @@ const ClientDetails = () => {
           cep: formData.cep.trim() || null,
           street: formData.street.trim() || null,
           number: formData.number.trim() || null,
+          neighborhood: formData.neighborhood.trim() || null,
           city: formData.city.trim() || null,
           state: formData.state.trim() || null,
           complement: formData.complement.trim() || null,
