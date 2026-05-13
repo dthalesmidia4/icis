@@ -1,70 +1,62 @@
-## Objetivo
-Corrigir o mecanismo de reavaliação para que o modal de diff apareça quando houver aprendizado real, sem forçar atualização em todos os casos e sem cair em sucesso silencioso quando a resposta da IA vier insuficiente.
+## Diagnóstico (com base nos logs reais)
+
+Log do edge `reevaluate-card` da última reavaliação:
+```
+AI raw content: { "tipo": "...", "canal": "...", "titulo": "...", "conteudo": "...", "objetivo": "...", "data_sugerida": "...", "cta_recomendado": "...", "instrucoes_de_producao": "..." }
+Done. learningStatus: ambiguous | additions length: 0
+```
+
+Ou seja: a IA (`gpt-4o-mini`) **ignorou completamente** o schema do prompt. Devolveu só os campos do card reescrito, sem `learningStatus`, sem `learningReasoning`, sem `requirementsProposal`. O fallback do código então classificou como `ambiguous` e o modal abriu com texto idêntico — exatamente o que você viu.
+
+O motivo enviado era forte ("sempre se aprofundar em uma área, evitar repetição"), mas o modelo está optando por uma única tarefa (reescrever o card) e descartando a segunda (avaliar aprendizado). Não é falha de prompt de regras — é falha de obediência ao schema com `gpt-4o-mini` + `response_format: json_object` (que só garante "é JSON", não a forma).
 
 ## O que vou ajustar
 
-### 1. Endurecer a validação da resposta da edge function
-Arquivo: `supabase/functions/reevaluate-card/index.ts`
+### 1. Edge `reevaluate-card`: separar em duas chamadas independentes
+Em vez de pedir as duas coisas no mesmo JSON (e o modelo escolher só uma):
 
-- Validar explicitamente o shape de retorno da IA:
-  - `updatedCard` precisa existir
-  - `requirementsProposal` pode existir ou não, mas quando existir deve ter `proposed` e `additions` coerentes
-- Adicionar logs úteis para diagnóstico:
-  - motivo recebido
-  - `currentRequirements`
-  - resposta bruta da IA
-  - resposta final enviada ao frontend
-- Diferenciar três cenários na resposta:
-  1. houve aprendizado e existe proposta real
-  2. não houve aprendizado generalizável
-  3. a IA respondeu de forma insuficiente/ambígua
-- Em vez de “inventar” adições automaticamente, retornar um sinal explícito quando a IA vier ambígua, para o frontend decidir como tratar.
+- **Call A — Reescrita do card**: igual hoje, devolve `updatedCard` puro.
+- **Call B — Avaliação de aprendizado**: chamada dedicada, prompt curto e direto, devolve apenas:
+  ```json
+  { "learningStatus": "meaningful|none|ambiguous", "learningReasoning": "...", "additions": "- ..." }
+  ```
+  Com `response_format: json_schema` (strict) para forçar a forma. Modelo: `gpt-4o-mini` mantém custo, mas com schema estrito ele não consegue mais omitir campos.
 
-### 2. Ajustar a lógica de decisão no frontend
-Arquivo: `src/pages/RejectedCards.tsx`
+Ganhos: cada chamada tem uma única responsabilidade, fica auditável e o modelo deixa de "esquecer" a parte de aprendizado.
 
-- Parar de depender apenas de `proposal.proposed !== proposal.current`
-- Passar a tratar estados explícitos vindos da edge, por exemplo:
-  - `hasMeaningfulProposal`
-  - `noGeneralizableLearning`
-  - `ambiguousProposal`
-- Comportamento esperado:
-  - se houver proposta real: abre o modal de diff
-  - se não houver aprendizado generalizável: salva a reavaliação sem abrir modal
-  - se a resposta vier ambígua/inconsistente: não cair em sucesso silencioso; mostrar aviso apropriado e registrar log
-- Adicionar logs client-side da resposta recebida para facilitar auditoria futura.
+### 2. Logs explícitos para auditoria
+No edge, logar separadamente:
+- raw da Call A
+- raw da Call B
+- `learningStatus` final, `learningReasoning`, tamanho de `additions`
+- `proposed` final enviado ao frontend (primeiros 200 chars)
 
-### 3. Remover o risco de desalinhamento por período salvo
-Arquivo: `src/pages/RejectedCards.tsx`
+No frontend (`RejectedCards.tsx`):
+- log já existe na resposta; adicionar log no momento da persistência informando se `content_requirements` foi de fato atualizado no banco (com tamanho antes/depois) e o `id` do cliente.
 
-- Revisar a priorização de `localStorage.getItem('approve_cards_period_<clientId>')`
-- Garantir que `/rejected-cards` use o período correto com cards rejeitados, sem ficar preso a um período antigo salvo localmente quando isso gerar inconsistência entre o que aparece na tela e o que está sendo persistido
-- Manter o comportamento apenas se ele ainda fizer sentido após validar a lista de períodos rejeitados
+Isso te permite, em qualquer reavaliação futura, abrir os logs e ver exatamente:
+- o que a IA classificou
+- por quê
+- se o banco foi alterado ou não
 
-## Resultado esperado
-- O sistema não força diff em todos os casos
-- Casos sem aprendizado real continuam fechando direto, como você quer
-- Casos com aprendizado forte passam a abrir o modal de forma confiável
-- Respostas ambíguas da IA deixam de virar “sucesso silencioso”
-- O fluxo fica auditável pelos logs
+### 3. UX quando `ambiguous` com additions vazias
+Hoje o modal abre com os dois lados idênticos, dando a impressão de bug. Vou:
+- Mostrar um aviso visível dentro do modal: "A IA não identificou regra nova clara. Edite manualmente abaixo se quiser registrar uma regra a partir deste motivo."
+- Deixar o lado direito editável já com um placeholder no fim do texto: `\n\n- ` para o usuário escrever a regra sem precisar formatar.
+- Manter os botões "Manter atual" e "Aplicar".
 
-## Detalhes técnicos
-```text
-Frontend hoje:
-modal abre só se proposed != current
+### 4. Não vou mexer
+- Fluxo de `meaningful` (já funciona como esperado).
+- Fluxo de `none` (silencioso, conforme você pediu).
+- Modal `PeriodConfigViewerModal` e demais arquivos do escopo anterior.
 
-Problema:
-IA pode retornar shape incompleto ou proposta insuficiente
-=> frontend interpreta como “sem adição”
-=> toast de sucesso direto
-
-Nova regra:
-edge classifica a qualidade da proposta
-frontend decide com base nessa classificação, não só em diff textual
-```
+## Arquivos afetados
+- `supabase/functions/reevaluate-card/index.ts` — split em 2 chamadas + logs
+- `src/pages/RejectedCards.tsx` — log de persistência + ajuste UX no caso `ambiguous`
+- `src/components/ContentRequirementsDiffModal.tsx` — aviso e seed `\n\n- ` quando ambíguo
 
 ## Validação
-Depois da implementação, vou validar com:
-- um motivo forte que deva gerar novo aprendizado
-- um motivo pontual que não deva alterar exigências
-- conferência de que `tenant_companies.content_requirements` só muda quando o usuário aplicar a proposta
+Depois de aplicar, vou:
+1. Pedir para você refazer o teste com o mesmo motivo "evitar repetição / aprofundar em uma área".
+2. Conferir nos logs do edge a Call B isolada — deve vir `learningStatus: meaningful` + `additions` preenchido.
+3. Conferir o log do frontend confirmando o UPDATE em `tenant_companies.content_requirements`.
