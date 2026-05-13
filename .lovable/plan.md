@@ -1,33 +1,36 @@
-# Correção: Bairro + persistência visual de campos
+## Problema
 
-## Diagnóstico
+1. **Logo distorcida nos posts gerados** (estático e carrossel): o modelo está recriando/redesenhando a logo em vez de reproduzi-la fielmente. As regras atuais em `renderLogoBlock` ("NÃO distorça…") são fracas e ficam soltas no meio do prompt.
 
-1. **Localização não exibe após salvar** — para os campos `cep/street/city/state/complement/number`, o modo de leitura **mostra `formData.X`** corretamente, mas os campos `commercial_phone`, `corporate_email` e `cpf do responsável` no modo leitura têm **"Não informado" hard-coded** (linhas ~807, ~1077, ~1158 de `ClientDetails.tsx`). Mesmo salvos no banco, nunca aparecem.
-2. **Bairro não existe** — não há coluna `neighborhood` no DB nem campo no formulário, e a chamada do ViaCEP não captura `data.bairro`.
-3. O PATCH no banco já persiste os 9 campos novos (verificado via logs: `204 No Content`). A regravação do banco está correta.
+2. **Logo aparece em slides do meio do carrossel**: o `carousel-image-runner.ts` envia `logoInline` (imagem da logo como referência inline) para **todos** os slides, incluindo os do miolo. Mesmo o prompt textual dizendo "logo só na capa e no final", o modelo recebe a imagem da logo em todas as chamadas e a renderiza assim mesmo. As `renderLogoBlock` também é incluída em todos os slides — apenas com flag `highlight` para capa/final, mas sempre instruindo a desenhar a logo.
 
-## Plano
+## Mudanças
 
-### 1. Migration
-Adicionar `neighborhood text` em `tenant_companies`.
+### 1. `supabase/functions/_shared/carousel-image-runner.ts`
+- Calcular por slide: `isHighlightSlide = slideNumber === 1 || slideNumber === totalSlides`.
+- Só passar `logoInline` para `generateImageWithModel` quando `isHighlightSlide` for `true`. Nos slides do meio, passar `logoInline: null`, removendo a referência visual da logo das `parts` enviadas ao Gemini/GPT-image.
 
-### 2. `src/pages/ClientDetails.tsx`
-- `ClientFormData`: adicionar `neighborhood: string`.
-- `parseStoredData`: ler `client.neighborhood`.
-- Estado inicial e `handleCancel`: incluir `neighborhood: ""`.
-- `handleSave`: enviar `neighborhood: formData.neighborhood.trim() || null`.
-- `fetchAddressByCep`: setar `neighborhood: data.bairro || ""` junto com street/city/state.
-- UI Localização: adicionar campo **Bairro** entre Endereço e Número (grid passa a ter Cidade/Estado/Bairro/Complemento bem distribuídos — ajustar grid para 4 colunas na linha de cidade/estado/bairro/complemento, ou reorganizar em 2 grids 3-col).
-- Modos leitura de `commercial_phone`, `corporate_email`, `cpf`: substituir "Não informado" hard-coded por `formData.commercial_phone || "Não informado"` etc., para refletir o que está salvo.
+### 2. `supabase/functions/_shared/image-prompts.ts` — `buildCarouselSlidePrompt`
+- Para slides do meio (não capa, não final): substituir o `renderLogoBlock(...)` por um bloco explícito de proibição: "PROIBIDO ABSOLUTO renderizar logo, logotipo, marca d'água, nome ou monograma da marca neste slide. A logo aparece apenas na capa (slide 1) e no slide final."
+- Manter `renderLogoBlock(vi, { highlight: true })` apenas para slide 1 e slide final.
+- Acrescentar nas REGRAS finais a mesma proibição quando o slide for do meio.
 
-### 3. `src/pages/CompanyRegistration.tsx`
-- `formData`: adicionar `neighborhood: ""`.
-- `fetchAddressByCep`: setar `neighborhood: data.bairro || ""`.
-- `insert`: enviar `neighborhood`.
-- UI Localização: adicionar input **Bairro** (mesma linha que Cidade/Estado, ou linha própria).
+### 3. `supabase/functions/_shared/visual-identity.ts` — `renderLogoBlock`
+Reforçar regras de fidelidade da logo (aplica-se a estático e aos slides com logo):
+- Subir o tom: "REPLIQUE A LOGO PIXEL A PIXEL como na imagem de referência. Tratar a logo como ASSET FIXO — copiar e colar, NÃO redesenhar."
+- Listar proibições explícitas: não traduzir/recriar texto da logo, não trocar fontes, não redesenhar o ícone/símbolo, não trocar cores, não adicionar tagline diferente, não alterar layout horizontal/vertical, não inventar variações.
+- Adicionar: "Se a logo já contém o nome da marca, NÃO renderize o nome novamente em outro lugar do design."
 
-### 4. Confirmação ao usuário
-Após esta atualização, o usuário deve preencher novamente o cliente em modo de Edição — o teste anterior salvou com bundle antigo (antes do reload do Vite), por isso os valores ficaram vazios no banco; agora a UI também exibirá corretamente após salvar.
+### 4. (Sem mudanças no client)
+Esta correção é 100% backend (edge functions). Após a edição, fazer redeploy de:
+- `auto-generate-carousel`
+- `generate-carousel-images`
+- `generate-standalone-post`
+- `generate-post-image`
+- `auto-generate-post`
 
-## Sem mudanças
-- RLS, demais páginas, identidade visual, mascote.
+## Resultado esperado
+
+- Carrosseis: slides 2…N-1 não recebem mais a imagem da logo nem instruções para desenhá-la → não aparecerá logo no miolo.
+- Capa e slide final continuam com logo proeminente.
+- Logo nos posts estáticos e nos slides com logo será reproduzida com muito mais fidelidade graças às regras endurecidas.
