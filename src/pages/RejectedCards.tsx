@@ -186,11 +186,21 @@ const RejectedCards = () => {
     if (updateError) throw updateError;
 
     if (requirementsToApply !== null) {
+      console.log('[Reeval] Persisting content_requirements update', {
+        clientId: selectedClient.id,
+        previousLen: (selectedClient as any)?.content_requirements?.length ?? 'unknown',
+        newLen: requirementsToApply.length,
+        preview: requirementsToApply.slice(0, 200),
+      });
       const { error: reqError } = await supabase
         .from('tenant_companies')
         .update({ content_requirements: requirementsToApply } as any)
         .eq('id', selectedClient.id);
-      if (reqError) throw reqError;
+      if (reqError) {
+        console.error('[Reeval] content_requirements update FAILED:', reqError);
+        throw reqError;
+      }
+      console.log('[Reeval] content_requirements update OK');
     }
 
     setPeriod({ ...period, rejected_plan: updatedRejected });
