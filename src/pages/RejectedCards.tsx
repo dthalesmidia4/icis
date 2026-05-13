@@ -55,6 +55,8 @@ const RejectedCards = () => {
   const [diffSaving, setDiffSaving] = useState(false);
   const [diffCurrent, setDiffCurrent] = useState('');
   const [diffProposed, setDiffProposed] = useState('');
+  const [diffMode, setDiffMode] = useState<'meaningful' | 'ambiguous'>('meaningful');
+  const [diffReasoning, setDiffReasoning] = useState('');
   const [pendingReeval, setPendingReeval] = useState<{ updatedCard: any; cardIndex: number } | null>(null);
 
   useEffect(() => {
