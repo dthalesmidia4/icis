@@ -13,6 +13,7 @@ import { AlertCircle, RefreshCw, Check, Loader2, ThumbsDown } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import ContentRequirementsDiffModal from "@/components/ContentRequirementsDiffModal";
 import { cn } from "@/lib/utils";
 
 interface PeriodData {
@@ -48,6 +49,13 @@ const RejectedCards = () => {
   const [reevalReason, setReevalReason] = useState('');
   const [reevalCardIndex, setReevalCardIndex] = useState<number | null>(null);
   const [reevalLoading, setReevalLoading] = useState(false);
+
+  // Content requirements diff modal
+  const [diffOpen, setDiffOpen] = useState(false);
+  const [diffSaving, setDiffSaving] = useState(false);
+  const [diffCurrent, setDiffCurrent] = useState('');
+  const [diffProposed, setDiffProposed] = useState('');
+  const [pendingReeval, setPendingReeval] = useState<{ updatedCard: any; cardIndex: number } | null>(null);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -153,6 +161,45 @@ const RejectedCards = () => {
     setReevalModalOpen(true);
   };
 
+  const persistReevaluation = async (
+    cardIndex: number,
+    updatedCard: any,
+    requirementsToApply: string | null,
+  ) => {
+    if (!period || !selectedClient || !tenantId) return;
+    const card = cards[cardIndex];
+    const updatedRejected = [...(period.rejected_plan || [])];
+    updatedRejected[cardIndex] = {
+      ...updatedRejected[cardIndex],
+      ...updatedCard,
+      _originalSource: card._originalSource,
+      _rejectedAt: card._rejectedAt,
+      _reevaluatedAt: new Date().toISOString(),
+    };
+
+    const { error: updateError } = await supabase
+      .from('period_plans')
+      .update({ rejected_plan: updatedRejected as unknown as null })
+      .eq('id', period.id);
+    if (updateError) throw updateError;
+
+    if (requirementsToApply !== null) {
+      const { error: reqError } = await supabase
+        .from('tenant_companies')
+        .update({ content_requirements: requirementsToApply } as any)
+        .eq('id', selectedClient.id);
+      if (reqError) throw reqError;
+    }
+
+    setPeriod({ ...period, rejected_plan: updatedRejected });
+    setCards(updatedRejected.map((item: any, i: number) => ({
+      ...item,
+      _index: i,
+      _originalSource: item._originalSource || 'default',
+      _rejectedAt: item._rejectedAt,
+    })));
+  };
+
   const handleReevaluate = async () => {
     if (reevalCardIndex === null || !period || !selectedClient || !tenantId) return;
     if (!reevalReason.trim()) {
@@ -177,39 +224,56 @@ const RejectedCards = () => {
       if (data?.error) throw new Error(data.error);
 
       if (data?.updatedCard) {
-        // Update the rejected_plan with the new card data
-        const updatedRejected = [...(period.rejected_plan || [])];
-        updatedRejected[reevalCardIndex] = {
-          ...updatedRejected[reevalCardIndex],
-          ...data.updatedCard,
-          _originalSource: card._originalSource,
-          _rejectedAt: card._rejectedAt,
-          _reevaluatedAt: new Date().toISOString(),
-        };
+        const proposal = data.requirementsProposal || null;
+        const cardIndex = reevalCardIndex;
+        // If the AI suggested actual additions, ask the user via diff modal.
+        const hasAddition =
+          proposal &&
+          typeof proposal.proposed === 'string' &&
+          proposal.proposed.trim() &&
+          proposal.proposed.trim() !== (proposal.current || '').trim();
 
-        const { error: updateError } = await supabase
-          .from('period_plans')
-          .update({ rejected_plan: updatedRejected as unknown as null })
-          .eq('id', period.id);
-
-        if (updateError) throw updateError;
-
-        setPeriod({ ...period, rejected_plan: updatedRejected });
-        setCards(updatedRejected.map((item: any, i: number) => ({
-          ...item,
-          _index: i,
-          _originalSource: item._originalSource || 'default',
-          _rejectedAt: item._rejectedAt,
-        })));
-
-        setReevalModalOpen(false);
-        toast.success("Card reavaliado com sucesso!");
+        if (hasAddition) {
+          setPendingReeval({ updatedCard: data.updatedCard, cardIndex });
+          setDiffCurrent(proposal.current || '');
+          setDiffProposed(proposal.proposed);
+          setReevalModalOpen(false);
+          setDiffOpen(true);
+        } else {
+          await persistReevaluation(cardIndex, data.updatedCard, null);
+          setReevalModalOpen(false);
+          toast.success("Card reavaliado com sucesso!");
+        }
       }
     } catch (error: any) {
       console.error('Error reevaluating:', error);
       toast.error(error.message || "Erro ao reavaliar card");
     } finally {
       setReevalLoading(false);
+    }
+  };
+
+  const handleDiffConfirm = async (action: 'apply' | 'skip', finalRequirements?: string) => {
+    if (!pendingReeval) return;
+    setDiffSaving(true);
+    try {
+      await persistReevaluation(
+        pendingReeval.cardIndex,
+        pendingReeval.updatedCard,
+        action === 'apply' ? (finalRequirements ?? '').trim() : null,
+      );
+      setDiffOpen(false);
+      setPendingReeval(null);
+      toast.success(
+        action === 'apply'
+          ? 'Card reavaliado e exigências de conteúdo atualizadas!'
+          : 'Card reavaliado com sucesso!',
+      );
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || 'Erro ao salvar reavaliação');
+    } finally {
+      setDiffSaving(false);
     }
   };
 
@@ -429,6 +493,15 @@ const RejectedCards = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <ContentRequirementsDiffModal
+          open={diffOpen}
+          onOpenChange={(o) => { if (!o && !diffSaving) { setDiffOpen(false); setPendingReeval(null); } }}
+          current={diffCurrent}
+          proposed={diffProposed}
+          loading={diffSaving}
+          onConfirm={handleDiffConfirm}
+        />
       </div>
     </div>
   );
