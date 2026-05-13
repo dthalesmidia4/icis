@@ -400,7 +400,7 @@ const CompanyRegistration = () => {
                   <div className="space-y-1.5">
                     <Label htmlFor="commercial_phone" className="text-xs font-medium text-muted-foreground">Telefone Comercial *</Label>
                     <InputMask
-                      mask={formData.commercial_phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"}
+                      mask={formData.commercial_phone.replace(/\D/g, "").length < 11 ? "(99) 9999-9999" : "(99) 99999-9999"}
                       value={formData.commercial_phone}
                       onChange={e => handleChange("commercial_phone", e.target.value)}
                       maskChar={null}
@@ -541,7 +541,7 @@ const CompanyRegistration = () => {
                   <div className="space-y-1.5">
                     <Label htmlFor="phone" className="text-xs font-medium text-muted-foreground">Telefone de Contato / WhatsApp *</Label>
                     <InputMask
-                      mask={formData.phone.replace(/\D/g, "").length <= 10 ? "(99) 9999-9999" : "(99) 99999-9999"}
+                      mask={formData.phone.replace(/\D/g, "").length < 11 ? "(99) 9999-9999" : "(99) 99999-9999"}
                       value={formData.phone}
                       onChange={e => handleChange("phone", e.target.value)}
                       maskChar={null}
