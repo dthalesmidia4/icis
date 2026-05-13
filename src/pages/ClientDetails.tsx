@@ -1161,7 +1161,7 @@ const ClientDetails = () => {
                     </InputMask>
                   ) : (
                     <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
-                      Não informado
+                      {formData.cpf || "Não informado"}
                     </p>
                   )}
                   <p className="text-[11px] text-muted-foreground">Opcional - CPF para emissão de notas.</p>
