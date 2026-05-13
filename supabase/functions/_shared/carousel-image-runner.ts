@@ -98,11 +98,14 @@ export async function generateCarouselSlideImages(
     });
 
     try {
+      const isHighlightSlide = slideNumber === 1 || slideNumber === totalSlides;
       const result = await generateImageWithModel({
         aiModel,
         prompt: imagePrompt,
         mascotInline,
-        logoInline,
+        // Only send the logo reference image for cover and final slides.
+        // Middle slides must NOT render the brand logo.
+        logoInline: isHighlightSlide ? logoInline : null,
         aspectLabel,
         googleApiKey,
         openaiApiKey,
