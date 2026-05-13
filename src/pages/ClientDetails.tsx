@@ -810,7 +810,7 @@ const ClientDetails = () => {
                     </InputMask>
                   ) : (
                     <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
-                      Não informado
+                      {formData.commercial_phone || "Não informado"}
                     </p>
                   )}
                   <p className="text-[11px] text-muted-foreground">Número fixo da empresa para contato geral.</p>
