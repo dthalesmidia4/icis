@@ -39,6 +39,7 @@ const CompanyRegistration = () => {
     state: "",
     street: "",
     number: "",
+    neighborhood: "",
     complement: "",
     has_mascot: false,
     mascot_description: ""
@@ -110,6 +111,7 @@ const CompanyRegistration = () => {
       setFormData(prev => ({
         ...prev,
         street: data.logradouro || "",
+        neighborhood: data.bairro || "",
         city: data.localidade || "",
         state: data.uf || ""
       }));
@@ -214,6 +216,7 @@ const CompanyRegistration = () => {
         street: formData.street?.trim() || null,
         number: formData.number?.trim() || null,
         city: formData.city?.trim() || null,
+        neighborhood: formData.neighborhood?.trim() || null,
         state: formData.state?.trim() || null,
         complement: formData.complement?.trim() || null,
         corporate_email: formData.corporate_email?.trim() || null,
@@ -656,7 +659,18 @@ const CompanyRegistration = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="neighborhood" className="text-xs font-medium text-muted-foreground">Bairro</Label>
+                    <Input
+                      id="neighborhood"
+                      value={formData.neighborhood}
+                      onChange={e => handleChange("neighborhood", e.target.value)}
+                      placeholder="Bairro"
+                      className="h-10 border-border/60"
+                    />
+                  </div>
+
                   <div className="space-y-1.5">
                     <Label htmlFor="city" className="text-xs font-medium text-muted-foreground">Cidade</Label>
                     <Input

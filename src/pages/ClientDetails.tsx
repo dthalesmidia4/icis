@@ -41,6 +41,7 @@ interface ClientFormData {
   state: string;
   street: string;
   number: string;
+  neighborhood: string;
   complement: string;
   brand_primary_color: string;
   brand_secondary_color: string;
@@ -119,6 +120,7 @@ const parseStoredData = (client: any): ClientFormData => {
     state: client.state || "",
     street: client.street || "",
     number: client.number || "",
+    neighborhood: client.neighborhood || "",
     complement: client.complement || "",
     brand_primary_color: client.brand_primary_color || "",
     brand_secondary_color: client.brand_secondary_color || "",
@@ -177,6 +179,7 @@ const ClientDetails = () => {
     state: "",
     street: "",
     number: "",
+    neighborhood: "",
     complement: "",
     brand_primary_color: "",
     brand_secondary_color: "",
@@ -408,6 +411,7 @@ const ClientDetails = () => {
       setFormData(prev => ({
         ...prev,
         street: data.logradouro || "",
+        neighborhood: data.bairro || "",
         city: data.localidade || "",
         state: data.uf || ""
       }));
@@ -496,6 +500,7 @@ const ClientDetails = () => {
           cep: formData.cep.trim() || null,
           street: formData.street.trim() || null,
           number: formData.number.trim() || null,
+          neighborhood: formData.neighborhood.trim() || null,
           city: formData.city.trim() || null,
           state: formData.state.trim() || null,
           complement: formData.complement.trim() || null,
@@ -805,7 +810,7 @@ const ClientDetails = () => {
                     </InputMask>
                   ) : (
                     <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
-                      Não informado
+                      {formData.commercial_phone || "Não informado"}
                     </p>
                   )}
                   <p className="text-[11px] text-muted-foreground">Número fixo da empresa para contato geral.</p>
@@ -996,7 +1001,24 @@ const ClientDetails = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="neighborhood" className="text-xs font-medium text-muted-foreground">Bairro</Label>
+                  {isEditing ? (
+                    <Input
+                      id="neighborhood"
+                      value={formData.neighborhood}
+                      onChange={(e) => handleInputChange('neighborhood', e.target.value)}
+                      placeholder="Bairro"
+                      className="h-10 border-border/60"
+                    />
+                  ) : (
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
+                      {formData.neighborhood || "Não informado"}
+                    </p>
+                  )}
+                </div>
+
                 <div className="space-y-1.5">
                   <Label htmlFor="city" className="text-xs font-medium text-muted-foreground">Cidade</Label>
                   {isEditing ? (
@@ -1074,7 +1096,7 @@ const ClientDetails = () => {
                     />
                   ) : (
                     <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
-                      Não informado
+                      {formData.corporate_email || "Não informado"}
                     </p>
                   )}
                   <p className="text-[11px] text-muted-foreground">E-mail oficial da empresa.</p>
@@ -1156,7 +1178,7 @@ const ClientDetails = () => {
                     </InputMask>
                   ) : (
                     <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
-                      Não informado
+                      {formData.cpf || "Não informado"}
                     </p>
                   )}
                   <p className="text-[11px] text-muted-foreground">Opcional - CPF para emissão de notas.</p>
