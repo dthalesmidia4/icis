@@ -1079,7 +1079,7 @@ const ClientDetails = () => {
                     />
                   ) : (
                     <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
-                      Não informado
+                      {formData.corporate_email || "Não informado"}
                     </p>
                   )}
                   <p className="text-[11px] text-muted-foreground">E-mail oficial da empresa.</p>
