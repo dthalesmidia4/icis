@@ -847,6 +847,11 @@ const PeriodClientList = () => {
             </div>
           )}
         </div>
+        <PeriodConfigViewerModal
+          open={!!configPeriodId}
+          onOpenChange={(o) => !o && setConfigPeriodId(null)}
+          periodId={configPeriodId}
+        />
       </div>
     );
   }
