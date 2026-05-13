@@ -208,14 +208,16 @@ export function renderLogoBlock(vi: VisualIdentity, opts: { highlight?: boolean 
   const proeminence = opts.highlight
     ? "- Este é um slide de DESTAQUE — a logo deve ser PROEMINENTE e mais visível"
     : "";
-  return `\nLOGO DA MARCA (OBRIGATÓRIO):
+  return `\nLOGO DA MARCA (REGRA CRÍTICA — FIDELIDADE PIXEL A PIXEL):
 - A logo da marca está fornecida como imagem de referência. INCLUA a logo no design OBRIGATORIAMENTE.
 - Posição: ${positionText}
 - Tamanho: ${sizeText} da área da imagem
 ${proeminence}
-- A logo deve ser nítida, legível e integrada harmoniosamente ao layout
-- NÃO distorça, altere cores ou modifique a logo de nenhuma forma
-- Reproduza a logo EXATAMENTE como na imagem de referência fornecida\n`;
+- TRATE A LOGO COMO ASSET FIXO: copie e cole a imagem de referência da logo no layout. NÃO redesenhe, NÃO recrie, NÃO ilustre uma versão própria.
+- REPRODUZA A LOGO PIXEL A PIXEL exatamente como na imagem de referência fornecida — mesmas cores, mesma tipografia, mesmo símbolo/ícone, mesmas proporções, mesmo espaçamento interno, mesmo arranjo (horizontal/vertical/empilhado).
+- PROIBIDO ABSOLUTO: redesenhar o símbolo/ícone da logo; trocar a fonte do nome da marca; reescrever, traduzir ou parafrasear o texto da logo; mudar as cores da logo; adicionar tagline, slogan ou texto que não exista na referência; remover elementos da logo; aplicar efeitos (sombra dura, contorno, brilho, gradiente) sobre a logo; inclinar, distorcer ou estilizar a logo; inventar variações ou "interpretações" da logo.
+- A logo deve aparecer NÍTIDA e LEGÍVEL, com fundo de contraste suficiente (use um pequeno padding/box neutro se necessário) — sem cobrir parcialmente, sem cortar, sem sobrepor outros elementos por cima dela.
+- Se a logo já contém o nome da marca, NÃO renderize o nome da marca novamente em outro lugar do design.\n`;
 }
 
 export function renderContentRequirementsBlock(vi: VisualIdentity): string {
