@@ -493,8 +493,17 @@ const ClientDetails = () => {
           products_services: formData.products_services.trim(),
           email: formData.email.trim(),
           phone: formData.phone.trim(),
+          cep: formData.cep.trim() || null,
+          street: formData.street.trim() || null,
+          number: formData.number.trim() || null,
+          city: formData.city.trim() || null,
+          state: formData.state.trim() || null,
+          complement: formData.complement.trim() || null,
+          corporate_email: formData.corporate_email.trim() || null,
+          commercial_phone: formData.commercial_phone.trim() || null,
+          responsible_cpf: formData.cpf.trim() || null,
           updated_at: new Date().toISOString()
-        })
+        } as any)
         .eq('id', id)
         .eq('tenant_id', tenantId);
 
