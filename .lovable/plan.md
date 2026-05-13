@@ -1,106 +1,70 @@
 ## Objetivo
+Corrigir o mecanismo de reavaliação para que o modal de diff apareça quando houver aprendizado real, sem forçar atualização em todos os casos e sem cair em sucesso silencioso quando a resposta da IA vier insuficiente.
 
-1. Permitir aferir, após a geração de um período, **todas as respostas que o usuário deu nas perguntas do "Planejar Período"**.
-2. Transformar o fluxo de **Reavaliar com IA** (Cards Reprovados) em uma alavanca de aprendizagem: usar o motivo da reprovação para **propor uma nova versão de "Exigências de Conteúdo"** do cliente, mostrando lado a lado o atual e o sugerido (preservando 100% do existente, apenas somando aprendizados), e validar que `content_requirements` está sendo lido em todas as telas de geração.
+## O que vou ajustar
 
----
+### 1. Endurecer a validação da resposta da edge function
+Arquivo: `supabase/functions/reevaluate-card/index.ts`
 
-## Parte 1 — Aferir as respostas do período após a geração
+- Validar explicitamente o shape de retorno da IA:
+  - `updatedCard` precisa existir
+  - `requirementsProposal` pode existir ou não, mas quando existir deve ter `proposed` e `additions` coerentes
+- Adicionar logs úteis para diagnóstico:
+  - motivo recebido
+  - `currentRequirements`
+  - resposta bruta da IA
+  - resposta final enviada ao frontend
+- Diferenciar três cenários na resposta:
+  1. houve aprendizado e existe proposta real
+  2. não houve aprendizado generalizável
+  3. a IA respondeu de forma insuficiente/ambígua
+- Em vez de “inventar” adições automaticamente, retornar um sinal explícito quando a IA vier ambígua, para o frontend decidir como tratar.
 
-### Onde os dados já vivem
-Hoje, ao criar um período em `PlanPeriod.tsx`, todas as respostas dos blocos (Objetivo, Produto/Serviço, Contexto, Capacidade, Observações) são concatenadas e salvas em `period_plans.observations` como texto formatado com cabeçalhos `=== BLOCO X — ... ===`. Dado isso, **nenhuma migração é necessária** — só falta exibir.
+### 2. Ajustar a lógica de decisão no frontend
+Arquivo: `src/pages/RejectedCards.tsx`
 
-### Mudanças
-1. **`src/pages/ApproveCards.tsx`** (tela mostrada logo após gerar):
-   - Buscar também `observations` no `select` do `period_plans`.
-   - Adicionar um botão `Eye` no header do período: **"Ver configurações do período"**.
-   - Abrir um `Dialog` que renderiza o `observations` formatado, parseando os blocos `=== BLOCO X — TÍTULO ===` em seções com título e lista chave→valor (parser simples por regex no frontend, sem mudar o formato salvo).
-   - Mostrar também os campos estruturados: `period_title`, `period_start`, `period_end`, `priority_channel`, `budget`, `production_line` (mix de formatos).
+- Parar de depender apenas de `proposal.proposed !== proposal.current`
+- Passar a tratar estados explícitos vindos da edge, por exemplo:
+  - `hasMeaningfulProposal`
+  - `noGeneralizableLearning`
+  - `ambiguousProposal`
+- Comportamento esperado:
+  - se houver proposta real: abre o modal de diff
+  - se não houver aprendizado generalizável: salva a reavaliação sem abrir modal
+  - se a resposta vier ambígua/inconsistente: não cair em sucesso silencioso; mostrar aviso apropriado e registrar log
+- Adicionar logs client-side da resposta recebida para facilitar auditoria futura.
 
-2. **`src/pages/PeriodClientList.tsx`** (lista de períodos do cliente):
-   - Em cada card de período (incluindo já gerados), adicionar a mesma ação "Ver configurações" abrindo o mesmo Dialog reaproveitável.
+### 3. Remover o risco de desalinhamento por período salvo
+Arquivo: `src/pages/RejectedCards.tsx`
 
-3. **Componente novo** `src/components/PeriodConfigViewerModal.tsx`:
-   - Recebe o `period_plans` (id ou objeto) e renderiza:
-     - Cabeçalho: título, datas, canal prioritário, orçamento, linha de produção.
-     - Seções parseadas a partir de `observations`.
-   - Read-only (ediçao continua sendo via "Editar período" existente). Se quisermos editar respostas individuais no futuro, fica isolado.
+- Revisar a priorização de `localStorage.getItem('approve_cards_period_<clientId>')`
+- Garantir que `/rejected-cards` use o período correto com cards rejeitados, sem ficar preso a um período antigo salvo localmente quando isso gerar inconsistência entre o que aparece na tela e o que está sendo persistido
+- Manter o comportamento apenas se ele ainda fizer sentido após validar a lista de períodos rejeitados
 
-### Resultado
-O usuário pode, em qualquer momento depois da geração, conferir exatamente o que foi respondido nas perguntas que originaram aquele período.
+## Resultado esperado
+- O sistema não força diff em todos os casos
+- Casos sem aprendizado real continuam fechando direto, como você quer
+- Casos com aprendizado forte passam a abrir o modal de forma confiável
+- Respostas ambíguas da IA deixam de virar “sucesso silencioso”
+- O fluxo fica auditável pelos logs
 
----
+## Detalhes técnicos
+```text
+Frontend hoje:
+modal abre só se proposed != current
 
-## Parte 2 — Reavaliar com IA passa a alimentar "Exigências de Conteúdo"
+Problema:
+IA pode retornar shape incompleto ou proposta insuficiente
+=> frontend interpreta como “sem adição”
+=> toast de sucesso direto
 
-### Fluxo atual
-Em `RejectedCards.tsx → handleReevaluate`: usuário escreve motivo → chama `reevaluate-card` → IA devolve um card melhorado → grava em `rejected_plan` e segue. **O aprendizado morre ali**.
-
-### Novo fluxo proposto
-1. Usuário clica **"Reavaliar com IA"**, escreve o motivo, confirma.
-2. Frontend chama `reevaluate-card` (como hoje), **mas a edge function passa a retornar dois blocos**:
-   - `updatedCard` (igual hoje).
-   - `requirementsProposal`: `{ current: string, proposed: string, additions: string }` — o `proposed` **sempre contém o `current` na íntegra** mais um trecho novo derivado do motivo (regra rígida no system prompt: "preserve 100% do texto atual, apenas acrescente ao final, em uma nova linha começando com `- `, a regra ou restrição aprendida; nunca remova nem reescreva regras existentes").
-3. Antes de salvar o card reavaliado, o frontend abre um **modal de revisão de exigências** (`ContentRequirementsDiffModal`) com:
-   - Coluna esquerda: **Exigências atuais** (read-only).
-   - Coluna direita: **Nova proposta** (textarea editável, já preenchida com `proposed`).
-   - Destaque visual da parte adicionada (linhas novas em verde).
-   - Botões: **Aplicar e salvar reavaliação** (grava `tenant_companies.content_requirements = proposed` e prossegue com o salvamento já existente do card) / **Manter atual e salvar reavaliação** (não altera content_requirements, segue o fluxo) / **Cancelar**.
-4. Mensagem explicando: "Estas exigências passarão a guiar todas as próximas gerações de períodos e de conteúdo."
-
-### Mudanças
-
-**Edge function `supabase/functions/reevaluate-card/index.ts`:**
-- Buscar também `content_requirements` em `tenant_companies`.
-- Pedir ao modelo um JSON com dois campos: `updatedCard` (já existe) e `requirementsProposal: { proposed, additions }`.
-- Reforçar no `system` prompt a regra de **preservação total** das exigências atuais.
-- Manter compatibilidade: se o modelo não retornar `requirementsProposal`, frontend faz fallback para o fluxo antigo.
-
-**Frontend `src/pages/RejectedCards.tsx`:**
-- Após receber resposta, em vez de salvar imediatamente, guardar `pendingReeval = { card, requirementsProposal, index }` e abrir `ContentRequirementsDiffModal`.
-- Ao confirmar com aplicação: `update tenant_companies.content_requirements` e em seguida o `update period_plans.rejected_plan` que já existe.
-- Ao confirmar sem aplicação: só o update de `rejected_plan`.
-
-**Componente novo** `src/components/ContentRequirementsDiffModal.tsx`:
-- Dialog 2 colunas (atual vs. proposto), textarea editável no lado direito, badge "novo" nas linhas adicionadas (diff por linha), botões descritos acima.
-
-### Garantir que `content_requirements` impacta todas as telas de geração
-Auditoria mostrou que hoje o campo é lido em:
-- `supabase/functions/generate-period-plans/index.ts` ✅ (planejamento de período).
-- `supabase/functions/_shared/visual-identity.ts` (helper `loadVisualIdentity`) ✅ — usado por geração de imagens estáticas, carrosseis e prompts visuais via `image-prompts.ts`.
-
-Pontos a verificar e corrigir caso ausente (ação no plano):
-- `supabase/functions/generate-standalone-post/index.ts` (texto/legenda do post avulso).
-- `supabase/functions/generate-carousel-content/index.ts` (roteiro do carrossel).
-- `supabase/functions/auto-generate-post/index.ts` e `auto-generate-carousel/index.ts` (geração automática após aprovação).
-- `supabase/functions/generate-video-storyboard/index.ts` e `generate-video-scene/index.ts`.
-
-Para cada um: ler `tenant_companies.content_requirements` e injetar no `system`/`user` prompt como um bloco fixo:
-
-```
-EXIGÊNCIAS DE CONTEÚDO DO CLIENTE (PRIORIDADE MÁXIMA — SEMPRE OBEDECER):
-{content_requirements}
+Nova regra:
+edge classifica a qualidade da proposta
+frontend decide com base nessa classificação, não só em diff textual
 ```
 
-Se a função já recebe os dados via `loadVisualIdentity`, basta concatenar o campo no prompt textual; se busca o cliente direto, adicionar `content_requirements` ao `select` e ao prompt.
-
-### Resultado
-Cada reavaliação alimenta a "memória" do cliente em `content_requirements`, que é lida tanto pelo planejamento de períodos quanto por toda geração individual de conteúdo. O sistema fica progressivamente mais alinhado às restrições reais do cliente.
-
----
-
-## Resumo dos arquivos tocados
-
-**Frontend**
-- `src/pages/ApproveCards.tsx` (botão + integração com novo modal).
-- `src/pages/PeriodClientList.tsx` (botão "Ver configurações").
-- `src/pages/RejectedCards.tsx` (intercepta retorno, abre diff modal).
-- `src/components/PeriodConfigViewerModal.tsx` (novo).
-- `src/components/ContentRequirementsDiffModal.tsx` (novo).
-
-**Backend (edge functions)**
-- `supabase/functions/reevaluate-card/index.ts` (retorno enriquecido + preservação total).
-- Auditoria + injeção de `content_requirements` em: `generate-standalone-post`, `generate-carousel-content`, `auto-generate-post`, `auto-generate-carousel`, `generate-video-storyboard`, `generate-video-scene` (apenas onde ainda não existe).
-
-**Banco**
-- Nenhuma migração; reaproveita `period_plans.observations` e `tenant_companies.content_requirements`.
+## Validação
+Depois da implementação, vou validar com:
+- um motivo forte que deva gerar novo aprendizado
+- um motivo pontual que não deva alterar exigências
+- conferência de que `tenant_companies.content_requirements` só muda quando o usuário aplicar a proposta
