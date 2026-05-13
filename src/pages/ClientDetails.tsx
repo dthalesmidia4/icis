@@ -41,6 +41,7 @@ interface ClientFormData {
   state: string;
   street: string;
   number: string;
+  neighborhood: string;
   complement: string;
   brand_primary_color: string;
   brand_secondary_color: string;
