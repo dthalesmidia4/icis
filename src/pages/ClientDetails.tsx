@@ -101,7 +101,7 @@ const parseStoredData = (client: any): ClientFormData => {
     name: client.name || "",
     fantasy_name: client.fantasy_name || "",
     cnpj: client.cnpj_cpf || "",
-    cpf: "",
+    cpf: client.responsible_cpf || "",
     sector: isCustomSector ? "Outros" : (client.sector || ""),
     other_sector: isCustomSector ? client.sector : "",
     size: baseSize,
