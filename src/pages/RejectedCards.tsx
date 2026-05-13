@@ -528,6 +528,8 @@ const RejectedCards = () => {
           onOpenChange={(o) => { if (!o && !diffSaving) { setDiffOpen(false); setPendingReeval(null); } }}
           current={diffCurrent}
           proposed={diffProposed}
+          mode={diffMode}
+          reasoning={diffReasoning}
           loading={diffSaving}
           onConfirm={handleDiffConfirm}
         />
