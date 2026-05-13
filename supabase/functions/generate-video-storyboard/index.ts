@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
     // 1. Fetch client branding
     const { data: client } = await supabase
       .from("tenant_companies")
-      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, sector, products_services")
+      .select("name, fantasy_name, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, sector, products_services, content_requirements")
       .eq("id", clientId)
       .single();
 
@@ -103,9 +103,13 @@ Deno.serve(async (req) => {
       : "";
 
     // 6. Build the prompt
+    const contentReqsBlock = client?.content_requirements
+      ? `\nEXIGÊNCIAS DE CONTEÚDO DO CLIENTE (PRIORIDADE MÁXIMA — SIGA OBRIGATORIAMENTE):\n${client.content_requirements}\n`
+      : "";
+
     const systemPrompt = `Você é um roteirista especialista em criação de storyboards para vídeos de marketing digital.
 
-${basePrompt ? "DIRETRIZES DO SISTEMA:\n" + basePrompt + "\n\n" : ""}${strategyText ? "ESTRATÉGIA GERAL DO CLIENTE:\n" + strategyText + "\n\n" : ""}CONTEXTO DO CLIENTE:
+${basePrompt ? "DIRETRIZES DO SISTEMA:\n" + basePrompt + "\n\n" : ""}${strategyText ? "ESTRATÉGIA GERAL DO CLIENTE:\n" + strategyText + "\n\n" : ""}${contentReqsBlock}CONTEXTO DO CLIENTE:
 - Marca: ${brandName}
 - Setor: ${client?.sector || "N/A"}
 - Produtos/Serviços: ${client?.products_services || "N/A"}
