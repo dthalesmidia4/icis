@@ -55,6 +55,8 @@ const RejectedCards = () => {
   const [diffSaving, setDiffSaving] = useState(false);
   const [diffCurrent, setDiffCurrent] = useState('');
   const [diffProposed, setDiffProposed] = useState('');
+  const [diffMode, setDiffMode] = useState<'meaningful' | 'ambiguous'>('meaningful');
+  const [diffReasoning, setDiffReasoning] = useState('');
   const [pendingReeval, setPendingReeval] = useState<{ updatedCard: any; cardIndex: number } | null>(null);
 
   useEffect(() => {
@@ -184,11 +186,21 @@ const RejectedCards = () => {
     if (updateError) throw updateError;
 
     if (requirementsToApply !== null) {
+      console.log('[Reeval] Persisting content_requirements update', {
+        clientId: selectedClient.id,
+        previousLen: (selectedClient as any)?.content_requirements?.length ?? 'unknown',
+        newLen: requirementsToApply.length,
+        preview: requirementsToApply.slice(0, 200),
+      });
       const { error: reqError } = await supabase
         .from('tenant_companies')
         .update({ content_requirements: requirementsToApply } as any)
         .eq('id', selectedClient.id);
-      if (reqError) throw reqError;
+      if (reqError) {
+        console.error('[Reeval] content_requirements update FAILED:', reqError);
+        throw reqError;
+      }
+      console.log('[Reeval] content_requirements update OK');
     }
 
     setPeriod({ ...period, rejected_plan: updatedRejected });
@@ -239,26 +251,27 @@ const RejectedCards = () => {
           proposedLen: (proposal.proposed || '').length,
         });
 
+        setDiffReasoning(data.learningReasoning || '');
+
         if (learningStatus === 'meaningful') {
-          // AI identified a generalizable rule — show diff for user approval.
           setPendingReeval({ updatedCard: data.updatedCard, cardIndex });
           setDiffCurrent(proposal.current || '');
           setDiffProposed(proposal.proposed || proposal.current || '');
+          setDiffMode('meaningful');
           setReevalModalOpen(false);
           setDiffOpen(true);
         } else if (learningStatus === 'none') {
-          // Reason was punctual — just save the reevaluation, don't touch requirements.
           await persistReevaluation(cardIndex, data.updatedCard, null);
           setReevalModalOpen(false);
           toast.success("Card reavaliado com sucesso!");
         } else {
-          // Ambiguous — open diff modal seeded with current text so the user can decide what to add.
           setPendingReeval({ updatedCard: data.updatedCard, cardIndex });
           setDiffCurrent(proposal.current || '');
           setDiffProposed(proposal.current || '');
+          setDiffMode('ambiguous');
           setReevalModalOpen(false);
           setDiffOpen(true);
-          toast.info("A IA não teve certeza se isso vira regra permanente. Edite as exigências se quiser, ou clique em 'Manter atual'.");
+          toast.info("A IA não identificou regra nova clara. Edite manualmente se quiser registrar.");
         }
       }
     } catch (error: any) {
@@ -515,6 +528,8 @@ const RejectedCards = () => {
           onOpenChange={(o) => { if (!o && !diffSaving) { setDiffOpen(false); setPendingReeval(null); } }}
           current={diffCurrent}
           proposed={diffProposed}
+          mode={diffMode}
+          reasoning={diffReasoning}
           loading={diffSaving}
           onConfirm={handleDiffConfirm}
         />

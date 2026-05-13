@@ -12,6 +12,8 @@ interface Props {
   current: string;
   proposed: string;
   loading?: boolean;
+  mode?: "meaningful" | "ambiguous";
+  reasoning?: string;
   onConfirm: (action: "apply" | "skip", finalRequirements?: string) => void;
 }
 
@@ -21,13 +23,20 @@ export default function ContentRequirementsDiffModal({
   current,
   proposed,
   loading = false,
+  mode = "meaningful",
+  reasoning,
   onConfirm,
 }: Props) {
   const [draft, setDraft] = useState(proposed);
 
   useEffect(() => {
-    setDraft(proposed);
-  }, [proposed, open]);
+    // When ambiguous and proposed equals current, seed a "- " on a new line so the user can type the rule directly.
+    if (mode === "ambiguous" && proposed.trim() === current.trim()) {
+      setDraft(current ? `${current}\n\n- ` : "- ");
+    } else {
+      setDraft(proposed);
+    }
+  }, [proposed, current, open, mode]);
 
   const additions = useMemo(() => {
     const currentLines = new Set(
@@ -50,10 +59,23 @@ export default function ContentRequirementsDiffModal({
         </DialogHeader>
 
         <p className="text-sm text-muted-foreground">
-          A reavaliação aprendeu uma nova restrição. Revise o que será adicionado às
-          <strong> Exigências de Conteúdo</strong> do cliente. Estas regras serão aplicadas em
-          <strong> todas as próximas gerações de períodos e de conteúdo</strong>.
+          {mode === "ambiguous" ? (
+            <>
+              A IA <strong>não identificou uma regra nova clara</strong> a partir deste motivo. Se quiser registrar uma regra permanente, edite o campo abaixo. Caso contrário, clique em <strong>"Manter atual"</strong>.
+            </>
+          ) : (
+            <>
+              A reavaliação aprendeu uma nova restrição. Revise o que será adicionado às
+              <strong> Exigências de Conteúdo</strong> do cliente. Estas regras serão aplicadas em
+              <strong> todas as próximas gerações de períodos e de conteúdo</strong>.
+            </>
+          )}
         </p>
+        {reasoning && (
+          <p className="text-xs text-muted-foreground italic mt-1">
+            <strong>Análise da IA:</strong> {reasoning}
+          </p>
+        )}
 
         <ScrollArea className="flex-1 pr-4 mt-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
