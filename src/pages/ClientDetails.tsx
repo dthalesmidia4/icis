@@ -1001,7 +1001,24 @@ const ClientDetails = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="neighborhood" className="text-xs font-medium text-muted-foreground">Bairro</Label>
+                  {isEditing ? (
+                    <Input
+                      id="neighborhood"
+                      value={formData.neighborhood}
+                      onChange={(e) => handleInputChange('neighborhood', e.target.value)}
+                      placeholder="Bairro"
+                      className="h-10 border-border/60"
+                    />
+                  ) : (
+                    <p className="text-sm py-2.5 px-3 bg-muted/30 rounded-lg border border-border/40 text-muted-foreground">
+                      {formData.neighborhood || "Não informado"}
+                    </p>
+                  )}
+                </div>
+
                 <div className="space-y-1.5">
                   <Label htmlFor="city" className="text-xs font-medium text-muted-foreground">Cidade</Label>
                   {isEditing ? (
