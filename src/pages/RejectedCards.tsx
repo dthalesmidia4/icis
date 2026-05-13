@@ -493,6 +493,15 @@ const RejectedCards = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <ContentRequirementsDiffModal
+          open={diffOpen}
+          onOpenChange={(o) => { if (!o && !diffSaving) { setDiffOpen(false); setPendingReeval(null); } }}
+          current={diffCurrent}
+          proposed={diffProposed}
+          loading={diffSaving}
+          onConfirm={handleDiffConfirm}
+        />
       </div>
     </div>
   );
