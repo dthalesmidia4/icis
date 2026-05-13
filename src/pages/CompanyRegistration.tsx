@@ -39,6 +39,7 @@ const CompanyRegistration = () => {
     state: "",
     street: "",
     number: "",
+    neighborhood: "",
     complement: "",
     has_mascot: false,
     mascot_description: ""
