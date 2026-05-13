@@ -216,6 +216,7 @@ const CompanyRegistration = () => {
         street: formData.street?.trim() || null,
         number: formData.number?.trim() || null,
         city: formData.city?.trim() || null,
+        neighborhood: formData.neighborhood?.trim() || null,
         state: formData.state?.trim() || null,
         complement: formData.complement?.trim() || null,
         corporate_email: formData.corporate_email?.trim() || null,
