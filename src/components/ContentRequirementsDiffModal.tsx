@@ -12,6 +12,8 @@ interface Props {
   current: string;
   proposed: string;
   loading?: boolean;
+  mode?: "meaningful" | "ambiguous";
+  reasoning?: string;
   onConfirm: (action: "apply" | "skip", finalRequirements?: string) => void;
 }
 
@@ -21,13 +23,20 @@ export default function ContentRequirementsDiffModal({
   current,
   proposed,
   loading = false,
+  mode = "meaningful",
+  reasoning,
   onConfirm,
 }: Props) {
   const [draft, setDraft] = useState(proposed);
 
   useEffect(() => {
-    setDraft(proposed);
-  }, [proposed, open]);
+    // When ambiguous and proposed equals current, seed a "- " on a new line so the user can type the rule directly.
+    if (mode === "ambiguous" && proposed.trim() === current.trim()) {
+      setDraft(current ? `${current}\n\n- ` : "- ");
+    } else {
+      setDraft(proposed);
+    }
+  }, [proposed, current, open, mode]);
 
   const additions = useMemo(() => {
     const currentLines = new Set(
