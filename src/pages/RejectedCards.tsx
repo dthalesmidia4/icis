@@ -251,26 +251,27 @@ const RejectedCards = () => {
           proposedLen: (proposal.proposed || '').length,
         });
 
+        setDiffReasoning(data.learningReasoning || '');
+
         if (learningStatus === 'meaningful') {
-          // AI identified a generalizable rule — show diff for user approval.
           setPendingReeval({ updatedCard: data.updatedCard, cardIndex });
           setDiffCurrent(proposal.current || '');
           setDiffProposed(proposal.proposed || proposal.current || '');
+          setDiffMode('meaningful');
           setReevalModalOpen(false);
           setDiffOpen(true);
         } else if (learningStatus === 'none') {
-          // Reason was punctual — just save the reevaluation, don't touch requirements.
           await persistReevaluation(cardIndex, data.updatedCard, null);
           setReevalModalOpen(false);
           toast.success("Card reavaliado com sucesso!");
         } else {
-          // Ambiguous — open diff modal seeded with current text so the user can decide what to add.
           setPendingReeval({ updatedCard: data.updatedCard, cardIndex });
           setDiffCurrent(proposal.current || '');
           setDiffProposed(proposal.current || '');
+          setDiffMode('ambiguous');
           setReevalModalOpen(false);
           setDiffOpen(true);
-          toast.info("A IA não teve certeza se isso vira regra permanente. Edite as exigências se quiser, ou clique em 'Manter atual'.");
+          toast.info("A IA não identificou regra nova clara. Edite manualmente se quiser registrar.");
         }
       }
     } catch (error: any) {
