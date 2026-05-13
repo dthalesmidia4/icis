@@ -793,7 +793,7 @@ const ClientDetails = () => {
                   <Label htmlFor="commercial_phone" className="text-xs font-medium text-muted-foreground">Telefone Comercial</Label>
                   {isEditing ? (
                     <InputMask
-                      mask={formData.commercial_phone.replace(/\D/g, "").length < 11 ? "(99) 9999-9999" : "(99) 99999-9999"}
+                      mask={formData.commercial_phone.replace(/\D/g, "").length < 10 ? "(99) 9999-9999" : "(99) 99999-9999"}
                       value={formData.commercial_phone}
                       onChange={(e) => handleInputChange('commercial_phone', e.target.value)}
                       maskChar={null}
@@ -1132,7 +1132,7 @@ const ClientDetails = () => {
                   {isEditing ? (
                     <>
                       <InputMask
-                        mask={formData.phone.replace(/\D/g, "").length < 11 ? "(99) 9999-9999" : "(99) 99999-9999"}
+                        mask={formData.phone.replace(/\D/g, "").length < 10 ? "(99) 9999-9999" : "(99) 99999-9999"}
                         value={formData.phone}
                         onChange={(e) => handleInputChange('phone', e.target.value)}
                         maskChar={null}
