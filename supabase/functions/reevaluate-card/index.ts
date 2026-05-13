@@ -22,46 +22,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1. Fetch reavaliação prompt
-    const { data: systemPrompt } = await supabase
-      .from('system_prompts')
-      .select('prompt_content')
-      .eq('tenant_id', tenantId)
-      .eq('prompt_key', 'reavaliacao_prompt')
-      .maybeSingle();
-
-    const defaultReevalPrompt = `Você é um especialista em marketing digital. Sua tarefa é DUPLA:
-
-A) Reavaliar e melhorar um card de conteúdo reprovado.
-B) Avaliar honestamente se o motivo da reprovação contém um APRENDIZADO PERMANENTE e GENERALIZÁVEL sobre o cliente, que deva ser incorporado nas "Exigências de Conteúdo" (instrução para todas as próximas gerações).
-
-Você DEVE retornar APENAS um JSON válido com esta estrutura:
-{
-  "updatedCard": { "titulo": "...", "tipo": "...", "canal": "...", "objetivo": "...", "conteudo": "...", "data_sugerida": "...", "cta_recomendado": "...", "instrucoes_de_producao": "..." },
-  "learningStatus": "meaningful" | "none" | "ambiguous",
-  "learningReasoning": "<1-2 frases explicando por que classificou assim>",
-  "requirementsProposal": {
-    "proposed": "<TEXTO COMPLETO das exigências>",
-    "additions": "<apenas as linhas novas, uma por linha, ou string vazia>"
-  }
-}
-
-REGRAS RÍGIDAS para learningStatus:
-- "meaningful": o motivo descreve uma regra/restrição/preferência que vale para FUTUROS conteúdos do cliente (ex.: "sempre mencionar atendimento 24h", "nunca usar emojis", "evitar termos técnicos"). Nesse caso, 'proposed' = exigências atuais + novas linhas; 'additions' = só as linhas novas (cada uma começando com "- ").
-- "none": o motivo é PONTUAL e só vale para este card (ex.: "este título ficou ruim", "trocar a imagem por outra", "está confuso"). Nesse caso, 'proposed' = exigências atuais sem alteração; 'additions' = "".
-- "ambiguous": você não consegue decidir com confiança (motivo vago demais ou pode ser interpretado dos dois jeitos). Nesse caso, 'proposed' = exigências atuais; 'additions' = "" e o frontend perguntará ao usuário.
-
-REGRAS RÍGIDAS para 'proposed' quando learningStatus = "meaningful":
-- DEVE conter o texto atual de "EXIGÊNCIAS ATUAIS" na íntegra, palavra por palavra, sem reescrever, traduzir ou reformatar.
-- Apenas ACRESCENTE ao final novas linhas com a regra aprendida.
-- Cada nova linha deve começar com "- " e ser uma frase curta, objetiva, generalizável (não específica a este card).
-- NUNCA remova, edite ou reordene linhas existentes.
-
-Não inclua nenhum texto fora do JSON.`;
-
-    const reevalPrompt = systemPrompt?.prompt_content || defaultReevalPrompt;
-
-    // 2-4. Fetch context
+    // Fetch context (strategy, anamnesis, company)
     const [{ data: strategy }, { data: anamnesis }, { data: company }] = await Promise.all([
       supabase.from('strategies').select('strategy_text').eq('company_id', clientId).eq('status', 'Ativa').order('created_at', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('question_sessions').select('questions, answers').eq('company_id', clientId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
@@ -71,13 +32,14 @@ Não inclua nenhum texto fora do JSON.`;
     const currentRequirements = (company?.content_requirements || '').trim();
     console.log('[reevaluate-card] currentRequirements length:', currentRequirements.length);
 
-    // 5. Fetch OpenAI key
+    // Fetch OpenAI key
     const { data: apiKeyData, error: apiKeyError } = await supabase
       .from('api_keys').select('key_value').eq('key_name', 'OPENAI_API_KEY').single();
 
     if (apiKeyError || !apiKeyData) {
       throw new Error('Chave da API OpenAI não configurada. Configure em Dev → APIs');
     }
+    const openaiKey = apiKeyData.key_value;
 
     let anamnesisText = '';
     if (anamnesis) {
@@ -89,13 +51,7 @@ Não inclua nenhum texto fora do JSON.`;
       }).join('\n\n');
     }
 
-    const userPrompt = `
-## CARD REPROVADO (que precisa ser melhorado):
-${JSON.stringify(card, null, 2)}
-
-## MOTIVO DA REPROVAÇÃO:
-${reason}
-
+    const clientCtx = `
 ## DADOS DO CLIENTE:
 - Nome: ${company?.fantasy_name || company?.name || 'N/A'}
 - Setor: ${company?.sector || 'N/A'}
@@ -108,105 +64,131 @@ ${strategy?.strategy_text || 'Nenhuma estratégia cadastrada.'}
 ## ANAMNESE DO CLIENTE:
 ${anamnesisText || 'Nenhuma anamnese disponível.'}
 
-## EXIGÊNCIAS ATUAIS DO CLIENTE (preserve 100% deste texto em 'proposed' quando learningStatus = "meaningful"):
+## EXIGÊNCIAS ATUAIS DO CLIENTE:
 ${currentRequirements || '(vazio)'}
-
-Reestruture o card reprovado E classifique o aprendizado conforme as regras.
-Retorne APENAS o JSON descrito.
 `;
 
-    console.log('[reevaluate-card] Calling OpenAI...');
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // ============== CALL A: Reescrever o card ==============
+    const cardSystem = `Você é um especialista em marketing digital. Sua tarefa é reescrever um card de conteúdo reprovado, melhorando-o conforme o motivo da reprovação e o contexto do cliente. Retorne APENAS um JSON válido com a estrutura: { "titulo": "...", "tipo": "...", "canal": "...", "objetivo": "...", "conteudo": "...", "data_sugerida": "...", "cta_recomendado": "...", "instrucoes_de_producao": "..." }. Nada além do JSON.`;
+
+    const cardUser = `## CARD REPROVADO:\n${JSON.stringify(card, null, 2)}\n\n## MOTIVO DA REPROVAÇÃO:\n${reason}\n${clientCtx}\n\nReescreva o card melhorando-o conforme o motivo. Retorne APENAS o JSON.`;
+
+    console.log('[reevaluate-card] Call A: rewriting card...');
+    const callA = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKeyData.key_value}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: reevalPrompt },
-          { role: 'user', content: userPrompt },
+          { role: 'system', content: cardSystem },
+          { role: 'user', content: cardUser },
         ],
-        max_tokens: 3000,
+        max_tokens: 2000,
         response_format: { type: 'json_object' },
       }),
     });
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('[reevaluate-card] OpenAI error:', aiResponse.status, errorText);
-      throw new Error(`Erro na API OpenAI: ${aiResponse.status} - ${errorText}`);
+    if (!callA.ok) {
+      const t = await callA.text();
+      console.error('[reevaluate-card] Call A error:', callA.status, t);
+      throw new Error(`Erro OpenAI (card): ${callA.status}`);
     }
+    const cardData = await callA.json();
+    const cardContent = cardData.choices?.[0]?.message?.content;
+    console.log('[reevaluate-card] Call A raw:', cardContent);
 
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content;
-    console.log('[reevaluate-card] AI raw content:', content);
-
-    if (!content) {
-      console.error('[reevaluate-card] Empty AI response:', JSON.stringify(aiData));
-      throw new Error('Resposta vazia da IA');
-    }
-
-    let parsed: any;
+    let updatedCard: any;
     try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No JSON found');
-      parsed = JSON.parse(jsonMatch[0]);
-    } catch (parseError) {
-      console.error('[reevaluate-card] Parse error. Content was:', content);
-      throw new Error('Erro ao processar resposta da IA');
+      updatedCard = JSON.parse(cardContent);
+      // unwrap if nested
+      if (updatedCard.updatedCard) updatedCard = updatedCard.updatedCard;
+    } catch (e) {
+      console.error('[reevaluate-card] Call A parse error');
+      throw new Error('Erro ao processar reescrita do card');
     }
 
-    // updatedCard (with backwards compat for flat shape)
-    let updatedCard = parsed.updatedCard;
-    if (!updatedCard && (parsed.titulo || parsed.tipo || parsed.conteudo)) {
-      updatedCard = parsed;
-    }
-    if (!updatedCard) {
-      console.error('[reevaluate-card] No updatedCard found in:', parsed);
-      throw new Error('IA não retornou um card atualizado');
-    }
+    // ============== CALL B: Avaliar aprendizado (json_schema strict) ==============
+    const learningSystem = `Você analisa motivos de reprovação de conteúdo para identificar APRENDIZADOS PERMANENTES sobre um cliente.
 
-    // Classify learning
-    let learningStatus: LearningStatus =
-      parsed.learningStatus === 'meaningful' || parsed.learningStatus === 'none' || parsed.learningStatus === 'ambiguous'
-        ? parsed.learningStatus
-        : 'ambiguous';
+REGRAS:
+- "meaningful": o motivo descreve uma regra/restrição/preferência que vale para FUTUROS conteúdos do cliente em geral (ex.: "sempre se aprofundar em uma área", "nunca usar emojis", "evitar termos técnicos", "sempre incluir CTA de WhatsApp"). Devolva 1+ linhas em "additions", cada uma começando com "- " e sendo uma frase curta e generalizável.
+- "none": o motivo é PONTUAL e só vale para este card específico (ex.: "este título ficou ruim", "trocar a imagem", "está confuso"). additions = "".
+- "ambiguous": realmente impossível decidir (motivo vago como "não gostei", "refazer"). additions = "".
 
-    const proposalRaw = parsed.requirementsProposal || {};
-    const proposedRaw = typeof proposalRaw.proposed === 'string' ? proposalRaw.proposed.trim() : '';
-    const additionsRaw = typeof proposalRaw.additions === 'string' ? proposalRaw.additions.trim() : '';
+Seja generoso na classificação "meaningful": se o motivo expressa uma preferência ou padrão que faz sentido aplicar nas próximas gerações, classifique como meaningful.`;
 
-    let proposed = proposedRaw || currentRequirements;
-    let additions = additionsRaw;
+    const learningUser = `## EXIGÊNCIAS ATUAIS DO CLIENTE:\n${currentRequirements || '(vazio)'}\n\n## MOTIVO DA REPROVAÇÃO:\n${reason}\n\n## CONTEXTO DO CLIENTE:\n- Setor: ${company?.sector || 'N/A'}\n- Produtos/Serviços: ${company?.products_services || 'N/A'}\n\nClassifique este motivo conforme as regras e devolva o JSON.`;
 
-    // Coherence checks per status
-    if (learningStatus === 'meaningful') {
-      // Must preserve current text and have actual additions.
-      if (currentRequirements && !proposed.includes(currentRequirements)) {
-        console.warn('[reevaluate-card] meaningful but proposed dropped current text — rebuilding from additions');
-        proposed = additions ? `${currentRequirements}\n${additions}` : currentRequirements;
-      }
-      const trulyAdded = proposed.trim() !== currentRequirements.trim() || additions.length > 0;
-      if (!trulyAdded) {
-        console.warn('[reevaluate-card] meaningful but no real additions — downgrading to ambiguous');
-        learningStatus = 'ambiguous';
-      }
-    } else if (learningStatus === 'none') {
-      proposed = currentRequirements;
-      additions = '';
+    console.log('[reevaluate-card] Call B: evaluating learning...');
+    const callB = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${openaiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: learningSystem },
+          { role: 'user', content: learningUser },
+        ],
+        max_tokens: 500,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'learning_evaluation',
+            strict: true,
+            schema: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['learningStatus', 'learningReasoning', 'additions'],
+              properties: {
+                learningStatus: { type: 'string', enum: ['meaningful', 'none', 'ambiguous'] },
+                learningReasoning: { type: 'string' },
+                additions: { type: 'string', description: 'Linhas novas no formato "- frase", uma por linha. Vazio se não houver aprendizado.' },
+              },
+            },
+          },
+        },
+      }),
+    });
+
+    let learningStatus: LearningStatus = 'ambiguous';
+    let learningReasoning = '';
+    let additions = '';
+
+    if (!callB.ok) {
+      const t = await callB.text();
+      console.error('[reevaluate-card] Call B error:', callB.status, t);
+      // continue with fallback ambiguous
     } else {
-      // ambiguous: keep current, no additions; frontend will ask user
-      proposed = currentRequirements;
-      additions = '';
+      const learnData = await callB.json();
+      const learnContent = learnData.choices?.[0]?.message?.content;
+      console.log('[reevaluate-card] Call B raw:', learnContent);
+      try {
+        const parsed = JSON.parse(learnContent);
+        if (['meaningful', 'none', 'ambiguous'].includes(parsed.learningStatus)) {
+          learningStatus = parsed.learningStatus;
+        }
+        learningReasoning = typeof parsed.learningReasoning === 'string' ? parsed.learningReasoning : '';
+        additions = typeof parsed.additions === 'string' ? parsed.additions.trim() : '';
+      } catch (e) {
+        console.error('[reevaluate-card] Call B parse error');
+      }
+    }
+
+    // Build proposed text
+    let proposed = currentRequirements;
+    if (learningStatus === 'meaningful' && additions) {
+      proposed = currentRequirements ? `${currentRequirements}\n${additions}` : additions;
+    } else if (learningStatus === 'meaningful' && !additions) {
+      // Inconsistent: claimed meaningful but no additions — downgrade
+      console.warn('[reevaluate-card] meaningful but no additions — downgrading to ambiguous');
+      learningStatus = 'ambiguous';
     }
 
     const responseBody = {
       success: true,
       updatedCard,
       learningStatus,
-      learningReasoning: typeof parsed.learningReasoning === 'string' ? parsed.learningReasoning : '',
+      learningReasoning,
       requirementsProposal: {
         current: currentRequirements,
         proposed,
@@ -214,7 +196,15 @@ Retorne APENAS o JSON descrito.
       },
     };
 
-    console.log('[reevaluate-card] Done. learningStatus:', learningStatus, '| additions length:', additions.length);
+    console.log('[reevaluate-card] Done.', {
+      learningStatus,
+      learningReasoning,
+      additionsLen: additions.length,
+      currentLen: currentRequirements.length,
+      proposedLen: proposed.length,
+      proposedPreview: proposed.slice(0, 200),
+    });
+
     return new Response(JSON.stringify(responseBody), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
