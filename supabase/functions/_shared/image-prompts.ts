@@ -108,6 +108,16 @@ export function buildCarouselSlidePrompt(input: CarouselSlidePromptInput): strin
   const logoUrl = vi.logo.url;
 
   const isFinal = slideNumber === totalSlides && totalSlides > 1;
+  const isMiddleSlide = !!logoUrl && !isHighlight;
+
+  const logoSection = logoUrl
+    ? (isHighlight
+        ? renderLogoBlock(vi, { highlight: true })
+        : `\nLOGO DA MARCA (REGRA CRÍTICA — SLIDE DO MIOLO):
+- PROIBIDO ABSOLUTO renderizar a logo, logotipo, marca d'água, monograma, ícone da marca ou o nome da marca neste slide.
+- A logo aparece SOMENTE na capa (slide 1) e no slide final do carrossel — NUNCA nos slides intermediários.
+- Não inclua nenhuma faixa, badge, rodapé ou box contendo a logo ou o nome "${vi.brandName}".\n`)
+    : "";
 
   return `
 ${basePrompt ? basePrompt + "\n\n" : ""}${strategySnippet ? strategySnippet + "\n\n" : ""}${renderContentRequirementsBlock(vi)}Crie imagem profissional para SLIDE ${slideNumber}/${totalSlides} de carrossel social.
@@ -119,7 +129,7 @@ ${slideContextLine}
 
 ${renderColorPaletteBlock(vi)}
 ${renderMascotBlock(vi, hasMascotReference)}
-${renderLogoBlock(vi, { highlight: isHighlight })}
+${logoSection}
 ${COLOR_APPLICATION_RULES}
 
 ${STATIC_POST_STYLE_BLOCK}
@@ -132,6 +142,8 @@ ${isFinal ? "\n" + CAROUSEL_FINAL_SLIDE_RULE : ""}
 REGRAS: Formato ${aspect}. Apenas o texto "${slideText}" DEVE aparecer legível. Design coerente entre slides, mas cada slide é UMA imagem independente.
 PROIBIDO ABSOLUTO: NÃO desenhe nenhum número de página, contador, "1/5", "2/5", "${slideNumber}/${totalSlides}", paginação, dots indicadores, badges de slide ou qualquer marcação de sequência na imagem. O Instagram já mostra a posição do slide automaticamente.
 PROIBIDO ABSOLUTO: NÃO crie colagem, grid, mosaico, recap ou montagem dos demais slides do carrossel — gere SOMENTE a cena do slide ${slideNumber}.
-${logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem"}
+${isMiddleSlide
+  ? `- PROIBIDO renderizar logo, logotipo, marca d'água ou o nome "${vi.brandName}" neste slide. A logo só aparece na capa e no slide final.`
+  : (logoUrl ? "- A LOGO da marca DEVE aparecer no design conforme as instruções acima" : "- NÃO inclua o nome da empresa, logotipo ou marca d'água na imagem")}
 `.trim();
 }
