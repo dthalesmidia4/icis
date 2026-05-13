@@ -10,7 +10,8 @@ import { DemandReviewModal } from "@/components/DemandReviewModal";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarDays, Package, AlertCircle, RefreshCw, Check, CheckCheck, Eye, Shield, Rocket, Pencil, ThumbsDown } from "lucide-react";
+import { CalendarDays, Package, AlertCircle, RefreshCw, Check, CheckCheck, Eye, Shield, Rocket, Pencil, ThumbsDown, Settings2 } from "lucide-react";
+import PeriodConfigViewerModal from "@/components/PeriodConfigViewerModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -56,6 +57,9 @@ const ApproveCards = () => {
   const [editStart, setEditStart] = useState('');
   const [editEnd, setEditEnd] = useState('');
   const [editSaving, setEditSaving] = useState(false);
+
+  // Period config viewer
+  const [configViewerOpen, setConfigViewerOpen] = useState(false);
 
   // Edit card modal state
   const [editCardModalOpen, setEditCardModalOpen] = useState(false);
@@ -502,15 +506,30 @@ const ApproveCards = () => {
                   {formatDateStr(period.period_start)} — {formatDateStr(period.period_end)}
                 </span>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-3 right-3"
-                onClick={handleOpenEditPeriod}
-              >
-                <Pencil className="w-4 h-4" />
-              </Button>
+              <div className="absolute top-3 right-3 flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Ver configurações respondidas"
+                  onClick={() => setConfigViewerOpen(true)}
+                >
+                  <Settings2 className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleOpenEditPeriod}
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              </div>
             </Card>
+
+            <PeriodConfigViewerModal
+              open={configViewerOpen}
+              onOpenChange={setConfigViewerOpen}
+              periodId={period.id}
+            />
 
             {/* Review buttons */}
             <div className="flex flex-wrap gap-3">
