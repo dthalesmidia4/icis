@@ -1,40 +1,33 @@
-# Correção: campos de Localização e contatos não persistem
+# Correção: Bairro + persistência visual de campos
 
-## Causa raiz
+## Diagnóstico
 
-A tabela `tenant_companies` no banco **não possui colunas** para os campos exibidos no formulário:
-- Localização: `cep`, `street`, `number`, `city`, `state`, `complement`
-- Contato: `corporate_email`, `commercial_phone`, `cpf` (CPF do responsável)
-
-Por isso:
-- Em `CompanyRegistration.tsx` (linha 194-216), o cadastro monta um `fullAddress` mas **não envia para o banco** (variável é descartada). Os campos `corporate_email`, `commercial_phone` e `cpf` também são ignorados no `insert`.
-- Em `ClientDetails.tsx`, `parseStoredData` (linhas 113-122) define todos esses campos como string vazia ao carregar — então a UI sempre mostra "Não informado". O `handleSave` (linhas 485-499) também não envia esses campos no `update`.
-
-Logo, os dados nunca chegam ao banco e nunca são lidos. O preview do usuário reflete fielmente o estado real.
+1. **Localização não exibe após salvar** — para os campos `cep/street/city/state/complement/number`, o modo de leitura **mostra `formData.X`** corretamente, mas os campos `commercial_phone`, `corporate_email` e `cpf do responsável` no modo leitura têm **"Não informado" hard-coded** (linhas ~807, ~1077, ~1158 de `ClientDetails.tsx`). Mesmo salvos no banco, nunca aparecem.
+2. **Bairro não existe** — não há coluna `neighborhood` no DB nem campo no formulário, e a chamada do ViaCEP não captura `data.bairro`.
+3. O PATCH no banco já persiste os 9 campos novos (verificado via logs: `204 No Content`). A regravação do banco está correta.
 
 ## Plano
 
-### 1. Migration: adicionar colunas em `tenant_companies`
-Adicionar (todos `text NULL`):
-- `cep`, `street`, `number`, `city`, `state`, `complement`
-- `corporate_email`, `commercial_phone`, `responsible_cpf`
+### 1. Migration
+Adicionar `neighborhood text` em `tenant_companies`.
 
-### 2. `src/pages/CompanyRegistration.tsx`
-No `insert` (linha 204), incluir os 9 novos campos a partir de `formData` (sanitizados, `null` quando vazios). Remover a montagem descartada de `fullAddress`.
+### 2. `src/pages/ClientDetails.tsx`
+- `ClientFormData`: adicionar `neighborhood: string`.
+- `parseStoredData`: ler `client.neighborhood`.
+- Estado inicial e `handleCancel`: incluir `neighborhood: ""`.
+- `handleSave`: enviar `neighborhood: formData.neighborhood.trim() || null`.
+- `fetchAddressByCep`: setar `neighborhood: data.bairro || ""` junto com street/city/state.
+- UI Localização: adicionar campo **Bairro** entre Endereço e Número (grid passa a ter Cidade/Estado/Bairro/Complemento bem distribuídos — ajustar grid para 4 colunas na linha de cidade/estado/bairro/complemento, ou reorganizar em 2 grids 3-col).
+- Modos leitura de `commercial_phone`, `corporate_email`, `cpf`: substituir "Não informado" hard-coded por `formData.commercial_phone || "Não informado"` etc., para refletir o que está salvo.
 
-### 3. `src/pages/ClientDetails.tsx`
-- `parseStoredData`: preencher `cep/street/number/city/state/complement/corporate_email/commercial_phone/cpf` a partir das novas colunas do `client`.
-- `handleSave`: enviar os mesmos 9 campos no `update` (com `.trim() || null`).
+### 3. `src/pages/CompanyRegistration.tsx`
+- `formData`: adicionar `neighborhood: ""`.
+- `fetchAddressByCep`: setar `neighborhood: data.bairro || ""`.
+- `insert`: enviar `neighborhood`.
+- UI Localização: adicionar input **Bairro** (mesma linha que Cidade/Estado, ou linha própria).
 
-### 4. Regenerar tipos
-A migration aciona regeneração automática de `src/integrations/supabase/types.ts`.
+### 4. Confirmação ao usuário
+Após esta atualização, o usuário deve preencher novamente o cliente em modo de Edição — o teste anterior salvou com bundle antigo (antes do reload do Vite), por isso os valores ficaram vazios no banco; agora a UI também exibirá corretamente após salvar.
 
 ## Sem mudanças
-- Layout/visual da página (a tela já tem todos os inputs).
-- Outras páginas (Kanban, Hub, etc.) não dependem desses campos.
-- Bucket de logos, mascote, identidade visual — fora do escopo.
-
-## Detalhes técnicos
-- Os campos são opcionais (não obrigatórios na validação atual de `ClientDetails`); permanecem opcionais.
-- ViaCEP autofill já funciona localmente; passa a persistir.
-- `responsible_cpf` separado de `cnpj_cpf` (que continua sendo o documento principal da empresa).
+- RLS, demais páginas, identidade visual, mascote.
