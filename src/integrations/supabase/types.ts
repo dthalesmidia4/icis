@@ -1193,6 +1193,7 @@ export type Database = {
           mascot_description: string | null
           mascot_url: string | null
           name: string
+          neighborhood: string | null
           number: string | null
           phone: string
           products_services: string
@@ -1230,6 +1231,7 @@ export type Database = {
           mascot_description?: string | null
           mascot_url?: string | null
           name: string
+          neighborhood?: string | null
           number?: string | null
           phone: string
           products_services: string
@@ -1267,6 +1269,7 @@ export type Database = {
           mascot_description?: string | null
           mascot_url?: string | null
           name?: string
+          neighborhood?: string | null
           number?: string | null
           phone?: string
           products_services?: string
