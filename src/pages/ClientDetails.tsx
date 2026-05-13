@@ -120,6 +120,7 @@ const parseStoredData = (client: any): ClientFormData => {
     state: client.state || "",
     street: client.street || "",
     number: client.number || "",
+    neighborhood: client.neighborhood || "",
     complement: client.complement || "",
     brand_primary_color: client.brand_primary_color || "",
     brand_secondary_color: client.brand_secondary_color || "",
