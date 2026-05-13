@@ -28,9 +28,24 @@ serve(async (req) => {
       .eq('prompt_key', 'reavaliacao_prompt')
       .maybeSingle();
 
-    const defaultReevalPrompt = `Você é um especialista em marketing digital. Sua tarefa é reavaliar e melhorar um card de conteúdo que foi reprovado. 
-Você deve manter o formato do card original mas melhorar o conteúdo com base no motivo da reprovação, na estratégia do cliente e no perfil do cliente.
-Retorne APENAS um JSON válido com os campos: titulo, tipo, canal, objetivo, conteudo, data_sugerida, cta_recomendado, instrucoes_de_producao.
+    const defaultReevalPrompt = `Você é um especialista em marketing digital. Sua tarefa é reavaliar e melhorar um card de conteúdo que foi reprovado, e ao mesmo tempo extrair APRENDIZADO permanente sobre o cliente a partir do motivo da reprovação.
+
+Você DEVE retornar APENAS um JSON válido com a seguinte estrutura:
+{
+  "updatedCard": { "titulo": "...", "tipo": "...", "canal": "...", "objetivo": "...", "conteudo": "...", "data_sugerida": "...", "cta_recomendado": "...", "instrucoes_de_producao": "..." },
+  "requirementsProposal": {
+    "proposed": "<TEXTO COMPLETO das exigências de conteúdo do cliente, contendo OBRIGATORIAMENTE 100% do texto atual SEM nenhuma alteração ou remoção, e adicionando ao final uma ou mais novas linhas começando com '- ' contendo a regra/restrição aprendida com este motivo de reprovação>",
+    "additions": "<apenas a(s) linha(s) novas, uma por linha>"
+  }
+}
+
+REGRAS RÍGIDAS para requirementsProposal:
+- 'proposed' DEVE conter o texto atual de "EXIGÊNCIAS ATUAIS" na íntegra, palavra por palavra, sem reescrever, traduzir ou reformatar.
+- Apenas ACRESCENTE ao final novas linhas com restrições/preferências aprendidas a partir do motivo da reprovação.
+- Cada nova linha deve começar com "- " e ser uma frase curta, objetiva, generalizável (não específica a este card).
+- Se o motivo da reprovação NÃO trouxer aprendizado generalizável, retorne 'proposed' igual ao texto atual e 'additions' como string vazia.
+- NUNCA remova, edite ou reordene linhas existentes.
+
 Não inclua nenhum texto fora do JSON.`;
 
     const reevalPrompt = systemPrompt?.prompt_content || defaultReevalPrompt;
@@ -54,12 +69,14 @@ Não inclua nenhum texto fora do JSON.`;
       .limit(1)
       .maybeSingle();
 
-    // 4. Fetch client company data
+    // 4. Fetch client company data (incl. content_requirements)
     const { data: company } = await supabase
       .from('tenant_companies')
-      .select('name, fantasy_name, sector, size, products_services')
+      .select('name, fantasy_name, sector, size, products_services, content_requirements')
       .eq('id', clientId)
       .single();
+
+    const currentRequirements = (company?.content_requirements || '').trim();
 
     // 5. Fetch OpenAI API key
     const { data: apiKeyData, error: apiKeyError } = await supabase
@@ -74,7 +91,7 @@ Não inclua nenhum texto fora do JSON.`;
 
     // Build user prompt
     const cardJson = JSON.stringify(card, null, 2);
-    
+
     let anamnesisText = '';
     if (anamnesis) {
       const questions = Array.isArray(anamnesis.questions) ? anamnesis.questions : [];
@@ -104,8 +121,11 @@ ${strategy?.strategy_text || 'Nenhuma estratégia cadastrada.'}
 ## ANAMNESE DO CLIENTE:
 ${anamnesisText || 'Nenhuma anamnese disponível.'}
 
-Com base em todas essas informações, reestruture e melhore o card reprovado.
-Retorne APENAS um JSON válido com os campos: titulo, tipo, canal, objetivo, conteudo, data_sugerida, cta_recomendado, instrucoes_de_producao.
+## EXIGÊNCIAS ATUAIS DO CLIENTE (preserve 100% deste texto em 'proposed'):
+${currentRequirements || '(vazio)'}
+
+Reestruture o card reprovado E proponha o aprendizado para "Exigências de Conteúdo".
+Retorne APENAS o JSON descrito (com 'updatedCard' e 'requirementsProposal').
 `;
 
     console.log('Calling OpenAI API...');
@@ -121,7 +141,7 @@ Retorne APENAS um JSON válido com os campos: titulo, tipo, canal, objetivo, con
           { role: 'system', content: reevalPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: 2000,
+        max_tokens: 3000,
         response_format: { type: 'json_object' },
       }),
     });
@@ -133,7 +153,6 @@ Retorne APENAS um JSON válido com os campos: titulo, tipo, canal, objetivo, con
     }
 
     const aiData = await aiResponse.json();
-    console.log('AI response choices:', JSON.stringify(aiData.choices?.length), 'finish_reason:', aiData.choices?.[0]?.finish_reason);
     const content = aiData.choices?.[0]?.message?.content;
 
     if (!content) {
@@ -142,28 +161,63 @@ Retorne APENAS um JSON válido com os campos: titulo, tipo, canal, objetivo, con
     }
 
     // Parse JSON from response
-    let updatedCard;
+    let parsed: any;
     try {
-      // Try to extract JSON from the response
       const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        updatedCard = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No JSON found');
-      }
+      if (!jsonMatch) throw new Error('No JSON found');
+      parsed = JSON.parse(jsonMatch[0]);
     } catch (parseError) {
       console.error('Error parsing AI response:', content);
       throw new Error('Erro ao processar resposta da IA');
     }
 
+    // Backwards-compat: if model returned the flat shape (legacy), wrap it.
+    let updatedCard = parsed.updatedCard;
+    if (!updatedCard && (parsed.titulo || parsed.tipo || parsed.conteudo)) {
+      updatedCard = parsed;
+    }
+
+    let requirementsProposal = parsed.requirementsProposal || null;
+
+    // Safety net: enforce 100% preservation of current text on the server side.
+    if (requirementsProposal && typeof requirementsProposal.proposed === 'string') {
+      const proposed = requirementsProposal.proposed.trim();
+      if (currentRequirements && !proposed.includes(currentRequirements)) {
+        const additions = (requirementsProposal.additions || '').trim();
+        const safeProposed = additions
+          ? `${currentRequirements}\n${additions}`
+          : currentRequirements;
+        console.warn('Proposed text dropped current requirements — rebuilding from additions only.');
+        requirementsProposal = {
+          proposed: safeProposed,
+          additions,
+        };
+      } else {
+        requirementsProposal.proposed = proposed;
+      }
+    }
+
+    if (!requirementsProposal) {
+      requirementsProposal = { proposed: currentRequirements, additions: '' };
+    }
+
     console.log('Card reevaluated successfully');
-    return new Response(JSON.stringify({ success: true, updatedCard }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        updatedCard,
+        requirementsProposal: {
+          current: currentRequirements,
+          proposed: requirementsProposal.proposed,
+          additions: requirementsProposal.additions || '',
+        },
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
 
   } catch (error) {
     console.error('Reevaluate error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'Erro interno' }), {
+    return new Response(JSON.stringify({ error: (error as Error).message || 'Erro interno' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
