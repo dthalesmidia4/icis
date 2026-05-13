@@ -179,6 +179,7 @@ const ClientDetails = () => {
     state: "",
     street: "",
     number: "",
+    neighborhood: "",
     complement: "",
     brand_primary_color: "",
     brand_secondary_color: "",
