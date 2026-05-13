@@ -54,8 +54,8 @@ const ClientHub = () => {
   const [carouselSlides, setCarouselSlides] = useState<Array<{ text: string; label: string }>>([]);
   const [generatingCarousel, setGeneratingCarousel] = useState(false);
   const [carouselAspectRatio, setCarouselAspectRatio] = useState('1:1');
-  const [carouselAiModel, setCarouselAiModel] = useState<'nanobanana3' | 'nanobanana25' | 'gpt2'>('nanobanana3');
-  const [staticAiModel, setStaticAiModel] = useState<'nanobanana3' | 'nanobanana25' | 'gpt2'>('nanobanana3');
+  const [carouselAiModel, setCarouselAiModel] = useState<'nanobanana3' | 'nanobanana25' | 'gpt2'>('gpt2');
+  const [staticAiModel, setStaticAiModel] = useState<'nanobanana3' | 'nanobanana25' | 'gpt2'>('gpt2');
   const [generatingCarouselImages, setGeneratingCarouselImages] = useState(false);
   const [carouselGeneratedImages, setCarouselGeneratedImages] = useState<Array<{ slideIndex: number; imageUrl: string }>>([]);
   const [carouselImageProgress, setCarouselImageProgress] = useState('');
@@ -86,7 +86,12 @@ const ClientHub = () => {
         .eq('company_id', selectedClient.id)
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: true });
-      if (data) setPresets(data);
+      if (data) {
+        setPresets(data);
+        if (data.length > 0) {
+          setSelectedPresetId((current) => current ?? data[0].id);
+        }
+      }
     };
     fetchPresets();
   }, [selectedClient?.id, tenantId]);
@@ -648,7 +653,7 @@ const ClientHub = () => {
         </Dialog>
 
         {/* Modal Gerar Post Estático com IA */}
-        <Dialog open={aiPostModalOpen} onOpenChange={(open) => { setAiPostModalOpen(open); if (!open) { setPostIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setGeneratedPostImage(null); setStaticAiModel('nanobanana3'); } }}>
+        <Dialog open={aiPostModalOpen} onOpenChange={(open) => { setAiPostModalOpen(open); if (!open) { setPostIdea(''); setSelectedPresetId(presets[0]?.id ?? null); setSelectedMascotIds([]); setGeneratedPostImage(null); setStaticAiModel('gpt2'); } }}>
           <DialogContent className={`!flex !flex-col overflow-hidden ${generatedPostImage ? 'sm:max-w-5xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[90vh]'}`}>
             <DialogHeader>
              <div className="flex items-center gap-2">
@@ -945,7 +950,7 @@ const ClientHub = () => {
                         allSlides: validSlides,
                         batchOffset: batchStart,
                         aspectRatio: '1:1',
-                        aiModel: 'nanobanana3',
+                        aiModel: 'gpt2',
                         presetId: selectedPresetId,
                         mascotImageUrls: selectedMascotUrls,
                         clientId: selectedClient.id,
@@ -980,7 +985,7 @@ const ClientHub = () => {
         </Dialog>
 
         {/* Modal Gerar Carrossel com IA - Two Steps */}
-        <Dialog open={aiCarouselModalOpen} onOpenChange={(open) => { setAiCarouselModalOpen(open); if (!open) { setCarouselIdea(''); setSelectedPresetId(null); setSelectedMascotIds([]); setSlideCount(null); setCarouselStep(1); setCarouselSlides([]); setCarouselAspectRatio('1:1'); setCarouselAiModel('nanobanana3'); setCarouselGeneratedImages([]); setGeneratingCarouselImages(false); setCarouselImageProgress(''); } }}>
+        <Dialog open={aiCarouselModalOpen} onOpenChange={(open) => { setAiCarouselModalOpen(open); if (!open) { setCarouselIdea(''); setSelectedPresetId(presets[0]?.id ?? null); setSelectedMascotIds([]); setSlideCount(null); setCarouselStep(1); setCarouselSlides([]); setCarouselAspectRatio('1:1'); setCarouselAiModel('gpt2'); setCarouselGeneratedImages([]); setGeneratingCarouselImages(false); setCarouselImageProgress(''); } }}>
           <DialogContent className={`!flex !flex-col overflow-hidden ${carouselGeneratedImages.length > 0 || generatingCarouselImages ? 'sm:max-w-6xl max-h-[95vh]' : carouselStep === 2 ? 'sm:max-w-4xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[85vh]'}`}>
             <DialogHeader>
               <div className="flex items-center gap-2">
