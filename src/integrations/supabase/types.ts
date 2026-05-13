@@ -1175,8 +1175,13 @@ export type Database = {
           brand_secondary_color: string | null
           brand_secondary_font: string | null
           brand_text_color: string | null
+          cep: string | null
+          city: string | null
           cnpj_cpf: string
+          commercial_phone: string | null
+          complement: string | null
           content_requirements: string | null
+          corporate_email: string | null
           created_at: string | null
           email: string
           fantasy_name: string | null
@@ -1188,10 +1193,14 @@ export type Database = {
           mascot_description: string | null
           mascot_url: string | null
           name: string
+          number: string | null
           phone: string
           products_services: string
+          responsible_cpf: string | null
           sector: string
           size: string
+          state: string | null
+          street: string | null
           tenant_id: string
           updated_at: string | null
         }
@@ -1203,8 +1212,13 @@ export type Database = {
           brand_secondary_color?: string | null
           brand_secondary_font?: string | null
           brand_text_color?: string | null
+          cep?: string | null
+          city?: string | null
           cnpj_cpf: string
+          commercial_phone?: string | null
+          complement?: string | null
           content_requirements?: string | null
+          corporate_email?: string | null
           created_at?: string | null
           email: string
           fantasy_name?: string | null
@@ -1216,10 +1230,14 @@ export type Database = {
           mascot_description?: string | null
           mascot_url?: string | null
           name: string
+          number?: string | null
           phone: string
           products_services: string
+          responsible_cpf?: string | null
           sector: string
           size: string
+          state?: string | null
+          street?: string | null
           tenant_id: string
           updated_at?: string | null
         }
@@ -1231,8 +1249,13 @@ export type Database = {
           brand_secondary_color?: string | null
           brand_secondary_font?: string | null
           brand_text_color?: string | null
+          cep?: string | null
+          city?: string | null
           cnpj_cpf?: string
+          commercial_phone?: string | null
+          complement?: string | null
           content_requirements?: string | null
+          corporate_email?: string | null
           created_at?: string | null
           email?: string
           fantasy_name?: string | null
@@ -1244,10 +1267,14 @@ export type Database = {
           mascot_description?: string | null
           mascot_url?: string | null
           name?: string
+          number?: string | null
           phone?: string
           products_services?: string
+          responsible_cpf?: string | null
           sector?: string
           size?: string
+          state?: string | null
+          street?: string | null
           tenant_id?: string
           updated_at?: string | null
         }
