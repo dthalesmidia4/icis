@@ -224,25 +224,41 @@ const RejectedCards = () => {
       if (data?.error) throw new Error(data.error);
 
       if (data?.updatedCard) {
-        const proposal = data.requirementsProposal || null;
+        const proposal = data.requirementsProposal || { current: '', proposed: '', additions: '' };
+        const learningStatus: 'meaningful' | 'none' | 'ambiguous' =
+          data.learningStatus === 'meaningful' || data.learningStatus === 'none' || data.learningStatus === 'ambiguous'
+            ? data.learningStatus
+            : 'ambiguous';
         const cardIndex = reevalCardIndex;
-        // If the AI suggested actual additions, ask the user via diff modal.
-        const hasAddition =
-          proposal &&
-          typeof proposal.proposed === 'string' &&
-          proposal.proposed.trim() &&
-          proposal.proposed.trim() !== (proposal.current || '').trim();
 
-        if (hasAddition) {
+        console.log('[Reeval] response:', {
+          learningStatus,
+          reasoning: data.learningReasoning,
+          additionsLen: (proposal.additions || '').length,
+          currentLen: (proposal.current || '').length,
+          proposedLen: (proposal.proposed || '').length,
+        });
+
+        if (learningStatus === 'meaningful') {
+          // AI identified a generalizable rule — show diff for user approval.
           setPendingReeval({ updatedCard: data.updatedCard, cardIndex });
           setDiffCurrent(proposal.current || '');
-          setDiffProposed(proposal.proposed);
+          setDiffProposed(proposal.proposed || proposal.current || '');
           setReevalModalOpen(false);
           setDiffOpen(true);
-        } else {
+        } else if (learningStatus === 'none') {
+          // Reason was punctual — just save the reevaluation, don't touch requirements.
           await persistReevaluation(cardIndex, data.updatedCard, null);
           setReevalModalOpen(false);
           toast.success("Card reavaliado com sucesso!");
+        } else {
+          // Ambiguous — open diff modal seeded with current text so the user can decide what to add.
+          setPendingReeval({ updatedCard: data.updatedCard, cardIndex });
+          setDiffCurrent(proposal.current || '');
+          setDiffProposed(proposal.current || '');
+          setReevalModalOpen(false);
+          setDiffOpen(true);
+          toast.info("A IA não teve certeza se isso vira regra permanente. Edite as exigências se quiser, ou clique em 'Manter atual'.");
         }
       }
     } catch (error: any) {
