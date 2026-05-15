@@ -1,11 +1,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { decodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
-import { getGoogleAiKey, MissingApiKeyError } from "../_shared/api-keys.ts";
+import { getGoogleAiKey, getOpenAiKey, MissingApiKeyError } from "../_shared/api-keys.ts";
 import { getSystemPrompt } from "../_shared/system-prompts.ts";
-import { MODELS, GOOGLE_API_BASE } from "../_shared/models.ts";
+import { IMAGE_MODELS, DEFAULT_IMAGE_MODEL, type ImageAiModel } from "../_shared/models.ts";
 import { loadVisualIdentity } from "../_shared/visual-identity.ts";
 import { buildStaticPostPrompt } from "../_shared/image-prompts.ts";
 import { fetchInlineImage, fetchInlineImages } from "../_shared/fetch-image.ts";
+import { generateImageWithModel } from "../_shared/image-generation.ts";
+import { aspectFromDemandType, aspectPromptLabel } from "../_shared/aspect.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
