@@ -9,13 +9,18 @@ import {
   type ImageAiModel,
 } from "./models.ts";
 import type { InlineImage } from "./fetch-image.ts";
+import {
+  geminiAspectRatio,
+  normalizeAspectRatio,
+  openaiSizeForAspect,
+} from "./aspect.ts";
 
 export type GenerateImageInput = {
   aiModel?: ImageAiModel | null;
   prompt: string;
   mascotInline?: InlineImage[];
   logoInline?: InlineImage | null;
-  aspectLabel?: string;             // e.g. "1:1 (1024x1024)" or "1:1" / "9:16" / "16:9"
+  aspectLabel?: string;             // e.g. "1:1", "9:16", "16:9", "4:5"
   googleApiKey?: string;            // required when provider=google
   openaiApiKey?: string;            // required when provider=openai
 };
