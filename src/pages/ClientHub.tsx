@@ -714,16 +714,30 @@ const ClientHub = () => {
                     )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label className="text-sm font-medium">Modelo de IA</Label>
-                    <Select value={staticAiModel} onValueChange={(v) => setStaticAiModel(v as 'nanobanana3' | 'nanobanana25' | 'gpt2')} disabled={generatingPost}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="nanobanana3">Nanobanana 3 (Pro)</SelectItem>
-                        <SelectItem value="nanobanana25">Nanobanana 2.5 (Flash)</SelectItem>
-                        <SelectItem value="gpt2">GPT Image 2</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Modelo de IA</Label>
+                      <Select value={staticAiModel} onValueChange={(v) => setStaticAiModel(v as 'nanobanana3' | 'nanobanana25' | 'gpt2')} disabled={generatingPost}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="nanobanana3">Nanobanana 3 (Pro)</SelectItem>
+                          <SelectItem value="nanobanana25">Nanobanana 2.5 (Flash)</SelectItem>
+                          <SelectItem value="gpt2">GPT Image 2</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Proporção</Label>
+                      <Select value={staticAspectRatio} onValueChange={setStaticAspectRatio} disabled={generatingPost}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1:1">1:1 (Quadrado)</SelectItem>
+                          <SelectItem value="9:16">9:16 (Stories/Reels)</SelectItem>
+                          <SelectItem value="16:9">16:9 (Paisagem)</SelectItem>
+                          <SelectItem value="4:5">4:5 (Feed)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
               </div>
