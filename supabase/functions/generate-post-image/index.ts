@@ -36,14 +36,7 @@ function parseSlides(description: string): { slideNumber: number; title: string;
 }
 
 function getAspectLabel(demandType: string | null): string {
-  const type = (demandType || "").toLowerCase();
-  if (type.includes("reel") || type.includes("stories") || type.includes("story") || type.includes("video curto")) {
-    return "9:16 (portrait, 1024x1536)";
-  }
-  if (type.includes("cover") || type.includes("banner") || type.includes("capa")) {
-    return "16:9 (landscape, 1536x1024)";
-  }
-  return "1:1 (quadrado, 1024x1024)";
+  return aspectPromptLabel(aspectFromDemandType(demandType));
 }
 
 function stripHtml(input: string | null | undefined): string {
