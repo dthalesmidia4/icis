@@ -59,12 +59,20 @@ export async function generateImageWithModel(
     for (const m of input.mascotInline || []) parts.push({ inlineData: m });
     if (input.logoInline) parts.push({ inlineData: input.logoInline });
 
+    const geminiAspect = geminiAspectRatio(ratio);
+    console.log(
+      `[image-gen] provider=google model=${cfg.id} requestedAspect=${ratio} effectiveAspect=${geminiAspect}`,
+    );
+
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts }],
-        generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+        generationConfig: {
+          responseModalities: ["IMAGE", "TEXT"],
+          imageConfig: { aspectRatio: geminiAspect },
+        },
       }),
     });
 
