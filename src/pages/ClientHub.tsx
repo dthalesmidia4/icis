@@ -56,6 +56,7 @@ const ClientHub = () => {
   const [carouselAspectRatio, setCarouselAspectRatio] = useState('1:1');
   const [carouselAiModel, setCarouselAiModel] = useState<'nanobanana3' | 'nanobanana25' | 'gpt2'>('gpt2');
   const [staticAiModel, setStaticAiModel] = useState<'nanobanana3' | 'nanobanana25' | 'gpt2'>('gpt2');
+  const [staticAspectRatio, setStaticAspectRatio] = useState('1:1');
   const [generatingCarouselImages, setGeneratingCarouselImages] = useState(false);
   const [carouselGeneratedImages, setCarouselGeneratedImages] = useState<Array<{ slideIndex: number; imageUrl: string }>>([]);
   const [carouselImageProgress, setCarouselImageProgress] = useState('');
