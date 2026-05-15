@@ -9,13 +9,18 @@ import {
   type ImageAiModel,
 } from "./models.ts";
 import type { InlineImage } from "./fetch-image.ts";
+import {
+  geminiAspectRatio,
+  normalizeAspectRatio,
+  openaiSizeForAspect,
+} from "./aspect.ts";
 
 export type GenerateImageInput = {
   aiModel?: ImageAiModel | null;
   prompt: string;
   mascotInline?: InlineImage[];
   logoInline?: InlineImage | null;
-  aspectLabel?: string;             // e.g. "1:1 (1024x1024)" or "1:1" / "9:16" / "16:9"
+  aspectLabel?: string;             // e.g. "1:1", "9:16", "16:9", "4:5"
   googleApiKey?: string;            // required when provider=google
   openaiApiKey?: string;            // required when provider=openai
 };
@@ -36,13 +41,6 @@ export type GenerateImageErr = {
 
 export type GenerateImageResult = GenerateImageOk | GenerateImageErr;
 
-function resolveAspect(aspectLabel?: string): "1024x1024" | "1024x1536" | "1536x1024" {
-  const a = (aspectLabel || "").toLowerCase();
-  if (a.includes("9:16") || a.includes("4:5") || a.includes("1024x1536")) return "1024x1536";
-  if (a.includes("16:9") || a.includes("1536x1024")) return "1536x1024";
-  return "1024x1024";
-}
-
 export async function generateImageWithModel(
   input: GenerateImageInput,
 ): Promise<GenerateImageResult> {
@@ -50,6 +48,7 @@ export async function generateImageWithModel(
     ? input.aiModel
     : DEFAULT_IMAGE_MODEL;
   const cfg = IMAGE_MODELS[aiModel];
+  const ratio = normalizeAspectRatio(input.aspectLabel);
 
   if (cfg.provider === "google") {
     if (!input.googleApiKey) {
@@ -60,12 +59,20 @@ export async function generateImageWithModel(
     for (const m of input.mascotInline || []) parts.push({ inlineData: m });
     if (input.logoInline) parts.push({ inlineData: input.logoInline });
 
+    const geminiAspect = geminiAspectRatio(ratio);
+    console.log(
+      `[image-gen] provider=google model=${cfg.id} requestedAspect=${ratio} effectiveAspect=${geminiAspect}`,
+    );
+
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts }],
-        generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+        generationConfig: {
+          responseModalities: ["IMAGE", "TEXT"],
+          imageConfig: { aspectRatio: geminiAspect },
+        },
       }),
     });
 
@@ -103,7 +110,10 @@ export async function generateImageWithModel(
   if (!input.openaiApiKey) {
     return { ok: false, error: "Chave OpenAI ausente." };
   }
-  const size = resolveAspect(input.aspectLabel);
+  const size = openaiSizeForAspect(ratio);
+  console.log(
+    `[image-gen] provider=openai model=${cfg.id} requestedAspect=${ratio} effectiveSize=${size}`,
+  );
   const mascots = input.mascotInline || [];
   const hasReferences = mascots.length > 0 || !!input.logoInline;
 

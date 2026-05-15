@@ -63,7 +63,7 @@ export type StaticPostPromptInput = {
 
 export function buildStaticPostPrompt(input: StaticPostPromptInput): string {
   const { vi, basePrompt, strategySnippet, contentSection, hasMascotReference } = input;
-  const aspect = input.aspectLabel || "1:1 (quadrado, 1024x1024)";
+  const aspect = input.aspectLabel || "1:1 (quadrado)";
   const logoUrl = vi.logo.url;
 
   return `
@@ -102,7 +102,7 @@ export type CarouselSlidePromptInput = {
 export function buildCarouselSlidePrompt(input: CarouselSlidePromptInput): string {
   const { vi, basePrompt, strategySnippet, slideNumber, totalSlides, slideText, slideLabel,
     slideContextLine, hasMascotReference } = input;
-  const aspect = input.aspectLabel || "1:1 (1024x1024)";
+  const aspect = input.aspectLabel || "1:1 (quadrado)";
   const isHighlight = slideNumber === 1 || slideNumber === totalSlides;
   const isCover = slideNumber === 1;
   const logoUrl = vi.logo.url;

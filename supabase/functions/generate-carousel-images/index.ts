@@ -59,8 +59,8 @@ Deno.serve(async (req) => {
     const mascotInline = await fetchInlineImages(effectiveMascotUrls);
     const logoInline = vi.logo.url ? await fetchInlineImage(vi.logo.url) : null;
 
-    const aspectLabel = aspectRatio ? `${aspectRatio} (1024x1024)` : "1:1 (1024x1024)";
-    console.log(`Generating ${slides.length} carousel images via ${IMAGE_MODELS[aiModel].id} (${provider}, parallel batch), ratio: ${aspectRatio || "1:1"}`);
+    const aspectLabel = aspectRatio || "1:1";
+    console.log(`Generating ${slides.length} carousel images via ${IMAGE_MODELS[aiModel].id} (${provider}, parallel batch), ratio: ${aspectLabel}`);
 
     const { images, anyRateLimited } = await generateCarouselSlideImages({
       supabase,

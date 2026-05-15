@@ -56,6 +56,7 @@ const ClientHub = () => {
   const [carouselAspectRatio, setCarouselAspectRatio] = useState('1:1');
   const [carouselAiModel, setCarouselAiModel] = useState<'nanobanana3' | 'nanobanana25' | 'gpt2'>('gpt2');
   const [staticAiModel, setStaticAiModel] = useState<'nanobanana3' | 'nanobanana25' | 'gpt2'>('gpt2');
+  const [staticAspectRatio, setStaticAspectRatio] = useState('1:1');
   const [generatingCarouselImages, setGeneratingCarouselImages] = useState(false);
   const [carouselGeneratedImages, setCarouselGeneratedImages] = useState<Array<{ slideIndex: number; imageUrl: string }>>([]);
   const [carouselImageProgress, setCarouselImageProgress] = useState('');
@@ -287,7 +288,7 @@ const ClientHub = () => {
         .filter(m => selectedMascotIds.includes(m.id))
         .map(m => m.image_url);
       const { data, error } = await supabase.functions.invoke('generate-standalone-post', {
-        body: { idea, presetId: selectedPresetId, mascotImageUrls: selectedMascotUrls, clientId: selectedClient.id, tenantId, aiModel: staticAiModel },
+        body: { idea, presetId: selectedPresetId, mascotImageUrls: selectedMascotUrls, clientId: selectedClient.id, tenantId, aiModel: staticAiModel, aspectRatio: staticAspectRatio },
       });
       if (error) { console.error('Edge function error:', error); toast.error('Erro ao gerar o post. Tente novamente.'); return; }
       if (data?.error) { toast.error(data.error); return; }
@@ -713,16 +714,30 @@ const ClientHub = () => {
                     )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label className="text-sm font-medium">Modelo de IA</Label>
-                    <Select value={staticAiModel} onValueChange={(v) => setStaticAiModel(v as 'nanobanana3' | 'nanobanana25' | 'gpt2')} disabled={generatingPost}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="nanobanana3">Nanobanana 3 (Pro)</SelectItem>
-                        <SelectItem value="nanobanana25">Nanobanana 2.5 (Flash)</SelectItem>
-                        <SelectItem value="gpt2">GPT Image 2</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Modelo de IA</Label>
+                      <Select value={staticAiModel} onValueChange={(v) => setStaticAiModel(v as 'nanobanana3' | 'nanobanana25' | 'gpt2')} disabled={generatingPost}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="nanobanana3">Nanobanana 3 (Pro)</SelectItem>
+                          <SelectItem value="nanobanana25">Nanobanana 2.5 (Flash)</SelectItem>
+                          <SelectItem value="gpt2">GPT Image 2</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">Proporção</Label>
+                      <Select value={staticAspectRatio} onValueChange={setStaticAspectRatio} disabled={generatingPost}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1:1">1:1 (Quadrado)</SelectItem>
+                          <SelectItem value="9:16">9:16 (Stories/Reels)</SelectItem>
+                          <SelectItem value="16:9">16:9 (Paisagem)</SelectItem>
+                          <SelectItem value="4:5">4:5 (Feed)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -1,11 +1,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { decodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
-import { getGoogleAiKey, MissingApiKeyError } from "../_shared/api-keys.ts";
+import { getGoogleAiKey, getOpenAiKey, MissingApiKeyError } from "../_shared/api-keys.ts";
 import { getSystemPrompt } from "../_shared/system-prompts.ts";
-import { MODELS, GOOGLE_API_BASE } from "../_shared/models.ts";
+import { IMAGE_MODELS, DEFAULT_IMAGE_MODEL, type ImageAiModel } from "../_shared/models.ts";
 import { loadVisualIdentity } from "../_shared/visual-identity.ts";
 import { buildStaticPostPrompt } from "../_shared/image-prompts.ts";
 import { fetchInlineImage, fetchInlineImages } from "../_shared/fetch-image.ts";
+import { generateImageWithModel } from "../_shared/image-generation.ts";
+import { aspectFromDemandType, aspectPromptLabel } from "../_shared/aspect.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,14 +36,7 @@ function parseSlides(description: string): { slideNumber: number; title: string;
 }
 
 function getAspectLabel(demandType: string | null): string {
-  const type = (demandType || "").toLowerCase();
-  if (type.includes("reel") || type.includes("stories") || type.includes("story") || type.includes("video curto")) {
-    return "9:16 (portrait, 1024x1536)";
-  }
-  if (type.includes("cover") || type.includes("banner") || type.includes("capa")) {
-    return "16:9 (landscape, 1536x1024)";
-  }
-  return "1:1 (quadrado, 1024x1024)";
+  return aspectPromptLabel(aspectFromDemandType(demandType));
 }
 
 function stripHtml(input: string | null | undefined): string {
@@ -54,7 +48,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { demandId, slideNumber, replaceSlide } = await req.json();
+    const { demandId, slideNumber, replaceSlide, aiModel: aiModelInput } = await req.json();
 
     if (!demandId) {
       return new Response(JSON.stringify({ error: "demandId é obrigatório" }), {
@@ -62,12 +56,20 @@ Deno.serve(async (req) => {
       });
     }
 
+    const aiModel: ImageAiModel = (aiModelInput && IMAGE_MODELS[aiModelInput as ImageAiModel])
+      ? (aiModelInput as ImageAiModel)
+      : DEFAULT_IMAGE_MODEL;
+    const provider = IMAGE_MODELS[aiModel].provider;
+
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    let GOOGLE_API_KEY: string;
-    try { GOOGLE_API_KEY = await getGoogleAiKey(supabase); }
-    catch (e) {
-      const msg = e instanceof MissingApiKeyError ? e.message : "Erro ao carregar chave do Google AI Studio.";
+    let GOOGLE_API_KEY: string | undefined;
+    let OPENAI_API_KEY: string | undefined;
+    try {
+      if (provider === "google") GOOGLE_API_KEY = await getGoogleAiKey(supabase);
+      else OPENAI_API_KEY = await getOpenAiKey(supabase);
+    } catch (e) {
+      const msg = e instanceof MissingApiKeyError ? e.message : "Erro ao carregar chave de API.";
       return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -165,50 +167,26 @@ Deno.serve(async (req) => {
         aspectLabel,
       });
 
-      console.log(`Generating image for slide ${slide.slideNumber} via ${MODELS.IMAGE}...`);
+      console.log(`Generating image for slide ${slide.slideNumber} via ${IMAGE_MODELS[aiModel].id} (${provider})...`);
 
       try {
-        const parts: any[] = [{ text: imagePrompt }];
-        for (const m of mascotInline) parts.push({ inlineData: m });
-        if (logoInline) parts.push({ inlineData: logoInline });
-
-        const googleApiUrl = `${GOOGLE_API_BASE}/models/${MODELS.IMAGE}:generateContent?key=${GOOGLE_API_KEY}`;
-        const response = await fetch(googleApiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseModalities: ["IMAGE", "TEXT"] } }),
+        const result = await generateImageWithModel({
+          aiModel,
+          prompt: imagePrompt,
+          mascotInline,
+          logoInline,
+          aspectLabel,
+          googleApiKey: GOOGLE_API_KEY,
+          openaiApiKey: OPENAI_API_KEY,
         });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Slide ${slide.slideNumber} error:`, response.status, errorText);
-          errors.push(`Slide ${slide.slideNumber}: Erro ${response.status}`);
+        if (!result.ok) {
+          console.error(`Slide ${slide.slideNumber} error:`, result.status, result.error);
+          errors.push(`Slide ${slide.slideNumber}: ${result.error || `Erro ${result.status}`}`);
           continue;
         }
 
-        const data = await response.json();
-        let imageBase64 = "";
-        let imageMimeType = "image/png";
-        for (const candidate of (data.candidates || [])) {
-          for (const part of (candidate.content?.parts || [])) {
-            const inlineData = part.inlineData || part.inline_data;
-            if (inlineData) {
-              imageBase64 = inlineData.data;
-              imageMimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
-              break;
-            }
-          }
-          if (imageBase64) break;
-        }
-
-        if (!imageBase64) {
-          errors.push(`Slide ${slide.slideNumber}: Nenhuma imagem retornada pelo modelo`);
-          continue;
-        }
-
-        const imageBytes = decodeBase64(imageBase64);
-        imageBase64 = "";
-        const ext = imageMimeType.includes("jpeg") ? "jpg" : "png";
+        const { imageBytes, mimeType: imageMimeType, ext } = result;
         const fileName = `ai-generated-slide-${slide.slideNumber}-${Date.now()}.${ext}`;
         const storagePath = `${demand.client_id}/${demand.id}/${fileName}`;
 
@@ -230,7 +208,7 @@ Deno.serve(async (req) => {
           size: imageBytes.length,
           storagePath,
           uploadedAt: new Date().toISOString(),
-          uploadedBy: { id: "ai-generator", email: "system@ai", name: `IA - ${MODELS.IMAGE}` },
+          uploadedBy: { id: "ai-generator", email: "system@ai", name: `IA - ${IMAGE_MODELS[aiModel].id}` },
           cardId: demand.id,
           tenantId: demand.tenant_id,
           clientId: demand.client_id,

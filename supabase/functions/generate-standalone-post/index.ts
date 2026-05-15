@@ -17,7 +17,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { idea, presetId, mascotImageUrls, clientId, tenantId, aiModel: aiModelInput } = await req.json();
+    const { idea, presetId, mascotImageUrls, clientId, tenantId, aiModel: aiModelInput, aspectRatio: aspectRatioInput } = await req.json();
+    const aspectRatio: string = (typeof aspectRatioInput === "string" && aspectRatioInput.trim()) ? aspectRatioInput.trim() : "1:1";
     if (!idea || !clientId || !tenantId) {
       return new Response(JSON.stringify({ error: "idea, clientId e tenantId são obrigatórios" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -85,7 +86,7 @@ Deno.serve(async (req) => {
       prompt: imagePrompt,
       mascotInline,
       logoInline,
-      aspectLabel: "1:1 (1024x1024)",
+      aspectLabel: aspectRatio,
       googleApiKey: GOOGLE_API_KEY,
       openaiApiKey: OPENAI_API_KEY,
     });
