@@ -110,7 +110,10 @@ export async function generateImageWithModel(
   if (!input.openaiApiKey) {
     return { ok: false, error: "Chave OpenAI ausente." };
   }
-  const size = resolveAspect(input.aspectLabel);
+  const size = openaiSizeForAspect(ratio);
+  console.log(
+    `[image-gen] provider=openai model=${cfg.id} requestedAspect=${ratio} effectiveSize=${size}`,
+  );
   const mascots = input.mascotInline || [];
   const hasReferences = mascots.length > 0 || !!input.logoInline;
 
