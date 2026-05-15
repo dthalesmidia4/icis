@@ -41,13 +41,6 @@ export type GenerateImageErr = {
 
 export type GenerateImageResult = GenerateImageOk | GenerateImageErr;
 
-function resolveAspect(aspectLabel?: string): "1024x1024" | "1024x1536" | "1536x1024" {
-  const a = (aspectLabel || "").toLowerCase();
-  if (a.includes("9:16") || a.includes("4:5") || a.includes("1024x1536")) return "1024x1536";
-  if (a.includes("16:9") || a.includes("1536x1024")) return "1536x1024";
-  return "1024x1024";
-}
-
 export async function generateImageWithModel(
   input: GenerateImageInput,
 ): Promise<GenerateImageResult> {
@@ -55,6 +48,7 @@ export async function generateImageWithModel(
     ? input.aiModel
     : DEFAULT_IMAGE_MODEL;
   const cfg = IMAGE_MODELS[aiModel];
+  const ratio = normalizeAspectRatio(input.aspectLabel);
 
   if (cfg.provider === "google") {
     if (!input.googleApiKey) {
