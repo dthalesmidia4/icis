@@ -167,50 +167,26 @@ Deno.serve(async (req) => {
         aspectLabel,
       });
 
-      console.log(`Generating image for slide ${slide.slideNumber} via ${MODELS.IMAGE}...`);
+      console.log(`Generating image for slide ${slide.slideNumber} via ${IMAGE_MODELS[aiModel].id} (${provider})...`);
 
       try {
-        const parts: any[] = [{ text: imagePrompt }];
-        for (const m of mascotInline) parts.push({ inlineData: m });
-        if (logoInline) parts.push({ inlineData: logoInline });
-
-        const googleApiUrl = `${GOOGLE_API_BASE}/models/${MODELS.IMAGE}:generateContent?key=${GOOGLE_API_KEY}`;
-        const response = await fetch(googleApiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseModalities: ["IMAGE", "TEXT"] } }),
+        const result = await generateImageWithModel({
+          aiModel,
+          prompt: imagePrompt,
+          mascotInline,
+          logoInline,
+          aspectLabel,
+          googleApiKey: GOOGLE_API_KEY,
+          openaiApiKey: OPENAI_API_KEY,
         });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Slide ${slide.slideNumber} error:`, response.status, errorText);
-          errors.push(`Slide ${slide.slideNumber}: Erro ${response.status}`);
+        if (!result.ok) {
+          console.error(`Slide ${slide.slideNumber} error:`, result.status, result.error);
+          errors.push(`Slide ${slide.slideNumber}: ${result.error || `Erro ${result.status}`}`);
           continue;
         }
 
-        const data = await response.json();
-        let imageBase64 = "";
-        let imageMimeType = "image/png";
-        for (const candidate of (data.candidates || [])) {
-          for (const part of (candidate.content?.parts || [])) {
-            const inlineData = part.inlineData || part.inline_data;
-            if (inlineData) {
-              imageBase64 = inlineData.data;
-              imageMimeType = inlineData.mimeType || inlineData.mime_type || "image/png";
-              break;
-            }
-          }
-          if (imageBase64) break;
-        }
-
-        if (!imageBase64) {
-          errors.push(`Slide ${slide.slideNumber}: Nenhuma imagem retornada pelo modelo`);
-          continue;
-        }
-
-        const imageBytes = decodeBase64(imageBase64);
-        imageBase64 = "";
-        const ext = imageMimeType.includes("jpeg") ? "jpg" : "png";
+        const { imageBytes, mimeType: imageMimeType, ext } = result;
         const fileName = `ai-generated-slide-${slide.slideNumber}-${Date.now()}.${ext}`;
         const storagePath = `${demand.client_id}/${demand.id}/${fileName}`;
 
@@ -232,7 +208,7 @@ Deno.serve(async (req) => {
           size: imageBytes.length,
           storagePath,
           uploadedAt: new Date().toISOString(),
-          uploadedBy: { id: "ai-generator", email: "system@ai", name: `IA - ${MODELS.IMAGE}` },
+          uploadedBy: { id: "ai-generator", email: "system@ai", name: `IA - ${IMAGE_MODELS[aiModel].id}` },
           cardId: demand.id,
           tenantId: demand.tenant_id,
           clientId: demand.client_id,
