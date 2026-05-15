@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
       prompt: imagePrompt,
       mascotInline,
       logoInline,
-      aspectLabel: "1:1 (1024x1024)",
+      aspectLabel: aspectRatio,
       googleApiKey: GOOGLE_API_KEY,
       openaiApiKey: OPENAI_API_KEY,
     });
