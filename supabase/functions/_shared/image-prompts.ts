@@ -63,7 +63,7 @@ export type StaticPostPromptInput = {
 
 export function buildStaticPostPrompt(input: StaticPostPromptInput): string {
   const { vi, basePrompt, strategySnippet, contentSection, hasMascotReference } = input;
-  const aspect = input.aspectLabel || "1:1 (quadrado, 1024x1024)";
+  const aspect = input.aspectLabel || "1:1 (quadrado)";
   const logoUrl = vi.logo.url;
 
   return `
