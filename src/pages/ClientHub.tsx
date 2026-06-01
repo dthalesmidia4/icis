@@ -1575,9 +1575,37 @@ const ClientHub = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Modal Demanda Planejada - Etapa 1 */}
+        <Dialog open={demandaPlanejadaModalOpen} onOpenChange={(open) => { setDemandaPlanejadaModalOpen(open); if (!open) setSolicitacaoCliente(''); }}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <ClipboardList className="w-5 h-5" />
+                Demanda Planejada
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div>
+                <Label className="text-base font-semibold">O que o cliente solicitou?</Label>
+                <p className="text-xs text-muted-foreground mt-1">Coloque o máximo de informações possíveis que o cliente forneceu!</p>
+              </div>
+              <Textarea
+                placeholder="Ex: O cliente pediu um carrossel sobre uma nova campanha, quer destacar uma promoção específica, informou prazo, referências visuais e objetivo da postagem..."
+                value={solicitacaoCliente}
+                onChange={(e) => setSolicitacaoCliente(e.target.value)}
+                className="min-h-[200px]"
+              />
+              <div className="flex justify-end">
+                <Button onClick={handleContinuarDemandaPlanejada}>Continuar</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
 };
+
 
 export default ClientHub;
