@@ -79,13 +79,56 @@ const ClientHub = () => {
   const [savingRequirements, setSavingRequirements] = useState(false);
   const [demandaPlanejadaModalOpen, setDemandaPlanejadaModalOpen] = useState(false);
   const [solicitacaoCliente, setSolicitacaoCliente] = useState('');
+  const [demandaStep, setDemandaStep] = useState<1 | 2>(1);
+  const [generatingDemandaQuestions, setGeneratingDemandaQuestions] = useState(false);
+  const [demandaQuestions, setDemandaQuestions] = useState<string[]>([]);
 
-  const handleContinuarDemandaPlanejada = () => {
+  const resetDemandaPlanejada = () => {
+    setSolicitacaoCliente('');
+    setDemandaStep(1);
+    setDemandaQuestions([]);
+    setGeneratingDemandaQuestions(false);
+  };
+
+  const handleContinuarDemandaPlanejada = async () => {
     if (!solicitacaoCliente.trim()) {
       toast.error('Descreva o que o cliente solicitou antes de continuar.');
       return;
     }
-    // Próxima etapa será conectada futuramente
+    if (!selectedClient?.id || !tenantId) {
+      toast.error('Selecione um cliente antes de continuar.');
+      return;
+    }
+    setGeneratingDemandaQuestions(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-demanda-questions', {
+        body: {
+          companyId: selectedClient.id,
+          tenantId,
+          solicitacaoCliente,
+        },
+      });
+      if (error) {
+        const msg = (error as any)?.context?.error || (error as any)?.message || 'Erro ao gerar perguntas.';
+        toast.error(typeof msg === 'string' ? msg : 'Erro ao gerar perguntas.');
+        return;
+      }
+      if ((data as any)?.error) {
+        toast.error((data as any).error);
+        return;
+      }
+      const questions: string[] = (data as any)?.questions ?? [];
+      if (!questions.length) {
+        toast.error('Nenhuma pergunta foi gerada. Tente novamente.');
+        return;
+      }
+      setDemandaQuestions(questions);
+      setDemandaStep(2);
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao gerar perguntas.');
+    } finally {
+      setGeneratingDemandaQuestions(false);
+    }
   };
 
   useEffect(() => {
