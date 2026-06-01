@@ -1237,52 +1237,22 @@ const PlanPeriod = () => {
         return (
           <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSelectedHistoryPlan(null)}>
             <Card className="max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-              <div className="p-6 border-b bg-muted/30">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-bold">{selectedHistoryPlan.period_title}</h2>
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1.5">
-                        <CalendarIcon className="w-4 h-4" />
-                        {format(new Date(selectedHistoryPlan.period_start + 'T00:00:00'), "dd/MM/yyyy")} – {format(new Date(selectedHistoryPlan.period_end + 'T00:00:00'), "dd/MM/yyyy")}
-                      </span>
-                    </div>
+              <div className="p-6 border-b bg-muted/30 relative">
+                <div className="text-center space-y-1">
+                  <h2 className="text-2xl font-bold">{selectedHistoryPlan.period_title}</h2>
+                  <div className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+                    <CalendarIcon className="w-4 h-4" />
+                    {format(new Date(selectedHistoryPlan.period_start + 'T00:00:00'), "dd/MM/yyyy")} – {format(new Date(selectedHistoryPlan.period_end + 'T00:00:00'), "dd/MM/yyyy")}
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => setSelectedHistoryPlan(null)} className="shrink-0" aria-label="Fechar detalhes">
-                    <X className="w-5 h-5" />
-                  </Button>
                 </div>
+                <Button variant="ghost" size="icon" onClick={() => setSelectedHistoryPlan(null)} className="absolute top-4 right-4" aria-label="Fechar detalhes">
+                  <X className="w-5 h-5" />
+                </Button>
               </div>
 
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                <Card className="p-5 border-primary/20 bg-primary/5">
-                  <h3 className="text-sm font-semibold text-primary mb-4 flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4" />
-                    Resumo Executivo
-                  </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-foreground">{metrics.total}</p>
-                      <p className="text-xs text-muted-foreground">Aprovadas</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-emerald-600">{metrics.published}</p>
-                      <p className="text-xs text-muted-foreground">Publicadas</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-amber-600">{pending}</p>
-                      <p className="text-xs text-muted-foreground">Pendentes</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-foreground">{executionPercent}%</p>
-                      <p className="text-xs text-muted-foreground">Execução</p>
-                    </div>
-                  </div>
-                  <Progress value={executionPercent} className="h-2" />
-                </Card>
-
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <h3 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
                     <Rocket className="w-4 h-4 text-primary" />
                     Linha do Tempo de Execução
                   </h3>
@@ -1295,17 +1265,17 @@ const PlanPeriod = () => {
                     <div className="bg-muted/30 rounded-xl border border-border/50">
                       {executedDemands.length > 0 && (
                         <div className="p-4">
-                          <p className="text-xs font-medium text-emerald-600 mb-2 uppercase tracking-wide">Publicadas ({executedDemands.length})</p>
-                          <div className="flex flex-col gap-1.5">
+                          <p className="text-xs font-medium text-emerald-600 mb-3 uppercase tracking-wide">Publicadas ({executedDemands.length})</p>
+                          <div className="flex flex-col gap-2">
                             {executedDemands.map((d: any) => (
-                              <div key={d.id} className="flex items-center gap-3 px-3 py-2 bg-background rounded-md border border-border/50 text-sm">
-                                <span className="text-xs text-muted-foreground whitespace-nowrap w-20">
+                              <div key={d.id} className="flex items-center gap-3 px-4 py-3 bg-background rounded-lg border border-border/50 text-sm">
+                                <span className="text-sm text-muted-foreground whitespace-nowrap w-16 font-medium">
                                   {d.publish_date ? format(new Date(d.publish_date + 'T00:00:00'), "dd/MM") : '—'}
                                 </span>
-                                {d.demand_type && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">{d.demand_type}</Badge>}
+                                {d.demand_type && <Badge variant="secondary" className="text-xs px-2 py-0.5 shrink-0">{d.demand_type}</Badge>}
                                 {d.channel && <span className="text-xs text-muted-foreground shrink-0">{d.channel}</span>}
-                                <span className="text-xs font-medium truncate flex-1">{d.title}</span>
-                                <Badge className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/30">Publicado</Badge>
+                                <span className="text-sm font-medium truncate flex-1">{d.title}</span>
+                                <Badge className="text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/30">Publicado</Badge>
                               </div>
                             ))}
                           </div>
@@ -1313,17 +1283,17 @@ const PlanPeriod = () => {
                       )}
                       {pendingDemands.length > 0 && (
                         <div className={cn("p-4", executedDemands.length > 0 && "border-t border-border/50")}>
-                          <p className="text-xs font-medium text-amber-600 mb-2 uppercase tracking-wide">Pendentes ({pendingDemands.length})</p>
-                          <div className="flex flex-col gap-1.5">
+                          <p className="text-xs font-medium text-amber-600 mb-3 uppercase tracking-wide">Pendentes ({pendingDemands.length})</p>
+                          <div className="flex flex-col gap-2">
                             {pendingDemands.map((d: any) => (
-                              <div key={d.id} className="flex items-center gap-3 px-3 py-2 bg-background rounded-md border border-border/50 text-sm opacity-70">
-                                <span className="text-xs text-muted-foreground whitespace-nowrap w-20">
+                              <div key={d.id} className="flex items-center gap-3 px-4 py-3 bg-background rounded-lg border border-border/50 text-sm">
+                                <span className="text-sm text-muted-foreground whitespace-nowrap w-16 font-medium">
                                   {d.publish_date ? format(new Date(d.publish_date + 'T00:00:00'), "dd/MM") : '—'}
                                 </span>
-                                {d.demand_type && <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">{d.demand_type}</Badge>}
+                                {d.demand_type && <Badge variant="secondary" className="text-xs px-2 py-0.5 shrink-0">{d.demand_type}</Badge>}
                                 {d.channel && <span className="text-xs text-muted-foreground shrink-0">{d.channel}</span>}
-                                <span className="text-xs font-medium truncate flex-1">{d.title}</span>
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">{d.pipeline_statuses?.name || 'Pendente'}</Badge>
+                                <span className="text-sm font-medium truncate flex-1">{d.title}</span>
+                                <Badge variant="outline" className="text-xs px-2 py-0.5">{d.pipeline_statuses?.name || 'Pendente'}</Badge>
                               </div>
                             ))}
                           </div>
@@ -1332,6 +1302,7 @@ const PlanPeriod = () => {
                     </div>
                   )}
                 </div>
+
 
                 <Collapsible open={generationHistoryOpen} onOpenChange={setGenerationHistoryOpen}>
                   <CollapsibleTrigger className="flex items-center gap-2 w-full text-left py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
