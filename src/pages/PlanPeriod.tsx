@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
@@ -85,6 +86,7 @@ const PlanPeriod = () => {
   const [expandedLatestCard, setExpandedLatestCard] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [generationHistoryOpen, setGenerationHistoryOpen] = useState(false);
+  const [selectedDemandDetail, setSelectedDemandDetail] = useState<any | null>(null);
 
   // Demand execution metrics per period
   const [periodDemandMetrics, setPeriodDemandMetrics] = useState<Record<string, { total: number; published: number; demands: any[] }>>({});
@@ -1108,7 +1110,8 @@ const PlanPeriod = () => {
             {periodHistory.map(period => (
               <div
                 key={period.id}
-                className="grid grid-cols-[1.5fr_1fr_auto] sm:grid-cols-[2fr_1fr_140px] items-center gap-4 px-5 py-3 bg-background hover:bg-muted/50 transition-colors duration-200 group"
+                className="grid grid-cols-[1.5fr_1fr_auto] sm:grid-cols-[2fr_1fr_140px] items-center gap-4 px-5 py-3 bg-background hover:bg-muted/50 transition-colors duration-200 group cursor-pointer"
+                onClick={() => setSelectedHistoryPlan(period)}
               >
                 <div className="min-w-0">
                   <span className="text-sm font-semibold text-foreground truncate block">
@@ -1121,16 +1124,6 @@ const PlanPeriod = () => {
                   </span>
                 </div>
                 <div className="flex items-center justify-end gap-1 shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 text-muted-foreground hover:text-foreground"
-                    onClick={() => setSelectedHistoryPlan(period)}
-                    aria-label="Ver cards"
-                    title="Ver cards"
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -1259,6 +1252,8 @@ const PlanPeriod = () => {
                     title: d.title || 'Sem título',
                     tipo: d.demand_type || '',
                     status: d.pipeline_statuses,
+                    raw: d,
+                    source: 'db' as const,
                   }));
                   const dbTitles = new Set(dbDemands.map(d => d.title.trim().toLowerCase()));
 
@@ -1273,6 +1268,8 @@ const PlanPeriod = () => {
                       title: item.titulo || item.title || 'Sem título',
                       tipo: item.tipo || item.tipo_conteudo || item.type || '',
                       status: null as any,
+                      raw: item,
+                      source: 'plan' as const,
                     }))
                     .filter(item => !dbTitles.has(item.title.trim().toLowerCase()));
 
@@ -1307,7 +1304,8 @@ const PlanPeriod = () => {
                         {allDemands.map((d) => (
                           <div
                             key={d.key}
-                            className="grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 bg-background hover:bg-muted/50 transition-colors"
+                            className="grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 bg-background hover:bg-muted/50 transition-colors cursor-pointer"
+                            onClick={() => setSelectedDemandDetail(d)}
                           >
                             <span className="text-base font-semibold text-foreground truncate">{d.title}</span>
                             <div className="flex items-center gap-2 shrink-0 justify-end">
@@ -1348,6 +1346,65 @@ const PlanPeriod = () => {
           </div>
         );
       })()}
+
+      {/* Demand detail dialog */}
+      <Dialog open={!!selectedDemandDetail} onOpenChange={(open) => !open && setSelectedDemandDetail(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          {selectedDemandDetail && (() => {
+            const d = selectedDemandDetail;
+            const raw = d.raw || {};
+            const objetivo = raw.objective || raw.objetivo || '';
+            const content = raw.description || raw.descricao || raw.conteudo || raw.texto_da_peca || raw.descricao_da_tarefa || '';
+            const instrucoes = raw.instrucoes_de_producao || raw.production_instructions || '';
+            const cta = raw.cta_recomendado || raw.cta || '';
+            const channel = raw.channel || raw.canal || '';
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-xl">{d.title}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 mt-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {d.tipo && <Badge variant="secondary">{d.tipo}</Badge>}
+                    {channel && <Badge variant="outline">{channel}</Badge>}
+                    {d.status && (
+                      <Badge
+                        style={{ backgroundColor: `${d.status.color}20`, color: d.status.color, borderColor: `${d.status.color}40` }}
+                      >
+                        {d.status.name}
+                      </Badge>
+                    )}
+                  </div>
+                  {objetivo && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Objetivo</p>
+                      <p className="text-sm text-foreground whitespace-pre-line">{objetivo}</p>
+                    </div>
+                  )}
+                  {content && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Conteúdo</p>
+                      <div className="text-sm bg-muted/50 rounded-lg p-3 border whitespace-pre-line">{content}</div>
+                    </div>
+                  )}
+                  {instrucoes && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Instruções de Produção</p>
+                      <div className="text-sm bg-muted/50 rounded-lg p-3 border whitespace-pre-line">{instrucoes}</div>
+                    </div>
+                  )}
+                  {cta && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">CTA Recomendado</p>
+                      <p className="text-sm">{cta}</p>
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Modal */}
       {periodToDelete && <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => !isDeleting && setPeriodToDelete(null)}>
