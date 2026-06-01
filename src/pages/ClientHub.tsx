@@ -1619,8 +1619,8 @@ const ClientHub = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Modal Demanda Planejada - Etapa 1 */}
-        <Dialog open={demandaPlanejadaModalOpen} onOpenChange={(open) => { setDemandaPlanejadaModalOpen(open); if (!open) setSolicitacaoCliente(''); }}>
+        {/* Modal Demanda Planejada */}
+        <Dialog open={demandaPlanejadaModalOpen} onOpenChange={(open) => { setDemandaPlanejadaModalOpen(open); if (!open) resetDemandaPlanejada(); }}>
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle className="text-xl flex items-center gap-2">
@@ -1628,21 +1628,45 @@ const ClientHub = () => {
                 Demanda Planejada
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div>
-                <Label className="text-base font-semibold">O que o cliente solicitou?</Label>
-                <p className="text-xs text-muted-foreground mt-1">Coloque o máximo de informações possíveis que o cliente forneceu!</p>
+            {demandaStep === 1 ? (
+              <div className="space-y-4 py-2">
+                <div>
+                  <Label className="text-base font-semibold">O que o cliente solicitou?</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Coloque o máximo de informações possíveis que o cliente forneceu!</p>
+                </div>
+                <Textarea
+                  placeholder="Ex: O cliente pediu um carrossel sobre uma nova campanha, quer destacar uma promoção específica, informou prazo, referências visuais e objetivo da postagem..."
+                  value={solicitacaoCliente}
+                  onChange={(e) => setSolicitacaoCliente(e.target.value)}
+                  className="min-h-[200px]"
+                  disabled={generatingDemandaQuestions}
+                />
+                <div className="flex justify-end">
+                  <Button onClick={handleContinuarDemandaPlanejada} disabled={generatingDemandaQuestions}>
+                    {generatingDemandaQuestions ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando perguntas...</>
+                    ) : 'Continuar'}
+                  </Button>
+                </div>
               </div>
-              <Textarea
-                placeholder="Ex: O cliente pediu um carrossel sobre uma nova campanha, quer destacar uma promoção específica, informou prazo, referências visuais e objetivo da postagem..."
-                value={solicitacaoCliente}
-                onChange={(e) => setSolicitacaoCliente(e.target.value)}
-                className="min-h-[200px]"
-              />
-              <div className="flex justify-end">
-                <Button onClick={handleContinuarDemandaPlanejada}>Continuar</Button>
+            ) : (
+              <div className="space-y-4 py-2">
+                <div>
+                  <Label className="text-base font-semibold">Perguntas estratégicas</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Perguntas geradas com base na solicitação do cliente e na estratégia geral.</p>
+                </div>
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                  {demandaQuestions.map((q, i) => (
+                    <div key={i} className="p-3 rounded-md border bg-muted/30 text-sm">
+                      <span className="font-semibold text-primary mr-2">{i + 1}.</span>{q}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between">
+                  <Button variant="outline" onClick={() => setDemandaStep(1)}>Voltar</Button>
+                </div>
               </div>
-            </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
