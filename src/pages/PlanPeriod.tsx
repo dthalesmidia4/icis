@@ -80,6 +80,8 @@ const PlanPeriod = () => {
   const [selectedHistoryPlan, setSelectedHistoryPlan] = useState<PeriodPlanHistory | null>(null);
   const [historyViewTab, setHistoryViewTab] = useState<'final' | 'normal' | 'ultra'>('final');
   const [periodToDelete, setPeriodToDelete] = useState<PeriodPlanHistory | null>(null);
+  const [linkedDemands, setLinkedDemands] = useState<any[]>([]);
+  const [loadingLinkedDemands, setLoadingLinkedDemands] = useState(false);
   const [expandedLatestCard, setExpandedLatestCard] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [generationHistoryOpen, setGenerationHistoryOpen] = useState(false);
