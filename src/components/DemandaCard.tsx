@@ -96,22 +96,9 @@ export const DemandaCard = ({ demanda, compact = false, variant = 'default' }: D
         className={`p-4 border ${bgClass} cursor-pointer hover:shadow-md transition-shadow`}
         onClick={() => setDetailOpen(true)}
       >
-        <div className="space-y-2">
-          {/* Category badge */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {tipo && <Badge variant="secondary">{tipo}</Badge>}
-          </div>
-
-          {/* Title - bigger */}
-          <h4 className="text-lg font-semibold">{title}</h4>
-
-          {/* Objective */}
-          {objetivo && (
-            <div>
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Objetivo:</span>
-              <p className="text-sm text-muted-foreground line-clamp-2 mt-0.5">{objetivo}</p>
-            </div>
-          )}
+        <div className="flex items-center gap-3 flex-wrap">
+          {tipo && <Badge variant="secondary" className="shrink-0">{tipo}</Badge>}
+          <h4 className="text-lg font-semibold flex-1 min-w-0">{title}</h4>
         </div>
       </Card>
 

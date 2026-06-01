@@ -1251,95 +1251,29 @@ const PlanPeriod = () => {
               </div>
 
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                <div>
-                  <h3 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
-                    <Rocket className="w-4 h-4 text-primary" />
-                    Linha do Tempo de Execução
-                  </h3>
-                  {executedDemands.length === 0 && pendingDemands.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <CalendarIcon className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                      <p className="text-sm">Nenhuma demanda vinculada a este período</p>
-                    </div>
-                  ) : (
-                    <div className="bg-muted/30 rounded-xl border border-border/50">
-                      {executedDemands.length > 0 && (
-                        <div className="p-4">
-                          <p className="text-xs font-medium text-emerald-600 mb-3 uppercase tracking-wide">Publicadas ({executedDemands.length})</p>
-                          <div className="flex flex-col gap-2">
-                            {executedDemands.map((d: any) => (
-                              <div key={d.id} className="flex items-center gap-3 px-4 py-3 bg-background rounded-lg border border-border/50 text-sm">
-                                <span className="text-sm text-muted-foreground whitespace-nowrap w-16 font-medium">
-                                  {d.publish_date ? format(new Date(d.publish_date + 'T00:00:00'), "dd/MM") : '—'}
-                                </span>
-                                {d.demand_type && <Badge variant="secondary" className="text-xs px-2 py-0.5 shrink-0">{d.demand_type}</Badge>}
-                                {d.channel && <span className="text-xs text-muted-foreground shrink-0">{d.channel}</span>}
-                                <span className="text-sm font-medium truncate flex-1">{d.title}</span>
-                                <Badge className="text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/30">Publicado</Badge>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {pendingDemands.length > 0 && (
-                        <div className={cn("p-4", executedDemands.length > 0 && "border-t border-border/50")}>
-                          <p className="text-xs font-medium text-amber-600 mb-3 uppercase tracking-wide">Pendentes ({pendingDemands.length})</p>
-                          <div className="flex flex-col gap-2">
-                            {pendingDemands.map((d: any) => (
-                              <div key={d.id} className="flex items-center gap-3 px-4 py-3 bg-background rounded-lg border border-border/50 text-sm">
-                                <span className="text-sm text-muted-foreground whitespace-nowrap w-16 font-medium">
-                                  {d.publish_date ? format(new Date(d.publish_date + 'T00:00:00'), "dd/MM") : '—'}
-                                </span>
-                                {d.demand_type && <Badge variant="secondary" className="text-xs px-2 py-0.5 shrink-0">{d.demand_type}</Badge>}
-                                {d.channel && <span className="text-xs text-muted-foreground shrink-0">{d.channel}</span>}
-                                <span className="text-sm font-medium truncate flex-1">{d.title}</span>
-                                <Badge variant="outline" className="text-xs px-2 py-0.5">{d.pipeline_statuses?.name || 'Pendente'}</Badge>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-
-                <Collapsible open={generationHistoryOpen} onOpenChange={setGenerationHistoryOpen}>
-                  <CollapsibleTrigger className="flex items-center gap-2 w-full text-left py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-                    <ChevronDown className={cn("w-4 h-4 transition-transform", generationHistoryOpen && "rotate-180")} />
-                    Histórico Técnico de Geração
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-4 mt-3">
-                    {selectedHistoryPlan.final_plan && selectedHistoryPlan.final_plan.length > 0 && (
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Plano Final ({selectedHistoryPlan.final_plan.length})</p>
-                        <div className="grid gap-2">
-                          {selectedHistoryPlan.final_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} />)}
-                        </div>
-                      </div>
-                    )}
-                    {selectedHistoryPlan.default_plan && selectedHistoryPlan.default_plan.length > 0 && (
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Modo Normal ({selectedHistoryPlan.default_plan.length})</p>
-                        <div className="grid gap-2">
-                          {selectedHistoryPlan.default_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="normal" />)}
-                        </div>
-                      </div>
-                    )}
-                    {selectedHistoryPlan.ultra_plan && selectedHistoryPlan.ultra_plan.length > 0 && (
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Modo Ultra ({selectedHistoryPlan.ultra_plan.length})</p>
-                        <div className="grid gap-2">
-                          {selectedHistoryPlan.ultra_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="ultra" />)}
-                        </div>
-                      </div>
-                    )}
-                    {!selectedHistoryPlan.final_plan?.length && !selectedHistoryPlan.default_plan?.length && !selectedHistoryPlan.ultra_plan?.length && (
-                      <p className="text-sm text-muted-foreground text-center py-4">Nenhum dado de geração disponível</p>
-                    )}
-                  </CollapsibleContent>
-                </Collapsible>
+                {selectedHistoryPlan.final_plan && selectedHistoryPlan.final_plan.length > 0 && (
+                  <div className="grid gap-3">
+                    {selectedHistoryPlan.final_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} />)}
+                  </div>
+                )}
+                {(!selectedHistoryPlan.final_plan || selectedHistoryPlan.final_plan.length === 0) && selectedHistoryPlan.default_plan && selectedHistoryPlan.default_plan.length > 0 && (
+                  <div className="grid gap-3">
+                    {selectedHistoryPlan.default_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="normal" />)}
+                  </div>
+                )}
+                {(!selectedHistoryPlan.final_plan || selectedHistoryPlan.final_plan.length === 0) && selectedHistoryPlan.ultra_plan && selectedHistoryPlan.ultra_plan.length > 0 && (
+                  <div className="grid gap-3">
+                    {selectedHistoryPlan.ultra_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="ultra" />)}
+                  </div>
+                )}
+                {!selectedHistoryPlan.final_plan?.length && !selectedHistoryPlan.default_plan?.length && !selectedHistoryPlan.ultra_plan?.length && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <CalendarIcon className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">Nenhum card disponível neste período</p>
+                  </div>
+                )}
               </div>
+
 
               <div className="p-4 border-t bg-muted/30 flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
