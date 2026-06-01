@@ -1097,23 +1097,40 @@ const PlanPeriod = () => {
       ) : searchParams.get('view') === 'latest' && selectedHistoryPlan ? (
         null
       ) : (
-        <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
-          <div className="flex flex-col gap-2">
+        <div className="bg-muted/30 rounded-xl border border-border/50 overflow-hidden">
+          {/* Header */}
+          <div className="grid grid-cols-[1.5fr_1fr_auto] sm:grid-cols-[2fr_1fr_140px] items-center gap-4 px-5 py-3 border-b border-border/50 bg-muted/50 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <div>Nome do período</div>
+            <div>Data do período</div>
+            <div className="text-right">Ações</div>
+          </div>
+          <div className="divide-y divide-border/50">
             {periodHistory.map(period => (
               <div
                 key={period.id}
-                className="flex items-center justify-between gap-4 px-5 py-4 bg-background rounded-lg border border-border/50 cursor-pointer hover:bg-muted/50 transition-all duration-200 group"
-                onClick={() => setSelectedHistoryPlan(period)}
+                className="grid grid-cols-[1.5fr_1fr_auto] sm:grid-cols-[2fr_1fr_140px] items-center gap-4 px-5 py-3 bg-background hover:bg-muted/50 transition-colors duration-200 group"
               >
-                <div className="min-w-0 flex-1">
-                  <span className="text-base sm:text-lg font-bold text-foreground truncate block">
+                <div className="min-w-0">
+                  <span className="text-sm font-semibold text-foreground truncate block">
                     {period.period_title}
                   </span>
-                  <span className="text-sm text-muted-foreground">
+                </div>
+                <div className="min-w-0">
+                  <span className="text-sm text-foreground truncate block">
                     {format(new Date(period.period_start + 'T00:00:00'), "dd/MM/yyyy")} – {format(new Date(period.period_end + 'T00:00:00'), "dd/MM/yyyy")}
                   </span>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center justify-end gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                    onClick={() => setSelectedHistoryPlan(period)}
+                    aria-label="Ver cards"
+                    title="Ver cards"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -1124,12 +1141,12 @@ const PlanPeriod = () => {
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
                 </div>
               </div>
             ))}
           </div>
         </div>
+
       )}
 
       {/* ===== DETAIL VIEW ===== */}
