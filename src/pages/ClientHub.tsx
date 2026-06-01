@@ -490,6 +490,7 @@ const ClientHub = () => {
     { id: 'client_identidade_visual' as ClientHubButtonId, title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
     { id: 'client_conteudo_avulso' as ClientHubButtonId, title: "Conteúdo Avulso", icon: PenTool, action: () => setContentHubModalOpen(true) },
     { id: 'client_conteudo_avulso_backup' as ClientHubButtonId, title: "Conteúdo Avulso (Backup)", icon: PenTool, action: () => setContentHubModalOpen(true) },
+    { id: 'client_demanda_planejada' as ClientHubButtonId, title: "Demanda Planejada", icon: ClipboardList, action: () => setDemandaPlanejadaModalOpen(true) },
   ];
 
   // Admins see all buttons; others are filtered by permissions
