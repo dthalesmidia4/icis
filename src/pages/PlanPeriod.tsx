@@ -85,6 +85,7 @@ const PlanPeriod = () => {
   const [expandedLatestCard, setExpandedLatestCard] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [generationHistoryOpen, setGenerationHistoryOpen] = useState(false);
+  const [selectedDemandDetail, setSelectedDemandDetail] = useState<any | null>(null);
 
   // Demand execution metrics per period
   const [periodDemandMetrics, setPeriodDemandMetrics] = useState<Record<string, { total: number; published: number; demands: any[] }>>({});
