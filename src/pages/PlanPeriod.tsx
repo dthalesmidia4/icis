@@ -1251,6 +1251,8 @@ const PlanPeriod = () => {
                     title: d.title || 'Sem título',
                     tipo: d.demand_type || '',
                     status: d.pipeline_statuses,
+                    raw: d,
+                    source: 'db' as const,
                   }));
                   const dbTitles = new Set(dbDemands.map(d => d.title.trim().toLowerCase()));
 
@@ -1265,6 +1267,8 @@ const PlanPeriod = () => {
                       title: item.titulo || item.title || 'Sem título',
                       tipo: item.tipo || item.tipo_conteudo || item.type || '',
                       status: null as any,
+                      raw: item,
+                      source: 'plan' as const,
                     }))
                     .filter(item => !dbTitles.has(item.title.trim().toLowerCase()));
 
@@ -1299,7 +1303,8 @@ const PlanPeriod = () => {
                         {allDemands.map((d) => (
                           <div
                             key={d.key}
-                            className="grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 bg-background hover:bg-muted/50 transition-colors"
+                            className="grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 bg-background hover:bg-muted/50 transition-colors cursor-pointer"
+                            onClick={() => setSelectedDemandDetail(d)}
                           >
                             <span className="text-base font-semibold text-foreground truncate">{d.title}</span>
                             <div className="flex items-center gap-2 shrink-0 justify-end">
