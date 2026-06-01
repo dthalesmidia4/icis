@@ -1250,29 +1250,85 @@ const PlanPeriod = () => {
                 </Button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {selectedHistoryPlan.final_plan && selectedHistoryPlan.final_plan.length > 0 && (
-                  <div className="grid gap-3">
-                    {selectedHistoryPlan.final_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} />)}
-                  </div>
-                )}
-                {(!selectedHistoryPlan.final_plan || selectedHistoryPlan.final_plan.length === 0) && selectedHistoryPlan.default_plan && selectedHistoryPlan.default_plan.length > 0 && (
-                  <div className="grid gap-3">
-                    {selectedHistoryPlan.default_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="normal" />)}
-                  </div>
-                )}
-                {(!selectedHistoryPlan.final_plan || selectedHistoryPlan.final_plan.length === 0) && selectedHistoryPlan.ultra_plan && selectedHistoryPlan.ultra_plan.length > 0 && (
-                  <div className="grid gap-3">
-                    {selectedHistoryPlan.ultra_plan.map((item, idx) => <DemandaCard key={idx} demanda={item as unknown as DemandaItem} variant="ultra" />)}
-                  </div>
-                )}
-                {!selectedHistoryPlan.final_plan?.length && !selectedHistoryPlan.default_plan?.length && !selectedHistoryPlan.ultra_plan?.length && (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <CalendarIcon className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">Nenhum card disponível neste período</p>
-                  </div>
-                )}
+              <div className="flex-1 overflow-y-auto p-6">
+                {(() => {
+                  // Build a unified list of all demands of this period.
+                  // Prefer real DB demands; merge plan items not matched by title.
+                  const dbDemands = (metrics.demands || []).map((d: any) => ({
+                    key: `db-${d.id}`,
+                    title: d.title || 'Sem título',
+                    tipo: d.demand_type || '',
+                    status: d.pipeline_statuses,
+                  }));
+                  const dbTitles = new Set(dbDemands.map(d => d.title.trim().toLowerCase()));
+
+                  const planItems: any[] = [
+                    ...(selectedHistoryPlan.final_plan || []),
+                    ...(selectedHistoryPlan.default_plan || []),
+                    ...(selectedHistoryPlan.ultra_plan || []),
+                  ];
+                  const extraPlan = planItems
+                    .map((item: any, idx: number) => ({
+                      key: `plan-${idx}`,
+                      title: item.titulo || item.title || 'Sem título',
+                      tipo: item.tipo || item.tipo_conteudo || item.type || '',
+                      status: null as any,
+                    }))
+                    .filter(item => !dbTitles.has(item.title.trim().toLowerCase()));
+
+                  // Dedupe extras by title
+                  const seen = new Set<string>();
+                  const uniqueExtras = extraPlan.filter(i => {
+                    const k = i.title.trim().toLowerCase();
+                    if (seen.has(k)) return false;
+                    seen.add(k);
+                    return true;
+                  });
+
+                  const allDemands = [...dbDemands, ...uniqueExtras];
+
+                  if (allDemands.length === 0) {
+                    return (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <CalendarIcon className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">Nenhum card disponível neste período</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="bg-muted/30 rounded-xl border border-border/50 overflow-hidden">
+                      {/* Header */}
+                      <div className="grid grid-cols-[1fr_auto] gap-4 px-5 py-3 border-b border-border/50 bg-muted/50 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <div>Nome do card</div>
+                        <div className="text-right">Tags</div>
+                      </div>
+                      <div className="divide-y divide-border/50">
+                        {allDemands.map((d) => (
+                          <div
+                            key={d.key}
+                            className="grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 bg-background hover:bg-muted/50 transition-colors"
+                          >
+                            <span className="text-base font-semibold text-foreground truncate">{d.title}</span>
+                            <div className="flex items-center gap-2 shrink-0 justify-end">
+                              {d.tipo && <Badge variant="secondary" className="text-xs">{d.tipo}</Badge>}
+                              {d.status && (
+                                <Badge
+                                  className="text-xs"
+                                  style={{ backgroundColor: `${d.status.color}20`, color: d.status.color, borderColor: `${d.status.color}40` }}
+                                >
+                                  {d.status.name}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
+
 
 
               <div className="p-4 border-t bg-muted/30 flex items-center justify-between">
