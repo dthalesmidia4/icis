@@ -337,15 +337,48 @@ const PlanPeriod = () => {
     }
   };
 
+  // Carrega cards vinculados ao período sempre que abrir o modal de exclusão
+  useEffect(() => {
+    if (!periodToDelete) {
+      setLinkedDemands([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoadingLinkedDemands(true);
+      try {
+        const { data, error } = await supabase
+          .from('demands')
+          .select('id, title, demand_type, channel, created_at, client_id, tenant_companies:client_id(name), pipeline_statuses:status_id(name, color)')
+          .eq('period_plan_id', periodToDelete.id)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        if (!cancelled) setLinkedDemands(data || []);
+      } catch (err) {
+        console.error('Error loading linked demands:', err);
+        if (!cancelled) setLinkedDemands([]);
+      } finally {
+        if (!cancelled) setLoadingLinkedDemands(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [periodToDelete]);
+
   const handleDeletePeriod = async () => {
     if (!periodToDelete) return;
     setIsDeleting(true);
     try {
-      await supabase.from('demands').delete().eq('period_plan_id', periodToDelete.id);
+      // RLS já garante isolamento por tenant. Filtro extra por period_plan_id assegura que só esses cards são excluídos.
+      const { error: demandsError } = await supabase
+        .from('demands')
+        .delete()
+        .eq('period_plan_id', periodToDelete.id);
+      if (demandsError) throw demandsError;
       const { error } = await supabase.from('period_plans').delete().eq('id', periodToDelete.id);
       if (error) throw error;
       setPeriodHistory(prev => prev.filter(p => p.id !== periodToDelete.id));
-      toast.success("Período excluído com sucesso");
+      console.log('[PlanPeriod] Período excluído', { periodId: periodToDelete.id, cardsExcluidos: linkedDemands.length });
+      toast.success(`Período excluído com ${linkedDemands.length} card(s) vinculado(s)`);
       setPeriodToDelete(null);
     } catch (error) {
       console.error('Error deleting period:', error);
