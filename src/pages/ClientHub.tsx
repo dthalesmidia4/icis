@@ -77,6 +77,16 @@ const ClientHub = () => {
   const [planPeriodModalOpen, setPlanPeriodModalOpen] = useState(false);
   const [contentRequirements, setContentRequirements] = useState('');
   const [savingRequirements, setSavingRequirements] = useState(false);
+  const [demandaPlanejadaModalOpen, setDemandaPlanejadaModalOpen] = useState(false);
+  const [solicitacaoCliente, setSolicitacaoCliente] = useState('');
+
+  const handleContinuarDemandaPlanejada = () => {
+    if (!solicitacaoCliente.trim()) {
+      toast.error('Descreva o que o cliente solicitou antes de continuar.');
+      return;
+    }
+    // Próxima etapa será conectada futuramente
+  };
 
   useEffect(() => {
     if (!selectedClient?.id || !tenantId) return;
@@ -480,6 +490,7 @@ const ClientHub = () => {
     { id: 'client_identidade_visual' as ClientHubButtonId, title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
     { id: 'client_conteudo_avulso' as ClientHubButtonId, title: "Conteúdo Avulso", icon: PenTool, action: () => setContentHubModalOpen(true) },
     { id: 'client_conteudo_avulso_backup' as ClientHubButtonId, title: "Conteúdo Avulso (Backup)", icon: PenTool, action: () => setContentHubModalOpen(true) },
+    { id: 'client_demanda_planejada' as ClientHubButtonId, title: "Demanda Planejada", icon: ClipboardList, action: () => setDemandaPlanejadaModalOpen(true) },
   ];
 
   // Admins see all buttons; others are filtered by permissions
@@ -1564,9 +1575,37 @@ const ClientHub = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Modal Demanda Planejada - Etapa 1 */}
+        <Dialog open={demandaPlanejadaModalOpen} onOpenChange={(open) => { setDemandaPlanejadaModalOpen(open); if (!open) setSolicitacaoCliente(''); }}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <ClipboardList className="w-5 h-5" />
+                Demanda Planejada
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div>
+                <Label className="text-base font-semibold">O que o cliente solicitou?</Label>
+                <p className="text-xs text-muted-foreground mt-1">Coloque o máximo de informações possíveis que o cliente forneceu!</p>
+              </div>
+              <Textarea
+                placeholder="Ex: O cliente pediu um carrossel sobre uma nova campanha, quer destacar uma promoção específica, informou prazo, referências visuais e objetivo da postagem..."
+                value={solicitacaoCliente}
+                onChange={(e) => setSolicitacaoCliente(e.target.value)}
+                className="min-h-[200px]"
+              />
+              <div className="flex justify-end">
+                <Button onClick={handleContinuarDemandaPlanejada}>Continuar</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
 };
+
 
 export default ClientHub;
