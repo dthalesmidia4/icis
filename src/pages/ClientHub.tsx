@@ -79,13 +79,56 @@ const ClientHub = () => {
   const [savingRequirements, setSavingRequirements] = useState(false);
   const [demandaPlanejadaModalOpen, setDemandaPlanejadaModalOpen] = useState(false);
   const [solicitacaoCliente, setSolicitacaoCliente] = useState('');
+  const [demandaStep, setDemandaStep] = useState<1 | 2>(1);
+  const [generatingDemandaQuestions, setGeneratingDemandaQuestions] = useState(false);
+  const [demandaQuestions, setDemandaQuestions] = useState<string[]>([]);
 
-  const handleContinuarDemandaPlanejada = () => {
+  const resetDemandaPlanejada = () => {
+    setSolicitacaoCliente('');
+    setDemandaStep(1);
+    setDemandaQuestions([]);
+    setGeneratingDemandaQuestions(false);
+  };
+
+  const handleContinuarDemandaPlanejada = async () => {
     if (!solicitacaoCliente.trim()) {
       toast.error('Descreva o que o cliente solicitou antes de continuar.');
       return;
     }
-    // Próxima etapa será conectada futuramente
+    if (!selectedClient?.id || !tenantId) {
+      toast.error('Selecione um cliente antes de continuar.');
+      return;
+    }
+    setGeneratingDemandaQuestions(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-demanda-questions', {
+        body: {
+          companyId: selectedClient.id,
+          tenantId,
+          solicitacaoCliente,
+        },
+      });
+      if (error) {
+        const msg = (error as any)?.context?.error || (error as any)?.message || 'Erro ao gerar perguntas.';
+        toast.error(typeof msg === 'string' ? msg : 'Erro ao gerar perguntas.');
+        return;
+      }
+      if ((data as any)?.error) {
+        toast.error((data as any).error);
+        return;
+      }
+      const questions: string[] = (data as any)?.questions ?? [];
+      if (!questions.length) {
+        toast.error('Nenhuma pergunta foi gerada. Tente novamente.');
+        return;
+      }
+      setDemandaQuestions(questions);
+      setDemandaStep(2);
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao gerar perguntas.');
+    } finally {
+      setGeneratingDemandaQuestions(false);
+    }
   };
 
   useEffect(() => {
@@ -1576,8 +1619,8 @@ const ClientHub = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Modal Demanda Planejada - Etapa 1 */}
-        <Dialog open={demandaPlanejadaModalOpen} onOpenChange={(open) => { setDemandaPlanejadaModalOpen(open); if (!open) setSolicitacaoCliente(''); }}>
+        {/* Modal Demanda Planejada */}
+        <Dialog open={demandaPlanejadaModalOpen} onOpenChange={(open) => { setDemandaPlanejadaModalOpen(open); if (!open) resetDemandaPlanejada(); }}>
           <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle className="text-xl flex items-center gap-2">
@@ -1585,21 +1628,45 @@ const ClientHub = () => {
                 Demanda Planejada
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div>
-                <Label className="text-base font-semibold">O que o cliente solicitou?</Label>
-                <p className="text-xs text-muted-foreground mt-1">Coloque o máximo de informações possíveis que o cliente forneceu!</p>
+            {demandaStep === 1 ? (
+              <div className="space-y-4 py-2">
+                <div>
+                  <Label className="text-base font-semibold">O que o cliente solicitou?</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Coloque o máximo de informações possíveis que o cliente forneceu!</p>
+                </div>
+                <Textarea
+                  placeholder="Ex: O cliente pediu um carrossel sobre uma nova campanha, quer destacar uma promoção específica, informou prazo, referências visuais e objetivo da postagem..."
+                  value={solicitacaoCliente}
+                  onChange={(e) => setSolicitacaoCliente(e.target.value)}
+                  className="min-h-[200px]"
+                  disabled={generatingDemandaQuestions}
+                />
+                <div className="flex justify-end">
+                  <Button onClick={handleContinuarDemandaPlanejada} disabled={generatingDemandaQuestions}>
+                    {generatingDemandaQuestions ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando perguntas...</>
+                    ) : 'Continuar'}
+                  </Button>
+                </div>
               </div>
-              <Textarea
-                placeholder="Ex: O cliente pediu um carrossel sobre uma nova campanha, quer destacar uma promoção específica, informou prazo, referências visuais e objetivo da postagem..."
-                value={solicitacaoCliente}
-                onChange={(e) => setSolicitacaoCliente(e.target.value)}
-                className="min-h-[200px]"
-              />
-              <div className="flex justify-end">
-                <Button onClick={handleContinuarDemandaPlanejada}>Continuar</Button>
+            ) : (
+              <div className="space-y-4 py-2">
+                <div>
+                  <Label className="text-base font-semibold">Perguntas estratégicas</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Perguntas geradas com base na solicitação do cliente e na estratégia geral.</p>
+                </div>
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                  {demandaQuestions.map((q, i) => (
+                    <div key={i} className="p-3 rounded-md border bg-muted/30 text-sm">
+                      <span className="font-semibold text-primary mr-2">{i + 1}.</span>{q}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between">
+                  <Button variant="outline" onClick={() => setDemandaStep(1)}>Voltar</Button>
+                </div>
               </div>
-            </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
