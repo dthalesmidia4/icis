@@ -132,10 +132,11 @@ export async function loadVisualIdentity(
 
 const LOGO_POSITION_MAP: Record<string, string> = {
   "top-left": "canto superior esquerdo",
+  "top-center": "centro superior (topo centralizado horizontalmente)",
   "top-right": "canto superior direito",
   "bottom-left": "canto inferior esquerdo",
+  "bottom-center": "centro inferior (base centralizada horizontalmente)",
   "bottom-right": "canto inferior direito",
-  "bottom-center": "centro inferior",
 };
 
 const LOGO_SIZE_MAP: Record<string, string> = {

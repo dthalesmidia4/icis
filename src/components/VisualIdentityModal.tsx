@@ -63,10 +63,11 @@ interface Preset {
 
 const LOGO_POSITIONS = [
   { value: "top-left", label: "Canto Superior Esquerdo" },
+  { value: "top-center", label: "Superior Centralizado" },
   { value: "top-right", label: "Canto Superior Direito" },
   { value: "bottom-left", label: "Canto Inferior Esquerdo" },
+  { value: "bottom-center", label: "Inferior Centralizado" },
   { value: "bottom-right", label: "Canto Inferior Direito" },
-  { value: "bottom-center", label: "Centro Inferior" },
 ];
 
 const LOGO_SIZES = [
