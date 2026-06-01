@@ -1346,6 +1346,65 @@ const PlanPeriod = () => {
         );
       })()}
 
+      {/* Demand detail dialog */}
+      <Dialog open={!!selectedDemandDetail} onOpenChange={(open) => !open && setSelectedDemandDetail(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          {selectedDemandDetail && (() => {
+            const d = selectedDemandDetail;
+            const raw = d.raw || {};
+            const objetivo = raw.objective || raw.objetivo || '';
+            const content = raw.description || raw.descricao || raw.conteudo || raw.texto_da_peca || raw.descricao_da_tarefa || '';
+            const instrucoes = raw.instrucoes_de_producao || raw.production_instructions || '';
+            const cta = raw.cta_recomendado || raw.cta || '';
+            const channel = raw.channel || raw.canal || '';
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-xl">{d.title}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 mt-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {d.tipo && <Badge variant="secondary">{d.tipo}</Badge>}
+                    {channel && <Badge variant="outline">{channel}</Badge>}
+                    {d.status && (
+                      <Badge
+                        style={{ backgroundColor: `${d.status.color}20`, color: d.status.color, borderColor: `${d.status.color}40` }}
+                      >
+                        {d.status.name}
+                      </Badge>
+                    )}
+                  </div>
+                  {objetivo && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Objetivo</p>
+                      <p className="text-sm text-foreground whitespace-pre-line">{objetivo}</p>
+                    </div>
+                  )}
+                  {content && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Conteúdo</p>
+                      <div className="text-sm bg-muted/50 rounded-lg p-3 border whitespace-pre-line">{content}</div>
+                    </div>
+                  )}
+                  {instrucoes && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Instruções de Produção</p>
+                      <div className="text-sm bg-muted/50 rounded-lg p-3 border whitespace-pre-line">{instrucoes}</div>
+                    </div>
+                  )}
+                  {cta && (
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">CTA Recomendado</p>
+                      <p className="text-sm">{cta}</p>
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       {/* Delete Confirmation Modal */}
       {periodToDelete && <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => !isDeleting && setPeriodToDelete(null)}>
         <Card className="max-w-2xl w-full p-6 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
