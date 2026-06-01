@@ -1109,7 +1109,8 @@ const PlanPeriod = () => {
             {periodHistory.map(period => (
               <div
                 key={period.id}
-                className="grid grid-cols-[1.5fr_1fr_auto] sm:grid-cols-[2fr_1fr_140px] items-center gap-4 px-5 py-3 bg-background hover:bg-muted/50 transition-colors duration-200 group"
+                className="grid grid-cols-[1.5fr_1fr_auto] sm:grid-cols-[2fr_1fr_140px] items-center gap-4 px-5 py-3 bg-background hover:bg-muted/50 transition-colors duration-200 group cursor-pointer"
+                onClick={() => setSelectedHistoryPlan(period)}
               >
                 <div className="min-w-0">
                   <span className="text-sm font-semibold text-foreground truncate block">
@@ -1122,16 +1123,6 @@ const PlanPeriod = () => {
                   </span>
                 </div>
                 <div className="flex items-center justify-end gap-1 shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 text-muted-foreground hover:text-foreground"
-                    onClick={() => setSelectedHistoryPlan(period)}
-                    aria-label="Ver cards"
-                    title="Ver cards"
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
