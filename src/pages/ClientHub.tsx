@@ -77,6 +77,16 @@ const ClientHub = () => {
   const [planPeriodModalOpen, setPlanPeriodModalOpen] = useState(false);
   const [contentRequirements, setContentRequirements] = useState('');
   const [savingRequirements, setSavingRequirements] = useState(false);
+  const [demandaPlanejadaModalOpen, setDemandaPlanejadaModalOpen] = useState(false);
+  const [solicitacaoCliente, setSolicitacaoCliente] = useState('');
+
+  const handleContinuarDemandaPlanejada = () => {
+    if (!solicitacaoCliente.trim()) {
+      toast.error('Descreva o que o cliente solicitou antes de continuar.');
+      return;
+    }
+    // Próxima etapa será conectada futuramente
+  };
 
   useEffect(() => {
     if (!selectedClient?.id || !tenantId) return;
