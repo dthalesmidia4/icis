@@ -1373,26 +1373,67 @@ const PlanPeriod = () => {
 
       {/* Delete Confirmation Modal */}
       {periodToDelete && <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => !isDeleting && setPeriodToDelete(null)}>
-        <Card className="max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+        <Card className="max-w-2xl w-full p-6 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
           <div className="flex items-center gap-4 mb-4">
             <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
               <AlertTriangle className="w-6 h-6 text-destructive" />
             </div>
             <div>
               <h2 className="text-lg font-semibold">Excluir Período</h2>
-              <p className="text-sm text-muted-foreground">Esta ação não pode ser desfeita</p>
+              <p className="text-sm text-muted-foreground">Essa ação vai excluir todos os cards gerados por este período. Não pode ser desfeita.</p>
             </div>
           </div>
-          <div className="mb-6 p-4 bg-muted/50 rounded-lg">
+          <div className="mb-4 p-4 bg-muted/50 rounded-lg">
             <p className="font-medium">{periodToDelete.period_title}</p>
             <p className="text-sm text-muted-foreground mt-1">
               {format(new Date(periodToDelete.period_start + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })} - {format(new Date(periodToDelete.period_end + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}
             </p>
           </div>
+
+          <div className="mb-4 flex-1 min-h-0 flex flex-col">
+            <p className="text-sm font-medium mb-2">
+              Cards vinculados {loadingLinkedDemands ? '' : `(${linkedDemands.length})`}
+            </p>
+            <div className="flex-1 overflow-y-auto border border-border/50 rounded-lg bg-background">
+              {loadingLinkedDemands ? (
+                <div className="p-6 text-center text-sm text-muted-foreground">Carregando cards vinculados...</div>
+              ) : linkedDemands.length === 0 ? (
+                <div className="p-6 text-center text-sm text-muted-foreground">Nenhum card vinculado a este período.</div>
+              ) : (
+                <ul className="divide-y divide-border/50">
+                  {linkedDemands.map((d: any) => (
+                    <li key={d.id} className="p-3 flex items-start justify-between gap-3 hover:bg-muted/30">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{d.title || 'Sem título'}</p>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
+                          {d.demand_type && <span>{d.demand_type}</span>}
+                          {d.channel && <span>· {d.channel}</span>}
+                          {d.tenant_companies?.name && <span>· {d.tenant_companies.name}</span>}
+                          {d.created_at && <span>· {format(new Date(d.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>}
+                        </div>
+                      </div>
+                      {d.pipeline_statuses?.name && (
+                        <span
+                          className="text-xs px-2 py-1 rounded-full shrink-0 font-medium"
+                          style={{
+                            backgroundColor: `${d.pipeline_statuses.color || '#6366f1'}22`,
+                            color: d.pipeline_statuses.color || '#6366f1',
+                          }}
+                        >
+                          {d.pipeline_statuses.name}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
           <div className="flex gap-3">
             <Button variant="outline" className="flex-1" onClick={() => setPeriodToDelete(null)} disabled={isDeleting}>Cancelar</Button>
-            <Button variant="destructive" className="flex-1" onClick={handleDeletePeriod} disabled={isDeleting}>
-              {isDeleting ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Excluindo...</> : <><Trash2 className="w-4 h-4 mr-2" />Excluir Período</>}
+            <Button variant="destructive" className="flex-1" onClick={handleDeletePeriod} disabled={isDeleting || loadingLinkedDemands}>
+              {isDeleting ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Excluindo...</> : <><Trash2 className="w-4 h-4 mr-2" />Excluir período e cards</>}
             </Button>
           </div>
         </Card>
