@@ -2254,7 +2254,129 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
           </DialogContent>
         </Dialog>
+
+        {/* Modal Histórico de Demanda Planejada */}
+        <Dialog open={demandaHistoricoModalOpen} onOpenChange={(open) => { setDemandaHistoricoModalOpen(open); if (!open) setDemandaHistoricoExpandedId(null); }}>
+          <DialogContent className={demandaHistoricoExpandedId ? "max-w-[95vw] sm:max-w-5xl" : "sm:max-w-3xl"}>
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <ArchiveRestore className="w-5 h-5 text-primary" />
+                Histórico de Demanda Planejada
+              </DialogTitle>
+              <DialogDescription>
+                {demandaHistoricoExpandedId
+                  ? 'Visualização completa da demanda. Você pode reabrir para regenerar ou voltar para a lista.'
+                  : 'Todas as demandas planejadas geradas para este cliente. Clique em maximizar para ver completa.'}
+              </DialogDescription>
+            </DialogHeader>
+
+            {(() => {
+              const expanded = demandaHistorico.find((d) => d.id === demandaHistoricoExpandedId) || null;
+              if (expanded) {
+                return (
+                  <div className="space-y-4 py-2">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div>
+                        <Label className="text-base font-semibold">{expanded.demanda.titulo || 'Demanda final'}</Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Gerada em {new Date(expanded.createdAt).toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {expanded.demanda.secoes.length} {expanded.demanda.secoes.length === 1 ? 'seção' : 'seções'}
+                      </span>
+                    </div>
+
+                    {expanded.solicitacao && (
+                      <div className="rounded-lg border bg-muted/30 p-3">
+                        <p className="text-xs font-semibold text-muted-foreground mb-1">Solicitação original</p>
+                        <p className="text-sm whitespace-pre-wrap">{expanded.solicitacao}</p>
+                      </div>
+                    )}
+
+                    <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-2 -mr-2">
+                      {expanded.demanda.secoes.map((s, i) => (
+                        <div key={i} className="rounded-lg border bg-card shadow-sm">
+                          <div className="flex items-center gap-3 px-4 pt-4">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                              {i + 1}
+                            </div>
+                            <h3 className="text-sm font-semibold flex-1">{s.titulo || `Seção ${i + 1}`}</h3>
+                          </div>
+                          <div className="px-4 pb-4 pt-2 pl-14 space-y-2">
+                            {s.conteudo && (
+                              <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">{s.conteudo}</p>
+                            )}
+                            {(s.itens?.length ?? 0) > 0 && (
+                              <ul className="list-disc pl-5 space-y-1.5 text-sm text-muted-foreground leading-relaxed">
+                                {s.itens!.map((it, j) => (<li key={j}>{it}</li>))}
+                              </ul>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex justify-between gap-2 pt-2 border-t flex-wrap">
+                      <Button variant="outline" onClick={() => setDemandaHistoricoExpandedId(null)}>
+                        <Minimize2 className="w-4 h-4 mr-2" />Voltar para o histórico
+                      </Button>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => removerDemandaHistorico(expanded.id)}>
+                          <Trash2 className="w-4 h-4 mr-2" />Excluir
+                        </Button>
+                        <Button onClick={() => reabrirDemandaHistorico(expanded)}>
+                          <RotateCcw className="w-4 h-4 mr-2" />Reabrir e regenerar
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto pr-2 -mr-2">
+                  {demandaHistorico.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <ClipboardList className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm">Nenhuma demanda planejada salva ainda.</p>
+                      <p className="text-xs mt-1">Gere uma demanda planejada para começar.</p>
+                    </div>
+                  ) : (
+                    demandaHistorico.map((item) => {
+                      const resumoSolicitacao = item.solicitacao?.trim().slice(0, 140) || 'Sem solicitação registrada';
+                      return (
+                        <div key={item.id} className="rounded-lg border bg-card shadow-sm p-4 hover:border-primary/40 transition-colors">
+                          <div className="flex items-start justify-between gap-3 flex-wrap">
+                            <div className="min-w-0 flex-1">
+                              <h3 className="text-sm font-semibold truncate">{item.demanda.titulo || 'Demanda final'}</h3>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {new Date(item.createdAt).toLocaleString('pt-BR')} · {item.demanda.secoes.length} {item.demanda.secoes.length === 1 ? 'seção' : 'seções'}
+                              </p>
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                              <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => removerDemandaHistorico(item.id)}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => setDemandaHistoricoExpandedId(item.id)}>
+                                <Maximize2 className="w-4 h-4 mr-1" />Maximizar
+                              </Button>
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+                            {resumoSolicitacao}{(item.solicitacao?.length ?? 0) > 140 ? '…' : ''}
+                          </p>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
       </div>
+
     </div>
   );
 };
