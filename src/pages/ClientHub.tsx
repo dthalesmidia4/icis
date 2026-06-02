@@ -285,10 +285,48 @@ Com base na solicitação acima e na estratégia geral do cliente, gere pergunta
       const aiData = await aiResponse.json();
       const rawText: string = aiData?.choices?.[0]?.message?.content?.trim() ?? '';
 
-      const questions = rawText
-        .split('\n')
-        .map((l: string) => l.replace(/^\s*\d+[\).:\-]\s*/, '').trim())
-        .filter((l: string) => l.length > 0);
+      // Parse: aceita JSON (array de strings ou objetos com 'pergunta'/'question') ou texto numerado.
+      const parseQuestions = (txt: string): string[] => {
+        const cleaned = txt.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+        // tenta extrair primeiro array/objeto JSON
+        const first = cleaned.search(/[\[{]/);
+        const lastArr = cleaned.lastIndexOf(']');
+        const lastObj = cleaned.lastIndexOf('}');
+        const last = Math.max(lastArr, lastObj);
+        if (first !== -1 && last > first) {
+          const slice = cleaned.slice(first, last + 1);
+          try {
+            const parsed = JSON.parse(slice);
+            const arr = Array.isArray(parsed)
+              ? parsed
+              : Array.isArray((parsed as any)?.perguntas)
+                ? (parsed as any).perguntas
+                : Array.isArray((parsed as any)?.questions)
+                  ? (parsed as any).questions
+                  : null;
+            if (arr) {
+              const out = arr
+                .map((it: any) => {
+                  if (typeof it === 'string') return it.trim();
+                  if (it && typeof it === 'object') {
+                    return String(it.pergunta ?? it.question ?? it.texto ?? it.text ?? '').trim();
+                  }
+                  return '';
+                })
+                .filter((s: string) => s.length > 0);
+              if (out.length) return out;
+            }
+          } catch {
+            // cai pro fallback de texto
+          }
+        }
+        return cleaned
+          .split('\n')
+          .map((l) => l.replace(/^\s*\d+[\).:\-]\s*/, '').trim())
+          .filter((l) => l.length > 0 && !/^[\[\]{},]+$/.test(l));
+      };
+
+      const questions = parseQuestions(rawText);
 
       if (!questions.length) {
         toast.error('Nenhuma pergunta foi gerada. Tente novamente.');
