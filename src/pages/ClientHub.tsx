@@ -2124,10 +2124,19 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                         </div>
                         <h3 className="text-sm font-semibold flex-1">{s.titulo || `Seção ${i + 1}`}</h3>
                       </div>
-                      <div className="px-4 pb-4 pt-2 pl-14">
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
-                          {s.conteudo}
-                        </p>
+                      <div className="px-4 pb-4 pt-2 pl-14 space-y-2">
+                        {s.conteudo && (
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
+                            {s.conteudo}
+                          </p>
+                        )}
+                        {s.itens.length > 0 && (
+                          <ul className="list-disc pl-5 space-y-1.5 text-sm text-muted-foreground leading-relaxed">
+                            {s.itens.map((it, j) => (
+                              <li key={j}>{it}</li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     </div>
                   ))}
