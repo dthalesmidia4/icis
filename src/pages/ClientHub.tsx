@@ -684,6 +684,206 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     }
   };
 
+  const handleCriarProducao = async () => {
+    if (!selectedClient?.id || !tenantId) {
+      toast.error('Selecione um cliente antes de continuar.');
+      return;
+    }
+    if (!demandaFinal || !demandaFinal.secoes?.length) {
+      toast.error('Gere a demanda final antes de criar a produção.');
+      return;
+    }
+
+    setPreparingProducao(true);
+    try {
+      // 1. Buscar prompt organizador (NUNCA hardcoded no código)
+      const { data: promptRow, error: promptError } = await supabase
+        .from('system_prompts')
+        .select('prompt_content')
+        .eq('tenant_id', tenantId)
+        .eq('prompt_key', 'custom_prompt_1780407072020')
+        .maybeSingle();
+      if (promptError) throw promptError;
+      const promptContent = promptRow?.prompt_content?.trim();
+      if (!promptContent) {
+        toast.error('Prompt "Organizador de informações" (custom_prompt_1780407072020) não encontrado em Dev → Prompts.');
+        return;
+      }
+
+      // 2. Chave da OpenAI
+      const { data: apiKeyRow, error: apiKeyError } = await supabase
+        .from('api_keys')
+        .select('key_value')
+        .eq('key_name', 'OPENAI_API_KEY')
+        .maybeSingle();
+      if (apiKeyError) throw apiKeyError;
+      const openaiApiKey = apiKeyRow?.key_value?.trim();
+      if (!openaiApiKey) {
+        toast.error('Chave da API OpenAI não configurada em Dev → APIs.');
+        return;
+      }
+
+      // 3. Serializa a demanda final em texto legível
+      const demandaTexto = [
+        demandaFinal.titulo ? `TÍTULO: ${demandaFinal.titulo}` : '',
+        ...demandaFinal.secoes.map((s) => {
+          const itens = (s.itens || []).map((i) => `- ${i}`).join('\n');
+          return `### ${s.titulo}\n${s.conteudo || ''}\n${itens}`.trim();
+        }),
+      ].filter(Boolean).join('\n\n');
+
+      const userPrompt = `DEMANDA PLANEJADA APROVADA:\n${demandaTexto}\n\nRetorne APENAS um JSON válido conforme o formato definido no prompt do sistema (sem markdown, sem comentários).`;
+
+      const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-5-mini',
+          messages: [
+            { role: 'system', content: promptContent },
+            { role: 'user', content: userPrompt },
+          ],
+          response_format: { type: 'json_object' },
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error('OpenAI error (organizador):', aiResponse.status, errorText);
+        if (aiResponse.status === 429) toast.error('Limite de requisições da OpenAI excedido.');
+        else if (aiResponse.status === 401) toast.error('Chave da API OpenAI inválida.');
+        else toast.error('Não foi possível preparar a produção. Revise a demanda planejada e tente novamente.');
+        return;
+      }
+
+      const aiData = await aiResponse.json();
+      const rawText: string = aiData?.choices?.[0]?.message?.content?.trim() ?? '';
+
+      let parsed: any = null;
+      try { parsed = JSON.parse(rawText); }
+      catch {
+        const match = rawText.match(/\{[\s\S]*\}/);
+        if (match) { try { parsed = JSON.parse(match[0]); } catch {} }
+      }
+
+      const tipo = parsed?.tipo;
+      if (!parsed || typeof tipo !== 'string') {
+        console.error('Resposta do organizador inválida:', rawText);
+        toast.error('Resposta do organizador inválida. Revise a demanda planejada e tente novamente.');
+        return;
+      }
+
+      // Helper: encontrar preset por nome (case-insensitive)
+      const findPresetId = (name?: string): string | null => {
+        if (!name || typeof name !== 'string') return null;
+        const n = name.trim().toLowerCase();
+        if (!n) return null;
+        const match = presets.find((p) => p.name?.toLowerCase() === n)
+          || presets.find((p) => p.name?.toLowerCase().includes(n) || n.includes(p.name?.toLowerCase() ?? ''));
+        return match?.id ?? null;
+      };
+
+      console.log('[Criar produção] tipo retornado:', tipo, parsed);
+
+      if (tipo === 'erro') {
+        toast.error(parsed.mensagem || 'O organizador retornou um erro para essa demanda.');
+        return;
+      }
+
+      // Fecha modal de demanda planejada
+      setDemandaPlanejadaModalOpen(false);
+      setDemandaStep(1);
+
+      if (tipo === 'post_estatico') {
+        const conteudo = String(parsed.conteudo ?? '').trim();
+        const restricoes = Array.isArray(parsed.restricoes) ? parsed.restricoes.join('; ') : '';
+        const observacoes = String(parsed.observacoes ?? '').trim();
+        const extras = [
+          restricoes ? `Restrições: ${restricoes}` : '',
+          observacoes ? `Observações: ${observacoes}` : '',
+        ].filter(Boolean).join('\n');
+        setPostIdea(extras ? `${conteudo}\n\n${extras}` : conteudo);
+        const proporcao = String(parsed.proporcao ?? '').trim();
+        if (['1:1', '9:16', '16:9', '4:5'].includes(proporcao)) setStaticAspectRatio(proporcao);
+        const presetId = findPresetId(parsed.predefinicao_visual);
+        if (presetId) setSelectedPresetId(presetId);
+        setAiPostModalOpen(true);
+        toast.success('Demanda preparada como Post Estático. Revise antes de gerar.');
+        return;
+      }
+
+      if (tipo === 'carrossel') {
+        const slidesIn = Array.isArray(parsed.slides) ? parsed.slides : [];
+        const slides = slidesIn.map((s: any) => ({
+          text: String(s?.texto ?? '').trim(),
+          label: String(s?.funcao ?? 'Conteúdo').trim() || 'Conteúdo',
+        })).filter((s: any) => s.text);
+        if (!slides.length) {
+          toast.error('O organizador retornou um carrossel sem slides.');
+          return;
+        }
+        const restricoes = Array.isArray(parsed.restricoes) ? parsed.restricoes.join('; ') : '';
+        const observacoes = String(parsed.observacoes ?? '').trim();
+        if (restricoes || observacoes) {
+          toast.message('Orientações do organizador', {
+            description: [restricoes && `Restrições: ${restricoes}`, observacoes && `Observações: ${observacoes}`].filter(Boolean).join(' | '),
+          });
+        }
+        setCarouselSlides(slides);
+        setSlideCount(slides.length);
+        const presetId = findPresetId(parsed.predefinicao_visual);
+        if (presetId) setSelectedPresetId(presetId);
+        setCarouselStep(2);
+        setAiCarouselModalOpen(true);
+        toast.success('Demanda preparada como Carrossel. Revise os slides antes de gerar.');
+        return;
+      }
+
+      if (tipo === 'video_mascote') {
+        const conteudo = String(parsed.conteudo ?? '').trim();
+        const restricoes = Array.isArray(parsed.restricoes) ? parsed.restricoes.join('; ') : '';
+        const observacoes = String(parsed.observacoes ?? '').trim();
+        const extras = [
+          restricoes ? `Restrições: ${restricoes}` : '',
+          observacoes ? `Observações: ${observacoes}` : '',
+        ].filter(Boolean).join('\n');
+        setVideoIdea(extras ? `${conteudo}\n\n${extras}` : conteudo);
+        const cenas = Number(parsed.cenas);
+        if (Number.isFinite(cenas) && cenas >= 1 && cenas <= 5) setSceneCount(cenas);
+        const formato = String(parsed.formato ?? '').trim();
+        if (['9:16', '16:9', '1:1', '4:5'].includes(formato)) setVideoAspectRatio(formato);
+        const presetId = findPresetId(parsed.predefinicao_visual);
+        if (presetId) setSelectedPresetId(presetId);
+        setVideoStep(1);
+        setVideoModalOpen(true);
+        toast.success('Demanda preparada como Vídeo de Mascote. Revise antes de gerar o storyboard.');
+        return;
+      }
+
+      if (tipo === 'video_captacao_presencial') {
+        setCaptacaoData({
+          aviso: parsed.aviso,
+          briefing_captacao: parsed.briefing_captacao,
+          observacoes: parsed.observacoes,
+        });
+        setCaptacaoModalOpen(true);
+        return;
+      }
+
+      toast.error(`Tipo de produção desconhecido: "${tipo}".`);
+    } catch (err: any) {
+      console.error('Erro Criar Produção:', err);
+      toast.error(err?.message || 'Não foi possível preparar a produção. Revise a demanda planejada e tente novamente.');
+    } finally {
+      setPreparingProducao(false);
+    }
+  };
+
+
+
 
 
 
