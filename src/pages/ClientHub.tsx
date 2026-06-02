@@ -2297,11 +2297,18 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 </div>
                 <div className="flex justify-between pt-2 border-t">
                   <Button variant="outline" onClick={() => setDemandaStep(2)}>Voltar</Button>
-                  <Button onClick={handleGerarDemandaFinal} variant="secondary" disabled={generatingDemandaFinal}>
-                    {generatingDemandaFinal ? (
-                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Regenerando...</>
-                    ) : 'Regenerar demanda'}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button onClick={handleGerarDemandaFinal} variant="secondary" disabled={generatingDemandaFinal || approvingDemanda}>
+                      {generatingDemandaFinal ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Regenerando...</>
+                      ) : 'Regenerar demanda'}
+                    </Button>
+                    <Button onClick={handleAprovarDemandaFinal} disabled={approvingDemanda || generatingDemandaFinal}>
+                      {approvingDemanda ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Aprovando...</>
+                      ) : (<><CheckSquare className="w-4 h-4 mr-2" />Aprovar demanda</>)}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
