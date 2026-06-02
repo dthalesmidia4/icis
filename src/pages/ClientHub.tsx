@@ -137,10 +137,12 @@ const ClientHub = () => {
   const [savingRequirements, setSavingRequirements] = useState(false);
   const [demandaPlanejadaModalOpen, setDemandaPlanejadaModalOpen] = useState(false);
   const [solicitacaoCliente, setSolicitacaoCliente] = useState('');
-  const [demandaStep, setDemandaStep] = useState<1 | 2>(1);
+  const [demandaStep, setDemandaStep] = useState<1 | 2 | 3>(1);
   const [generatingDemandaQuestions, setGeneratingDemandaQuestions] = useState(false);
   const [demandaQuestions, setDemandaQuestions] = useState<string[]>([]);
   const [demandaAnswers, setDemandaAnswers] = useState<string[]>([]);
+  const [generatingDemandaFinal, setGeneratingDemandaFinal] = useState(false);
+  const [demandaFinal, setDemandaFinal] = useState<{ titulo?: string; secoes: { titulo: string; conteudo: string }[] } | null>(null);
 
   const resetDemandaPlanejada = () => {
     setSolicitacaoCliente('');
@@ -148,7 +150,10 @@ const ClientHub = () => {
     setDemandaQuestions([]);
     setDemandaAnswers([]);
     setGeneratingDemandaQuestions(false);
+    setGeneratingDemandaFinal(false);
+    setDemandaFinal(null);
   };
+
 
   const openFallbackDemandaQuestions = async () => {
     let estrategiaGeralCliente = '';
