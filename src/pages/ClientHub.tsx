@@ -2516,10 +2516,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                         <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Regenerando...</>
                       ) : 'Regenerar demanda'}
                     </Button>
-                    <Button onClick={handleAprovarDemandaFinal} disabled={approvingDemanda || generatingDemandaFinal}>
+                    <Button onClick={handleAprovarDemandaFinal} variant="secondary" disabled={approvingDemanda || generatingDemandaFinal || preparingProducao}>
                       {approvingDemanda ? (
                         <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Aprovando...</>
                       ) : (<><CheckSquare className="w-4 h-4 mr-2" />Aprovar demanda</>)}
+                    </Button>
+                    <Button onClick={handleCriarProducao} disabled={preparingProducao || approvingDemanda || generatingDemandaFinal}>
+                      {preparingProducao ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Preparando produção...</>
+                      ) : (<><Zap className="w-4 h-4 mr-2" />Criar produção</>)}
                     </Button>
                   </div>
                 </div>
