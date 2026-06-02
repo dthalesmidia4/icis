@@ -1985,7 +1985,7 @@ Use seções claras (ex.: Objetivo, Público-alvo, Mensagem-chave, Formato, Tom 
                   </Button>
                 </div>
               </div>
-            ) : (
+            ) : demandaStep === 2 ? (
               <div className="space-y-4 py-2">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div>
@@ -1998,7 +1998,7 @@ Use seções claras (ex.: Objetivo, Público-alvo, Mensagem-chave, Formato, Tom 
                     {demandaAnswers.filter((a) => a.trim()).length} / {demandaQuestions.length} respondidas
                   </span>
                 </div>
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 -mr-2">
+                <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-2 -mr-2">
                   {demandaQuestions.map((q, i) => {
                     const answered = !!demandaAnswers[i]?.trim();
                     return (
@@ -2022,6 +2022,7 @@ Use seções claras (ex.: Objetivo, Público-alvo, Mensagem-chave, Formato, Tom 
                             }}
                             placeholder="Digite a resposta..."
                             className="min-h-[80px] resize-y bg-background"
+                            disabled={generatingDemandaFinal}
                           />
                         </div>
                       </div>
@@ -2029,10 +2030,57 @@ Use seções claras (ex.: Objetivo, Público-alvo, Mensagem-chave, Formato, Tom 
                   })}
                 </div>
                 <div className="flex justify-between pt-2 border-t">
-                  <Button variant="outline" onClick={() => setDemandaStep(1)}>Voltar</Button>
+                  <Button variant="outline" onClick={() => setDemandaStep(1)} disabled={generatingDemandaFinal}>Voltar</Button>
+                  <Button onClick={handleGerarDemandaFinal} disabled={generatingDemandaFinal}>
+                    {generatingDemandaFinal ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando demanda...</>
+                    ) : 'Continuar'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 py-2">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <Label className="text-base font-semibold">
+                      {demandaFinal?.titulo || 'Demanda final'}
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Gerada com base na solicitação, respostas do briefing e estratégia do cliente.
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {demandaFinal?.secoes.length ?? 0} {((demandaFinal?.secoes.length ?? 0) === 1) ? 'seção' : 'seções'}
+                  </span>
+                </div>
+                <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 -mr-2">
+                  {demandaFinal?.secoes.map((s, i) => (
+                    <div key={i} className="rounded-lg border bg-card shadow-sm">
+                      <div className="flex items-center gap-3 px-4 pt-4">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                          {i + 1}
+                        </div>
+                        <h3 className="text-sm font-semibold flex-1">{s.titulo || `Seção ${i + 1}`}</h3>
+                      </div>
+                      <div className="px-4 pb-4 pt-2 pl-14">
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
+                          {s.conteudo}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between pt-2 border-t">
+                  <Button variant="outline" onClick={() => setDemandaStep(2)}>Voltar</Button>
+                  <Button onClick={handleGerarDemandaFinal} variant="secondary" disabled={generatingDemandaFinal}>
+                    {generatingDemandaFinal ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Regenerando...</>
+                    ) : 'Regenerar demanda'}
+                  </Button>
                 </div>
               </div>
             )}
+
           </DialogContent>
         </Dialog>
       </div>
