@@ -18,6 +18,64 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+const buildFallbackDemandaQuestions = (solicitacaoCliente: string, estrategiaGeral?: string | null) => {
+  const normalizedRequest = solicitacaoCliente.toLowerCase();
+  const normalizedStrategy = estrategiaGeral?.toLowerCase() ?? '';
+
+  const contextualQuestions: string[] = [];
+
+  if (/anivers|comemora|feliz aniversário/.test(normalizedRequest)) {
+    contextualQuestions.push(
+      'Qual é a data do aniversário e de quem exatamente é essa comemoração?',
+      'O tom do post deve ser mais emocional, institucional, divertido ou promocional?',
+      'Existe alguma mensagem principal, homenagem ou agradecimento que precisa aparecer?',
+    );
+  }
+
+  if (/promo|oferta|desconto|campanha|lançamento/.test(normalizedRequest)) {
+    contextualQuestions.push(
+      'Qual oferta, condição ou benefício precisa ficar mais evidente nessa peça?',
+      'Existe prazo, data limite ou senso de urgência que precisa ser comunicado?',
+    );
+  }
+
+  if (/carrossel/.test(normalizedRequest)) {
+    contextualQuestions.push(
+      'Quantos slides fazem sentido para explicar essa demanda sem ficar cansativo?',
+      'Qual deve ser o gancho do primeiro slide para prender a atenção logo no início?',
+    );
+  }
+
+  if (/reels|vídeo|video|story/.test(normalizedRequest)) {
+    contextualQuestions.push(
+      'Essa demanda precisa de roteiro falado, texto em tela ou apenas direção visual?',
+      'Há alguma referência de ritmo, estilo ou enquadramento que precisa ser seguida?',
+    );
+  }
+
+  if (/produto|serviço|servico|atendimento|consult[aó]ria/.test(normalizedRequest + ' ' + normalizedStrategy)) {
+    contextualQuestions.push(
+      'Qual produto, serviço ou solução deve ser o foco principal dessa demanda?',
+    );
+  }
+
+  const baseQuestions = [
+    'Qual é o objetivo principal dessa demanda: alcance, relacionamento, autoridade, conversão ou outro?',
+    'Quem é o público exato que precisa se identificar com esse conteúdo?',
+    'Que informação já está definida pelo cliente e não pode ser alterada?',
+    'Existe alguma oferta, detalhe operacional, data, horário ou link que precisa aparecer obrigatoriamente?',
+    'Quais objeções, dúvidas ou percepções do público esse conteúdo deve quebrar?',
+    'Qual ação a pessoa deve tomar depois de consumir esse conteúdo?',
+    'Existe alguma restrição visual, textual, jurídica ou de posicionamento que devemos respeitar?',
+    estrategiaGeral
+      ? 'Como essa demanda deve refletir a estratégia geral e o posicionamento atual da marca?'
+      : 'Qual diferencial da marca precisa aparecer para essa demanda não ficar genérica?',
+    'Há referências, campanhas anteriores ou exemplos que representem bem o resultado esperado?',
+  ];
+
+  return [...new Set([...contextualQuestions, ...baseQuestions])].slice(0, 8);
+};
+
 const ClientHub = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -90,6 +148,36 @@ const ClientHub = () => {
     setGeneratingDemandaQuestions(false);
   };
 
+  const openFallbackDemandaQuestions = async () => {
+    let estrategiaGeralCliente = '';
+
+    try {
+      const { data } = await supabase
+        .from('strategies')
+        .select('strategy_text')
+        .eq('company_id', selectedClient!.id)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      estrategiaGeralCliente = data?.strategy_text?.trim() ?? '';
+    } catch (strategyError) {
+      console.error('Erro ao buscar estratégia para fallback da demanda planejada:', strategyError);
+    }
+
+    const fallbackQuestions = buildFallbackDemandaQuestions(solicitacaoCliente, estrategiaGeralCliente);
+
+    if (!fallbackQuestions.length) {
+      return false;
+    }
+
+    setDemandaQuestions(fallbackQuestions);
+    setDemandaStep(2);
+    toast.success('Usei um modo alternativo para gerar as perguntas desta demanda.');
+    return true;
+  };
+
   const handleContinuarDemandaPlanejada = async () => {
     if (!solicitacaoCliente.trim()) {
       toast.error('Descreva o que o cliente solicitou antes de continuar.');
@@ -110,28 +198,40 @@ const ClientHub = () => {
       });
       if (error) {
         const rawMessage = (error as any)?.context?.error || (error as any)?.message || 'Erro ao gerar perguntas.';
-        const msg = typeof rawMessage === 'string' && /Failed to send a request to the Edge Function/i.test(rawMessage)
-          ? 'A função de geração não respondeu. Isso normalmente indica falha de deploy ou inicialização da Edge Function.'
-          : rawMessage;
-        toast.error(typeof msg === 'string' ? msg : 'Erro ao gerar perguntas.');
+        const usedFallback = await openFallbackDemandaQuestions();
+        if (!usedFallback) {
+          const msg = typeof rawMessage === 'string' && /Failed to send a request to the Edge Function/i.test(rawMessage)
+            ? 'A função de geração não respondeu. Isso normalmente indica falha de deploy ou inicialização da Edge Function.'
+            : rawMessage;
+          toast.error(typeof msg === 'string' ? msg : 'Erro ao gerar perguntas.');
+        }
         return;
       }
       if ((data as any)?.error) {
-        toast.error((data as any).error);
+        const usedFallback = await openFallbackDemandaQuestions();
+        if (!usedFallback) {
+          toast.error((data as any).error);
+        }
         return;
       }
       const questions: string[] = (data as any)?.questions ?? [];
       if (!questions.length) {
-        toast.error('Nenhuma pergunta foi gerada. Tente novamente.');
+        const usedFallback = await openFallbackDemandaQuestions();
+        if (!usedFallback) {
+          toast.error('Nenhuma pergunta foi gerada. Tente novamente.');
+        }
         return;
       }
       setDemandaQuestions(questions);
       setDemandaStep(2);
     } catch (err: any) {
-      const msg = typeof err?.message === 'string' && /Failed to send a request to the Edge Function/i.test(err.message)
-        ? 'A função de geração não respondeu. Verifique a conexão do Supabase no Lovable e o deploy da Edge Function.'
-        : (err?.message || 'Erro ao gerar perguntas.');
-      toast.error(msg);
+      const usedFallback = await openFallbackDemandaQuestions();
+      if (!usedFallback) {
+        const msg = typeof err?.message === 'string' && /Failed to send a request to the Edge Function/i.test(err.message)
+          ? 'A função de geração não respondeu. Verifique a conexão do Supabase no Lovable e o deploy da Edge Function.'
+          : (err?.message || 'Erro ao gerar perguntas.');
+        toast.error(msg);
+      }
     } finally {
       setGeneratingDemandaQuestions(false);
     }
