@@ -109,7 +109,10 @@ const ClientHub = () => {
         },
       });
       if (error) {
-        const msg = (error as any)?.context?.error || (error as any)?.message || 'Erro ao gerar perguntas.';
+        const rawMessage = (error as any)?.context?.error || (error as any)?.message || 'Erro ao gerar perguntas.';
+        const msg = typeof rawMessage === 'string' && /Failed to send a request to the Edge Function/i.test(rawMessage)
+          ? 'A função de geração não respondeu. Isso normalmente indica falha de deploy ou inicialização da Edge Function.'
+          : rawMessage;
         toast.error(typeof msg === 'string' ? msg : 'Erro ao gerar perguntas.');
         return;
       }
@@ -125,7 +128,10 @@ const ClientHub = () => {
       setDemandaQuestions(questions);
       setDemandaStep(2);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao gerar perguntas.');
+      const msg = typeof err?.message === 'string' && /Failed to send a request to the Edge Function/i.test(err.message)
+        ? 'A função de geração não respondeu. Verifique a conexão do Supabase no Lovable e o deploy da Edge Function.'
+        : (err?.message || 'Erro ao gerar perguntas.');
+      toast.error(msg);
     } finally {
       setGeneratingDemandaQuestions(false);
     }
@@ -1627,6 +1633,9 @@ const ClientHub = () => {
                 <ClipboardList className="w-5 h-5" />
                 Demanda Planejada
               </DialogTitle>
+              <DialogDescription>
+                Informe a solicitação do cliente para gerar perguntas estratégicas da demanda.
+              </DialogDescription>
             </DialogHeader>
             {demandaStep === 1 ? (
               <div className="space-y-4 py-2">
