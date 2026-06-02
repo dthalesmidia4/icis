@@ -143,6 +143,7 @@ const ClientHub = () => {
   const [demandaAnswers, setDemandaAnswers] = useState<string[]>([]);
   const [generatingDemandaFinal, setGeneratingDemandaFinal] = useState(false);
   const [demandaFinal, setDemandaFinal] = useState<{ titulo?: string; secoes: { titulo: string; itens: string[]; conteudo?: string }[] } | null>(null);
+  const [approvingDemanda, setApprovingDemanda] = useState(false);
 
   type DemandaHistoricoItem = {
     id: string;
