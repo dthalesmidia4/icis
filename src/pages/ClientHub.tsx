@@ -144,6 +144,63 @@ const ClientHub = () => {
   const [generatingDemandaFinal, setGeneratingDemandaFinal] = useState(false);
   const [demandaFinal, setDemandaFinal] = useState<{ titulo?: string; secoes: { titulo: string; itens: string[]; conteudo?: string }[] } | null>(null);
 
+  type DemandaHistoricoItem = {
+    id: string;
+    createdAt: number;
+    solicitacao: string;
+    perguntas: string[];
+    respostas: string[];
+    demanda: { titulo?: string; secoes: { titulo: string; itens: string[]; conteudo?: string }[] };
+  };
+  const [demandaHistorico, setDemandaHistorico] = useState<DemandaHistoricoItem[]>([]);
+  const [demandaHistoricoModalOpen, setDemandaHistoricoModalOpen] = useState(false);
+  const [demandaHistoricoExpandedId, setDemandaHistoricoExpandedId] = useState<string | null>(null);
+
+  const historicoStorageKey = selectedClient?.id ? `demanda_planejada_history_${selectedClient.id}` : null;
+
+  useEffect(() => {
+    if (!historicoStorageKey) { setDemandaHistorico([]); return; }
+    try {
+      const raw = localStorage.getItem(historicoStorageKey);
+      setDemandaHistorico(raw ? JSON.parse(raw) : []);
+    } catch { setDemandaHistorico([]); }
+  }, [historicoStorageKey]);
+
+  const persistHistorico = (next: DemandaHistoricoItem[]) => {
+    setDemandaHistorico(next);
+    if (historicoStorageKey) {
+      try { localStorage.setItem(historicoStorageKey, JSON.stringify(next)); } catch {}
+    }
+  };
+
+  const saveDemandaToHistorico = (demanda: { titulo?: string; secoes: { titulo: string; itens: string[]; conteudo?: string }[] }) => {
+    const item: DemandaHistoricoItem = {
+      id: (crypto as any)?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: Date.now(),
+      solicitacao: solicitacaoCliente,
+      perguntas: [...demandaQuestions],
+      respostas: [...demandaAnswers],
+      demanda,
+    };
+    persistHistorico([item, ...demandaHistorico].slice(0, 50));
+  };
+
+  const removerDemandaHistorico = (id: string) => {
+    persistHistorico(demandaHistorico.filter((d) => d.id !== id));
+    if (demandaHistoricoExpandedId === id) setDemandaHistoricoExpandedId(null);
+  };
+
+  const reabrirDemandaHistorico = (item: DemandaHistoricoItem) => {
+    setSolicitacaoCliente(item.solicitacao);
+    setDemandaQuestions(item.perguntas);
+    setDemandaAnswers(item.respostas);
+    setDemandaFinal(item.demanda);
+    setDemandaStep(3);
+    setDemandaHistoricoModalOpen(false);
+    setDemandaHistoricoExpandedId(null);
+    setDemandaPlanejadaModalOpen(true);
+  };
+
   const resetDemandaPlanejada = () => {
     setSolicitacaoCliente('');
     setDemandaStep(1);
