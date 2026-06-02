@@ -378,14 +378,7 @@ ${estrategiaGeralCliente || '(não cadastrada)'}
 PERGUNTAS E RESPOSTAS DO BRIEFING:
 ${perguntasERespostas}
 
-Gere a demanda final estruturada em JSON com o formato:
-{
-  "titulo": "Título da demanda",
-  "secoes": [
-    { "titulo": "Nome da seção", "conteudo": "Conteúdo detalhado da seção" }
-  ]
-}
-Use seções claras (ex.: Objetivo, Público-alvo, Mensagem-chave, Formato, Tom de voz, Call to Action, Observações). Retorne APENAS o JSON, sem markdown.`;
+Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do JSON é livre — pode usar as chaves que fizerem sentido para esta demanda; arrays serão renderizados como listas e objetos como sub-itens.`;
 
       const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
