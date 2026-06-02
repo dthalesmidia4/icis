@@ -146,6 +146,7 @@ const ClientHub = () => {
     setSolicitacaoCliente('');
     setDemandaStep(1);
     setDemandaQuestions([]);
+    setDemandaAnswers([]);
     setGeneratingDemandaQuestions(false);
   };
 
