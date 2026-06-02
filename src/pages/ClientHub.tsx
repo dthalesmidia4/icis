@@ -144,6 +144,19 @@ const ClientHub = () => {
   const [generatingDemandaFinal, setGeneratingDemandaFinal] = useState(false);
   const [demandaFinal, setDemandaFinal] = useState<{ titulo?: string; secoes: { titulo: string; itens: string[]; conteudo?: string }[] } | null>(null);
   const [approvingDemanda, setApprovingDemanda] = useState(false);
+  const [preparingProducao, setPreparingProducao] = useState(false);
+  const [captacaoModalOpen, setCaptacaoModalOpen] = useState(false);
+  const [captacaoData, setCaptacaoData] = useState<{
+    aviso?: string;
+    briefing_captacao?: {
+      objetivo?: string;
+      mensagem_principal?: string;
+      cenas_sugeridas?: string[];
+      orientacoes_para_responsavel?: string;
+      cuidados?: string[];
+    };
+    observacoes?: string;
+  } | null>(null);
 
   type DemandaHistoricoItem = {
     id: string;
