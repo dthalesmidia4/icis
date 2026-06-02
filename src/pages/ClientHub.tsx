@@ -2534,6 +2534,91 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           </DialogContent>
         </Dialog>
 
+        {/* Modal Captação Presencial */}
+        <Dialog open={captacaoModalOpen} onOpenChange={(open) => { setCaptacaoModalOpen(open); if (!open) setCaptacaoData(null); }}>
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl flex items-center gap-2">
+                <Video className="w-5 h-5 text-primary" />
+                Captação presencial necessária
+              </DialogTitle>
+              <DialogDescription>
+                Essa demanda depende de gravação presencial com o responsável antes de avançar para a produção.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              {captacaoData?.aviso && (
+                <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-sm leading-relaxed">
+                  {captacaoData.aviso}
+                </div>
+              )}
+
+              {captacaoData?.briefing_captacao && (
+                <div className="space-y-3 rounded-lg border p-4">
+                  <h3 className="text-sm font-semibold">Briefing de captação</h3>
+
+                  {captacaoData.briefing_captacao.objetivo && (
+                    <div>
+                      <Label className="text-xs uppercase text-muted-foreground">Objetivo</Label>
+                      <p className="text-sm leading-relaxed">{captacaoData.briefing_captacao.objetivo}</p>
+                    </div>
+                  )}
+
+                  {captacaoData.briefing_captacao.mensagem_principal && (
+                    <div>
+                      <Label className="text-xs uppercase text-muted-foreground">Mensagem principal</Label>
+                      <p className="text-sm leading-relaxed">{captacaoData.briefing_captacao.mensagem_principal}</p>
+                    </div>
+                  )}
+
+                  {Array.isArray(captacaoData.briefing_captacao.cenas_sugeridas) && captacaoData.briefing_captacao.cenas_sugeridas.length > 0 && (
+                    <div>
+                      <Label className="text-xs uppercase text-muted-foreground">Cenas sugeridas</Label>
+                      <ul className="list-disc pl-5 text-sm space-y-1 text-muted-foreground">
+                        {captacaoData.briefing_captacao.cenas_sugeridas.map((c, i) => <li key={i}>{c}</li>)}
+                      </ul>
+                    </div>
+                  )}
+
+                  {captacaoData.briefing_captacao.orientacoes_para_responsavel && (
+                    <div>
+                      <Label className="text-xs uppercase text-muted-foreground">Orientações para o responsável</Label>
+                      <p className="text-sm leading-relaxed">{captacaoData.briefing_captacao.orientacoes_para_responsavel}</p>
+                    </div>
+                  )}
+
+                  {Array.isArray(captacaoData.briefing_captacao.cuidados) && captacaoData.briefing_captacao.cuidados.length > 0 && (
+                    <div>
+                      <Label className="text-xs uppercase text-muted-foreground">Cuidados</Label>
+                      <ul className="list-disc pl-5 text-sm space-y-1 text-muted-foreground">
+                        {captacaoData.briefing_captacao.cuidados.map((c, i) => <li key={i}>{c}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {captacaoData?.observacoes && (
+                <div className="rounded-lg border p-3">
+                  <Label className="text-xs uppercase text-muted-foreground">Observações</Label>
+                  <p className="text-sm leading-relaxed">{captacaoData.observacoes}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-between gap-2 pt-2 border-t">
+              <Button variant="outline" onClick={() => { setCaptacaoModalOpen(false); setDemandaPlanejadaModalOpen(true); setDemandaStep(3); }}>
+                Voltar para demanda
+              </Button>
+              <Button onClick={() => { toast.success('Demanda registrada como pendente de captação presencial.'); setCaptacaoModalOpen(false); }}>
+                <CalendarDays className="w-4 h-4 mr-2" />Marcar captação
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+
         {/* Modal Histórico de Demanda Planejada */}
         <Dialog open={demandaHistoricoModalOpen} onOpenChange={(open) => { setDemandaHistoricoModalOpen(open); if (!open) setDemandaHistoricoExpandedId(null); }}>
           <DialogContent className={demandaHistoricoExpandedId ? "max-w-[95vw] sm:max-w-5xl" : "sm:max-w-3xl"}>
