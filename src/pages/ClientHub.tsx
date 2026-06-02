@@ -597,7 +597,9 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
       if (!secoes.length) {
         if (rawText) {
-          setDemandaFinal({ titulo: 'Demanda', secoes: [{ titulo: 'Conteúdo', itens: [], conteudo: rawText }] });
+          const fallback = { titulo: 'Demanda', secoes: [{ titulo: 'Conteúdo', itens: [], conteudo: rawText }] };
+          setDemandaFinal(fallback);
+          saveDemandaToHistorico(fallback);
           setDemandaStep(3);
           return;
         }
@@ -605,7 +607,9 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         return;
       }
 
-      setDemandaFinal({ titulo: tituloTop, secoes });
+      const finalDemanda = { titulo: tituloTop, secoes };
+      setDemandaFinal(finalDemanda);
+      saveDemandaToHistorico(finalDemanda);
       setDemandaStep(3);
     } catch (err: any) {
       console.error('Erro Gerar Demanda Final:', err);
