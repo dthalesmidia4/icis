@@ -1,30 +1,57 @@
-## Diagnóstico
+## Problema
 
-Ao clicar em **Continuar** no modal "Demanda Planejada", o cliente chama `supabase.functions.invoke('generate-demanda-questions', ...)` (`src/pages/ClientHub.tsx:104`) e recebe o toast **"Failed to send a request to the Edge Function"**.
+O prompt atualizado (`custom_prompt_1780342556676`) retorna um JSON com chaves customizadas (`informacoes_obrigatorias`, `evitar`, `pendencias`, etc.) e valores que podem ser arrays/objetos aninhados. O parser atual só entende `{ titulo, secoes:[{titulo, conteudo}] }`, então cai no fallback e mostra o JSON cru — exatamente o que está no print.
 
-Essa mensagem específica é emitida pelo `supabase-js` quando o `fetch` para a edge function falha **antes** de qualquer resposta HTTP — ou seja, a função não respondeu. As causas possíveis, em ordem:
+## Objetivo
 
-1. **A função `generate-demanda-questions` não está deployada** (ou o último deploy falhou silenciosamente). Outras funções do projeto respondem normalmente, então não é problema global do gateway Supabase.
-2. **Falha de boot da função** por imports legados: o arquivo usa `https://deno.land/x/xhr@0.1.0/mod.ts` e `https://esm.sh/@supabase/supabase-js@2.39.3`. Conforme o guia de troubleshooting de deploy (esm.sh drift / lockfile), esses imports podem quebrar o boot do edge-runtime, resultando em fetch sem resposta no cliente.
-3. Não é problema de CORS (headers já estão corretos) nem de payload (validação só ocorre após o fetch chegar).
+Tratar qualquer formato de JSON retornado pela OpenAI e renderizar como cards legíveis (títulos + listas/parágrafos), nunca como JSON cru.
 
-Não consigo confirmar pelos logs porque o acesso a `edge_function_logs` retorna `SUPABASE_FORBIDDEN` no ambiente atual, mas o padrão do erro + imports legados é consistente com falha de boot/deploy.
+## Mudanças em `src/pages/ClientHub.tsx`
 
-## Plano
+1. **Remover instrução rígida no `userPrompt`** (linhas ~381-388): tirar o schema `{titulo, secoes:[...]}` para não conflitar com o prompt customizado do usuário. Manter só a instrução: "Retorne em JSON válido, sem markdown."
 
-1. **Modernizar imports da função** `supabase/functions/generate-demanda-questions/index.ts`:
-   - Remover `deno.land/x/xhr` (não é mais necessário no Deno atual do Supabase).
-   - Trocar `serve` de `deno.land/std` por `Deno.serve` (padrão atual).
-   - Trocar `esm.sh/@supabase/supabase-js@2.39.3` por `npm:@supabase/supabase-js@2` (mais estável, evita esm.sh drift).
-   - Manter toda a lógica de negócio (validações, prompts, OpenAI) intacta.
+2. **Ampliar o tipo de `demandaFinal`**:
+   ```ts
+   { titulo?: string; secoes: { titulo: string; itens: string[]; conteudo?: string }[] }
+   ```
+   onde `itens` é a lista de bullets daquela seção.
 
-2. **Redeployar a função** via `supabase--deploy_edge_functions` com `["generate-demanda-questions"]` para garantir que está ativa.
+3. **Substituir o parser** (linhas ~418-451) por uma função genérica `normalizeDemanda(parsed)`:
+   - Se vier `{secoes:[...]}` no formato antigo → usa direto.
+   - Se vier objeto plano (`{informacoes_obrigatorias:[...], evitar:[...], pendencias:[...], ...}`) → cada chave de 1º nível vira uma seção. Título da seção = chave humanizada (snake_case → "Snake Case", remove aspas).
+   - Valor de cada chave:
+     - **array de strings** → vira `itens` (bullets).
+     - **array de objetos** → cada item vira bullet `"<chave>: <valor>"` concatenado.
+     - **objeto aninhado** → vira sub-bullets `"<sub-titulo>: <valor>"`.
+     - **string** → `conteudo` da seção.
+   - `titulo` top-level (se houver) é usado como título da demanda.
+   - Fallback final: se nada parseável, mostra texto bruto numa única seção.
 
-3. **Melhorar a mensagem de erro no cliente** (`handleContinuarDemandaPlanejada` em `ClientHub.tsx`) para, quando o erro for de rede/boot, sugerir reconectar Supabase ou abrir o painel de detalhes do erro já existente — sem alterar a lógica.
+4. **Atualizar render** (linhas ~2057-2071): se a seção tem `itens`, renderiza `<ul class="list-disc pl-5 space-y-1.5 text-sm text-muted-foreground">` com cada bullet; se tem `conteudo`, mantém o `<p whitespace-pre-wrap>`. Pode ter os dois (conteudo primeiro, depois lista).
 
-4. **Verificar** após o deploy: pedir que você clique em Continuar novamente. Se ainda falhar, consultar os logs da função (já com permissão restaurada) para identificar o stack de boot.
+5. **Humanizador de chaves** (helper local): `informacoes_obrigatorias` → `Informações Obrigatórias`, `cta` → `CTA`, etc. (replace `_` por espaço, capitaliza palavras, mantém siglas comuns em maiúsculo).
 
-## Arquivos afetados
+## Resultado esperado
 
-- `supabase/functions/generate-demanda-questions/index.ts` — modernizar imports
-- `src/pages/ClientHub.tsx` — mensagem de erro mais clara (mudança mínima, opcional)
+O modal "Demanda Planejada" exibe cards organizados como:
+
+```text
+1. Informações Obrigatórias
+   • CTA claro: "Agende sua avaliação psicológica"…
+   • Aviso: conteúdo informativo…
+   • Indicação de modalidade de atendimento…
+
+2. Evitar
+   • Imagens de sofrimento extremo…
+   • Linguagem alarmista…
+
+3. Pendências
+   • Link de agendamento…
+   • Confirmação de disponibilidade presencial…
+```
+
+Sem chaves, sem aspas, sem chaves `{}` aparecendo na tela — independente do formato JSON que o prompt retornar.
+
+## Fora de escopo
+
+Não altero o prompt do banco, não mexo no fluxo de perguntas/respostas, não toco em edge functions.

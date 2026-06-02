@@ -142,7 +142,7 @@ const ClientHub = () => {
   const [demandaQuestions, setDemandaQuestions] = useState<string[]>([]);
   const [demandaAnswers, setDemandaAnswers] = useState<string[]>([]);
   const [generatingDemandaFinal, setGeneratingDemandaFinal] = useState(false);
-  const [demandaFinal, setDemandaFinal] = useState<{ titulo?: string; secoes: { titulo: string; conteudo: string }[] } | null>(null);
+  const [demandaFinal, setDemandaFinal] = useState<{ titulo?: string; secoes: { titulo: string; itens: string[]; conteudo?: string }[] } | null>(null);
 
   const resetDemandaPlanejada = () => {
     setSolicitacaoCliente('');
@@ -378,14 +378,7 @@ ${estrategiaGeralCliente || '(não cadastrada)'}
 PERGUNTAS E RESPOSTAS DO BRIEFING:
 ${perguntasERespostas}
 
-Gere a demanda final estruturada em JSON com o formato:
-{
-  "titulo": "Título da demanda",
-  "secoes": [
-    { "titulo": "Nome da seção", "conteudo": "Conteúdo detalhado da seção" }
-  ]
-}
-Use seções claras (ex.: Objetivo, Público-alvo, Mensagem-chave, Formato, Tom de voz, Call to Action, Observações). Retorne APENAS o JSON, sem markdown.`;
+Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do JSON é livre — pode usar as chaves que fizerem sentido para esta demanda; arrays serão renderizados como listas e objetos como sub-itens.`;
 
       const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -425,19 +418,91 @@ Use seções claras (ex.: Objetivo, Público-alvo, Mensagem-chave, Formato, Tom 
         }
       }
 
-      const secoes = Array.isArray(parsed?.secoes)
-        ? parsed.secoes
-            .map((s: any) => ({
-              titulo: String(s?.titulo ?? '').trim(),
-              conteudo: String(s?.conteudo ?? '').trim(),
-            }))
-            .filter((s: any) => s.titulo || s.conteudo)
-        : [];
+      // Humaniza chaves: "informacoes_obrigatorias" -> "Informações Obrigatórias"
+      const SIGLAS = new Set(['cta', 'cpf', 'cnpj', 'crp', 'url', 'kpi', 'faq', 'ia', 'ai', 'seo']);
+      const humanize = (k: string) => {
+        const accents: Record<string, string> = {
+          informacoes: 'Informações', obrigatorias: 'Obrigatórias', publico: 'Público',
+          alvo: 'Alvo', mensagem: 'Mensagem', formato: 'Formato', estrategia: 'Estratégia',
+          observacoes: 'Observações', pendencias: 'Pendências', referencias: 'Referências',
+          objetivo: 'Objetivo', tom: 'Tom', voz: 'Voz', evitar: 'Evitar',
+        };
+        return k.replace(/[_-]+/g, ' ').trim().split(/\s+/).map(w => {
+          const lower = w.toLowerCase();
+          if (SIGLAS.has(lower)) return lower.toUpperCase();
+          if (accents[lower]) return accents[lower];
+          return lower.charAt(0).toUpperCase() + lower.slice(1);
+        }).join(' ');
+      };
+
+      const valueToBullets = (v: any): string[] => {
+        if (v == null) return [];
+        if (typeof v === 'string') return v.trim() ? [v.trim()] : [];
+        if (typeof v === 'number' || typeof v === 'boolean') return [String(v)];
+        if (Array.isArray(v)) {
+          return v.flatMap((item) => {
+            if (item == null) return [];
+            if (typeof item === 'string') return item.trim() ? [item.trim()] : [];
+            if (typeof item === 'number' || typeof item === 'boolean') return [String(item)];
+            if (Array.isArray(item)) return valueToBullets(item);
+            if (typeof item === 'object') {
+              return Object.entries(item).map(([k, val]) => {
+                const inner = valueToBullets(val).join('; ');
+                return `${humanize(k)}: ${inner}`;
+              });
+            }
+            return [String(item)];
+          });
+        }
+        if (typeof v === 'object') {
+          return Object.entries(v).map(([k, val]) => {
+            const inner = valueToBullets(val).join('; ');
+            return `${humanize(k)}: ${inner}`;
+          });
+        }
+        return [String(v)];
+      };
+
+      type Secao = { titulo: string; itens: string[]; conteudo?: string };
+      let secoes: Secao[] = [];
+      let tituloTop: string | undefined;
+
+      if (parsed && typeof parsed === 'object') {
+        // Formato antigo: { titulo, secoes:[{titulo, conteudo}] }
+        if (Array.isArray(parsed.secoes)) {
+          tituloTop = typeof parsed.titulo === 'string' ? parsed.titulo : undefined;
+          secoes = parsed.secoes
+            .map((s: any) => {
+              const conteudoRaw = s?.conteudo;
+              const itens = Array.isArray(conteudoRaw) ? valueToBullets(conteudoRaw) : [];
+              const conteudo = typeof conteudoRaw === 'string' ? conteudoRaw.trim() : undefined;
+              return {
+                titulo: String(s?.titulo ?? '').trim(),
+                itens,
+                conteudo: conteudo || undefined,
+              };
+            })
+            .filter((s: Secao) => s.titulo || s.itens.length || s.conteudo);
+        } else {
+          // Formato genérico: cada chave top-level vira uma seção
+          if (typeof parsed.titulo === 'string') tituloTop = parsed.titulo;
+          for (const [k, v] of Object.entries(parsed)) {
+            if (k === 'titulo' || k === 'title') continue;
+            const itens = valueToBullets(v);
+            const conteudo = typeof v === 'string' ? v.trim() : undefined;
+            if (!itens.length && !conteudo) continue;
+            secoes.push({
+              titulo: humanize(k),
+              itens: conteudo ? [] : itens,
+              conteudo,
+            });
+          }
+        }
+      }
 
       if (!secoes.length) {
-        // fallback: mostra texto cru em uma única seção para não perder o conteúdo
         if (rawText) {
-          setDemandaFinal({ titulo: 'Demanda', secoes: [{ titulo: 'Conteúdo', conteudo: rawText }] });
+          setDemandaFinal({ titulo: 'Demanda', secoes: [{ titulo: 'Conteúdo', itens: [], conteudo: rawText }] });
           setDemandaStep(3);
           return;
         }
@@ -445,10 +510,7 @@ Use seções claras (ex.: Objetivo, Público-alvo, Mensagem-chave, Formato, Tom 
         return;
       }
 
-      setDemandaFinal({
-        titulo: typeof parsed?.titulo === 'string' ? parsed.titulo : undefined,
-        secoes,
-      });
+      setDemandaFinal({ titulo: tituloTop, secoes });
       setDemandaStep(3);
     } catch (err: any) {
       console.error('Erro Gerar Demanda Final:', err);
@@ -2062,10 +2124,19 @@ Use seções claras (ex.: Objetivo, Público-alvo, Mensagem-chave, Formato, Tom 
                         </div>
                         <h3 className="text-sm font-semibold flex-1">{s.titulo || `Seção ${i + 1}`}</h3>
                       </div>
-                      <div className="px-4 pb-4 pt-2 pl-14">
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
-                          {s.conteudo}
-                        </p>
+                      <div className="px-4 pb-4 pt-2 pl-14 space-y-2">
+                        {s.conteudo && (
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
+                            {s.conteudo}
+                          </p>
+                        )}
+                        {s.itens.length > 0 && (
+                          <ul className="list-disc pl-5 space-y-1.5 text-sm text-muted-foreground leading-relaxed">
+                            {s.itens.map((it, j) => (
+                              <li key={j}>{it}</li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     </div>
                   ))}
