@@ -658,7 +658,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       const result = data as { success?: boolean; demand_id?: string; error?: string } | null;
       if (result?.success) {
         toast.success('Demanda aprovada e criada com sucesso!');
-        setDemandaModalOpen(false);
+        setDemandaPlanejadaModalOpen(false);
         setDemandaStep(1);
       } else {
         toast.error(result?.error || 'Erro ao aprovar demanda.');
