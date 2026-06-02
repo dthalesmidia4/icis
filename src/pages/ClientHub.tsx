@@ -620,6 +620,59 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     }
   };
 
+  const handleAprovarDemandaFinal = async () => {
+    if (!selectedClient?.id || !tenantId) {
+      toast.error('Selecione um cliente antes de aprovar.');
+      return;
+    }
+    if (!demandaFinal || !demandaFinal.secoes?.length) {
+      toast.error('Gere a demanda final antes de aprovar.');
+      return;
+    }
+    setApprovingDemanda(true);
+    try {
+      const title = (demandaFinal.titulo?.trim() || 'Demanda planejada').slice(0, 200);
+      const descriptionHtml = demandaFinal.secoes.map((s) => {
+        const heading = s.titulo ? `<h3>${s.titulo}</h3>` : '';
+        const conteudo = s.conteudo ? `<p>${s.conteudo}</p>` : '';
+        const list = s.itens?.length
+          ? `<ul>${s.itens.map((i) => `<li>${i}</li>`).join('')}</ul>`
+          : '';
+        return `${heading}${conteudo}${list}`;
+      }).join('');
+
+      const { data, error } = await supabase.rpc('create_demand_from_template', {
+        p_client_id: selectedClient.id,
+        p_template_id: null,
+        p_pipeline_id: null,
+        p_status_id: null,
+        p_title: title,
+        p_description: descriptionHtml,
+        p_demand_type: null,
+        p_channel: null,
+        p_publish_date: null,
+        p_due_date: null,
+        p_period_plan_id: null,
+      });
+      if (error) throw error;
+      const result = data as { success?: boolean; demand_id?: string; error?: string } | null;
+      if (result?.success) {
+        toast.success('Demanda aprovada e criada com sucesso!');
+        setDemandaModalOpen(false);
+        setDemandaStep(1);
+      } else {
+        toast.error(result?.error || 'Erro ao aprovar demanda.');
+      }
+    } catch (err: any) {
+      console.error('Erro Aprovar Demanda:', err);
+      toast.error(err?.message || 'Erro ao aprovar demanda.');
+    } finally {
+      setApprovingDemanda(false);
+    }
+  };
+
+
+
 
   useEffect(() => {
     if (!selectedClient?.id || !tenantId) return;
