@@ -30,6 +30,8 @@ export const CLIENT_HUB_BUTTONS = [
   { id: 'client_historico', label: 'Histórico de Períodos', description: 'Histórico de períodos anteriores' },
   { id: 'client_identidade_visual', label: 'Identidade Visual', description: 'Gestão da identidade visual' },
   { id: 'client_conteudo_avulso', label: 'Conteúdo Avulso', description: 'Criação de conteúdo avulso' },
+  { id: 'client_demanda_planejada', label: 'Demanda Planejada', description: 'Criação de demanda planejada com IA' },
+  { id: 'client_demanda_planejada_historico', label: 'Histórico de Demanda Planejada', description: 'Histórico de demandas planejadas geradas' },
 ] as const;
 
 export type ClientHubButtonId = typeof CLIENT_HUB_BUTTONS[number]['id'];
