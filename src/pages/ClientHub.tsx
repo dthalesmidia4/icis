@@ -140,11 +140,13 @@ const ClientHub = () => {
   const [demandaStep, setDemandaStep] = useState<1 | 2>(1);
   const [generatingDemandaQuestions, setGeneratingDemandaQuestions] = useState(false);
   const [demandaQuestions, setDemandaQuestions] = useState<string[]>([]);
+  const [demandaAnswers, setDemandaAnswers] = useState<string[]>([]);
 
   const resetDemandaPlanejada = () => {
     setSolicitacaoCliente('');
     setDemandaStep(1);
     setDemandaQuestions([]);
+    setDemandaAnswers([]);
     setGeneratingDemandaQuestions(false);
   };
 
@@ -289,6 +291,7 @@ Com base na solicitação acima e na estratégia geral do cliente, gere pergunta
       }
 
       setDemandaQuestions(questions);
+      setDemandaAnswers(questions.map(() => ''));
       setDemandaStep(2);
     } catch (err: any) {
       console.error('Erro Demanda Planejada (direct):', err);
@@ -1788,14 +1791,16 @@ Com base na solicitação acima e na estratégia geral do cliente, gere pergunta
 
         {/* Modal Demanda Planejada */}
         <Dialog open={demandaPlanejadaModalOpen} onOpenChange={(open) => { setDemandaPlanejadaModalOpen(open); if (!open) resetDemandaPlanejada(); }}>
-          <DialogContent className="sm:max-w-2xl">
+          <DialogContent className={demandaStep === 2 ? "sm:max-w-3xl" : "sm:max-w-2xl"}>
             <DialogHeader>
               <DialogTitle className="text-xl flex items-center gap-2">
-                <ClipboardList className="w-5 h-5" />
+                <ClipboardList className="w-5 h-5 text-primary" />
                 Demanda Planejada
               </DialogTitle>
               <DialogDescription>
-                Informe a solicitação do cliente para gerar perguntas estratégicas da demanda.
+                {demandaStep === 1
+                  ? 'Informe a solicitação do cliente para gerar perguntas estratégicas da demanda.'
+                  : 'Responda cada pergunta para refinar a demanda antes de avançar.'}
               </DialogDescription>
             </DialogHeader>
             {demandaStep === 1 ? (
@@ -1821,18 +1826,48 @@ Com base na solicitação acima e na estratégia geral do cliente, gere pergunta
               </div>
             ) : (
               <div className="space-y-4 py-2">
-                <div>
-                  <Label className="text-base font-semibold">Perguntas estratégicas</Label>
-                  <p className="text-xs text-muted-foreground mt-1">Perguntas geradas com base na solicitação do cliente e na estratégia geral.</p>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <Label className="text-base font-semibold">Perguntas estratégicas</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Responda abaixo para enriquecer o briefing da demanda.
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {demandaAnswers.filter((a) => a.trim()).length} / {demandaQuestions.length} respondidas
+                  </span>
                 </div>
-                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-                  {demandaQuestions.map((q, i) => (
-                    <div key={i} className="p-3 rounded-md border bg-muted/30 text-sm">
-                      <span className="font-semibold text-primary mr-2">{i + 1}.</span>{q}
-                    </div>
-                  ))}
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 -mr-2">
+                  {demandaQuestions.map((q, i) => {
+                    const answered = !!demandaAnswers[i]?.trim();
+                    return (
+                      <div
+                        key={i}
+                        className="rounded-lg border bg-card shadow-sm transition-colors hover:border-primary/40"
+                      >
+                        <div className="flex items-start gap-3 px-4 pt-4">
+                          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${answered ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary'}`}>
+                            {i + 1}
+                          </div>
+                          <p className="text-sm leading-relaxed pt-0.5 flex-1">{q}</p>
+                        </div>
+                        <div className="px-4 pb-4 pt-3 pl-14">
+                          <Textarea
+                            value={demandaAnswers[i] ?? ''}
+                            onChange={(e) => {
+                              const next = [...demandaAnswers];
+                              next[i] = e.target.value;
+                              setDemandaAnswers(next);
+                            }}
+                            placeholder="Digite a resposta..."
+                            className="min-h-[80px] resize-y bg-background"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between pt-2 border-t">
                   <Button variant="outline" onClick={() => setDemandaStep(1)}>Voltar</Button>
                 </div>
               </div>
