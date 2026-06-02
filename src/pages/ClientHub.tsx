@@ -1949,7 +1949,7 @@ Use seções claras (ex.: Objetivo, Público-alvo, Mensagem-chave, Formato, Tom 
 
         {/* Modal Demanda Planejada */}
         <Dialog open={demandaPlanejadaModalOpen} onOpenChange={(open) => { setDemandaPlanejadaModalOpen(open); if (!open) resetDemandaPlanejada(); }}>
-          <DialogContent className={demandaStep === 2 ? "sm:max-w-3xl" : "sm:max-w-2xl"}>
+          <DialogContent className={demandaStep === 1 ? "sm:max-w-2xl" : "sm:max-w-3xl"}>
             <DialogHeader>
               <DialogTitle className="text-xl flex items-center gap-2">
                 <ClipboardList className="w-5 h-5 text-primary" />
@@ -1958,9 +1958,12 @@ Use seções claras (ex.: Objetivo, Público-alvo, Mensagem-chave, Formato, Tom 
               <DialogDescription>
                 {demandaStep === 1
                   ? 'Informe a solicitação do cliente para gerar perguntas estratégicas da demanda.'
-                  : 'Responda cada pergunta para refinar a demanda antes de avançar.'}
+                  : demandaStep === 2
+                    ? 'Responda cada pergunta para refinar a demanda antes de avançar.'
+                    : 'Demanda final gerada com base nas respostas e na estratégia do cliente.'}
               </DialogDescription>
             </DialogHeader>
+
             {demandaStep === 1 ? (
               <div className="space-y-4 py-2">
                 <div>
