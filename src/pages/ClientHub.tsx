@@ -137,10 +137,12 @@ const ClientHub = () => {
   const [savingRequirements, setSavingRequirements] = useState(false);
   const [demandaPlanejadaModalOpen, setDemandaPlanejadaModalOpen] = useState(false);
   const [solicitacaoCliente, setSolicitacaoCliente] = useState('');
-  const [demandaStep, setDemandaStep] = useState<1 | 2>(1);
+  const [demandaStep, setDemandaStep] = useState<1 | 2 | 3>(1);
   const [generatingDemandaQuestions, setGeneratingDemandaQuestions] = useState(false);
   const [demandaQuestions, setDemandaQuestions] = useState<string[]>([]);
   const [demandaAnswers, setDemandaAnswers] = useState<string[]>([]);
+  const [generatingDemandaFinal, setGeneratingDemandaFinal] = useState(false);
+  const [demandaFinal, setDemandaFinal] = useState<{ titulo?: string; secoes: { titulo: string; conteudo: string }[] } | null>(null);
 
   const resetDemandaPlanejada = () => {
     setSolicitacaoCliente('');
@@ -148,7 +150,10 @@ const ClientHub = () => {
     setDemandaQuestions([]);
     setDemandaAnswers([]);
     setGeneratingDemandaQuestions(false);
+    setGeneratingDemandaFinal(false);
+    setDemandaFinal(null);
   };
+
 
   const openFallbackDemandaQuestions = async () => {
     let estrategiaGeralCliente = '';
@@ -300,6 +305,159 @@ Com base na solicitação acima e na estratégia geral do cliente, gere pergunta
       setGeneratingDemandaQuestions(false);
     }
   };
+
+  const handleGerarDemandaFinal = async () => {
+    if (!selectedClient?.id || !tenantId) {
+      toast.error('Selecione um cliente antes de continuar.');
+      return;
+    }
+    if (!demandaQuestions.length) {
+      toast.error('Nenhuma pergunta foi gerada.');
+      return;
+    }
+    const unanswered = demandaQuestions.filter((_, i) => !demandaAnswers[i]?.trim()).length;
+    if (unanswered > 0) {
+      toast.error(`Responda todas as perguntas antes de continuar (${unanswered} pendente${unanswered > 1 ? 's' : ''}).`);
+      return;
+    }
+
+    setGeneratingDemandaFinal(true);
+    try {
+      // 1. Estratégia geral do cliente
+      const { data: strategy } = await supabase
+        .from('strategies')
+        .select('strategy_text')
+        .eq('company_id', selectedClient.id)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const estrategiaGeralCliente = strategy?.strategy_text?.trim() ?? '';
+
+      // 2. Prompt DEV custom_prompt_1780342556676 ("Gerar a demanda de perguntas")
+      const { data: promptRow, error: promptError } = await supabase
+        .from('system_prompts')
+        .select('prompt_content')
+        .eq('tenant_id', tenantId)
+        .eq('prompt_key', 'custom_prompt_1780342556676')
+        .maybeSingle();
+      if (promptError) throw promptError;
+
+      const promptContent = promptRow?.prompt_content?.trim();
+      if (!promptContent) {
+        toast.error('Prompt "Gerar a demanda de perguntas" (custom_prompt_1780342556676) não encontrado em Dev → Prompts.');
+        return;
+      }
+
+      // 3. Chave da OpenAI (mantida no banco, não exposta em código)
+      const { data: apiKeyRow, error: apiKeyError } = await supabase
+        .from('api_keys')
+        .select('key_value')
+        .eq('key_name', 'OPENAI_API_KEY')
+        .maybeSingle();
+      if (apiKeyError) throw apiKeyError;
+
+      const openaiApiKey = apiKeyRow?.key_value?.trim();
+      if (!openaiApiKey) {
+        toast.error('Chave da API OpenAI não configurada em Dev → APIs.');
+        return;
+      }
+
+      // 4. Monta payload preservando ordem Pergunta N → Resposta N
+      const perguntasERespostas = demandaQuestions
+        .map((q, i) => `Pergunta ${i + 1}: ${q}\nResposta ${i + 1}: ${demandaAnswers[i]?.trim() ?? ''}`)
+        .join('\n\n');
+
+      const userPrompt = `SOLICITAÇÃO ORIGINAL DO CLIENTE:
+${solicitacaoCliente}
+
+ESTRATÉGIA GERAL DO CLIENTE:
+${estrategiaGeralCliente || '(não cadastrada)'}
+
+PERGUNTAS E RESPOSTAS DO BRIEFING:
+${perguntasERespostas}
+
+Gere a demanda final estruturada em JSON com o formato:
+{
+  "titulo": "Título da demanda",
+  "secoes": [
+    { "titulo": "Nome da seção", "conteudo": "Conteúdo detalhado da seção" }
+  ]
+}
+Use seções claras (ex.: Objetivo, Público-alvo, Mensagem-chave, Formato, Tom de voz, Call to Action, Observações). Retorne APENAS o JSON, sem markdown.`;
+
+      const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-5-mini',
+          messages: [
+            { role: 'system', content: promptContent },
+            { role: 'user', content: userPrompt },
+          ],
+          response_format: { type: 'json_object' },
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error('OpenAI error (demanda final):', aiResponse.status, errorText);
+        if (aiResponse.status === 429) toast.error('Limite de requisições da OpenAI excedido.');
+        else if (aiResponse.status === 401) toast.error('Chave da API OpenAI inválida.');
+        else toast.error('Erro ao gerar a demanda final.');
+        return;
+      }
+
+      const aiData = await aiResponse.json();
+      const rawText: string = aiData?.choices?.[0]?.message?.content?.trim() ?? '';
+
+      let parsed: any = null;
+      try {
+        parsed = JSON.parse(rawText);
+      } catch {
+        const match = rawText.match(/\{[\s\S]*\}/);
+        if (match) {
+          try { parsed = JSON.parse(match[0]); } catch {}
+        }
+      }
+
+      const secoes = Array.isArray(parsed?.secoes)
+        ? parsed.secoes
+            .map((s: any) => ({
+              titulo: String(s?.titulo ?? '').trim(),
+              conteudo: String(s?.conteudo ?? '').trim(),
+            }))
+            .filter((s: any) => s.titulo || s.conteudo)
+        : [];
+
+      if (!secoes.length) {
+        // fallback: mostra texto cru em uma única seção para não perder o conteúdo
+        if (rawText) {
+          setDemandaFinal({ titulo: 'Demanda', secoes: [{ titulo: 'Conteúdo', conteudo: rawText }] });
+          setDemandaStep(3);
+          return;
+        }
+        toast.error('Não foi possível interpretar a resposta da OpenAI.');
+        return;
+      }
+
+      setDemandaFinal({
+        titulo: typeof parsed?.titulo === 'string' ? parsed.titulo : undefined,
+        secoes,
+      });
+      setDemandaStep(3);
+    } catch (err: any) {
+      console.error('Erro Gerar Demanda Final:', err);
+      toast.error(err?.message || 'Erro ao gerar a demanda final.');
+    } finally {
+      setGeneratingDemandaFinal(false);
+    }
+  };
+
 
   useEffect(() => {
     if (!selectedClient?.id || !tenantId) return;
@@ -1791,7 +1949,7 @@ Com base na solicitação acima e na estratégia geral do cliente, gere pergunta
 
         {/* Modal Demanda Planejada */}
         <Dialog open={demandaPlanejadaModalOpen} onOpenChange={(open) => { setDemandaPlanejadaModalOpen(open); if (!open) resetDemandaPlanejada(); }}>
-          <DialogContent className={demandaStep === 2 ? "sm:max-w-3xl" : "sm:max-w-2xl"}>
+          <DialogContent className={demandaStep === 1 ? "sm:max-w-2xl" : "sm:max-w-3xl"}>
             <DialogHeader>
               <DialogTitle className="text-xl flex items-center gap-2">
                 <ClipboardList className="w-5 h-5 text-primary" />
@@ -1800,9 +1958,12 @@ Com base na solicitação acima e na estratégia geral do cliente, gere pergunta
               <DialogDescription>
                 {demandaStep === 1
                   ? 'Informe a solicitação do cliente para gerar perguntas estratégicas da demanda.'
-                  : 'Responda cada pergunta para refinar a demanda antes de avançar.'}
+                  : demandaStep === 2
+                    ? 'Responda cada pergunta para refinar a demanda antes de avançar.'
+                    : 'Demanda final gerada com base nas respostas e na estratégia do cliente.'}
               </DialogDescription>
             </DialogHeader>
+
             {demandaStep === 1 ? (
               <div className="space-y-4 py-2">
                 <div>
@@ -1824,7 +1985,7 @@ Com base na solicitação acima e na estratégia geral do cliente, gere pergunta
                   </Button>
                 </div>
               </div>
-            ) : (
+            ) : demandaStep === 2 ? (
               <div className="space-y-4 py-2">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div>
@@ -1837,7 +1998,7 @@ Com base na solicitação acima e na estratégia geral do cliente, gere pergunta
                     {demandaAnswers.filter((a) => a.trim()).length} / {demandaQuestions.length} respondidas
                   </span>
                 </div>
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 -mr-2">
+                <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-2 -mr-2">
                   {demandaQuestions.map((q, i) => {
                     const answered = !!demandaAnswers[i]?.trim();
                     return (
@@ -1861,6 +2022,7 @@ Com base na solicitação acima e na estratégia geral do cliente, gere pergunta
                             }}
                             placeholder="Digite a resposta..."
                             className="min-h-[80px] resize-y bg-background"
+                            disabled={generatingDemandaFinal}
                           />
                         </div>
                       </div>
@@ -1868,10 +2030,57 @@ Com base na solicitação acima e na estratégia geral do cliente, gere pergunta
                   })}
                 </div>
                 <div className="flex justify-between pt-2 border-t">
-                  <Button variant="outline" onClick={() => setDemandaStep(1)}>Voltar</Button>
+                  <Button variant="outline" onClick={() => setDemandaStep(1)} disabled={generatingDemandaFinal}>Voltar</Button>
+                  <Button onClick={handleGerarDemandaFinal} disabled={generatingDemandaFinal}>
+                    {generatingDemandaFinal ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando demanda...</>
+                    ) : 'Continuar'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 py-2">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <Label className="text-base font-semibold">
+                      {demandaFinal?.titulo || 'Demanda final'}
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Gerada com base na solicitação, respostas do briefing e estratégia do cliente.
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {demandaFinal?.secoes.length ?? 0} {((demandaFinal?.secoes.length ?? 0) === 1) ? 'seção' : 'seções'}
+                  </span>
+                </div>
+                <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 -mr-2">
+                  {demandaFinal?.secoes.map((s, i) => (
+                    <div key={i} className="rounded-lg border bg-card shadow-sm">
+                      <div className="flex items-center gap-3 px-4 pt-4">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                          {i + 1}
+                        </div>
+                        <h3 className="text-sm font-semibold flex-1">{s.titulo || `Seção ${i + 1}`}</h3>
+                      </div>
+                      <div className="px-4 pb-4 pt-2 pl-14">
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
+                          {s.conteudo}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between pt-2 border-t">
+                  <Button variant="outline" onClick={() => setDemandaStep(2)}>Voltar</Button>
+                  <Button onClick={handleGerarDemandaFinal} variant="secondary" disabled={generatingDemandaFinal}>
+                    {generatingDemandaFinal ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Regenerando...</>
+                    ) : 'Regenerar demanda'}
+                  </Button>
                 </div>
               </div>
             )}
+
           </DialogContent>
         </Dialog>
       </div>
