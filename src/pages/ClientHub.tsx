@@ -1021,7 +1021,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     { id: 'client_historico' as ClientHubButtonId, title: "Histórico de Períodos", icon: History, action: () => navigate("/plan-period?tab=history") },
     { id: 'client_identidade_visual' as ClientHubButtonId, title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
     { id: 'client_conteudo_avulso' as ClientHubButtonId, title: "Conteúdo Avulso", icon: PenTool, action: () => setContentHubModalOpen(true) },
-    { id: 'client_conteudo_avulso_backup' as ClientHubButtonId, title: "Conteúdo Avulso (Backup)", icon: PenTool, action: () => setContentHubModalOpen(true) },
+    
     { id: 'client_demanda_planejada' as ClientHubButtonId, title: "Demanda Planejada", icon: ClipboardList, action: () => setDemandaPlanejadaModalOpen(true) },
     { id: 'client_demanda_planejada_historico' as ClientHubButtonId, title: "Histórico de Demanda Planejada", icon: ArchiveRestore, action: () => { setDemandaHistoricoExpandedId(null); setDemandaHistoricoModalOpen(true); }, badge: demandaHistorico.length > 0 ? demandaHistorico.length : undefined },
   ];
