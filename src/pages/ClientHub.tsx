@@ -2130,9 +2130,9 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                             {s.conteudo}
                           </p>
                         )}
-                        {s.itens.length > 0 && (
+                        {(s.itens?.length ?? 0) > 0 && (
                           <ul className="list-disc pl-5 space-y-1.5 text-sm text-muted-foreground leading-relaxed">
-                            {s.itens.map((it, j) => (
+                            {s.itens!.map((it, j) => (
                               <li key={j}>{it}</li>
                             ))}
                           </ul>
