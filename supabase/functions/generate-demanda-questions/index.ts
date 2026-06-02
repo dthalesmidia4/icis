@@ -1,31 +1,25 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const jsonResponse = (body: Record<string, unknown>, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     const { companyId, tenantId, solicitacaoCliente } = await req.json();
 
     if (!solicitacaoCliente || !solicitacaoCliente.trim()) {
-      return new Response(
-        JSON.stringify({ error: 'Descreva o que o cliente solicitou antes de continuar.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Descreva o que o cliente solicitou antes de continuar.' }, 400);
     }
     if (!companyId || !tenantId) {
-      return new Response(
-        JSON.stringify({ error: 'Cliente ou tenant não identificado.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Cliente ou tenant não identificado.' }, 400);
     }
 
     const supabase = createClient(
@@ -43,10 +37,7 @@ serve(async (req) => {
 
     const estrategiaGeralCliente = strategy?.strategy_text?.trim();
     if (!estrategiaGeralCliente) {
-      return new Response(
-        JSON.stringify({ error: 'Cadastre a Estratégia Geral do cliente antes de gerar perguntas para a demanda planejada.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Cadastre a Estratégia Geral do cliente antes de gerar perguntas para a demanda planejada.' }, 400);
     }
 
     // 2. Prompt do sistema (Gerador de perguntas)
@@ -59,10 +50,7 @@ serve(async (req) => {
 
     const promptContent = promptRow?.prompt_content?.trim();
     if (!promptContent) {
-      return new Response(
-        JSON.stringify({ error: 'Prompt "Gerador de perguntas" (custom_prompt_1780339940303) não encontrado em Dev → Prompts.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Prompt "Gerador de perguntas" (custom_prompt_1780339940303) não encontrado em Dev → Prompts.' }, 400);
     }
 
     // 3. API key OpenAI
@@ -74,10 +62,7 @@ serve(async (req) => {
 
     const openaiApiKey = apiKeyData?.key_value;
     if (!openaiApiKey) {
-      return new Response(
-        JSON.stringify({ error: 'Chave da API OpenAI não configurada. Configure em Dev → APIs.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Chave da API OpenAI não configurada. Configure em Dev → APIs.' }, 500);
     }
 
     const userPrompt = `SOLICITAÇÃO DO CLIENTE:
@@ -108,21 +93,12 @@ Com base na solicitação acima e na estratégia geral do cliente, gere pergunta
       const errorText = await aiResponse.text();
       console.error('OpenAI error:', aiResponse.status, errorText);
       if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Limite de requisições da OpenAI excedido. Tente novamente em instantes.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return jsonResponse({ error: 'Limite de requisições da OpenAI excedido. Tente novamente em instantes.' }, 429);
       }
       if (aiResponse.status === 401) {
-        return new Response(
-          JSON.stringify({ error: 'Chave da API OpenAI inválida.' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return jsonResponse({ error: 'Chave da API OpenAI inválida.' }, 401);
       }
-      return new Response(
-        JSON.stringify({ error: 'Erro ao gerar perguntas com a OpenAI.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: 'Erro ao gerar perguntas com a OpenAI.' }, 500);
     }
 
     const aiData = await aiResponse.json();
@@ -134,15 +110,9 @@ Com base na solicitação acima e na estratégia geral do cliente, gere pergunta
       .map((l: string) => l.replace(/^\s*\d+[\).:\-]\s*/, '').trim())
       .filter((l: string) => l.length > 0);
 
-    return new Response(
-      JSON.stringify({ questions, rawText }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse({ questions, rawText });
   } catch (err) {
     console.error('generate-demanda-questions error:', err);
-    return new Response(
-      JSON.stringify({ error: (err as Error).message || 'Erro inesperado.' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse({ error: (err as Error).message || 'Erro inesperado.' }, 500);
   }
 });
