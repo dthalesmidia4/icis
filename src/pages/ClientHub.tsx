@@ -189,49 +189,110 @@ const ClientHub = () => {
     }
     setGeneratingDemandaQuestions(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-demanda-questions', {
-        body: {
-          companyId: selectedClient.id,
-          tenantId,
-          solicitacaoCliente,
+      // 1. Estratégia Geral do Cliente
+      const { data: strategy, error: strategyError } = await supabase
+        .from('strategies')
+        .select('strategy_text')
+        .eq('company_id', selectedClient.id)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (strategyError) throw strategyError;
+
+      const estrategiaGeralCliente = strategy?.strategy_text?.trim();
+      if (!estrategiaGeralCliente) {
+        toast.error('Cadastre a Estratégia Geral do cliente antes de gerar perguntas para a demanda planejada.');
+        return;
+      }
+
+      // 2. Prompt "Gerador de perguntas" (custom_prompt_1780339940303)
+      const { data: promptRow, error: promptError } = await supabase
+        .from('system_prompts')
+        .select('prompt_content')
+        .eq('tenant_id', tenantId)
+        .eq('prompt_key', 'custom_prompt_1780339940303')
+        .maybeSingle();
+
+      if (promptError) throw promptError;
+
+      const promptContent = promptRow?.prompt_content?.trim();
+      if (!promptContent) {
+        toast.error('Prompt "Gerador de perguntas" (custom_prompt_1780339940303) não encontrado em Dev → Prompts.');
+        return;
+      }
+
+      // 3. Chave da OpenAI
+      const { data: apiKeyRow, error: apiKeyError } = await supabase
+        .from('api_keys')
+        .select('key_value')
+        .eq('key_name', 'OPENAI_API_KEY')
+        .maybeSingle();
+
+      if (apiKeyError) throw apiKeyError;
+
+      const openaiApiKey = apiKeyRow?.key_value?.trim();
+      if (!openaiApiKey) {
+        toast.error('Chave da API OpenAI não configurada. Configure em Dev → APIs.');
+        return;
+      }
+
+      // 4. Chamada direta à OpenAI (gpt-5-mini)
+      const userPrompt = `SOLICITAÇÃO DO CLIENTE:
+${solicitacaoCliente}
+
+ESTRATÉGIA GERAL DO CLIENTE:
+${estrategiaGeralCliente}
+
+Com base na solicitação acima e na estratégia geral do cliente, gere perguntas estratégicas personalizadas que ajudem a planejar essa demanda com qualidade. Não repita perguntas cuja resposta já foi fornecida pela solicitação. Retorne apenas as perguntas, numeradas, sem comentários adicionais.`;
+
+      const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          model: 'gpt-5-mini',
+          messages: [
+            { role: 'system', content: promptContent },
+            { role: 'user', content: userPrompt },
+          ],
+        }),
       });
-      if (error) {
-        const rawMessage = (error as any)?.context?.error || (error as any)?.message || 'Erro ao gerar perguntas.';
-        const usedFallback = await openFallbackDemandaQuestions();
-        if (!usedFallback) {
-          const msg = typeof rawMessage === 'string' && /Failed to send a request to the Edge Function/i.test(rawMessage)
-            ? 'A função de geração não respondeu. Isso normalmente indica falha de deploy ou inicialização da Edge Function.'
-            : rawMessage;
-          toast.error(typeof msg === 'string' ? msg : 'Erro ao gerar perguntas.');
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error('OpenAI error:', aiResponse.status, errorText);
+        if (aiResponse.status === 429) {
+          toast.error('Limite de requisições da OpenAI excedido. Tente novamente em instantes.');
+        } else if (aiResponse.status === 401) {
+          toast.error('Chave da API OpenAI inválida.');
+        } else {
+          toast.error('Erro ao gerar perguntas com a OpenAI.');
         }
         return;
       }
-      if ((data as any)?.error) {
-        const usedFallback = await openFallbackDemandaQuestions();
-        if (!usedFallback) {
-          toast.error((data as any).error);
-        }
-        return;
-      }
-      const questions: string[] = (data as any)?.questions ?? [];
+
+      const aiData = await aiResponse.json();
+      const rawText: string = aiData?.choices?.[0]?.message?.content?.trim() ?? '';
+
+      const questions = rawText
+        .split('\n')
+        .map((l: string) => l.replace(/^\s*\d+[\).:\-]\s*/, '').trim())
+        .filter((l: string) => l.length > 0);
+
       if (!questions.length) {
-        const usedFallback = await openFallbackDemandaQuestions();
-        if (!usedFallback) {
-          toast.error('Nenhuma pergunta foi gerada. Tente novamente.');
-        }
+        toast.error('Nenhuma pergunta foi gerada. Tente novamente.');
         return;
       }
+
       setDemandaQuestions(questions);
       setDemandaStep(2);
     } catch (err: any) {
-      const usedFallback = await openFallbackDemandaQuestions();
-      if (!usedFallback) {
-        const msg = typeof err?.message === 'string' && /Failed to send a request to the Edge Function/i.test(err.message)
-          ? 'A função de geração não respondeu. Verifique a conexão do Supabase no Lovable e o deploy da Edge Function.'
-          : (err?.message || 'Erro ao gerar perguntas.');
-        toast.error(msg);
-      }
+      console.error('Erro Demanda Planejada (direct):', err);
+      toast.error(err?.message || 'Erro ao gerar perguntas.');
     } finally {
       setGeneratingDemandaQuestions(false);
     }
