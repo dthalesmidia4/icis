@@ -291,6 +291,7 @@ Com base na solicitação acima e na estratégia geral do cliente, gere pergunta
       }
 
       setDemandaQuestions(questions);
+      setDemandaAnswers(questions.map(() => ''));
       setDemandaStep(2);
     } catch (err: any) {
       console.error('Erro Demanda Planejada (direct):', err);
