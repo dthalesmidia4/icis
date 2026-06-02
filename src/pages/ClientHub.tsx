@@ -140,6 +140,7 @@ const ClientHub = () => {
   const [demandaStep, setDemandaStep] = useState<1 | 2>(1);
   const [generatingDemandaQuestions, setGeneratingDemandaQuestions] = useState(false);
   const [demandaQuestions, setDemandaQuestions] = useState<string[]>([]);
+  const [demandaAnswers, setDemandaAnswers] = useState<string[]>([]);
 
   const resetDemandaPlanejada = () => {
     setSolicitacaoCliente('');
