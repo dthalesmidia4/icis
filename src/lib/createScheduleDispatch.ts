@@ -81,19 +81,18 @@ export async function createOrUpdateScheduleDispatch(args: Args): Promise<Result
     return { ok: false, error: "Anexe o arquivo de vídeo final antes de agendar." };
   }
 
-  // Check client has any connected social account
-  const { data: logins, error: loginsErr } = await supabase
-    .from("platform_logins")
-    .select("id, name, access_info")
-    .eq("tenant_id", tenantId);
+  // Check client has any connected social account in client_social_accounts
+  const { data: socialRows, error: loginsErr } = await supabase
+    .from("client_social_accounts" as any)
+    .select("id, platform, account_label, ig_user_id, fb_page_id, is_active")
+    .eq("client_id", clientId)
+    .eq("is_active", true);
   if (loginsErr) {
-    console.error("[ScheduleDispatch] platform_logins error", loginsErr);
+    console.error("[ScheduleDispatch] client_social_accounts error", loginsErr);
   }
-  const socialAccounts = (logins || []).filter(l =>
-    /instagram|facebook|tiktok|linkedin|twitter|x\.com|youtube/i.test(`${l.name || ""}`)
-  );
+  const socialAccounts = (socialRows as any[]) || [];
   if (socialAccounts.length === 0) {
-    return { ok: false, error: "Este cliente ainda não possui redes sociais conectadas para publicação." };
+    return { ok: false, error: "Este cliente ainda não possui redes sociais conectadas. Configure em Dev > Tokens de Redes Sociais." };
   }
 
   const coverFile = contentType === "video_capa"
