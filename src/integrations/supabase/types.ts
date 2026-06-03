@@ -1058,6 +1058,83 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_publication_dispatches: {
+        Row: {
+          attempt_count: number
+          caption: string | null
+          card_id: string
+          client_id: string
+          content_type: string
+          cover_file: Json | null
+          created_at: string
+          created_by: string | null
+          dispatched_at: string | null
+          error_message: string | null
+          external_post_ids: Json | null
+          id: string
+          media_files: Json
+          published_at: string | null
+          scheduled_at: string
+          social_accounts: Json
+          status: string
+          tenant_id: string
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          caption?: string | null
+          card_id: string
+          client_id: string
+          content_type: string
+          cover_file?: Json | null
+          created_at?: string
+          created_by?: string | null
+          dispatched_at?: string | null
+          error_message?: string | null
+          external_post_ids?: Json | null
+          id?: string
+          media_files?: Json
+          published_at?: string | null
+          scheduled_at: string
+          social_accounts?: Json
+          status?: string
+          tenant_id: string
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          caption?: string | null
+          card_id?: string
+          client_id?: string
+          content_type?: string
+          cover_file?: Json | null
+          created_at?: string
+          created_by?: string | null
+          dispatched_at?: string | null
+          error_message?: string | null
+          external_post_ids?: Json | null
+          id?: string
+          media_files?: Json
+          published_at?: string | null
+          scheduled_at?: string
+          social_accounts?: Json
+          status?: string
+          tenant_id?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_publication_dispatches_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       strategies: {
         Row: {
           company_id: string
