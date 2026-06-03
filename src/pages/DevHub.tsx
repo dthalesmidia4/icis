@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { FileCode, Wifi, Link2 } from "lucide-react";
+import { FileCode, Wifi, Link2, Share2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 const DevHub = () => {
@@ -25,7 +25,14 @@ const DevHub = () => {
       color: "from-emerald-500 to-emerald-600",
       route: "/dev/webhooks",
     },
+    {
+      title: "Tokens de Redes Sociais",
+      icon: Share2,
+      color: "from-pink-500 to-rose-600",
+      route: "/dev/social-tokens",
+    },
   ];
+
 
   return (
     <div className="container max-w-6xl mx-auto px-6 py-8">
