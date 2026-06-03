@@ -21,6 +21,7 @@ import ClientDetails from "./pages/ClientDetails";
 import StrategyCreation from "./pages/StrategyCreation";
 import GenerateQuestions from "./pages/GenerateQuestions";
 import DevHub from "./pages/DevHub";
+import DevSocialTokens from "./pages/DevSocialTokens";
 import DevPrompts from "./pages/DevPrompts";
 import DevApis from "./pages/DevApis";
 import DevWebhooks from "./pages/DevWebhooks";
@@ -272,6 +273,17 @@ function AppRoutes() {
             <RequireRole allowedRoles={['agency_admin']}>
               <Layout>
                 <DevWebhooks />
+              </Layout>
+            </RequireRole>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/dev/social-tokens" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <RequireRole allowedRoles={['agency_admin']}>
+              <Layout>
+                <DevSocialTokens />
               </Layout>
             </RequireRole>
           </RequireTenant>
