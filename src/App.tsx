@@ -21,6 +21,7 @@ import ClientDetails from "./pages/ClientDetails";
 import StrategyCreation from "./pages/StrategyCreation";
 import GenerateQuestions from "./pages/GenerateQuestions";
 import DevHub from "./pages/DevHub";
+import DevSocialTokens from "./pages/DevSocialTokens";
 import DevPrompts from "./pages/DevPrompts";
 import DevApis from "./pages/DevApis";
 import DevWebhooks from "./pages/DevWebhooks";
