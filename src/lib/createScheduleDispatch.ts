@@ -127,7 +127,7 @@ export async function createOrUpdateScheduleDispatch(args: Args): Promise<Result
     caption: caption || null,
     media_files: mediaFiles,
     cover_file: coverFile,
-    social_accounts: socialAccounts.map(s => ({ id: s.id, name: s.name })),
+    social_accounts: socialAccounts.map((s: any) => ({ id: s.id, platform: s.platform, label: s.account_label })),
     status: "scheduled" as const,
     error_message: null,
     attempt_count: 0,
