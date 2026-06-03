@@ -188,7 +188,7 @@ const CompletedDemands = () => {
       } else {
         updateData[field] = value || null;
       }
-      const { error } = await supabase.from("demands").update(updateData).eq("id", selectedCard.id);
+      const { error } = await supabase.from("demands").update(updateData as any).eq("id", selectedCard.id);
       if (error) throw error;
 
       if (field === "status") {

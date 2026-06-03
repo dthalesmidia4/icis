@@ -257,7 +257,7 @@ const Scheduled = () => {
 
       const { error } = await supabase
         .from("demands")
-        .update(updateData)
+        .update(updateData as any)
         .eq("id", selectedCard.id);
 
       if (error) throw error;

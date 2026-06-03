@@ -298,7 +298,7 @@ const ApproveCards = () => {
         .update({
           [planKey]: plan as unknown as null,
           rejected_plan: rejectedPlan as unknown as null,
-        })
+        } as any)
         .eq('id', period.id);
 
       if (error) throw error;
@@ -331,7 +331,7 @@ const ApproveCards = () => {
       const field = reviewMode === 'normal' ? 'default_plan' : 'ultra_plan';
       await supabase.from('period_plans').update({
         [field]: selectedDemands as unknown as null
-      }).eq('id', period.id);
+      } as any).eq('id', period.id);
 
       toast.success(`${selectedDemands.length} demandas ${reviewMode === 'normal' ? 'normais' : 'ultra'} atualizadas!`);
       fetchData(); // Reload to reflect changes
@@ -397,7 +397,7 @@ const ApproveCards = () => {
 
         const { error } = await supabase.from('period_plans').update({
           [planKey]: plan as unknown as null,
-        }).eq('id', period.id);
+        } as any).eq('id', period.id);
 
         if (error) throw error;
 

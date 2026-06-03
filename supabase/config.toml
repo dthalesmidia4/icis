@@ -1,1 +1,49 @@
 project_id = "neriayolipcupycirwhf"
+
+[functions.generate-strategy]
+verify_jwt = false
+
+[functions.generate-period-plans]
+verify_jwt = false
+
+[functions.send-invitation-email]
+verify_jwt = false
+
+[functions.generate-post-image]
+verify_jwt = false
+
+[functions.generate-standalone-post]
+verify_jwt = false
+
+[functions.reevaluate-card]
+verify_jwt = false
+
+[functions.generate-carousel-content]
+verify_jwt = false
+
+[functions.generate-carousel-images]
+verify_jwt = false
+
+[functions.generate-video-storyboard]
+verify_jwt = false
+
+[functions.generate-video-scene]
+verify_jwt = false
+
+[functions.auto-generate-post]
+verify_jwt = false
+
+[functions.auto-generate-carousel]
+verify_jwt = false
+
+[functions.generate-employee-strategy]
+verify_jwt = false
+
+[functions.generate-supervision]
+verify_jwt = false
+
+[functions.generate-demanda-questions]
+verify_jwt = false
+
+[functions.run-scheduled-dispatches]
+verify_jwt = false

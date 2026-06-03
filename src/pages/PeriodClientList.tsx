@@ -22,6 +22,7 @@ import TaskCard, { getColumnFromStatus } from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
+import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -370,7 +371,7 @@ const PeriodClientList = () => {
 
       const { error } = await supabase
         .from("demands")
-        .update(demandUpdateData)
+        .update(demandUpdateData as any)
         .eq("id", selectedCard.id);
 
       if (error) throw error;
@@ -662,6 +663,44 @@ const PeriodClientList = () => {
                 .eq("id", pendingScheduleCard.id);
 
               if (error) throw error;
+
+              // Create or update internal scheduled dispatch
+              if (pendingScheduleCard.tenant_id && (pendingScheduleCard as any).client_id) {
+                const cardId = pendingScheduleCard.id;
+                const existed = await hasActiveDispatch(cardId);
+                if (existed) {
+                  const ok = window.confirm("Este card já possui uma publicação agendada. Deseja atualizar o disparo existente?");
+                  if (!ok) {
+                    toast.info("Disparo anterior mantido. Data e horário do card foram atualizados.");
+                  } else {
+                    const result = await createOrUpdateScheduleDispatch({
+                      cardId,
+                      tenantId: pendingScheduleCard.tenant_id,
+                      clientId: (pendingScheduleCard as any).client_id,
+                      publishDate: date,
+                      publishTime: time,
+                      caption: pendingScheduleCard.description,
+                      attachments: pendingScheduleCard.attachments as any,
+                      demandType: pendingScheduleCard.demand_type,
+                      title: pendingScheduleCard.title,
+                    });
+                    if (!result.ok) toast.error(result.error || "Não foi possível criar o disparo");
+                  }
+                } else {
+                  const result = await createOrUpdateScheduleDispatch({
+                    cardId,
+                    tenantId: pendingScheduleCard.tenant_id,
+                    clientId: (pendingScheduleCard as any).client_id,
+                    publishDate: date,
+                    publishTime: time,
+                    caption: pendingScheduleCard.description,
+                    attachments: pendingScheduleCard.attachments as any,
+                    demandType: pendingScheduleCard.demand_type,
+                    title: pendingScheduleCard.title,
+                  });
+                  if (!result.ok) toast.error(result.error || "Não foi possível criar o disparo");
+                }
+              }
 
               if (selectedCard?.id === pendingScheduleCard.id) {
                 setSelectedCard(prev => prev ? {
