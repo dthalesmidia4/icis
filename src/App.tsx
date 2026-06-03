@@ -277,6 +277,17 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      <Route path="/dev/social-tokens" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <RequireRole allowedRoles={['agency_admin']}>
+              <Layout>
+                <DevSocialTokens />
+              </Layout>
+            </RequireRole>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
       <Route path="/scheduled" element={
         <ProtectedRoute>
           <RequireTenant>
