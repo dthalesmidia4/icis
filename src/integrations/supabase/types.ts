@@ -241,6 +241,65 @@ export type Database = {
           },
         ]
       }
+      client_social_accounts: {
+        Row: {
+          access_token: string
+          account_label: string | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          fb_page_id: string | null
+          id: string
+          ig_user_id: string | null
+          is_active: boolean
+          notes: string | null
+          platform: string
+          tenant_id: string
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          account_label?: string | null
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          fb_page_id?: string | null
+          id?: string
+          ig_user_id?: string | null
+          is_active?: boolean
+          notes?: string | null
+          platform: string
+          tenant_id: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          account_label?: string | null
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          fb_page_id?: string | null
+          id?: string
+          ig_user_id?: string | null
+          is_active?: boolean
+          notes?: string | null
+          platform?: string
+          tenant_id?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_social_accounts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_mascot_images: {
         Row: {
           company_id: string
