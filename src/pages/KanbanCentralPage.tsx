@@ -34,6 +34,7 @@ import { CreateDemandModal } from "@/components/CreateDemandModal";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
+import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 
 interface PipelineStatus {
   id: string;
@@ -1216,6 +1217,34 @@ const KanbanCentralPage = () => {
 
             if (error) throw error;
 
+            // Create or update internal scheduled dispatch
+            if (pendingScheduleCard.tenant_id) {
+              const existed = await hasActiveDispatch(pendingScheduleCard.id);
+              if (existed) {
+                const ok = window.confirm("Este card já possui uma publicação agendada. Deseja atualizar o disparo existente?");
+                if (!ok) {
+                  sonnerToast.info("Disparo anterior mantido. Data e horário do card foram atualizados.");
+                  return;
+                }
+              }
+              const result = await createOrUpdateScheduleDispatch({
+                cardId: pendingScheduleCard.id,
+                tenantId: pendingScheduleCard.tenant_id,
+                clientId: pendingScheduleCard.clientId,
+                publishDate: date,
+                publishTime: time,
+                caption: pendingScheduleCard.description,
+                attachments: pendingScheduleCard.attachments as any,
+                demandType: pendingScheduleCard.demand_type,
+                title: pendingScheduleCard.title,
+              });
+              if (!result.ok) {
+                sonnerToast.error(result.error || "Não foi possível criar o disparo de publicação");
+              } else {
+                sonnerToast.success(`Agendado para ${new Date(date + 'T' + time).toLocaleDateString('pt-BR')} às ${time}`);
+              }
+            }
+
             // Update local state
             setCards(prev => prev.map(c =>
               c.id === pendingScheduleCard.id
@@ -1232,10 +1261,6 @@ const KanbanCentralPage = () => {
                 publish_time: time
               } : null);
             }
-
-            sonnerToast.success("Publicação agendada", {
-              description: `${date} às ${time}`
-            });
           } catch (error) {
             console.error("Error scheduling:", error);
             sonnerToast.error("Erro ao agendar publicação");
