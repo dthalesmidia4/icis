@@ -694,7 +694,7 @@ const KanbanCentralPage = () => {
       
       const { error } = await supabase
         .from("demands")
-        .update(demandUpdateData)
+        .update(demandUpdateData as any)
         .eq("id", selectedCard.id);
 
       if (error) throw error;

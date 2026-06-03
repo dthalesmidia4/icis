@@ -111,7 +111,7 @@ export async function syncPeriodPlanSnapshot(
 
     if (Object.keys(updates).length === 0) return;
 
-    await supabase.from("period_plans").update(updates).eq("id", periodPlanId);
+    await supabase.from("period_plans").update(updates as any).eq("id", periodPlanId);
   } catch (err) {
     console.warn("[syncPeriodPlanSnapshot] failed:", err);
   }

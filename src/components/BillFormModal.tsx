@@ -174,7 +174,7 @@ export default function BillFormModal({ open, onOpenChange, onSuccess, bill }: B
       if (isEditing && bill) {
         const { error } = await supabase
           .from("bills_payable")
-          .update(payload)
+          .update(payload as any)
           .eq("id", bill.id);
         if (error) throw error;
 
