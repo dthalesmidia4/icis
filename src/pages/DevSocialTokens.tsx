@@ -91,9 +91,10 @@ const DevSocialTokens = () => {
 
   const save = async (a: Account) => {
     if (!a.access_token.trim()) return toast({ title: "Access Token da Página obrigatório", variant: "destructive" });
-    if (!a.fb_page_id.trim()) return toast({ title: "Facebook Page ID obrigatório", variant: "destructive" });
+    if (a.platform === "facebook" && !a.fb_page_id.trim()) return toast({ title: "Facebook Page ID obrigatório", variant: "destructive" });
     if (a.platform === "instagram" && !a.ig_user_id.trim()) return toast({ title: "Instagram Business Account ID obrigatório", variant: "destructive" });
     if (!a.token_expires_at) return toast({ title: "Data de expiração do token obrigatória", variant: "destructive" });
+
 
     updateAcc(a.platform, { _saving: true });
     const payload = {
