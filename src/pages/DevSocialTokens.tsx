@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Save, Plus, Trash2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { Save, Plus, Trash2, Eye, EyeOff, CheckCircle2, Building2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import BackButton from "@/components/BackButton";
@@ -45,6 +46,7 @@ const DevSocialTokens = () => {
   const [selectedClient, setSelectedClient] = useState<string>("");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
+  const [counts, setCounts] = useState<Record<string, number>>({});
 
   useEffect(() => { loadClients(); }, []);
   useEffect(() => { if (selectedClient) loadAccounts(selectedClient); }, [selectedClient]);
@@ -54,9 +56,17 @@ const DevSocialTokens = () => {
       .from("tenant_companies")
       .select("id, name, tenant_id")
       .order("name");
-    setClients((data as any) || []);
+    const list = (data as any) || [];
+    setClients(list);
+    const { data: accs } = await supabase
+      .from("client_social_accounts" as any)
+      .select("client_id");
+    const map: Record<string, number> = {};
+    ((accs as any) || []).forEach((r: any) => { map[r.client_id] = (map[r.client_id] || 0) + 1; });
+    setCounts(map);
     setLoading(false);
   };
+
 
   const loadAccounts = async (clientId: string) => {
     const { data } = await supabase
@@ -122,23 +132,49 @@ const DevSocialTokens = () => {
         <p className="text-muted-foreground mt-1">Cole o Access Token, IG Business ID e Page ID de cada cliente para habilitar publicações automáticas.</p>
       </div>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Selecionar cliente</CardTitle>
-          <CardDescription>Cada cliente possui suas próprias contas conectadas.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Select value={selectedClient} onValueChange={setSelectedClient} disabled={loading}>
-            <SelectTrigger><SelectValue placeholder="Selecione um cliente" /></SelectTrigger>
-            <SelectContent>
-              {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+      {!selectedClient && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {loading && <p className="text-muted-foreground col-span-full">Carregando...</p>}
+          {!loading && clients.length === 0 && (
+            <p className="text-muted-foreground col-span-full">Nenhum cliente cadastrado.</p>
+          )}
+          {clients.map(c => {
+            const count = counts[c.id] || 0;
+            return (
+              <Card
+                key={c.id}
+                onClick={() => setSelectedClient(c.id)}
+                className="group cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 hover:border-primary/50"
+              >
+                <CardContent className="p-6 flex flex-col items-center text-center gap-3">
+                  <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Building2 className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="font-semibold text-base line-clamp-2">{c.name}</h3>
+                  <Badge variant={count > 0 ? "default" : "secondary"}>
+                    {count > 0 ? `${count} conta${count > 1 ? "s" : ""}` : "Sem contas"}
+                  </Badge>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {selectedClient && (
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="ghost" onClick={() => { setSelectedClient(""); setAccounts([]); loadClients(); }}>
+              <ArrowLeft className="h-4 w-4 mr-2" /> Voltar para clientes
+            </Button>
+            <h2 className="text-xl font-semibold">{clients.find(c => c.id === selectedClient)?.name}</h2>
+          </div>
+        </>
+      )}
 
       {selectedClient && (
         <div className="space-y-4">
+
           {accounts.map((a, i) => (
             <Card key={a.id || `new-${i}`}>
               <CardHeader className="flex flex-row items-center justify-between">
