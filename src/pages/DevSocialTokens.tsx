@@ -46,6 +46,7 @@ const DevSocialTokens = () => {
   const [selectedClient, setSelectedClient] = useState<string>("");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
+  const [counts, setCounts] = useState<Record<string, number>>({});
 
   useEffect(() => { loadClients(); }, []);
   useEffect(() => { if (selectedClient) loadAccounts(selectedClient); }, [selectedClient]);
@@ -55,9 +56,17 @@ const DevSocialTokens = () => {
       .from("tenant_companies")
       .select("id, name, tenant_id")
       .order("name");
-    setClients((data as any) || []);
+    const list = (data as any) || [];
+    setClients(list);
+    const { data: accs } = await supabase
+      .from("client_social_accounts" as any)
+      .select("client_id");
+    const map: Record<string, number> = {};
+    ((accs as any) || []).forEach((r: any) => { map[r.client_id] = (map[r.client_id] || 0) + 1; });
+    setCounts(map);
     setLoading(false);
   };
+
 
   const loadAccounts = async (clientId: string) => {
     const { data } = await supabase
