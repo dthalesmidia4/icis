@@ -102,11 +102,12 @@ const DevSocialTokens = () => {
       client_id: a.client_id,
       platform: a.platform,
       access_token: a.access_token,
-      fb_page_id: a.fb_page_id,
+      fb_page_id: a.platform === "facebook" ? a.fb_page_id : null,
       ig_user_id: a.platform === "instagram" ? a.ig_user_id : null,
       token_expires_at: new Date(a.token_expires_at).toISOString(),
       is_active: a.is_active,
     };
+
     const { error, data } = a.id
       ? await supabase.from("client_social_accounts" as any).update(payload).eq("id", a.id).select().single()
       : await supabase.from("client_social_accounts" as any).insert(payload).select().single();
