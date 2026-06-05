@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.run-scheduled-dispatches]
 verify_jwt = false
+
+[functions.test-social-connection]
+verify_jwt = false
