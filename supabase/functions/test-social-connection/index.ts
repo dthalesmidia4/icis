@@ -38,33 +38,27 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Validate token + page id
-    const pageRes = await g(`/${acc.fb_page_id}`, {
-      fields: "id,name,instagram_business_account",
-      access_token: acc.access_token,
-    });
-    if (!pageRes.ok) {
-      const msg = pageRes.body?.error?.message || "";
-      const code = pageRes.body?.error?.code;
+    if (acc.platform === "facebook") {
+      const pageRes = await g(`/${acc.fb_page_id}`, { fields: "id,name", access_token: acc.access_token });
+      if (!pageRes.ok) {
+        const msg = pageRes.body?.error?.message || "";
+        const code = pageRes.body?.error?.code;
+        if (code === 190) return new Response(JSON.stringify({ status: "token_error", message: msg }), { headers: { ...cors, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ status: "page_error", message: msg || "Page ID inválido para este token." }), { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({ status: "connected", message: `Conectado: ${pageRes.body.name}` }), { headers: { ...cors, "Content-Type": "application/json" } });
+    }
+
+    // Instagram: validate ig_user_id directly
+    const igRes = await g(`/${acc.ig_user_id}`, { fields: "id,username", access_token: acc.access_token });
+    if (!igRes.ok) {
+      const msg = igRes.body?.error?.message || "";
+      const code = igRes.body?.error?.code;
       if (code === 190) return new Response(JSON.stringify({ status: "token_error", message: msg }), { headers: { ...cors, "Content-Type": "application/json" } });
-      return new Response(JSON.stringify({ status: "page_error", message: msg || "Page ID inválido para este token." }), { headers: { ...cors, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ status: "instagram_not_linked", message: msg || "IG Business Account ID inválido para este token." }), { headers: { ...cors, "Content-Type": "application/json" } });
     }
+    return new Response(JSON.stringify({ status: "connected", message: `Conectado: @${igRes.body.username}` }), { headers: { ...cors, "Content-Type": "application/json" } });
 
-    if (acc.platform === "instagram") {
-      const linkedIg = pageRes.body?.instagram_business_account?.id;
-      if (!linkedIg) {
-        return new Response(JSON.stringify({ status: "instagram_not_linked", message: "Nenhuma conta Instagram Business vinculada a esta página." }), { headers: { ...cors, "Content-Type": "application/json" } });
-      }
-      if (acc.ig_user_id && acc.ig_user_id !== linkedIg) {
-        return new Response(JSON.stringify({ status: "instagram_not_linked", message: `IG Business ID não confere. Vinculado à página: ${linkedIg}` }), { headers: { ...cors, "Content-Type": "application/json" } });
-      }
-    }
-
-    return new Response(JSON.stringify({
-      status: "connected",
-      message: `Conectado: ${pageRes.body.name}`,
-      page_name: pageRes.body.name,
-    }), { headers: { ...cors, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ status: "error", message: e instanceof Error ? e.message : String(e) }), {
       headers: { ...cors, "Content-Type": "application/json" }, status: 200,
