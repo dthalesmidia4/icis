@@ -177,20 +177,23 @@ const DevSocialTokens = () => {
               </Button>
             </div>
           </div>
-          <div>
-            <Label>Facebook Page ID *</Label>
-            <Input value={a.fb_page_id} onChange={e => updateAcc(a.platform, { fb_page_id: e.target.value })} placeholder="1234567890" />
-          </div>
+          {a.platform === "facebook" && (
+            <div>
+              <Label>Facebook Page ID *</Label>
+              <Input value={a.fb_page_id} onChange={e => updateAcc(a.platform, { fb_page_id: e.target.value })} placeholder="1234567890" />
+            </div>
+          )}
           {a.platform === "instagram" && (
             <div>
               <Label>Instagram Business Account ID *</Label>
               <Input value={a.ig_user_id} onChange={e => updateAcc(a.platform, { ig_user_id: e.target.value })} placeholder="17841..." />
             </div>
           )}
-          <div className={a.platform === "facebook" ? "md:col-span-1" : "md:col-span-2"}>
+          <div>
             <Label>Data de expiração do token *</Label>
             <Input type="date" value={a.token_expires_at} onChange={e => updateAcc(a.platform, { token_expires_at: e.target.value })} />
           </div>
+
           {a._testMessage && (
             <div className="md:col-span-2 text-sm text-muted-foreground">{a._testMessage}</div>
           )}
