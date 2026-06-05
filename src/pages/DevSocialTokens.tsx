@@ -91,9 +91,10 @@ const DevSocialTokens = () => {
 
   const save = async (a: Account) => {
     if (!a.access_token.trim()) return toast({ title: "Access Token da Página obrigatório", variant: "destructive" });
-    if (!a.fb_page_id.trim()) return toast({ title: "Facebook Page ID obrigatório", variant: "destructive" });
+    if (a.platform === "facebook" && !a.fb_page_id.trim()) return toast({ title: "Facebook Page ID obrigatório", variant: "destructive" });
     if (a.platform === "instagram" && !a.ig_user_id.trim()) return toast({ title: "Instagram Business Account ID obrigatório", variant: "destructive" });
     if (!a.token_expires_at) return toast({ title: "Data de expiração do token obrigatória", variant: "destructive" });
+
 
     updateAcc(a.platform, { _saving: true });
     const payload = {
@@ -101,11 +102,12 @@ const DevSocialTokens = () => {
       client_id: a.client_id,
       platform: a.platform,
       access_token: a.access_token,
-      fb_page_id: a.fb_page_id,
+      fb_page_id: a.platform === "facebook" ? a.fb_page_id : null,
       ig_user_id: a.platform === "instagram" ? a.ig_user_id : null,
       token_expires_at: new Date(a.token_expires_at).toISOString(),
       is_active: a.is_active,
     };
+
     const { error, data } = a.id
       ? await supabase.from("client_social_accounts" as any).update(payload).eq("id", a.id).select().single()
       : await supabase.from("client_social_accounts" as any).insert(payload).select().single();
@@ -175,20 +177,23 @@ const DevSocialTokens = () => {
               </Button>
             </div>
           </div>
-          <div>
-            <Label>Facebook Page ID *</Label>
-            <Input value={a.fb_page_id} onChange={e => updateAcc(a.platform, { fb_page_id: e.target.value })} placeholder="1234567890" />
-          </div>
+          {a.platform === "facebook" && (
+            <div>
+              <Label>Facebook Page ID *</Label>
+              <Input value={a.fb_page_id} onChange={e => updateAcc(a.platform, { fb_page_id: e.target.value })} placeholder="1234567890" />
+            </div>
+          )}
           {a.platform === "instagram" && (
             <div>
               <Label>Instagram Business Account ID *</Label>
               <Input value={a.ig_user_id} onChange={e => updateAcc(a.platform, { ig_user_id: e.target.value })} placeholder="17841..." />
             </div>
           )}
-          <div className={a.platform === "facebook" ? "md:col-span-1" : "md:col-span-2"}>
+          <div>
             <Label>Data de expiração do token *</Label>
             <Input type="date" value={a.token_expires_at} onChange={e => updateAcc(a.platform, { token_expires_at: e.target.value })} />
           </div>
+
           {a._testMessage && (
             <div className="md:col-span-2 text-sm text-muted-foreground">{a._testMessage}</div>
           )}
