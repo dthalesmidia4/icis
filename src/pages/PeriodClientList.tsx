@@ -110,6 +110,7 @@ const demandToCardData = (demand: DemandRow, statusName: string, clientName: str
   description: demand.description,
   instructions: demand.instructions,
   observations: demand.observations,
+  post_caption: demand.post_caption ?? null,
   period_plan_id: demand.period_plan_id,
   tenant_id: demand.tenant_id,
   created_at: demand.created_at,
