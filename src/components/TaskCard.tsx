@@ -333,6 +333,7 @@ export default function TaskCard({
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
+  const [generatingCaption, setGeneratingCaption] = useState(false);
   const [regeneratingAll, setRegeneratingAll] = useState(false);
   const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
   const [periodTitle, setPeriodTitle] = useState<string | null>(null);
