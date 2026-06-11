@@ -251,7 +251,7 @@ const PeriodClientList = () => {
       // Fetch demands with ALL fields
       const { data: demands } = await supabase
         .from("demands")
-        .select("id, title, publish_date, publish_time, attachments, status_id, period_plan_id, channel, objective, description, instructions, observations, tenant_id, created_at, updated_at, source, demand_type, client_id, due_date, additional_publish_dates")
+        .select("id, title, publish_date, publish_time, attachments, status_id, period_plan_id, channel, objective, description, instructions, observations, post_caption, tenant_id, created_at, updated_at, source, demand_type, client_id, due_date, additional_publish_dates")
         .eq("tenant_id", tenantId)
         .eq("client_id", selectedClientLocal.id)
         .eq("period_plan_id", selectedPeriodId);
