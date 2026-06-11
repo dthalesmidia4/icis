@@ -156,6 +156,18 @@ async function publishDispatch(
   if (!d.social_accounts?.length) return { ok: false, error: "Nenhuma rede social configurada." };
   if (!d.media_files?.length) return { ok: false, error: "Disparo sem mídias finais." };
 
+  // Always use the latest caption from the demand (post_caption) if available
+  try {
+    const { data: dem } = await supabase
+      .from("demands")
+      .select("post_caption")
+      .eq("id", d.card_id)
+      .maybeSingle();
+    const latest = (dem?.post_caption || "").trim();
+    if (latest) d.caption = latest;
+  } catch (_) { /* keep existing caption */ }
+
+
   const ids = d.social_accounts.map(s => s.id);
   const { data: accounts, error } = await supabase
     .from("client_social_accounts")
