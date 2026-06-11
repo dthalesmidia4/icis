@@ -447,6 +447,36 @@ export default function TaskCard({
     setEditingField(null);
   };
 
+  const handleGenerateCaption = async () => {
+    if (!card) return;
+    const imgs = (card.attachments || []).filter(a => {
+      const t = (a as any).type?.toLowerCase?.() || "";
+      const n = (a.name || "").toLowerCase();
+      return t.startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(n);
+    });
+    if (imgs.length === 0) {
+      toast.error("Adicione imagens aos anexos antes de gerar a descrição.");
+      return;
+    }
+    setGeneratingCaption(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-post-caption", {
+        body: { demandId: card.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const caption: string = data?.caption || "";
+      if (!caption) throw new Error("Resposta vazia da IA");
+      onCardChange({ ...card, post_caption: caption });
+      toast.success("Descrição gerada com sucesso!");
+    } catch (e: any) {
+      console.error("[generate-post-caption] error:", e);
+      toast.error(e?.message || "Erro ao gerar descrição");
+    } finally {
+      setGeneratingCaption(false);
+    }
+  };
+
   // Fetch period plans for unlinked demands
   useEffect(() => {
     if (open && card && !card.period_plan_id && card.clientId) {
