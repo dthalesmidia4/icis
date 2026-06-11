@@ -1236,7 +1236,7 @@ const KanbanCentralPage = () => {
                 clientId: pendingScheduleCard.clientId,
                 publishDate: date,
                 publishTime: time,
-                caption: pendingScheduleCard.description,
+                caption: (pendingScheduleCard as any).post_caption || pendingScheduleCard.description,
                 attachments: pendingScheduleCard.attachments as any,
                 demandType: pendingScheduleCard.demand_type,
                 title: pendingScheduleCard.title,
