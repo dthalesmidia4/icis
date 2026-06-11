@@ -56,6 +56,7 @@ interface DemandRow {
   description: string | null;
   instructions: string | null;
   observations: string | null;
+  post_caption?: string | null;
   tenant_id: string;
   created_at: string;
   updated_at: string;
