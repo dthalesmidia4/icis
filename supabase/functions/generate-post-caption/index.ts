@@ -65,14 +65,17 @@ Deno.serve(async (req) => {
     if (demand.objective) contextParts.push(`Objetivo: ${String(demand.objective).replace(/<[^>]*>/g, " ").slice(0, 500)}`);
     const context = contextParts.join("\n");
 
-    const systemPrompt = `Você é um redator de Instagram. Sua tarefa é escrever uma descrição (legenda) curta e envolvente para um post no Instagram baseando-se exclusivamente nas imagens fornecidas.
+    const systemPrompt = `Você é um redator de Instagram especialista em legendas envolventes e informativas. Sua tarefa é escrever uma descrição (legenda) rica em conteúdo para um post no Instagram baseando-se exclusivamente nas imagens fornecidas.
 
 REGRAS OBRIGATÓRIAS:
-- Tom natural, humano e envolvente (português do Brasil).
-- Use emojis com moderação ao longo do texto para dar vida.
-- NÃO inclua CTA (chamada para ação), links, "saiba mais", "agende", etc.
+- Tom natural, humano, envolvente e informativo (português do Brasil).
+- Aprofunde no tema: explique o contexto, traga insights, dicas práticas ou reflexões relevantes sobre o assunto das imagens.
+- Use emojis ao longo do texto para dar vida e quebrar a leitura.
+- Estruture em parágrafos curtos separados por quebras de linha (use \\n\\n entre parágrafos) para facilitar a leitura no Instagram.
+- NÃO inclua CTA (chamada para ação), links, "saiba mais", "agende", "entre em contato", etc.
 - NÃO inclua hashtags.
-- Mantenha a legenda relativamente curta (3 a 6 linhas).
+- Tamanho: legenda MÉDIA a LONGA, entre 4 e 6 parágrafos bem desenvolvidos (cerca de 120 a 220 palavras no total). Não seja superficial.
+- Comece com uma frase de impacto que prenda a atenção.
 - Retorne APENAS o texto da legenda, sem aspas, sem títulos, sem comentários extras.`;
 
     const userContent: any[] = [
