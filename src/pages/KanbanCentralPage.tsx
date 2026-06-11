@@ -245,6 +245,7 @@ const KanbanCentralPage = () => {
               observations: payload.observations ?? card.observations,
               instructions: payload.instructions ?? card.instructions,
               description: payload.description ?? card.description,
+              post_caption: payload.post_caption ?? card.post_caption,
             };
           })
         );
