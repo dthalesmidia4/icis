@@ -167,6 +167,7 @@ const Scheduled = () => {
             objective: demand.objective || null,
             instructions: demand.instructions || null,
             observations: demand.observations || null,
+            post_caption: demand.post_caption || null,
             status: demand.pipeline_statuses?.name || "Planejamento",
             due_date: demand.due_date || demand.publish_date || new Date().toISOString().split('T')[0],
             channel: demand.channel || null,
