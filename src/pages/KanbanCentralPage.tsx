@@ -286,6 +286,7 @@ const KanbanCentralPage = () => {
         objective: data.objective || null,
         instructions: data.instructions || null,
         observations: data.observations || null,
+        post_caption: data.post_caption || null,
         status: statusName,
         due_date: data.due_date || data.publish_date || new Date().toISOString().split('T')[0],
         channel: data.channel || null,
