@@ -84,6 +84,7 @@ export interface KanbanCardData {
   description: string | null;
   instructions: string | null;
   observations: string | null;
+  post_caption?: string | null;
   period_plan_id: string | null;
   tenant_id: string;
   created_at: string;
