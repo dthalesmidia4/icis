@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.test-social-connection]
 verify_jwt = false
+
+[functions.generate-post-caption]
+verify_jwt = false
