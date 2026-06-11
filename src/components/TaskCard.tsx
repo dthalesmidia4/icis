@@ -998,7 +998,47 @@ export default function TaskCard({
                               <BlockEditor content={convertToHtml(card.observations || "")} onChange={value => onCardChange({ ...card, observations: value })} onBlur={() => handleFieldSave('observations', card.observations || '')} placeholder="Feedbacks, ajustes, observações internas..." minHeight="100px" />
                             )}
                           </section>
+
+                          <Separator />
+
+                          {/* Descrição (legenda de Instagram gerada por IA) */}
+                          <section>
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="p-1.5 bg-primary/10 rounded-md">
+                                <Sparkles className="h-4 w-4 text-primary" />
+                              </div>
+                              <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Descrição</h3>
+                              {saving && savingField === 'post_caption' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
+                              {!readOnly && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleGenerateCaption}
+                                  disabled={generatingCaption}
+                                  className="ml-auto gap-1.5 h-8"
+                                >
+                                  {generatingCaption ? (
+                                    <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Gerando...</>
+                                  ) : (
+                                    <><Wand2 className="h-3.5 w-3.5" /> Fazer descrição</>
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                            {readOnly ? (
+                              <div className="whitespace-pre-wrap text-sm text-muted-foreground">{card.post_caption || ""}</div>
+                            ) : (
+                              <Textarea
+                                value={card.post_caption || ""}
+                                onChange={(e) => onCardChange({ ...card, post_caption: e.target.value })}
+                                onBlur={() => handleFieldSave('post_caption', card.post_caption || '')}
+                                placeholder="Legenda para Instagram — clique em 'Fazer descrição' para gerar com IA a partir dos anexos."
+                                className="min-h-[140px] resize-y"
+                              />
+                            )}
+                          </section>
                         </>
+
                       );
                     })()}
                 </div>
