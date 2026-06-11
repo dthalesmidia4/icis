@@ -98,6 +98,7 @@ const CompletedDemands = () => {
           objective: d.objective || "",
           instructions: d.instructions || "",
           observations: d.observations || "",
+          post_caption: d.post_caption || "",
           attachments: Array.isArray(d.attachments) ? d.attachments as Attachment[] : [],
           additional_publish_dates: Array.isArray(d.additional_publish_dates) ? d.additional_publish_dates as string[] : [],
           source: d.source || "manual",

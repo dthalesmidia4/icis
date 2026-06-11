@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -84,6 +85,7 @@ export interface KanbanCardData {
   description: string | null;
   instructions: string | null;
   observations: string | null;
+  post_caption?: string | null;
   period_plan_id: string | null;
   tenant_id: string;
   created_at: string;
@@ -332,6 +334,7 @@ export default function TaskCard({
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
+  const [generatingCaption, setGeneratingCaption] = useState(false);
   const [regeneratingAll, setRegeneratingAll] = useState(false);
   const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
   const [periodTitle, setPeriodTitle] = useState<string | null>(null);
@@ -443,6 +446,36 @@ export default function TaskCard({
   const handleFieldSave = async (field: string, value: string) => {
     await onSave(field, value);
     setEditingField(null);
+  };
+
+  const handleGenerateCaption = async () => {
+    if (!card) return;
+    const imgs = (card.attachments || []).filter(a => {
+      const t = (a as any).type?.toLowerCase?.() || "";
+      const n = (a.name || "").toLowerCase();
+      return t.startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(n);
+    });
+    if (imgs.length === 0) {
+      toast.error("Adicione imagens aos anexos antes de gerar a descrição.");
+      return;
+    }
+    setGeneratingCaption(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-post-caption", {
+        body: { demandId: card.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const caption: string = data?.caption || "";
+      if (!caption) throw new Error("Resposta vazia da IA");
+      onCardChange({ ...card, post_caption: caption });
+      toast.success("Descrição gerada com sucesso!");
+    } catch (e: any) {
+      console.error("[generate-post-caption] error:", e);
+      toast.error(e?.message || "Erro ao gerar descrição");
+    } finally {
+      setGeneratingCaption(false);
+    }
   };
 
   // Fetch period plans for unlinked demands
@@ -965,7 +998,47 @@ export default function TaskCard({
                               <BlockEditor content={convertToHtml(card.observations || "")} onChange={value => onCardChange({ ...card, observations: value })} onBlur={() => handleFieldSave('observations', card.observations || '')} placeholder="Feedbacks, ajustes, observações internas..." minHeight="100px" />
                             )}
                           </section>
+
+                          <Separator />
+
+                          {/* Descrição (legenda de Instagram gerada por IA) */}
+                          <section>
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="p-1.5 bg-primary/10 rounded-md">
+                                <Sparkles className="h-4 w-4 text-primary" />
+                              </div>
+                              <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Descrição</h3>
+                              {saving && savingField === 'post_caption' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
+                              {!readOnly && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleGenerateCaption}
+                                  disabled={generatingCaption}
+                                  className="ml-auto gap-1.5 h-8"
+                                >
+                                  {generatingCaption ? (
+                                    <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Gerando...</>
+                                  ) : (
+                                    <><Wand2 className="h-3.5 w-3.5" /> Fazer descrição</>
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                            {readOnly ? (
+                              <div className="whitespace-pre-wrap text-sm text-muted-foreground">{card.post_caption || ""}</div>
+                            ) : (
+                              <Textarea
+                                value={card.post_caption || ""}
+                                onChange={(e) => onCardChange({ ...card, post_caption: e.target.value })}
+                                onBlur={() => handleFieldSave('post_caption', card.post_caption || '')}
+                                placeholder="Legenda para Instagram — clique em 'Fazer descrição' para gerar com IA a partir dos anexos."
+                                className="min-h-[140px] resize-y"
+                              />
+                            )}
+                          </section>
                         </>
+
                       );
                     })()}
                 </div>

@@ -245,6 +245,7 @@ const KanbanCentralPage = () => {
               observations: payload.observations ?? card.observations,
               instructions: payload.instructions ?? card.instructions,
               description: payload.description ?? card.description,
+              post_caption: payload.post_caption ?? card.post_caption,
             };
           })
         );
@@ -286,6 +287,7 @@ const KanbanCentralPage = () => {
         objective: data.objective || null,
         instructions: data.instructions || null,
         observations: data.observations || null,
+        post_caption: data.post_caption || null,
         status: statusName,
         due_date: data.due_date || data.publish_date || new Date().toISOString().split('T')[0],
         channel: data.channel || null,
@@ -508,6 +510,7 @@ const KanbanCentralPage = () => {
           objective: demand.objective || null,
           instructions: demand.instructions || null,
           observations: demand.observations || null,
+          post_caption: demand.post_caption || null,
           status: statusName,
           due_date: demand.due_date || demand.publish_date || new Date().toISOString().split('T')[0],
           channel: demand.channel || null,

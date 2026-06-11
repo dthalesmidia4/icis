@@ -56,6 +56,7 @@ interface DemandRow {
   description: string | null;
   instructions: string | null;
   observations: string | null;
+  post_caption?: string | null;
   tenant_id: string;
   created_at: string;
   updated_at: string;
@@ -109,6 +110,7 @@ const demandToCardData = (demand: DemandRow, statusName: string, clientName: str
   description: demand.description,
   instructions: demand.instructions,
   observations: demand.observations,
+  post_caption: demand.post_caption ?? null,
   period_plan_id: demand.period_plan_id,
   tenant_id: demand.tenant_id,
   created_at: demand.created_at,
@@ -249,7 +251,7 @@ const PeriodClientList = () => {
       // Fetch demands with ALL fields
       const { data: demands } = await supabase
         .from("demands")
-        .select("id, title, publish_date, publish_time, attachments, status_id, period_plan_id, channel, objective, description, instructions, observations, tenant_id, created_at, updated_at, source, demand_type, client_id, due_date, additional_publish_dates")
+        .select("id, title, publish_date, publish_time, attachments, status_id, period_plan_id, channel, objective, description, instructions, observations, post_caption, tenant_id, created_at, updated_at, source, demand_type, client_id, due_date, additional_publish_dates")
         .eq("tenant_id", tenantId)
         .eq("client_id", selectedClientLocal.id)
         .eq("period_plan_id", selectedPeriodId);
