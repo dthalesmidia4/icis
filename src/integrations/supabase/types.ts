@@ -501,6 +501,7 @@ export type Database = {
           observations: string | null
           period_plan_id: string | null
           pipeline_id: string
+          post_caption: string | null
           publish_date: string | null
           publish_time: string | null
           rejected_attachments: Json
@@ -531,6 +532,7 @@ export type Database = {
           observations?: string | null
           period_plan_id?: string | null
           pipeline_id: string
+          post_caption?: string | null
           publish_date?: string | null
           publish_time?: string | null
           rejected_attachments?: Json
@@ -561,6 +563,7 @@ export type Database = {
           observations?: string | null
           period_plan_id?: string | null
           pipeline_id?: string
+          post_caption?: string | null
           publish_date?: string | null
           publish_time?: string | null
           rejected_attachments?: Json
