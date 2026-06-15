@@ -110,10 +110,23 @@ async function publishInstagram(acc: AccountRow, d: Dispatch): Promise<string> {
   return published.id;
 }
 
+async function getPageAccessToken(pageId: string, userToken: string): Promise<string> {
+  // If the stored token is already a Page token, this call returns access_token equal to it.
+  // If it's a User token with manage permissions, this returns the proper Page token.
+  try {
+    const r = await graph(`/${pageId}`, { fields: "access_token", access_token: userToken }, "GET");
+    if (r?.access_token && typeof r.access_token === "string") return r.access_token;
+  } catch (e) {
+    console.log(`[fb] could not exchange to page token: ${e instanceof Error ? e.message : e}`);
+  }
+  return userToken;
+}
+
 async function publishFacebook(acc: AccountRow, d: Dispatch): Promise<string> {
   const pageId = acc.fb_page_id;
-  const token = acc.access_token;
   if (!pageId) throw new Error("Facebook Page ID não configurado.");
+  // Always resolve a Page Access Token — required to post as the Page (carousels, unpublished photos, etc.)
+  const token = await getPageAccessToken(pageId, acc.access_token);
   const caption = d.caption || "";
 
   if (d.content_type === "video" || d.content_type === "video_capa") {
