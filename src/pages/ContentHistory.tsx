@@ -458,7 +458,7 @@ const ContentHistory = () => {
                     Abrir no Gerador
                   </Button>
                   {previewContent.image_urls.length > 1 && (
-                    <Button variant="outline" className="flex-1" onClick={() => previewContent.image_urls.forEach((url, i) => handleDownload(url, i))}>
+                    <Button variant="outline" className="flex-1" onClick={() => handleDownloadAll(previewContent)}>
                       <Download className="w-4 h-4 mr-2" />Baixar Todas ({previewContent.image_urls.length})
                     </Button>
                   )}
