@@ -14,6 +14,7 @@ interface KanbanCardProps {
   deliveryTime?: string;
   isDragging?: boolean;
   isOverdue?: boolean;
+  cardId?: string;
   onClick?: () => void;
 }
 
