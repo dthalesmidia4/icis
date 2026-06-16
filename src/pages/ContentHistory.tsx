@@ -366,11 +366,12 @@ const ContentHistory = () => {
               return (
                 <Card
                   key={content.id}
-                  className="group overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border hover:border-primary/50"
-                  onClick={() => { setPreviewContent(content); setPreviewOpen(true); }}
+                  className="group overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border hover:border-primary/50"
                 >
-                  {renderMediaThumb(content)}
-                  <div className="p-4 space-y-2">
+                  <div className="cursor-pointer" onClick={() => { setPreviewContent(content); setPreviewOpen(true); }}>
+                    <MediaThumb content={content} />
+                  </div>
+                  <div className="p-4 space-y-2 cursor-pointer" onClick={() => { setPreviewContent(content); setPreviewOpen(true); }}>
                     <div className="flex items-center justify-between">
                       <Badge variant="secondary" className="text-xs">
                         <IconComp className="w-3 h-3 mr-1" />
@@ -391,7 +392,21 @@ const ContentHistory = () => {
                       {format(new Date(content.created_at), "dd MMM yyyy, HH:mm", { locale: ptBR })}
                     </div>
                   </div>
+                  {content.image_urls.length > 0 && (
+                    <div className="px-4 pb-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={(e) => { e.stopPropagation(); handleDownloadAll(content); }}
+                      >
+                        <Download className="w-3.5 h-3.5 mr-2" />
+                        Baixar {content.image_urls.length > 1 ? `Todas (${content.image_urls.length})` : "Mídia"}
+                      </Button>
+                    </div>
+                  )}
                 </Card>
+
               );
             })}
           </div>
