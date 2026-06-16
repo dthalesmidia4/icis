@@ -157,21 +157,74 @@ const ContentHistory = () => {
     fetchContents();
   }, [tenantId, filterClientId, clients]);
 
-  const handleDownload = (url: string, index: number) => {
+  const handleDownload = async (url: string, index: number) => {
     const ext = isVideoUrl(url) ? "mp4" : "png";
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `conteudo-${Date.now()}-${index}.${ext}`;
-    link.target = "_blank";
-    link.click();
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `conteudo-${Date.now()}-${index}.${ext}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch {
+      // fallback
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `conteudo-${Date.now()}-${index}.${ext}`;
+      link.target = "_blank";
+      link.click();
+    }
   };
 
-  const renderMediaThumb = (content: GeneratedContent) => {
+  const handleDownloadAll = async (content: GeneratedContent) => {
+    if (!content.image_urls.length) return;
+    const toastId = toast.loading(`Compactando ${content.image_urls.length} mídias...`);
+    try {
+      const zip = new JSZip();
+      await Promise.all(content.image_urls.map(async (url, i) => {
+        try {
+          const res = await fetch(url);
+          const blob = await res.blob();
+          const ext = isVideoUrl(url) ? "mp4" : "png";
+          const label = content.image_urls.length > 1 ? `slide-${i + 1}` : `midia-${i + 1}`;
+          zip.file(`${label}.${ext}`, blob);
+        } catch (e) {
+          console.error("Falha ao baixar", url, e);
+        }
+      }));
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const blobUrl = URL.createObjectURL(zipBlob);
+      const safeTitle = (content.title || "conteudo").replace(/[^\w\-]+/g, "_").slice(0, 50);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `${safeTitle}-${content.id.slice(0, 8)}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      toast.success("Download concluído!", { id: toastId });
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao baixar mídias.", { id: toastId });
+    }
+  };
+
+  const MediaThumb = ({ content }: { content: GeneratedContent }) => {
     const config = contentTypeConfig[content.content_type] || contentTypeConfig.post;
     const IconComp = config.icon;
-    const firstUrl = content.image_urls[0];
+    const urls = content.image_urls;
+    const [idx, setIdx] = useState(0);
+    const total = urls.length;
+    const currentUrl = urls[idx];
 
-    if (!firstUrl) {
+    const next = (e: React.MouseEvent) => { e.stopPropagation(); setIdx((idx + 1) % total); };
+    const prev = (e: React.MouseEvent) => { e.stopPropagation(); setIdx((idx - 1 + total) % total); };
+
+    if (!currentUrl) {
       return (
         <div className="aspect-square flex items-center justify-center bg-muted/50">
           <div className="flex flex-col items-center gap-2 text-muted-foreground/40">
@@ -182,29 +235,50 @@ const ContentHistory = () => {
       );
     }
 
-    if (isVideoUrl(firstUrl)) {
-      return (
-        <div className="aspect-square overflow-hidden bg-black relative group">
-          <video src={firstUrl} className="w-full h-full object-cover" muted preload="metadata" />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/20 transition-colors">
-            <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-              <Play className="w-6 h-6 text-foreground ml-0.5" fill="currentColor" />
-            </div>
-          </div>
-        </div>
-      );
-    }
-
     return (
-      <div className="aspect-square overflow-hidden bg-muted">
-        <img
-          src={firstUrl}
-          alt={content.title || "Conteúdo gerado"}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        />
+      <div className="aspect-square overflow-hidden bg-muted relative group/thumb">
+        {isVideoUrl(currentUrl) ? (
+          <>
+            <video src={currentUrl} className="w-full h-full object-cover" muted preload="metadata" />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
+              <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                <Play className="w-6 h-6 text-foreground ml-0.5" fill="currentColor" />
+              </div>
+            </div>
+          </>
+        ) : (
+          <img
+            src={currentUrl}
+            alt={content.title || "Conteúdo gerado"}
+            className="w-full h-full object-cover transition-transform duration-300"
+          />
+        )}
+
+        {total > 1 && (
+          <>
+            <button
+              onClick={prev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity"
+              aria-label="Anterior"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={next}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity"
+              aria-label="Próximo"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-medium">
+              {idx + 1} / {total}
+            </div>
+          </>
+        )}
       </div>
     );
   };
+
 
   const renderPreviewMedia = (url: string, idx: number) => {
     if (isVideoUrl(url)) {
