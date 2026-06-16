@@ -77,6 +77,7 @@ const KanbanCard = ({
         <CardTitle className="text-sm font-semibold leading-snug line-clamp-2 text-foreground">
           {title}
         </CardTitle>
+        {cardId && <DispatchStatusBadge cardId={cardId} className="mt-2" />}
       </CardHeader>
       
       {/* Footer: Dates */}
