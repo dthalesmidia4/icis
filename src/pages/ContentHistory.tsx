@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Image, LayoutGrid, Video, Film, Calendar, Loader2, Play, Users, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Image, LayoutGrid, Video, Film, Calendar, Loader2, Users, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import JSZip from "jszip";
@@ -213,6 +213,13 @@ const ContentHistory = () => {
     }
   };
 
+  const getAspectRatio = (contentType: string) => {
+    if (contentType === 'video' || contentType === 'video_scene' || contentType === 'video_storyboard') {
+      return 'aspect-video';
+    }
+    return 'aspect-[4/5]';
+  };
+
   const MediaThumb = ({ content }: { content: GeneratedContent }) => {
     const config = contentTypeConfig[content.content_type] || contentTypeConfig.post;
     const IconComp = config.icon;
@@ -220,13 +227,14 @@ const ContentHistory = () => {
     const [idx, setIdx] = useState(0);
     const total = urls.length;
     const currentUrl = urls[idx];
+    const aspectClass = getAspectRatio(content.content_type);
 
     const next = (e: React.MouseEvent) => { e.stopPropagation(); setIdx((idx + 1) % total); };
     const prev = (e: React.MouseEvent) => { e.stopPropagation(); setIdx((idx - 1 + total) % total); };
 
     if (!currentUrl) {
       return (
-        <div className="aspect-square flex items-center justify-center bg-muted/50">
+        <div className={`overflow-hidden bg-muted/50 flex items-center justify-center ${aspectClass}`}>
           <div className="flex flex-col items-center gap-2 text-muted-foreground/40">
             <IconComp className="w-12 h-12" />
             <span className="text-xs">Sem mídia</span>
@@ -236,15 +244,17 @@ const ContentHistory = () => {
     }
 
     return (
-      <div className="aspect-square overflow-hidden bg-muted relative group/thumb">
+      <div className={`overflow-hidden bg-muted relative group/thumb ${aspectClass}`}>
         {isVideoUrl(currentUrl) ? (
           <>
-            <video src={currentUrl} className="w-full h-full object-cover" muted preload="metadata" />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
-              <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-                <Play className="w-6 h-6 text-foreground ml-0.5" fill="currentColor" />
-              </div>
-            </div>
+            <video
+              src={currentUrl}
+              className="w-full h-full object-cover"
+              muted
+              preload="metadata"
+              controls
+              onClick={(e) => e.stopPropagation()}
+            />
           </>
         ) : (
           <img
