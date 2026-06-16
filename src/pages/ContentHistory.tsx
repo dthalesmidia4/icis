@@ -284,7 +284,9 @@ const ContentHistory = () => {
     if (isVideoUrl(url)) {
       return (
         <div key={idx} className="rounded-xl overflow-hidden border shadow-sm">
-          <video src={url} controls className="w-full max-h-[60vh]" preload="metadata" />
+          <div className="flex items-center justify-center bg-muted/40">
+            <video src={url} controls className="max-w-full max-h-[65vh] object-contain" preload="metadata" />
+          </div>
           <div className="flex items-center justify-between px-3 py-2 bg-muted/30">
             <span className="text-xs font-medium text-muted-foreground">Vídeo {idx + 1}</span>
             <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleDownload(url, idx)}>
@@ -297,7 +299,9 @@ const ContentHistory = () => {
 
     return (
       <div key={idx} className="rounded-xl overflow-hidden border shadow-sm">
-        <img src={url} alt={`Imagem ${idx + 1}`} className="w-full" />
+        <div className="flex items-center justify-center bg-muted/40">
+          <img src={url} alt={`Imagem ${idx + 1}`} className="max-w-full max-h-[65vh] object-contain" />
+        </div>
         <div className="flex items-center justify-between px-3 py-2 bg-muted/30">
           <span className="text-xs font-medium text-muted-foreground">
             {(previewContent?.image_urls?.length || 0) > 1 ? `Slide ${idx + 1}` : "Imagem"}
