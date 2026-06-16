@@ -1124,6 +1124,7 @@ const KanbanCentralPage = () => {
                                     deliveryTime={card.delivery_time || undefined}
                                     isDragging={snapshot.isDragging}
                                     isOverdue={isCardOverdue(card)}
+                                    cardId={card.id}
                                     onClick={() => handleCardClick(card)}
                                   />
                               </div>
