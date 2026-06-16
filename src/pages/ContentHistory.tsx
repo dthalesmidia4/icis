@@ -244,12 +244,12 @@ const ContentHistory = () => {
     }
 
     return (
-      <div className={`overflow-hidden bg-muted relative group/thumb ${aspectClass}`}>
+      <div className={`overflow-hidden bg-black/40 relative group/thumb ${aspectClass}`}>
         {isVideoUrl(currentUrl) ? (
           <>
             <video
               src={currentUrl}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
               muted
               preload="metadata"
               controls
@@ -260,7 +260,7 @@ const ContentHistory = () => {
           <img
             src={currentUrl}
             alt={content.title || "Conteúdo gerado"}
-            className="w-full h-full object-cover transition-transform duration-300"
+            className="w-full h-full object-contain"
           />
         )}
 
