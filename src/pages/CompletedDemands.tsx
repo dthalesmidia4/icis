@@ -329,6 +329,7 @@ const CompletedDemands = () => {
                 dueTime={(card as any).due_time || undefined}
                 cardDeliveryDate={(card as any).delivery_date || undefined}
                 deliveryTime={(card as any).delivery_time || undefined}
+                cardId={card.id}
                 onClick={() => setSelectedCard(card)}
               />
             </div>
