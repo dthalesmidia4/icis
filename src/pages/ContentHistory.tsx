@@ -248,21 +248,29 @@ const ContentHistory = () => {
           </div>
         </div>
 
-        {/* Client Filter */}
-        <div className="mb-6 flex items-center gap-3">
-          <Users className="w-4 h-4 text-muted-foreground" />
-          <Select value={filterClientId} onValueChange={setFilterClientId}>
-            <SelectTrigger className="w-64">
-              <SelectValue placeholder="Filtrar por cliente" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os clientes</SelectItem>
-              {clients.map(c => (
-                <SelectItem key={c.id} value={c.id}>{c.fantasy_name || c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Client Filter - hidden when entered via a specific client context */}
+        {!selectedClient?.id && (
+          <div className="mb-6 flex items-center gap-3">
+            <Users className="w-4 h-4 text-muted-foreground" />
+            <Select value={filterClientId} onValueChange={setFilterClientId}>
+              <SelectTrigger className="w-64">
+                <SelectValue placeholder="Filtrar por cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os clientes</SelectItem>
+                {clients.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.fantasy_name || c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        {selectedClient?.id && (
+          <div className="mb-6 flex items-center gap-3 text-sm text-muted-foreground">
+            <Users className="w-4 h-4" />
+            Exibindo apenas conteúdos de <span className="font-semibold text-foreground">{selectedClient.fantasy_name || selectedClient.name}</span>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
