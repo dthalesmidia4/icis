@@ -48,6 +48,7 @@ const KanbanCard = ({
   deliveryTime,
   isDragging = false,
   isOverdue = false,
+  cardId,
   onClick
 }: KanbanCardProps) => {
   const formattedDueDate = dueDate ? new Date(dueDate + 'T00:00:00').toLocaleDateString("pt-BR") : null;
