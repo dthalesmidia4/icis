@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, CalendarClock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import DispatchStatusBadge from "@/components/DispatchStatusBadge";
 
 interface KanbanCardProps {
   title: string;
@@ -13,6 +14,7 @@ interface KanbanCardProps {
   deliveryTime?: string;
   isDragging?: boolean;
   isOverdue?: boolean;
+  cardId?: string;
   onClick?: () => void;
 }
 
@@ -46,6 +48,7 @@ const KanbanCard = ({
   deliveryTime,
   isDragging = false,
   isOverdue = false,
+  cardId,
   onClick
 }: KanbanCardProps) => {
   const formattedDueDate = dueDate ? new Date(dueDate + 'T00:00:00').toLocaleDateString("pt-BR") : null;
@@ -74,6 +77,7 @@ const KanbanCard = ({
         <CardTitle className="text-sm font-semibold leading-snug line-clamp-2 text-foreground">
           {title}
         </CardTitle>
+        {cardId && <DispatchStatusBadge cardId={cardId} className="mt-2" />}
       </CardHeader>
       
       {/* Footer: Dates */}
