@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Image, LayoutGrid, Video, Film, Calendar, Loader2, Play, Users, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Image, LayoutGrid, Video, Film, Calendar, Loader2, Users, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import JSZip from "jszip";
