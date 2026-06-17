@@ -113,7 +113,10 @@ export function buildCarouselSlidePrompt(input: CarouselSlidePromptInput): strin
   const logoSection = logoUrl
     ? (isHighlight
         ? renderLogoBlock(vi, { highlight: true })
-        : `\nLOGO DA MARCA (REGRA CRÍTICA — SLIDE DO MIOLO):\n- PROIBIDO ABSOLUTO renderizar a logo, logotipo, marca d'água, monograma, ícone da marca ou o nome da marca neste slide.\n- A logo aparece SOMENTE na capa (slide 1) e no slide final do carrossel — NUNCA nos slides intermediários.\n- Não inclua nenhuma faixa, badge, rodapé ou box contendo a logo ou o nome "${vi.brandName}".\n`)
+        : `\nLOGO DA MARCA (REGRA CRÍTICA — SLIDE DO MIOLO):
+- PROIBIDO ABSOLUTO renderizar a logo, logotipo, marca d'água, monograma, ícone da marca ou o nome da marca neste slide.
+- A logo aparece SOMENTE na capa (slide 1) e no slide final do carrossel — NUNCA nos slides intermediários.
+- Não inclua nenhuma faixa, badge, rodapé ou box contendo a logo ou o nome "${vi.brandName}".\n`)
     : "";
 
   return `

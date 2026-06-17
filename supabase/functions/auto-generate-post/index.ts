@@ -97,15 +97,6 @@ Deno.serve(async (req) => {
       `- O campo "CONTEXTO TEMÁTICO" contém a LEGENDA que será publicada na DESCRIÇÃO do post na rede social. Este texto NÃO deve aparecer na imagem.`,
       `- Apenas o TÍTULO e textos curtos de gancho/CTA devem aparecer como tipografia na imagem.`,
       `- A legenda serve apenas para você entender o tema e tom do post.`,
-      "",
-      `REGRA CRÍTICA DE MINIMALISMO TEXTUAL (OBRIGATÓRIO — DEMANDA PLANEJADA):`,
-      `- MENOS TEXTO É MAIS. A imagem é visual, não um panfleto.`,
-      `- Renderize APENAS o TÍTULO do post (uma frase curta, idealmente de 3 a 8 palavras) — nada mais.`,
-      `- PROIBIDO ABSOLUTO renderizar na imagem: parágrafos, blocos de texto longos, listas, bullet points, subtítulos descritivos, explicações, dados extensos, frases auxiliares, "saiba mais", endereços, telefones, sites, hashtags, ou qualquer trecho da legenda/descrição.`,
-      `- Tipografia bold, grande, impactante e bem posicionada — o título deve respirar no layout, com muito espaço em volta.`,
-      `- Contraste alto entre texto e fundo para legibilidade perfeita à primeira batida de olho.`,
-      `- Se a mensagem precisar de mais contexto, ele vai na LEGENDA do post (descrição da rede social), nunca dentro da arte.`,
-      `- Prefira composições onde a IMAGEM conta a história e o título apenas reforça — visual primeiro, texto depois.`,
     ].filter(Boolean).join("\n");
 
     const ratio = aspectFromDemandType(demand.demand_type);

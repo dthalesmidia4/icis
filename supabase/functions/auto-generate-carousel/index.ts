@@ -168,16 +168,9 @@ ${contentReqsSection}
 REGRAS:
 1. Retorne EXATAMENTE ${slideCount} slides
 2. Texto conciso e impactante, sem limite rígido de caracteres
-3. Slide 1: gancho de atenção (máximo 1 frase curta, idealmente 3 a 7 palavras)
-4. Slides do meio: 1 frase curta por slide — nada de parágrafos, listas ou explicações longas
-5. Último slide: CTA direto e curto
-6. Use a função "create_carousel_slides"
-
-REGRA CRÍTICA DE MINIMALISMO TEXTUAL (OBRIGATÓRIO — DEMANDA PLANEJADA):
-- Cada slide deve ter o MÍNIMO de texto possível. O carrossel é visual, não um artigo.
-- PROIBIDO parágrafos, listas, bullet points, explicações extensas, dados numerados ou frases longas em qualquer slide.
-- O texto de cada slide deve ser um gancho curto, direto e impactante — idealmente uma única frase.
-- Se precisar de mais contexto, ele vai na LEGENDA do post (descrição da rede social), nunca dentro dos slides.`;
+3. Slide 1: gancho de atenção
+4. Último slide: CTA
+5. Use a função "create_carousel_slides"`;
 
     const userPrompt = `Crie ${slideCount} slides para este card:\n\n${cardContent}`;
 
@@ -271,18 +264,6 @@ REGRA CRÍTICA DE MINIMALISMO TEXTUAL (OBRIGATÓRIO — DEMANDA PLANEJADA):
 
     const strategySnippet = strategyText ? `ESTRATÉGIA:\n${strategyText}` : undefined;
 
-    const MINIMALISMO_CARROSSEL = `REGRA CRÍTICA DE MINIMALISMO TEXTUAL (OBRIGATÓRIO — DEMANDA PLANEJADA):
-- A imagem do slide deve conter o MÍNIMO de texto renderizado possível.
-- Renderize APENAS o texto do SLIDE ATUAL (uma frase curta, idealmente 3 a 8 palavras) — nada mais.
-- PROIBIDO ABSOLUTO na imagem: parágrafos, listas, bullet points, subtítulos, explicações, dados extensos, frases auxiliares, "saiba mais", endereços, telefones, sites, hashtags, ou qualquer trecho da legenda/descrição.
-- Tipografia bold, grande, impactante e bem posicionada — o texto deve respirar no layout.
-- Contraste alto entre texto e fundo.
-- Se a mensagem precisar de mais contexto, ele vai na LEGENDA do post, nunca dentro da arte.`;
-
-    const imageBasePrompt = basePrompt
-      ? `${basePrompt}\n\n${MINIMALISMO_CARROSSEL}`
-      : MINIMALISMO_CARROSSEL;
-
     // Persist each successful slide incrementally so partial failures still show progress.
     const persistSlide = async (r: SlideRunResult) => {
       if (!r.ok) return;
@@ -325,7 +306,7 @@ REGRA CRÍTICA DE MINIMALISMO TEXTUAL (OBRIGATÓRIO — DEMANDA PLANEJADA):
         supabase,
         googleApiKey: GOOGLE_API_KEY,
         vi,
-        basePrompt: imageBasePrompt,
+        basePrompt,
         strategySnippet,
         slides: batch,
         allSlides: slides,
