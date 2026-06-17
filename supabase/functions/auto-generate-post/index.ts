@@ -103,11 +103,14 @@ Deno.serve(async (req) => {
     const ratio = aspectFromDemandType(demand.demand_type);
     const aspectLabel = aspectPromptLabel(ratio);
 
+    const minimalTextRule = isPlanned
+      ? `\n\n========================================\n🚨 MODO "DEMANDA PLANEJADA" — TEXTO MÍNIMO NA IMAGEM (OBRIGATÓRIO):\n- A imagem deve ser VISUALMENTE CHAMATIVA, SIMPLES e de leitura instantânea.\n- TEXTO TOTAL na arte: no MÁXIMO 6 PALAVRAS (idealmente 2-4 palavras grandes e impactantes).\n- NÃO inclua parágrafos, frases longas, subtítulos, listas, descrições ou explicações na imagem.\n- NÃO escreva a legenda/descrição do post dentro da arte — isso vai apenas na descrição da rede social.\n- Use tipografia GRANDE, em destaque, com hierarquia clara (uma palavra-chave dominante).\n- Priorize ELEMENTO VISUAL (mascote, objeto, ilustração, ícone) ocupando a maior parte da composição.\n- Sem CTAs longos, sem "saiba mais", sem URLs, sem hashtags na imagem.\n========================================\n`
+      : "";
     const imagePrompt = buildStaticPostPrompt({
       vi,
-      basePrompt,
+      basePrompt: basePrompt + minimalTextRule,
       strategySnippet,
-      contentSection,
+      contentSection: contentSection + minimalTextRule,
       hasMascotReference: mascotImageUrls.length > 0,
       aspectLabel,
     });
