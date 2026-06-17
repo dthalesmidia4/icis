@@ -271,6 +271,18 @@ REGRA CRÍTICA DE MINIMALISMO TEXTUAL (OBRIGATÓRIO — DEMANDA PLANEJADA):
 
     const strategySnippet = strategyText ? `ESTRATÉGIA:\n${strategyText}` : undefined;
 
+    const MINIMALISMO_CARROSSEL = `REGRA CRÍTICA DE MINIMALISMO TEXTUAL (OBRIGATÓRIO — DEMANDA PLANEJADA):
+- A imagem do slide deve conter o MÍNIMO de texto renderizado possível.
+- Renderize APENAS o texto do SLIDE ATUAL (uma frase curta, idealmente 3 a 8 palavras) — nada mais.
+- PROIBIDO ABSOLUTO na imagem: parágrafos, listas, bullet points, subtítulos, explicações, dados extensos, frases auxiliares, "saiba mais", endereços, telefones, sites, hashtags, ou qualquer trecho da legenda/descrição.
+- Tipografia bold, grande, impactante e bem posicionada — o texto deve respirar no layout.
+- Contraste alto entre texto e fundo.
+- Se a mensagem precisar de mais contexto, ele vai na LEGENDA do post, nunca dentro da arte.`;
+
+    const imageBasePrompt = basePrompt
+      ? `${basePrompt}\n\n${MINIMALISMO_CARROSSEL}`
+      : MINIMALISMO_CARROSSEL;
+
     // Persist each successful slide incrementally so partial failures still show progress.
     const persistSlide = async (r: SlideRunResult) => {
       if (!r.ok) return;
