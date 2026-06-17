@@ -168,9 +168,16 @@ ${contentReqsSection}
 REGRAS:
 1. Retorne EXATAMENTE ${slideCount} slides
 2. Texto conciso e impactante, sem limite rígido de caracteres
-3. Slide 1: gancho de atenção
-4. Último slide: CTA
-5. Use a função "create_carousel_slides"`;
+3. Slide 1: gancho de atenção (máximo 1 frase curta, idealmente 3 a 7 palavras)
+4. Slides do meio: 1 frase curta por slide — nada de parágrafos, listas ou explicações longas
+5. Último slide: CTA direto e curto
+6. Use a função "create_carousel_slides"
+
+REGRA CRÍTICA DE MINIMALISMO TEXTUAL (OBRIGATÓRIO — DEMANDA PLANEJADA):
+- Cada slide deve ter o MÍNIMO de texto possível. O carrossel é visual, não um artigo.
+- PROIBIDO parágrafos, listas, bullet points, explicações extensas, dados numerados ou frases longas em qualquer slide.
+- O texto de cada slide deve ser um gancho curto, direto e impactante — idealmente uma única frase.
+- Se precisar de mais contexto, ele vai na LEGENDA do post (descrição da rede social), nunca dentro dos slides.`;
 
     const userPrompt = `Crie ${slideCount} slides para este card:\n\n${cardContent}`;
 
