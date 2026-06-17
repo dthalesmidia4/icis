@@ -267,7 +267,10 @@ REGRAS:
     if (logoInline) console.log("  → Logo reference image pre-fetched");
     const mascotInline = mascotInlineSingle ? [mascotInlineSingle] : [];
 
-    const strategySnippet = strategyText ? `ESTRATÉGIA:\n${strategyText}` : undefined;
+    const minimalImageRule = isPlanned
+      ? `\n\n🚨 MODO "DEMANDA PLANEJADA" — TEXTO MÍNIMO NA IMAGEM:\n- Renderize APENAS as palavras-chave do slide (máx. 6 palavras) em tipografia GRANDE e impactante.\n- NÃO adicione textos auxiliares, subtítulos, parágrafos, listas, descrições ou explicações na arte.\n- Priorize elemento visual dominante (mascote/objeto/ilustração) ocupando a maior parte da composição.\n- Composição simples, chamativa, leitura instantânea.`
+      : "";
+    const strategySnippet = (strategyText ? `ESTRATÉGIA:\n${strategyText}` : "") + minimalImageRule || undefined;
 
     // Persist each successful slide incrementally so partial failures still show progress.
     const persistSlide = async (r: SlideRunResult) => {
