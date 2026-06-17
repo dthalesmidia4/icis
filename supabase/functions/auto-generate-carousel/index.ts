@@ -325,7 +325,7 @@ REGRA CRÍTICA DE MINIMALISMO TEXTUAL (OBRIGATÓRIO — DEMANDA PLANEJADA):
         supabase,
         googleApiKey: GOOGLE_API_KEY,
         vi,
-        basePrompt,
+        basePrompt: imageBasePrompt,
         strategySnippet,
         slides: batch,
         allSlides: slides,
