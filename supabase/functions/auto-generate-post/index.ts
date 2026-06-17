@@ -18,7 +18,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { demandId, aiModel: aiModelInput } = await req.json();
+    const { demandId, aiModel: aiModelInput, source, minimalText } = await req.json();
+    const isPlanned = source === 'planned' || minimalText === true;
 
     if (!demandId) {
       return new Response(JSON.stringify({ error: "demandId é obrigatório" }), {
