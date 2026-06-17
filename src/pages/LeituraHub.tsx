@@ -709,9 +709,11 @@ const LeituraHub = () => {
             ) : (
               <div className="space-y-3">
                 {historicoItems.map((item: any) => (
-                  <div
+                  <button
+                    type="button"
                     key={item.id}
-                    className={`border-l-4 ${getEventColor(item.event_type)} rounded-r-lg bg-muted/30 p-4`}
+                    onClick={() => setSelectedHistoricoItem(item)}
+                    className={`w-full text-left border-l-4 ${getEventColor(item.event_type)} rounded-r-lg bg-muted/30 p-4 hover:bg-muted/60 transition-colors cursor-pointer`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
@@ -741,7 +743,7 @@ const LeituraHub = () => {
                         )}
                       </div>
                     )}
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
