@@ -38,15 +38,16 @@ CENÁRIO E AMBIENTAÇÃO (OBRIGATÓRIO):
 const CAROUSEL_COVER_RULES = `REGRAS ESPECIAIS PARA CAPA (SLIDE 1 - OBRIGATÓRIO):
 Este é o slide de CAPA do carrossel — o mais importante de todos.
 - Design VISUALMENTE IMPACTANTE e CHAMATIVO que capture atenção imediata no feed
-- Use elementos gráficos bold: boxes coloridos, banners vibrantes, balões de fala (speech bubbles) ou shapes dinâmicos para conter o texto — SEM cobrir o cenário
-- Tipografia EXTRA BOLD, centralizada e com tamanho grande — o texto deve ser o protagonista visual
+- Use elementos gráficos bold (boxes, banners, balões de fala) APENAS para conter o título curto — sem cobrir o cenário
+- Tipografia EXTRA BOLD, grande e centralizada, mas com pouquíssimas palavras (idealmente 3 a 7) — gancho curto e direto
+- PROIBIDO ABSOLUTO escrever parágrafos, listas, explicações, dados ou frases longas na capa — só o gancho curto
 - Composição com profundidade: sombras, gradientes e camadas visuais que criem dimensão
 - Use ícones ou emojis 3D estilizados para enriquecer o layout
 - O design deve transmitir "profissionalismo de agência" e incentivar o usuário a DESLIZAR para ver mais
 - A capa deve comunicar CLARAMENTE o tema do carrossel de forma concisa e atraente
-- NÃO use layouts simples ou minimalistas — a capa deve ser visualmente rica e elaborada`;
+- NÃO use layouts simples ou minimalistas no cenário — a capa deve ser visualmente rica, mas com TEXTO ENXUTO`;
 
-const CAROUSEL_CONTINUITY = `CONTINUIDADE VISUAL: Mantenha o estilo visual coerente com a capa, mas com layout adequado para conteúdo informativo e variando a composição/pose do mascote.`;
+const CAROUSEL_CONTINUITY = `CONTINUIDADE VISUAL: Mantenha o estilo visual coerente com a capa, mas com layout adequado para o conteúdo do slide e variando a composição/pose do mascote. Mantenha o TEXTO RENDERIZADO CURTO — apenas a frase do slide atual, sem inflar com texto extra.`;
 
 const CAROUSEL_SINGLE_SLIDE_RULE = `REGRA CRÍTICA — UMA ÚNICA CENA POR IMAGEM:
 - Esta chamada gera UMA ÚNICA imagem que representa SOMENTE o slide atual.
