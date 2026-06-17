@@ -13,20 +13,27 @@ import {
 
 const STATIC_POST_STYLE_BLOCK = `ESTILO VISUAL OBRIGATÓRIO:
 - Crie designs com estilo de ilustração 3D estilizada, moderna e profissional
-- Tipografia bold, grande e impactante integrada ao design (não sobreposta de forma genérica)
 - Composição dinâmica com profundidade e camadas visuais
 - Qualidade de design de agência profissional de alto nível
-- Contraste alto entre texto e fundo para legibilidade perfeita
 - Elementos gráficos decorativos sutis que enriquecem o layout
 - Cores vibrantes e paleta coerente com a identidade visual da marca
-- Apenas o TÍTULO do post deve aparecer legível e bem posicionado na imagem
+- O design deve ser CHAMATIVO, LIMPO e de leitura instantânea no feed
+
+REGRA CRÍTICA DE MINIMALISMO TEXTUAL (OBRIGATÓRIO):
+- MENOS TEXTO É MAIS. A imagem é visual, não um panfleto.
+- Renderize APENAS o TÍTULO do post (uma frase curta, idealmente de 3 a 8 palavras) — nada mais.
+- PROIBIDO ABSOLUTO renderizar na imagem: parágrafos, blocos de texto longos, listas, bullet points, subtítulos descritivos, explicações, dados extensos, frases auxiliares, "saiba mais", endereços, telefones, sites, hashtags, ou qualquer trecho da legenda/descrição.
+- Tipografia bold, grande, impactante e bem posicionada — o título deve respirar no layout, com muito espaço em volta.
+- Contraste alto entre texto e fundo para legibilidade perfeita à primeira batida de olho.
+- Se a mensagem precisar de mais contexto, ele vai na LEGENDA do post (descrição da rede social), nunca dentro da arte.
+- Prefira composições onde a IMAGEM conta a história e o título apenas reforça — visual primeiro, texto depois.
 
 CENÁRIO E AMBIENTAÇÃO (OBRIGATÓRIO):
 - PROIBIDO fundo chapado, gradiente puro ou apenas shapes geométricos abstratos como cenário.
 - O fundo DEVE ser um ambiente 3D real e contextual ao tema do post (ex.: clínica, sala de espera, casa, rua, escritório, oficina, loja), com props e objetos relevantes em cena.
 - Inclua múltiplas camadas de profundidade: primeiro plano (mascote/objetos próximos), plano médio (mobiliário/elementos do tema) e fundo (paredes, janelas, ambientação).
 - Use iluminação cinematográfica com sombras realistas para criar volume.
-- Os boxes/banners de texto devem CONVIVER com o cenário, não substituí-lo nem ocupar a tela inteira.`;
+- Os boxes/banners de texto devem ser ENXUTOS e CONVIVER com o cenário, nunca substituí-lo nem ocupar a tela inteira de texto.`;
 
 const CAROUSEL_COVER_RULES = `REGRAS ESPECIAIS PARA CAPA (SLIDE 1 - OBRIGATÓRIO):
 Este é o slide de CAPA do carrossel — o mais importante de todos.
