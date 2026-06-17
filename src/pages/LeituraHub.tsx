@@ -92,6 +92,7 @@ const LeituraHub = () => {
   const [historicoModalOpen, setHistoricoModalOpen] = useState(false);
   const [historicoItems, setHistoricoItems] = useState<any[]>([]);
   const [loadingHistorico, setLoadingHistorico] = useState(false);
+  const [selectedHistoricoItem, setSelectedHistoricoItem] = useState<any>(null);
 
   // Desafio modal
   const [desafioModalOpen, setDesafioModalOpen] = useState(false);
@@ -708,9 +709,11 @@ const LeituraHub = () => {
             ) : (
               <div className="space-y-3">
                 {historicoItems.map((item: any) => (
-                  <div
+                  <button
+                    type="button"
                     key={item.id}
-                    className={`border-l-4 ${getEventColor(item.event_type)} rounded-r-lg bg-muted/30 p-4`}
+                    onClick={() => setSelectedHistoricoItem(item)}
+                    className={`w-full text-left border-l-4 ${getEventColor(item.event_type)} rounded-r-lg bg-muted/30 p-4 hover:bg-muted/60 transition-colors cursor-pointer`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
@@ -740,13 +743,67 @@ const LeituraHub = () => {
                         )}
                       </div>
                     )}
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
           </div>
           <div className="flex justify-end pt-2">
             <Button variant="outline" onClick={() => setHistoricoModalOpen(false)}>
+              Fechar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Detalhe do item do histórico */}
+      <Dialog open={!!selectedHistoricoItem} onOpenChange={(o) => !o && setSelectedHistoricoItem(null)}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedHistoricoItem && (
+                <>
+                  <span className="text-lg">{getEventIcon(selectedHistoricoItem.event_type)}</span>
+                  <span>{selectedHistoricoItem.event_title}</span>
+                </>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedHistoricoItem && (
+            <div className="space-y-3 overflow-y-auto max-h-[65vh] pr-1">
+              <p className="text-xs text-muted-foreground">
+                {format(new Date(selectedHistoricoItem.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              </p>
+              {selectedHistoricoItem.event_data?.bookName && (
+                <p className="text-sm">📕 <strong>{selectedHistoricoItem.event_data.bookName}</strong>{selectedHistoricoItem.event_data.bookAuthor ? ` — ${selectedHistoricoItem.event_data.bookAuthor}` : ""}</p>
+              )}
+              {(() => {
+                const d = selectedHistoricoItem.event_data || {};
+                const fullText =
+                  d.fullText ||
+                  d.strategyText ||
+                  d.challengeText ||
+                  d.supervisionText ||
+                  d.analysisText ||
+                  d.text ||
+                  d.preview ||
+                  d.strategyPreview ||
+                  "";
+                return fullText ? (
+                  <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed bg-muted/30 rounded-lg p-4">
+                    {fullText}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Sem conteúdo adicional.</p>
+                );
+              })()}
+              {selectedHistoricoItem.event_data?.answeredCount && (
+                <p className="text-sm">✅ {selectedHistoricoItem.event_data.answeredCount} perguntas respondidas</p>
+              )}
+            </div>
+          )}
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setSelectedHistoricoItem(null)}>
               Fechar
             </Button>
           </div>
