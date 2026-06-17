@@ -92,6 +92,7 @@ const LeituraHub = () => {
   const [historicoModalOpen, setHistoricoModalOpen] = useState(false);
   const [historicoItems, setHistoricoItems] = useState<any[]>([]);
   const [loadingHistorico, setLoadingHistorico] = useState(false);
+  const [selectedHistoricoItem, setSelectedHistoricoItem] = useState<any>(null);
 
   // Desafio modal
   const [desafioModalOpen, setDesafioModalOpen] = useState(false);
