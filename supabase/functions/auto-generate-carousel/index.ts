@@ -330,6 +330,17 @@ REGRAS:
 
     console.log(`✅ Auto-generated ${totalGenerated} carousel slides for demand ${demandId} (archived ${archivedCount} previous)`);
 
+    // Gera a legenda automaticamente com base nos slides recém criados
+    try {
+      const { error: capErr } = await supabase.functions.invoke("generate-post-caption", {
+        body: { demandId },
+      });
+      if (capErr) console.error("[auto-generate-carousel] caption invoke error:", capErr);
+      else console.log(`✅ Caption auto-generated for carousel ${demandId}`);
+    } catch (e) {
+      console.error("[auto-generate-carousel] caption generation failed:", e);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

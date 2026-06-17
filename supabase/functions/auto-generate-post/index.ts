@@ -180,6 +180,17 @@ Deno.serve(async (req) => {
 
     console.log(`✅ Auto-generated post image attached to demand ${demandId} (ratio=${ratio})`);
 
+    // Gera a legenda automaticamente a partir da imagem recém anexada
+    try {
+      const { error: capErr } = await supabase.functions.invoke("generate-post-caption", {
+        body: { demandId },
+      });
+      if (capErr) console.error("[auto-generate-post] caption invoke error:", capErr);
+      else console.log(`✅ Caption auto-generated for demand ${demandId}`);
+    } catch (e) {
+      console.error("[auto-generate-post] caption generation failed:", e);
+    }
+
     return new Response(JSON.stringify({
       success: true, imageUrl, demandId,
       message: "Post gerado e anexado automaticamente!",
