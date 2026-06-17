@@ -67,7 +67,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { demandId } = await req.json();
+    const { demandId, source, minimalText } = await req.json();
+    const isPlanned = source === 'planned' || minimalText === true;
 
     if (!demandId) {
       return new Response(
@@ -160,16 +161,20 @@ Deno.serve(async (req) => {
       ? `\nEXIGÊNCIAS DE CONTEÚDO DO CLIENTE (SIGA OBRIGATORIAMENTE):\n${vi.contentRequirements}\n`
       : "";
 
+    const minimalTextBlock = isPlanned
+      ? `\n\n🚨 MODO "DEMANDA PLANEJADA" — TEXTO MÍNIMO:\n- Cada slide deve ter NO MÁXIMO 6 PALAVRAS no campo "text" (idealmente 2-4 palavras grandes e impactantes).\n- Sem frases longas, sem parágrafos, sem listas, sem explicações.\n- Comunicação visual: simples, direta, chamativa e fácil de entender em 1 segundo.\n- A profundidade do tema vai na LEGENDA do post, NÃO nos slides.\n`
+      : "";
+
     const systemPrompt = `Você é um copywriter especialista em marketing digital. Crie textos para carrosséis.
 
 ${basePrompt ? "DIRETRIZES DO SISTEMA (PROMPT DO CARROSSEL):\n" + basePrompt + "\n\n" : ""}${strategyText ? "ESTRATÉGIA:\n" + strategyText + "\n\n" : ""}CLIENTE: ${vi.brandName} | ${vi.sector || "N/A"} | ${vi.productsServices || "N/A"}
 ${mascotInfo}
-${contentReqsSection}
+${contentReqsSection}${minimalTextBlock}
 REGRAS:
 1. Retorne EXATAMENTE ${slideCount} slides
-2. Texto conciso e impactante, sem limite rígido de caracteres
+2. ${isPlanned ? "Texto ULTRA conciso (máx. 6 palavras por slide), impactante e visual" : "Texto conciso e impactante, sem limite rígido de caracteres"}
 3. Slide 1: gancho de atenção
-4. Último slide: CTA
+4. Último slide: CTA ${isPlanned ? "curto (1-3 palavras)" : ""}
 5. Use a função "create_carousel_slides"`;
 
     const userPrompt = `Crie ${slideCount} slides para este card:\n\n${cardContent}`;
@@ -262,7 +267,10 @@ REGRAS:
     if (logoInline) console.log("  → Logo reference image pre-fetched");
     const mascotInline = mascotInlineSingle ? [mascotInlineSingle] : [];
 
-    const strategySnippet = strategyText ? `ESTRATÉGIA:\n${strategyText}` : undefined;
+    const minimalImageRule = isPlanned
+      ? `\n\n🚨 MODO "DEMANDA PLANEJADA" — TEXTO MÍNIMO NA IMAGEM:\n- Renderize APENAS as palavras-chave do slide (máx. 6 palavras) em tipografia GRANDE e impactante.\n- NÃO adicione textos auxiliares, subtítulos, parágrafos, listas, descrições ou explicações na arte.\n- Priorize elemento visual dominante (mascote/objeto/ilustração) ocupando a maior parte da composição.\n- Composição simples, chamativa, leitura instantânea.`
+      : "";
+    const strategySnippet = (strategyText ? `ESTRATÉGIA:\n${strategyText}` : "") + minimalImageRule || undefined;
 
     // Persist each successful slide incrementally so partial failures still show progress.
     const persistSlide = async (r: SlideRunResult) => {

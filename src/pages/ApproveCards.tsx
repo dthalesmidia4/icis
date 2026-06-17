@@ -187,7 +187,7 @@ const ApproveCards = () => {
     toast.info(`Gerando ${label} automaticamente para "${demandTitle}"...`, { duration: 5000 });
 
     supabase.functions.invoke(functionName, {
-      body: { demandId },
+      body: { demandId, source: 'planned', minimalText: true },
     }).then(({ data, error }) => {
       if (error) {
         console.error('[AutoGen] Error:', error);
