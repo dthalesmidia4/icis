@@ -67,7 +67,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { demandId } = await req.json();
+    const { demandId, source, minimalText } = await req.json();
+    const isPlanned = source === 'planned' || minimalText === true;
 
     if (!demandId) {
       return new Response(
