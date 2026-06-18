@@ -45,12 +45,12 @@ Deno.serve(async (req) => {
       .from('system_prompts')
       .select('prompt_content')
       .eq('tenant_id', tenantId)
-      .eq('prompt_key', 'custom_prompt_1780342556676')
+      .eq('prompt_key', 'custom_prompt_1780339940303')
       .maybeSingle();
 
     const promptContent = promptRow?.prompt_content?.trim();
     if (!promptContent) {
-      return jsonResponse({ error: 'Prompt "Gerador de perguntas" (custom_prompt_1780342556676) não encontrado em Dev → Prompts.' }, 400);
+      return jsonResponse({ error: 'Prompt "Gerador de perguntas" (custom_prompt_1780339940303) não encontrado em Dev → Prompts.' }, 400);
     }
 
     // 3. API key OpenAI
