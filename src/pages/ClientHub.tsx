@@ -170,37 +170,66 @@ const ClientHub = () => {
   const [demandaHistoricoModalOpen, setDemandaHistoricoModalOpen] = useState(false);
   const [demandaHistoricoExpandedId, setDemandaHistoricoExpandedId] = useState<string | null>(null);
 
-  const historicoStorageKey = selectedClient?.id ? `demanda_planejada_history_${selectedClient.id}` : null;
-
-  useEffect(() => {
-    if (!historicoStorageKey) { setDemandaHistorico([]); return; }
+  const loadDemandaHistorico = async () => {
+    if (!selectedClient?.id || !tenantId) { setDemandaHistorico([]); return; }
     try {
-      const raw = localStorage.getItem(historicoStorageKey);
-      setDemandaHistorico(raw ? JSON.parse(raw) : []);
-    } catch { setDemandaHistorico([]); }
-  }, [historicoStorageKey]);
-
-  const persistHistorico = (next: DemandaHistoricoItem[]) => {
-    setDemandaHistorico(next);
-    if (historicoStorageKey) {
-      try { localStorage.setItem(historicoStorageKey, JSON.stringify(next)); } catch {}
+      const { data, error } = await supabase
+        .from('planned_demand_history' as any)
+        .select('id, created_at, solicitacao, perguntas, respostas, demanda')
+        .eq('tenant_id', tenantId)
+        .eq('client_id', selectedClient.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      const mapped: DemandaHistoricoItem[] = (data || []).map((row: any) => ({
+        id: row.id,
+        createdAt: new Date(row.created_at).getTime(),
+        solicitacao: row.solicitacao || '',
+        perguntas: Array.isArray(row.perguntas) ? row.perguntas : [],
+        respostas: Array.isArray(row.respostas) ? row.respostas : [],
+        demanda: row.demanda || { secoes: [] },
+      }));
+      setDemandaHistorico(mapped);
+    } catch (err) {
+      console.error('Erro ao carregar histórico de demanda planejada:', err);
+      setDemandaHistorico([]);
     }
   };
 
-  const saveDemandaToHistorico = (demanda: { titulo?: string; secoes: { titulo: string; itens: string[]; conteudo?: string }[] }) => {
-    const item: DemandaHistoricoItem = {
-      id: (crypto as any)?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      createdAt: Date.now(),
-      solicitacao: solicitacaoCliente,
-      perguntas: [...demandaQuestions],
-      respostas: [...demandaAnswers],
-      demanda,
-    };
-    persistHistorico([item, ...demandaHistorico].slice(0, 50));
+  useEffect(() => {
+    loadDemandaHistorico();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClient?.id, tenantId]);
+
+  const saveDemandaToHistorico = async (demanda: { titulo?: string; secoes: { titulo: string; itens: string[]; conteudo?: string }[] }) => {
+    if (!selectedClient?.id || !tenantId) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from('planned_demand_history' as any)
+        .insert({
+          tenant_id: tenantId,
+          client_id: selectedClient.id,
+          created_by: user?.id ?? null,
+          solicitacao: solicitacaoCliente,
+          perguntas: demandaQuestions,
+          respostas: demandaAnswers,
+          demanda,
+        } as any);
+      if (error) throw error;
+      await loadDemandaHistorico();
+    } catch (err) {
+      console.error('Erro ao salvar histórico de demanda planejada:', err);
+    }
   };
 
-  const removerDemandaHistorico = (id: string) => {
-    persistHistorico(demandaHistorico.filter((d) => d.id !== id));
+  const removerDemandaHistorico = async (id: string) => {
+    try {
+      await supabase.from('planned_demand_history' as any).delete().eq('id', id);
+    } catch (err) {
+      console.error('Erro ao remover histórico:', err);
+    }
+    setDemandaHistorico((prev) => prev.filter((d) => d.id !== id));
     if (demandaHistoricoExpandedId === id) setDemandaHistoricoExpandedId(null);
   };
 
