@@ -196,8 +196,45 @@ const ClientHub = () => {
     }
   };
 
+  const migrateLocalHistoricoToDB = async () => {
+    if (!selectedClient?.id || !tenantId) return;
+    const key = `demanda_planejada_history_${selectedClient.id}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const items = JSON.parse(raw);
+      if (!Array.isArray(items) || items.length === 0) {
+        localStorage.removeItem(key);
+        return;
+      }
+      const { data: { user } } = await supabase.auth.getUser();
+      const rows = items.map((item: any) => ({
+        tenant_id: tenantId,
+        client_id: selectedClient.id,
+        created_by: user?.id ?? null,
+        solicitacao: item.solicitacao || '',
+        perguntas: Array.isArray(item.perguntas) ? item.perguntas : [],
+        respostas: Array.isArray(item.respostas) ? item.respostas : [],
+        demanda: item.demanda || { secoes: [] },
+        created_at: item.createdAt ? new Date(item.createdAt).toISOString() : new Date().toISOString(),
+      }));
+      const { error } = await supabase.from('planned_demand_history' as any).insert(rows as any);
+      if (!error) {
+        localStorage.removeItem(key);
+        console.log(`[ClientHub] Migrados ${rows.length} itens de histórico local para o banco.`);
+      } else {
+        console.error('[ClientHub] Erro ao migrar histórico local:', error);
+      }
+    } catch (err) {
+      console.error('[ClientHub] Falha ao migrar histórico local:', err);
+    }
+  };
+
   useEffect(() => {
-    loadDemandaHistorico();
+    (async () => {
+      await migrateLocalHistoricoToDB();
+      await loadDemandaHistorico();
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient?.id, tenantId]);
 
