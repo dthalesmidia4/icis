@@ -1008,6 +1008,50 @@ export type Database = {
           },
         ]
       }
+      planned_demand_history: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          demanda: Json
+          id: string
+          perguntas: Json
+          respostas: Json
+          solicitacao: string | null
+          tenant_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          demanda?: Json
+          id?: string
+          perguntas?: Json
+          respostas?: Json
+          solicitacao?: string | null
+          tenant_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          demanda?: Json
+          id?: string
+          perguntas?: Json
+          respostas?: Json
+          solicitacao?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planned_demand_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_logins: {
         Row: {
           access_info: string
