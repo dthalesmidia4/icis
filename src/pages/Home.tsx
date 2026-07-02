@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Sparkles, BookOpen, MapPin, User, ChevronLeft, Check } from "lucide-react";
+import { Loader2, Sparkles, BookOpen, MapPin, User, ChevronLeft, Check, FilePlus2, Search } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useHubPermissions } from "@/hooks/useHubPermissions";
@@ -29,6 +29,7 @@ const Home = () => {
   const { role, isLoading: roleLoading } = useAgencyRole();
   const { setSelectedClient } = useSelectedClient();
   const [clientModalOpen, setClientModalOpen] = useState(false);
+  const [clientOptionsModalOpen, setClientOptionsModalOpen] = useState(false);
   const [extrasModalOpen, setExtrasModalOpen] = useState(false);
 
   // Rejected by client flow state
@@ -64,7 +65,7 @@ const Home = () => {
 
   const handleCardClick = (card: typeof actionCards[0]) => {
     if (card.opensClientModal) {
-      setClientModalOpen(true);
+      setClientOptionsModalOpen(true);
     } else if (card.opensRejectedByClientModal) {
       openRejectedByClientFlow();
     } else {
@@ -206,6 +207,48 @@ const Home = () => {
         onOpenChange={setClientModalOpen}
         onClientSelected={handleClientSelected}
       />
+
+      {/* Modal Clientes - opções intermediárias */}
+      <Dialog open={clientOptionsModalOpen} onOpenChange={setClientOptionsModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Clientes</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <Card
+              className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border-2 hover:border-primary/50 active:scale-[0.98]"
+              onClick={() => {
+                setClientOptionsModalOpen(false);
+                navigate('/registration');
+              }}
+            >
+              <div className="p-6 flex flex-col items-center justify-center text-center min-h-[140px]">
+                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                  <FilePlus2 className="w-5 h-5 text-primary-foreground" />
+                </div>
+                <h3 className="text-sm font-bold text-primary mb-1">Cadastrar Novo Cliente</h3>
+                <p className="text-xs text-muted-foreground">Adicionar uma nova empresa ao sistema</p>
+              </div>
+            </Card>
+            <Card
+              className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border-2 hover:border-primary/50 active:scale-[0.98]"
+              onClick={() => {
+                setClientOptionsModalOpen(false);
+                setClientModalOpen(true);
+              }}
+            >
+              <div className="p-6 flex flex-col items-center justify-center text-center min-h-[140px]">
+                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
+                  <Search className="w-5 h-5 text-primary-foreground" />
+                </div>
+                <h3 className="text-sm font-bold text-primary mb-1">Procurar Cliente</h3>
+                <p className="text-xs text-muted-foreground">Pesquisar e gerenciar clientes cadastrados</p>
+              </div>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Modal Atividades Extras */}
       <Dialog open={extrasModalOpen} onOpenChange={setExtrasModalOpen}>
