@@ -29,6 +29,7 @@ const Home = () => {
   const { role, isLoading: roleLoading } = useAgencyRole();
   const { setSelectedClient } = useSelectedClient();
   const [clientModalOpen, setClientModalOpen] = useState(false);
+  const [clientOptionsModalOpen, setClientOptionsModalOpen] = useState(false);
   const [extrasModalOpen, setExtrasModalOpen] = useState(false);
 
   // Rejected by client flow state
