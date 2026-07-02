@@ -1,7 +1,8 @@
-import { Home, Code, User, LogOut, Menu, Building2 } from "lucide-react";
+import { Home, Code, User, LogOut, Menu, Building2, Briefcase } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useAgency } from "@/contexts/AgencyContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { RoleBadge } from "@/components/RoleBadge";
@@ -32,6 +33,11 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
+// Menu principal (após Home)
+const mainMenuItems = [
+  { title: "Minha Empresa", url: "/minha-empresa", icon: Briefcase, requiresAgency: true },
+];
+
 // Menu developer
 const devMenuItems = [
   { title: "Developer", url: "/dev-hub", icon: Code, adminOnly: true },
@@ -44,6 +50,8 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
   const { signOut, user } = useAuth();
   const userName = user?.user_metadata?.full_name as string | undefined;
   const { canAccessAdmin, role } = useUserRole();
+  const { agencyId } = useAgency();
+  const visibleMainItems = mainMenuItems.filter((i) => !i.requiresAgency || !!agencyId);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -93,6 +101,29 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
             <Home className="h-5 w-5 flex-shrink-0" />
             <span className="font-medium">Home</span>
           </button>
+
+          {/* Main menu items */}
+          {visibleMainItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.url);
+            return (
+              <button
+                key={item.title}
+                onClick={() => handleNavigate(item.url)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left",
+                  active
+                    ? 'bg-primary text-primary-foreground shadow-lg'
+                    : 'hover:bg-accent text-foreground'
+                )}
+              >
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                <span className="font-medium">{item.title}</span>
+              </button>
+            );
+          })}
+
+
 
 
           {/* Developer Menu */}
@@ -150,6 +181,8 @@ function DesktopSidebar() {
   const { signOut, user } = useAuth();
   const userName = user?.user_metadata?.full_name as string | undefined;
   const { canAccessAdmin } = useUserRole();
+  const { agencyId } = useAgency();
+  const visibleMainItems = mainMenuItems.filter((i) => !i.requiresAgency || !!agencyId);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -235,10 +268,48 @@ function DesktopSidebar() {
             </Tooltip>
           )}
 
+          {/* Main menu items */}
+          {visibleMainItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.url);
+            return expanded ? (
+              <button
+                key={item.title}
+                onClick={() => navigate(item.url)}
+                className={cn(
+                  "h-10 flex items-center gap-3 px-3 rounded-xl transition-all duration-300",
+                  active
+                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                    : 'hover:bg-accent text-sidebar-foreground'
+                )}
+              >
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                <span className="text-sm font-medium truncate">{item.title}</span>
+              </button>
+            ) : (
+              <Tooltip key={item.title}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => navigate(item.url)}
+                    className={cn(
+                      "h-10 w-10 mx-auto flex items-center justify-center rounded-xl transition-all duration-300",
+                      active
+                        ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                        : 'hover:bg-accent text-sidebar-foreground'
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={10}>{item.title}</TooltipContent>
+              </Tooltip>
+            );
+          })}
         </nav>
 
         {/* Developer Menu */}
         {canAccessAdmin && (
+
           <div className="mt-4 pt-2 border-t mx-2">
             <nav className="flex flex-col gap-1">
               {devMenuItems.map((item) => {
