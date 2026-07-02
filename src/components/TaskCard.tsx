@@ -1078,6 +1078,35 @@ export default function TaskCard({
 
               {/* === COLUNA DIREITA: Publicação + Controles === */}
               <div className="space-y-4 sticky top-0 self-start">
+                {/* Responsável */}
+                <Card>
+                  <CardContent className="p-4 space-y-2">
+                    <h3 className="font-semibold text-sm flex items-center gap-2">
+                      <User className="h-4 w-4 text-primary" />
+                      Responsável
+                    </h3>
+                    <Select
+                      value={card.assigned_to || "__none__"}
+                      onValueChange={async (val) => {
+                        const newVal = val === "__none__" ? "" : val;
+                        onCardChange({ ...card, assigned_to: newVal || null });
+                        await onSave("assigned_to", newVal);
+                      }}
+                      disabled={readOnly}
+                    >
+                      <SelectTrigger className="h-9 text-sm" aria-label="Responsável">
+                        <SelectValue placeholder="Sem responsável" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Sem responsável</SelectItem>
+                        {collaborators.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </CardContent>
+                </Card>
+
                 {/* Início de Produção */}
                 {(!readOnly && !card.due_date) ? (
                   <Popover>
