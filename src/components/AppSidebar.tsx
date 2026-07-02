@@ -50,6 +50,8 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
   const { signOut, user } = useAuth();
   const userName = user?.user_metadata?.full_name as string | undefined;
   const { canAccessAdmin, role } = useUserRole();
+  const { agencyId } = useAgency();
+  const visibleMainItems = mainMenuItems.filter((i) => !i.requiresAgency || !!agencyId);
 
   const isActive = (path: string) => location.pathname === path;
 
