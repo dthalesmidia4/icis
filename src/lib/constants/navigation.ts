@@ -57,13 +57,6 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     route: "/demandas-completas",
   },
   {
-    id: 'reprovada-cliente',
-    title: "Demanda Reprovada pelo Cliente",
-    icon: MessageSquareX,
-    route: "",
-    opensRejectedByClientModal: true,
-  },
-  {
     id: 'financeiro',
     title: "Financeiro",
     icon: DollarSign,
