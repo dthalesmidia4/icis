@@ -40,7 +40,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   },
   {
     id: 'kanban',
-    title: "Kanban Central",
+    title: "Visão Geral",
     icon: LayoutGrid,
     route: "/kanban-central",
   },
