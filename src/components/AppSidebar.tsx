@@ -102,6 +102,29 @@ function MobileSidebarContent({ onClose }: { onClose: () => void }) {
             <span className="font-medium">Home</span>
           </button>
 
+          {/* Main menu items */}
+          {visibleMainItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.url);
+            return (
+              <button
+                key={item.title}
+                onClick={() => handleNavigate(item.url)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-left",
+                  active
+                    ? 'bg-primary text-primary-foreground shadow-lg'
+                    : 'hover:bg-accent text-foreground'
+                )}
+              >
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                <span className="font-medium">{item.title}</span>
+              </button>
+            );
+          })}
+
+
+
 
           {/* Developer Menu */}
           {canAccessAdmin && (
