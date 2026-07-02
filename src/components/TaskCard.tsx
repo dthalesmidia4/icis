@@ -102,6 +102,7 @@ export interface KanbanCardData {
   source?: string;
   demand_id?: string;
   demand_type?: string | null;
+  assigned_to?: string | null;
   // Computed/display fields (not in DB)
   clientId?: string;
   clientName?: string;
@@ -338,6 +339,7 @@ export default function TaskCard({
   const [regeneratingAll, setRegeneratingAll] = useState(false);
   const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
   const [periodTitle, setPeriodTitle] = useState<string | null>(null);
+  const [collaborators, setCollaborators] = useState<{ id: string; name: string }[]>([]);
 
   // Fetch period title when card has a period_plan_id
   useEffect(() => {
@@ -354,6 +356,36 @@ export default function TaskCard({
       setPeriodTitle(null);
     }
   }, [open, card?.period_plan_id]);
+
+  // Fetch tenant collaborators (agency roles only) for the Responsible selector
+  useEffect(() => {
+    if (!open || !card?.tenant_id) return;
+    let cancelled = false;
+    (async () => {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .eq("tenant_id", card.tenant_id)
+        .in("role", ["agency_admin", "agency_manager", "agency_user"]);
+      if (cancelled || !roles || roles.length === 0) {
+        if (!cancelled) setCollaborators([]);
+        return;
+      }
+      const ids = Array.from(new Set(roles.map((r: any) => r.user_id)));
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", ids);
+      if (cancelled) return;
+      const list = ids.map((id) => ({
+        id,
+        name: profiles?.find((p: any) => p.id === id)?.full_name || "Colaborador",
+      }));
+      list.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+      setCollaborators(list);
+    })();
+    return () => { cancelled = true; };
+  }, [open, card?.tenant_id]);
 
   // Derive priority from publish date proximity
   const getDerivedPriority = () => {
@@ -1046,6 +1078,35 @@ export default function TaskCard({
 
               {/* === COLUNA DIREITA: Publicação + Controles === */}
               <div className="space-y-4 sticky top-0 self-start">
+                {/* Responsável */}
+                <Card>
+                  <CardContent className="p-4 space-y-2">
+                    <h3 className="font-semibold text-sm flex items-center gap-2">
+                      <User className="h-4 w-4 text-primary" />
+                      Responsável
+                    </h3>
+                    <Select
+                      value={card.assigned_to || "__none__"}
+                      onValueChange={async (val) => {
+                        const newVal = val === "__none__" ? "" : val;
+                        onCardChange({ ...card, assigned_to: newVal || null });
+                        await onSave("assigned_to", newVal);
+                      }}
+                      disabled={readOnly}
+                    >
+                      <SelectTrigger className="h-9 text-sm" aria-label="Responsável">
+                        <SelectValue placeholder="Sem responsável" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Sem responsável</SelectItem>
+                        {collaborators.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </CardContent>
+                </Card>
+
                 {/* Início de Produção */}
                 {(!readOnly && !card.due_date) ? (
                   <Popover>

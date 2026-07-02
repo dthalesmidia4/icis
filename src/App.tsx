@@ -53,6 +53,7 @@ import EmployeeAnamnesis from "./pages/EmployeeAnamnesis";
 import ApproveCards from "./pages/ApproveCards";
 import RejectedCards from "./pages/RejectedCards";
 import ContentHistory from "./pages/ContentHistory";
+import CollaboratorDemands from "./pages/CollaboratorDemands";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -420,6 +421,15 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <RemoveMember />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/colaboradores/:userId" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <CollaboratorDemands />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>

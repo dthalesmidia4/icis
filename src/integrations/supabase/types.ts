@@ -484,6 +484,7 @@ export type Database = {
         Row: {
           additional_publish_dates: Json
           archived_at: string | null
+          assigned_to: string | null
           attachments: Json
           channel: string | null
           client_id: string
@@ -515,6 +516,7 @@ export type Database = {
         Insert: {
           additional_publish_dates?: Json
           archived_at?: string | null
+          assigned_to?: string | null
           attachments?: Json
           channel?: string | null
           client_id: string
@@ -546,6 +548,7 @@ export type Database = {
         Update: {
           additional_publish_dates?: Json
           archived_at?: string | null
+          assigned_to?: string | null
           attachments?: Json
           channel?: string | null
           client_id?: string
