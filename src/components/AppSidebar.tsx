@@ -268,10 +268,48 @@ function DesktopSidebar() {
             </Tooltip>
           )}
 
+          {/* Main menu items */}
+          {visibleMainItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.url);
+            return expanded ? (
+              <button
+                key={item.title}
+                onClick={() => navigate(item.url)}
+                className={cn(
+                  "h-10 flex items-center gap-3 px-3 rounded-xl transition-all duration-300",
+                  active
+                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                    : 'hover:bg-accent text-sidebar-foreground'
+                )}
+              >
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                <span className="text-sm font-medium truncate">{item.title}</span>
+              </button>
+            ) : (
+              <Tooltip key={item.title}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => navigate(item.url)}
+                    className={cn(
+                      "h-10 w-10 mx-auto flex items-center justify-center rounded-xl transition-all duration-300",
+                      active
+                        ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
+                        : 'hover:bg-accent text-sidebar-foreground'
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={10}>{item.title}</TooltipContent>
+              </Tooltip>
+            );
+          })}
         </nav>
 
         {/* Developer Menu */}
         {canAccessAdmin && (
+
           <div className="mt-4 pt-2 border-t mx-2">
             <nav className="flex flex-col gap-1">
               {devMenuItems.map((item) => {
