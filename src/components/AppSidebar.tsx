@@ -33,6 +33,11 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
+// Menu principal (após Home)
+const mainMenuItems = [
+  { title: "Minha Empresa", url: "/minha-empresa", icon: Briefcase, requiresAgency: true },
+];
+
 // Menu developer
 const devMenuItems = [
   { title: "Developer", url: "/dev-hub", icon: Code, adminOnly: true },
