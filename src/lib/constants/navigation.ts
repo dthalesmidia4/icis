@@ -46,7 +46,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   },
   {
     id: 'schedule',
-    title: "Agendamento de Conteúdos",
+    title: "Ver Conteúdos Agendados",
     icon: CalendarDays,
     route: "/scheduled",
   },
