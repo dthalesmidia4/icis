@@ -339,6 +339,7 @@ export default function TaskCard({
   const [regeneratingAll, setRegeneratingAll] = useState(false);
   const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
   const [periodTitle, setPeriodTitle] = useState<string | null>(null);
+  const [collaborators, setCollaborators] = useState<{ id: string; name: string }[]>([]);
 
   // Fetch period title when card has a period_plan_id
   useEffect(() => {
@@ -355,6 +356,36 @@ export default function TaskCard({
       setPeriodTitle(null);
     }
   }, [open, card?.period_plan_id]);
+
+  // Fetch tenant collaborators (agency roles only) for the Responsible selector
+  useEffect(() => {
+    if (!open || !card?.tenant_id) return;
+    let cancelled = false;
+    (async () => {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .eq("tenant_id", card.tenant_id)
+        .in("role", ["agency_admin", "agency_manager", "agency_user"]);
+      if (cancelled || !roles || roles.length === 0) {
+        if (!cancelled) setCollaborators([]);
+        return;
+      }
+      const ids = Array.from(new Set(roles.map((r: any) => r.user_id)));
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", ids);
+      if (cancelled) return;
+      const list = ids.map((id) => ({
+        id,
+        name: profiles?.find((p: any) => p.id === id)?.full_name || "Colaborador",
+      }));
+      list.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+      setCollaborators(list);
+    })();
+    return () => { cancelled = true; };
+  }, [open, card?.tenant_id]);
 
   // Derive priority from publish date proximity
   const getDerivedPriority = () => {
