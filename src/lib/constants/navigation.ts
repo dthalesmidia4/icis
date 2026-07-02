@@ -57,12 +57,6 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     route: "/demandas-completas",
   },
   {
-    id: 'financeiro',
-    title: "Financeiro",
-    icon: DollarSign,
-    route: "/financeiro",
-  },
-  {
     id: 'logins-plataformas',
     title: "Logins das Plataformas",
     icon: KeyRound,
