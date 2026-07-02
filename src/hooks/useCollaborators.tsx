@@ -34,7 +34,7 @@ export function useCollaborators(tenantId: string | null | undefined) {
         .from("user_roles")
         .select("user_id, role")
         .eq("tenant_id", tenantId)
-        .in("role", VALID_AGENCY_ROLES as unknown as string[]);
+        .in("role", VALID_AGENCY_ROLES as unknown as ValidAgencyRole[]);
       if (rolesErr) throw rolesErr;
 
       if (!roles || roles.length === 0) {
