@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Sparkles, BookOpen, MapPin, User, ChevronLeft, Check } from "lucide-react";
+import { Loader2, Sparkles, BookOpen, MapPin, User, ChevronLeft, Check, FilePlus2, Search } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useHubPermissions } from "@/hooks/useHubPermissions";
