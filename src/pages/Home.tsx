@@ -1,14 +1,16 @@
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Sparkles, BookOpen, MapPin, User, ChevronLeft, Check, FilePlus2, Search } from "lucide-react";
+import { Loader2, Sparkles, BookOpen, MapPin, User, ChevronLeft, Check, FilePlus2, Search, Users } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useHubPermissions } from "@/hooks/useHubPermissions";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { getFilteredNavigationItems } from "@/lib/constants/navigation";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { ClientSelectionModal } from "@/components/ClientSelectionModal";
+import { useCollaborators } from "@/hooks/useCollaborators";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
