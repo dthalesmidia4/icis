@@ -2,6 +2,7 @@ import { Home, Code, User, LogOut, Menu, Building2, Briefcase } from "lucide-rea
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useAgency } from "@/contexts/AgencyContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { RoleBadge } from "@/components/RoleBadge";
