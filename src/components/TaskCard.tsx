@@ -102,6 +102,7 @@ export interface KanbanCardData {
   source?: string;
   demand_id?: string;
   demand_type?: string | null;
+  assigned_to?: string | null;
   // Computed/display fields (not in DB)
   clientId?: string;
   clientName?: string;
