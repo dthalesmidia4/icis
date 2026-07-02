@@ -53,6 +53,7 @@ import EmployeeAnamnesis from "./pages/EmployeeAnamnesis";
 import ApproveCards from "./pages/ApproveCards";
 import RejectedCards from "./pages/RejectedCards";
 import ContentHistory from "./pages/ContentHistory";
+import CollaboratorDemands from "./pages/CollaboratorDemands";
 
 const queryClient = new QueryClient({
   defaultOptions: {
