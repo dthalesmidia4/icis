@@ -65,7 +65,7 @@ const Home = () => {
 
   const handleCardClick = (card: typeof actionCards[0]) => {
     if (card.opensClientModal) {
-      setClientModalOpen(true);
+      setClientOptionsModalOpen(true);
     } else if (card.opensRejectedByClientModal) {
       openRejectedByClientFlow();
     } else {
