@@ -425,6 +425,15 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      <Route path="/colaboradores/:userId" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <CollaboratorDemands />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
       <Route path="/install" element={<InstallApp />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
