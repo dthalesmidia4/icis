@@ -6,6 +6,7 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
 import { Sparkles, Zap, Check, X, Package, History, Plus, Calendar as CalendarIcon, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Instagram, Facebook, Youtube, Linkedin, ChevronDown, TrendingUp, CheckSquare, Rocket, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -534,6 +535,8 @@ const PlanPeriod = () => {
       const instrucoesProducao = anyItem.instrucoes_de_producao || '';
       const ctaRecomendado = anyItem.cta_recomendado || '';
       const instrucoesParts = [instrucoesProducao, ctaRecomendado && `CTA: ${ctaRecomendado}`].filter(Boolean);
+      const explicitKey = coerceDemandTypeKey(anyItem.demand_type_key || anyItem.type_key);
+      const demandTypeKey = explicitKey ?? normalizeDemandTypeKey(tipo);
 
       return {
         tenant_id: tenantId,
@@ -548,6 +551,7 @@ const PlanPeriod = () => {
         publish_date: publicationDate,
         channel: channel || null,
         demand_type: tipo || null,
+        demand_type_key: demandTypeKey,
         source: 'card',
         observations: null
       };
