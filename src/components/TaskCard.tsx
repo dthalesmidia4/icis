@@ -1432,18 +1432,70 @@ export default function TaskCard({
                       );
                     })()}
 
-                    {/* Excluir demanda — ícone simples abaixo dos campos abertos */}
+                    {/* Ações: Arquivar + Excluir — ícones ao lado */}
                     {!readOnly && (
-                      <div className="flex justify-end pt-2">
-                        <button
-                          type="button"
-                          onClick={onDelete}
-                          aria-label="Excluir demanda"
-                          title="Excluir demanda"
-                          className="text-destructive hover:text-destructive/80 transition-colors p-1"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
+                      <div className="flex justify-end items-center gap-2 pt-2">
+                        {onArchive && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <button
+                                type="button"
+                                aria-label={card.archived_at ? "Desarquivar demanda" : "Arquivar demanda"}
+                                title={card.archived_at ? "Desarquivar demanda" : "Arquivar demanda"}
+                                className="text-muted-foreground hover:text-amber-600 transition-colors p-1"
+                              >
+                                {card.archived_at ? <ArchiveRestore className="h-5 w-5" /> : <Archive className="h-5 w-5" />}
+                              </button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  {card.archived_at ? "Desarquivar demanda?" : "Arquivar demanda?"}
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  {card.archived_at
+                                    ? "Deseja realmente desarquivar esta demanda?"
+                                    : "Deseja realmente arquivar esta demanda?"}
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => onArchive(!card.archived_at)}>
+                                  Confirmar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Excluir demanda"
+                              title="Excluir demanda"
+                              className="text-destructive hover:text-destructive/80 transition-colors p-1"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir demanda?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esta ação não pode ser desfeita. Deseja realmente excluir esta demanda?
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={onDelete}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     )}
                 </div>
