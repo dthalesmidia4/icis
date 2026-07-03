@@ -108,6 +108,7 @@ const KanbanCentralPage = () => {
   const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<string>("active");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("all");
   const [dateGroupBy, setDateGroupBy] = useState<"start" | "delivery">("start");
+  const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const { collaborators } = useCollaborators(tenantId);
   const [periods, setPeriods] = useState<Array<{
     id: string;
