@@ -87,6 +87,7 @@ const PlanPeriod = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [generationHistoryOpen, setGenerationHistoryOpen] = useState(false);
   const [selectedDemandDetail, setSelectedDemandDetail] = useState<any | null>(null);
+  const [collapsedStatusGroups, setCollapsedStatusGroups] = useState<Record<string, boolean>>({});
 
   // Demand execution metrics per period
   const [periodDemandMetrics, setPeriodDemandMetrics] = useState<Record<string, { total: number; published: number; demands: any[] }>>({});
