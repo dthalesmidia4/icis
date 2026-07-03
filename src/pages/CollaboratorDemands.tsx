@@ -146,7 +146,7 @@ const CollaboratorDemands = () => {
   };
 
   const formatDateHeader = (date: string) => {
-    if (date === "__no_date__") return "Sem data de entrega";
+    if (date === "__no_date__") return "Sem data de início";
     const [y, m, d] = date.split("-");
     return `${d}/${m}/${y}`;
   };
