@@ -19,7 +19,7 @@ interface ThemeContextType {
 }
 
 const defaultSettings: ThemeSettings = {
-  mode: 'system',
+  mode: 'light',
   primaryColor: 'purple',
   companyName: '',
   logoUrl: null,
