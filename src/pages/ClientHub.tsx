@@ -1476,6 +1476,43 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           </DialogContent>
         </Dialog>
 
+        {/* Modal Hub Demanda Planejada - Criar ou Histórico */}
+        <Dialog open={demandaPlanejadaHubModalOpen} onOpenChange={setDemandaPlanejadaHubModalOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Demanda Planejada</DialogTitle>
+              <p className="text-sm text-muted-foreground">O que deseja fazer?</p>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 py-4">
+              <Card className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
+                onClick={() => { setDemandaPlanejadaHubModalOpen(false); setDemandaPlanejadaModalOpen(true); }}>
+                <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
+                <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
+                  </div>
+                  <h3 className="text-sm sm:text-base font-bold transition-colors text-primary">Demanda Planejada</h3>
+                  <p className="text-xs text-muted-foreground mt-2">Criar nova demanda planejada</p>
+                </div>
+              </Card>
+              <Card className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
+                onClick={() => { setDemandaPlanejadaHubModalOpen(false); setDemandaHistoricoExpandedId(null); setDemandaHistoricoModalOpen(true); }}>
+                <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
+                {demandaHistorico.length > 0 && (
+                  <div className="absolute top-2 right-2 z-10 bg-destructive text-destructive-foreground text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">{demandaHistorico.length}</div>
+                )}
+                <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <ArchiveRestore className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
+                  </div>
+                  <h3 className="text-sm sm:text-base font-bold transition-colors text-primary">Histórico</h3>
+                  <p className="text-xs text-muted-foreground mt-2">Ver demandas planejadas anteriores</p>
+                </div>
+              </Card>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Modal Conteúdo Avulso */}
         <Dialog open={contentModalOpen} onOpenChange={setContentModalOpen}>
           <DialogContent className="sm:max-w-2xl">
