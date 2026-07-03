@@ -1390,7 +1390,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
               )}
               <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
-                  <card.icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                  <card.icon className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                 </div>
                 <h3 className="text-sm sm:text-base font-bold transition-colors text-primary">{card.title}</h3>
               </div>
@@ -1411,7 +1411,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
                 <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
-                    <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                    <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                   </div>
                   <h3 className="text-sm sm:text-base font-bold transition-colors text-primary">Criar</h3>
                   <p className="text-xs text-muted-foreground mt-2">Criar novo conteúdo avulso</p>
@@ -1422,7 +1422,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
                 <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
-                    <History className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                    <History className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                   </div>
                   <h3 className="text-sm sm:text-base font-bold transition-colors text-primary">Histórico de Criações</h3>
                   <p className="text-xs text-muted-foreground mt-2">Ver conteúdos já gerados</p>
@@ -1465,7 +1465,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
                   <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
                     <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
-                      <item.icon className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                      <item.icon className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                     </div>
                     <h3 className="text-base sm:text-lg font-bold transition-colors text-primary">{item.title}</h3>
                     <p className="text-xs text-muted-foreground mt-2">{item.description}</p>
@@ -1501,7 +1501,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
                 <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
-                    <PenLine className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                    <PenLine className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                   </div>
                   <h3 className="text-sm sm:text-base font-bold transition-colors text-primary">Criar Manualmente</h3>
                   <p className="text-xs text-muted-foreground mt-2">Você escreve o conteúdo</p>
@@ -1521,7 +1521,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
                 <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
-                    <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                    <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                   </div>
                   <h3 className="text-sm sm:text-base font-bold transition-colors text-primary">Gerar com IA</h3>
                   <p className="text-xs text-muted-foreground mt-2">A IA cria o conteúdo</p>
@@ -2061,7 +2061,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
                 <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
-                    <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                   </div>
                   <h3 className="text-sm sm:text-base font-bold transition-colors text-primary">Demanda Comum</h3>
                 </div>
@@ -2071,7 +2071,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
                 <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
-                    <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                    <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                   </div>
                   <h3 className="text-sm sm:text-base font-bold transition-colors text-primary">Demanda Ultra</h3>
                 </div>
@@ -2387,7 +2387,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
                 <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
-                    <CalendarDays className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                    <CalendarDays className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                   </div>
                   <h3 className="text-sm sm:text-base font-bold transition-colors text-primary">Planejar Período</h3>
                   <p className="text-xs text-muted-foreground mt-2">Criar ou gerenciar períodos de conteúdo</p>
@@ -2398,7 +2398,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
                 <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
-                    <ScrollText className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
+                    <ScrollText className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                   </div>
                   <h3 className="text-sm sm:text-base font-bold transition-colors text-primary">Exigências de Conteúdo</h3>
                   <p className="text-xs text-muted-foreground mt-2">Definir regras e tom dos conteúdos</p>
