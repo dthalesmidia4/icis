@@ -87,6 +87,7 @@ const PlanPeriod = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [generationHistoryOpen, setGenerationHistoryOpen] = useState(false);
   const [selectedDemandDetail, setSelectedDemandDetail] = useState<any | null>(null);
+  const [collapsedStatusGroups, setCollapsedStatusGroups] = useState<Record<string, boolean>>({});
 
   // Demand execution metrics per period
   const [periodDemandMetrics, setPeriodDemandMetrics] = useState<Record<string, { total: number; published: number; demands: any[] }>>({});
@@ -1188,32 +1189,92 @@ const PlanPeriod = () => {
                 <Badge variant="secondary" className="text-sm px-3 py-1">{sortedDemands.length} demandas</Badge>
               </div>
 
-              {sortedDemands.length > 0 ? (
-                <div className="grid gap-2">
-                  {sortedDemands.map((demand: any, idx: number) => {
-                    const statusInfo = demand.pipeline_statuses;
-                    return (
-                      <div
-                        key={demand.id || idx}
-                        className="flex items-center gap-3 px-4 py-3 rounded-lg border border-border/50 bg-card hover:bg-muted/50 transition-colors"
-                      >
-                        <h4 className="text-base font-bold text-foreground truncate flex-1 min-w-0">{demand.title}</h4>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {demand.demand_type && <Badge variant="secondary" className="text-xs">{demand.demand_type}</Badge>}
-                          {statusInfo && (
-                            <Badge 
-                              className="text-[10px] px-2 py-0.5" 
-                              style={{ backgroundColor: `${statusInfo.color}20`, color: statusInfo.color, borderColor: `${statusInfo.color}40` }}
+              {sortedDemands.length > 0 ? (() => {
+                // Group demands by status
+                const groups = new Map<string, { status: any; demands: any[] }>();
+                const noStatusKey = '__no_status__';
+                sortedDemands.forEach((d: any) => {
+                  const s = d.pipeline_statuses;
+                  const key = s?.id ? String(s.id) : noStatusKey;
+                  if (!groups.has(key)) {
+                    groups.set(key, {
+                      status: s || { id: noStatusKey, name: 'Sem status', color: '#64748b', order_index: 9999 },
+                      demands: [],
+                    });
+                  }
+                  groups.get(key)!.demands.push(d);
+                });
+                const orderedGroups = Array.from(groups.values()).sort(
+                  (a, b) => (a.status.order_index ?? 9999) - (b.status.order_index ?? 9999)
+                );
+
+                return (
+                  <div className="space-y-3">
+                    {orderedGroups.map((group) => {
+                      const key = String(group.status.id);
+                      const isCollapsed = !!collapsedStatusGroups[key];
+                      return (
+                        <div key={key} className="rounded-lg border border-border/50 bg-card overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setCollapsedStatusGroups(prev => ({ ...prev, [key]: !prev[key] }))}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                          >
+                            {isCollapsed ? (
+                              <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" />
+                            )}
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: group.status.color }}
+                            />
+                            <span className="font-semibold text-foreground flex-1 min-w-0 truncate">
+                              {group.status.name}
+                            </span>
+                            <Badge
+                              className="text-xs"
+                              style={{
+                                backgroundColor: `${group.status.color}20`,
+                                color: group.status.color,
+                                borderColor: `${group.status.color}40`,
+                              }}
                             >
-                              {statusInfo.name}
+                              {group.demands.length}
                             </Badge>
+                          </button>
+                          {!isCollapsed && (
+                            <div className="border-t border-border/50 divide-y divide-border/50">
+                              {group.demands.map((demand: any, idx: number) => (
+                                <div
+                                  key={demand.id || idx}
+                                  className="flex items-center gap-3 px-4 py-3 bg-background/50 hover:bg-muted/40 transition-colors"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="text-sm font-semibold text-foreground truncate">{demand.title}</h4>
+                                    {(demand.publish_date || demand.delivery_date) && (
+                                      <p className="text-xs text-muted-foreground mt-0.5">
+                                        {demand.publish_date
+                                          ? `Publicação: ${format(new Date(demand.publish_date + 'T00:00:00'), 'dd/MM/yyyy')}`
+                                          : `Entrega: ${format(new Date(demand.delivery_date + 'T00:00:00'), 'dd/MM/yyyy')}`}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {demand.demand_type && (
+                                    <Badge variant="secondary" className="text-xs shrink-0">
+                                      {demand.demand_type}
+                                    </Badge>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
+                      );
+                    })}
+                  </div>
+                );
+              })() : (
                 <div className="text-center py-12 text-muted-foreground">
                   <CalendarIcon className="w-10 h-10 mx-auto mb-2 opacity-30" />
                   <p className="text-sm">Nenhuma demanda aprovada neste período</p>
