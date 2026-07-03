@@ -227,9 +227,8 @@ const Home = () => {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-bold text-primary truncate">{collab.fullName}</h3>
-                      <p className="text-xs text-muted-foreground truncate">{collab.roleLabel}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <h3 className="text-lg font-bold text-primary truncate">{collab.fullName}</h3>
+                      <p className="text-sm font-bold text-primary/70 mt-1">
                         {collab.demandCount} {collab.demandCount === 1 ? "demanda" : "demandas"}
                       </p>
                     </div>
