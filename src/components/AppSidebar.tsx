@@ -36,8 +36,6 @@ import { cn } from "@/lib/utils";
 // Menu principal (após Home)
 const mainMenuItems = [
   { title: "Minha Empresa", url: "/minha-empresa", icon: Briefcase, requiresAgency: true },
-  { title: "Logins das Plataformas", url: "/logins-plataformas", icon: KeyRound, requiresAgency: true },
-  { title: "Atividades Extras", url: "/leitura", icon: Sparkles, requiresAgency: true },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
 ];
 
