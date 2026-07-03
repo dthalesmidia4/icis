@@ -290,6 +290,7 @@ const CollaboratorDemands = () => {
                         cardId={card.id}
                         hideDueDate
                         emphasizeDelivery
+                        showStartEndLabels
                         isOverdue={isOverdue(card.delivery_date, card.delivery_time, card.status)}
                         onClick={() => setSelectedCard(card)}
                       />
