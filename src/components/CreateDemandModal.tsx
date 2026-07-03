@@ -400,6 +400,12 @@ export function CreateDemandModal({
       return;
     }
 
+    const chosenKey = coerceDemandTypeKey(demandTypeKey);
+    if (!chosenKey) {
+      toast.error("Selecione o tipo da demanda");
+      return;
+    }
+    const chosenLabel = DEMAND_TYPE_LABEL[chosenKey];
 
     // Check required fields for selected status
     const selectedStatus = statuses.find((s) => s.id === statusId);
@@ -417,7 +423,7 @@ export function CreateDemandModal({
         p_status_id: statusId || null,
         p_title: title,
         p_description: description || null,
-        p_demand_type: demandType || null,
+        p_demand_type: chosenLabel,
         p_channel: channel || null,
         p_publish_date: publishDate ? format(publishDate, "yyyy-MM-dd") : null,
         p_due_date: dueDate ? format(dueDate, "yyyy-MM-dd") : null,
@@ -429,12 +435,11 @@ export function CreateDemandModal({
       const result = data as {success?: boolean;demand_id?: string;error?: string;} | null;
 
       if (result?.success) {
-        // Update delivery_date if provided (not in RPC params)
-        if (deliveryDate && result.demand_id) {
-          await supabase
-            .from("demands")
-            .update({ delivery_date: format(deliveryDate, "yyyy-MM-dd") })
-            .eq("id", result.demand_id);
+        // Persist demand_type_key + delivery_date (RPC does not accept these)
+        if (result.demand_id) {
+          const extraUpdate: Record<string, any> = { demand_type_key: chosenKey };
+          if (deliveryDate) extraUpdate.delivery_date = format(deliveryDate, "yyyy-MM-dd");
+          await supabase.from("demands").update(extraUpdate).eq("id", result.demand_id);
         }
         toast.success("Demanda criada com sucesso!");
         onOpenChange(false);
@@ -632,7 +637,32 @@ export function CreateDemandModal({
 
             </div>
             
-            {/* Type & Channel */}
+            {/* Tipo da demanda (obrigatório) */}
+            <div className="space-y-2">
+              <Label>Tipo da demanda *</Label>
+              <Select
+                value={demandTypeKey}
+                onValueChange={(v) => {
+                  const key = v as DemandTypeKey;
+                  setDemandTypeKey(key);
+                  setDemandType(DEMAND_TYPE_LABEL[key]);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo técnico" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  {OFFICIAL_DEMAND_TYPES.map((opt) => (
+                    <SelectItem key={opt.key} value={opt.key}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Define o fluxo de produção. Escolha manualmente — não há classificação automática.
+              </p>
+            </div>
+
+
             
 
 
