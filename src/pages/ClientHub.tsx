@@ -1344,7 +1344,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   const isAdmin = role === 'agency_admin' || role === 'super_admin' || role === 'agency_manager';
 
   const allActionCards = [
-    { id: 'client_cadastro' as ClientHubButtonId, title: "Cadastro", icon: ClipboardList, action: () => navigate(`/clientes/${selectedClient.id}`) },
+
     { id: 'client_anamnese' as ClientHubButtonId, title: "Anamnese", icon: FileText, action: () => navigate("/client-guide") },
     { id: 'client_estrategia' as ClientHubButtonId, title: "Estratégia", icon: Lightbulb, action: () => navigate("/strategies") },
     { id: 'client_planejar_periodo' as ClientHubButtonId, title: "Planejar Período", icon: CalendarDays, action: () => setPlanPeriodModalOpen(true) },
