@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
 
 interface PeriodData {
   id: string;
