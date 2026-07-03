@@ -241,37 +241,65 @@ const CollaboratorDemands = () => {
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">
             Demandas de {collaboratorName}
           </h1>
-          <Badge variant="secondary" className="text-sm">{sortedCards.length}</Badge>
+          <Badge variant="secondary" className="text-sm">{totalCards}</Badge>
         </div>
         <p className="text-sm text-muted-foreground">
           {collaboratorRole ? `${collaboratorRole} • ` : ""}Cards atribuídos a este colaborador
         </p>
       </div>
 
-      {sortedCards.length === 0 ? (
+      {totalCards === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <User className="h-12 w-12 mx-auto mb-4 opacity-30" />
           <p className="text-lg font-medium">Nenhuma demanda atribuída a este colaborador no momento.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {sortedCards.map((card) => (
-            <KanbanCard
-              key={card.id}
-              title={card.title}
-              subtitle={card.clientName || ""}
-              demandType={card.demand_type || undefined}
-              dueDate={card.due_date}
-              dueTime={card.due_time || undefined}
-              cardDeliveryDate={card.delivery_date || undefined}
-              deliveryTime={card.delivery_time || undefined}
-              cardId={card.id}
-              isOverdue={isOverdue(card.delivery_date, card.delivery_time, card.status)}
-              onClick={() => setSelectedCard(card)}
-            />
-          ))}
+        <div className="space-y-4">
+          {groupedByDate.map(({ date, items }) => {
+            const collapsed = collapsedDates.has(date);
+            return (
+              <div key={date} className="rounded-lg border border-border bg-card/40 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => toggleDate(date)}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
+                >
+                  {collapsed ? (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  )}
+                  <Calendar className="h-5 w-5 text-primary" />
+                  <span className="text-lg sm:text-xl font-bold text-foreground">
+                    {formatDateHeader(date)}
+                  </span>
+                  <Badge variant="secondary" className="ml-2">{items.length}</Badge>
+                </button>
+                {!collapsed && (
+                  <div className="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {items.map((card) => (
+                      <KanbanCard
+                        key={card.id}
+                        title={card.title}
+                        subtitle={card.clientName || ""}
+                        demandType={card.demand_type || undefined}
+                        dueDate={card.due_date}
+                        dueTime={card.due_time || undefined}
+                        cardDeliveryDate={card.delivery_date || undefined}
+                        deliveryTime={card.delivery_time || undefined}
+                        cardId={card.id}
+                        isOverdue={isOverdue(card.delivery_date, card.delivery_time, card.status)}
+                        onClick={() => setSelectedCard(card)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
+
 
       <TaskCard
         open={!!selectedCard}
