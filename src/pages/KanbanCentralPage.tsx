@@ -541,6 +541,8 @@ const KanbanCentralPage = () => {
           source: demand.source,
           demand_id: demand.id,
           demand_type: demand.demand_type,
+          assigned_to: demand.assigned_to || null,
+          status_color: demand.pipeline_statuses?.color || null,
           additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates : []
         };
       };
