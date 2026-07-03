@@ -1453,6 +1453,20 @@ export default function TaskCard({
                       );
                     })()}
 
+                    {/* Excluir demanda — ícone simples abaixo dos campos abertos */}
+                    {!readOnly && (
+                      <div className="flex justify-end pt-2">
+                        <button
+                          type="button"
+                          onClick={onDelete}
+                          aria-label="Excluir demanda"
+                          title="Excluir demanda"
+                          className="text-destructive hover:text-destructive/80 transition-colors p-1"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      </div>
+                    )}
                 </div>
               </div>
 
