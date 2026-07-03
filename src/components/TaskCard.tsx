@@ -1342,6 +1342,7 @@ export default function TaskCard({
                               { id: 'cta' as const, label: 'CTA Recomendado', icon: Megaphone, savingKey: 'instructions' },
                               { id: 'observations' as const, label: 'Observações', icon: MessageSquare, savingKey: 'observations' },
                               { id: 'caption' as const, label: 'Descrição', icon: Sparkles, savingKey: 'post_caption' },
+                              { id: 'anexos' as const, label: 'Anexos', icon: Paperclip, savingKey: 'attachments' },
                             ];
                             return (
                               <div className="flex flex-wrap gap-2">
