@@ -111,48 +111,58 @@ const CollaboratorDemands = () => {
     if (!tenantLoading && tenantId && userId) fetchData();
   }, [tenantId, tenantLoading, userId, fetchData]);
 
-  const [groupBy, setGroupBy] = useState<"start" | "delivery">("start");
+  type SortKey = "title" | "due_date" | "due_time" | "delivery_date" | "delivery_time" | "assigned";
+  const [sortKey, setSortKey] = useState<SortKey>("due_date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
-  const groupedByDate = useMemo(() => {
-    const groups = new Map<string, KanbanCardData[]>();
-    for (const c of cards) {
-      const key = (groupBy === "start" ? c.due_date : c.delivery_date) || "__no_date__";
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(c);
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
     }
-    const entries = Array.from(groups.entries()).map(([date, items]) => {
-      const sorted = [...items].sort((a, b) => {
-        const ta = (groupBy === "start" ? a.due_time : a.delivery_time) || "99:99";
-        const tb = (groupBy === "start" ? b.due_time : b.delivery_time) || "99:99";
-        return ta.localeCompare(tb);
-      });
-      return { date, items: sorted };
+  };
+
+  const sortedCards = useMemo(() => {
+    const arr = [...cards];
+    const getVal = (c: KanbanCardData): string => {
+      switch (sortKey) {
+        case "title": return (c.title || "").toLowerCase();
+        case "due_date": return c.due_date || "9999-99-99";
+        case "due_time": return c.due_time || "99:99";
+        case "delivery_date": return c.delivery_date || "9999-99-99";
+        case "delivery_time": return c.delivery_time || "99:99";
+        case "assigned": return (collaboratorName || "").toLowerCase();
+      }
+    };
+    arr.sort((a, b) => {
+      const va = getVal(a);
+      const vb = getVal(b);
+      const cmp = va.localeCompare(vb);
+      return sortDir === "asc" ? cmp : -cmp;
     });
-    entries.sort((a, b) => {
-      if (a.date === "__no_date__") return 1;
-      if (b.date === "__no_date__") return -1;
-      return a.date.localeCompare(b.date);
-    });
-    return entries;
-  }, [cards, groupBy]);
+    return arr;
+  }, [cards, sortKey, sortDir, collaboratorName]);
 
   const totalCards = cards.length;
 
-  const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
-  const toggleDate = (date: string) => {
-    setCollapsedDates((prev) => {
-      const next = new Set(prev);
-      if (next.has(date)) next.delete(date);
-      else next.add(date);
-      return next;
-    });
+  const formatDate = (d?: string | null) => {
+    if (!d) return "—";
+    const [y, m, day] = d.split("-");
+    return `${day}/${m}/${y}`;
   };
+  const formatTime = (t?: string | null) => (t ? t.slice(0, 5) : "—");
 
-  const formatDateHeader = (date: string) => {
-    if (date === "__no_date__") return groupBy === "start" ? "Sem data de início" : "Sem data de entrega";
-    const [y, m, d] = date.split("-");
-    return `${d}/${m}/${y}`;
-  };
+  const SortIcon = ({ k }: { k: SortKey }) =>
+    sortKey !== k ? (
+      <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />
+    ) : sortDir === "asc" ? (
+      <ArrowUp className="h-3.5 w-3.5" />
+    ) : (
+      <ArrowDown className="h-3.5 w-3.5" />
+    );
+
 
 
   const handleSave = async (field: string, value: string) => {
