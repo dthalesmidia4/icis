@@ -894,9 +894,9 @@ export default function TaskCard({
                   size="sm"
                   className="h-11 gap-2 shrink-0"
                   onClick={handleProceed}
-                  disabled={proceeding}
+                  disabled={proceeding || !card.demand_type_key}
                   aria-label="Prosseguir"
-                  title="Enviar para o próximo colaborador do fluxo"
+                  title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : "Enviar para o próximo colaborador do fluxo"}
                 >
                   {proceeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
                   <span>Prosseguir</span>
