@@ -24,6 +24,7 @@ import TaskCard, { getColumnFromStatus, getStatusFromColumn } from "@/components
 import type { KanbanCardData, Attachment } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import SmartSearchBar from "@/components/SmartSearchBar";
 import { cn } from "@/lib/utils";
 import BackButton from "@/components/BackButton";
