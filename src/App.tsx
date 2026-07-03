@@ -318,6 +318,15 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      <Route path="/cronograma-global" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <CronogramaGlobal />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
       <Route path="/leitura" element={
         <ProtectedRoute>
           <RequireTenant>
