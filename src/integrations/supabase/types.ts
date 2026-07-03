@@ -565,6 +565,7 @@ export type Database = {
           delivery_date: string | null
           delivery_time: string | null
           demand_type: string | null
+          demand_type_key: string | null
           description: string | null
           due_date: string | null
           due_time: string | null
@@ -598,6 +599,7 @@ export type Database = {
           delivery_date?: string | null
           delivery_time?: string | null
           demand_type?: string | null
+          demand_type_key?: string | null
           description?: string | null
           due_date?: string | null
           due_time?: string | null
@@ -631,6 +633,7 @@ export type Database = {
           delivery_date?: string | null
           delivery_time?: string | null
           demand_type?: string | null
+          demand_type_key?: string | null
           description?: string | null
           due_date?: string | null
           due_time?: string | null
