@@ -788,7 +788,7 @@ export function CreateDemandModal({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={submitting || !clientId || !title.trim()}>
+          <Button onClick={handleSubmit} disabled={submitting || !clientId || !title.trim() || !demandTypeKey}>
             {submitting ?
             <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
