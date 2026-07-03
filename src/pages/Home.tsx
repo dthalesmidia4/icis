@@ -181,22 +181,8 @@ const Home = () => {
             </Card>
           ))}
 
-          {/* Atividades Extras card */}
-          <Card 
-            className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]" 
-            onClick={() => setExtrasModalOpen(true)}
-          >
-            <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
-            <div className="relative p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[160px] sm:min-h-[200px]">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
-                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
-              </div>
-              <h3 className="text-base sm:text-xl font-bold transition-colors text-primary">
-                Atividades Extras
-              </h3>
-            </div>
-          </Card>
         </div>
+
 
         {actionCards.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
