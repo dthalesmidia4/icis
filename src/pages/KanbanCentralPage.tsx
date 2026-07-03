@@ -928,7 +928,7 @@ const KanbanCentralPage = () => {
             <LayoutGrid className="h-5 w-5 text-primary" />
           </div>
           <h2 className="text-xl sm:text-2xl font-bold text-foreground">
-            Kanban Central
+            Visão geral das Tarefas
           </h2>
           <Badge variant="secondary">
             {filteredCards.length} {filteredCards.length === 1 ? 'demanda' : 'demandas'}
