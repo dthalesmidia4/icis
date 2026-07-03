@@ -261,81 +261,71 @@ const CollaboratorDemands = () => {
         </p>
       </div>
 
-      <div className="flex items-center justify-center gap-2 mb-6">
-        <span className="text-sm text-muted-foreground">Visualizar por:</span>
-        <div className="inline-flex rounded-md border border-border overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setGroupBy("start")}
-            className={`px-3 py-1.5 text-sm font-medium transition-colors ${groupBy === "start" ? "bg-primary text-primary-foreground" : "bg-transparent text-foreground hover:bg-accent/40"}`}
-          >
-            Data de início
-          </button>
-          <button
-            type="button"
-            onClick={() => setGroupBy("delivery")}
-            className={`px-3 py-1.5 text-sm font-medium transition-colors ${groupBy === "delivery" ? "bg-primary text-primary-foreground" : "bg-transparent text-foreground hover:bg-accent/40"}`}
-          >
-            Data de entrega
-          </button>
-        </div>
-      </div>
-
       {totalCards === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <User className="h-12 w-12 mx-auto mb-4 opacity-30" />
           <p className="text-lg font-medium">Nenhuma demanda atribuída a este colaborador no momento.</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {groupedByDate.map(({ date, items }) => {
-            const collapsed = collapsedDates.has(date);
-            return (
-              <div key={date} className="rounded-lg border border-border bg-card/40 overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => toggleDate(date)}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
-                >
-                  {collapsed ? (
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                  )}
-                  <Calendar className="h-5 w-5 text-primary" />
-                  <span className="text-lg sm:text-xl font-bold text-foreground">
-                    {formatDateHeader(date)}
-                  </span>
-                  <Badge variant="secondary" className="ml-2">{items.length}</Badge>
-                </button>
-                {!collapsed && (
-                  <div className="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                    {items.map((card) => (
-                      <KanbanCard
-                        key={card.id}
-                        title={card.title}
-                        subtitle={card.clientName || ""}
-                        demandType={card.demand_type || undefined}
-                        dueDate={card.due_date}
-                        dueTime={card.due_time || undefined}
-                        cardDeliveryDate={card.delivery_date || undefined}
-                        deliveryTime={card.delivery_time || undefined}
-                        cardId={card.id}
-                        hideDueDate
-                        emphasizeDelivery
-                        showStartEndLabels
-                        emphasizeStart={groupBy === "delivery"}
-                        isOverdue={isOverdue(card.delivery_date, card.delivery_time, card.status)}
-                        onClick={() => setSelectedCard(card)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <div className="rounded-lg border border-border bg-card/40 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                {([
+                  { k: "title", label: "Nome da demanda" },
+                  { k: "due_date", label: "Data de início" },
+                  { k: "due_time", label: "Hora de início" },
+                  { k: "delivery_date", label: "Data de entrega" },
+                  { k: "delivery_time", label: "Hora de entrega" },
+                  { k: "assigned", label: "Responsável" },
+                ] as { k: SortKey; label: string }[]).map(({ k, label }) => (
+                  <TableHead key={k} className="whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(k)}
+                      className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-primary transition-colors"
+                    >
+                      {label}
+                      <SortIcon k={k} />
+                    </button>
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedCards.map((card) => {
+                const overdue = isOverdue(card.delivery_date, card.delivery_time, card.status);
+                return (
+                  <TableRow
+                    key={card.id}
+                    onClick={() => setSelectedCard(card)}
+                    className={`cursor-pointer ${overdue ? "bg-destructive/10 hover:bg-destructive/15" : ""}`}
+                  >
+                    <TableCell className="font-medium text-foreground">
+                      <div className="flex flex-col">
+                        <span className="uppercase tracking-wide text-sm">{card.title}</span>
+                        {card.clientName && (
+                          <span className="text-xs text-muted-foreground normal-case">{card.clientName}</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{formatDate(card.due_date)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatTime(card.due_time)}</TableCell>
+                    <TableCell className={`whitespace-nowrap ${overdue ? "text-destructive font-semibold" : ""}`}>
+                      {formatDate(card.delivery_date)}
+                    </TableCell>
+                    <TableCell className={`whitespace-nowrap ${overdue ? "text-destructive font-semibold" : ""}`}>
+                      {formatTime(card.delivery_time)}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{collaboratorName}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         </div>
       )}
+
 
 
       <TaskCard
