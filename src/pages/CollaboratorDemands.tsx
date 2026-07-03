@@ -9,6 +9,8 @@ import { useTenant } from "@/contexts/TenantContext";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCollaborators } from "@/hooks/useCollaborators";
 import { toast as sonnerToast } from "sonner";
 import BackButton from "@/components/BackButton";
 
