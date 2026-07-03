@@ -9,7 +9,7 @@ import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/Ta
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast as sonnerToast } from "sonner";
 import BackButton from "@/components/BackButton";
-import KanbanCard from "@/components/KanbanCard";
+
 import { getRoleLabel } from "@/lib/constants/roles";
 
 const FINAL_STATUSES = ["feito", "feitos", "publicado"];
