@@ -1282,35 +1282,24 @@ export default function TaskCard({
                   </Card>
                 )}
 
-                {/* Ações secundárias */}
-                {!readOnly && (
+                {/* Ações secundárias (apenas Arquivar; Excluir foi movido para o header) */}
+                {!readOnly && onArchive && (
                   <Card>
                     <CardContent className="p-4 space-y-2">
                       <h3 className="font-semibold text-sm text-muted-foreground mb-2">Ações</h3>
-                      {onArchive && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className={cn(
-                            "w-full justify-start gap-2 text-sm",
-                            card.archived_at 
-                              ? "hover:text-primary hover:border-primary/30" 
-                              : "hover:text-amber-600 hover:border-amber-500/30"
-                          )}
-                          onClick={() => onArchive(!card.archived_at)}
-                        >
-                          {card.archived_at ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-                          {card.archived_at ? "Desarquivar demanda" : "Arquivar demanda"}
-                        </Button>
-                      )}
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="w-full justify-start gap-2 text-sm text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
-                        onClick={onDelete}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "w-full justify-start gap-2 text-sm",
+                          card.archived_at
+                            ? "hover:text-primary hover:border-primary/30"
+                            : "hover:text-amber-600 hover:border-amber-500/30"
+                        )}
+                        onClick={() => onArchive(!card.archived_at)}
                       >
-                        <Trash2 className="h-4 w-4" />
-                        Excluir demanda
+                        {card.archived_at ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+                        {card.archived_at ? "Desarquivar demanda" : "Arquivar demanda"}
                       </Button>
                     </CardContent>
                   </Card>
