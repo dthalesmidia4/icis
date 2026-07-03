@@ -14,7 +14,8 @@ import {
   Search,
   Plus,
   Settings2,
-  CalendarDays
+  CalendarDays,
+  X
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
