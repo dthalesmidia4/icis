@@ -313,6 +313,7 @@ const CollaboratorDemands = () => {
                         hideDueDate
                         emphasizeDelivery
                         showStartEndLabels
+                        emphasizeStart={groupBy === "delivery"}
                         isOverdue={isOverdue(card.delivery_date, card.delivery_time, card.status)}
                         onClick={() => setSelectedCard(card)}
                       />
