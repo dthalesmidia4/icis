@@ -1438,6 +1438,44 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           </DialogContent>
         </Dialog>
 
+        {/* Modal Avaliar Demandas - Aprovar ou Reprovar */}
+        <Dialog open={avaliarDemandasModalOpen} onOpenChange={setAvaliarDemandasModalOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Avaliar Demandas</DialogTitle>
+              <p className="text-sm text-muted-foreground">O que deseja fazer?</p>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 py-4">
+              <Card className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-green-500/50 active:scale-[0.98]"
+                onClick={() => { setAvaliarDemandasModalOpen(false); navigate('/approve-cards'); }}>
+                <div className="absolute inset-0 bg-green-500 opacity-5 group-hover:opacity-10 transition-opacity" />
+                {pendingCardsCount > 0 && (
+                  <div className="absolute top-2 right-2 z-10 bg-destructive text-destructive-foreground text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">{pendingCardsCount}</div>
+                )}
+                <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-green-500 flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  </div>
+                  <h3 className="text-sm sm:text-base font-bold transition-colors text-green-600 dark:text-green-500">Aprovar Demandas</h3>
+                </div>
+              </Card>
+              <Card className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-red-500/50 active:scale-[0.98]"
+                onClick={() => { setAvaliarDemandasModalOpen(false); navigate('/rejected-cards'); }}>
+                <div className="absolute inset-0 bg-red-500 opacity-5 group-hover:opacity-10 transition-opacity" />
+                {rejectedCardsCount > 0 && (
+                  <div className="absolute top-2 right-2 z-10 bg-destructive text-destructive-foreground text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">{rejectedCardsCount}</div>
+                )}
+                <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-red-500 flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <ThumbsDown className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  </div>
+                  <h3 className="text-sm sm:text-base font-bold transition-colors text-red-600 dark:text-red-500">Reprovar Demandas</h3>
+                </div>
+              </Card>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Modal Conteúdo Avulso */}
         <Dialog open={contentModalOpen} onOpenChange={setContentModalOpen}>
           <DialogContent className="sm:max-w-2xl">
