@@ -332,6 +332,7 @@ export default function TaskCard({
   const [attachmentToRemove, setAttachmentToRemove] = useState<Attachment | null>(null);
   const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
+  const [activeSection, setActiveSection] = useState<'description' | 'instructions' | 'cta' | 'observations' | 'caption'>('description');
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
@@ -949,130 +950,127 @@ export default function TaskCard({
 
                           <Separator />
 
-                          {/* Conteúdo */}
-                          <section>
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className="p-1.5 bg-primary/10 rounded-md">
-                                <AlignLeft className="h-4 w-4 text-primary" />
+                          {/* Botões de navegação (estilo hub) */}
+                          {(() => {
+                            const sectionButtons = [
+                              { id: 'description' as const, label: 'Conteúdo', icon: AlignLeft, savingKey: 'description' },
+                              { id: 'instructions' as const, label: 'Instruções de Produção', icon: FileText, savingKey: 'instructions' },
+                              { id: 'cta' as const, label: 'CTA Recomendado', icon: Megaphone, savingKey: 'instructions' },
+                              { id: 'observations' as const, label: 'Observações', icon: MessageSquare, savingKey: 'observations' },
+                              { id: 'caption' as const, label: 'Descrição', icon: Sparkles, savingKey: 'post_caption' },
+                            ];
+                            return (
+                              <div className="flex flex-wrap gap-2">
+                                {sectionButtons.map(({ id, label, icon: Icon, savingKey }) => {
+                                  const isActive = activeSection === id;
+                                  const isSaving = saving && savingField === savingKey;
+                                  return (
+                                    <button
+                                      key={id}
+                                      type="button"
+                                      onClick={() => setActiveSection(id)}
+                                      className={cn(
+                                        "inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all",
+                                        isActive
+                                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                                          : "bg-background text-foreground border-border hover:bg-muted hover:border-primary/40"
+                                      )}
+                                      aria-pressed={isActive}
+                                    >
+                                      <Icon className="h-4 w-4" />
+                                      <span>{label}</span>
+                                      {isSaving && <Loader2 className="h-3 w-3 animate-spin" />}
+                                    </button>
+                                  );
+                                })}
                               </div>
-                              <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Conteúdo</h3>
-                              {saving && savingField === 'description' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                            </div>
-                            {readOnly ? (
-                              <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.description || "") }} />
-                            ) : (
-                              <BlockEditor content={convertToHtml(card.description || "")} onChange={value => onCardChange({ ...card, description: value })} onBlur={() => handleFieldSave('description', card.description || '')} placeholder="Texto do post, legenda, copy..." minHeight="160px" />
+                            );
+                          })()}
+
+                          {/* Painel do botão ativo */}
+                          <section className="rounded-lg border border-border bg-card/40 p-4">
+                            {activeSection === 'description' && (
+                              readOnly ? (
+                                <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.description || "") }} />
+                              ) : (
+                                <BlockEditor content={convertToHtml(card.description || "")} onChange={value => onCardChange({ ...card, description: value })} onBlur={() => handleFieldSave('description', card.description || '')} placeholder="Texto do post, legenda, copy..." minHeight="160px" />
+                              )
                             )}
-                          </section>
 
-                          <Separator />
-
-                          {/* Atividade (Instruções de Produção) */}
-                          <section>
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className="p-1.5 bg-primary/10 rounded-md">
-                                <FileText className="h-4 w-4 text-primary" />
-                              </div>
-                              <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Instruções de Produção</h3>
-                              {saving && savingField === 'instructions' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                            </div>
-                            {readOnly ? (
-                              <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(instrValue) }} />
-                            ) : (
-                              <BlockEditor
-                                content={convertToHtml(instrValue)}
-                                onChange={value => onCardChange({ ...card, instructions: combineInstructionsCTA(value, ctaValue) })}
-                                onBlur={() => handleFieldSave('instructions', combineInstructionsCTA(card.instructions ? splitInstructionsCTA(card.instructions).instr : '', ctaValue))}
-                                placeholder="Instruções de produção visual, layout, tom..."
-                                minHeight="160px"
-                              />
+                            {activeSection === 'instructions' && (
+                              readOnly ? (
+                                <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(instrValue) }} />
+                              ) : (
+                                <BlockEditor
+                                  content={convertToHtml(instrValue)}
+                                  onChange={value => onCardChange({ ...card, instructions: combineInstructionsCTA(value, ctaValue) })}
+                                  onBlur={() => handleFieldSave('instructions', combineInstructionsCTA(card.instructions ? splitInstructionsCTA(card.instructions).instr : '', ctaValue))}
+                                  placeholder="Instruções de produção visual, layout, tom..."
+                                  minHeight="160px"
+                                />
+                              )
                             )}
-                          </section>
 
-                          <Separator />
-
-                          {/* CTA Recomendado */}
-                          <section>
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className="p-1.5 bg-primary/10 rounded-md">
-                                <Megaphone className="h-4 w-4 text-primary" />
-                              </div>
-                              <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">CTA Recomendado</h3>
-                              {saving && savingField === 'instructions' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                            </div>
-                            {readOnly ? (
-                              <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(ctaValue) }} />
-                            ) : (
-                              <BlockEditor
-                                content={convertToHtml(ctaValue)}
-                                onChange={value => onCardChange({ ...card, instructions: combineInstructionsCTA(instrValue, value) })}
-                                onBlur={() => handleFieldSave('instructions', combineInstructionsCTA(instrValue, splitInstructionsCTA(card.instructions).cta))}
-                                placeholder="Chamada para ação recomendada (ex: Agende pelo WhatsApp)"
-                                minHeight="80px"
-                              />
+                            {activeSection === 'cta' && (
+                              readOnly ? (
+                                <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(ctaValue) }} />
+                              ) : (
+                                <BlockEditor
+                                  content={convertToHtml(ctaValue)}
+                                  onChange={value => onCardChange({ ...card, instructions: combineInstructionsCTA(instrValue, value) })}
+                                  onBlur={() => handleFieldSave('instructions', combineInstructionsCTA(instrValue, splitInstructionsCTA(card.instructions).cta))}
+                                  placeholder="Chamada para ação recomendada (ex: Agende pelo WhatsApp)"
+                                  minHeight="80px"
+                                />
+                              )
                             )}
-                          </section>
 
-                          <Separator />
-
-                          {/* Observações */}
-                          <section>
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className="p-1.5 bg-primary/10 rounded-md">
-                                <MessageSquare className="h-4 w-4 text-primary" />
-                              </div>
-                              <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Observações</h3>
-                              {saving && savingField === 'observations' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                            </div>
-                            {readOnly ? (
-                              <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.observations || "") }} />
-                            ) : (
-                              <BlockEditor content={convertToHtml(card.observations || "")} onChange={value => onCardChange({ ...card, observations: value })} onBlur={() => handleFieldSave('observations', card.observations || '')} placeholder="Feedbacks, ajustes, observações internas..." minHeight="100px" />
+                            {activeSection === 'observations' && (
+                              readOnly ? (
+                                <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.observations || "") }} />
+                              ) : (
+                                <BlockEditor content={convertToHtml(card.observations || "")} onChange={value => onCardChange({ ...card, observations: value })} onBlur={() => handleFieldSave('observations', card.observations || '')} placeholder="Feedbacks, ajustes, observações internas..." minHeight="100px" />
+                              )
                             )}
-                          </section>
 
-                          <Separator />
-
-                          {/* Descrição (legenda de Instagram gerada por IA) */}
-                          <section>
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className="p-1.5 bg-primary/10 rounded-md">
-                                <Sparkles className="h-4 w-4 text-primary" />
+                            {activeSection === 'caption' && (
+                              <div className="space-y-3">
+                                {!readOnly && (
+                                  <div className="flex justify-end">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={handleGenerateCaption}
+                                      disabled={generatingCaption}
+                                      className="gap-1.5 h-8"
+                                    >
+                                      {generatingCaption ? (
+                                        <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Gerando...</>
+                                      ) : (
+                                        <><Wand2 className="h-3.5 w-3.5" /> Fazer descrição</>
+                                      )}
+                                    </Button>
+                                  </div>
+                                )}
+                                {readOnly ? (
+                                  <div className="whitespace-pre-wrap text-sm text-muted-foreground">{card.post_caption || ""}</div>
+                                ) : (
+                                  <Textarea
+                                    value={card.post_caption || ""}
+                                    onChange={(e) => onCardChange({ ...card, post_caption: e.target.value })}
+                                    onBlur={() => handleFieldSave('post_caption', card.post_caption || '')}
+                                    placeholder="Legenda para Instagram — clique em 'Fazer descrição' para gerar com IA a partir dos anexos."
+                                    className="min-h-[140px] resize-y"
+                                  />
+                                )}
                               </div>
-                              <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Descrição</h3>
-                              {saving && savingField === 'post_caption' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
-                              {!readOnly && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={handleGenerateCaption}
-                                  disabled={generatingCaption}
-                                  className="ml-auto gap-1.5 h-8"
-                                >
-                                  {generatingCaption ? (
-                                    <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Gerando...</>
-                                  ) : (
-                                    <><Wand2 className="h-3.5 w-3.5" /> Fazer descrição</>
-                                  )}
-                                </Button>
-                              )}
-                            </div>
-                            {readOnly ? (
-                              <div className="whitespace-pre-wrap text-sm text-muted-foreground">{card.post_caption || ""}</div>
-                            ) : (
-                              <Textarea
-                                value={card.post_caption || ""}
-                                onChange={(e) => onCardChange({ ...card, post_caption: e.target.value })}
-                                onBlur={() => handleFieldSave('post_caption', card.post_caption || '')}
-                                placeholder="Legenda para Instagram — clique em 'Fazer descrição' para gerar com IA a partir dos anexos."
-                                className="min-h-[140px] resize-y"
-                              />
                             )}
                           </section>
                         </>
 
                       );
                     })()}
+
                 </div>
               </div>
 
