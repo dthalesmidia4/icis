@@ -1111,45 +1111,94 @@ const KanbanCentralPage = () => {
 
                     {/* Column Content */}
                     <ScrollArea className="flex-1 p-2 min-h-[200px] max-h-[calc(100vh-280px)]">
-                      <div className="space-y-0">
-                        {columnCards.map((card, index) => (
-                          <Draggable
-                            key={card.id}
-                            draggableId={card.id}
-                            index={index}
-                          >
-                            {(provided, snapshot) => (
-                              <div
-                                ref={(el) => {
-                                  provided.innerRef(el);
-                                  if (el) cardRefs.current.set(card.id, el);
-                                  else cardRefs.current.delete(card.id);
-                                }}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className={cn(
-                                  highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
-                                )}
-                              >
-                                 <KanbanCard
-                                    title={card.title}
-                                    subtitle={card.clientName}
-                                    demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
-                                    dueDate={card.due_date}
-                                    dueTime={card.due_time || undefined}
-                                    cardDeliveryDate={card.delivery_date || undefined}
-                                    deliveryTime={card.delivery_time || undefined}
-                                    isDragging={snapshot.isDragging}
-                                    isOverdue={isCardOverdue(card)}
-                                    cardId={card.id}
-                                    statusName={card.status}
-                                    statusColor={card.status_color}
-                                    onClick={() => handleCardClick(card)}
-                                  />
+                      <div className="space-y-2">
+                        {(() => {
+                          // Group cards by chosen date
+                          const groups = new Map<string, CentralKanbanCard[]>();
+                          for (const c of columnCards) {
+                            const key = (dateGroupBy === "start" ? c.due_date : c.delivery_date) || "__no_date__";
+                            if (!groups.has(key)) groups.set(key, []);
+                            groups.get(key)!.push(c);
+                          }
+                          const entries = Array.from(groups.entries()).map(([date, items]) => {
+                            const sorted = [...items].sort((a, b) => {
+                              const ta = (dateGroupBy === "start" ? a.due_time : a.delivery_time) || "99:99";
+                              const tb = (dateGroupBy === "start" ? b.due_time : b.delivery_time) || "99:99";
+                              return ta.localeCompare(tb);
+                            });
+                            return { date, items: sorted };
+                          });
+                          entries.sort((a, b) => {
+                            if (a.date === "__no_date__") return 1;
+                            if (b.date === "__no_date__") return -1;
+                            return a.date.localeCompare(b.date);
+                          });
+
+                          let runningIndex = -1;
+                          const formatHeader = (date: string) => {
+                            if (date === "__no_date__") {
+                              return dateGroupBy === "start" ? "Sem data de início" : "Sem data de término";
+                            }
+                            const [y, m, d] = date.split("-");
+                            return `${d}/${m}/${y}`;
+                          };
+
+                          return entries.map(({ date, items }) => (
+                            <div key={date} className="space-y-1">
+                              <div className="flex items-center gap-2 px-1 pt-1 pb-1 border-b border-border/40">
+                                <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                                <span className="text-xs font-bold text-foreground">
+                                  {formatHeader(date)}
+                                </span>
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 ml-auto">
+                                  {items.length}
+                                </Badge>
                               </div>
-                            )}
-                          </Draggable>
-                        ))}
+                              {items.map((card) => {
+                                runningIndex += 1;
+                                const index = runningIndex;
+                                return (
+                                  <Draggable
+                                    key={card.id}
+                                    draggableId={card.id}
+                                    index={index}
+                                  >
+                                    {(provided, snapshot) => (
+                                      <div
+                                        ref={(el) => {
+                                          provided.innerRef(el);
+                                          if (el) cardRefs.current.set(card.id, el);
+                                          else cardRefs.current.delete(card.id);
+                                        }}
+                                        {...provided.draggableProps}
+                                        {...provided.dragHandleProps}
+                                        className={cn(
+                                          highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
+                                        )}
+                                      >
+                                        <KanbanCard
+                                          title={card.title}
+                                          subtitle={card.clientName}
+                                          demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
+                                          dueDate={card.due_date}
+                                          dueTime={card.due_time || undefined}
+                                          cardDeliveryDate={card.delivery_date || undefined}
+                                          deliveryTime={card.delivery_time || undefined}
+                                          isDragging={snapshot.isDragging}
+                                          isOverdue={isCardOverdue(card)}
+                                          cardId={card.id}
+                                          statusName={card.status}
+                                          statusColor={card.status_color}
+                                          onClick={() => handleCardClick(card)}
+                                        />
+                                      </div>
+                                    )}
+                                  </Draggable>
+                                );
+                              })}
+                            </div>
+                          ));
+                        })()}
                         {provided.placeholder}
                       </div>
                     </ScrollArea>
