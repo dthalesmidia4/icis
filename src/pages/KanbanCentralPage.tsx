@@ -53,6 +53,8 @@ interface CentralKanbanCard extends KanbanCardData {
   periodPlanId: string;
   isArchived?: boolean;
   archived_at?: string | null;
+  assigned_to?: string | null;
+  status_color?: string | null;
 }
 
 const FINAL_STATUS_NAMES = ['feito', 'feitos', 'publicado'];
