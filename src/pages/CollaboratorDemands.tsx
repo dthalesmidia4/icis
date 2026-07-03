@@ -165,9 +165,11 @@ const CollaboratorDemands = () => {
       : <ArrowDown className="h-3.5 w-3.5" />;
   };
 
+  const { collaborators } = useCollaborators(tenantId);
+
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<{ title: string; due_date: string; due_time: string; delivery_date: string; delivery_time: string }>({
-    title: "", due_date: "", due_time: "", delivery_date: "", delivery_time: "",
+  const [editDraft, setEditDraft] = useState<{ title: string; due_date: string; due_time: string; delivery_date: string; delivery_time: string; assigned_to: string }>({
+    title: "", due_date: "", due_time: "", delivery_date: "", delivery_time: "", assigned_to: "",
   });
 
   const startEdit = (card: KanbanCardData, e: React.MouseEvent) => {
@@ -179,6 +181,7 @@ const CollaboratorDemands = () => {
       due_time: card.due_time || "",
       delivery_date: card.delivery_date || "",
       delivery_time: card.delivery_time || "",
+      assigned_to: card.assigned_to || "",
     });
   };
 
@@ -196,10 +199,16 @@ const CollaboratorDemands = () => {
         due_time: editDraft.due_time || null,
         delivery_date: editDraft.delivery_date || null,
         delivery_time: editDraft.delivery_time || null,
+        assigned_to: editDraft.assigned_to || null,
       };
       const { error } = await supabase.from("demands").update(payload as any).eq("id", cardId);
       if (error) throw error;
-      setCards((prev) => prev.map((c) => c.id === cardId ? { ...c, ...payload } as KanbanCardData : c));
+      // Se o responsável mudou e não é mais este colaborador, remove da lista
+      if (payload.assigned_to !== userId) {
+        setCards((prev) => prev.filter((c) => c.id !== cardId));
+      } else {
+        setCards((prev) => prev.map((c) => c.id === cardId ? { ...c, ...payload } as KanbanCardData : c));
+      }
       setEditingId(null);
       sonnerToast.success("Salvo!");
     } catch (err) {
@@ -207,6 +216,7 @@ const CollaboratorDemands = () => {
       sonnerToast.error("Erro ao salvar");
     }
   };
+
 
 
 
