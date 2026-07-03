@@ -110,17 +110,19 @@ const CollaboratorDemands = () => {
     if (!tenantLoading && tenantId && userId) fetchData();
   }, [tenantId, tenantLoading, userId, fetchData]);
 
+  const [groupBy, setGroupBy] = useState<"start" | "delivery">("start");
+
   const groupedByDate = useMemo(() => {
     const groups = new Map<string, KanbanCardData[]>();
     for (const c of cards) {
-      const key = c.due_date || "__no_date__";
+      const key = (groupBy === "start" ? c.due_date : c.delivery_date) || "__no_date__";
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(c);
     }
     const entries = Array.from(groups.entries()).map(([date, items]) => {
       const sorted = [...items].sort((a, b) => {
-        const ta = a.delivery_time || "99:99";
-        const tb = b.delivery_time || "99:99";
+        const ta = (groupBy === "start" ? a.due_time : a.delivery_time) || "99:99";
+        const tb = (groupBy === "start" ? b.due_time : b.delivery_time) || "99:99";
         return ta.localeCompare(tb);
       });
       return { date, items: sorted };
@@ -131,7 +133,7 @@ const CollaboratorDemands = () => {
       return a.date.localeCompare(b.date);
     });
     return entries;
-  }, [cards]);
+  }, [cards, groupBy]);
 
   const totalCards = cards.length;
 
@@ -146,7 +148,7 @@ const CollaboratorDemands = () => {
   };
 
   const formatDateHeader = (date: string) => {
-    if (date === "__no_date__") return "Sem data de início";
+    if (date === "__no_date__") return groupBy === "start" ? "Sem data de início" : "Sem data de entrega";
     const [y, m, d] = date.split("-");
     return `${d}/${m}/${y}`;
   };
@@ -248,6 +250,26 @@ const CollaboratorDemands = () => {
         </p>
       </div>
 
+      <div className="flex items-center justify-center gap-2 mb-6">
+        <span className="text-sm text-muted-foreground">Visualizar por:</span>
+        <div className="inline-flex rounded-md border border-border overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setGroupBy("start")}
+            className={`px-3 py-1.5 text-sm font-medium transition-colors ${groupBy === "start" ? "bg-primary text-primary-foreground" : "bg-transparent text-foreground hover:bg-accent/40"}`}
+          >
+            Data de início
+          </button>
+          <button
+            type="button"
+            onClick={() => setGroupBy("delivery")}
+            className={`px-3 py-1.5 text-sm font-medium transition-colors ${groupBy === "delivery" ? "bg-primary text-primary-foreground" : "bg-transparent text-foreground hover:bg-accent/40"}`}
+          >
+            Data de entrega
+          </button>
+        </div>
+      </div>
+
       {totalCards === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <User className="h-12 w-12 mx-auto mb-4 opacity-30" />
@@ -291,6 +313,7 @@ const CollaboratorDemands = () => {
                         hideDueDate
                         emphasizeDelivery
                         showStartEndLabels
+                        emphasizeStart={groupBy === "delivery"}
                         isOverdue={isOverdue(card.delivery_date, card.delivery_time, card.status)}
                         onClick={() => setSelectedCard(card)}
                       />
