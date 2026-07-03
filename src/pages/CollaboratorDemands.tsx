@@ -334,34 +334,72 @@ const CollaboratorDemands = () => {
                     </button>
                   </TableHead>
                 ))}
+                <TableHead className="w-20 text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sortedCards.map((card) => {
                 const overdue = isOverdue(card.delivery_date, card.delivery_time, card.status);
+                const isEditing = editingId === card.id;
                 return (
                   <TableRow
                     key={card.id}
-                    onClick={() => setSelectedCard(card)}
-                    className={`cursor-pointer ${overdue ? "bg-destructive/10 hover:bg-destructive/15" : ""}`}
+                    onClick={() => { if (!isEditing) setSelectedCard(card); }}
+                    className={`${isEditing ? "" : "cursor-pointer"} ${overdue ? "bg-destructive/10 hover:bg-destructive/15" : ""}`}
                   >
                     <TableCell className="font-medium text-foreground">
-                      <div className="flex flex-col">
+                      {isEditing ? (
+                        <Input
+                          value={editDraft.title}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditDraft((d) => ({ ...d, title: e.target.value }))}
+                          className="h-8"
+                        />
+                      ) : (
                         <span className="uppercase tracking-wide text-sm">{card.title}</span>
-                        {card.clientName && (
-                          <span className="text-xs text-muted-foreground normal-case">{card.clientName}</span>
-                        )}
-                      </div>
+                      )}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">{formatDate(card.due_date)}</TableCell>
-                    <TableCell className="whitespace-nowrap">{formatTime(card.due_time)}</TableCell>
-                    <TableCell className={`whitespace-nowrap ${overdue ? "text-destructive font-semibold" : ""}`}>
-                      {formatDate(card.delivery_date)}
+                    <TableCell className="whitespace-nowrap">
+                      {isEditing ? (
+                        <Input type="date" value={editDraft.due_date} onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditDraft((d) => ({ ...d, due_date: e.target.value }))} className="h-8 w-36" />
+                      ) : formatDate(card.due_date)}
                     </TableCell>
-                    <TableCell className={`whitespace-nowrap ${overdue ? "text-destructive font-semibold" : ""}`}>
-                      {formatTime(card.delivery_time)}
+                    <TableCell className="whitespace-nowrap">
+                      {isEditing ? (
+                        <Input type="time" value={editDraft.due_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditDraft((d) => ({ ...d, due_time: e.target.value }))} className="h-8 w-28" />
+                      ) : formatTime(card.due_time)}
+                    </TableCell>
+                    <TableCell className={`whitespace-nowrap ${overdue && !isEditing ? "text-destructive font-semibold" : ""}`}>
+                      {isEditing ? (
+                        <Input type="date" value={editDraft.delivery_date} onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditDraft((d) => ({ ...d, delivery_date: e.target.value }))} className="h-8 w-36" />
+                      ) : formatDate(card.delivery_date)}
+                    </TableCell>
+                    <TableCell className={`whitespace-nowrap ${overdue && !isEditing ? "text-destructive font-semibold" : ""}`}>
+                      {isEditing ? (
+                        <Input type="time" value={editDraft.delivery_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditDraft((d) => ({ ...d, delivery_time: e.target.value }))} className="h-8 w-28" />
+                      ) : formatTime(card.delivery_time)}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{collaboratorName}</TableCell>
+                    <TableCell className="text-right">
+                      {isEditing ? (
+                        <div className="inline-flex gap-1">
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-500" onClick={(e) => saveEdit(card.id, e)}>
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" onClick={cancelEdit}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => startEdit(card, e)} aria-label="Editar">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 );
               })}
