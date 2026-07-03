@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Settings as SettingsIcon, ShieldCheck } from "lucide-react";
+import { Settings as SettingsIcon, Workflow } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { FunctionPermissionsModal } from "@/components/FunctionPermissionsModal";
 
@@ -20,12 +20,12 @@ export default function Settings() {
         >
           <div className="flex items-start gap-3">
             <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-              <ShieldCheck className="h-6 w-6" />
+              <Workflow className="h-6 w-6" />
             </div>
             <div>
-              <h2 className="font-semibold text-base">Configurar permissões de função</h2>
+              <h2 className="font-semibold text-base">Configurar funções do fluxo</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Defina quais colaboradores podem exercer cada função operacional.
+                Defina, para cada tipo de demanda, quais funções operacionais participam do processo.
               </p>
             </div>
           </div>

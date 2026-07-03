@@ -480,6 +480,47 @@ export type Database = {
           },
         ]
       }
+      demand_type_flow_rules: {
+        Row: {
+          created_at: string
+          demand_type_key: string
+          demand_type_name: string
+          function_key: string
+          id: string
+          requirement: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          demand_type_key: string
+          demand_type_name: string
+          function_key: string
+          id?: string
+          requirement?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          demand_type_key?: string
+          demand_type_name?: string
+          function_key?: string
+          id?: string
+          requirement?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_type_flow_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       demands: {
         Row: {
           additional_publish_dates: Json
@@ -700,37 +741,43 @@ export type Database = {
           },
         ]
       }
-      function_permissions: {
+      flow_functions: {
         Row: {
-          allowed: boolean
+          active: boolean
+          config: Json
           created_at: string
           function_key: string
           id: string
+          name: string
+          position: number
           tenant_id: string
           updated_at: string
-          user_id: string
         }
         Insert: {
-          allowed?: boolean
+          active?: boolean
+          config?: Json
           created_at?: string
           function_key: string
           id?: string
+          name: string
+          position?: number
           tenant_id: string
           updated_at?: string
-          user_id: string
         }
         Update: {
-          allowed?: boolean
+          active?: boolean
+          config?: Json
           created_at?: string
           function_key?: string
           id?: string
+          name?: string
+          position?: number
           tenant_id?: string
           updated_at?: string
-          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "function_permissions_tenant_id_fkey"
+            foreignKeyName: "flow_functions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
