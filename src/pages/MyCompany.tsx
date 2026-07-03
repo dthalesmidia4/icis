@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Building2, Users, UserPlus, UserMinus } from "lucide-react";
+import { Building2, Users, UserPlus, UserMinus, KeyRound, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import BackButton from "@/components/BackButton";
 
@@ -34,8 +34,23 @@ const MyCompany = () => {
       icon: UserMinus,
       gradient: "from-red-500 to-rose-600",
       route: "/minha-empresa/remover"
+    },
+    {
+      title: "Logins das Plataformas",
+      description: "Gerencie credenciais das plataformas",
+      icon: KeyRound,
+      gradient: "from-amber-500 to-orange-600",
+      route: "/logins-plataformas"
+    },
+    {
+      title: "Atividades Extras",
+      description: "Desenvolvimento e acompanhamento da equipe",
+      icon: Sparkles,
+      gradient: "from-cyan-500 to-teal-600",
+      route: "/leitura"
     }
   ];
+
 
   return (
     <div className="pb-8">
@@ -70,11 +85,14 @@ const MyCompany = () => {
                 </div>
                 
                 <h3 className={`text-base sm:text-xl font-bold transition-colors ${
-                  index === 0 ? 'text-indigo-600 dark:text-indigo-400' : 
-                  index === 1 ? 'text-emerald-600 dark:text-emerald-400' : 
-                  index === 2 ? 'text-violet-600 dark:text-violet-400' : 
-                  'text-rose-600 dark:text-rose-400'
+                  index === 0 ? 'text-indigo-600 dark:text-indigo-400' :
+                  index === 1 ? 'text-emerald-600 dark:text-emerald-400' :
+                  index === 2 ? 'text-violet-600 dark:text-violet-400' :
+                  index === 3 ? 'text-rose-600 dark:text-rose-400' :
+                  index === 4 ? 'text-orange-600 dark:text-orange-400' :
+                  'text-teal-600 dark:text-teal-400'
                 }`}>
+
                   {card.title}
                 </h3>
                 
