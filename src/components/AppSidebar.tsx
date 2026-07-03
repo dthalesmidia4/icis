@@ -1,4 +1,4 @@
-import { Home, Code, User, LogOut, Menu, Building2, Briefcase, DollarSign } from "lucide-react";
+import { Home, Code, User, LogOut, Menu, Building2, Briefcase, DollarSign, KeyRound, Sparkles } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
