@@ -1452,6 +1452,7 @@ export default function TaskCard({
                               </div>
                             )}
                           </section>
+                          )}
                         </>
 
                       );
