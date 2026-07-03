@@ -300,6 +300,36 @@ export type Database = {
           },
         ]
       }
+      collaborator_function_assignments: {
+        Row: {
+          allowed: boolean
+          created_at: string
+          function_key: string
+          id: string
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allowed?: boolean
+          created_at?: string
+          function_key: string
+          id?: string
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allowed?: boolean
+          created_at?: string
+          function_key?: string
+          id?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       company_mascot_images: {
         Row: {
           company_id: string

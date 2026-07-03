@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Settings as SettingsIcon, Workflow } from "lucide-react";
+import { Settings as SettingsIcon, Workflow, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { FunctionPermissionsModal } from "@/components/FunctionPermissionsModal";
+import { CollaboratorFunctionAssignmentsModal } from "@/components/CollaboratorFunctionAssignmentsModal";
 
 export default function Settings() {
-  const [open, setOpen] = useState(false);
+  const [openFlow, setOpenFlow] = useState(false);
+  const [openAssign, setOpenAssign] = useState(false);
 
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto">
@@ -15,7 +17,7 @@ export default function Settings() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card
-          onClick={() => setOpen(true)}
+          onClick={() => setOpenFlow(true)}
           className="p-5 cursor-pointer hover:border-primary hover:shadow-md transition-all group"
         >
           <div className="flex items-start gap-3">
@@ -30,9 +32,27 @@ export default function Settings() {
             </div>
           </div>
         </Card>
+
+        <Card
+          onClick={() => setOpenAssign(true)}
+          className="p-5 cursor-pointer hover:border-primary hover:shadow-md transition-all group"
+        >
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+              <Users className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-base">Atribuir funções aos colaboradores</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Escolha quais colaboradores podem exercer cada função operacional do fluxo.
+              </p>
+            </div>
+          </div>
+        </Card>
       </div>
 
-      <FunctionPermissionsModal open={open} onOpenChange={setOpen} />
+      <FunctionPermissionsModal open={openFlow} onOpenChange={setOpenFlow} />
+      <CollaboratorFunctionAssignmentsModal open={openAssign} onOpenChange={setOpenAssign} />
     </div>
   );
 }
