@@ -302,6 +302,7 @@ const CronogramaGlobal = () => {
                     onClick={() => setSelectedCard(card)}
                     className={`cursor-pointer ${overdue ? "bg-destructive/10 hover:bg-destructive/15" : ""}`}
                   >
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{card.status}</TableCell>
                     <TableCell className="font-medium text-foreground">
                       <span className="uppercase tracking-wide text-sm">{card.title}</span>
                     </TableCell>
@@ -316,7 +317,6 @@ const CronogramaGlobal = () => {
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {assigneeMap[card.assigned_to || ""] || "—"}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{card.status}</TableCell>
                   </TableRow>
                 );
               })}
