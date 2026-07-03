@@ -152,19 +152,21 @@ const KanbanCentralPage = () => {
     }));
   }, [cards]);
 
-  // Filtrar cards por cliente e período
+  // Filtrar cards por cliente, período e status
   const filteredCards = useMemo(() => {
-    // When "all" periods selected, show both active and archived
     let baseCards = selectedPeriodFilter === "all" ? [...cards, ...archivedCards] : cards;
-    
+
     if (selectedClientFilter !== "all") {
       baseCards = baseCards.filter(card => card.clientId === selectedClientFilter);
     }
     if (selectedPeriodFilter !== "active" && selectedPeriodFilter !== "all") {
       baseCards = baseCards.filter(card => card.periodPlanId === selectedPeriodFilter);
     }
+    if (selectedStatusFilter !== "all") {
+      baseCards = baseCards.filter(card => card.status === selectedStatusFilter);
+    }
     return baseCards;
-  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter]);
+  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter]);
 
   // Todos os cards para busca (incluindo arquivados)
   const allSearchableCards = useMemo(() => {
