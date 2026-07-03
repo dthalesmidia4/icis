@@ -1037,6 +1037,33 @@ const KanbanCentralPage = () => {
             </Select>
           </div>
         )}
+
+        <div className="flex items-center gap-2">
+          <CalendarDays className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Visualizar por:</span>
+          <div className="inline-flex rounded-md border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setDateGroupBy("start")}
+              className={cn(
+                "px-3 py-1.5 text-sm font-medium transition-colors",
+                dateGroupBy === "start" ? "bg-primary text-primary-foreground" : "bg-transparent text-foreground hover:bg-accent/40"
+              )}
+            >
+              Data de início
+            </button>
+            <button
+              type="button"
+              onClick={() => setDateGroupBy("delivery")}
+              className={cn(
+                "px-3 py-1.5 text-sm font-medium transition-colors",
+                dateGroupBy === "delivery" ? "bg-primary text-primary-foreground" : "bg-transparent text-foreground hover:bg-accent/40"
+              )}
+            >
+              Data de término
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Kanban Board (columns = collaborators) */}
