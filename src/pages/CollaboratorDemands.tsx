@@ -113,7 +113,7 @@ const CollaboratorDemands = () => {
   const groupedByDate = useMemo(() => {
     const groups = new Map<string, KanbanCardData[]>();
     for (const c of cards) {
-      const key = c.delivery_date || "__no_date__";
+      const key = c.due_date || "__no_date__";
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(c);
     }
@@ -146,7 +146,7 @@ const CollaboratorDemands = () => {
   };
 
   const formatDateHeader = (date: string) => {
-    if (date === "__no_date__") return "Sem data de entrega";
+    if (date === "__no_date__") return "Sem data de início";
     const [y, m, d] = date.split("-");
     return `${d}/${m}/${y}`;
   };
