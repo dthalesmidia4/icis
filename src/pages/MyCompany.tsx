@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Building2, Users, UserPlus, UserMinus } from "lucide-react";
+import { Building2, Users, UserPlus, UserMinus, KeyRound, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import BackButton from "@/components/BackButton";
 
@@ -34,8 +34,23 @@ const MyCompany = () => {
       icon: UserMinus,
       gradient: "from-red-500 to-rose-600",
       route: "/minha-empresa/remover"
+    },
+    {
+      title: "Logins das Plataformas",
+      description: "Gerencie credenciais das plataformas",
+      icon: KeyRound,
+      gradient: "from-amber-500 to-orange-600",
+      route: "/logins-plataformas"
+    },
+    {
+      title: "Atividades Extras",
+      description: "Desenvolvimento e acompanhamento da equipe",
+      icon: Sparkles,
+      gradient: "from-cyan-500 to-teal-600",
+      route: "/leitura"
     }
   ];
+
 
   return (
     <div className="pb-8">
