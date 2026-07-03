@@ -1029,16 +1029,24 @@ const KanbanCentralPage = () => {
         )}
       </div>
 
-      {/* Kanban Board */}
+      {/* Kanban Board (columns = collaborators) */}
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
-          {visibleColumns.map((column) => {
-            const columnCards = filteredCards.filter(
-              (card) => card.status === column.name
-            );
+          {[
+            ...collaborators.map((c) => ({
+              id: c.userId,
+              name: c.fullName,
+              color: "hsl(var(--primary))",
+            })),
+            { id: "__unassigned__", name: "Sem responsável", color: "hsl(var(--muted-foreground))" },
+          ].map((column) => {
+            const columnCards = filteredCards.filter((card) => {
+              if (column.id === "__unassigned__") return !card.assigned_to;
+              return card.assigned_to === column.id;
+            });
 
             return (
-              <Droppable key={column.name} droppableId={column.name}>
+              <Droppable key={column.id} droppableId={column.id}>
                 {(provided, snapshot) => (
                   <div
                     ref={provided.innerRef}
@@ -1050,19 +1058,17 @@ const KanbanCentralPage = () => {
                   >
                     {/* Column Header */}
                     <div className="px-3 py-3 flex flex-col border-b border-border/30">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="h-3 w-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: column.color }}
-                          />
-                          <span className="text-base font-bold text-foreground">
-                            {column.name}
-                          </span>
-                          <Badge variant="secondary" className="text-xs">
-                            {columnCards.length}
-                          </Badge>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-3 w-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: column.color }}
+                        />
+                        <span className="text-base font-bold text-foreground truncate">
+                          {column.name}
+                        </span>
+                        <Badge variant="secondary" className="text-xs ml-auto">
+                          {columnCards.length}
+                        </Badge>
                       </div>
                     </div>
 
@@ -1099,6 +1105,8 @@ const KanbanCentralPage = () => {
                                     isDragging={snapshot.isDragging}
                                     isOverdue={isCardOverdue(card)}
                                     cardId={card.id}
+                                    statusName={card.status}
+                                    statusColor={card.status_color}
                                     onClick={() => handleCardClick(card)}
                                   />
                               </div>
