@@ -15,6 +15,8 @@ interface KanbanCardProps {
   isDragging?: boolean;
   isOverdue?: boolean;
   cardId?: string;
+  statusName?: string | null;
+  statusColor?: string | null;
   onClick?: () => void;
 }
 
