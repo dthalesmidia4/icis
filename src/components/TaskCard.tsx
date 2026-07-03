@@ -1373,6 +1373,7 @@ export default function TaskCard({
                           })()}
 
                           {/* Painel do botão ativo */}
+                          {activeSection !== 'anexos' && (
                           <section className="rounded-lg border border-border bg-card/40 p-4">
                             {activeSection === 'description' && (
                               readOnly ? (
