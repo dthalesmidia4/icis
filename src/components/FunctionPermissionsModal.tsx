@@ -11,7 +11,7 @@ interface Props {
   onOpenChange: (v: boolean) => void;
 }
 
-type Requirement = "required" | "optional" | "disabled";
+type Requirement = "required" | "disabled";
 
 const FUNCTIONS: { key: string; name: string }[] = [
   { key: "planejar", name: "Planejar" },
@@ -34,7 +34,7 @@ const DEMAND_TYPES: { key: string; name: string }[] = [
 
 const DEFAULTS: Record<string, Record<string, Requirement>> = {
   criativo_estatico: {
-    planejar: "required", criar_roteiro: "optional", criar_arte: "required",
+    planejar: "required", criar_roteiro: "disabled", criar_arte: "required",
     captar: "disabled", gerar_video: "disabled", editar_video: "disabled",
     revisar: "required", entregar_publicar: "required",
   },
@@ -50,31 +50,28 @@ const DEFAULTS: Record<string, Record<string, Requirement>> = {
   },
   video_gerado: {
     planejar: "required", criar_roteiro: "required", criar_arte: "disabled",
-    captar: "disabled", gerar_video: "required", editar_video: "optional",
+    captar: "disabled", gerar_video: "required", editar_video: "disabled",
     revisar: "required", entregar_publicar: "required",
   },
   anuncio: {
     planejar: "required", criar_roteiro: "required", criar_arte: "required",
-    captar: "optional", gerar_video: "optional", editar_video: "optional",
+    captar: "disabled", gerar_video: "disabled", editar_video: "disabled",
     revisar: "required", entregar_publicar: "required",
   },
 };
 
 const NEXT: Record<Requirement, Requirement> = {
-  required: "optional",
-  optional: "disabled",
+  required: "disabled",
   disabled: "required",
 };
 
 const LABEL: Record<Requirement, string> = {
   required: "Sim",
-  optional: "Opcional",
-  disabled: "—",
+  disabled: "Não",
 };
 
 const STYLE: Record<Requirement, string> = {
   required: "bg-primary text-primary-foreground border-primary",
-  optional: "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-500/20 dark:text-amber-200",
   disabled: "bg-muted text-muted-foreground border-border",
 };
 
@@ -189,10 +186,10 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
         </DialogHeader>
 
         <div className="flex items-center gap-4 text-xs mb-2">
-          <span className="flex items-center gap-1"><span className={cn("inline-block px-2 py-0.5 rounded border", STYLE.required)}>Sim</span> obrigatória</span>
-          <span className="flex items-center gap-1"><span className={cn("inline-block px-2 py-0.5 rounded border", STYLE.optional)}>Opcional</span> pode existir</span>
-          <span className="flex items-center gap-1"><span className={cn("inline-block px-2 py-0.5 rounded border", STYLE.disabled)}>—</span> não se aplica</span>
+          <span className="flex items-center gap-1"><span className={cn("inline-block px-2 py-0.5 rounded border", STYLE.required)}>Sim</span> participa desse tipo</span>
+          <span className="flex items-center gap-1"><span className={cn("inline-block px-2 py-0.5 rounded border", STYLE.disabled)}>Não</span> não se aplica</span>
         </div>
+
 
         <div className="border rounded-lg overflow-auto max-h-[65vh]">
           <table className="w-full text-sm">
