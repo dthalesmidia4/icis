@@ -395,7 +395,20 @@ const CollaboratorDemands = () => {
                           onChange={(e) => setEditDraft((d) => ({ ...d, delivery_time: e.target.value }))} className="h-8 w-28" />
                       ) : formatTime(card.delivery_time)}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{collaboratorName}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {isEditing ? (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <Select value={editDraft.assigned_to} onValueChange={(v) => setEditDraft((d) => ({ ...d, assigned_to: v }))}>
+                            <SelectTrigger className="h-8 w-44"><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                            <SelectContent>
+                              {collaborators.map((c) => (
+                                <SelectItem key={c.userId} value={c.userId}>{c.fullName}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : collaboratorName}
+                    </TableCell>
                     <TableCell className="text-right">
                       {isEditing ? (
                         <div className="inline-flex gap-1">
