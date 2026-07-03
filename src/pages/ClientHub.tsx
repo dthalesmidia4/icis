@@ -1378,10 +1378,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           {(isAdmin || canAccessButton('client_cadastro' as ClientHubButtonId)) && (
             <button
               onClick={() => navigate(`/clientes/${selectedClient.id}`)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 rounded-full transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 rounded-full transition-colors"
             >
-              <ClipboardList className="w-4 h-4 text-primary" />
-              <span className="text-xs sm:text-sm font-medium text-primary">Mostrar Cadastro do Cliente</span>
+              <ClipboardList className="w-4 h-4 text-primary-foreground" />
+              <span className="text-xs sm:text-sm font-medium text-primary-foreground">Mostrar Cadastro do Cliente</span>
             </button>
           )}
 
