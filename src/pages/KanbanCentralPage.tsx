@@ -242,6 +242,7 @@ const KanbanCentralPage = () => {
               status: newStatusName,
               title: payload.title ?? card.title,
               demand_type: payload.demand_type ?? card.demand_type,
+              assigned_to: payload.assigned_to !== undefined ? payload.assigned_to : card.assigned_to,
               publish_date: payload.publish_date ?? card.publish_date,
               publish_time: payload.publish_time ?? card.publish_time,
               delivery_date: payload.delivery_date ?? card.delivery_date,
