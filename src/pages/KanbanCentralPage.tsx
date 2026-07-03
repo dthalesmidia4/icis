@@ -35,6 +35,7 @@ import { SchedulePublicationModal } from "@/components/SchedulePublicationModal"
 import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
+import { useCollaborators } from "@/hooks/useCollaborators";
 
 interface PipelineStatus {
   id: string;
@@ -52,6 +53,8 @@ interface CentralKanbanCard extends KanbanCardData {
   periodPlanId: string;
   isArchived?: boolean;
   archived_at?: string | null;
+  assigned_to?: string | null;
+  status_color?: string | null;
 }
 
 const FINAL_STATUS_NAMES = ['feito', 'feitos', 'publicado'];
@@ -101,6 +104,8 @@ const KanbanCentralPage = () => {
   const [uploading, setUploading] = useState(false);
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>("all");
   const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<string>("active");
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("all");
+  const { collaborators } = useCollaborators(tenantId);
   const [periods, setPeriods] = useState<Array<{
     id: string;
     period_title: string;
@@ -147,19 +152,21 @@ const KanbanCentralPage = () => {
     }));
   }, [cards]);
 
-  // Filtrar cards por cliente e período
+  // Filtrar cards por cliente, período e status
   const filteredCards = useMemo(() => {
-    // When "all" periods selected, show both active and archived
     let baseCards = selectedPeriodFilter === "all" ? [...cards, ...archivedCards] : cards;
-    
+
     if (selectedClientFilter !== "all") {
       baseCards = baseCards.filter(card => card.clientId === selectedClientFilter);
     }
     if (selectedPeriodFilter !== "active" && selectedPeriodFilter !== "all") {
       baseCards = baseCards.filter(card => card.periodPlanId === selectedPeriodFilter);
     }
+    if (selectedStatusFilter !== "all") {
+      baseCards = baseCards.filter(card => card.status === selectedStatusFilter);
+    }
     return baseCards;
-  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter]);
+  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter]);
 
   // Todos os cards para busca (incluindo arquivados)
   const allSearchableCards = useMemo(() => {
@@ -235,6 +242,7 @@ const KanbanCentralPage = () => {
               status: newStatusName,
               title: payload.title ?? card.title,
               demand_type: payload.demand_type ?? card.demand_type,
+              assigned_to: payload.assigned_to !== undefined ? payload.assigned_to : card.assigned_to,
               publish_date: payload.publish_date ?? card.publish_date,
               publish_time: payload.publish_time ?? card.publish_time,
               delivery_date: payload.delivery_date ?? card.delivery_date,
@@ -309,6 +317,8 @@ const KanbanCentralPage = () => {
         source: data.source,
         demand_id: data.id,
         demand_type: data.demand_type,
+        assigned_to: data.assigned_to || null,
+        status_color: data.pipeline_statuses?.color || null,
         additional_publish_dates: Array.isArray(data.additional_publish_dates) ? (data.additional_publish_dates as unknown as string[]) : []
       };
 
@@ -532,6 +542,8 @@ const KanbanCentralPage = () => {
           source: demand.source,
           demand_id: demand.id,
           demand_type: demand.demand_type,
+          assigned_to: demand.assigned_to || null,
+          status_color: demand.pipeline_statuses?.color || null,
           additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates : []
         };
       };
@@ -553,87 +565,45 @@ const KanbanCentralPage = () => {
     if (!result.destination) return;
 
     const { source, destination, draggableId } = result;
-
-    // Same column reorder
-    if (source.droppableId === destination.droppableId) {
-      if (source.index === destination.index) return;
-
-      setCards((prev) => {
-        const columnName = source.droppableId;
-        // Get cards in this column in current order
-        const columnCards = prev.filter((c) => c.status === columnName);
-        const otherCards = prev.filter((c) => c.status !== columnName);
-
-        // Reorder within column
-        const [movedCard] = columnCards.splice(source.index, 1);
-        columnCards.splice(destination.index, 0, movedCard);
-
-        return [...otherCards, ...columnCards];
-      });
-      return;
-    }
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
     const card = cards.find((c) => c.id === draggableId);
     if (!card) return;
 
-    const newColumnName = destination.droppableId;
+    // Column ids: collaborator user_id or "__unassigned__"
+    const destColId = destination.droppableId as string;
+    const newAssignedTo = destColId === "__unassigned__" ? null : destColId;
+    const previousAssignedTo = card.assigned_to ?? null;
 
-    // Interceptar "Agendar Publicação" → abrir modal de agendamento
-    if (newColumnName === "Agendar Publicação") {
-      setPendingScheduleCard(card);
-      setPendingScheduleSourceColumn(card.status);
-      // Mover visualmente para a coluna destino
-      setCards((prev) =>
-        prev.map((c) =>
-          c.id === draggableId ? { ...c, status: newColumnName } : c
-        )
-      );
-      setScheduleModalOpen(true);
-      return;
-    }
+    // Optimistic update
+    setCards((prev) => prev.map((c) =>
+      c.id === draggableId ? { ...c, assigned_to: newAssignedTo } : c
+    ));
 
-    setCards((prev) => {
-      const updated = prev.map((c) =>
-        c.id === draggableId ? { ...c, status: newColumnName } : c
-      );
-      // Move card to correct position in destination column
-      const destCards = updated.filter((c) => c.status === newColumnName && c.id !== draggableId);
-      const movedCard = updated.find((c) => c.id === draggableId)!;
-      destCards.splice(destination.index, 0, movedCard);
-      const otherCards = updated.filter((c) => c.status !== newColumnName);
-      return [...otherCards, ...destCards];
-    });
+    if (previousAssignedTo === newAssignedTo) return;
 
     try {
-      const { data: statusData } = await supabase
-        .from("pipeline_statuses")
-        .select("id")
-        .eq("name", newColumnName)
-        .eq("pipeline_id", pipelineId)
-        .maybeSingle();
-      
-      if (!statusData) {
-        console.error("Status não encontrado:", newColumnName);
-        sonnerToast.error("Status não encontrado");
-        fetchAllCards();
-        return;
-      }
-      
       const { error } = await supabase
         .from("demands")
-        .update({ 
-          status_id: statusData.id,
-          updated_at: new Date().toISOString()
+        .update({
+          assigned_to: newAssignedTo,
+          updated_at: new Date().toISOString(),
         })
         .eq("id", card.id);
 
       if (error) throw error;
 
-      sonnerToast.success(`Movida para "${newColumnName}"`);
+      const collabName = newAssignedTo
+        ? collaborators.find((c) => c.userId === newAssignedTo)?.fullName || "colaborador"
+        : "Sem responsável";
+      sonnerToast.success(`Atribuída a ${collabName}`);
     } catch (error) {
-      console.error("Error updating card:", error);
-      sonnerToast.error("Erro ao mover tarefa");
-      fetchAllCards();
+      console.error("Error updating assigned_to:", error);
+      sonnerToast.error("Erro ao atribuir demanda");
+      // Revert
+      setCards((prev) => prev.map((c) =>
+        c.id === draggableId ? { ...c, assigned_to: previousAssignedTo } : c
+      ));
     }
   };
 
@@ -966,26 +936,6 @@ const KanbanCentralPage = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          {isSuperAdmin && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsManageColumnsModalOpen(true)}
-              >
-                <Settings2 className="h-4 w-4 mr-1" />
-                Colunas
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsCreateColumnModalOpen(true)}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Nova Coluna
-              </Button>
-            </>
-          )}
           <Button
             size="sm"
             onClick={() => setIsCreateDemandModalOpen(true)}
@@ -1053,18 +1003,51 @@ const KanbanCentralPage = () => {
             </Select>
           </div>
         )}
+
+        {columns.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={selectedStatusFilter} onValueChange={setSelectedStatusFilter}>
+              <SelectTrigger className="w-[200px]" aria-label="Filtrar por status">
+                <SelectValue placeholder="Filtrar por status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os status</SelectItem>
+                {columns.map(status => (
+                  <SelectItem key={status.id} value={status.name}>
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: status.color }}
+                      />
+                      {status.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
-      {/* Kanban Board */}
+      {/* Kanban Board (columns = collaborators) */}
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
-          {visibleColumns.map((column) => {
-            const columnCards = filteredCards.filter(
-              (card) => card.status === column.name
-            );
+          {[
+            ...collaborators.map((c) => ({
+              id: c.userId,
+              name: c.fullName,
+              color: "hsl(var(--primary))",
+            })),
+            { id: "__unassigned__", name: "Sem responsável", color: "hsl(var(--muted-foreground))" },
+          ].map((column) => {
+            const columnCards = filteredCards.filter((card) => {
+              if (column.id === "__unassigned__") return !card.assigned_to;
+              return card.assigned_to === column.id;
+            });
 
             return (
-              <Droppable key={column.name} droppableId={column.name}>
+              <Droppable key={column.id} droppableId={column.id}>
                 {(provided, snapshot) => (
                   <div
                     ref={provided.innerRef}
@@ -1076,19 +1059,17 @@ const KanbanCentralPage = () => {
                   >
                     {/* Column Header */}
                     <div className="px-3 py-3 flex flex-col border-b border-border/30">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="h-3 w-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: column.color }}
-                          />
-                          <span className="text-base font-bold text-foreground">
-                            {column.name}
-                          </span>
-                          <Badge variant="secondary" className="text-xs">
-                            {columnCards.length}
-                          </Badge>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-3 w-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: column.color }}
+                        />
+                        <span className="text-base font-bold text-foreground truncate">
+                          {column.name}
+                        </span>
+                        <Badge variant="secondary" className="text-xs ml-auto">
+                          {columnCards.length}
+                        </Badge>
                       </div>
                     </div>
 
@@ -1125,6 +1106,8 @@ const KanbanCentralPage = () => {
                                     isDragging={snapshot.isDragging}
                                     isOverdue={isCardOverdue(card)}
                                     cardId={card.id}
+                                    statusName={card.status}
+                                    statusColor={card.status_color}
                                     onClick={() => handleCardClick(card)}
                                   />
                               </div>
