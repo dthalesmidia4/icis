@@ -2,7 +2,9 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, User, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Loader2, User, ArrowUp, ArrowDown, Pencil, Check, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useTenant } from "@/contexts/TenantContext";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
@@ -154,14 +156,56 @@ const CollaboratorDemands = () => {
   };
   const formatTime = (t?: string | null) => (t ? t.slice(0, 5) : "—");
 
-  const SortIcon = ({ k }: { k: SortKey }) =>
-    sortKey !== k ? (
-      <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />
-    ) : sortDir === "asc" ? (
-      <ArrowUp className="h-3.5 w-3.5" />
-    ) : (
-      <ArrowDown className="h-3.5 w-3.5" />
-    );
+  const SortIcon = ({ k }: { k: SortKey }) => {
+    if (sortKey !== k) return null;
+    return sortDir === "asc"
+      ? <ArrowUp className="h-3.5 w-3.5" />
+      : <ArrowDown className="h-3.5 w-3.5" />;
+  };
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<{ title: string; due_date: string; due_time: string; delivery_date: string; delivery_time: string }>({
+    title: "", due_date: "", due_time: "", delivery_date: "", delivery_time: "",
+  });
+
+  const startEdit = (card: KanbanCardData, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingId(card.id);
+    setEditDraft({
+      title: card.title || "",
+      due_date: card.due_date || "",
+      due_time: card.due_time || "",
+      delivery_date: card.delivery_date || "",
+      delivery_time: card.delivery_time || "",
+    });
+  };
+
+  const cancelEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingId(null);
+  };
+
+  const saveEdit = async (cardId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const payload = {
+        title: editDraft.title,
+        due_date: editDraft.due_date || null,
+        due_time: editDraft.due_time || null,
+        delivery_date: editDraft.delivery_date || null,
+        delivery_time: editDraft.delivery_time || null,
+      };
+      const { error } = await supabase.from("demands").update(payload as any).eq("id", cardId);
+      if (error) throw error;
+      setCards((prev) => prev.map((c) => c.id === cardId ? { ...c, ...payload } as KanbanCardData : c));
+      setEditingId(null);
+      sonnerToast.success("Salvo!");
+    } catch (err) {
+      console.error("[CollaboratorDemands] inline save error", err);
+      sonnerToast.error("Erro ao salvar");
+    }
+  };
+
 
 
 
@@ -290,34 +334,72 @@ const CollaboratorDemands = () => {
                     </button>
                   </TableHead>
                 ))}
+                <TableHead className="w-20 text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sortedCards.map((card) => {
                 const overdue = isOverdue(card.delivery_date, card.delivery_time, card.status);
+                const isEditing = editingId === card.id;
                 return (
                   <TableRow
                     key={card.id}
-                    onClick={() => setSelectedCard(card)}
-                    className={`cursor-pointer ${overdue ? "bg-destructive/10 hover:bg-destructive/15" : ""}`}
+                    onClick={() => { if (!isEditing) setSelectedCard(card); }}
+                    className={`${isEditing ? "" : "cursor-pointer"} ${overdue ? "bg-destructive/10 hover:bg-destructive/15" : ""}`}
                   >
                     <TableCell className="font-medium text-foreground">
-                      <div className="flex flex-col">
+                      {isEditing ? (
+                        <Input
+                          value={editDraft.title}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditDraft((d) => ({ ...d, title: e.target.value }))}
+                          className="h-8"
+                        />
+                      ) : (
                         <span className="uppercase tracking-wide text-sm">{card.title}</span>
-                        {card.clientName && (
-                          <span className="text-xs text-muted-foreground normal-case">{card.clientName}</span>
-                        )}
-                      </div>
+                      )}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">{formatDate(card.due_date)}</TableCell>
-                    <TableCell className="whitespace-nowrap">{formatTime(card.due_time)}</TableCell>
-                    <TableCell className={`whitespace-nowrap ${overdue ? "text-destructive font-semibold" : ""}`}>
-                      {formatDate(card.delivery_date)}
+                    <TableCell className="whitespace-nowrap">
+                      {isEditing ? (
+                        <Input type="date" value={editDraft.due_date} onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditDraft((d) => ({ ...d, due_date: e.target.value }))} className="h-8 w-36" />
+                      ) : formatDate(card.due_date)}
                     </TableCell>
-                    <TableCell className={`whitespace-nowrap ${overdue ? "text-destructive font-semibold" : ""}`}>
-                      {formatTime(card.delivery_time)}
+                    <TableCell className="whitespace-nowrap">
+                      {isEditing ? (
+                        <Input type="time" value={editDraft.due_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditDraft((d) => ({ ...d, due_time: e.target.value }))} className="h-8 w-28" />
+                      ) : formatTime(card.due_time)}
+                    </TableCell>
+                    <TableCell className={`whitespace-nowrap ${overdue && !isEditing ? "text-destructive font-semibold" : ""}`}>
+                      {isEditing ? (
+                        <Input type="date" value={editDraft.delivery_date} onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditDraft((d) => ({ ...d, delivery_date: e.target.value }))} className="h-8 w-36" />
+                      ) : formatDate(card.delivery_date)}
+                    </TableCell>
+                    <TableCell className={`whitespace-nowrap ${overdue && !isEditing ? "text-destructive font-semibold" : ""}`}>
+                      {isEditing ? (
+                        <Input type="time" value={editDraft.delivery_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setEditDraft((d) => ({ ...d, delivery_time: e.target.value }))} className="h-8 w-28" />
+                      ) : formatTime(card.delivery_time)}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{collaboratorName}</TableCell>
+                    <TableCell className="text-right">
+                      {isEditing ? (
+                        <div className="inline-flex gap-1">
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-500" onClick={(e) => saveEdit(card.id, e)}>
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" onClick={cancelEdit}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => startEdit(card, e)} aria-label="Editar">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 );
               })}
