@@ -85,11 +85,14 @@ const MyCompany = () => {
                 </div>
                 
                 <h3 className={`text-base sm:text-xl font-bold transition-colors ${
-                  index === 0 ? 'text-indigo-600 dark:text-indigo-400' : 
-                  index === 1 ? 'text-emerald-600 dark:text-emerald-400' : 
-                  index === 2 ? 'text-violet-600 dark:text-violet-400' : 
-                  'text-rose-600 dark:text-rose-400'
+                  index === 0 ? 'text-indigo-600 dark:text-indigo-400' :
+                  index === 1 ? 'text-emerald-600 dark:text-emerald-400' :
+                  index === 2 ? 'text-violet-600 dark:text-violet-400' :
+                  index === 3 ? 'text-rose-600 dark:text-rose-400' :
+                  index === 4 ? 'text-orange-600 dark:text-orange-400' :
+                  'text-teal-600 dark:text-teal-400'
                 }`}>
+
                   {card.title}
                 </h3>
                 
