@@ -272,13 +272,13 @@ const CronogramaGlobal = () => {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 {([
+                  { k: "status", label: "Status" },
                   { k: "title", label: "Nome da demanda" },
                   { k: "due_date", label: "Data de início" },
                   { k: "due_time", label: "Hora de início" },
                   { k: "delivery_date", label: "Data de entrega" },
                   { k: "delivery_time", label: "Hora de entrega" },
                   { k: "assigned", label: "Responsável" },
-                  { k: "status", label: "Status" },
                 ] as { k: SortKey; label: string }[]).map(({ k, label }) => (
                   <TableHead key={k} className="whitespace-nowrap">
                     <button
