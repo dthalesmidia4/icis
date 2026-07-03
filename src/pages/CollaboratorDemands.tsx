@@ -110,17 +110,19 @@ const CollaboratorDemands = () => {
     if (!tenantLoading && tenantId && userId) fetchData();
   }, [tenantId, tenantLoading, userId, fetchData]);
 
+  const [groupBy, setGroupBy] = useState<"start" | "delivery">("start");
+
   const groupedByDate = useMemo(() => {
     const groups = new Map<string, KanbanCardData[]>();
     for (const c of cards) {
-      const key = c.due_date || "__no_date__";
+      const key = (groupBy === "start" ? c.due_date : c.delivery_date) || "__no_date__";
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(c);
     }
     const entries = Array.from(groups.entries()).map(([date, items]) => {
       const sorted = [...items].sort((a, b) => {
-        const ta = a.delivery_time || "99:99";
-        const tb = b.delivery_time || "99:99";
+        const ta = (groupBy === "start" ? a.due_time : a.delivery_time) || "99:99";
+        const tb = (groupBy === "start" ? b.due_time : b.delivery_time) || "99:99";
         return ta.localeCompare(tb);
       });
       return { date, items: sorted };
@@ -131,7 +133,7 @@ const CollaboratorDemands = () => {
       return a.date.localeCompare(b.date);
     });
     return entries;
-  }, [cards]);
+  }, [cards, groupBy]);
 
   const totalCards = cards.length;
 
