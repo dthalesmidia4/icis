@@ -329,10 +329,8 @@ const CollaboratorDemands = () => {
               <TableRow className="hover:bg-transparent">
                 {([
                   { k: "title", label: "Nome da demanda" },
-                  { k: "due_date", label: "Data de início" },
-                  { k: "due_time", label: "Hora de início" },
-                  { k: "delivery_date", label: "Data de entrega" },
-                  { k: "delivery_time", label: "Hora de entrega" },
+                  { k: "due_date", label: "Início" },
+                  { k: "delivery_date", label: "Entrega" },
                   { k: "assigned", label: "Responsável" },
                 ] as { k: SortKey; label: string }[]).map(({ k, label }) => (
                   <TableHead key={k} className="whitespace-nowrap">
