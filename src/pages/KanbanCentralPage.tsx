@@ -564,87 +564,45 @@ const KanbanCentralPage = () => {
     if (!result.destination) return;
 
     const { source, destination, draggableId } = result;
-
-    // Same column reorder
-    if (source.droppableId === destination.droppableId) {
-      if (source.index === destination.index) return;
-
-      setCards((prev) => {
-        const columnName = source.droppableId;
-        // Get cards in this column in current order
-        const columnCards = prev.filter((c) => c.status === columnName);
-        const otherCards = prev.filter((c) => c.status !== columnName);
-
-        // Reorder within column
-        const [movedCard] = columnCards.splice(source.index, 1);
-        columnCards.splice(destination.index, 0, movedCard);
-
-        return [...otherCards, ...columnCards];
-      });
-      return;
-    }
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
     const card = cards.find((c) => c.id === draggableId);
     if (!card) return;
 
-    const newColumnName = destination.droppableId;
+    // Column ids: collaborator user_id or "__unassigned__"
+    const destColId = destination.droppableId as string;
+    const newAssignedTo = destColId === "__unassigned__" ? null : destColId;
+    const previousAssignedTo = card.assigned_to ?? null;
 
-    // Interceptar "Agendar Publicação" → abrir modal de agendamento
-    if (newColumnName === "Agendar Publicação") {
-      setPendingScheduleCard(card);
-      setPendingScheduleSourceColumn(card.status);
-      // Mover visualmente para a coluna destino
-      setCards((prev) =>
-        prev.map((c) =>
-          c.id === draggableId ? { ...c, status: newColumnName } : c
-        )
-      );
-      setScheduleModalOpen(true);
-      return;
-    }
+    // Optimistic update
+    setCards((prev) => prev.map((c) =>
+      c.id === draggableId ? { ...c, assigned_to: newAssignedTo } : c
+    ));
 
-    setCards((prev) => {
-      const updated = prev.map((c) =>
-        c.id === draggableId ? { ...c, status: newColumnName } : c
-      );
-      // Move card to correct position in destination column
-      const destCards = updated.filter((c) => c.status === newColumnName && c.id !== draggableId);
-      const movedCard = updated.find((c) => c.id === draggableId)!;
-      destCards.splice(destination.index, 0, movedCard);
-      const otherCards = updated.filter((c) => c.status !== newColumnName);
-      return [...otherCards, ...destCards];
-    });
+    if (previousAssignedTo === newAssignedTo) return;
 
     try {
-      const { data: statusData } = await supabase
-        .from("pipeline_statuses")
-        .select("id")
-        .eq("name", newColumnName)
-        .eq("pipeline_id", pipelineId)
-        .maybeSingle();
-      
-      if (!statusData) {
-        console.error("Status não encontrado:", newColumnName);
-        sonnerToast.error("Status não encontrado");
-        fetchAllCards();
-        return;
-      }
-      
       const { error } = await supabase
         .from("demands")
-        .update({ 
-          status_id: statusData.id,
-          updated_at: new Date().toISOString()
+        .update({
+          assigned_to: newAssignedTo,
+          updated_at: new Date().toISOString(),
         })
         .eq("id", card.id);
 
       if (error) throw error;
 
-      sonnerToast.success(`Movida para "${newColumnName}"`);
+      const collabName = newAssignedTo
+        ? collaborators.find((c) => c.userId === newAssignedTo)?.fullName || "colaborador"
+        : "Sem responsável";
+      sonnerToast.success(`Atribuída a ${collabName}`);
     } catch (error) {
-      console.error("Error updating card:", error);
-      sonnerToast.error("Erro ao mover tarefa");
-      fetchAllCards();
+      console.error("Error updating assigned_to:", error);
+      sonnerToast.error("Erro ao atribuir demanda");
+      // Revert
+      setCards((prev) => prev.map((c) =>
+        c.id === draggableId ? { ...c, assigned_to: previousAssignedTo } : c
+      ));
     }
   };
 
