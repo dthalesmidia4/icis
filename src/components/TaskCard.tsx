@@ -923,7 +923,7 @@ export default function TaskCard({
 
           {/* ===== BODY - 2 COLUNAS ===== */}
           <div className="flex-1 min-h-0 overflow-y-auto">
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-6 p-6">
+            <div className="grid grid-cols-1 gap-6 p-6">
               
               {/* === COLUNA ESQUERDA: Conteúdo === */}
               <div className="space-y-6">
@@ -1074,8 +1074,9 @@ export default function TaskCard({
                 </div>
               </div>
 
-              {/* === COLUNA DIREITA: Publicação + Controles === */}
-              <div className="space-y-4 sticky top-0 self-start">
+              {/* === PUBLICAÇÃO + CONTROLES (full-width, acima dos anexos) === */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 items-start">
+
                 {/* Responsável */}
                 <Card>
                   <CardContent className="p-4 space-y-2">
