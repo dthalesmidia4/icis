@@ -132,6 +132,7 @@ const ClientHub = () => {
   const [generatedManualPostImage, setGeneratedManualPostImage] = useState<string | null>(null);
   const [contentHubModalOpen, setContentHubModalOpen] = useState(false);
   const [avaliarDemandasModalOpen, setAvaliarDemandasModalOpen] = useState(false);
+  const [demandaPlanejadaHubModalOpen, setDemandaPlanejadaHubModalOpen] = useState(false);
   const [contentRequirementsModalOpen, setContentRequirementsModalOpen] = useState(false);
   const [planPeriodModalOpen, setPlanPeriodModalOpen] = useState(false);
   const [contentRequirements, setContentRequirements] = useState('');
