@@ -35,6 +35,7 @@ import { SchedulePublicationModal } from "@/components/SchedulePublicationModal"
 import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
+import { useCollaborators } from "@/hooks/useCollaborators";
 
 interface PipelineStatus {
   id: string;
