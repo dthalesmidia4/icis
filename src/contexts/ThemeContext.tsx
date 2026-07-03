@@ -56,7 +56,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (profile?.settings) {
           const savedSettings = profile.settings as Record<string, unknown>;
           setSettings({
-            mode: (savedSettings.mode as ThemeMode) || 'light',
+            mode: 'light',
             primaryColor: (savedSettings.primaryColor as PrimaryColor) || 'purple',
             companyName: (savedSettings.companyName as string) || '',
             logoUrl: (savedSettings.logoUrl as string) || null,
@@ -72,34 +72,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     loadSettings();
   }, [user]);
 
-  // Apply theme mode
+  // Force light mode always
   useEffect(() => {
-    const applyThemeMode = () => {
-      const root = document.documentElement;
-      let effectiveMode: 'light' | 'dark';
-
-      if (settings.mode === 'system') {
-        effectiveMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      } else {
-        effectiveMode = settings.mode;
-      }
-
-      root.classList.remove('light', 'dark');
-      root.classList.add(effectiveMode);
-    };
-
-    applyThemeMode();
-
-    // Listen for system theme changes when in system mode
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => {
-      if (settings.mode === 'system') {
-        applyThemeMode();
-      }
-    };
-
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    const root = document.documentElement;
+    root.classList.remove('dark');
+    root.classList.add('light');
   }, [settings.mode]);
 
   // Apply primary color
