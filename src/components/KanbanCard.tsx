@@ -19,6 +19,7 @@ interface KanbanCardProps {
   statusColor?: string | null;
   hideDueDate?: boolean;
   emphasizeDelivery?: boolean;
+  showStartEndLabels?: boolean;
   onClick?: () => void;
 }
 
