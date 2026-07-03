@@ -332,7 +332,7 @@ export default function TaskCard({
   const [attachmentToRemove, setAttachmentToRemove] = useState<Attachment | null>(null);
   const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
-  const [activeSection, setActiveSection] = useState<'description' | 'instructions' | 'cta' | 'observations' | 'caption'>('description');
+  const [activeSection, setActiveSection] = useState<'description' | 'instructions' | 'cta' | 'observations' | 'caption' | 'anexos'>('description');
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
