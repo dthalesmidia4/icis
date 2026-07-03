@@ -15,7 +15,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles } from "lucide-react";
+import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight } from "lucide-react";
+import { proceedDemand } from "@/lib/proceedDemand";
 
 // Split instructions field into "production instructions" and "CTA" parts.
 // Recognizes a "CTA:" marker (optionally wrapped in <p>) anywhere in the string.
@@ -104,6 +105,7 @@ export interface KanbanCardData {
   demand_id?: string;
   demand_type?: string | null;
   assigned_to?: string | null;
+  current_function_key?: string | null;
   // Computed/display fields (not in DB)
   clientId?: string;
   clientName?: string;
@@ -336,6 +338,34 @@ export default function TaskCard({
   const [activeSection, setActiveSection] = useState<'description' | 'instructions' | 'cta' | 'observations' | 'caption' | 'anexos'>('description');
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
+  const [proceeding, setProceeding] = useState(false);
+
+  const handleProceed = async () => {
+    if (!card || proceeding) return;
+    setProceeding(true);
+    try {
+      const result = await proceedDemand({
+        demandId: card.id,
+        tenantId: card.tenant_id,
+        demandType: card.demand_type,
+        currentFunctionKey: card.current_function_key,
+      });
+      if (result.success) {
+        toast.success(result.message);
+        onCardChange({
+          ...card,
+          assigned_to: result.assignedTo || null,
+          current_function_key: result.functionKey || null,
+        });
+      } else if (result.end) {
+        toast(result.message);
+      } else {
+        toast.error(result.message);
+      }
+    } finally {
+      setProceeding(false);
+    }
+  };
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
   const [generatingCaption, setGeneratingCaption] = useState(false);
   const [regeneratingAll, setRegeneratingAll] = useState(false);
@@ -832,6 +862,20 @@ export default function TaskCard({
                   </h1>
                 )}
               </div>
+              {!readOnly && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-11 gap-2 shrink-0"
+                  onClick={handleProceed}
+                  disabled={proceeding}
+                  aria-label="Prosseguir"
+                  title="Enviar para o próximo colaborador do fluxo"
+                >
+                  {proceeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                  <span>Prosseguir</span>
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"

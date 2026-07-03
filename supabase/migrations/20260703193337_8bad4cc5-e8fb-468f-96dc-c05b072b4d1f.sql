@@ -1,0 +1,1 @@
+ALTER TABLE public.demands ADD COLUMN IF NOT EXISTS current_function_key text;
