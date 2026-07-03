@@ -500,93 +500,184 @@ const Scheduled = () => {
         )}
       </div>
 
-      {/* Cards Container */}
-      <div className="bg-muted/30 rounded-xl p-4 border border-border/50 min-h-[300px]">
-        {filteredCards.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <CalendarDays className="h-12 w-12 mb-4 opacity-30" />
-            <p className="text-sm">
-              {selectedClientFilter === "all" ? "Nenhum conteúdo aguardando agendamento" : "Nenhum conteúdo para agendar para este cliente"}
-            </p>
-            <p className="text-xs mt-1 opacity-70">
-              Mova demandas para "Agendar Publicação" nos kanbans dos clientes
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {filteredCards.map(card => {
-              const { cleanTitle, type: contentType } = extractContentType(card.title);
-              const isHighlighted = highlightedCardId === card.id;
-              const priority = getPriorityIndicator(card);
-              const pubDateTime = getPublicationDateTime(card);
+      {/* Calendar Container */}
+      {(() => {
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const startWeekday = firstDay.getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const totalCells = Math.ceil((startWeekday + daysInMonth) / 7) * 7;
 
-              return (
-                <div
-                  key={card.id}
-                  ref={el => {
-                    if (el) cardRefs.current.set(card.id, el);
-                    else cardRefs.current.delete(card.id);
-                  }}
-                  className={cn(
-                    "flex items-center justify-between gap-4 px-4 py-3 bg-background rounded-lg border cursor-pointer hover:bg-muted/50 transition-all duration-300 group",
-                    isHighlighted ? "border-primary ring-2 ring-primary/30 bg-primary/5 shadow-lg scale-[1.02]" : "border-border/50"
-                  )}
-                  onClick={() => handleCardClick(card)}
-                >
-                  {/* Left side */}
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    {priority && (
-                      <Badge className={cn("text-[10px] px-2 py-0.5 font-medium whitespace-nowrap", priority.className)}>
-                        {priority.label}
-                      </Badge>
+        // Group cards by day key YYYY-MM-DD (local)
+        const cardsByDay = new Map<string, typeof filteredCards>();
+        filteredCards.forEach((c) => {
+          const dt = getPublicationDateTime(c);
+          if (!dt) return;
+          const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+          if (!cardsByDay.has(key)) cardsByDay.set(key, [] as any);
+          (cardsByDay.get(key) as any).push(c);
+        });
+
+        const today = new Date();
+        const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+        const monthLabel = currentMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+        const weekdays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+        const cells: Array<{ date: Date | null; key: string }> = [];
+        for (let i = 0; i < totalCells; i++) {
+          const dayNum = i - startWeekday + 1;
+          if (dayNum < 1 || dayNum > daysInMonth) {
+            cells.push({ date: null, key: `empty-${i}` });
+          } else {
+            const d = new Date(year, month, dayNum);
+            const k = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+            cells.push({ date: d, key: k });
+          }
+        }
+
+        return (
+          <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
+            {/* Month nav */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" onClick={() => setCurrentMonth(new Date(year, month - 1, 1))} aria-label="Mês anterior">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" onClick={() => setCurrentMonth(new Date(year, month + 1, 1))} aria-label="Próximo mês">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => {
+                  const n = new Date();
+                  setCurrentMonth(new Date(n.getFullYear(), n.getMonth(), 1));
+                }}>
+                  Hoje
+                </Button>
+              </div>
+              <h3 className="text-lg font-semibold capitalize">{monthLabel}</h3>
+              <div className="w-[180px]" />
+            </div>
+
+            {/* Weekday header */}
+            <div className="grid grid-cols-7 gap-1 mb-1">
+              {weekdays.map((w) => (
+                <div key={w} className="text-xs font-semibold text-muted-foreground text-center py-1">{w}</div>
+              ))}
+            </div>
+
+            {/* Days grid */}
+            <div className="grid grid-cols-7 gap-1">
+              {cells.map((cell) => {
+                if (!cell.date) {
+                  return <div key={cell.key} className="min-h-[110px] bg-muted/10 rounded-md border border-transparent" />;
+                }
+                const dayItems = (cardsByDay.get(cell.key) as any as typeof filteredCards) || [];
+                const isToday = cell.key === todayKey;
+                const visible = dayItems.slice(0, 3);
+                const extra = dayItems.length - visible.length;
+                return (
+                  <button
+                    key={cell.key}
+                    type="button"
+                    onClick={() => setSelectedDay(cell.date!)}
+                    className={cn(
+                      "min-h-[110px] text-left bg-background rounded-md border p-1.5 flex flex-col gap-1 transition-colors hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-primary",
+                      isToday ? "border-primary ring-1 ring-primary/40" : "border-border/50"
                     )}
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">{card.clientName}</span>
-                    <span className="text-muted-foreground/40">•</span>
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">{contentType}</span>
-                    <span className="text-muted-foreground/40">•</span>
-                    <span className={cn("text-sm font-medium truncate", isHighlighted ? "text-primary" : "text-foreground")}>
-                      {cleanTitle}
-                    </span>
-                  </div>
-                  
-                  {/* Right side */}
-                  <div className="flex items-center gap-3 shrink-0">
-                    {card.attachments && card.attachments.length > 0 && (
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Paperclip className="h-4 w-4" />
-                        <span className="text-xs">{card.attachments.length}</span>
-                      </div>
-                    )}
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-muted/80 rounded-md border border-border/50 cursor-default">
-                            <CalendarDays className="h-3.5 w-3.5 text-primary" />
-                            <span className="text-sm font-semibold text-foreground whitespace-nowrap">
-                              {pubDateTime
-                                ? pubDateTime.toLocaleDateString("pt-BR") + " " + pubDateTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
-                                : formatDate(card.due_date)}
-                            </span>
+                  >
+                    <div className={cn("text-xs font-semibold self-end px-1", isToday ? "text-primary" : "text-muted-foreground")}>
+                      {cell.date.getDate()}
+                    </div>
+                    <div className="flex flex-col gap-0.5 overflow-hidden">
+                      {visible.map((c) => {
+                        const dt = getPublicationDateTime(c)!;
+                        const { cleanTitle } = extractContentType(c.title);
+                        return (
+                          <div
+                            key={c.id}
+                            className="text-[10px] leading-tight bg-primary/10 text-primary rounded px-1 py-0.5 truncate"
+                            title={`${c.clientName} — ${cleanTitle}`}
+                          >
+                            <span className="font-semibold">{dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+                            {" "}
+                            <span className="opacity-80">{c.clientName}</span>
+                            {" · "}
+                            <span>{cleanTitle}</span>
                           </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="font-medium">
-                            {pubDateTime
-                              ? pubDateTime.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
-                              : new Date(card.due_date).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    
-                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  </div>
-                </div>
-              );
-            })}
+                        );
+                      })}
+                      {extra > 0 && (
+                        <div className="text-[10px] text-muted-foreground px-1">+{extra} agendamento{extra > 1 ? "s" : ""}</div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        )}
-      </div>
+        );
+      })()}
+
+      {/* Day Modal */}
+      <Dialog open={!!selectedDay} onOpenChange={(open) => { if (!open) setSelectedDay(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Agendamentos de {selectedDay ? selectedDay.toLocaleDateString("pt-BR") : ""}
+            </DialogTitle>
+          </DialogHeader>
+          {(() => {
+            if (!selectedDay) return null;
+            const key = `${selectedDay.getFullYear()}-${String(selectedDay.getMonth() + 1).padStart(2, "0")}-${String(selectedDay.getDate()).padStart(2, "0")}`;
+            const dayItems = filteredCards.filter((c) => {
+              const dt = getPublicationDateTime(c);
+              if (!dt) return false;
+              const k = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+              return k === key;
+            }).sort((a, b) => (getPublicationDateTime(a)!.getTime() - getPublicationDateTime(b)!.getTime()));
+
+            if (dayItems.length === 0) {
+              return <p className="text-sm text-muted-foreground py-6 text-center">Nenhum conteúdo agendado para este dia.</p>;
+            }
+            return (
+              <div className="flex flex-col gap-2">
+                {dayItems.map((card) => {
+                  const dt = getPublicationDateTime(card)!;
+                  const { cleanTitle, type: contentType } = extractContentType(card.title);
+                  return (
+                    <div
+                      key={card.id}
+                      className="flex items-center justify-between gap-3 p-3 bg-muted/30 rounded-lg border border-border/50 hover:bg-muted/50 cursor-pointer"
+                      onClick={() => { setSelectedDay(null); handleCardClick(card); }}
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <span className="text-sm font-semibold text-primary whitespace-nowrap">
+                          {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                        <span className="text-sm text-muted-foreground whitespace-nowrap">{card.clientName}</span>
+                        <span className="text-muted-foreground/40">•</span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">{contentType}</span>
+                        <span className="text-muted-foreground/40">•</span>
+                        <span className="text-sm font-medium truncate text-foreground">{cleanTitle}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {card.attachments && card.attachments.length > 0 && (
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Paperclip className="h-3.5 w-3.5" />
+                            <span className="text-xs">{card.attachments.length}</span>
+                          </div>
+                        )}
+                        <Badge variant="secondary" className="text-[10px]">{card.status}</Badge>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* TaskCard Modal */}
       <TaskCard 
