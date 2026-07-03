@@ -133,9 +133,9 @@ const CollaboratorDemands = () => {
     const getVal = (c: KanbanCardData): string => {
       switch (sortKey) {
         case "title": return (c.title || "").toLowerCase();
-        case "due_date": return c.due_date || "9999-99-99";
+        case "due_date": return `${c.due_date || "9999-99-99"} ${c.due_time || "99:99"}`;
         case "due_time": return c.due_time || "99:99";
-        case "delivery_date": return c.delivery_date || "9999-99-99";
+        case "delivery_date": return `${c.delivery_date || "9999-99-99"} ${c.delivery_time || "99:99"}`;
         case "delivery_time": return c.delivery_time || "99:99";
         case "assigned": return (collaboratorName || "").toLowerCase();
       }
