@@ -831,29 +831,16 @@ export default function TaskCard({
                   </h1>
                 )}
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {!readOnly && (
-                  <button
-                    type="button"
-                    onClick={onDelete}
-                    aria-label="Excluir demanda"
-                    title="Excluir demanda"
-                    className="text-destructive hover:text-destructive/80 transition-colors p-1"
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-11 w-11 rounded-lg border border-border bg-muted/40 hover:bg-muted"
-                  onClick={() => onOpenChange(false)}
-                  aria-label="Fechar"
-                >
-                  <X className="h-5 w-5" />
-                  <span className="sr-only">Fechar</span>
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-11 w-11 rounded-lg border border-border bg-muted/40 hover:bg-muted shrink-0"
+                onClick={() => onOpenChange(false)}
+                aria-label="Fechar"
+              >
+                <X className="h-5 w-5" />
+                <span className="sr-only">Fechar</span>
+              </Button>
             </div>
 
             {/* Linha 2: Cliente + Status */}
