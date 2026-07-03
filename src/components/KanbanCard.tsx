@@ -105,26 +105,53 @@ const KanbanCard = ({
       {showStartEndLabels ? (
         <CardContent className="px-3 pb-3 pt-0">
           <div className="flex flex-col gap-1.5">
-            <div className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md w-fit text-amber-500 bg-amber-500/10">
-              <CalendarClock className="h-3.5 w-3.5" />
-              <span className="font-semibold">Início:</span>
-              <span>{formattedDueTime || "sem horário"}</span>
-            </div>
-            <div className={cn(
-              "flex items-center gap-1.5 rounded-md w-fit text-sm font-bold px-3 py-2",
-              isOverdue ? "text-red-500 bg-red-500/15" : "text-emerald-500 bg-emerald-500/10"
-            )}>
-              <Calendar className="h-4 w-4" />
-              <span>Término:</span>
-              {formattedCardDeliveryDate ? (
-                <span>
-                  {formattedCardDeliveryDate}
-                  {formattedDeliveryTime && ` · ${formattedDeliveryTime}`}
-                </span>
-              ) : (
-                <span>sem data definida</span>
-              )}
-            </div>
+            {emphasizeStart ? (
+              <>
+                <div className={cn(
+                  "flex items-center gap-1.5 rounded-md w-fit text-sm font-bold px-3 py-2",
+                  isOverdue ? "text-red-500 bg-red-500/15" : "text-emerald-500 bg-emerald-500/10"
+                )}>
+                  <Calendar className="h-4 w-4" />
+                  <span>Término:</span>
+                  {formattedCardDeliveryDate ? (
+                    <span>
+                      {formattedCardDeliveryDate}
+                      {formattedDeliveryTime && ` · ${formattedDeliveryTime}`}
+                    </span>
+                  ) : (
+                    <span>sem data definida</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md w-fit text-amber-500 bg-amber-500/10">
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  <span className="font-semibold">Início:</span>
+                  <span>{formattedDueTime || "sem horário"}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md w-fit text-amber-500 bg-amber-500/10">
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  <span className="font-semibold">Início:</span>
+                  <span>{formattedDueTime || "sem horário"}</span>
+                </div>
+                <div className={cn(
+                  "flex items-center gap-1.5 rounded-md w-fit text-sm font-bold px-3 py-2",
+                  isOverdue ? "text-red-500 bg-red-500/15" : "text-emerald-500 bg-emerald-500/10"
+                )}>
+                  <Calendar className="h-4 w-4" />
+                  <span>Término:</span>
+                  {formattedCardDeliveryDate ? (
+                    <span>
+                      {formattedCardDeliveryDate}
+                      {formattedDeliveryTime && ` · ${formattedDeliveryTime}`}
+                    </span>
+                  ) : (
+                    <span>sem data definida</span>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </CardContent>
       ) : (( !hideDueDate && formattedDueDate) || formattedCardDeliveryDate) && (
