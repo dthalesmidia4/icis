@@ -29,6 +29,7 @@ import {
   MoreHorizontal } from
 "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, normalizeDemandTypeKey, coerceDemandTypeKey, type DemandTypeKey } from "@/lib/proceedDemand";
 
 interface Pipeline {
   id: string;
@@ -109,6 +110,7 @@ export function CreateDemandModal({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [demandType, setDemandType] = useState("");
+  const [demandTypeKey, setDemandTypeKey] = useState<DemandTypeKey | "">("");
   const [channel, setChannel] = useState("");
   const [publishDate, setPublishDate] = useState<Date | undefined>();
   const [dueDate, setDueDate] = useState<Date | undefined>();
@@ -181,6 +183,7 @@ export function CreateDemandModal({
     setTitle("");
     setDescription("");
     setDemandType("");
+    setDemandTypeKey("");
     setChannel("");
     setPublishDate(undefined);
     setDueDate(undefined);
@@ -363,7 +366,14 @@ export function CreateDemandModal({
     setSelectedTemplateId(suggestion.id);
     setTitle(suggestion.title_template);
     setDescription(suggestion.instructions_template || "");
-    setDemandType(suggestion.demand_type || "");
+    const suggestedKey = normalizeDemandTypeKey(suggestion.demand_type || "");
+    if (suggestedKey) {
+      setDemandTypeKey(suggestedKey);
+      setDemandType(DEMAND_TYPE_LABEL[suggestedKey]);
+    } else {
+      setDemandTypeKey("");
+      setDemandType(suggestion.demand_type || "");
+    }
     setChannel(suggestion.channel || "");
 
     if (suggestion.pipeline_id) {
