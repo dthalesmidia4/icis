@@ -57,6 +57,12 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: CheckCircle2,
     route: "/demandas-completas",
   },
+  {
+    id: 'cronograma-global',
+    title: "Cronograma Global",
+    icon: CalendarClock,
+    route: "/cronograma-global",
+  },
 ];
 
 /**
