@@ -186,10 +186,10 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
         </DialogHeader>
 
         <div className="flex items-center gap-4 text-xs mb-2">
-          <span className="flex items-center gap-1"><span className={cn("inline-block px-2 py-0.5 rounded border", STYLE.required)}>Sim</span> obrigatória</span>
-          <span className="flex items-center gap-1"><span className={cn("inline-block px-2 py-0.5 rounded border", STYLE.optional)}>Opcional</span> pode existir</span>
-          <span className="flex items-center gap-1"><span className={cn("inline-block px-2 py-0.5 rounded border", STYLE.disabled)}>—</span> não se aplica</span>
+          <span className="flex items-center gap-1"><span className={cn("inline-block px-2 py-0.5 rounded border", STYLE.required)}>Sim</span> participa desse tipo</span>
+          <span className="flex items-center gap-1"><span className={cn("inline-block px-2 py-0.5 rounded border", STYLE.disabled)}>Não</span> não se aplica</span>
         </div>
+
 
         <div className="border rounded-lg overflow-auto max-h-[65vh]">
           <table className="w-full text-sm">
