@@ -19,7 +19,7 @@ interface ThemeContextType {
 }
 
 const defaultSettings: ThemeSettings = {
-  mode: 'system',
+  mode: 'light',
   primaryColor: 'purple',
   companyName: '',
   logoUrl: null,
@@ -56,7 +56,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (profile?.settings) {
           const savedSettings = profile.settings as Record<string, unknown>;
           setSettings({
-            mode: (savedSettings.mode as ThemeMode) || 'system',
+            mode: (savedSettings.mode as ThemeMode) || 'light',
             primaryColor: (savedSettings.primaryColor as PrimaryColor) || 'purple',
             companyName: (savedSettings.companyName as string) || '',
             logoUrl: (savedSettings.logoUrl as string) || null,
