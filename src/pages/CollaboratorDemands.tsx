@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, User } from "lucide-react";
+import { Loader2, User, ChevronDown, ChevronRight, Calendar } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
@@ -110,18 +110,47 @@ const CollaboratorDemands = () => {
     if (!tenantLoading && tenantId && userId) fetchData();
   }, [tenantId, tenantLoading, userId, fetchData]);
 
-  const sortedCards = useMemo(() => {
-    const withMeta = cards.map((c) => ({
-      c,
-      overdue: isOverdue(c.delivery_date, c.delivery_time, c.status),
-      deadline: c.delivery_date || c.publish_date || c.due_date || "9999-12-31",
-    }));
-    withMeta.sort((a, b) => {
-      if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
-      return a.deadline.localeCompare(b.deadline);
+  const groupedByDate = useMemo(() => {
+    const groups = new Map<string, KanbanCardData[]>();
+    for (const c of cards) {
+      const key = c.delivery_date || "__no_date__";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(c);
+    }
+    const entries = Array.from(groups.entries()).map(([date, items]) => {
+      const sorted = [...items].sort((a, b) => {
+        const ta = a.delivery_time || "99:99";
+        const tb = b.delivery_time || "99:99";
+        return ta.localeCompare(tb);
+      });
+      return { date, items: sorted };
     });
-    return withMeta.map((x) => x.c);
+    entries.sort((a, b) => {
+      if (a.date === "__no_date__") return 1;
+      if (b.date === "__no_date__") return -1;
+      return a.date.localeCompare(b.date);
+    });
+    return entries;
   }, [cards]);
+
+  const totalCards = cards.length;
+
+  const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
+  const toggleDate = (date: string) => {
+    setCollapsedDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  };
+
+  const formatDateHeader = (date: string) => {
+    if (date === "__no_date__") return "Sem data de entrega";
+    const [y, m, d] = date.split("-");
+    return `${d}/${m}/${y}`;
+  };
+
 
   const handleSave = async (field: string, value: string) => {
     if (!selectedCard) return;
@@ -212,37 +241,65 @@ const CollaboratorDemands = () => {
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">
             Demandas de {collaboratorName}
           </h1>
-          <Badge variant="secondary" className="text-sm">{sortedCards.length}</Badge>
+          <Badge variant="secondary" className="text-sm">{totalCards}</Badge>
         </div>
         <p className="text-sm text-muted-foreground">
           {collaboratorRole ? `${collaboratorRole} • ` : ""}Cards atribuídos a este colaborador
         </p>
       </div>
 
-      {sortedCards.length === 0 ? (
+      {totalCards === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <User className="h-12 w-12 mx-auto mb-4 opacity-30" />
           <p className="text-lg font-medium">Nenhuma demanda atribuída a este colaborador no momento.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {sortedCards.map((card) => (
-            <KanbanCard
-              key={card.id}
-              title={card.title}
-              subtitle={card.clientName || ""}
-              demandType={card.demand_type || undefined}
-              dueDate={card.due_date}
-              dueTime={card.due_time || undefined}
-              cardDeliveryDate={card.delivery_date || undefined}
-              deliveryTime={card.delivery_time || undefined}
-              cardId={card.id}
-              isOverdue={isOverdue(card.delivery_date, card.delivery_time, card.status)}
-              onClick={() => setSelectedCard(card)}
-            />
-          ))}
+        <div className="space-y-4">
+          {groupedByDate.map(({ date, items }) => {
+            const collapsed = collapsedDates.has(date);
+            return (
+              <div key={date} className="rounded-lg border border-border bg-card/40 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => toggleDate(date)}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
+                >
+                  {collapsed ? (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  )}
+                  <Calendar className="h-5 w-5 text-primary" />
+                  <span className="text-lg sm:text-xl font-bold text-foreground">
+                    {formatDateHeader(date)}
+                  </span>
+                  <Badge variant="secondary" className="ml-2">{items.length}</Badge>
+                </button>
+                {!collapsed && (
+                  <div className="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {items.map((card) => (
+                      <KanbanCard
+                        key={card.id}
+                        title={card.title}
+                        subtitle={card.clientName || ""}
+                        demandType={card.demand_type || undefined}
+                        dueDate={card.due_date}
+                        dueTime={card.due_time || undefined}
+                        cardDeliveryDate={card.delivery_date || undefined}
+                        deliveryTime={card.delivery_time || undefined}
+                        cardId={card.id}
+                        isOverdue={isOverdue(card.delivery_date, card.delivery_time, card.status)}
+                        onClick={() => setSelectedCard(card)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
+
 
       <TaskCard
         open={!!selectedCard}
