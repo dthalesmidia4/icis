@@ -1381,7 +1381,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
               className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 rounded-full transition-colors"
             >
               <ClipboardList className="w-4 h-4 text-primary" />
-              <span className="text-xs sm:text-sm font-medium text-primary">Cadastro</span>
+              <span className="text-xs sm:text-sm font-medium text-primary">Mostrar Cadastro do Cliente</span>
             </button>
           )}
 
