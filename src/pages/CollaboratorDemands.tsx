@@ -110,18 +110,47 @@ const CollaboratorDemands = () => {
     if (!tenantLoading && tenantId && userId) fetchData();
   }, [tenantId, tenantLoading, userId, fetchData]);
 
-  const sortedCards = useMemo(() => {
-    const withMeta = cards.map((c) => ({
-      c,
-      overdue: isOverdue(c.delivery_date, c.delivery_time, c.status),
-      deadline: c.delivery_date || c.publish_date || c.due_date || "9999-12-31",
-    }));
-    withMeta.sort((a, b) => {
-      if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
-      return a.deadline.localeCompare(b.deadline);
+  const groupedByDate = useMemo(() => {
+    const groups = new Map<string, KanbanCardData[]>();
+    for (const c of cards) {
+      const key = c.delivery_date || "__no_date__";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(c);
+    }
+    const entries = Array.from(groups.entries()).map(([date, items]) => {
+      const sorted = [...items].sort((a, b) => {
+        const ta = a.delivery_time || "99:99";
+        const tb = b.delivery_time || "99:99";
+        return ta.localeCompare(tb);
+      });
+      return { date, items: sorted };
     });
-    return withMeta.map((x) => x.c);
+    entries.sort((a, b) => {
+      if (a.date === "__no_date__") return 1;
+      if (b.date === "__no_date__") return -1;
+      return a.date.localeCompare(b.date);
+    });
+    return entries;
   }, [cards]);
+
+  const totalCards = cards.length;
+
+  const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
+  const toggleDate = (date: string) => {
+    setCollapsedDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  };
+
+  const formatDateHeader = (date: string) => {
+    if (date === "__no_date__") return "Sem data de entrega";
+    const [y, m, d] = date.split("-");
+    return `${d}/${m}/${y}`;
+  };
+
 
   const handleSave = async (field: string, value: string) => {
     if (!selectedCard) return;
