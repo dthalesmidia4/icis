@@ -32,6 +32,7 @@ import ToolExpenses from "./pages/ToolExpenses";
 import PlatformLogins from "./pages/PlatformLogins";
 
 import PlanPeriod from "./pages/PlanPeriod";
+import CronogramaGlobal from "./pages/CronogramaGlobal";
 import ProfileSettings from "./pages/ProfileSettings";
 import Kanban from "./pages/Kanban";
 import KanbanCentralPage from "./pages/KanbanCentralPage";
@@ -313,6 +314,15 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <CompletedDemands />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/cronograma-global" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <CronogramaGlobal />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>

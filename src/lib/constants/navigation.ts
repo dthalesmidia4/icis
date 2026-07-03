@@ -4,6 +4,7 @@ import {
   LayoutGrid,
   Briefcase,
   CalendarDays,
+  CalendarClock,
   Users,
   CheckCircle2,
   FilePlus2,
@@ -55,6 +56,12 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     title: "Demandas Completas",
     icon: CheckCircle2,
     route: "/demandas-completas",
+  },
+  {
+    id: 'cronograma-global',
+    title: "Cronograma Global",
+    icon: CalendarClock,
+    route: "/cronograma-global",
   },
 ];
 
