@@ -104,6 +104,8 @@ const KanbanCentralPage = () => {
   const [uploading, setUploading] = useState(false);
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>("all");
   const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<string>("active");
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("all");
+  const { collaborators } = useCollaborators(tenantId);
   const [periods, setPeriods] = useState<Array<{
     id: string;
     period_title: string;
