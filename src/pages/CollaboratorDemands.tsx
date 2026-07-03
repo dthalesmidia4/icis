@@ -83,6 +83,7 @@ const CollaboratorDemands = () => {
           publish_time: d.publish_time || "",
           channel: d.channel || "",
           demand_type: d.demand_type || "",
+          demand_type_key: d.demand_type_key ?? null,
           objective: d.objective || "",
           instructions: d.instructions || "",
           observations: d.observations || "",
