@@ -156,14 +156,56 @@ const CollaboratorDemands = () => {
   };
   const formatTime = (t?: string | null) => (t ? t.slice(0, 5) : "—");
 
-  const SortIcon = ({ k }: { k: SortKey }) =>
-    sortKey !== k ? (
-      <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />
-    ) : sortDir === "asc" ? (
-      <ArrowUp className="h-3.5 w-3.5" />
-    ) : (
-      <ArrowDown className="h-3.5 w-3.5" />
-    );
+  const SortIcon = ({ k }: { k: SortKey }) => {
+    if (sortKey !== k) return null;
+    return sortDir === "asc"
+      ? <ArrowUp className="h-3.5 w-3.5" />
+      : <ArrowDown className="h-3.5 w-3.5" />;
+  };
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<{ title: string; due_date: string; due_time: string; delivery_date: string; delivery_time: string }>({
+    title: "", due_date: "", due_time: "", delivery_date: "", delivery_time: "",
+  });
+
+  const startEdit = (card: KanbanCardData, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingId(card.id);
+    setEditDraft({
+      title: card.title || "",
+      due_date: card.due_date || "",
+      due_time: card.due_time || "",
+      delivery_date: card.delivery_date || "",
+      delivery_time: card.delivery_time || "",
+    });
+  };
+
+  const cancelEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingId(null);
+  };
+
+  const saveEdit = async (cardId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const payload = {
+        title: editDraft.title,
+        due_date: editDraft.due_date || null,
+        due_time: editDraft.due_time || null,
+        delivery_date: editDraft.delivery_date || null,
+        delivery_time: editDraft.delivery_time || null,
+      };
+      const { error } = await supabase.from("demands").update(payload as any).eq("id", cardId);
+      if (error) throw error;
+      setCards((prev) => prev.map((c) => c.id === cardId ? { ...c, ...payload } as KanbanCardData : c));
+      setEditingId(null);
+      sonnerToast.success("Salvo!");
+    } catch (err) {
+      console.error("[CollaboratorDemands] inline save error", err);
+      sonnerToast.error("Erro ao salvar");
+    }
+  };
+
 
 
 
