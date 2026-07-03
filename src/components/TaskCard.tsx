@@ -831,10 +831,29 @@ export default function TaskCard({
                   </h1>
                 )}
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-muted shrink-0" onClick={() => onOpenChange(false)}>
-                <X className="h-4 w-4" />
-                <span className="sr-only">Fechar</span>
-              </Button>
+              <div className="flex items-center gap-2 shrink-0">
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={onDelete}
+                    aria-label="Excluir demanda"
+                    title="Excluir demanda"
+                    className="text-destructive hover:text-destructive/80 transition-colors p-1"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-11 w-11 rounded-lg border border-border bg-muted/40 hover:bg-muted"
+                  onClick={() => onOpenChange(false)}
+                  aria-label="Fechar"
+                >
+                  <X className="h-5 w-5" />
+                  <span className="sr-only">Fechar</span>
+                </Button>
+              </div>
             </div>
 
             {/* Linha 2: Cliente + Status */}
@@ -1282,35 +1301,24 @@ export default function TaskCard({
                   </Card>
                 )}
 
-                {/* Ações secundárias */}
-                {!readOnly && (
+                {/* Ações secundárias (apenas Arquivar; Excluir foi movido para o header) */}
+                {!readOnly && onArchive && (
                   <Card>
                     <CardContent className="p-4 space-y-2">
                       <h3 className="font-semibold text-sm text-muted-foreground mb-2">Ações</h3>
-                      {onArchive && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className={cn(
-                            "w-full justify-start gap-2 text-sm",
-                            card.archived_at 
-                              ? "hover:text-primary hover:border-primary/30" 
-                              : "hover:text-amber-600 hover:border-amber-500/30"
-                          )}
-                          onClick={() => onArchive(!card.archived_at)}
-                        >
-                          {card.archived_at ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-                          {card.archived_at ? "Desarquivar demanda" : "Arquivar demanda"}
-                        </Button>
-                      )}
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="w-full justify-start gap-2 text-sm text-destructive hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
-                        onClick={onDelete}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "w-full justify-start gap-2 text-sm",
+                          card.archived_at
+                            ? "hover:text-primary hover:border-primary/30"
+                            : "hover:text-amber-600 hover:border-amber-500/30"
+                        )}
+                        onClick={() => onArchive(!card.archived_at)}
                       >
-                        <Trash2 className="h-4 w-4" />
-                        Excluir demanda
+                        {card.archived_at ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+                        {card.archived_at ? "Desarquivar demanda" : "Arquivar demanda"}
                       </Button>
                     </CardContent>
                   </Card>
