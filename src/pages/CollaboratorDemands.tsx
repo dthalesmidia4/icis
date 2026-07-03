@@ -133,9 +133,9 @@ const CollaboratorDemands = () => {
     const getVal = (c: KanbanCardData): string => {
       switch (sortKey) {
         case "title": return (c.title || "").toLowerCase();
-        case "due_date": return c.due_date || "9999-99-99";
+        case "due_date": return `${c.due_date || "9999-99-99"} ${c.due_time || "99:99"}`;
         case "due_time": return c.due_time || "99:99";
-        case "delivery_date": return c.delivery_date || "9999-99-99";
+        case "delivery_date": return `${c.delivery_date || "9999-99-99"} ${c.delivery_time || "99:99"}`;
         case "delivery_time": return c.delivery_time || "99:99";
         case "assigned": return (collaboratorName || "").toLowerCase();
       }
@@ -329,10 +329,8 @@ const CollaboratorDemands = () => {
               <TableRow className="hover:bg-transparent">
                 {([
                   { k: "title", label: "Nome da demanda" },
-                  { k: "due_date", label: "Data de início" },
-                  { k: "due_time", label: "Hora de início" },
-                  { k: "delivery_date", label: "Data de entrega" },
-                  { k: "delivery_time", label: "Hora de entrega" },
+                  { k: "due_date", label: "Início" },
+                  { k: "delivery_date", label: "Entrega" },
                   { k: "assigned", label: "Responsável" },
                 ] as { k: SortKey; label: string }[]).map(({ k, label }) => (
                   <TableHead key={k} className="whitespace-nowrap">
@@ -373,27 +371,27 @@ const CollaboratorDemands = () => {
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       {isEditing ? (
-                        <Input type="date" value={editDraft.due_date} onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setEditDraft((d) => ({ ...d, due_date: e.target.value }))} className="h-8 w-36" />
-                      ) : formatDate(card.due_date)}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {isEditing ? (
-                        <Input type="time" value={editDraft.due_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setEditDraft((d) => ({ ...d, due_time: e.target.value }))} className="h-8 w-28" />
-                      ) : formatTime(card.due_time)}
-                    </TableCell>
-                    <TableCell className={`whitespace-nowrap ${overdue && !isEditing ? "text-destructive font-semibold" : ""}`}>
-                      {isEditing ? (
-                        <Input type="date" value={editDraft.delivery_date} onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setEditDraft((d) => ({ ...d, delivery_date: e.target.value }))} className="h-8 w-36" />
-                      ) : formatDate(card.delivery_date)}
+                        <div className="flex gap-2">
+                          <Input type="date" value={editDraft.due_date} onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => setEditDraft((d) => ({ ...d, due_date: e.target.value }))} className="h-8 w-36" />
+                          <Input type="time" value={editDraft.due_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => setEditDraft((d) => ({ ...d, due_time: e.target.value }))} className="h-8 w-28" />
+                        </div>
+                      ) : (
+                        <span>{formatDate(card.due_date)}{card.due_time ? ` · ${formatTime(card.due_time)}` : ""}</span>
+                      )}
                     </TableCell>
                     <TableCell className={`whitespace-nowrap ${overdue && !isEditing ? "text-destructive font-semibold" : ""}`}>
                       {isEditing ? (
-                        <Input type="time" value={editDraft.delivery_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setEditDraft((d) => ({ ...d, delivery_time: e.target.value }))} className="h-8 w-28" />
-                      ) : formatTime(card.delivery_time)}
+                        <div className="flex gap-2">
+                          <Input type="date" value={editDraft.delivery_date} onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => setEditDraft((d) => ({ ...d, delivery_date: e.target.value }))} className="h-8 w-36" />
+                          <Input type="time" value={editDraft.delivery_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => setEditDraft((d) => ({ ...d, delivery_time: e.target.value }))} className="h-8 w-28" />
+                        </div>
+                      ) : (
+                        <span>{formatDate(card.delivery_date)}{card.delivery_time ? ` · ${formatTime(card.delivery_time)}` : ""}</span>
+                      )}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {isEditing ? (
