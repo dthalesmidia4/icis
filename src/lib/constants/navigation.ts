@@ -56,12 +56,6 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: CheckCircle2,
     route: "/demandas-completas",
   },
-  {
-    id: 'logins-plataformas',
-    title: "Logins das Plataformas",
-    icon: KeyRound,
-    route: "/logins-plataformas",
-  },
 ];
 
 /**
