@@ -55,6 +55,7 @@ import ApproveCards from "./pages/ApproveCards";
 import RejectedCards from "./pages/RejectedCards";
 import ContentHistory from "./pages/ContentHistory";
 import CollaboratorDemands from "./pages/CollaboratorDemands";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -440,6 +441,15 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <CollaboratorDemands />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/configuracoes" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <Settings />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>

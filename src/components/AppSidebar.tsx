@@ -1,4 +1,4 @@
-import { Home, Code, User, LogOut, Menu, Building2, Briefcase, DollarSign, KeyRound, Sparkles } from "lucide-react";
+import { Home, Code, User, LogOut, Menu, Building2, Briefcase, DollarSign, KeyRound, Sparkles, Settings as SettingsIcon } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 const mainMenuItems = [
   { title: "Minha Empresa", url: "/minha-empresa", icon: Briefcase, requiresAgency: true },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
+  { title: "Configurações", url: "/configuracoes", icon: SettingsIcon },
 ];
 
 // Menu developer
