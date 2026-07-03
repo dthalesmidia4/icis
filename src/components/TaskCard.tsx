@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight } from "lucide-react";
-import { proceedDemand } from "@/lib/proceedDemand";
+import { proceedDemand, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, type DemandTypeKey } from "@/lib/proceedDemand";
 
 // Split instructions field into "production instructions" and "CTA" parts.
 // Recognizes a "CTA:" marker (optionally wrapped in <p>) anywhere in the string.
@@ -104,6 +104,7 @@ export interface KanbanCardData {
   source?: string;
   demand_id?: string;
   demand_type?: string | null;
+  demand_type_key?: string | null;
   assigned_to?: string | null;
   current_function_key?: string | null;
   // Computed/display fields (not in DB)
@@ -342,12 +343,16 @@ export default function TaskCard({
 
   const handleProceed = async () => {
     if (!card || proceeding) return;
+    if (!card.demand_type_key) {
+      toast.error("Defina o tipo da demanda antes de prosseguir.");
+      return;
+    }
     setProceeding(true);
     try {
       const result = await proceedDemand({
         demandId: card.id,
         tenantId: card.tenant_id,
-        demandType: card.demand_type,
+        demandTypeKey: card.demand_type_key,
         currentFunctionKey: card.current_function_key,
       });
       if (result.success) {
@@ -364,6 +369,27 @@ export default function TaskCard({
       }
     } finally {
       setProceeding(false);
+    }
+  };
+
+  const [settingType, setSettingType] = useState(false);
+  const handleSetDemandType = async (key: DemandTypeKey) => {
+    if (!card || settingType) return;
+    setSettingType(true);
+    try {
+      const label = DEMAND_TYPE_LABEL[key];
+      const { error } = await supabase
+        .from("demands")
+        .update({ demand_type: label, demand_type_key: key } as any)
+        .eq("id", card.id);
+      if (error) throw error;
+      onCardChange({ ...card, demand_type: label, demand_type_key: key });
+      toast.success(`Tipo definido: ${label}`);
+    } catch (err: any) {
+      console.error("[TaskCard] set demand_type_key error", err);
+      toast.error(err?.message || "Erro ao definir o tipo da demanda");
+    } finally {
+      setSettingType(false);
     }
   };
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
