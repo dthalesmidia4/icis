@@ -33,6 +33,11 @@ const Scheduled = () => {
   const [uploading, setUploading] = useState(false);
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>("all");
   const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
+  const [currentMonth, setCurrentMonth] = useState<Date>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
