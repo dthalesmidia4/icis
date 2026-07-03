@@ -208,7 +208,7 @@ const Home = () => {
         <div className="mt-10 sm:mt-14">
           <div className="flex items-center gap-2 mb-4 sm:mb-6">
             <Users className="w-5 h-5 text-primary" />
-            <h2 className="text-lg sm:text-xl font-bold text-foreground">Colaboradores</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-foreground">Ver Tarefas dos Colaboradores</h2>
             {!collaboratorsLoading && (
               <Badge variant="secondary" className="text-xs">{collaborators.length}</Badge>
             )}
