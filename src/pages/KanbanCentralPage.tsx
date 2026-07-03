@@ -14,7 +14,8 @@ import {
   Search,
   Plus,
   Settings2,
-  CalendarDays
+  CalendarDays,
+  X
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
@@ -23,6 +24,7 @@ import TaskCard, { getColumnFromStatus, getStatusFromColumn } from "@/components
 import type { KanbanCardData, Attachment } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import SmartSearchBar from "@/components/SmartSearchBar";
 import { cn } from "@/lib/utils";
 import BackButton from "@/components/BackButton";
@@ -106,6 +108,7 @@ const KanbanCentralPage = () => {
   const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<string>("active");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("all");
   const [dateGroupBy, setDateGroupBy] = useState<"start" | "delivery">("start");
+  const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const { collaborators } = useCollaborators(tenantId);
   const [periods, setPeriods] = useState<Array<{
     id: string;
@@ -955,116 +958,255 @@ const KanbanCentralPage = () => {
         </div>
       </div>
 
-      {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
-        <div className="flex-1">
-          <SmartSearchBar
-            items={allSearchableCards}
-            onResultSelect={handleSearchResultSelect}
-            placeholder="Pesquisar demandas..."
-            maxResults={8}
-          />
-        </div>
+      {/* Search + Filters button */}
+      {(() => {
+        const activeCount =
+          (selectedClientFilter !== "all" ? 1 : 0) +
+          (selectedPeriodFilter !== "active" ? 1 : 0) +
+          (selectedStatusFilter !== "all" ? 1 : 0) +
+          (dateGroupBy !== "start" ? 1 : 0);
+        const clientLabel = clients.find((c) => c.id === selectedClientFilter)?.name;
+        const periodLabel =
+          selectedPeriodFilter === "active"
+            ? null
+            : selectedPeriodFilter === "all"
+              ? "Todos os períodos"
+              : periods.find((p) => p.id === selectedPeriodFilter)?.period_title || "Período";
+        return (
+          <div className="flex flex-col gap-3 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <SmartSearchBar
+                  items={allSearchableCards}
+                  onResultSelect={handleSearchResultSelect}
+                  placeholder="Pesquisar demandas..."
+                  maxResults={8}
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsFiltersModalOpen(true)}
+                className="gap-2"
+              >
+                <Filter className="h-4 w-4" />
+                Filtros
+                {activeCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                    {activeCount}
+                  </Badge>
+                )}
+              </Button>
+            </div>
 
-        {clients.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <Select value={selectedClientFilter} onValueChange={setSelectedClientFilter}>
-              <SelectTrigger className="w-[200px]" aria-label="Filtrar por cliente">
-                <SelectValue placeholder="Filtrar por cliente" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os clientes</SelectItem>
-                {clients.map(client => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {activeCount > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                {clientLabel && (
+                  <Badge variant="secondary" className="gap-1 pr-1">
+                    Cliente: {clientLabel}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedClientFilter("all")}
+                      className="ml-1 hover:bg-background/40 rounded p-0.5"
+                      aria-label="Limpar filtro de cliente"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                {periodLabel && (
+                  <Badge variant="secondary" className="gap-1 pr-1">
+                    Período: {periodLabel}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPeriodFilter("active")}
+                      className="ml-1 hover:bg-background/40 rounded p-0.5"
+                      aria-label="Limpar filtro de período"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                {selectedStatusFilter !== "all" && (
+                  <Badge variant="secondary" className="gap-1 pr-1">
+                    Status: {selectedStatusFilter}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStatusFilter("all")}
+                      className="ml-1 hover:bg-background/40 rounded p-0.5"
+                      aria-label="Limpar filtro de status"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                {dateGroupBy !== "start" && (
+                  <Badge variant="secondary" className="gap-1 pr-1">
+                    Visualizar por: Data de término
+                    <button
+                      type="button"
+                      onClick={() => setDateGroupBy("start")}
+                      className="ml-1 hover:bg-background/40 rounded p-0.5"
+                      aria-label="Voltar para data de início"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs"
+                  onClick={() => {
+                    setSelectedClientFilter("all");
+                    setSelectedPeriodFilter("active");
+                    setSelectedStatusFilter("all");
+                    setDateGroupBy("start");
+                  }}
+                >
+                  Limpar todos
+                </Button>
+              </div>
+            )}
           </div>
-        )}
+        );
+      })()}
 
-        {periods.length > 0 && (
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-muted-foreground" />
-            <Select value={selectedPeriodFilter} onValueChange={setSelectedPeriodFilter}>
-              <SelectTrigger className="w-[280px]" aria-label="Filtrar por período">
-                <SelectValue placeholder="Filtrar por período" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Todos em andamento</SelectItem>
-                {periods
-                  .filter(period => period.operational_status === 'em_andamento')
-                  .map(period => (
-                    <SelectItem key={period.id} value={period.id}>
-                      <span className="flex items-center gap-2">
-                        <span className="truncate max-w-[180px]">
-                          {period.companyName ? `${period.companyName} – ` : ""}{period.period_title}
+      {/* Filters Modal */}
+      <Dialog open={isFiltersModalOpen} onOpenChange={setIsFiltersModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              Filtros
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                Visualizar por
+              </label>
+              <div className="inline-flex rounded-md border border-border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setDateGroupBy("start")}
+                  className={cn(
+                    "px-3 py-1.5 text-sm font-medium transition-colors",
+                    dateGroupBy === "start" ? "bg-primary text-primary-foreground" : "bg-transparent text-foreground hover:bg-accent/40"
+                  )}
+                >
+                  Data de início
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDateGroupBy("delivery")}
+                  className={cn(
+                    "px-3 py-1.5 text-sm font-medium transition-colors",
+                    dateGroupBy === "delivery" ? "bg-primary text-primary-foreground" : "bg-transparent text-foreground hover:bg-accent/40"
+                  )}
+                >
+                  Data de término
+                </button>
+              </div>
+            </div>
+
+            {clients.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Cliente</label>
+                <Select value={selectedClientFilter} onValueChange={setSelectedClientFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Filtrar por cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os clientes</SelectItem>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {periods.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Período</label>
+                <Select value={selectedPeriodFilter} onValueChange={setSelectedPeriodFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Filtrar por período" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Todos em andamento</SelectItem>
+                    {periods
+                      .filter((period) => period.operational_status === "em_andamento")
+                      .map((period) => (
+                        <SelectItem key={period.id} value={period.id}>
+                          <span className="flex items-center gap-2">
+                            <span className="truncate max-w-[220px]">
+                              {period.companyName ? `${period.companyName} – ` : ""}
+                              {period.period_title}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px] px-1.5 py-0 font-medium shrink-0 bg-blue-500/10 text-blue-600 border-blue-500/30"
+                              )}
+                            >
+                              Em andamento
+                            </Badge>
+                          </span>
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {columns.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Status</label>
+                <Select value={selectedStatusFilter} onValueChange={setSelectedStatusFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Filtrar por status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os status</SelectItem>
+                    {columns.map((status) => (
+                      <SelectItem key={status.id} value={status.name}>
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: status.color }}
+                          />
+                          {status.name}
                         </span>
-                        <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 font-medium shrink-0 bg-blue-500/10 text-blue-600 border-blue-500/30")}>
-                          Em andamento
-                        </Badge>
-                      </span>
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
-        )}
 
-        {columns.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <Select value={selectedStatusFilter} onValueChange={setSelectedStatusFilter}>
-              <SelectTrigger className="w-[200px]" aria-label="Filtrar por status">
-                <SelectValue placeholder="Filtrar por status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os status</SelectItem>
-                {columns.map(status => (
-                  <SelectItem key={status.id} value={status.name}>
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: status.color }}
-                      />
-                      {status.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2">
-          <CalendarDays className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Visualizar por:</span>
-          <div className="inline-flex rounded-md border border-border overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setDateGroupBy("start")}
-              className={cn(
-                "px-3 py-1.5 text-sm font-medium transition-colors",
-                dateGroupBy === "start" ? "bg-primary text-primary-foreground" : "bg-transparent text-foreground hover:bg-accent/40"
-              )}
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSelectedClientFilter("all");
+                setSelectedPeriodFilter("active");
+                setSelectedStatusFilter("all");
+                setDateGroupBy("start");
+              }}
             >
-              Data de início
-            </button>
-            <button
-              type="button"
-              onClick={() => setDateGroupBy("delivery")}
-              className={cn(
-                "px-3 py-1.5 text-sm font-medium transition-colors",
-                dateGroupBy === "delivery" ? "bg-primary text-primary-foreground" : "bg-transparent text-foreground hover:bg-accent/40"
-              )}
-            >
-              Data de término
-            </button>
-          </div>
-        </div>
-      </div>
+              Limpar filtros
+            </Button>
+            <Button onClick={() => setIsFiltersModalOpen(false)}>Aplicar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Kanban Board (columns = collaborators) */}
       <DragDropContext onDragEnd={handleDragEnd}>
