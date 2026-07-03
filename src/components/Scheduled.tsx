@@ -620,7 +620,7 @@ const Scheduled = () => {
 
       {/* Day Modal */}
       <Dialog open={!!selectedDay} onOpenChange={(open) => { if (!open) setSelectedDay(null); }}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="w-auto max-w-[95vw] sm:max-w-fit max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Agendamentos de {selectedDay ? selectedDay.toLocaleDateString("pt-BR") : ""}
@@ -640,40 +640,40 @@ const Scheduled = () => {
               return <p className="text-sm text-muted-foreground py-6 text-center">Nenhum conteúdo agendado para este dia.</p>;
             }
             return (
-              <div className="flex flex-col gap-2">
-                {dayItems.map((card) => {
-                  const dt = getPublicationDateTime(card)!;
-                  const { cleanTitle, type: contentType } = extractContentType(card.title);
-                  return (
-                    <div
-                      key={card.id}
-                      className="flex items-center justify-between gap-3 p-3 bg-muted/30 rounded-lg border border-border/50 hover:bg-muted/50 cursor-pointer"
-                      onClick={() => { setSelectedDay(null); handleCardClick(card); }}
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <span className="text-sm font-semibold text-primary whitespace-nowrap">
-                          {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                        <span className="text-sm text-muted-foreground whitespace-nowrap">{card.clientName}</span>
-                        <span className="text-muted-foreground/40">•</span>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">{contentType}</span>
-                        <span className="text-muted-foreground/40">•</span>
-                        <span className="text-sm font-medium truncate text-foreground">{cleanTitle}</span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {card.attachments && card.attachments.length > 0 && (
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <Paperclip className="h-3.5 w-3.5" />
-                            <span className="text-xs">{card.attachments.length}</span>
-                          </div>
-                        )}
-                        <Badge variant="secondary" className="text-[10px]">{card.status}</Badge>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <table className="w-auto border-separate border-spacing-0">
+                <thead>
+                  <tr className="text-xs uppercase text-muted-foreground">
+                    <th className="text-left font-semibold px-3 py-2">Horário</th>
+                    <th className="text-left font-semibold px-3 py-2">Empresa</th>
+                    <th className="text-left font-semibold px-3 py-2">Nome</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dayItems.map((card) => {
+                    const dt = getPublicationDateTime(card)!;
+                    const { cleanTitle } = extractContentType(card.title);
+                    return (
+                      <tr
+                        key={card.id}
+                        className="cursor-pointer hover:bg-muted/50 border-t border-border/50"
+                        onClick={() => { setSelectedDay(null); handleCardClick(card); }}
+                      >
+                        <td className="px-3 py-3 align-middle whitespace-nowrap">
+                          <span className="text-2xl font-bold text-primary tabular-nums">
+                            {dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 align-middle whitespace-nowrap text-sm text-muted-foreground">
+                          {card.clientName}
+                        </td>
+                        <td className="px-3 py-3 align-middle whitespace-nowrap text-sm font-medium text-foreground">
+                          {cleanTitle}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             );
           })()}
         </DialogContent>
