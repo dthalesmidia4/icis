@@ -29,6 +29,7 @@ import {
   MoreHorizontal } from
 "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, normalizeDemandTypeKey, coerceDemandTypeKey, type DemandTypeKey } from "@/lib/proceedDemand";
 
 interface Pipeline {
   id: string;
@@ -109,6 +110,7 @@ export function CreateDemandModal({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [demandType, setDemandType] = useState("");
+  const [demandTypeKey, setDemandTypeKey] = useState<DemandTypeKey | "">("");
   const [channel, setChannel] = useState("");
   const [publishDate, setPublishDate] = useState<Date | undefined>();
   const [dueDate, setDueDate] = useState<Date | undefined>();
@@ -181,6 +183,7 @@ export function CreateDemandModal({
     setTitle("");
     setDescription("");
     setDemandType("");
+    setDemandTypeKey("");
     setChannel("");
     setPublishDate(undefined);
     setDueDate(undefined);
@@ -363,7 +366,14 @@ export function CreateDemandModal({
     setSelectedTemplateId(suggestion.id);
     setTitle(suggestion.title_template);
     setDescription(suggestion.instructions_template || "");
-    setDemandType(suggestion.demand_type || "");
+    const suggestedKey = normalizeDemandTypeKey(suggestion.demand_type || "");
+    if (suggestedKey) {
+      setDemandTypeKey(suggestedKey);
+      setDemandType(DEMAND_TYPE_LABEL[suggestedKey]);
+    } else {
+      setDemandTypeKey("");
+      setDemandType(suggestion.demand_type || "");
+    }
     setChannel(suggestion.channel || "");
 
     if (suggestion.pipeline_id) {
@@ -390,6 +400,12 @@ export function CreateDemandModal({
       return;
     }
 
+    const chosenKey = coerceDemandTypeKey(demandTypeKey);
+    if (!chosenKey) {
+      toast.error("Selecione o tipo da demanda");
+      return;
+    }
+    const chosenLabel = DEMAND_TYPE_LABEL[chosenKey];
 
     // Check required fields for selected status
     const selectedStatus = statuses.find((s) => s.id === statusId);
@@ -407,7 +423,7 @@ export function CreateDemandModal({
         p_status_id: statusId || null,
         p_title: title,
         p_description: description || null,
-        p_demand_type: demandType || null,
+        p_demand_type: chosenLabel,
         p_channel: channel || null,
         p_publish_date: publishDate ? format(publishDate, "yyyy-MM-dd") : null,
         p_due_date: dueDate ? format(dueDate, "yyyy-MM-dd") : null,
@@ -419,12 +435,11 @@ export function CreateDemandModal({
       const result = data as {success?: boolean;demand_id?: string;error?: string;} | null;
 
       if (result?.success) {
-        // Update delivery_date if provided (not in RPC params)
-        if (deliveryDate && result.demand_id) {
-          await supabase
-            .from("demands")
-            .update({ delivery_date: format(deliveryDate, "yyyy-MM-dd") })
-            .eq("id", result.demand_id);
+        // Persist demand_type_key + delivery_date (RPC does not accept these)
+        if (result.demand_id) {
+          const extraUpdate: Record<string, any> = { demand_type_key: chosenKey };
+          if (deliveryDate) extraUpdate.delivery_date = format(deliveryDate, "yyyy-MM-dd");
+          await supabase.from("demands").update(extraUpdate).eq("id", result.demand_id);
         }
         toast.success("Demanda criada com sucesso!");
         onOpenChange(false);
@@ -622,7 +637,32 @@ export function CreateDemandModal({
 
             </div>
             
-            {/* Type & Channel */}
+            {/* Tipo da demanda (obrigatório) */}
+            <div className="space-y-2">
+              <Label>Tipo da demanda *</Label>
+              <Select
+                value={demandTypeKey}
+                onValueChange={(v) => {
+                  const key = v as DemandTypeKey;
+                  setDemandTypeKey(key);
+                  setDemandType(DEMAND_TYPE_LABEL[key]);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo técnico" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  {OFFICIAL_DEMAND_TYPES.map((opt) => (
+                    <SelectItem key={opt.key} value={opt.key}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Define o fluxo de produção. Escolha manualmente — não há classificação automática.
+              </p>
+            </div>
+
+
             
 
 
@@ -748,7 +788,7 @@ export function CreateDemandModal({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={submitting || !clientId || !title.trim()}>
+          <Button onClick={handleSubmit} disabled={submitting || !clientId || !title.trim() || !demandTypeKey}>
             {submitting ?
             <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

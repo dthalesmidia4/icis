@@ -1,20 +1,67 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Normaliza o texto livre `demand_type` da demanda para um dos keys
- * configurados em `demand_type_flow_rules`.
+ * Chaves técnicas oficiais de tipo de demanda. Usadas pelo botão Prosseguir
+ * e por `demand_type_flow_rules`. Nunca inventar novas keys aqui.
  */
-export function normalizeDemandTypeKey(demandType?: string | null): string | null {
-  if (!demandType) return null;
-  const t = demandType.toLowerCase();
-  if (t.includes("anúncio") || t.includes("anuncio") || t.includes("ad ") || t.includes("ads")) return "anuncio";
-  if (t.includes("carrossel") || t.includes("carousel")) return "carrossel";
-  if (t.includes("captad")) return "video_captado";
-  if (t.includes("gerad") && t.includes("vídeo")) return "video_gerado";
-  if (t.includes("gerad") && t.includes("video")) return "video_gerado";
-  if (t.includes("reel") || t.includes("tiktok") || t.includes("vídeo") || t.includes("video")) return "video_captado";
-  if (t.includes("estát") || t.includes("estat") || t.includes("post") || t.includes("stories") || t.includes("imagem")) return "criativo_estatico";
-  return "criativo_estatico";
+export type DemandTypeKey =
+  | "criativo_estatico"
+  | "carrossel"
+  | "video_captado"
+  | "video_gerado";
+
+export const OFFICIAL_DEMAND_TYPES: { key: DemandTypeKey; label: string }[] = [
+  { key: "criativo_estatico", label: "Criativo estático" },
+  { key: "carrossel", label: "Carrossel" },
+  { key: "video_captado", label: "Vídeo captado" },
+  { key: "video_gerado", label: "Vídeo gerado" },
+];
+
+export const DEMAND_TYPE_LABEL: Record<DemandTypeKey, string> = {
+  criativo_estatico: "Criativo estático",
+  carrossel: "Carrossel",
+  video_captado: "Vídeo captado",
+  video_gerado: "Vídeo gerado",
+};
+
+/**
+ * Normaliza texto livre de tipo (vindo da IA/usuário) para uma das 4 keys
+ * oficiais — ou `null` quando não houver certeza.
+ *
+ * Segurança: nunca faz fallback silencioso para `criativo_estatico`.
+ * Compostos (com "+") retornam null. Vídeos ambíguos retornam null.
+ */
+export function normalizeDemandTypeKey(text?: string | null): DemandTypeKey | null {
+  if (!text) return null;
+  const raw = String(text).trim();
+  if (!raw) return null;
+  if (raw.includes("+")) return null;
+
+  const l = raw.toLowerCase();
+  if (l.includes("carrossel") || l.includes("carousel")) return "carrossel";
+  if (l.includes("captad")) return "video_captado";
+  if ((l.includes("gerad") || l.includes("gerar")) && (l.includes("vídeo") || l.includes("video"))) {
+    return "video_gerado";
+  }
+  const looksLikeVideo = /(\bv[ií]deo\b|\breels?\b|\btiktok\b|v[ií]deos?\s+curtos)/.test(l);
+  if (looksLikeVideo) return null;
+  if (/(est[aá]t|\bpost\b|stor(y|ies))/.test(l)) return "criativo_estatico";
+  return null;
+}
+
+/** Aceita apenas uma das 4 keys oficiais; caso contrário retorna null. */
+export function coerceDemandTypeKey(value?: string | null): DemandTypeKey | null {
+  if (!value) return null;
+  const v = String(value).trim() as DemandTypeKey;
+  if (
+    v === "criativo_estatico" ||
+    v === "carrossel" ||
+    v === "video_captado" ||
+    v === "video_gerado"
+  ) {
+    return v;
+  }
+  return null;
 }
 
 export interface ProceedResult {
@@ -25,30 +72,44 @@ export interface ProceedResult {
   functionKey?: string;
   functionName?: string;
   end?: boolean;
+  needsTypeKey?: boolean;
 }
 
 interface ProceedInput {
   demandId: string;
   tenantId: string;
-  demandType?: string | null;
+  /** Chave técnica salva em `demands.demand_type_key`. Único sinal aceito. */
+  demandTypeKey?: string | null;
   currentFunctionKey?: string | null;
 }
 
 export async function proceedDemand({
   demandId,
   tenantId,
-  demandType,
+  demandTypeKey,
   currentFunctionKey,
 }: ProceedInput): Promise<ProceedResult> {
-  const typeKey = normalizeDemandTypeKey(demandType);
+  const typeKey = coerceDemandTypeKey(demandTypeKey);
   if (!typeKey) {
-    return { success: false, message: "Tipo de demanda não identificado. Defina o tipo antes de prosseguir." };
+    return {
+      success: false,
+      needsTypeKey: true,
+      message: "Defina o tipo da demanda antes de prosseguir.",
+    };
   }
 
-  // Load flow functions (order) + rules for this demand type
   const [{ data: fns, error: fnErr }, { data: rules, error: rErr }] = await Promise.all([
-    supabase.from("flow_functions").select("function_key, name, position, active").eq("tenant_id", tenantId).eq("active", true).order("position"),
-    supabase.from("demand_type_flow_rules").select("function_key, requirement").eq("tenant_id", tenantId).eq("demand_type_key", typeKey),
+    supabase
+      .from("flow_functions")
+      .select("function_key, name, position, active")
+      .eq("tenant_id", tenantId)
+      .eq("active", true)
+      .order("position"),
+    supabase
+      .from("demand_type_flow_rules")
+      .select("function_key, requirement")
+      .eq("tenant_id", tenantId)
+      .eq("demand_type_key", typeKey),
   ]);
   if (fnErr || rErr) return { success: false, message: "Erro ao carregar fluxo configurado." };
   if (!fns || fns.length === 0) return { success: false, message: "Nenhuma função de fluxo configurada." };
@@ -56,11 +117,9 @@ export async function proceedDemand({
   const req = new Map<string, string>();
   (rules || []).forEach((r: any) => req.set(r.function_key, r.requirement));
 
-  // Sequence: only functions that participate (required)
   const sequence = fns.filter((f: any) => req.get(f.function_key) === "required");
   if (sequence.length === 0) return { success: false, message: "Este tipo de demanda não tem funções configuradas." };
 
-  // Determine next
   let nextIndex = 0;
   if (currentFunctionKey) {
     const idx = sequence.findIndex((f: any) => f.function_key === currentFunctionKey);
@@ -71,7 +130,6 @@ export async function proceedDemand({
   }
   const nextFn = sequence[nextIndex] as { function_key: string; name: string };
 
-  // Find collaborators with this function
   const { data: assigns, error: aErr } = await supabase
     .from("collaborator_function_assignments")
     .select("user_id")
@@ -84,7 +142,6 @@ export async function proceedDemand({
     return { success: false, message: `Nenhum colaborador tem a função "${nextFn.name}" atribuída.` };
   }
 
-  // Restrict to internal tenant roles (agency_*)
   const { data: roles } = await supabase
     .from("user_roles")
     .select("user_id, role")
@@ -96,7 +153,6 @@ export async function proceedDemand({
     return { success: false, message: `Nenhum colaborador interno com a função "${nextFn.name}".` };
   }
 
-  // Profiles + active demand counts
   const [{ data: profiles }, { data: demands }] = await Promise.all([
     supabase.from("profiles").select("id, full_name").in("id", internalIds),
     supabase

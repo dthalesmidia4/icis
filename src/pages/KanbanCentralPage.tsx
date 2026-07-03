@@ -246,6 +246,7 @@ const KanbanCentralPage = () => {
               status: newStatusName,
               title: payload.title ?? card.title,
               demand_type: payload.demand_type ?? card.demand_type,
+              demand_type_key: payload.demand_type_key ?? card.demand_type_key,
               assigned_to: payload.assigned_to !== undefined ? payload.assigned_to : card.assigned_to,
               publish_date: payload.publish_date ?? card.publish_date,
               publish_time: payload.publish_time ?? card.publish_time,
@@ -321,6 +322,7 @@ const KanbanCentralPage = () => {
         source: data.source,
         demand_id: data.id,
         demand_type: data.demand_type,
+        demand_type_key: data.demand_type_key ?? null,
         assigned_to: data.assigned_to || null,
         status_color: data.pipeline_statuses?.color || null,
         additional_publish_dates: Array.isArray(data.additional_publish_dates) ? (data.additional_publish_dates as unknown as string[]) : []
@@ -546,6 +548,7 @@ const KanbanCentralPage = () => {
           source: demand.source,
           demand_id: demand.id,
           demand_type: demand.demand_type,
+          demand_type_key: demand.demand_type_key ?? null,
           assigned_to: demand.assigned_to || null,
           status_color: demand.pipeline_statuses?.color || null,
           additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates : []
@@ -620,6 +623,7 @@ const KanbanCentralPage = () => {
     const updatedCentralCard = {
       ...updatedCard,
       demand_type: updatedCard.demand_type ?? selectedCard?.demand_type ?? null,
+      demand_type_key: updatedCard.demand_type_key ?? selectedCard?.demand_type_key ?? null,
       clientName: selectedCard?.clientName || "Cliente",
       clientId: selectedCard?.clientId || "",
       periodPlanId: selectedCard?.periodPlanId || ""

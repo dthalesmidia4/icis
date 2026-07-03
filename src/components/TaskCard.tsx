@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight } from "lucide-react";
-import { proceedDemand } from "@/lib/proceedDemand";
+import { proceedDemand, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, type DemandTypeKey } from "@/lib/proceedDemand";
 
 // Split instructions field into "production instructions" and "CTA" parts.
 // Recognizes a "CTA:" marker (optionally wrapped in <p>) anywhere in the string.
@@ -104,6 +104,7 @@ export interface KanbanCardData {
   source?: string;
   demand_id?: string;
   demand_type?: string | null;
+  demand_type_key?: string | null;
   assigned_to?: string | null;
   current_function_key?: string | null;
   // Computed/display fields (not in DB)
@@ -342,12 +343,16 @@ export default function TaskCard({
 
   const handleProceed = async () => {
     if (!card || proceeding) return;
+    if (!card.demand_type_key) {
+      toast.error("Defina o tipo da demanda antes de prosseguir.");
+      return;
+    }
     setProceeding(true);
     try {
       const result = await proceedDemand({
         demandId: card.id,
         tenantId: card.tenant_id,
-        demandType: card.demand_type,
+        demandTypeKey: card.demand_type_key,
         currentFunctionKey: card.current_function_key,
       });
       if (result.success) {
@@ -364,6 +369,27 @@ export default function TaskCard({
       }
     } finally {
       setProceeding(false);
+    }
+  };
+
+  const [settingType, setSettingType] = useState(false);
+  const handleSetDemandType = async (key: DemandTypeKey) => {
+    if (!card || settingType) return;
+    setSettingType(true);
+    try {
+      const label = DEMAND_TYPE_LABEL[key];
+      const { error } = await supabase
+        .from("demands")
+        .update({ demand_type: label, demand_type_key: key } as any)
+        .eq("id", card.id);
+      if (error) throw error;
+      onCardChange({ ...card, demand_type: label, demand_type_key: key });
+      toast.success(`Tipo definido: ${label}`);
+    } catch (err: any) {
+      console.error("[TaskCard] set demand_type_key error", err);
+      toast.error(err?.message || "Erro ao definir o tipo da demanda");
+    } finally {
+      setSettingType(false);
     }
   };
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
@@ -868,9 +894,9 @@ export default function TaskCard({
                   size="sm"
                   className="h-11 gap-2 shrink-0"
                   onClick={handleProceed}
-                  disabled={proceeding}
+                  disabled={proceeding || !card.demand_type_key}
                   aria-label="Prosseguir"
-                  title="Enviar para o próximo colaborador do fluxo"
+                  title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : "Enviar para o próximo colaborador do fluxo"}
                 >
                   {proceeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
                   <span>Prosseguir</span>
@@ -970,7 +996,35 @@ export default function TaskCard({
                 </Select>
               )}
             </div>
+
+            {/* CTA: Definir tipo (quando demand_type_key é nulo) */}
+            {!readOnly && !card.demand_type_key && (
+              <div className="mt-3 rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800/40 p-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-300">
+                    Definir tipo
+                  </Badge>
+                  <span className="text-sm text-amber-900 dark:text-amber-100">
+                    Escolha o tipo técnico da demanda para liberar o botão Prosseguir:
+                  </span>
+                  <div className="flex flex-wrap gap-2 ml-auto">
+                    {OFFICIAL_DEMAND_TYPES.map((opt) => (
+                      <Button
+                        key={opt.key}
+                        variant="outline"
+                        size="sm"
+                        disabled={settingType}
+                        onClick={() => handleSetDemandType(opt.key)}
+                      >
+                        {opt.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+
 
           {/* ===== BODY - 2 COLUNAS ===== */}
           <div className="flex-1 min-h-0 overflow-y-auto">

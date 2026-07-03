@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Textarea } from "@/components/ui/textarea";
 import ContentRequirementsDiffModal from "@/components/ContentRequirementsDiffModal";
 import { cn } from "@/lib/utils";
+import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
 
 interface PeriodData {
   id: string;
@@ -358,6 +359,8 @@ const RejectedCards = () => {
       const dateStr = card.data_sugerida || card.suggested_date || card.date || null;
 
       const instructionParts = [instrucoes, cta ? `CTA: ${cta}` : ''].filter(Boolean);
+      const explicitKey = coerceDemandTypeKey((card as any).demand_type_key || (card as any).type_key);
+      const demandTypeKey = explicitKey ?? normalizeDemandTypeKey(tipo);
 
       const { data: insertedData, error: insertError } = await supabase.from('demands').insert({
         tenant_id: tenantId,
@@ -372,9 +375,10 @@ const RejectedCards = () => {
         publish_date: dateStr || null,
         channel,
         demand_type: tipo,
+        demand_type_key: demandTypeKey,
         source: 'card',
         observations: null,
-      }).select('id').single();
+      } as any).select('id').single();
 
       if (insertError) throw insertError;
 

@@ -340,7 +340,15 @@ REGRA CRÍTICA DE DIVERSIDADE:
 - Varie os formatos de abordagem: educativo, storytelling, bastidores, depoimento, tendência, humor, dados/estatísticas, antes/depois, tutorial, etc.
 - Se o setor tem poucos temas, explore ângulos completamente diferentes para cada demanda.
 
-Cada demanda: {"tipo":"...","titulo":"${truncateText(company.fantasy_name || company.name, 80)} – <título do post>","objetivo":"...","conteudo":"conteúdo markdown","instrucoes_de_producao":"...","cta_recomendado":"...","canal":"${periodPlan.priority_channel}","data_sugerida":"YYYY-MM-DD"}
+Cada demanda: {"tipo":"...","type_key":"criativo_estatico|carrossel|video_captado|video_gerado|null","titulo":"${truncateText(company.fantasy_name || company.name, 80)} – <título do post>","objetivo":"...","conteudo":"conteúdo markdown","instrucoes_de_producao":"...","cta_recomendado":"...","canal":"${periodPlan.priority_channel}","data_sugerida":"YYYY-MM-DD"}
+
+REGRA OBRIGATÓRIA DE type_key (chave técnica do fluxo):
+- "criativo_estatico" para post/imagem única/story estático.
+- "carrossel" para carrossel de slides.
+- "video_captado" quando o vídeo exigir GRAVAÇÃO REAL (pessoa, local, produto, depoimento, bastidor com câmera).
+- "video_gerado" quando o vídeo puder ser 100% IA/animação/motion/stock, SEM captação.
+- null quando você NÃO tiver certeza. NUNCA invente. Prefira null a errar.
+- NUNCA use conteúdo composto (ex: "Post + Stories"); se o formato for misto, use null.
 
 REGRA OBRIGATÓRIA DE TÍTULO:
 - O campo "titulo" DEVE SEMPRE começar com "${truncateText(company.fantasy_name || company.name, 80)} – " (nome da marca, espaço, en-dash "–", espaço), seguido pelo título criativo do post.
@@ -453,11 +461,46 @@ Se faltar espaço, reduza o tamanho do campo "conteudo" antes de omitir itens do
     // Ensure correct channel + normalize tipo to requested batchType (avoids
     // accent/case mismatches deflating the count).
     const priorityChannel = periodPlan.priority_channel;
-    const planDemands = (parsed.plan || []).map((d: any) => ({
-      ...d,
-      canal: priorityChannel,
-      tipo: batchType ? batchType : (d.tipo || d.demand_type || ''),
-    }));
+
+    const BATCH_TO_KEY: Record<string, string | null> = {
+      'Post Estático': 'criativo_estatico',
+      'Post estático': 'criativo_estatico',
+      'Carrossel': 'carrossel',
+      'Vídeos Curtos': null, // deixa a IA decidir captado vs gerado; null se não souber
+    };
+    const OFFICIAL_KEYS = new Set(['criativo_estatico', 'carrossel', 'video_captado', 'video_gerado']);
+    const coerceKey = (v: any): string | null => {
+      if (typeof v !== 'string') return null;
+      const t = v.trim();
+      return OFFICIAL_KEYS.has(t) ? t : null;
+    };
+    const normalizeKey = (text: any): string | null => {
+      if (!text || typeof text !== 'string') return null;
+      const raw = text.trim();
+      if (!raw || raw.includes('+')) return null;
+      const l = raw.toLowerCase();
+      if (l.includes('carrossel') || l.includes('carousel')) return 'carrossel';
+      if (l.includes('captad')) return 'video_captado';
+      if ((l.includes('gerad') || l.includes('gerar')) && (l.includes('vídeo') || l.includes('video'))) return 'video_gerado';
+      if (/(\bv[ií]deo\b|\breels?\b|\btiktok\b|v[ií]deos?\s+curtos)/.test(l)) return null;
+      if (/(est[aá]t|\bpost\b|stor(y|ies))/.test(l)) return 'criativo_estatico';
+      return null;
+    };
+
+    const planDemands = (parsed.plan || []).map((d: any) => {
+      const tipo = batchType ? batchType : (d.tipo || d.demand_type || '');
+      const forcedKey = batchType && Object.prototype.hasOwnProperty.call(BATCH_TO_KEY, batchType)
+        ? BATCH_TO_KEY[batchType]
+        : null;
+      const iaKey = coerceKey(d.type_key);
+      const type_key = forcedKey ?? iaKey ?? normalizeKey(tipo);
+      return {
+        ...d,
+        canal: priorityChannel,
+        tipo,
+        type_key,
+      };
+    });
     const summary = parsed.summary || '';
 
     console.log(`${planType} plan demands:`, planDemands.length);

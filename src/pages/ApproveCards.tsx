@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
 
 interface PeriodData {
   id: string;
@@ -224,6 +225,8 @@ const ApproveCards = () => {
       const dateStr = card.data_sugerida || card.suggested_date || card.date || null;
 
       const instructionParts = [instrucoes, cta ? `CTA: ${cta}` : ''].filter(Boolean);
+      const explicitKey = coerceDemandTypeKey((card as any).demand_type_key || (card as any).type_key);
+      const demandTypeKey = explicitKey ?? normalizeDemandTypeKey(tipo);
 
       const { data: insertedData, error } = await supabase.from('demands').insert({
         tenant_id: tenantId,
@@ -238,9 +241,10 @@ const ApproveCards = () => {
         publish_date: dateStr || null,
         channel,
         demand_type: tipo,
+        demand_type_key: demandTypeKey,
         source: 'card',
         observations: null,
-      }).select('id').single();
+      } as any).select('id').single();
 
       if (error) throw error;
 
