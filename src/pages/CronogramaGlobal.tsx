@@ -272,13 +272,13 @@ const CronogramaGlobal = () => {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 {([
+                  { k: "status", label: "Status" },
                   { k: "title", label: "Nome da demanda" },
                   { k: "due_date", label: "Data de início" },
                   { k: "due_time", label: "Hora de início" },
                   { k: "delivery_date", label: "Data de entrega" },
                   { k: "delivery_time", label: "Hora de entrega" },
                   { k: "assigned", label: "Responsável" },
-                  { k: "status", label: "Status" },
                 ] as { k: SortKey; label: string }[]).map(({ k, label }) => (
                   <TableHead key={k} className="whitespace-nowrap">
                     <button
@@ -302,6 +302,7 @@ const CronogramaGlobal = () => {
                     onClick={() => setSelectedCard(card)}
                     className={`cursor-pointer ${overdue ? "bg-destructive/10 hover:bg-destructive/15" : ""}`}
                   >
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{card.status}</TableCell>
                     <TableCell className="font-medium text-foreground">
                       <span className="uppercase tracking-wide text-sm">{card.title}</span>
                     </TableCell>
@@ -316,7 +317,6 @@ const CronogramaGlobal = () => {
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {assigneeMap[card.assigned_to || ""] || "—"}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{card.status}</TableCell>
                   </TableRow>
                 );
               })}
