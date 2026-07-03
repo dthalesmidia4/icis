@@ -1288,28 +1288,7 @@ export default function TaskCard({
                   </Card>
                 )}
 
-                {/* Ações secundárias (apenas Arquivar; Excluir foi movido para o header) */}
-                {!readOnly && onArchive && (
-                  <Card>
-                    <CardContent className="p-4 space-y-2">
-                      <h3 className="font-semibold text-sm text-muted-foreground mb-2">Ações</h3>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className={cn(
-                          "w-full justify-start gap-2 text-sm",
-                          card.archived_at
-                            ? "hover:text-primary hover:border-primary/30"
-                            : "hover:text-amber-600 hover:border-amber-500/30"
-                        )}
-                        onClick={() => onArchive(!card.archived_at)}
-                      >
-                        {card.archived_at ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-                        {card.archived_at ? "Desarquivar demanda" : "Arquivar demanda"}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
+                {/* Ações secundárias movidas para o rodapé (ao lado da lixeira) */}
               </div>
                           {/* Objetivo */}
                           <section>
