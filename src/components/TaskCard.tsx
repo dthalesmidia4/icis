@@ -1691,6 +1691,7 @@ export default function TaskCard({
                 </CardContent>
               </Card>
             </div>
+            )}
           </div>
         </div>
       </div>
