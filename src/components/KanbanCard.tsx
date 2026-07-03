@@ -98,10 +98,10 @@ const KanbanCard = ({
       </CardHeader>
       
       {/* Footer: Dates */}
-      {(formattedDueDate || formattedCardDeliveryDate) && (
+      {(( !hideDueDate && formattedDueDate) || formattedCardDeliveryDate) && (
         <CardContent className="px-3 pb-3 pt-0">
           <div className="flex flex-col gap-1.5">
-            {formattedDueDate && (
+            {!hideDueDate && formattedDueDate && (
               <div className={cn(
                 "flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md w-fit",
                 isOverdue ? "text-red-500 bg-red-500/15" : "text-amber-500 bg-amber-500/10"
@@ -115,10 +115,11 @@ const KanbanCard = ({
             )}
             {formattedCardDeliveryDate && (
               <div className={cn(
-                "flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md w-fit",
+                "flex items-center gap-1.5 rounded-md w-fit",
+                emphasizeDelivery ? "text-sm font-bold px-3 py-2" : "text-xs font-medium px-2.5 py-1.5",
                 isOverdue ? "text-red-500 bg-red-500/15" : "text-emerald-500 bg-emerald-500/10"
               )}>
-                <Calendar className="h-3.5 w-3.5" />
+                <Calendar className={emphasizeDelivery ? "h-4 w-4" : "h-3.5 w-3.5"} />
                 <span>{formattedCardDeliveryDate}</span>
                 {formattedDeliveryTime && (
                   <span>• {formattedDeliveryTime}</span>
