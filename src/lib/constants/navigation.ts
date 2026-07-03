@@ -4,6 +4,7 @@ import {
   LayoutGrid,
   Briefcase,
   CalendarDays,
+  CalendarClock,
   Users,
   CheckCircle2,
   FilePlus2,
