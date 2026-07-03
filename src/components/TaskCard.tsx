@@ -1463,7 +1463,8 @@ export default function TaskCard({
 
             </div>
 
-            {/* ===== ANEXOS - Full Width ===== */}
+            {/* ===== ANEXOS - Full Width (aparece apenas quando o botão Anexos está ativo) ===== */}
+            {activeSection === 'anexos' && (
             <div className="px-6 pb-6">
               <Card>
                 <CardContent className="p-5">
