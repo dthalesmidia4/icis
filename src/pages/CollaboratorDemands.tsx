@@ -371,27 +371,27 @@ const CollaboratorDemands = () => {
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       {isEditing ? (
-                        <Input type="date" value={editDraft.due_date} onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setEditDraft((d) => ({ ...d, due_date: e.target.value }))} className="h-8 w-36" />
-                      ) : formatDate(card.due_date)}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {isEditing ? (
-                        <Input type="time" value={editDraft.due_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setEditDraft((d) => ({ ...d, due_time: e.target.value }))} className="h-8 w-28" />
-                      ) : formatTime(card.due_time)}
-                    </TableCell>
-                    <TableCell className={`whitespace-nowrap ${overdue && !isEditing ? "text-destructive font-semibold" : ""}`}>
-                      {isEditing ? (
-                        <Input type="date" value={editDraft.delivery_date} onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setEditDraft((d) => ({ ...d, delivery_date: e.target.value }))} className="h-8 w-36" />
-                      ) : formatDate(card.delivery_date)}
+                        <div className="flex gap-2">
+                          <Input type="date" value={editDraft.due_date} onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => setEditDraft((d) => ({ ...d, due_date: e.target.value }))} className="h-8 w-36" />
+                          <Input type="time" value={editDraft.due_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => setEditDraft((d) => ({ ...d, due_time: e.target.value }))} className="h-8 w-28" />
+                        </div>
+                      ) : (
+                        <span>{formatDate(card.due_date)}{card.due_time ? ` · ${formatTime(card.due_time)}` : ""}</span>
+                      )}
                     </TableCell>
                     <TableCell className={`whitespace-nowrap ${overdue && !isEditing ? "text-destructive font-semibold" : ""}`}>
                       {isEditing ? (
-                        <Input type="time" value={editDraft.delivery_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setEditDraft((d) => ({ ...d, delivery_time: e.target.value }))} className="h-8 w-28" />
-                      ) : formatTime(card.delivery_time)}
+                        <div className="flex gap-2">
+                          <Input type="date" value={editDraft.delivery_date} onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => setEditDraft((d) => ({ ...d, delivery_date: e.target.value }))} className="h-8 w-36" />
+                          <Input type="time" value={editDraft.delivery_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => setEditDraft((d) => ({ ...d, delivery_time: e.target.value }))} className="h-8 w-28" />
+                        </div>
+                      ) : (
+                        <span>{formatDate(card.delivery_date)}{card.delivery_time ? ` · ${formatTime(card.delivery_time)}` : ""}</span>
+                      )}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {isEditing ? (
