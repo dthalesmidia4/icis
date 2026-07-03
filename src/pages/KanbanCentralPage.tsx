@@ -922,7 +922,7 @@ const KanbanCentralPage = () => {
   return (
     <div className="mt-4">
       {/* Header */}
-      <div className="flex flex-col items-center mb-4 gap-3">
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-primary/10 rounded-lg">
             <LayoutGrid className="h-5 w-5 text-primary" />
@@ -936,6 +936,14 @@ const KanbanCentralPage = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsCreateColumnModalOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Novo Status
+          </Button>
           <Button
             size="sm"
             onClick={() => setIsCreateDemandModalOpen(true)}
