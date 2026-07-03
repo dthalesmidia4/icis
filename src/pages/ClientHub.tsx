@@ -1348,7 +1348,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     { id: 'client_anamnese' as ClientHubButtonId, title: "Anamnese", icon: FileText, action: () => navigate("/client-guide") },
     { id: 'client_estrategia' as ClientHubButtonId, title: "Estratégia", icon: Lightbulb, action: () => navigate("/strategies") },
     { id: 'client_planejar_periodo' as ClientHubButtonId, title: "Planejar Período", icon: CalendarDays, action: () => setPlanPeriodModalOpen(true) },
-    { id: 'client_aprovar_producao' as ClientHubButtonId, title: "Aprovar Produção de Demandas", icon: CheckSquare, action: () => navigate("/approve-cards"), badge: pendingCardsCount > 0 ? pendingCardsCount : undefined },
+    { id: 'client_aprovar_producao' as ClientHubButtonId, title: "Aprovar Demandas Planejadas", icon: CheckSquare, action: () => navigate("/approve-cards"), badge: pendingCardsCount > 0 ? pendingCardsCount : undefined },
     { id: 'client_demandas_reprovadas' as ClientHubButtonId, title: "Demandas Reprovadas", icon: ThumbsDown, action: () => navigate("/rejected-cards"), badge: rejectedCardsCount > 0 ? rejectedCardsCount : undefined },
     { id: 'client_cronograma_atual' as ClientHubButtonId, title: "Cronograma Atual", icon: Clock, action: () => setScheduleModalOpen(true) },
     { id: 'client_historico' as ClientHubButtonId, title: "Histórico de Períodos", icon: History, action: () => navigate("/plan-period?tab=history") },
