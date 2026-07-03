@@ -561,6 +561,7 @@ export type Database = {
           client_id: string
           created_at: string
           created_by: string | null
+          current_function_key: string | null
           delivery_date: string | null
           delivery_time: string | null
           demand_type: string | null
@@ -593,6 +594,7 @@ export type Database = {
           client_id: string
           created_at?: string
           created_by?: string | null
+          current_function_key?: string | null
           delivery_date?: string | null
           delivery_time?: string | null
           demand_type?: string | null
@@ -625,6 +627,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           created_by?: string | null
+          current_function_key?: string | null
           delivery_date?: string | null
           delivery_time?: string | null
           demand_type?: string | null
