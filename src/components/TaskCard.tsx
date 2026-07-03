@@ -1074,8 +1074,9 @@ export default function TaskCard({
                 </div>
               </div>
 
-              {/* === COLUNA DIREITA: Publicação + Controles === */}
-              <div className="space-y-4 sticky top-0 self-start">
+              {/* === PUBLICAÇÃO + CONTROLES (full-width, acima dos anexos) === */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 items-start">
+
                 {/* Responsável */}
                 <Card>
                   <CardContent className="p-4 space-y-2">
