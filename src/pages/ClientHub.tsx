@@ -1375,10 +1375,16 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
             {displayName}
           </h1>
           <p className="text-sm sm:text-lg text-muted-foreground mb-3 sm:mb-4">Hub do Cliente</p>
-          <div className="inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2 sm:py-3 bg-primary/10 rounded-full">
-            <div className="w-2 h-2 sm:w-3 sm:h-3 bg-primary rounded-full animate-pulse" />
-            <span className="text-xs sm:text-sm font-medium text-primary">Cliente Ativo</span>
-          </div>
+          {(isAdmin || canAccessButton('client_cadastro' as ClientHubButtonId)) && (
+            <button
+              onClick={() => navigate(`/clientes/${selectedClient.id}`)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary/20 rounded-full transition-colors"
+            >
+              <ClipboardList className="w-4 h-4 text-primary" />
+              <span className="text-xs sm:text-sm font-medium text-primary">Cadastro</span>
+            </button>
+          )}
+
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
