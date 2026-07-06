@@ -442,13 +442,15 @@ export default function TaskCard({
     setSettingType(true);
     try {
       const label = DEMAND_TYPE_LABEL[key];
-      const { error } = await supabase
-        .from("demands")
-        .update({ demand_type: label, demand_type_key: key } as any)
-        .eq("id", card.id);
-      if (error) throw error;
+      if (!isDraft) {
+        const { error } = await supabase
+          .from("demands")
+          .update({ demand_type: label, demand_type_key: key } as any)
+          .eq("id", card.id);
+        if (error) throw error;
+      }
       onCardChange({ ...card, demand_type: label, demand_type_key: key });
-      toast.success(`Tipo definido: ${label}`);
+      if (!isDraft) toast.success(`Tipo definido: ${label}`);
     } catch (err: any) {
       console.error("[TaskCard] set demand_type_key error", err);
       toast.error(err?.message || "Erro ao definir o tipo da demanda");
