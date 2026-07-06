@@ -154,6 +154,8 @@ const KanbanCentralPage = () => {
 
   // Modo "Registro de Cards" — mostra cards que já passaram por cada colaborador
   const [viewMode, setViewMode] = useState<"active" | "history">("active");
+  const [historyDays, setHistoryDays] = useState<number>(7);
+
   // Map<toUserId, Array<{ demandId, lastSeenAt }>>
   const [historyByUser, setHistoryByUser] = useState<Map<string, Array<{ demandId: string; lastSeenAt: string }>>>(new Map());
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -612,11 +614,13 @@ const KanbanCentralPage = () => {
     if (!tenantId) return;
     setHistoryLoading(true);
     try {
+      const cutoff = new Date(Date.now() - historyDays * 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
         .from("demand_flow_history" as any)
         .select("demand_id, to_user_id, created_at")
         .eq("tenant_id", tenantId)
         .not("to_user_id", "is", null)
+        .gte("created_at", cutoff)
         .order("created_at", { ascending: false })
         .limit(5000);
       if (error) throw error;
@@ -639,7 +643,8 @@ const KanbanCentralPage = () => {
     } finally {
       setHistoryLoading(false);
     }
-  }, [tenantId]);
+  }, [tenantId, historyDays]);
+
 
   useEffect(() => {
     if (viewMode === "history") fetchHistory();
@@ -1521,14 +1526,31 @@ const KanbanCentralPage = () => {
 
       {/* Kanban Board (columns = collaborators) */}
       {viewMode === "history" && (
-        <div className="mb-3 flex items-center gap-2 rounded-md border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-sm text-blue-700 dark:text-blue-300">
+        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-sm text-blue-700 dark:text-blue-300">
           <History className="h-4 w-4" />
-          <span>
-            Modo <strong>Registro de Cards</strong>: mostrando os cards que já passaram por cada colaborador.
+          <span className="flex-1 min-w-0">
+            Modo <strong>Registro de Cards</strong>: cards que passaram por cada colaborador nos últimos {historyDays} {historyDays === 1 ? "dia" : "dias"}.
             {historyLoading && " Carregando..."}
           </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs">Período:</span>
+            <Select value={String(historyDays)} onValueChange={(v) => setHistoryDays(Number(v))}>
+              <SelectTrigger className="h-8 w-[140px] bg-background text-foreground">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Último 1 dia</SelectItem>
+                <SelectItem value="7">Últimos 7 dias</SelectItem>
+                <SelectItem value="15">Últimos 15 dias</SelectItem>
+                <SelectItem value="30">Últimos 30 dias</SelectItem>
+                <SelectItem value="60">Últimos 60 dias</SelectItem>
+                <SelectItem value="90">Últimos 90 dias</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       )}
+
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {[
@@ -1695,9 +1717,6 @@ const KanbanCentralPage = () => {
                                       >
                                         {isHistory && (
                                           <div className="flex flex-wrap items-center gap-1 mb-1 px-1">
-                                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-dashed border-primary/60 text-primary">
-                                              Passou por aqui
-                                            </Badge>
                                             {historyAt && (
                                               <span className="text-[9px] text-muted-foreground">
                                                 {new Date(historyAt).toLocaleDateString("pt-BR")}
@@ -1708,6 +1727,7 @@ const KanbanCentralPage = () => {
                                             </Badge>
                                           </div>
                                         )}
+
                                         <div className={cn(isHistory && "border border-dashed border-primary/40 rounded-lg")}>
                                           <KanbanCard
                                             title={card.title}
