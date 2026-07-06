@@ -82,7 +82,9 @@ const CompletedDemands = () => {
         .select("*, pipeline_statuses!inner(name, color), tenant_companies!inner(name, fantasy_name)")
         .eq("tenant_id", tenantId)
         .in("status_id", doneStatusIds)
+        .eq("is_draft", false)
         .order("updated_at", { ascending: false });
+
 
       if (demands) {
         const mapped: KanbanCardData[] = demands.map((d: any) => ({
