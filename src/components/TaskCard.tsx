@@ -1287,12 +1287,6 @@ export default function TaskCard({
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start pt-1">
 
 
-                <div className={cn(
-                  "grid transition-all duration-300 ease-in-out",
-                  datesOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-                )}>
-                  <div className="overflow-hidden">
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start pt-1">
 
                 {(!readOnly && !card.due_date) ? (
                   <Popover>
