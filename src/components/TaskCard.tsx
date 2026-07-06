@@ -1060,44 +1060,62 @@ export default function TaskCard({
                       <span>Descartar</span>
                     </Button>
                   </>
-                ) : isLastFn ? (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-11 gap-2 shrink-0"
-                    onClick={handleDeliver}
-                    disabled={delivering}
-                    aria-label="Entregar"
-                    title="Entregar demanda e mover para Demandas Completas"
-                  >
-                    {delivering ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                    <span>Entregar</span>
-                  </Button>
-                ) : card.current_function_key === 'publicar' ? (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-11 gap-2 shrink-0"
-                    onClick={() => setInlineScheduleOpen(true)}
-                    aria-label="Agendar Publicação"
-                    title="Agendar a publicação nas redes sociais conectadas"
-                  >
-                    <CalendarClock className="h-4 w-4" />
-                    <span>Agendar Publicação</span>
-                  </Button>
                 ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-11 gap-2 shrink-0"
-                    onClick={handleProceed}
-                    disabled={proceeding || !card.demand_type_key}
-                    aria-label="Prosseguir"
-                    title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : "Enviar para o próximo colaborador do fluxo"}
-                  >
-                    {proceeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                    <span>Prosseguir</span>
-                  </Button>
+                  <>
+                    {card.current_function_key && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-11 gap-2 shrink-0 text-muted-foreground hover:text-foreground"
+                        onClick={handleRegress}
+                        disabled={regressing || !card.demand_type_key}
+                        aria-label="Voltar demanda"
+                        title="Devolver a demanda para a etapa anterior do fluxo"
+                      >
+                        {regressing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowLeft className="h-4 w-4" />}
+                        <span>Voltar demanda</span>
+                      </Button>
+                    )}
+                    {isLastFn ? (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="h-11 gap-2 shrink-0"
+                        onClick={handleDeliver}
+                        disabled={delivering}
+                        aria-label="Entregar"
+                        title="Entregar demanda e mover para Demandas Completas"
+                      >
+                        {delivering ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                        <span>Entregar</span>
+                      </Button>
+                    ) : card.current_function_key === 'publicar' ? (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="h-11 gap-2 shrink-0"
+                        onClick={() => setInlineScheduleOpen(true)}
+                        aria-label="Agendar Publicação"
+                        title="Agendar a publicação nas redes sociais conectadas"
+                      >
+                        <CalendarClock className="h-4 w-4" />
+                        <span>Agendar Publicação</span>
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-11 gap-2 shrink-0"
+                        onClick={handleProceed}
+                        disabled={proceeding || !card.demand_type_key}
+                        aria-label="Prosseguir"
+                        title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : "Enviar para o próximo colaborador do fluxo"}
+                      >
+                        {proceeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                        <span>Prosseguir</span>
+                      </Button>
+                    )}
+                  </>
                 )
               )}
 
