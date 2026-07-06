@@ -1683,12 +1683,8 @@ const KanbanCentralPage = () => {
         onSuccess={handleColumnCreated}
       />
 
-      {/* Create Demand Modal */}
-      <CreateDemandModal
-        open={isCreateDemandModalOpen}
-        onOpenChange={setIsCreateDemandModalOpen}
-        onDraftCreated={handleDraftCreated}
-      />
+
+
 
     </div>
   );
