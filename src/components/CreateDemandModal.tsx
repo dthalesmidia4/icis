@@ -163,12 +163,13 @@ export function CreateDemandModal({
                 <SelectValue placeholder="Selecione o tipo técnico" />
               </SelectTrigger>
               <SelectContent className="bg-background z-50">
-                {OFFICIAL_DEMAND_TYPES.map((key) => (
+                {OFFICIAL_DEMAND_TYPES.map(({ key, label }) => (
                   <SelectItem key={key} value={key}>
-                    {DEMAND_TYPE_LABEL[key]}
+                    {label}
                   </SelectItem>
                 ))}
               </SelectContent>
+
             </Select>
             <p className="text-xs text-muted-foreground">
               Define o fluxo operacional. Todos os demais campos ficam no card.
