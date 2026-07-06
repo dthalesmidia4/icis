@@ -941,6 +941,23 @@ const KanbanCentralPage = () => {
     }
 
     const nowIso = new Date().toISOString();
+    // Default: hoje + próximo slot de 30 em 30 (:00 ou :30, sempre arredondando para cima)
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const rounded = new Date(now);
+    const mins = rounded.getMinutes();
+    if (mins === 0 || mins === 30) {
+      // já está exato — avança para o próximo slot
+      rounded.setMinutes(mins + 30);
+    } else if (mins < 30) {
+      rounded.setMinutes(30);
+    } else {
+      rounded.setHours(rounded.getHours() + 1);
+      rounded.setMinutes(0);
+    }
+    rounded.setSeconds(0);
+    rounded.setMilliseconds(0);
+    const defaultStartTime = `${String(rounded.getHours()).padStart(2, '0')}:${String(rounded.getMinutes()).padStart(2, '0')}`;
     const blank: CentralKanbanCard = {
       id: "draft",
       title: "",
@@ -950,14 +967,15 @@ const KanbanCentralPage = () => {
       observations: null,
       post_caption: null,
       status: "Planejamento",
-      due_date: "",
+      due_date: todayStr,
       channel: null,
       attachments: [],
       publish_date: null,
       publish_time: null,
       tenant_id: tenantId,
       delivery_date: null,
-      due_time: null,
+      due_time: defaultStartTime,
+
       delivery_time: null,
       period_plan_id: null,
       created_at: nowIso,
