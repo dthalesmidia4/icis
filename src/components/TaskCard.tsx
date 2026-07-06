@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, CheckCircle2 } from "lucide-react";
+import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, CheckCircle2, Tag } from "lucide-react";
 import { proceedDemand, deliverDemand, isAtLastFlowFunction, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, type DemandTypeKey } from "@/lib/proceedDemand";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
@@ -442,13 +442,15 @@ export default function TaskCard({
     setSettingType(true);
     try {
       const label = DEMAND_TYPE_LABEL[key];
-      const { error } = await supabase
-        .from("demands")
-        .update({ demand_type: label, demand_type_key: key } as any)
-        .eq("id", card.id);
-      if (error) throw error;
+      if (!isDraft) {
+        const { error } = await supabase
+          .from("demands")
+          .update({ demand_type: label, demand_type_key: key } as any)
+          .eq("id", card.id);
+        if (error) throw error;
+      }
       onCardChange({ ...card, demand_type: label, demand_type_key: key });
-      toast.success(`Tipo definido: ${label}`);
+      if (!isDraft) toast.success(`Tipo definido: ${label}`);
     } catch (err: any) {
       console.error("[TaskCard] set demand_type_key error", err);
       toast.error(err?.message || "Erro ao definir o tipo da demanda");
@@ -947,13 +949,13 @@ export default function TaskCard({
                     onBlur={() => { if (editingField === 'title') handleFieldSave('title', card.title || ''); }}
                     onKeyDown={e => { if (e.key === 'Enter') handleFieldSave('title', card.title || ''); }}
                     placeholder="Nome da demanda"
-                    className="text-xl font-semibold border-primary"
+                    className="text-3xl font-bold h-14 border-primary"
                   />
                 ) : (
                   <h1
                     id="task-card-title"
                     onClick={() => !readOnly && setEditingField('title')}
-                    className={cn("font-bold text-2xl truncate", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
+                    className={cn("font-bold text-3xl md:text-4xl truncate", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
                   >
                     {card.title}
                   </h1>
@@ -1164,32 +1166,7 @@ export default function TaskCard({
               })()}
             </div>
 
-            {/* CTA: Definir tipo (quando demand_type_key é nulo) */}
-            {!readOnly && !card.demand_type_key && (
-              <div className="mt-3 rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800/40 p-3">
-                <div className="flex flex-wrap items-center gap-3">
-                  <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-300">
-                    Definir tipo
-                  </Badge>
-                  <span className="text-sm text-amber-900 dark:text-amber-100">
-                    Escolha o tipo técnico da demanda para liberar o botão Prosseguir:
-                  </span>
-                  <div className="flex flex-wrap gap-2 ml-auto">
-                    {OFFICIAL_DEMAND_TYPES.map((opt) => (
-                      <Button
-                        key={opt.key}
-                        variant="outline"
-                        size="sm"
-                        disabled={settingType}
-                        onClick={() => handleSetDemandType(opt.key)}
-                      >
-                        {opt.label}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Amber banner de Definir tipo removido — Tipo passou para a linha de triggers */}
           </div>
 
 
@@ -1207,7 +1184,7 @@ export default function TaskCard({
               {/* === PUBLICAÇÃO + CONTROLES (full-width, acima dos anexos) === */}
               <div className="space-y-4">
                 {/* Linha de triggers (Responsável, Datas, Objetivo) */}
-                <div className="grid gap-3 md:grid-cols-3 items-stretch">
+                <div className="grid gap-3 md:grid-cols-4 items-stretch">
                   {/* Responsável (sempre visível) */}
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card">
                     <User className="h-4 w-4 text-primary shrink-0" />
@@ -1232,6 +1209,27 @@ export default function TaskCard({
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Tipo da demanda */}
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card">
+                    <Tag className="h-4 w-4 text-primary shrink-0" />
+                    <span className="font-semibold text-sm shrink-0">Tipo</span>
+                    <Select
+                      value={card.demand_type_key || ""}
+                      onValueChange={(val) => handleSetDemandType(val as DemandTypeKey)}
+                      disabled={readOnly || settingType}
+                    >
+                      <SelectTrigger className="h-8 text-sm border-0 shadow-none px-2 flex-1" aria-label="Tipo">
+                        <SelectValue placeholder="Definir tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {OFFICIAL_DEMAND_TYPES.map((opt) => (
+                          <SelectItem key={opt.key} value={opt.key}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
 
                   {/* Toggle Datas e Horários */}
                   <button
