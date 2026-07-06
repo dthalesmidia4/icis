@@ -939,19 +939,20 @@ export default function TaskCard({
             {/* Linha 1: Título + Close */}
             <div className="flex items-center justify-between gap-4">
               <div className="flex-1 min-w-0">
-                {!readOnly && editingField === 'title' ? (
-                  <Input 
-                    autoFocus 
-                    value={card.title || ""} 
-                    onChange={e => onCardChange({ ...card, title: e.target.value })} 
-                    onBlur={() => handleFieldSave('title', card.title || '')} 
+                {!readOnly && (isDraft || editingField === 'title' || !card.title) ? (
+                  <Input
+                    autoFocus={editingField === 'title' || isDraft}
+                    value={card.title || ""}
+                    onChange={e => onCardChange({ ...card, title: e.target.value })}
+                    onBlur={() => { if (editingField === 'title') handleFieldSave('title', card.title || ''); }}
                     onKeyDown={e => { if (e.key === 'Enter') handleFieldSave('title', card.title || ''); }}
-                    className="text-xl font-semibold border-primary" 
+                    placeholder="Nome da demanda"
+                    className="text-xl font-semibold border-primary"
                   />
                 ) : (
-                  <h1 
-                    id="task-card-title" 
-                    onClick={() => !readOnly && setEditingField('title')} 
+                  <h1
+                    id="task-card-title"
+                    onClick={() => !readOnly && setEditingField('title')}
                     className={cn("font-bold text-2xl truncate", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
                   >
                     {card.title}
@@ -1063,7 +1064,7 @@ export default function TaskCard({
               )}
               {(isDraft || card.clientName) && <div className="h-4 w-px bg-border" />}
 
-              {readOnly ? (
+              {isDraft ? null : readOnly ? (
                 <div 
                   className="h-8 px-3 flex items-center gap-2 rounded-md border font-medium text-xs"
                   style={{
