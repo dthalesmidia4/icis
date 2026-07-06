@@ -1595,8 +1595,9 @@ const KanbanCentralPage = () => {
                                 <ChevronDown className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
                               )}
                               <span className="text-sm font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wide">
-                                Aguardando Clientes
+                                Aguardando clientes
                               </span>
+
                               <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 ml-auto bg-blue-500/25 text-blue-700 dark:text-blue-300 border-blue-500/40 font-bold">
                                 {awaitingCards.length}
                               </Badge>
