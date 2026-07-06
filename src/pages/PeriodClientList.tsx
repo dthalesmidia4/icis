@@ -207,7 +207,9 @@ const PeriodClientList = () => {
           .select("period_plan_id")
           .eq("tenant_id", tenantId)
           .eq("client_id", selectedClientLocal.id)
+          .eq("is_draft", false)
           .in("period_plan_id", periodIds);
+
         if (demands) {
           demands.forEach(d => {
             if (d.period_plan_id) {
@@ -256,7 +258,9 @@ const PeriodClientList = () => {
         .select("id, title, publish_date, publish_time, attachments, status_id, period_plan_id, channel, objective, description, instructions, observations, post_caption, tenant_id, created_at, updated_at, source, demand_type, demand_type_key, client_id, due_date, additional_publish_dates")
         .eq("tenant_id", tenantId)
         .eq("client_id", selectedClientLocal.id)
-        .eq("period_plan_id", selectedPeriodId);
+        .eq("period_plan_id", selectedPeriodId)
+        .eq("is_draft", false);
+
 
       const demandsList = (demands || []) as DemandRow[];
 
