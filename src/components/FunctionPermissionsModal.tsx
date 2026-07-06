@@ -22,8 +22,10 @@ const FUNCTIONS: { key: string; name: string }[] = [
   { key: "editar_video", name: "Editar vídeo" },
   { key: "revisar", name: "Revisar" },
   { key: "enviar_cliente", name: "Enviar cliente" },
+  { key: "aguardando_cliente", name: "Aguardando cliente" },
   { key: "publicar", name: "Publicar" },
   { key: "revisar_publicacao", name: "Revisar publicação" },
+
 ];
 
 const DEMAND_TYPES: { key: string; name: string }[] = [
@@ -39,33 +41,34 @@ const DEFAULTS: Record<string, Record<string, Requirement>> = {
   criativo_estatico: {
     planejar: "required", criar_roteiro: "disabled", criar_arte: "required",
     captar: "disabled", gerar_video: "disabled", editar_video: "disabled",
-    revisar: "required", enviar_cliente: "required", publicar: "required", revisar_publicacao: "required",
+    revisar: "required", enviar_cliente: "required", aguardando_cliente: "required", publicar: "required", revisar_publicacao: "required",
   },
   carrossel: {
     planejar: "required", criar_roteiro: "required", criar_arte: "required",
     captar: "disabled", gerar_video: "disabled", editar_video: "disabled",
-    revisar: "required", enviar_cliente: "required", publicar: "required", revisar_publicacao: "required",
+    revisar: "required", enviar_cliente: "required", aguardando_cliente: "required", publicar: "required", revisar_publicacao: "required",
   },
   video_captado: {
     planejar: "required", criar_roteiro: "required", criar_arte: "disabled",
     captar: "required", gerar_video: "disabled", editar_video: "required",
-    revisar: "required", enviar_cliente: "required", publicar: "required", revisar_publicacao: "required",
+    revisar: "required", enviar_cliente: "required", aguardando_cliente: "required", publicar: "required", revisar_publicacao: "required",
   },
   video_gerado: {
     planejar: "required", criar_roteiro: "required", criar_arte: "disabled",
     captar: "disabled", gerar_video: "required", editar_video: "disabled",
-    revisar: "required", enviar_cliente: "required", publicar: "required", revisar_publicacao: "required",
+    revisar: "required", enviar_cliente: "required", aguardando_cliente: "required", publicar: "required", revisar_publicacao: "required",
   },
   anuncio: {
     planejar: "required", criar_roteiro: "required", criar_arte: "required",
     captar: "disabled", gerar_video: "disabled", editar_video: "disabled",
-    revisar: "required", enviar_cliente: "required", publicar: "required", revisar_publicacao: "disabled",
+    revisar: "required", enviar_cliente: "required", aguardando_cliente: "required", publicar: "required", revisar_publicacao: "disabled",
   },
   outro: {
     planejar: "required", criar_roteiro: "disabled", criar_arte: "disabled",
     captar: "disabled", gerar_video: "disabled", editar_video: "disabled",
-    revisar: "required", enviar_cliente: "disabled", publicar: "disabled", revisar_publicacao: "disabled",
+    revisar: "required", enviar_cliente: "disabled", aguardando_cliente: "disabled", publicar: "disabled", revisar_publicacao: "disabled",
   },
+
 };
 
 const NEXT: Record<Requirement, Requirement> = {

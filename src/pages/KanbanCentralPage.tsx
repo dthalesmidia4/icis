@@ -1438,9 +1438,10 @@ const KanbanCentralPage = () => {
               if (column.id === "__unassigned__") return !card.assigned_to;
               return card.assigned_to === column.id;
             });
-            // Aguardando Clientes = cards na função operacional enviar_cliente
-            const awaitingCards = allColumnCards.filter((c) => c.current_function_key === 'enviar_cliente');
-            const columnCards = allColumnCards.filter((c) => c.current_function_key !== 'enviar_cliente');
+            // Aguardando Clientes = cards na função operacional aguardando_cliente
+            const awaitingCards = allColumnCards.filter((c) => c.current_function_key === 'aguardando_cliente');
+            const columnCards = allColumnCards.filter((c) => c.current_function_key !== 'aguardando_cliente');
+
             const isAwaitingCollapsed = collapsedAwaiting.has(column.id);
 
             return (
@@ -1579,7 +1580,7 @@ const KanbanCentralPage = () => {
                         })()}
                         {provided.placeholder}
 
-                        {/* Aguardando Clientes — cards em `enviar_cliente` ficam agrupados aqui */}
+                        {/* Aguardando clientes — cards em `aguardando_cliente` ficam agrupados aqui */}
                         {awaitingCards.length > 0 && (
                           <div className="mt-3 pt-2 border-t-2 border-blue-500/60">
                             <button
@@ -1594,8 +1595,9 @@ const KanbanCentralPage = () => {
                                 <ChevronDown className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
                               )}
                               <span className="text-sm font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wide">
-                                Aguardando Clientes
+                                Aguardando clientes
                               </span>
+
                               <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 ml-auto bg-blue-500/25 text-blue-700 dark:text-blue-300 border-blue-500/40 font-bold">
                                 {awaitingCards.length}
                               </Badge>
