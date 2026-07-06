@@ -1064,7 +1064,7 @@ export default function TaskCard({
               )}
               {(isDraft || card.clientName) && <div className="h-4 w-px bg-border" />}
 
-              {readOnly ? (
+              {isDraft ? null : readOnly ? (
                 <div 
                   className="h-8 px-3 flex items-center gap-2 rounded-md border font-medium text-xs"
                   style={{
