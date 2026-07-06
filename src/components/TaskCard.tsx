@@ -947,13 +947,13 @@ export default function TaskCard({
                     onBlur={() => { if (editingField === 'title') handleFieldSave('title', card.title || ''); }}
                     onKeyDown={e => { if (e.key === 'Enter') handleFieldSave('title', card.title || ''); }}
                     placeholder="Nome da demanda"
-                    className="text-xl font-semibold border-primary"
+                    className="text-3xl font-bold h-14 border-primary"
                   />
                 ) : (
                   <h1
                     id="task-card-title"
                     onClick={() => !readOnly && setEditingField('title')}
-                    className={cn("font-bold text-2xl truncate", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
+                    className={cn("font-bold text-3xl md:text-4xl truncate", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
                   >
                     {card.title}
                   </h1>
