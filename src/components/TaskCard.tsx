@@ -640,12 +640,12 @@ export default function TaskCard({
     }
   };
 
-  // Fetch period plans for unlinked demands
+  // Fetch period plans (used for both linking selector and future unlink flow)
   useEffect(() => {
-    if (open && card && !card.period_plan_id && card.clientId) {
+    if (open && card && card.clientId) {
       fetchPeriodPlansForCard(card.clientId);
     }
-  }, [open, card?.id, card?.period_plan_id, card?.clientId]);
+  }, [open, card?.id, card?.clientId]);
 
   const fetchPeriodPlansForCard = async (clientId: string) => {
     setLoadingPeriodPlans(true);
