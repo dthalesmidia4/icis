@@ -147,6 +147,11 @@ interface TaskCardProps {
   isDraft?: boolean;
   onDraftSave?: () => Promise<void> | void;
   onDraftDiscard?: () => Promise<void> | void;
+  /** Options list for the inline client selector (draft only). */
+  draftClients?: { id: string; name: string }[];
+  /** Called when the user picks a client in draft mode. */
+  onDraftClientChange?: (clientId: string, clientName: string) => void;
+
 }
 
 const isImageFile = (type: string) => type.startsWith('image/');
