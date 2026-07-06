@@ -267,13 +267,72 @@ Deno.serve(async (req) => {
         .eq("name", "Publicado")
         .limit(1)
         .maybeSingle();
-      if (pubStatus) {
-        await supabase
-          .from("demands")
-          .update({ status_id: pubStatus.id, updated_at: new Date().toISOString() })
-          .eq("id", raw.card_id);
+
+      // Pick assignee for "revisar_publicacao" using the same balancing as
+      // Prosseguir: allowed collaborators, internal roles only, least busy.
+      let reviewerId: string | null = null;
+      try {
+        const { data: assigns } = await supabase
+          .from("collaborator_function_assignments")
+          .select("user_id")
+          .eq("tenant_id", raw.tenant_id)
+          .eq("function_key", "revisar_publicacao")
+          .eq("allowed", true);
+        const candidateIds = Array.from(new Set((assigns || []).map((a: any) => a.user_id))).filter(Boolean);
+        if (candidateIds.length > 0) {
+          const { data: roles } = await supabase
+            .from("user_roles")
+            .select("user_id, role")
+            .eq("tenant_id", raw.tenant_id)
+            .in("user_id", candidateIds)
+            .in("role", ["agency_admin", "agency_manager", "agency_user"]);
+          const internalIds = Array.from(new Set((roles || []).map((r: any) => r.user_id)));
+          if (internalIds.length > 0) {
+            const [{ data: profiles }, { data: openDemands }] = await Promise.all([
+              supabase.from("profiles").select("id, full_name").in("id", internalIds),
+              supabase
+                .from("demands")
+                .select("assigned_to")
+                .eq("tenant_id", raw.tenant_id)
+                .is("archived_at", null)
+                .in("assigned_to", internalIds),
+            ]);
+            const counts = new Map<string, number>();
+            (openDemands || []).forEach((d: any) => {
+              if (d.assigned_to) counts.set(d.assigned_to, (counts.get(d.assigned_to) || 0) + 1);
+            });
+            const nameById = new Map<string, string>();
+            (profiles || []).forEach((p: any) => nameById.set(p.id, p.full_name || "Colaborador"));
+            internalIds.sort((a, b) => {
+              const ca = counts.get(a) || 0;
+              const cb = counts.get(b) || 0;
+              if (ca !== cb) return ca - cb;
+              return (nameById.get(a) || "").localeCompare(nameById.get(b) || "", "pt-BR");
+            });
+            reviewerId = internalIds[0] || null;
+          }
+        }
+        if (!reviewerId) {
+          console.warn(`[dispatch ${raw.id}] no reviewer available for revisar_publicacao (tenant ${raw.tenant_id})`);
+        }
+      } catch (e) {
+        console.error(`[dispatch ${raw.id}] reviewer pick failed`, e);
       }
-      processed.push({ id: raw.id, status: "published" });
+
+      const demandUpdate: Record<string, unknown> = {
+        current_function_key: "revisar_publicacao",
+        updated_at: new Date().toISOString(),
+      };
+      if (pubStatus) demandUpdate.status_id = pubStatus.id;
+      if (reviewerId) demandUpdate.assigned_to = reviewerId;
+
+      const { error: dUpErr } = await supabase
+        .from("demands")
+        .update(demandUpdate)
+        .eq("id", raw.card_id);
+      if (dUpErr) console.error(`[dispatch ${raw.id}] demand update error`, dUpErr);
+
+      processed.push({ id: raw.id, status: "published", reviewer: reviewerId });
     } else {
       await supabase
         .from("scheduled_publication_dispatches")
