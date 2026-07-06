@@ -1997,6 +1997,59 @@ export default function TaskCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SchedulePublicationModal
+        open={inlineScheduleOpen}
+        onOpenChange={setInlineScheduleOpen}
+        existingDate={card?.publish_date}
+        existingTime={card?.publish_time}
+        onConfirm={async (date, time) => {
+          if (!card || inlineScheduling) return;
+          if (!card.clientId) {
+            toast.error("Este card não está vinculado a um cliente.");
+            return;
+          }
+          setInlineScheduling(true);
+          try {
+            const existed = await hasActiveDispatch(card.id);
+            if (existed) {
+              const ok = window.confirm("Este card já possui uma publicação agendada. Deseja atualizar o disparo existente?");
+              if (!ok) {
+                toast.info("Disparo anterior mantido.");
+                return;
+              }
+            }
+            const { error: upErr } = await supabase
+              .from("demands")
+              .update({ publish_date: date, publish_time: time, updated_at: new Date().toISOString() })
+              .eq("id", card.id);
+            if (upErr) throw upErr;
+            const result = await createOrUpdateScheduleDispatch({
+              cardId: card.id,
+              tenantId: card.tenant_id,
+              clientId: card.clientId,
+              publishDate: date,
+              publishTime: time,
+              caption: (card as any).post_caption || card.description,
+              attachments: card.attachments as any,
+              demandType: card.demand_type,
+              title: card.title,
+            });
+            if (!result.ok) {
+              toast.error(result.error || "Não foi possível agendar a publicação");
+              return;
+            }
+            onCardChange({ ...card, publish_date: date, publish_time: time });
+            toast.success(`Publicação agendada para ${new Date(date + 'T' + time).toLocaleDateString('pt-BR')} às ${time}.`);
+            setInlineScheduleOpen(false);
+          } catch (err: any) {
+            console.error("[TaskCard] inline schedule error", err);
+            toast.error(err?.message || "Erro ao agendar publicação");
+          } finally {
+            setInlineScheduling(false);
+          }
+        }}
+      />
     </>;
 
   return createPortal(modalContent, document.body);
