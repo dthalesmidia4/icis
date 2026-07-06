@@ -1460,13 +1460,22 @@ const KanbanCentralPage = () => {
       <TaskCard
         open={isTaskCardOpen}
         onOpenChange={(open) => {
+          if (!open && draftDemandId) {
+            // Fechar sem salvar = descartar rascunho
+            handleDraftDiscard();
+            return;
+          }
           setIsTaskCardOpen(open);
           if (!open) {
             setSelectedCard(null);
             fetchAllCards();
           }
         }}
+        isDraft={!!draftDemandId}
+        onDraftSave={handleDraftSave}
+        onDraftDiscard={handleDraftDiscard}
         card={selectedCard}
+
         onCardChange={handleCardChange}
         onSave={handleSave}
         onFileUpload={handleFileUpload}
