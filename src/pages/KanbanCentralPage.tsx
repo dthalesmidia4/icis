@@ -1001,13 +1001,17 @@ const KanbanCentralPage = () => {
       publish_date: null,
       publish_time: null,
       tenant_id: tenantId,
-      delivery_date: todayStr,
+      // Entrega padrão = início + 1h (rola para o próximo dia se passar de 23:xx)
+      delivery_date: (() => {
+        const [h, mi] = defaultStartTime.split(':').map(n => parseInt(n, 10));
+        const dt = new Date(rounded); dt.setHours(h + 1, mi, 0, 0);
+        return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+      })(),
       due_time: defaultStartTime,
 
       delivery_time: (() => {
-        // Entrega padrão = início + 1h (rola para o próximo dia se passar de 23:xx)
         const [h, mi] = defaultStartTime.split(':').map(n => parseInt(n, 10));
-        const dt = new Date(now); dt.setHours(h + 1, mi, 0, 0);
+        const dt = new Date(rounded); dt.setHours(h + 1, mi, 0, 0);
         return `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
       })(),
       period_plan_id: null,
