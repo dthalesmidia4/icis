@@ -60,7 +60,8 @@ export function coerceDemandTypeKey(value?: string | null): DemandTypeKey | null
     v === "criativo_estatico" ||
     v === "carrossel" ||
     v === "video_captado" ||
-    v === "video_gerado"
+    v === "video_gerado" ||
+    v === "outro"
   ) {
     return v;
   }
