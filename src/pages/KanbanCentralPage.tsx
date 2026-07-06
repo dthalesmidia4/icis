@@ -1581,25 +1581,26 @@ const KanbanCentralPage = () => {
 
                         {/* Aguardando Clientes — cards em `enviar_cliente` ficam agrupados aqui */}
                         {awaitingCards.length > 0 && (
-                          <div className="mt-3 pt-2 border-t-2 border-amber-400/60">
+                          <div className="mt-3 pt-2 border-t-2 border-blue-500/60">
                             <button
                               type="button"
                               onClick={() => toggleAwaiting(column.id)}
-                              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md bg-amber-500/10 hover:bg-amber-500/15 transition-colors"
+                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 transition-colors border border-blue-500/40"
                               aria-expanded={!isAwaitingCollapsed}
                             >
                               {isAwaitingCollapsed ? (
-                                <ChevronRight className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                                <ChevronRight className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
                               ) : (
-                                <ChevronDown className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                                <ChevronDown className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
                               )}
-                              <span className="text-xs font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wide">
+                              <span className="text-sm font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wide">
                                 Aguardando Clientes
                               </span>
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 ml-auto bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30">
+                              <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 ml-auto bg-blue-500/25 text-blue-700 dark:text-blue-300 border-blue-500/40 font-bold">
                                 {awaitingCards.length}
                               </Badge>
                             </button>
+
                             {!isAwaitingCollapsed && (
                               <div className="mt-1 space-y-1">
                                 {awaitingCards.map((card) => (
