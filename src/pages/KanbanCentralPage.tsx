@@ -1642,8 +1642,9 @@ const KanbanCentralPage = () => {
       <CreateDemandModal
         open={isCreateDemandModalOpen}
         onOpenChange={setIsCreateDemandModalOpen}
-        onDemandCreated={handleDemandCreated}
+        onDraftCreated={handleDraftCreated}
       />
+
     </div>
   );
 };
