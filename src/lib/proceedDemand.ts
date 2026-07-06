@@ -224,6 +224,15 @@ export async function proceedDemand({
       .update({ current_function_key: nextFn.function_key } as any)
       .eq("id", demandId);
     if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+    await recordFlowHistory({
+      tenantId,
+      demandId,
+      action: "proceeded",
+      fromUserId: keepAssignee,
+      toUserId: keepAssignee,
+      fromFunctionKey: currentFunctionKey || null,
+      toFunctionKey: nextFn.function_key,
+    });
     return {
       success: true,
       assignedTo: keepAssignee || undefined,
@@ -233,6 +242,13 @@ export async function proceedDemand({
       message: `Demanda marcada como enviada — aguardando retorno do cliente.`,
     };
   }
+
+  const { data: currentDemand } = await supabase
+    .from("demands")
+    .select("assigned_to")
+    .eq("id", demandId)
+    .maybeSingle();
+  const previousAssignee = (currentDemand as any)?.assigned_to || null;
 
   const picked = await pickAssigneeForFunction(tenantId, nextFn.function_key, nextFn.name);
   if (!picked.success || !picked.userId) {
@@ -244,6 +260,16 @@ export async function proceedDemand({
     .update({ assigned_to: picked.userId, current_function_key: nextFn.function_key } as any)
     .eq("id", demandId);
   if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+
+  await recordFlowHistory({
+    tenantId,
+    demandId,
+    action: "proceeded",
+    fromUserId: previousAssignee,
+    toUserId: picked.userId,
+    fromFunctionKey: currentFunctionKey || null,
+    toFunctionKey: nextFn.function_key,
+  });
 
   return {
     success: true,
