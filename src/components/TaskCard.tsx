@@ -183,6 +183,25 @@ const formatFileSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+// Soma 1 hora a um par (data YYYY-MM-DD, horário HH:MM) e devolve o novo par.
+// Rola para o dia seguinte quando passar de 23:xx.
+const addOneHour = (dateStr: string, timeStr: string): { date: string; time: string } => {
+  const [h, m] = (timeStr || "00:00").split(":").map((n) => parseInt(n, 10) || 0);
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setHours(h + 1, m, 0, 0);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return { date: `${yyyy}-${mm}-${dd}`, time: `${hh}:${mi}` };
+};
+
+// Compara datetime (data + horário) — retorna true se A < B.
+const isBefore = (aDate: string, aTime: string, bDate: string, bTime: string) => {
+  return `${aDate}T${(aTime || "00:00")}` < `${bDate}T${(bTime || "00:00")}`;
+};
+
 // Converte texto plano/Markdown para HTML para o BlockEditor
 const convertToHtml = (text: string): string => {
   if (!text) return '';
