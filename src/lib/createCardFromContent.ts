@@ -26,6 +26,7 @@ const TYPE_LABEL: Record<DemandTypeKey, string> = {
   carrossel: "Carrossel",
   video_captado: "Vídeo",
   video_gerado: "Vídeo",
+  outro: "Outro",
 };
 
 function mapContentTypeToKey(contentType: string): DemandTypeKey | null {
