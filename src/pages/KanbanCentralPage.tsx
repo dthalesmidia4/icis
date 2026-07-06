@@ -1503,8 +1503,7 @@ const KanbanCentralPage = () => {
       <TaskCard
         open={isTaskCardOpen}
         onOpenChange={(open) => {
-          if (!open && draftDemandId) {
-            // Fechar sem salvar = descartar rascunho
+          if (!open && isDraftMode) {
             handleDraftDiscard();
             return;
           }
@@ -1514,10 +1513,13 @@ const KanbanCentralPage = () => {
             fetchAllCards();
           }
         }}
-        isDraft={!!draftDemandId}
+        isDraft={isDraftMode}
         onDraftSave={handleDraftSave}
         onDraftDiscard={handleDraftDiscard}
+        draftClients={draftClients}
+        onDraftClientChange={handleDraftClientChange}
         card={selectedCard}
+
 
         onCardChange={handleCardChange}
         onSave={handleSave}
