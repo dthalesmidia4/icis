@@ -335,6 +335,15 @@ export async function regressDemand({
       .update({ current_function_key: prevFn.function_key } as any)
       .eq("id", demandId);
     if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+    await recordFlowHistory({
+      tenantId,
+      demandId,
+      action: "moved_back",
+      fromUserId: keepAssignee,
+      toUserId: keepAssignee,
+      fromFunctionKey: currentFunctionKey || null,
+      toFunctionKey: prevFn.function_key,
+    });
     return {
       success: true,
       assignedTo: keepAssignee || undefined,
@@ -345,6 +354,13 @@ export async function regressDemand({
     };
   }
 
+  const { data: currentDemand } = await supabase
+    .from("demands")
+    .select("assigned_to")
+    .eq("id", demandId)
+    .maybeSingle();
+  const previousAssignee = (currentDemand as any)?.assigned_to || null;
+
   const picked = await pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name);
   if (!picked.success || !picked.userId) {
     return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
@@ -354,6 +370,15 @@ export async function regressDemand({
     .update({ assigned_to: picked.userId, current_function_key: prevFn.function_key } as any)
     .eq("id", demandId);
   if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+  await recordFlowHistory({
+    tenantId,
+    demandId,
+    action: "moved_back",
+    fromUserId: previousAssignee,
+    toUserId: picked.userId,
+    fromFunctionKey: currentFunctionKey || null,
+    toFunctionKey: prevFn.function_key,
+  });
   return {
     success: true,
     assignedTo: picked.userId,
