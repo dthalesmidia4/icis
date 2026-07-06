@@ -1102,18 +1102,24 @@ export default function TaskCard({
                         <span>Agendar Publicação</span>
                       </Button>
                     ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-11 gap-2 shrink-0"
-                        onClick={handleProceed}
-                        disabled={proceeding || !card.demand_type_key}
-                        aria-label="Prosseguir"
-                        title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : "Enviar para o próximo colaborador do fluxo"}
-                      >
-                        {proceeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                        <span>Prosseguir</span>
-                      </Button>
+                      (() => {
+                        const isEnviarCliente = card.current_function_key === 'enviar_cliente';
+                        const btnLabel = isEnviarCliente ? 'Marcar como enviado ao cliente' : 'Prosseguir';
+                        return (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-11 gap-2 shrink-0"
+                            onClick={handleProceed}
+                            disabled={proceeding || !card.demand_type_key}
+                            aria-label={btnLabel}
+                            title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : (isEnviarCliente ? "Marcar como enviado ao cliente e mover para Aguardando cliente" : "Enviar para o próximo colaborador do fluxo")}
+                          >
+                            {proceeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                            <span>{btnLabel}</span>
+                          </Button>
+                        );
+                      })()
                     )}
                   </>
                 )
