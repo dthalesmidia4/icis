@@ -1465,7 +1465,7 @@ const KanbanCentralPage = () => {
                           {column.name}
                         </span>
                         <Badge variant="secondary" className="text-xs ml-auto">
-                          {columnCards.length}
+                          {allColumnCards.length}
                         </Badge>
                       </div>
                     </div>
