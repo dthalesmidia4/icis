@@ -1673,7 +1673,13 @@ const KanbanCentralPage = () => {
                                     draggableId={card.id}
                                     index={index}
                                   >
-                                    {(provided, snapshot) => (
+                                    {(provided, snapshot) => {
+                                      const isHistory = viewMode === "history";
+                                      const currentOwnerName = isHistory
+                                        ? (collaborators.find((c) => c.userId === card.assigned_to)?.fullName || (card.assigned_to ? "Outro" : "Sem responsável"))
+                                        : null;
+                                      const historyAt = (card as any)._historyAt as string | undefined;
+                                      return (
                                       <div
                                         ref={(el) => {
                                           provided.innerRef(el);
@@ -1681,28 +1687,47 @@ const KanbanCentralPage = () => {
                                           else cardRefs.current.delete(card.id);
                                         }}
                                         {...provided.draggableProps}
-                                        {...provided.dragHandleProps}
+                                        {...(isHistory ? {} : provided.dragHandleProps)}
                                         className={cn(
-                                          highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
+                                          highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg",
+                                          isHistory && "opacity-80"
                                         )}
                                       >
-                                        <KanbanCard
-                                          title={card.title}
-                                          subtitle={card.clientName}
-                                          demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
-                                          dueDate={card.due_date}
-                                          dueTime={card.due_time || undefined}
-                                          cardDeliveryDate={card.delivery_date || undefined}
-                                          deliveryTime={card.delivery_time || undefined}
-                                          isDragging={snapshot.isDragging}
-                                          isOverdue={isCardOverdue(card)}
-                                          cardId={card.id}
-                                          statusName={card.status}
-                                          statusColor={card.status_color}
-                                          onClick={() => handleCardClick(card)}
-                                        />
+                                        {isHistory && (
+                                          <div className="flex flex-wrap items-center gap-1 mb-1 px-1">
+                                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-dashed border-primary/60 text-primary">
+                                              Passou por aqui
+                                            </Badge>
+                                            {historyAt && (
+                                              <span className="text-[9px] text-muted-foreground">
+                                                {new Date(historyAt).toLocaleDateString("pt-BR")}
+                                              </span>
+                                            )}
+                                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 ml-auto">
+                                              Hoje: {currentOwnerName}
+                                            </Badge>
+                                          </div>
+                                        )}
+                                        <div className={cn(isHistory && "border border-dashed border-primary/40 rounded-lg")}>
+                                          <KanbanCard
+                                            title={card.title}
+                                            subtitle={card.clientName}
+                                            demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
+                                            dueDate={card.due_date}
+                                            dueTime={card.due_time || undefined}
+                                            cardDeliveryDate={card.delivery_date || undefined}
+                                            deliveryTime={card.delivery_time || undefined}
+                                            isDragging={snapshot.isDragging}
+                                            isOverdue={isCardOverdue(card)}
+                                            cardId={card.id}
+                                            statusName={card.status}
+                                            statusColor={card.status_color}
+                                            onClick={() => handleCardClick(card)}
+                                          />
+                                        </div>
                                       </div>
-                                    )}
+                                      );
+                                    }}
                                   </Draggable>
                                 );
                               })}
