@@ -160,7 +160,9 @@ const Scheduled = () => {
             )
           `)
           .eq("tenant_id", tenantId)
-          .is("archived_at", null),
+          .is("archived_at", null)
+          .eq("is_draft", false),
+
         supabase
           .from("scheduled_publication_dispatches")
           .select("card_id")
