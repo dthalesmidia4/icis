@@ -1426,12 +1426,12 @@ export default function TaskCard({
                           {card.delivery_time && <div className="flex items-center gap-2 text-sm"><Clock className="h-3.5 w-3.5 text-muted-foreground" /><span>{card.delivery_time}</span></div>}
                         </div>
                       ) : (
-                        <div className="space-y-2">
+                        <div className="flex items-center gap-2">
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
-                                <CalendarIcon className="h-3.5 w-3.5" />
-                                <span className="capitalize">{formatShortDate(card.delivery_date)}</span>
+                              <Button variant="outline" className="flex-1 justify-start gap-2 font-normal text-sm h-9 min-w-0">
+                                <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+                                <span className="capitalize truncate">{formatShortDate(card.delivery_date)}</span>
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
@@ -1449,12 +1449,10 @@ export default function TaskCard({
                               />
                             </PopoverContent>
                           </Popover>
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                            <Input type="time" value={card.delivery_time || '09:00'} onChange={async (e) => { const time = e.target.value; onCardChange({ ...card, delivery_time: time }); await onSave('delivery_time', time); }} className="h-9 flex-1 text-sm" aria-label="Horário de entrega" />
-                          </div>
+                          <Input type="time" value={card.delivery_time || '09:00'} onChange={async (e) => { const time = e.target.value; onCardChange({ ...card, delivery_time: time }); await onSave('delivery_time', time); }} className="h-9 w-[92px] text-sm shrink-0" aria-label="Horário de entrega" />
                         </div>
                       )}
+
                     </CardContent>
                   </Card>
                 ) : null}
