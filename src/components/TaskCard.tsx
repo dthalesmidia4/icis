@@ -357,6 +357,8 @@ export default function TaskCard({
   const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
   const [activeSection, setActiveSection] = useState<'description' | 'instructions' | 'cta' | 'observations' | 'caption' | 'anexos'>('description');
+  const [datesOpen, setDatesOpen] = useState(false);
+  const [objectiveOpen, setObjectiveOpen] = useState(false);
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
   const [proceeding, setProceeding] = useState(false);
