@@ -1879,6 +1879,24 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   <Download className="w-4 h-4 mr-2" />Baixar Imagem
                 </Button>
               )}
+              {generatedManualPostImage && (
+                <Button
+                  variant="outline"
+                  className="h-11 text-sm font-semibold flex-1"
+                  disabled={!lastManualPostContentId || creatingCardFor === 'manual-post'}
+                  onClick={() => handleCreateCardFromContent({
+                    key: 'manual-post',
+                    contentId: lastManualPostContentId,
+                    contentType: 'post',
+                    prompt: manualPostText,
+                    imageUrls: [generatedManualPostImage],
+                  })}
+                >
+                  {creatingCardFor === 'manual-post'
+                    ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando card...</>)
+                    : (<><CheckSquare className="w-4 h-4 mr-2" />Gerar Card</>)}
+                </Button>
+              )}
               <Button className={`h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 ${generatedManualPostImage ? 'flex-1' : 'w-full'}`} disabled={!manualPostText.trim() || generatingManualPost} onClick={() => handleGeneratePost(manualPostText, true)}>
                 {generatingManualPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />{generatedManualPostImage ? 'Gerar Novamente' : 'Gerar Post'}</>)}
               </Button>
