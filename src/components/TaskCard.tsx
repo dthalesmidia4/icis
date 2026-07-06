@@ -1210,6 +1210,27 @@ export default function TaskCard({
                     </Select>
                   </div>
 
+                  {/* Tipo da demanda */}
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card">
+                    <Tag className="h-4 w-4 text-primary shrink-0" />
+                    <span className="font-semibold text-sm shrink-0">Tipo</span>
+                    <Select
+                      value={card.demand_type_key || ""}
+                      onValueChange={(val) => handleSetDemandType(val as DemandTypeKey)}
+                      disabled={readOnly || settingType}
+                    >
+                      <SelectTrigger className="h-8 text-sm border-0 shadow-none px-2 flex-1" aria-label="Tipo">
+                        <SelectValue placeholder="Definir tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {OFFICIAL_DEMAND_TYPES.map((opt) => (
+                          <SelectItem key={opt.key} value={opt.key}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+
                   {/* Toggle Datas e Horários */}
                   <button
                     type="button"
