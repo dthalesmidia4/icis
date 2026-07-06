@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { recordFlowHistory } from "@/lib/flowHistory";
 
 /**
  * Chaves técnicas oficiais de tipo de demanda. Usadas pelo botão Prosseguir
