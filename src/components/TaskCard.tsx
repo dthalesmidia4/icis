@@ -143,7 +143,12 @@ interface TaskCardProps {
   pipelineStatuses?: PipelineStatus[]; // Dynamic statuses from database
   readOnly?: boolean;
   onScheduleRequest?: (card: KanbanCardData) => void;
+  /** Draft mode: card was just created as a draft; hide flow buttons and show Salvar/Descartar */
+  isDraft?: boolean;
+  onDraftSave?: () => Promise<void> | void;
+  onDraftDiscard?: () => Promise<void> | void;
 }
+
 const isImageFile = (type: string) => type.startsWith('image/');
 const AI_UPLOADER_IDS = new Set(["ai-generator", "auto-generator"]);
 
