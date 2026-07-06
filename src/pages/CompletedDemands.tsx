@@ -155,7 +155,9 @@ const CompletedDemands = () => {
     if (selectedClientFilter !== "all") {
       result = result.filter(c => c.clientId === selectedClientFilter);
     }
-    if (selectedPeriodFilter !== "all") {
+    if (selectedPeriodFilter === "__none__") {
+      result = result.filter(c => !c.period_plan_id);
+    } else if (selectedPeriodFilter !== "all") {
       result = result.filter(c => c.period_plan_id === selectedPeriodFilter);
     }
     return result;
