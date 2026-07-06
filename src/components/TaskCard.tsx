@@ -1061,6 +1061,7 @@ export default function TaskCard({
                   editar_video: "Editar vídeo",
                   revisar: "Revisar",
                   publicar: "Publicar",
+                  revisar_publicacao: "Revisar publicação",
                 };
                 const label = FUNCTION_LABELS[card.current_function_key] || card.current_function_key;
                 return (
