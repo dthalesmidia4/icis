@@ -2491,6 +2491,29 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                   <Download className="w-3.5 h-3.5 mr-1" />Baixar
                                 </Button>
                               )}
+                              {currentScene.video_url && (() => {
+                                const sceneContentId = sceneContentIds[currentScene.originalIndex] || null;
+                                const key = `video-scene-${currentScene.originalIndex}`;
+                                return (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    disabled={!sceneContentId || creatingCardFor === key}
+                                    onClick={() => handleCreateCardFromContent({
+                                      key,
+                                      contentId: sceneContentId,
+                                      contentType: 'video_scene',
+                                      prompt: currentScene.scene_description || '',
+                                      imageUrls: [currentScene.video_url!],
+                                    })}
+                                  >
+                                    {creatingCardFor === key
+                                      ? (<><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /></>)
+                                      : (<><CheckSquare className="w-3.5 h-3.5 mr-1" />Gerar Card</>)}
+                                  </Button>
+                                );
+                              })()}
                             </div>
                             {currentScene.generating ? (
                               <div className="flex flex-col items-center justify-center py-12 gap-3 bg-black/5 flex-1">
