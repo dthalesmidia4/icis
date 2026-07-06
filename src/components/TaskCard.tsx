@@ -17,6 +17,9 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, CheckCircle2 } from "lucide-react";
 import { proceedDemand, deliverDemand, isAtLastFlowFunction, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, type DemandTypeKey } from "@/lib/proceedDemand";
+import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
+import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
+import { CalendarClock } from "lucide-react";
 
 // Split instructions field into "production instructions" and "CTA" parts.
 // Recognizes a "CTA:" marker (optionally wrapped in <p>) anywhere in the string.
@@ -342,6 +345,8 @@ export default function TaskCard({
   const [proceeding, setProceeding] = useState(false);
   const [isLastFn, setIsLastFn] = useState(false);
   const [delivering, setDelivering] = useState(false);
+  const [inlineScheduleOpen, setInlineScheduleOpen] = useState(false);
+  const [inlineScheduling, setInlineScheduling] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -942,6 +947,18 @@ export default function TaskCard({
                     {delivering ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                     <span>Entregar</span>
                   </Button>
+                ) : card.current_function_key === 'publicar' ? (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-11 gap-2 shrink-0"
+                    onClick={() => setInlineScheduleOpen(true)}
+                    aria-label="Agendar Publicação"
+                    title="Agendar a publicação nas redes sociais conectadas"
+                  >
+                    <CalendarClock className="h-4 w-4" />
+                    <span>Agendar Publicação</span>
+                  </Button>
                 ) : (
                   <Button
                     variant="outline"
@@ -957,6 +974,7 @@ export default function TaskCard({
                   </Button>
                 )
               )}
+
 
               <Button
                 variant="ghost"
@@ -1061,6 +1079,7 @@ export default function TaskCard({
                   editar_video: "Editar vídeo",
                   revisar: "Revisar",
                   publicar: "Publicar",
+                  revisar_publicacao: "Revisar publicação",
                 };
                 const label = FUNCTION_LABELS[card.current_function_key] || card.current_function_key;
                 return (
@@ -1978,6 +1997,60 @@ export default function TaskCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SchedulePublicationModal
+        open={inlineScheduleOpen}
+        onOpenChange={setInlineScheduleOpen}
+        existingDate={card?.publish_date}
+        existingTime={card?.publish_time}
+        onCancel={() => setInlineScheduleOpen(false)}
+        onConfirm={async (date, time) => {
+          if (!card || inlineScheduling) return;
+          if (!card.clientId) {
+            toast.error("Este card não está vinculado a um cliente.");
+            return;
+          }
+          setInlineScheduling(true);
+          try {
+            const existed = await hasActiveDispatch(card.id);
+            if (existed) {
+              const ok = window.confirm("Este card já possui uma publicação agendada. Deseja atualizar o disparo existente?");
+              if (!ok) {
+                toast.info("Disparo anterior mantido.");
+                return;
+              }
+            }
+            const { error: upErr } = await supabase
+              .from("demands")
+              .update({ publish_date: date, publish_time: time, updated_at: new Date().toISOString() })
+              .eq("id", card.id);
+            if (upErr) throw upErr;
+            const result = await createOrUpdateScheduleDispatch({
+              cardId: card.id,
+              tenantId: card.tenant_id,
+              clientId: card.clientId,
+              publishDate: date,
+              publishTime: time,
+              caption: (card as any).post_caption || card.description,
+              attachments: card.attachments as any,
+              demandType: card.demand_type,
+              title: card.title,
+            });
+            if (!result.ok) {
+              toast.error(result.error || "Não foi possível agendar a publicação");
+              return;
+            }
+            onCardChange({ ...card, publish_date: date, publish_time: time });
+            toast.success(`Publicação agendada para ${new Date(date + 'T' + time).toLocaleDateString('pt-BR')} às ${time}.`);
+            setInlineScheduleOpen(false);
+          } catch (err: any) {
+            console.error("[TaskCard] inline schedule error", err);
+            toast.error(err?.message || "Erro ao agendar publicação");
+          } finally {
+            setInlineScheduling(false);
+          }
+        }}
+      />
     </>;
 
   return createPortal(modalContent, document.body);
