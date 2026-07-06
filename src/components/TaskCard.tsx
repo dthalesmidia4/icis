@@ -1341,12 +1341,12 @@ export default function TaskCard({
                           {card.due_time && <div className="flex items-center gap-2 text-sm"><Clock className="h-3.5 w-3.5 text-muted-foreground" /><span>{card.due_time}</span></div>}
                         </div>
                       ) : (
-                        <div className="space-y-2">
+                        <div className="flex items-center gap-2">
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
-                                <CalendarIcon className="h-3.5 w-3.5" />
-                                <span className="capitalize">{formatShortDate(card.due_date)}</span>
+                              <Button variant="outline" className="flex-1 justify-start gap-2 font-normal text-sm h-9 min-w-0">
+                                <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+                                <span className="capitalize truncate">{formatShortDate(card.due_date)}</span>
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
@@ -1364,12 +1364,10 @@ export default function TaskCard({
                               />
                             </PopoverContent>
                           </Popover>
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                            <Input type="time" value={card.due_time || '09:00'} onChange={async (e) => { const time = e.target.value; onCardChange({ ...card, due_time: time }); await onSave('due_time', time); }} className="h-9 flex-1 text-sm" aria-label="Horário de início de produção" />
-                          </div>
+                          <Input type="time" value={card.due_time || '09:00'} onChange={async (e) => { const time = e.target.value; onCardChange({ ...card, due_time: time }); await onSave('due_time', time); }} className="h-9 w-[92px] text-sm shrink-0" aria-label="Horário de início de produção" />
                         </div>
                       )}
+
                     </CardContent>
                   </Card>
                 ) : null}
@@ -1428,12 +1426,12 @@ export default function TaskCard({
                           {card.delivery_time && <div className="flex items-center gap-2 text-sm"><Clock className="h-3.5 w-3.5 text-muted-foreground" /><span>{card.delivery_time}</span></div>}
                         </div>
                       ) : (
-                        <div className="space-y-2">
+                        <div className="flex items-center gap-2">
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
-                                <CalendarIcon className="h-3.5 w-3.5" />
-                                <span className="capitalize">{formatShortDate(card.delivery_date)}</span>
+                              <Button variant="outline" className="flex-1 justify-start gap-2 font-normal text-sm h-9 min-w-0">
+                                <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+                                <span className="capitalize truncate">{formatShortDate(card.delivery_date)}</span>
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
@@ -1451,12 +1449,10 @@ export default function TaskCard({
                               />
                             </PopoverContent>
                           </Popover>
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                            <Input type="time" value={card.delivery_time || '09:00'} onChange={async (e) => { const time = e.target.value; onCardChange({ ...card, delivery_time: time }); await onSave('delivery_time', time); }} className="h-9 flex-1 text-sm" aria-label="Horário de entrega" />
-                          </div>
+                          <Input type="time" value={card.delivery_time || '09:00'} onChange={async (e) => { const time = e.target.value; onCardChange({ ...card, delivery_time: time }); await onSave('delivery_time', time); }} className="h-9 w-[92px] text-sm shrink-0" aria-label="Horário de entrega" />
                         </div>
                       )}
+
                     </CardContent>
                   </Card>
                 ) : null}
@@ -1538,21 +1534,21 @@ export default function TaskCard({
                         </div>
                       ) : (
                         <div className="space-y-3">
-                          <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
-                            <PopoverTrigger asChild>
-                              <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
-                                <CalendarIcon className="h-3.5 w-3.5" />
-                                <span className="capitalize">{formatShortDate(card.publish_date)}</span>
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar mode="single" selected={card.publish_date ? new Date(card.publish_date + 'T00:00:00') : undefined} onSelect={handlePublishDateChange} initialFocus className="p-3 pointer-events-auto" />
-                            </PopoverContent>
-                          </Popover>
                           <div className="flex items-center gap-2">
-                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                            <Input type="time" value={card.publish_time || '09:00'} onChange={(e) => handlePublishTimeChange(e.target.value)} className="h-9 flex-1 text-sm" aria-label="Horário de publicação" />
+                            <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" className="flex-1 justify-start gap-2 font-normal text-sm h-9 min-w-0">
+                                  <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+                                  <span className="capitalize truncate">{formatShortDate(card.publish_date)}</span>
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar mode="single" selected={card.publish_date ? new Date(card.publish_date + 'T00:00:00') : undefined} onSelect={handlePublishDateChange} initialFocus className="p-3 pointer-events-auto" />
+                              </PopoverContent>
+                            </Popover>
+                            <Input type="time" value={card.publish_time || '09:00'} onChange={(e) => handlePublishTimeChange(e.target.value)} className="h-9 w-[92px] text-sm shrink-0" aria-label="Horário de publicação" />
                           </div>
+
                           <Separator />
                           <div className="space-y-2">
                             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Datas adicionais</h4>
