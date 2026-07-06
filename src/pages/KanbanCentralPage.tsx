@@ -1580,7 +1580,7 @@ const KanbanCentralPage = () => {
                         })()}
                         {provided.placeholder}
 
-                        {/* Aguardando Clientes — cards em `enviar_cliente` ficam agrupados aqui */}
+                        {/* Aguardando clientes — cards em `aguardando_cliente` ficam agrupados aqui */}
                         {awaitingCards.length > 0 && (
                           <div className="mt-3 pt-2 border-t-2 border-blue-500/60">
                             <button
