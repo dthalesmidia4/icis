@@ -1042,11 +1042,15 @@ const KanbanCentralPage = () => {
   const handleDraftSave = async () => {
     if (!selectedCard) return;
     if (!selectedCard.clientId) {
-      sonnerToast.error("Selecione um cliente");
+      sonnerToast.error("Selecione uma empresa");
       return;
     }
     if (!selectedCard.demand_type_key) {
       sonnerToast.error("Defina o tipo da demanda");
+      return;
+    }
+    if (!selectedCard.due_date) {
+      sonnerToast.error("Defina a data de início de produção");
       return;
     }
     if (!selectedCard.title?.trim()) {
