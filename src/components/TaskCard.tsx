@@ -995,6 +995,28 @@ export default function TaskCard({
                   </SelectContent>
                 </Select>
               )}
+              {card.current_function_key && (() => {
+                const FUNCTION_LABELS: Record<string, string> = {
+                  planejar: "Planejar",
+                  criar_roteiro: "Criar roteiro",
+                  criar_arte: "Criar arte",
+                  captar: "Captar",
+                  gerar_video: "Gerar vídeo",
+                  editar_video: "Editar vídeo",
+                  revisar: "Revisar",
+                  entregar_publicar: "Entregar/Publicar",
+                };
+                const label = FUNCTION_LABELS[card.current_function_key] || card.current_function_key;
+                return (
+                  <div
+                    className="h-8 px-3 flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 text-primary font-medium text-xs"
+                    title="Etapa atual do fluxo"
+                  >
+                    <span className="text-[10px] uppercase tracking-wide opacity-70">Etapa</span>
+                    <span>{label}</span>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* CTA: Definir tipo (quando demand_type_key é nulo) */}
