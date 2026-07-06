@@ -21,7 +21,7 @@ const FUNCTIONS: { key: string; name: string }[] = [
   { key: "gerar_video", name: "Gerar vídeo" },
   { key: "editar_video", name: "Editar vídeo" },
   { key: "revisar", name: "Revisar" },
-  { key: "entregar_publicar", name: "Entregar/Publicar" },
+  { key: "publicar", name: "Publicar" },
 ];
 
 const DEMAND_TYPES: { key: string; name: string }[] = [
@@ -36,27 +36,27 @@ const DEFAULTS: Record<string, Record<string, Requirement>> = {
   criativo_estatico: {
     planejar: "required", criar_roteiro: "disabled", criar_arte: "required",
     captar: "disabled", gerar_video: "disabled", editar_video: "disabled",
-    revisar: "required", entregar_publicar: "required",
+    revisar: "required", publicar: "required",
   },
   carrossel: {
     planejar: "required", criar_roteiro: "required", criar_arte: "required",
     captar: "disabled", gerar_video: "disabled", editar_video: "disabled",
-    revisar: "required", entregar_publicar: "required",
+    revisar: "required", publicar: "required",
   },
   video_captado: {
     planejar: "required", criar_roteiro: "required", criar_arte: "disabled",
     captar: "required", gerar_video: "disabled", editar_video: "required",
-    revisar: "required", entregar_publicar: "required",
+    revisar: "required", publicar: "required",
   },
   video_gerado: {
     planejar: "required", criar_roteiro: "required", criar_arte: "disabled",
     captar: "disabled", gerar_video: "required", editar_video: "disabled",
-    revisar: "required", entregar_publicar: "required",
+    revisar: "required", publicar: "required",
   },
   anuncio: {
     planejar: "required", criar_roteiro: "required", criar_arte: "required",
     captar: "disabled", gerar_video: "disabled", editar_video: "disabled",
-    revisar: "required", entregar_publicar: "required",
+    revisar: "required", publicar: "required",
   },
 };
 
