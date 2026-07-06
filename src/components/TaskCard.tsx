@@ -2002,6 +2002,7 @@ export default function TaskCard({
         open={inlineScheduleOpen}
         onOpenChange={setInlineScheduleOpen}
         existingDate={card?.publish_date}
+        existingTime={card?.publish_time}
         onCancel={() => setInlineScheduleOpen(false)}
         onConfirm={async (date, time) => {
           if (!card || inlineScheduling) return;
