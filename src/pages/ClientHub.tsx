@@ -1141,10 +1141,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
   const displayName = selectedClient.fantasy_name || selectedClient.name;
 
-  const saveGeneratedContent = async (contentType: string, title: string, prompt: string, imageUrls: string[]) => {
+  const saveGeneratedContent = async (
+    contentType: string,
+    title: string,
+    prompt: string,
+    imageUrls: string[],
+  ): Promise<string | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase.from('generated_contents').insert({
+      const { data, error } = await supabase.from('generated_contents').insert({
         tenant_id: tenantId!,
         client_id: selectedClient!.id,
         content_type: contentType,
@@ -1152,13 +1157,51 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         prompt,
         image_urls: imageUrls as any,
         created_by: user?.id || null,
-      });
+      }).select('id').single();
       if (error) {
         console.error('Error saving generated content to DB:', error);
-      } else {
-        console.log('Generated content saved successfully:', contentType, imageUrls.length, 'images');
+        return null;
       }
-    } catch (err) { console.error('Error saving generated content:', err); }
+      console.log('Generated content saved successfully:', contentType, imageUrls.length, 'images');
+      return (data as any)?.id ?? null;
+    } catch (err) {
+      console.error('Error saving generated content:', err);
+      return null;
+    }
+  };
+
+  const handleCreateCardFromContent = async (opts: {
+    key: string;
+    contentId: string | null;
+    contentType: string;
+    prompt: string;
+    imageUrls: string[];
+  }) => {
+    if (!tenantId || !selectedClient) return;
+    if (!opts.contentId) {
+      toast.error('Conteúdo ainda não foi salvo. Gere novamente antes.');
+      return;
+    }
+    setCreatingCardFor(opts.key);
+    try {
+      const { createCardFromContent } = await import('@/lib/createCardFromContent');
+      const result = await createCardFromContent({
+        tenantId,
+        clientId: selectedClient.id,
+        contentId: opts.contentId,
+        contentType: opts.contentType,
+        prompt: opts.prompt,
+        imageUrls: opts.imageUrls,
+      });
+      if (result.success) toast.success(result.message);
+      else if (result.duplicated) toast.info(result.message);
+      else toast.error(result.message);
+    } catch (err) {
+      console.error('[createCardFromContent] error:', err);
+      toast.error('Erro ao criar o card.');
+    } finally {
+      setCreatingCardFor(null);
+    }
   };
 
   const handleGeneratePost = async (idea: string, isManual: boolean = false) => {
