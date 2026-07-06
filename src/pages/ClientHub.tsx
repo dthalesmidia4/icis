@@ -1773,6 +1773,24 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   <Download className="w-4 h-4 mr-2" />Baixar Imagem
                 </Button>
               )}
+              {generatedPostImage && (
+                <Button
+                  variant="outline"
+                  className="h-11 text-sm font-semibold flex-1"
+                  disabled={!lastPostContentId || creatingCardFor === 'ai-post'}
+                  onClick={() => handleCreateCardFromContent({
+                    key: 'ai-post',
+                    contentId: lastPostContentId,
+                    contentType: 'post',
+                    prompt: postIdea,
+                    imageUrls: [generatedPostImage],
+                  })}
+                >
+                  {creatingCardFor === 'ai-post'
+                    ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando card...</>)
+                    : (<><CheckSquare className="w-4 h-4 mr-2" />Gerar Card</>)}
+                </Button>
+              )}
               <Button className={`h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 ${generatedPostImage ? 'flex-1' : 'w-full'}`} disabled={!postIdea.trim() || generatingPost} onClick={() => handleGeneratePost(postIdea)}>
                 {generatingPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-4 h-4 mr-2" />{generatedPostImage ? 'Gerar Novamente' : 'Gerar Post'}</>)}
               </Button>
