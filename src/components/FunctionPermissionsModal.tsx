@@ -31,6 +31,7 @@ const DEMAND_TYPES: { key: string; name: string }[] = [
   { key: "video_captado", name: "Vídeo captado" },
   { key: "video_gerado", name: "Vídeo gerado" },
   { key: "anuncio", name: "Anúncio" },
+  { key: "outro", name: "Outro" },
 ];
 
 const DEFAULTS: Record<string, Record<string, Requirement>> = {
@@ -58,6 +59,11 @@ const DEFAULTS: Record<string, Record<string, Requirement>> = {
     planejar: "required", criar_roteiro: "required", criar_arte: "required",
     captar: "disabled", gerar_video: "disabled", editar_video: "disabled",
     revisar: "required", publicar: "required", revisar_publicacao: "disabled",
+  },
+  outro: {
+    planejar: "required", criar_roteiro: "disabled", criar_arte: "disabled",
+    captar: "disabled", gerar_video: "disabled", editar_video: "disabled",
+    revisar: "required", publicar: "disabled", revisar_publicacao: "disabled",
   },
 };
 
