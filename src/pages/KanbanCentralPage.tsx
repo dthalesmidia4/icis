@@ -339,6 +339,7 @@ const KanbanCentralPage = () => {
         demand_id: data.id,
         demand_type: data.demand_type,
         demand_type_key: data.demand_type_key ?? null,
+        current_function_key: (data as any).current_function_key ?? null,
         assigned_to: data.assigned_to || null,
         status_color: data.pipeline_statuses?.color || null,
         additional_publish_dates: Array.isArray(data.additional_publish_dates) ? (data.additional_publish_dates as unknown as string[]) : []
@@ -569,6 +570,7 @@ const KanbanCentralPage = () => {
           demand_id: demand.id,
           demand_type: demand.demand_type,
           demand_type_key: demand.demand_type_key ?? null,
+          current_function_key: demand.current_function_key ?? null,
           assigned_to: demand.assigned_to || null,
           status_color: demand.pipeline_statuses?.color || null,
           additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates : []
@@ -644,11 +646,15 @@ const KanbanCentralPage = () => {
       ...updatedCard,
       demand_type: updatedCard.demand_type ?? selectedCard?.demand_type ?? null,
       demand_type_key: updatedCard.demand_type_key ?? selectedCard?.demand_type_key ?? null,
+      current_function_key: (updatedCard as any).current_function_key ?? (selectedCard as any)?.current_function_key ?? null,
       clientName: selectedCard?.clientName || "Cliente",
       clientId: selectedCard?.clientId || "",
       periodPlanId: selectedCard?.periodPlanId || ""
     } as CentralKanbanCard;
     setSelectedCard(updatedCentralCard);
+    // Keep list state in sync so reopening the card preserves the current stage.
+    setCards(prev => prev.map(c => c.id === updatedCentralCard.id ? { ...c, ...updatedCentralCard } : c));
+    setArchivedCards(prev => prev.map(c => c.id === updatedCentralCard.id ? { ...c, ...updatedCentralCard } : c));
   };
 
   const handleSave = async (field: string, value: string) => {
