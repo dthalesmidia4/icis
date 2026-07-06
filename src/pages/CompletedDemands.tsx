@@ -292,19 +292,18 @@ const CompletedDemands = () => {
               </SelectContent>
             </Select>
           )}
-          {periods.length > 0 && (
-            <Select value={selectedPeriodFilter} onValueChange={setSelectedPeriodFilter}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Filtrar por período" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os períodos</SelectItem>
-                {periods.map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          <Select value={selectedPeriodFilter} onValueChange={setSelectedPeriodFilter}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Filtrar por período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os períodos</SelectItem>
+              <SelectItem value="__none__">Sem período</SelectItem>
+              {periods.map(p => (
+                <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
