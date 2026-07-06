@@ -1,74 +1,73 @@
+## Objetivo
 
-# Melhorias na tela "Atribuir funções aos colaboradores"
+Substituir o `CreateDemandModal` atual (formulário compacto de 3–4 campos) por um modal que é o **espelho visual 100% idêntico** do `TaskCard` — mesmo layout de 2 colunas (65/35), mesmo editor de blocos, mesmos campos laterais, mesmos blocos avançados —, porém em branco na abertura.
 
-Escopo restrito à UI. Nada de fluxo, status, Kanban, demandas ou publicação.
+## Abordagem recomendada: "Draft‑first"
 
-## Onde
+O `TaskCard` é fortemente acoplado a um `demand_id` real (autosave por campo, uploads no storage vinculados ao card, edge functions de IA, agendamento, fluxo operacional). Reimplementar toda essa UI em modo "sem id" duplicaria ~2000 linhas e sairia dessincronizado em 1 semana.
 
-Componente único: `src/components/CollaboratorFunctionAssignmentsModal.tsx` (aberto em Configurações → "Atribuir funções aos colaboradores"). Já lê `flow_functions`, `collaborator_function_assignments` e usa `useCollaborators` (que filtra `agency_admin/manager/user`). Aproveitar a estrutura atual e adicionar as camadas visuais.
+Solução: quando o usuário clica em **"+ Criar Demanda Manual"**, criamos imediatamente uma **demanda draft** (rascunho invisível no Kanban) e abrimos o `TaskCard` sobre ela. O usuário edita tudo exatamente como um card normal. Ao fechar/salvar, o draft vira demanda real; se ele cancelar, o draft é descartado.
 
-## Mudanças
+### Fluxo
 
-### 1. Derivar cobertura de cada função
-
-Após carregar `functions` e `assignments`, calcular em memória (sem query extra):
-
+```text
+[+ Criar Demanda Manual]
+        │
+        ▼
+Mini‑seletor inicial (Cliente + Tipo)   ← 2 campos obrigatórios mínimos
+        │
+        ▼
+RPC create_demand_from_template          ← cria draft com is_draft=true
+        │
+        ▼
+Abre <TaskCard> exatamente como hoje     ← espelho 100%, vazio
+        │
+        ├── Salvar/Fechar → UPDATE is_draft=false → aparece no Kanban
+        └── Cancelar      → DELETE do draft
 ```
-coverage[function_key] = número de colaboradores com allowed=true
-uncoveredFunctions = functions.filter(f => coverage[f.function_key] === 0)
-```
 
-Recalcula automaticamente a cada toggle (o state já reflete a mudança otimista).
+## Por que o mini‑seletor de 2 campos
 
-### 2. Alerta no topo do modal
+`Cliente` e `Tipo da Demanda` são pré‑requisitos técnicos:
+- Cliente define `tenant_id`, RLS de anexos, permissões de IA, sugestões, contas sociais.
+- Tipo define o fluxo (`flow_functions` por tipo), status inicial e permissões operacionais.
 
-Acima da tabela, renderizar um `<Alert variant="destructive">` (shadcn `alert.tsx`) apenas quando `uncoveredFunctions.length > 0`:
+Sem esses dois, o `TaskCard` não consegue montar nem o menu de funções nem o botão "Prosseguir". Todos os outros campos (título, descrição, datas, anexos, agendamento, etc.) ficam em branco dentro do próprio card espelho.
 
-- Título: "Configuração incompleta do fluxo"
-- Corpo: "As seguintes funções ainda não têm colaborador atribuído:" + lista com os nomes (`f.name`).
-- Rodapé: "Enquanto essas funções estiverem vazias, o botão Prosseguir pode travar."
-- Ícone `AlertTriangle` (lucide-react).
+## Mudanças no código
 
-Some sozinho assim que todas as colunas ficarem cobertas.
+### 1. Banco (mínimo)
+Adicionar coluna `is_draft boolean default false` em `demands`, com índice parcial. Filtros existentes do Kanban / Ver Conteúdos / Demandas Completas passam a excluir `is_draft = true`.
 
-### 3. Destaque visual nas colunas sem colaborador
+### 2. `CreateDemandModal.tsx` (reescrito, curto)
+- Vira um modal pequeno com apenas **Cliente** e **Tipo da Demanda**.
+- Botão "Continuar" → cria draft via RPC → chama `onOpenCard(demandId)`.
+- Botão "Cancelar" → fecha sem criar nada.
+- Remove sugestões, período, canal, datas, descrição — tudo isso vai para dentro do TaskCard.
 
-No `<th>` e em cada `<td>` da coluna correspondente, aplicar classe condicional quando `coverage[f.function_key] === 0`:
+### 3. Página que abre o modal (Kanban / Home)
+- Após o "Continuar", abre o `<TaskCard>` já existente com o `demand_id` do draft.
+- Ao fechar o TaskCard, roda `UPDATE demands SET is_draft=false` se o usuário confirmou, ou `DELETE` se cancelou.
+- Marca a demanda como "salva" no primeiro autosave de qualquer campo além dos mínimos (opcional — mais seguro exigir botão "Salvar" explícito no header do card em modo draft).
 
-- `<th>`: fundo amarelo suave (`bg-yellow-50 dark:bg-yellow-950/30`), borda `border-yellow-400`, e um pequeno ícone `AlertTriangle` ao lado do nome.
-- `<td>` da coluna: `bg-yellow-50/40 dark:bg-yellow-950/10` para reforçar visualmente a coluna inteira.
-- Tooltip no `<th>`: "Nenhum colaborador atribuído a esta função".
+### 4. `TaskCard.tsx` (ajustes cirúrgicos)
+- Detectar prop `mode: 'draft' | 'normal'`.
+- Em modo draft: header mostra "Nova demanda" + botões **Salvar** / **Descartar**; esconde botão "Prosseguir" e "Entregar" (não há fluxo antes de existir).
+- Restante do card idêntico, permitindo preencher título, descrição, datas, anexos, agendamento, etc.
 
-Quando alguém marcar a primeira célula da coluna, o destaque desaparece imediatamente (é reativo ao state).
+### 5. Filtros de listagem
+- Kanban Central, Ver Conteúdos, Ver Agendados, Demandas Completas, Home: adicionar `.eq('is_draft', false)` (ou `.or('is_draft.is.null,is_draft.eq.false')`).
 
-### 4. Contador por coluna (opcional, ajuda leitura)
+## Fora do MVP
 
-Abaixo do nome da função no cabeçalho: pequeno badge com `coverage[function_key]` (ex.: "3 atribuídos" ou, se 0, "sem responsável" em vermelho).
+- Auto‑save incremental do draft (fica com "Salvar/Descartar" explícito, mais previsível).
+- Recuperação de drafts órfãos (usuário fechou aba sem salvar) — pode ser um cron `DELETE FROM demands WHERE is_draft=true AND created_at < now()-interval '24h'` num passo futuro.
 
-### 5. Salvamento
+## Checklist de verificação
 
-Manter o `upsert` atual em `collaborator_function_assignments` (já usa `onConflict: "tenant_id,user_id,function_key"`, já faz optimistic update, já reverte em erro). Nada muda aqui.
-
-### 6. Filtro de colaboradores
-
-Já correto via `useCollaborators` (`VALID_AGENCY_ROLES = agency_admin/manager/user`). Nenhuma mudança.
-
-## Fora do escopo
-
-- Não tocar `proceedDemand.ts`.
-- Não tocar `TaskCard.tsx`.
-- Não tocar Kanban, status, demandas, publicação, agendamento.
-- Não criar migrations (tabelas e colunas usadas já existem).
-
-## Arquivos afetados
-
-- `src/components/CollaboratorFunctionAssignmentsModal.tsx` — única edição.
-
-## Teste manual
-
-1. Abrir Configurações → "Atribuir funções aos colaboradores".
-2. Ver alerta vermelho listando: Planejar, Criar roteiro, Criar arte, Captar, Gerar vídeo.
-3. Ver essas 5 colunas destacadas em amarelo com ícone de alerta.
-4. Marcar um colaborador em "Planejar" → destaque da coluna some e "Planejar" some da lista do alerta.
-5. Cobrir as demais → alerta desaparece por completo.
-6. Testar Prosseguir em um card com `demand_type_key` definido → agora avança normalmente.
+1. Clicar em "+ Criar Demanda Manual" → mini‑modal com Cliente + Tipo.
+2. Selecionar ambos → abre TaskCard vazio, layout idêntico ao de um card real.
+3. Preencher título e descrição → clicar Salvar → card aparece no Kanban.
+4. Reabrir → todos os blocos (anexos, agendamento, funções, IA) funcionam.
+5. Criar draft e clicar Descartar → nada aparece no Kanban.
+6. Confirmar que drafts NÃO aparecem em Ver Conteúdos, Ver Agendados, Demandas Completas, Home.
