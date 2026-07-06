@@ -571,6 +571,7 @@ export type Database = {
           due_time: string | null
           id: string
           instructions: string | null
+          is_draft: boolean
           objective: string | null
           observations: string | null
           period_plan_id: string | null
@@ -605,6 +606,7 @@ export type Database = {
           due_time?: string | null
           id?: string
           instructions?: string | null
+          is_draft?: boolean
           objective?: string | null
           observations?: string | null
           period_plan_id?: string | null
@@ -639,6 +641,7 @@ export type Database = {
           due_time?: string | null
           id?: string
           instructions?: string | null
+          is_draft?: boolean
           objective?: string | null
           observations?: string | null
           period_plan_id?: string | null
