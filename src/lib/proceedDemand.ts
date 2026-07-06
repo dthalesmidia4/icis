@@ -210,6 +210,29 @@ export async function proceedDemand({
   }
   const nextFn = sequence[nextIndex] as { function_key: string; name: string };
 
+  // Transição especial: enviar_cliente → aguardando_cliente mantém o mesmo responsável.
+  if (currentFunctionKey === "enviar_cliente" && nextFn.function_key === "aguardando_cliente") {
+    const { data: current } = await supabase
+      .from("demands")
+      .select("assigned_to")
+      .eq("id", demandId)
+      .maybeSingle();
+    const keepAssignee = (current as any)?.assigned_to || null;
+    const { error: upErr } = await supabase
+      .from("demands")
+      .update({ current_function_key: nextFn.function_key } as any)
+      .eq("id", demandId);
+    if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+    return {
+      success: true,
+      assignedTo: keepAssignee || undefined,
+      assignedName: "mesmo responsável",
+      functionKey: nextFn.function_key,
+      functionName: nextFn.name,
+      message: `Demanda marcada como enviada — aguardando retorno do cliente.`,
+    };
+  }
+
   const picked = await pickAssigneeForFunction(tenantId, nextFn.function_key, nextFn.name);
   if (!picked.success || !picked.userId) {
     return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
@@ -229,6 +252,7 @@ export async function proceedDemand({
     functionName: nextFn.name,
     message: `Demanda enviada para ${picked.name} na função ${nextFn.name}.`,
   };
+
 }
 
 /**
