@@ -442,14 +442,36 @@ export default function TaskCard({
     setSettingType(true);
     try {
       const label = DEMAND_TYPE_LABEL[key];
+      // Descobre a etapa inicial (ou mantém a atual se ainda for válida) segundo o fluxo configurado.
+      const resolved = await resolveInitialFunctionKey(
+        card.tenant_id,
+        key,
+        card.current_function_key,
+      );
+      if (!resolved.success) {
+        toast.error(resolved.message || "Não foi possível definir a etapa inicial deste tipo.");
+        setSettingType(false);
+        return;
+      }
+      const nextFunctionKey = resolved.shouldUpdate
+        ? (resolved.functionKey ?? null)
+        : (card.current_function_key ?? null);
+
       if (!isDraft) {
+        const updatePayload: Record<string, any> = { demand_type: label, demand_type_key: key };
+        if (resolved.shouldUpdate) updatePayload.current_function_key = nextFunctionKey;
         const { error } = await supabase
           .from("demands")
-          .update({ demand_type: label, demand_type_key: key } as any)
+          .update(updatePayload as any)
           .eq("id", card.id);
         if (error) throw error;
       }
-      onCardChange({ ...card, demand_type: label, demand_type_key: key });
+      onCardChange({
+        ...card,
+        demand_type: label,
+        demand_type_key: key,
+        current_function_key: nextFunctionKey,
+      });
       if (!isDraft) toast.success(`Tipo definido: ${label}`);
     } catch (err: any) {
       console.error("[TaskCard] set demand_type_key error", err);
