@@ -1204,9 +1204,8 @@ export default function TaskCard({
                       return (
                         <>
               {/* === PUBLICAÇÃO + CONTROLES (full-width, acima dos anexos) === */}
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 items-start">
-
-                {/* Responsável */}
+              <div className="space-y-4">
+                {/* Responsável (sempre visível) */}
                 <Card>
                   <CardContent className="p-4 space-y-2">
                     <h3 className="font-semibold text-sm flex items-center gap-2">
@@ -1222,7 +1221,7 @@ export default function TaskCard({
                       }}
                       disabled={readOnly}
                     >
-                      <SelectTrigger className="h-9 text-sm" aria-label="Responsável">
+                      <SelectTrigger className="h-9 text-sm max-w-sm" aria-label="Responsável">
                         <SelectValue placeholder="Sem responsável" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1235,7 +1234,27 @@ export default function TaskCard({
                   </CardContent>
                 </Card>
 
-                {/* Início de Produção */}
+                {/* Toggle Datas e Horários */}
+                <button
+                  type="button"
+                  onClick={() => setDatesOpen(v => !v)}
+                  className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
+                  aria-expanded={datesOpen}
+                >
+                  <span className="flex items-center gap-2 font-semibold text-sm">
+                    <CalendarIcon className="h-4 w-4 text-primary" />
+                    Datas e Horários
+                  </span>
+                  <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-300", datesOpen && "rotate-180")} />
+                </button>
+
+                <div className={cn(
+                  "grid transition-all duration-300 ease-in-out",
+                  datesOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                )}>
+                  <div className="overflow-hidden">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start pt-1">
+
                 {(!readOnly && !card.due_date) ? (
                   <Popover>
                     <PopoverTrigger asChild>
