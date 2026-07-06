@@ -1205,13 +1205,12 @@ export default function TaskCard({
                         <>
               {/* === PUBLICAÇÃO + CONTROLES (full-width, acima dos anexos) === */}
               <div className="space-y-4">
-                {/* Responsável (sempre visível) */}
-                <Card>
-                  <CardContent className="p-4 space-y-2">
-                    <h3 className="font-semibold text-sm flex items-center gap-2">
-                      <User className="h-4 w-4 text-primary" />
-                      Responsável
-                    </h3>
+                {/* Linha de triggers (Responsável, Datas, Objetivo) */}
+                <div className="grid gap-3 md:grid-cols-3 items-stretch">
+                  {/* Responsável (sempre visível) */}
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card">
+                    <User className="h-4 w-4 text-primary shrink-0" />
+                    <span className="font-semibold text-sm shrink-0">Responsável</span>
                     <Select
                       value={card.assigned_to || "__none__"}
                       onValueChange={async (val) => {
@@ -1221,7 +1220,7 @@ export default function TaskCard({
                       }}
                       disabled={readOnly}
                     >
-                      <SelectTrigger className="h-9 text-sm max-w-sm" aria-label="Responsável">
+                      <SelectTrigger className="h-8 text-sm border-0 shadow-none px-2 flex-1" aria-label="Responsável">
                         <SelectValue placeholder="Sem responsável" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1231,22 +1230,62 @@ export default function TaskCard({
                         ))}
                       </SelectContent>
                     </Select>
-                  </CardContent>
-                </Card>
+                  </div>
 
-                {/* Toggle Datas e Horários */}
-                <button
-                  type="button"
-                  onClick={() => setDatesOpen(v => !v)}
-                  className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
-                  aria-expanded={datesOpen}
-                >
-                  <span className="flex items-center gap-2 font-semibold text-sm">
-                    <CalendarIcon className="h-4 w-4 text-primary" />
-                    Datas e Horários
-                  </span>
-                  <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-300", datesOpen && "rotate-180")} />
-                </button>
+                  {/* Toggle Datas e Horários */}
+                  <button
+                    type="button"
+                    onClick={() => setDatesOpen(v => !v)}
+                    className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
+                    aria-expanded={datesOpen}
+                  >
+                    <span className="flex items-center gap-2 font-semibold text-sm">
+                      <CalendarIcon className="h-4 w-4 text-primary" />
+                      Datas e Horários
+                    </span>
+                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-300", datesOpen && "rotate-180")} />
+                  </button>
+
+                  {/* Toggle Objetivo */}
+                  <button
+                    type="button"
+                    onClick={() => setObjectiveOpen(v => !v)}
+                    className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
+                    aria-expanded={objectiveOpen}
+                  >
+                    <span className="flex items-center gap-2 font-semibold text-sm">
+                      <Target className="h-4 w-4 text-primary" />
+                      <span className="uppercase tracking-wide">Objetivo</span>
+                      {saving && savingField === 'objective' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                    </span>
+                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-300", objectiveOpen && "rotate-180")} />
+                  </button>
+                </div>
+
+                {/* Painel expandido: Objetivo */}
+                <div className={cn(
+                  "grid transition-all duration-300 ease-in-out",
+                  objectiveOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                )}>
+                  <div className="overflow-hidden">
+                    <div className="pt-1">
+                      {readOnly ? (
+                        <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.objective || "") }} />
+                      ) : (
+                        <BlockEditor content={convertToHtml(card.objective || "")} onChange={value => onCardChange({ ...card, objective: value })} onBlur={() => handleFieldSave('objective', card.objective || '')} placeholder="Qual é a finalidade estratégica deste material?" minHeight="80px" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Painel expandido: Datas e Horários */}
+                <div className={cn(
+                  "grid transition-all duration-300 ease-in-out",
+                  datesOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                )}>
+                  <div className="overflow-hidden">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start pt-1">
+
 
                 <div className={cn(
                   "grid transition-all duration-300 ease-in-out",
