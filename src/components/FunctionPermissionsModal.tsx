@@ -22,8 +22,10 @@ const FUNCTIONS: { key: string; name: string }[] = [
   { key: "editar_video", name: "Editar vídeo" },
   { key: "revisar", name: "Revisar" },
   { key: "enviar_cliente", name: "Enviar cliente" },
+  { key: "aguardando_cliente", name: "Aguardando cliente" },
   { key: "publicar", name: "Publicar" },
   { key: "revisar_publicacao", name: "Revisar publicação" },
+
 ];
 
 const DEMAND_TYPES: { key: string; name: string }[] = [
