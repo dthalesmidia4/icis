@@ -440,7 +440,7 @@ const ContentHistory = () => {
                     </div>
                   </div>
                   {content.image_urls.length > 0 && (
-                    <div className="px-4 pb-4">
+                    <div className="px-4 pb-4 space-y-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -450,6 +450,21 @@ const ContentHistory = () => {
                         <Download className="w-3.5 h-3.5 mr-2" />
                         Baixar {content.image_urls.length > 1 ? `Todas (${content.image_urls.length})` : "Mídia"}
                       </Button>
+                      {canGenerateCard(content.content_type, content.image_urls) && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="w-full"
+                          disabled={creatingCardId === content.id}
+                          onClick={(e) => { e.stopPropagation(); handleGenerateCard(content); }}
+                        >
+                          {creatingCardId === content.id ? (
+                            <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Criando card...</>
+                          ) : (
+                            <><CheckSquare className="w-3.5 h-3.5 mr-2" />Gerar Card</>
+                          )}
+                        </Button>
+                      )}
                     </div>
                   )}
                 </Card>
