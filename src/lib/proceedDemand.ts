@@ -265,6 +265,68 @@ export async function isAtLastFlowFunction(
   return sequence[sequence.length - 1].function_key === currentFunctionKey;
 }
 
+export interface ResolveInitialFunctionResult {
+  success: boolean;
+  message?: string;
+  functionKey?: string | null;
+  /** true quando devemos atualizar `current_function_key` no card. */
+  shouldUpdate: boolean;
+}
+
+/**
+ * Resolve a etapa inicial (ou a etapa corrente ajustada) para um tipo de demanda.
+ * Regras:
+ *  - Se `currentFunctionKey` estiver vazio → devolve a primeira função obrigatória.
+ *  - Se existir e ainda estiver no fluxo do novo tipo → mantém (shouldUpdate=false).
+ *  - Se existir mas não estiver no fluxo novo → substitui pela primeira função obrigatória.
+ *  - Se o tipo não tem funções required configuradas → erro claro, shouldUpdate=false.
+ */
+export async function resolveInitialFunctionKey(
+  tenantId: string,
+  demandTypeKey?: string | null,
+  currentFunctionKey?: string | null,
+): Promise<ResolveInitialFunctionResult> {
+  const typeKey = coerceDemandTypeKey(demandTypeKey);
+  if (!typeKey) {
+    return { success: false, shouldUpdate: false, message: "Tipo de demanda inválido." };
+  }
+  const [{ data: fns, error: fErr }, { data: rules, error: rErr }] = await Promise.all([
+    supabase
+      .from("flow_functions")
+      .select("function_key, position, active")
+      .eq("tenant_id", tenantId)
+      .eq("active", true)
+      .order("position"),
+    supabase
+      .from("demand_type_flow_rules")
+      .select("function_key, requirement")
+      .eq("tenant_id", tenantId)
+      .eq("demand_type_key", typeKey),
+  ]);
+  if (fErr || rErr) {
+    return { success: false, shouldUpdate: false, message: "Erro ao carregar fluxo configurado." };
+  }
+  const req = new Map<string, string>();
+  (rules || []).forEach((r: any) => req.set(r.function_key, r.requirement));
+  const sequence = (fns || []).filter((f: any) => req.get(f.function_key) === "required");
+  if (sequence.length === 0) {
+    return {
+      success: false,
+      shouldUpdate: false,
+      message: "Este tipo ainda não possui fluxo configurado. Configure as etapas antes de usar.",
+    };
+  }
+  const first = sequence[0].function_key as string;
+  if (!currentFunctionKey) {
+    return { success: true, shouldUpdate: true, functionKey: first };
+  }
+  const stillValid = sequence.some((f: any) => f.function_key === currentFunctionKey);
+  if (stillValid) {
+    return { success: true, shouldUpdate: false, functionKey: currentFunctionKey };
+  }
+  return { success: true, shouldUpdate: true, functionKey: first };
+}
+
 export interface DeliverResult {
   success: boolean;
   message: string;

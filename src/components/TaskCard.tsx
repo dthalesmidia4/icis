@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, CheckCircle2, Tag } from "lucide-react";
-import { proceedDemand, deliverDemand, isAtLastFlowFunction, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, type DemandTypeKey } from "@/lib/proceedDemand";
+import { proceedDemand, deliverDemand, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, type DemandTypeKey } from "@/lib/proceedDemand";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { CalendarClock } from "lucide-react";
@@ -442,14 +442,36 @@ export default function TaskCard({
     setSettingType(true);
     try {
       const label = DEMAND_TYPE_LABEL[key];
+      // Descobre a etapa inicial (ou mantém a atual se ainda for válida) segundo o fluxo configurado.
+      const resolved = await resolveInitialFunctionKey(
+        card.tenant_id,
+        key,
+        card.current_function_key,
+      );
+      if (!resolved.success) {
+        toast.error(resolved.message || "Não foi possível definir a etapa inicial deste tipo.");
+        setSettingType(false);
+        return;
+      }
+      const nextFunctionKey = resolved.shouldUpdate
+        ? (resolved.functionKey ?? null)
+        : (card.current_function_key ?? null);
+
       if (!isDraft) {
+        const updatePayload: Record<string, any> = { demand_type: label, demand_type_key: key };
+        if (resolved.shouldUpdate) updatePayload.current_function_key = nextFunctionKey;
         const { error } = await supabase
           .from("demands")
-          .update({ demand_type: label, demand_type_key: key } as any)
+          .update(updatePayload as any)
           .eq("id", card.id);
         if (error) throw error;
       }
-      onCardChange({ ...card, demand_type: label, demand_type_key: key });
+      onCardChange({
+        ...card,
+        demand_type: label,
+        demand_type_key: key,
+        current_function_key: nextFunctionKey,
+      });
       if (!isDraft) toast.success(`Tipo definido: ${label}`);
     } catch (err: any) {
       console.error("[TaskCard] set demand_type_key error", err);
