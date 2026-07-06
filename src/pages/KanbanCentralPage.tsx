@@ -486,6 +486,8 @@ const KanbanCentralPage = () => {
         `)
         .eq("tenant_id", tenantId)
         .is("archived_at", null)
+        .eq("is_draft", false)
+
         .order("created_at", { ascending: true });
 
       if (activeError) throw activeError;
@@ -512,6 +514,8 @@ const KanbanCentralPage = () => {
         `)
         .eq("tenant_id", tenantId)
         .not("archived_at", "is", null)
+        .eq("is_draft", false)
+
         .order("created_at", { ascending: true });
 
       if (archivedError) throw archivedError;
