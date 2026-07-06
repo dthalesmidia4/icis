@@ -16,7 +16,6 @@ import {
   Settings2,
   CalendarDays,
   ChevronDown,
-  ChevronRight,
   X
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
