@@ -16,7 +16,8 @@ import {
   Settings2,
   CalendarDays,
   ChevronDown,
-  X
+  X,
+  History
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
