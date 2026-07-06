@@ -1169,8 +1169,8 @@ export default function TaskCard({
                 )}
               </div>
 
-              {/* Etapa (sempre visível) */}
-              {(() => {
+              {/* Etapa — oculta durante a criação (draft). Só aparece após o card existir no kanban. */}
+              {!isDraft && (() => {
                 const FUNCTION_LABELS: Record<string, string> = {
                   planejar: "Planejar",
                   criar_roteiro: "Criar roteiro",
