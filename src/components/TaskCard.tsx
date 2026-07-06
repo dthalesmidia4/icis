@@ -385,9 +385,14 @@ export default function TaskCard({
 
   const handleDeliver = async () => {
     if (!card || delivering) return;
+    const pipelineId = pipelineStatuses[0]?.pipeline_id;
+    if (!pipelineId) {
+      toast.error("Pipeline não encontrado para esta demanda.");
+      return;
+    }
     setDelivering(true);
     try {
-      const result = await deliverDemand(card.id, card.pipeline_id);
+      const result = await deliverDemand(card.id, pipelineId);
       if (result.success) {
         toast.success(result.message);
         const doneStatus = pipelineStatuses.find(s => s.id === result.statusId);
