@@ -596,9 +596,15 @@ export default function TaskCard({
   }, [open, handleKeyDown]);
   
   const handleFieldSave = async (field: string, value: string) => {
+    if (isDraft) {
+      // Draft mode: all edits stay local via onCardChange until user clicks Salvar Demanda.
+      setEditingField(null);
+      return;
+    }
     await onSave(field, value);
     setEditingField(null);
   };
+
 
   const handleGenerateCaption = async () => {
     if (!card) return;
