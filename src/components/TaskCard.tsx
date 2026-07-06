@@ -945,6 +945,18 @@ export default function TaskCard({
                     {delivering ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                     <span>Entregar</span>
                   </Button>
+                ) : card.current_function_key === 'publicar' ? (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-11 gap-2 shrink-0"
+                    onClick={() => setInlineScheduleOpen(true)}
+                    aria-label="Agendar Publicação"
+                    title="Agendar a publicação nas redes sociais conectadas"
+                  >
+                    <CalendarClock className="h-4 w-4" />
+                    <span>Agendar Publicação</span>
+                  </Button>
                 ) : (
                   <Button
                     variant="outline"
@@ -960,6 +972,7 @@ export default function TaskCard({
                   </Button>
                 )
               )}
+
 
               <Button
                 variant="ghost"
