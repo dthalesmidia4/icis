@@ -1658,33 +1658,11 @@ export default function TaskCard({
                               )
                             )}
 
-                            {activeSection === 'instructions' && (
-                              readOnly ? (
-                                <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(instrValue) }} />
-                              ) : (
-                                <BlockEditor
-                                  content={convertToHtml(instrValue)}
-                                  onChange={value => onCardChange({ ...card, instructions: combineInstructionsCTA(value, ctaValue) })}
-                                  onBlur={() => handleFieldSave('instructions', combineInstructionsCTA(card.instructions ? splitInstructionsCTA(card.instructions).instr : '', ctaValue))}
-                                  placeholder="Instruções de produção visual, layout, tom..."
-                                  minHeight="160px"
-                                />
-                              )
-                            )}
+                            {/* Abas "Instruções de Produção" e "CTA Recomendado" ocultadas da UI.
+                                A coluna `instructions` continua sendo preenchida pela IA/planejamento e
+                                usada pelas edge functions de geração. splitInstructionsCTA/combineInstructionsCTA
+                                permanecem no arquivo para compatibilidade futura. */}
 
-                            {activeSection === 'cta' && (
-                              readOnly ? (
-                                <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(ctaValue) }} />
-                              ) : (
-                                <BlockEditor
-                                  content={convertToHtml(ctaValue)}
-                                  onChange={value => onCardChange({ ...card, instructions: combineInstructionsCTA(instrValue, value) })}
-                                  onBlur={() => handleFieldSave('instructions', combineInstructionsCTA(instrValue, splitInstructionsCTA(card.instructions).cta))}
-                                  placeholder="Chamada para ação recomendada (ex: Agende pelo WhatsApp)"
-                                  minHeight="80px"
-                                />
-                              )
-                            )}
 
                             {activeSection === 'observations' && (
                               readOnly ? (
