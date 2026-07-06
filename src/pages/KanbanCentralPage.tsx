@@ -108,6 +108,15 @@ const KanbanCentralPage = () => {
       return next;
     });
   }, []);
+  const [collapsedAwaiting, setCollapsedAwaiting] = useState<Set<string>>(new Set());
+  const toggleAwaiting = useCallback((columnId: string) => {
+    setCollapsedAwaiting((prev) => {
+      const next = new Set(prev);
+      if (next.has(columnId)) next.delete(columnId);
+      else next.add(columnId);
+      return next;
+    });
+  }, []);
   const [loading, setLoading] = useState(true);
   const [selectedCard, setSelectedCard] = useState<CentralKanbanCard | null>(null);
   const [isTaskCardOpen, setIsTaskCardOpen] = useState(false);
@@ -1425,10 +1434,14 @@ const KanbanCentralPage = () => {
             })),
             { id: "__unassigned__", name: "Sem responsável", color: "hsl(var(--muted-foreground))" },
           ].map((column) => {
-            const columnCards = filteredCards.filter((card) => {
+            const allColumnCards = filteredCards.filter((card) => {
               if (column.id === "__unassigned__") return !card.assigned_to;
               return card.assigned_to === column.id;
             });
+            // Aguardando Clientes = cards na função operacional enviar_cliente
+            const awaitingCards = allColumnCards.filter((c) => c.current_function_key === 'enviar_cliente');
+            const columnCards = allColumnCards.filter((c) => c.current_function_key !== 'enviar_cliente');
+            const isAwaitingCollapsed = collapsedAwaiting.has(column.id);
 
             return (
               <Droppable key={column.id} droppableId={column.id}>
@@ -1452,7 +1465,7 @@ const KanbanCentralPage = () => {
                           {column.name}
                         </span>
                         <Badge variant="secondary" className="text-xs ml-auto">
-                          {columnCards.length}
+                          {allColumnCards.length}
                         </Badge>
                       </div>
                     </div>
@@ -1565,6 +1578,61 @@ const KanbanCentralPage = () => {
                           });
                         })()}
                         {provided.placeholder}
+
+                        {/* Aguardando Clientes — cards em `enviar_cliente` ficam agrupados aqui */}
+                        {awaitingCards.length > 0 && (
+                          <div className="mt-3 pt-2 border-t-2 border-amber-400/60">
+                            <button
+                              type="button"
+                              onClick={() => toggleAwaiting(column.id)}
+                              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md bg-amber-500/10 hover:bg-amber-500/15 transition-colors"
+                              aria-expanded={!isAwaitingCollapsed}
+                            >
+                              {isAwaitingCollapsed ? (
+                                <ChevronRight className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                              ) : (
+                                <ChevronDown className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                              )}
+                              <span className="text-xs font-bold text-amber-700 dark:text-amber-500 uppercase tracking-wide">
+                                Aguardando Clientes
+                              </span>
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 ml-auto bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/30">
+                                {awaitingCards.length}
+                              </Badge>
+                            </button>
+                            {!isAwaitingCollapsed && (
+                              <div className="mt-1 space-y-1">
+                                {awaitingCards.map((card) => (
+                                  <div
+                                    key={card.id}
+                                    ref={(el) => {
+                                      if (el) cardRefs.current.set(card.id, el);
+                                      else cardRefs.current.delete(card.id);
+                                    }}
+                                    className={cn(
+                                      highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
+                                    )}
+                                  >
+                                    <KanbanCard
+                                      title={card.title}
+                                      subtitle={card.clientName}
+                                      demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
+                                      dueDate={card.due_date}
+                                      dueTime={card.due_time || undefined}
+                                      cardDeliveryDate={card.delivery_date || undefined}
+                                      deliveryTime={card.delivery_time || undefined}
+                                      isOverdue={isCardOverdue(card)}
+                                      cardId={card.id}
+                                      statusName={card.status}
+                                      statusColor={(card as any).status_color}
+                                      onClick={() => handleCardClick(card)}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </ScrollArea>
                   </div>

@@ -15,8 +15,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, CheckCircle2, Tag } from "lucide-react";
-import { proceedDemand, deliverDemand, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, type DemandTypeKey } from "@/lib/proceedDemand";
+import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Tag } from "lucide-react";
+import { proceedDemand, regressDemand, deliverDemand, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, type DemandTypeKey } from "@/lib/proceedDemand";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { CalendarClock } from "lucide-react";
@@ -381,6 +381,7 @@ export default function TaskCard({
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
   const [proceeding, setProceeding] = useState(false);
+  const [regressing, setRegressing] = useState(false);
   const [isLastFn, setIsLastFn] = useState(false);
   const [delivering, setDelivering] = useState(false);
   const [inlineScheduleOpen, setInlineScheduleOpen] = useState(false);
@@ -423,6 +424,35 @@ export default function TaskCard({
       }
     } finally {
       setProceeding(false);
+    }
+  };
+
+  const handleRegress = async () => {
+    if (!card || regressing) return;
+    if (!card.demand_type_key) {
+      toast.error("Defina o tipo da demanda antes de voltar.");
+      return;
+    }
+    setRegressing(true);
+    try {
+      const result = await regressDemand({
+        demandId: card.id,
+        tenantId: card.tenant_id,
+        demandTypeKey: card.demand_type_key,
+        currentFunctionKey: card.current_function_key,
+      });
+      if (result.success) {
+        toast.success(result.message);
+        onCardChange({
+          ...card,
+          assigned_to: result.assignedTo || null,
+          current_function_key: result.functionKey || null,
+        });
+      } else {
+        toast.error(result.message);
+      }
+    } finally {
+      setRegressing(false);
     }
   };
 
@@ -1030,44 +1060,62 @@ export default function TaskCard({
                       <span>Descartar</span>
                     </Button>
                   </>
-                ) : isLastFn ? (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-11 gap-2 shrink-0"
-                    onClick={handleDeliver}
-                    disabled={delivering}
-                    aria-label="Entregar"
-                    title="Entregar demanda e mover para Demandas Completas"
-                  >
-                    {delivering ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                    <span>Entregar</span>
-                  </Button>
-                ) : card.current_function_key === 'publicar' ? (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-11 gap-2 shrink-0"
-                    onClick={() => setInlineScheduleOpen(true)}
-                    aria-label="Agendar Publicação"
-                    title="Agendar a publicação nas redes sociais conectadas"
-                  >
-                    <CalendarClock className="h-4 w-4" />
-                    <span>Agendar Publicação</span>
-                  </Button>
                 ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-11 gap-2 shrink-0"
-                    onClick={handleProceed}
-                    disabled={proceeding || !card.demand_type_key}
-                    aria-label="Prosseguir"
-                    title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : "Enviar para o próximo colaborador do fluxo"}
-                  >
-                    {proceeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                    <span>Prosseguir</span>
-                  </Button>
+                  <>
+                    {card.current_function_key && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-11 gap-2 shrink-0 text-muted-foreground hover:text-foreground"
+                        onClick={handleRegress}
+                        disabled={regressing || !card.demand_type_key}
+                        aria-label="Voltar demanda"
+                        title="Devolver a demanda para a etapa anterior do fluxo"
+                      >
+                        {regressing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowLeft className="h-4 w-4" />}
+                        <span>Voltar demanda</span>
+                      </Button>
+                    )}
+                    {isLastFn ? (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="h-11 gap-2 shrink-0"
+                        onClick={handleDeliver}
+                        disabled={delivering}
+                        aria-label="Entregar"
+                        title="Entregar demanda e mover para Demandas Completas"
+                      >
+                        {delivering ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                        <span>Entregar</span>
+                      </Button>
+                    ) : card.current_function_key === 'publicar' ? (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="h-11 gap-2 shrink-0"
+                        onClick={() => setInlineScheduleOpen(true)}
+                        aria-label="Agendar Publicação"
+                        title="Agendar a publicação nas redes sociais conectadas"
+                      >
+                        <CalendarClock className="h-4 w-4" />
+                        <span>Agendar Publicação</span>
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-11 gap-2 shrink-0"
+                        onClick={handleProceed}
+                        disabled={proceeding || !card.demand_type_key}
+                        aria-label="Prosseguir"
+                        title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : "Enviar para o próximo colaborador do fluxo"}
+                      >
+                        {proceeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                        <span>Prosseguir</span>
+                      </Button>
+                    )}
+                  </>
                 )
               )}
 
@@ -1198,6 +1246,7 @@ export default function TaskCard({
                   gerar_video: "Gerar vídeo",
                   editar_video: "Editar vídeo",
                   revisar: "Revisar",
+                  enviar_cliente: "Enviar cliente",
                   publicar: "Publicar",
                   revisar_publicacao: "Revisar publicação",
                 };

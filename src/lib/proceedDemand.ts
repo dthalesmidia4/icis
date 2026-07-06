@@ -232,6 +232,64 @@ export async function proceedDemand({
 }
 
 /**
+ * Volta a demanda para a etapa anterior do fluxo configurado. Reatribui para um
+ * colaborador dessa função (menor carga). Não altera `status_id`.
+ */
+export async function regressDemand({
+  demandId,
+  tenantId,
+  demandTypeKey,
+  currentFunctionKey,
+}: ProceedInput): Promise<ProceedResult> {
+  const typeKey = coerceDemandTypeKey(demandTypeKey);
+  if (!typeKey) {
+    return { success: false, needsTypeKey: true, message: "Defina o tipo da demanda antes de voltar." };
+  }
+  if (!currentFunctionKey) {
+    return { success: false, message: "Esta demanda ainda não iniciou o fluxo." };
+  }
+  const [{ data: fns, error: fnErr }, { data: rules, error: rErr }] = await Promise.all([
+    supabase
+      .from("flow_functions")
+      .select("function_key, name, position, active")
+      .eq("tenant_id", tenantId)
+      .eq("active", true)
+      .order("position"),
+    supabase
+      .from("demand_type_flow_rules")
+      .select("function_key, requirement")
+      .eq("tenant_id", tenantId)
+      .eq("demand_type_key", typeKey),
+  ]);
+  if (fnErr || rErr) return { success: false, message: "Erro ao carregar fluxo configurado." };
+  const req = new Map<string, string>();
+  (rules || []).forEach((r: any) => req.set(r.function_key, r.requirement));
+  const sequence = (fns || []).filter((f: any) => req.get(f.function_key) === "required");
+  const idx = sequence.findIndex((f: any) => f.function_key === currentFunctionKey);
+  if (idx <= 0) {
+    return { success: false, message: "Esta demanda já está na primeira etapa do fluxo." };
+  }
+  const prevFn = sequence[idx - 1] as { function_key: string; name: string };
+  const picked = await pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name);
+  if (!picked.success || !picked.userId) {
+    return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
+  }
+  const { error: upErr } = await supabase
+    .from("demands")
+    .update({ assigned_to: picked.userId, current_function_key: prevFn.function_key } as any)
+    .eq("id", demandId);
+  if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+  return {
+    success: true,
+    assignedTo: picked.userId,
+    assignedName: picked.name,
+    functionKey: prevFn.function_key,
+    functionName: prevFn.name,
+    message: `Demanda devolvida para ${picked.name} na função ${prevFn.name}.`,
+  };
+}
+
+/**
  * Checks whether `currentFunctionKey` is the LAST required function of the flow
  * for the given demand type. Returns false when data is missing (safe default:
  * keeps showing "Prosseguir").
