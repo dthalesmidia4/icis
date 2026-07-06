@@ -15,8 +15,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight } from "lucide-react";
-import { proceedDemand, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, type DemandTypeKey } from "@/lib/proceedDemand";
+import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, CheckCircle2 } from "lucide-react";
+import { proceedDemand, deliverDemand, isAtLastFlowFunction, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, type DemandTypeKey } from "@/lib/proceedDemand";
 
 // Split instructions field into "production instructions" and "CTA" parts.
 // Recognizes a "CTA:" marker (optionally wrapped in <p>) anywhere in the string.
@@ -340,6 +340,17 @@ export default function TaskCard({
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
   const [proceeding, setProceeding] = useState(false);
+  const [isLastFn, setIsLastFn] = useState(false);
+  const [delivering, setDelivering] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!card?.tenant_id) { setIsLastFn(false); return; }
+    isAtLastFlowFunction(card.tenant_id, card.demand_type_key, card.current_function_key)
+      .then((v) => { if (!cancelled) setIsLastFn(v); })
+      .catch(() => { if (!cancelled) setIsLastFn(false); });
+    return () => { cancelled = true; };
+  }, [card?.tenant_id, card?.demand_type_key, card?.current_function_key]);
 
   const handleProceed = async () => {
     if (!card || proceeding) return;
@@ -371,6 +382,35 @@ export default function TaskCard({
       setProceeding(false);
     }
   };
+
+  const handleDeliver = async () => {
+    if (!card || delivering) return;
+    const pipelineId = pipelineStatuses[0]?.pipeline_id;
+    if (!pipelineId) {
+      toast.error("Pipeline não encontrado para esta demanda.");
+      return;
+    }
+    setDelivering(true);
+    try {
+      const result = await deliverDemand(card.id, pipelineId);
+      if (result.success) {
+        toast.success(result.message);
+        const doneStatus = pipelineStatuses.find(s => s.id === result.statusId);
+        onCardChange({
+          ...card,
+          status_id: result.statusId,
+          status: doneStatus?.name || card.status,
+          current_function_key: null,
+        } as any);
+        onOpenChange(false);
+      } else {
+        toast.error(result.message);
+      }
+    } finally {
+      setDelivering(false);
+    }
+  };
+
 
   const [settingType, setSettingType] = useState(false);
   const handleSetDemandType = async (key: DemandTypeKey) => {
@@ -889,19 +929,35 @@ export default function TaskCard({
                 )}
               </div>
               {!readOnly && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-11 gap-2 shrink-0"
-                  onClick={handleProceed}
-                  disabled={proceeding || !card.demand_type_key}
-                  aria-label="Prosseguir"
-                  title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : "Enviar para o próximo colaborador do fluxo"}
-                >
-                  {proceeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                  <span>Prosseguir</span>
-                </Button>
+                isLastFn ? (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-11 gap-2 shrink-0"
+                    onClick={handleDeliver}
+                    disabled={delivering}
+                    aria-label="Entregar"
+                    title="Entregar demanda e mover para Demandas Completas"
+                  >
+                    {delivering ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    <span>Entregar</span>
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-11 gap-2 shrink-0"
+                    onClick={handleProceed}
+                    disabled={proceeding || !card.demand_type_key}
+                    aria-label="Prosseguir"
+                    title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : "Enviar para o próximo colaborador do fluxo"}
+                  >
+                    {proceeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                    <span>Prosseguir</span>
+                  </Button>
+                )
               )}
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -1004,7 +1060,7 @@ export default function TaskCard({
                   gerar_video: "Gerar vídeo",
                   editar_video: "Editar vídeo",
                   revisar: "Revisar",
-                  entregar_publicar: "Entregar/Publicar",
+                  publicar: "Publicar",
                 };
                 const label = FUNCTION_LABELS[card.current_function_key] || card.current_function_key;
                 return (

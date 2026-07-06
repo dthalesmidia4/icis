@@ -155,7 +155,9 @@ const CompletedDemands = () => {
     if (selectedClientFilter !== "all") {
       result = result.filter(c => c.clientId === selectedClientFilter);
     }
-    if (selectedPeriodFilter !== "all") {
+    if (selectedPeriodFilter === "__none__") {
+      result = result.filter(c => !c.period_plan_id);
+    } else if (selectedPeriodFilter !== "all") {
       result = result.filter(c => c.period_plan_id === selectedPeriodFilter);
     }
     return result;
@@ -290,19 +292,18 @@ const CompletedDemands = () => {
               </SelectContent>
             </Select>
           )}
-          {periods.length > 0 && (
-            <Select value={selectedPeriodFilter} onValueChange={setSelectedPeriodFilter}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Filtrar por período" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os períodos</SelectItem>
-                {periods.map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          <Select value={selectedPeriodFilter} onValueChange={setSelectedPeriodFilter}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Filtrar por período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os períodos</SelectItem>
+              <SelectItem value="__none__">Sem período</SelectItem>
+              {periods.map(p => (
+                <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
