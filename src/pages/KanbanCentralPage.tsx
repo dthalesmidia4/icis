@@ -154,7 +154,7 @@ const KanbanCentralPage = () => {
 
   // Modo "Registro de Cards" — mostra cards que já passaram por cada colaborador
   const [viewMode, setViewMode] = useState<"active" | "history">("active");
-  const [historyDays, setHistoryDays] = useState<number>(7);
+  const [historyRange, setHistoryRange] = useState<string>("7"); // "today" | "1" | "7" | ...
 
   // Map<toUserId, Array<{ demandId, lastSeenAt }>>
   const [historyByUser, setHistoryByUser] = useState<Map<string, Array<{ demandId: string; lastSeenAt: string }>>>(new Map());
@@ -614,13 +614,31 @@ const KanbanCentralPage = () => {
     if (!tenantId) return;
     setHistoryLoading(true);
     try {
-      const cutoff = new Date(Date.now() - historyDays * 24 * 60 * 60 * 1000).toISOString();
-      const { data, error } = await supabase
+      let gte: string;
+      let lte: string | null = null;
+      if (historyRange === "today") {
+        // Dia calendário no timezone America/Sao_Paulo (UTC-3, sem DST atualmente)
+        const TZ_OFFSET_MIN = -180; // America/Sao_Paulo
+        const now = new Date();
+        // hora "local SP" = UTC + (-offset). Descobre YYYY-MM-DD em SP.
+        const spNow = new Date(now.getTime() + (now.getTimezoneOffset() - TZ_OFFSET_MIN) * 60000);
+        const y = spNow.getUTCFullYear();
+        const m = String(spNow.getUTCMonth() + 1).padStart(2, "0");
+        const d = String(spNow.getUTCDate()).padStart(2, "0");
+        gte = `${y}-${m}-${d}T00:00:00-03:00`;
+        lte = `${y}-${m}-${d}T23:59:59.999-03:00`;
+      } else {
+        const days = Number(historyRange) || 7;
+        gte = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+      }
+      let q = supabase
         .from("demand_flow_history" as any)
         .select("demand_id, to_user_id, created_at")
         .eq("tenant_id", tenantId)
         .not("to_user_id", "is", null)
-        .gte("created_at", cutoff)
+        .gte("created_at", gte);
+      if (lte) q = q.lte("created_at", lte);
+      const { data, error } = await q
         .order("created_at", { ascending: false })
         .limit(5000);
       if (error) throw error;
@@ -643,7 +661,7 @@ const KanbanCentralPage = () => {
     } finally {
       setHistoryLoading(false);
     }
-  }, [tenantId, historyDays]);
+  }, [tenantId, historyRange]);
 
 
   useEffect(() => {
@@ -1529,16 +1547,17 @@ const KanbanCentralPage = () => {
         <div className="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-sm text-blue-700 dark:text-blue-300">
           <History className="h-4 w-4" />
           <span className="flex-1 min-w-0">
-            Modo <strong>Registro de Cards</strong>: cards que passaram por cada colaborador nos últimos {historyDays} {historyDays === 1 ? "dia" : "dias"}.
+            Modo <strong>Registro de Cards</strong>: {historyRange === "today" ? "cards movimentados hoje por cada colaborador" : `cards que passaram por cada colaborador nos últimos ${historyRange} ${historyRange === "1" ? "dia" : "dias"}`}.
             {historyLoading && " Carregando..."}
           </span>
           <div className="flex items-center gap-2">
             <span className="text-xs">Período:</span>
-            <Select value={String(historyDays)} onValueChange={(v) => setHistoryDays(Number(v))}>
-              <SelectTrigger className="h-8 w-[140px] bg-background text-foreground">
+            <Select value={historyRange} onValueChange={setHistoryRange}>
+              <SelectTrigger className="h-8 w-[160px] bg-background text-foreground">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="today">Hoje</SelectItem>
                 <SelectItem value="1">Último 1 dia</SelectItem>
                 <SelectItem value="7">Últimos 7 dias</SelectItem>
                 <SelectItem value="15">Últimos 15 dias</SelectItem>
