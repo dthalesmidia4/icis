@@ -147,6 +147,11 @@ interface TaskCardProps {
   isDraft?: boolean;
   onDraftSave?: () => Promise<void> | void;
   onDraftDiscard?: () => Promise<void> | void;
+  /** Options list for the inline client selector (draft only). */
+  draftClients?: { id: string; name: string }[];
+  /** Called when the user picks a client in draft mode. */
+  onDraftClientChange?: (clientId: string, clientName: string) => void;
+
 }
 
 const isImageFile = (type: string) => type.startsWith('image/');
@@ -338,8 +343,11 @@ export default function TaskCard({
   onScheduleRequest,
   isDraft = false,
   onDraftSave,
-  onDraftDiscard
+  onDraftDiscard,
+  draftClients = [],
+  onDraftClientChange
 }: TaskCardProps) {
+
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -588,9 +596,15 @@ export default function TaskCard({
   }, [open, handleKeyDown]);
   
   const handleFieldSave = async (field: string, value: string) => {
+    if (isDraft) {
+      // Draft mode: all edits stay local via onCardChange until user clicks Salvar Demanda.
+      setEditingField(null);
+      return;
+    }
     await onSave(field, value);
     setEditingField(null);
   };
+
 
   const handleGenerateCaption = async () => {
     if (!card) return;
@@ -1025,10 +1039,28 @@ export default function TaskCard({
 
             {/* Linha 2: Cliente + Status */}
             <div className="flex items-center gap-4 mt-2 flex-wrap">
-              {card.clientName && (
+              {isDraft ? (
+                <Select
+                  value={card.clientId || ""}
+                  onValueChange={(v) => {
+                    const c = draftClients.find((d) => d.id === v);
+                    onDraftClientChange?.(v, c?.name || "Cliente");
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-auto min-w-[200px] text-xs font-medium">
+                    <SelectValue placeholder="Selecione o cliente *" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50 max-h-[320px]">
+                    {draftClients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : card.clientName && (
                 <span className="text-sm text-muted-foreground">{card.clientName}</span>
               )}
-              {card.clientName && <div className="h-4 w-px bg-border" />}
+              {(isDraft || card.clientName) && <div className="h-4 w-px bg-border" />}
+
               {readOnly ? (
                 <div 
                   className="h-8 px-3 flex items-center gap-2 rounded-md border font-medium text-xs"
@@ -1935,7 +1967,13 @@ export default function TaskCard({
                       )}
 
                       {/* Upload Button */}
-                      {!readOnly && (
+                      {!readOnly && isDraft && (
+                        <div className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-border/60 rounded-lg bg-muted/30 text-sm text-muted-foreground">
+                          <Paperclip className="h-4 w-4" />
+                          Salve a demanda para anexar arquivos, gerar por IA ou agendar publicação.
+                        </div>
+                      )}
+                      {!readOnly && !isDraft && (
                         <label className={cn(
                           "flex items-center gap-2 px-4 py-3 border-2 border-dashed border-border/60 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all",
                           uploading && "opacity-50 cursor-not-allowed"
@@ -1957,6 +1995,7 @@ export default function TaskCard({
                           </span>
                         </label>
                       )}
+
                     </>
                   )}
                 </CardContent>

@@ -32,7 +32,7 @@ import KanbanCard from "@/components/KanbanCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import CreateColumnModal from "@/components/CreateColumnModal";
 import ManageColumnsModal from "@/components/ManageColumnsModal";
-import { CreateDemandModal } from "@/components/CreateDemandModal";
+
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
@@ -127,8 +127,10 @@ const KanbanCentralPage = () => {
   const [pipelineId, setPipelineId] = useState<string>("");
   const [isCreateColumnModalOpen, setIsCreateColumnModalOpen] = useState(false);
   const [isManageColumnsModalOpen, setIsManageColumnsModalOpen] = useState(false);
-  const [isCreateDemandModalOpen, setIsCreateDemandModalOpen] = useState(false);
-  const [draftDemandId, setDraftDemandId] = useState<string | null>(null);
+  
+  const [isDraftMode, setIsDraftMode] = useState(false);
+  const [draftClients, setDraftClients] = useState<{ id: string; name: string }[]>([]);
+
 
 
   // Schedule modal state
@@ -922,98 +924,137 @@ const KanbanCentralPage = () => {
     fetchAllCards();
   };
 
-  // Handle draft demand created: fetch its full row and open TaskCard in draft mode
-  const handleDraftCreated = async (demandId: string) => {
+  // Open TaskCard directly in draft mode with a blank in-memory card. No DB row created yet.
+  const handleOpenDraft = async () => {
     if (!tenantId) return;
+    // Fetch full client list for the inline selector
     try {
-      const { data, error } = await supabase
-        .from("demands")
-        .select(`
-          *,
-          pipeline_statuses!demands_status_id_fkey (name, color, position),
-          tenant_companies!demands_client_id_fkey (id, fantasy_name, name),
-          period_plans!demands_period_plan_id_fkey (id, operational_status)
-        `)
-        .eq("id", demandId)
-        .maybeSingle();
-      if (error || !data) throw error || new Error("Draft não encontrado");
-
-      const company = data.tenant_companies as any;
-      const statusName = (data.pipeline_statuses as any)?.name || "Planejamento";
-      const draftCard: CentralKanbanCard = {
-        id: data.id,
-        title: data.title,
-        description: data.description || null,
-        objective: data.objective || null,
-        instructions: data.instructions || null,
-        observations: data.observations || null,
-        post_caption: data.post_caption || null,
-        status: statusName,
-        due_date: data.due_date || data.publish_date || new Date().toISOString().split('T')[0],
-        channel: data.channel || null,
-        attachments: (data.attachments as unknown as Attachment[] | null) || [],
-        publish_date: data.publish_date || null,
-        publish_time: data.publish_time || null,
-        tenant_id: data.tenant_id,
-        delivery_date: (data as any).delivery_date || null,
-        due_time: (data as any).due_time || null,
-        delivery_time: (data as any).delivery_time || null,
-        period_plan_id: data.period_plan_id,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-        archived_at: data.archived_at,
-        additional_publish_dates: ((data as any).additional_publish_dates as string[]) || [],
-        source: 'demand',
-        demand_id: data.id,
-        demand_type: data.demand_type || null,
-        demand_type_key: (data as any).demand_type_key || null,
-        assigned_to: (data as any).assigned_to || null,
-        current_function_key: (data as any).current_function_key || null,
-        clientId: company?.id || "",
-        clientName: company?.fantasy_name || company?.name || "Cliente"
-      } as CentralKanbanCard;
-
-      setDraftDemandId(demandId);
-      setSelectedCard(draftCard);
-      setIsTaskCardOpen(true);
+      const { data } = await supabase
+        .from("tenant_companies")
+        .select("id, name, fantasy_name")
+        .eq("tenant_id", tenantId)
+        .order("name");
+      setDraftClients((data || []).map((c: any) => ({ id: c.id, name: c.fantasy_name || c.name })));
     } catch (err) {
-      console.error("Error opening draft card:", err);
-      sonnerToast.error("Erro ao abrir o rascunho");
+      console.error("Error loading clients for draft:", err);
+      setDraftClients([]);
     }
+
+    const nowIso = new Date().toISOString();
+    const blank: CentralKanbanCard = {
+      id: "draft",
+      title: "",
+      description: null,
+      objective: null,
+      instructions: null,
+      observations: null,
+      post_caption: null,
+      status: "Planejamento",
+      due_date: "",
+      channel: null,
+      attachments: [],
+      publish_date: null,
+      publish_time: null,
+      tenant_id: tenantId,
+      delivery_date: null,
+      due_time: null,
+      delivery_time: null,
+      period_plan_id: null,
+      created_at: nowIso,
+      updated_at: nowIso,
+      archived_at: null,
+      additional_publish_dates: [],
+      source: 'demand',
+      demand_id: "draft",
+      demand_type: null,
+      demand_type_key: null,
+      assigned_to: null,
+      current_function_key: null,
+      clientId: "",
+      clientName: ""
+    } as CentralKanbanCard;
+
+    setIsDraftMode(true);
+    setSelectedCard(blank);
+    setIsTaskCardOpen(true);
+  };
+
+  // Called by TaskCard when user picks a client inline (draft mode).
+  const handleDraftClientChange = (clientId: string, clientName: string) => {
+    setSelectedCard((prev) => (prev ? { ...prev, clientId, clientName } as CentralKanbanCard : prev));
   };
 
   const handleDraftSave = async () => {
-    if (!draftDemandId) return;
+    if (!selectedCard) return;
+    if (!selectedCard.clientId) {
+      sonnerToast.error("Selecione um cliente");
+      return;
+    }
+    if (!selectedCard.demand_type_key) {
+      sonnerToast.error("Defina o tipo da demanda");
+      return;
+    }
+    if (!selectedCard.title?.trim()) {
+      sonnerToast.error("Informe um título");
+      return;
+    }
     try {
-      const { error } = await supabase
-        .from("demands")
-        .update({ is_draft: false } as any)
-        .eq("id", draftDemandId);
+      const chosenLabel = selectedCard.demand_type || selectedCard.demand_type_key;
+      const { data, error } = await supabase.rpc("create_demand_from_template", {
+        p_client_id: selectedCard.clientId,
+        p_template_id: null,
+        p_pipeline_id: null,
+        p_status_id: null,
+        p_title: selectedCard.title,
+        p_description: selectedCard.description || null,
+        p_demand_type: chosenLabel,
+        p_channel: selectedCard.channel || null,
+        p_publish_date: selectedCard.publish_date || null,
+        p_due_date: selectedCard.due_date || null,
+        p_period_plan_id: selectedCard.period_plan_id || null
+      });
       if (error) throw error;
+      const result = data as { success?: boolean; demand_id?: string; error?: string } | null;
+      if (!result?.success || !result.demand_id) {
+        sonnerToast.error(result?.error || "Erro ao criar demanda");
+        return;
+      }
+
+      // Persist the fields the RPC doesn't accept
+      const extra: Record<string, any> = {
+        demand_type_key: selectedCard.demand_type_key,
+      };
+      if (selectedCard.delivery_date) extra.delivery_date = selectedCard.delivery_date;
+      if (selectedCard.due_time) extra.due_time = selectedCard.due_time;
+      if (selectedCard.delivery_time) extra.delivery_time = selectedCard.delivery_time;
+      if (selectedCard.publish_time) extra.publish_time = selectedCard.publish_time;
+      if (selectedCard.objective) extra.objective = selectedCard.objective;
+      if (selectedCard.instructions) extra.instructions = selectedCard.instructions;
+      if (selectedCard.observations) extra.observations = selectedCard.observations;
+      if (selectedCard.post_caption) extra.post_caption = selectedCard.post_caption;
+      if (selectedCard.assigned_to) extra.assigned_to = selectedCard.assigned_to;
+      if (selectedCard.additional_publish_dates?.length) extra.additional_publish_dates = selectedCard.additional_publish_dates;
+
+      await supabase.from("demands").update(extra).eq("id", result.demand_id);
+
       sonnerToast.success("Demanda criada!");
-      setDraftDemandId(null);
+      setIsDraftMode(false);
       setIsTaskCardOpen(false);
       setSelectedCard(null);
       fetchAllCards();
-    } catch (err) {
-      console.error("Error saving draft:", err);
-      sonnerToast.error("Erro ao salvar demanda");
+    } catch (err: any) {
+      console.error("Error saving draft demand:", err);
+      sonnerToast.error(err?.message || "Erro ao salvar demanda");
     }
   };
 
-  const handleDraftDiscard = async () => {
-    if (!draftDemandId) return;
-    try {
-      await supabase.from("demands").delete().eq("id", draftDemandId);
-      sonnerToast.info("Rascunho descartado");
-    } catch (err) {
-      console.error("Error discarding draft:", err);
-    } finally {
-      setDraftDemandId(null);
-      setIsTaskCardOpen(false);
-      setSelectedCard(null);
-    }
+  const handleDraftDiscard = () => {
+    setIsDraftMode(false);
+    setIsTaskCardOpen(false);
+    setSelectedCard(null);
   };
+
+
 
 
   // Handle column created
@@ -1056,7 +1097,7 @@ const KanbanCentralPage = () => {
           </Button>
           <Button
             size="sm"
-            onClick={() => setIsCreateDemandModalOpen(true)}
+            onClick={handleOpenDraft}
           >
             <Plus className="h-4 w-4 mr-1" />
             Nova Demanda
@@ -1462,8 +1503,7 @@ const KanbanCentralPage = () => {
       <TaskCard
         open={isTaskCardOpen}
         onOpenChange={(open) => {
-          if (!open && draftDemandId) {
-            // Fechar sem salvar = descartar rascunho
+          if (!open && isDraftMode) {
             handleDraftDiscard();
             return;
           }
@@ -1473,10 +1513,13 @@ const KanbanCentralPage = () => {
             fetchAllCards();
           }
         }}
-        isDraft={!!draftDemandId}
+        isDraft={isDraftMode}
         onDraftSave={handleDraftSave}
         onDraftDiscard={handleDraftDiscard}
+        draftClients={draftClients}
+        onDraftClientChange={handleDraftClientChange}
         card={selectedCard}
+
 
         onCardChange={handleCardChange}
         onSave={handleSave}
@@ -1640,12 +1683,8 @@ const KanbanCentralPage = () => {
         onSuccess={handleColumnCreated}
       />
 
-      {/* Create Demand Modal */}
-      <CreateDemandModal
-        open={isCreateDemandModalOpen}
-        onOpenChange={setIsCreateDemandModalOpen}
-        onDraftCreated={handleDraftCreated}
-      />
+
+
 
     </div>
   );
