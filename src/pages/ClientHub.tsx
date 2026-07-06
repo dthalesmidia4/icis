@@ -1370,7 +1370,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           return updated;
         });
         toast.success(`Cena ${sceneIndex + 1} gerada com sucesso!`);
-        await saveGeneratedContent('video_scene', `Cena ${sceneIndex + 1} - Vídeo`, scene.scene_description, [data.videoUrl]);
+        const savedSceneId = await saveGeneratedContent('video_scene', `Cena ${sceneIndex + 1} - Vídeo`, scene.scene_description, [data.videoUrl]);
+        if (savedSceneId) setSceneContentIds(prev => ({ ...prev, [sceneIndex]: savedSceneId }));
       } else { toast.error('Nenhum vídeo retornado.'); }
     } catch (err) { console.error('Generate scene error:', err); toast.error('Erro inesperado ao gerar a cena.'); }
     finally { setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, generating: false } : s)); }
