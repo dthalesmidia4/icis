@@ -1184,7 +1184,7 @@ export default function TaskCard({
               {/* === PUBLICAÇÃO + CONTROLES (full-width, acima dos anexos) === */}
               <div className="space-y-4">
                 {/* Linha de triggers (Responsável, Datas, Objetivo) */}
-                <div className="grid gap-3 md:grid-cols-3 items-stretch">
+                <div className="grid gap-3 md:grid-cols-4 items-stretch">
                   {/* Responsável (sempre visível) */}
                   <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card">
                     <User className="h-4 w-4 text-primary shrink-0" />
