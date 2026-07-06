@@ -83,6 +83,82 @@ interface ProceedInput {
   currentFunctionKey?: string | null;
 }
 
+export interface PickAssigneeResult {
+  success: boolean;
+  message?: string;
+  userId?: string;
+  name?: string;
+}
+
+/**
+ * Escolhe o colaborador de menor carga para uma função de fluxo.
+ * Regras:
+ *  - `collaborator_function_assignments.allowed = true` e `function_key = <fn>`.
+ *  - Somente usuários internos (agency_admin / manager / user).
+ *  - Menor contagem de `demands.assigned_to` não arquivadas; desempate alfabético.
+ */
+export async function pickAssigneeForFunction(
+  tenantId: string,
+  functionKey: string,
+  functionName?: string,
+): Promise<PickAssigneeResult> {
+  const label = functionName || functionKey;
+
+  const { data: assigns, error: aErr } = await supabase
+    .from("collaborator_function_assignments")
+    .select("user_id")
+    .eq("tenant_id", tenantId)
+    .eq("function_key", functionKey)
+    .eq("allowed", true);
+  if (aErr) return { success: false, message: "Erro ao buscar colaboradores." };
+
+  const candidateIds = Array.from(new Set((assigns || []).map((a: any) => a.user_id))).filter(Boolean);
+  if (candidateIds.length === 0) {
+    return { success: false, message: `Nenhum colaborador tem a função "${label}" atribuída.` };
+  }
+
+  const { data: roles } = await supabase
+    .from("user_roles")
+    .select("user_id, role")
+    .eq("tenant_id", tenantId)
+    .in("user_id", candidateIds)
+    .in("role", ["agency_admin", "agency_manager", "agency_user"]);
+  const internalIds = Array.from(new Set((roles || []).map((r: any) => r.user_id)));
+  if (internalIds.length === 0) {
+    return { success: false, message: `Nenhum colaborador interno com a função "${label}".` };
+  }
+
+  const [{ data: profiles }, { data: demands }] = await Promise.all([
+    supabase.from("profiles").select("id, full_name").in("id", internalIds),
+    supabase
+      .from("demands")
+      .select("assigned_to")
+      .eq("tenant_id", tenantId)
+      .is("archived_at", null)
+      .in("assigned_to", internalIds),
+  ]);
+
+  const counts = new Map<string, number>();
+  (demands || []).forEach((d: any) => {
+    if (d.assigned_to) counts.set(d.assigned_to, (counts.get(d.assigned_to) || 0) + 1);
+  });
+  const profileById = new Map<string, string>();
+  (profiles || []).forEach((p: any) => profileById.set(p.id, p.full_name || "Colaborador"));
+
+  internalIds.sort((a, b) => {
+    const ca = counts.get(a) || 0;
+    const cb = counts.get(b) || 0;
+    if (ca !== cb) return ca - cb;
+    return (profileById.get(a) || "").localeCompare(profileById.get(b) || "", "pt-BR");
+  });
+  const chosen = internalIds[0];
+  return {
+    success: true,
+    userId: chosen,
+    name: profileById.get(chosen) || "Colaborador",
+  };
+}
+
 export async function proceedDemand({
   demandId,
   tenantId,
@@ -130,66 +206,23 @@ export async function proceedDemand({
   }
   const nextFn = sequence[nextIndex] as { function_key: string; name: string };
 
-  const { data: assigns, error: aErr } = await supabase
-    .from("collaborator_function_assignments")
-    .select("user_id")
-    .eq("tenant_id", tenantId)
-    .eq("function_key", nextFn.function_key)
-    .eq("allowed", true);
-  if (aErr) return { success: false, message: "Erro ao buscar colaboradores." };
-  const candidateIds = Array.from(new Set((assigns || []).map((a: any) => a.user_id))).filter(Boolean);
-  if (candidateIds.length === 0) {
-    return { success: false, message: `Nenhum colaborador tem a função "${nextFn.name}" atribuída.` };
+  const picked = await pickAssigneeForFunction(tenantId, nextFn.function_key, nextFn.name);
+  if (!picked.success || !picked.userId) {
+    return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
   }
-
-  const { data: roles } = await supabase
-    .from("user_roles")
-    .select("user_id, role")
-    .eq("tenant_id", tenantId)
-    .in("user_id", candidateIds)
-    .in("role", ["agency_admin", "agency_manager", "agency_user"]);
-  const internalIds = Array.from(new Set((roles || []).map((r: any) => r.user_id)));
-  if (internalIds.length === 0) {
-    return { success: false, message: `Nenhum colaborador interno com a função "${nextFn.name}".` };
-  }
-
-  const [{ data: profiles }, { data: demands }] = await Promise.all([
-    supabase.from("profiles").select("id, full_name").in("id", internalIds),
-    supabase
-      .from("demands")
-      .select("assigned_to")
-      .eq("tenant_id", tenantId)
-      .is("archived_at", null)
-      .in("assigned_to", internalIds),
-  ]);
-  const counts = new Map<string, number>();
-  (demands || []).forEach((d: any) => {
-    if (d.assigned_to) counts.set(d.assigned_to, (counts.get(d.assigned_to) || 0) + 1);
-  });
-  const profileById = new Map<string, string>();
-  (profiles || []).forEach((p: any) => profileById.set(p.id, p.full_name || "Colaborador"));
-
-  internalIds.sort((a, b) => {
-    const ca = counts.get(a) || 0;
-    const cb = counts.get(b) || 0;
-    if (ca !== cb) return ca - cb;
-    return (profileById.get(a) || "").localeCompare(profileById.get(b) || "", "pt-BR");
-  });
-  const chosen = internalIds[0];
-  const chosenName = profileById.get(chosen) || "Colaborador";
 
   const { error: upErr } = await supabase
     .from("demands")
-    .update({ assigned_to: chosen, current_function_key: nextFn.function_key } as any)
+    .update({ assigned_to: picked.userId, current_function_key: nextFn.function_key } as any)
     .eq("id", demandId);
   if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
 
   return {
     success: true,
-    assignedTo: chosen,
-    assignedName: chosenName,
+    assignedTo: picked.userId,
+    assignedName: picked.name,
     functionKey: nextFn.function_key,
     functionName: nextFn.name,
-    message: `Demanda enviada para ${chosenName} na função ${nextFn.name}.`,
+    message: `Demanda enviada para ${picked.name} na função ${nextFn.name}.`,
   };
 }
