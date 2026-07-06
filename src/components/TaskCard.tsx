@@ -143,7 +143,12 @@ interface TaskCardProps {
   pipelineStatuses?: PipelineStatus[]; // Dynamic statuses from database
   readOnly?: boolean;
   onScheduleRequest?: (card: KanbanCardData) => void;
+  /** Draft mode: card was just created as a draft; hide flow buttons and show Salvar/Descartar */
+  isDraft?: boolean;
+  onDraftSave?: () => Promise<void> | void;
+  onDraftDiscard?: () => Promise<void> | void;
 }
+
 const isImageFile = (type: string) => type.startsWith('image/');
 const AI_UPLOADER_IDS = new Set(["ai-generator", "auto-generator"]);
 
@@ -330,8 +335,12 @@ export default function TaskCard({
   uploading = false,
   pipelineStatuses = [],
   readOnly = false,
-  onScheduleRequest
+  onScheduleRequest,
+  isDraft = false,
+  onDraftSave,
+  onDraftDiscard
 }: TaskCardProps) {
+
   const [editingField, setEditingField] = useState<string | null>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isAdditionalDatePickerOpen, setIsAdditionalDatePickerOpen] = useState(false);
@@ -934,7 +943,32 @@ export default function TaskCard({
                 )}
               </div>
               {!readOnly && (
-                isLastFn ? (
+                isDraft ? (
+                  <>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="h-11 gap-2 shrink-0"
+                      onClick={() => onDraftSave?.()}
+                      aria-label="Salvar demanda"
+                      title="Salvar e enviar para o Kanban"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>Salvar Demanda</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-11 gap-2 shrink-0 text-destructive hover:text-destructive"
+                      onClick={() => onDraftDiscard?.()}
+                      aria-label="Descartar rascunho"
+                      title="Descartar sem salvar"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span>Descartar</span>
+                    </Button>
+                  </>
+                ) : isLastFn ? (
                   <Button
                     variant="default"
                     size="sm"
@@ -974,6 +1008,7 @@ export default function TaskCard({
                   </Button>
                 )
               )}
+
 
 
               <Button

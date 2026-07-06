@@ -70,7 +70,9 @@ const CollaboratorDemands = () => {
         .eq("tenant_id", tenantId)
         .eq("assigned_to", userId)
         .is("archived_at", null)
+        .eq("is_draft", false)
         .order("updated_at", { ascending: false });
+
 
       if (demands) {
         const mapped: KanbanCardData[] = demands.map((d: any) => ({

@@ -62,7 +62,9 @@ export function useCollaborators(tenantId: string | null | undefined) {
           .select("assigned_to")
           .eq("tenant_id", tenantId)
           .is("archived_at", null)
+          .eq("is_draft", false)
           .in("assigned_to", userIds),
+
       ]);
 
       const countByUser = new Map<string, number>();
