@@ -1434,10 +1434,14 @@ const KanbanCentralPage = () => {
             })),
             { id: "__unassigned__", name: "Sem responsável", color: "hsl(var(--muted-foreground))" },
           ].map((column) => {
-            const columnCards = filteredCards.filter((card) => {
+            const allColumnCards = filteredCards.filter((card) => {
               if (column.id === "__unassigned__") return !card.assigned_to;
               return card.assigned_to === column.id;
             });
+            // Aguardando Clientes = cards na função operacional enviar_cliente
+            const awaitingCards = allColumnCards.filter((c) => c.current_function_key === 'enviar_cliente');
+            const columnCards = allColumnCards.filter((c) => c.current_function_key !== 'enviar_cliente');
+            const isAwaitingCollapsed = collapsedAwaiting.has(column.id);
 
             return (
               <Droppable key={column.id} droppableId={column.id}>
