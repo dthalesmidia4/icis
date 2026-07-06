@@ -343,8 +343,11 @@ export default function TaskCard({
   onScheduleRequest,
   isDraft = false,
   onDraftSave,
-  onDraftDiscard
+  onDraftDiscard,
+  draftClients = [],
+  onDraftClientChange
 }: TaskCardProps) {
+
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
