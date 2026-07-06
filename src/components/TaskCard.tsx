@@ -335,8 +335,12 @@ export default function TaskCard({
   uploading = false,
   pipelineStatuses = [],
   readOnly = false,
-  onScheduleRequest
+  onScheduleRequest,
+  isDraft = false,
+  onDraftSave,
+  onDraftDiscard
 }: TaskCardProps) {
+
   const [editingField, setEditingField] = useState<string | null>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isAdditionalDatePickerOpen, setIsAdditionalDatePickerOpen] = useState(false);
