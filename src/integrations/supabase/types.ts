@@ -510,6 +510,56 @@ export type Database = {
           },
         ]
       }
+      demand_flow_history: {
+        Row: {
+          action: string
+          created_at: string
+          created_by: string | null
+          demand_id: string
+          from_function_key: string | null
+          from_user_id: string | null
+          id: string
+          metadata: Json
+          tenant_id: string
+          to_function_key: string | null
+          to_user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          created_by?: string | null
+          demand_id: string
+          from_function_key?: string | null
+          from_user_id?: string | null
+          id?: string
+          metadata?: Json
+          tenant_id: string
+          to_function_key?: string | null
+          to_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          created_by?: string | null
+          demand_id?: string
+          from_function_key?: string | null
+          from_user_id?: string | null
+          id?: string
+          metadata?: Json
+          tenant_id?: string
+          to_function_key?: string | null
+          to_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_flow_history_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       demand_type_flow_rules: {
         Row: {
           created_at: string

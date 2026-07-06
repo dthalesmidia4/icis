@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { recordFlowHistory } from "@/lib/flowHistory";
 
 /**
  * Chaves técnicas oficiais de tipo de demanda. Usadas pelo botão Prosseguir
@@ -223,6 +224,15 @@ export async function proceedDemand({
       .update({ current_function_key: nextFn.function_key } as any)
       .eq("id", demandId);
     if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+    await recordFlowHistory({
+      tenantId,
+      demandId,
+      action: "proceeded",
+      fromUserId: keepAssignee,
+      toUserId: keepAssignee,
+      fromFunctionKey: currentFunctionKey || null,
+      toFunctionKey: nextFn.function_key,
+    });
     return {
       success: true,
       assignedTo: keepAssignee || undefined,
@@ -232,6 +242,13 @@ export async function proceedDemand({
       message: `Demanda marcada como enviada — aguardando retorno do cliente.`,
     };
   }
+
+  const { data: currentDemand } = await supabase
+    .from("demands")
+    .select("assigned_to")
+    .eq("id", demandId)
+    .maybeSingle();
+  const previousAssignee = (currentDemand as any)?.assigned_to || null;
 
   const picked = await pickAssigneeForFunction(tenantId, nextFn.function_key, nextFn.name);
   if (!picked.success || !picked.userId) {
@@ -243,6 +260,16 @@ export async function proceedDemand({
     .update({ assigned_to: picked.userId, current_function_key: nextFn.function_key } as any)
     .eq("id", demandId);
   if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+
+  await recordFlowHistory({
+    tenantId,
+    demandId,
+    action: "proceeded",
+    fromUserId: previousAssignee,
+    toUserId: picked.userId,
+    fromFunctionKey: currentFunctionKey || null,
+    toFunctionKey: nextFn.function_key,
+  });
 
   return {
     success: true,
@@ -308,6 +335,15 @@ export async function regressDemand({
       .update({ current_function_key: prevFn.function_key } as any)
       .eq("id", demandId);
     if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+    await recordFlowHistory({
+      tenantId,
+      demandId,
+      action: "moved_back",
+      fromUserId: keepAssignee,
+      toUserId: keepAssignee,
+      fromFunctionKey: currentFunctionKey || null,
+      toFunctionKey: prevFn.function_key,
+    });
     return {
       success: true,
       assignedTo: keepAssignee || undefined,
@@ -318,6 +354,13 @@ export async function regressDemand({
     };
   }
 
+  const { data: currentDemand } = await supabase
+    .from("demands")
+    .select("assigned_to")
+    .eq("id", demandId)
+    .maybeSingle();
+  const previousAssignee = (currentDemand as any)?.assigned_to || null;
+
   const picked = await pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name);
   if (!picked.success || !picked.userId) {
     return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
@@ -327,6 +370,15 @@ export async function regressDemand({
     .update({ assigned_to: picked.userId, current_function_key: prevFn.function_key } as any)
     .eq("id", demandId);
   if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
+  await recordFlowHistory({
+    tenantId,
+    demandId,
+    action: "moved_back",
+    fromUserId: previousAssignee,
+    toUserId: picked.userId,
+    fromFunctionKey: currentFunctionKey || null,
+    toFunctionKey: prevFn.function_key,
+  });
   return {
     success: true,
     assignedTo: picked.userId,
@@ -464,6 +516,12 @@ export async function deliverDemand(
       message: 'Não foi encontrado um status final "Feito" neste pipeline.',
     };
   }
+  const { data: currentDemand } = await supabase
+    .from("demands")
+    .select("tenant_id, assigned_to, current_function_key")
+    .eq("id", demandId)
+    .maybeSingle();
+
   const { error: uErr } = await supabase
     .from("demands")
     .update({
@@ -474,6 +532,18 @@ export async function deliverDemand(
     } as any)
     .eq("id", demandId);
   if (uErr) return { success: false, message: "Erro ao entregar a demanda." };
+
+  if (currentDemand?.tenant_id) {
+    await recordFlowHistory({
+      tenantId: currentDemand.tenant_id as string,
+      demandId,
+      action: "delivered",
+      fromUserId: (currentDemand as any).assigned_to ?? null,
+      toUserId: null,
+      fromFunctionKey: (currentDemand as any).current_function_key ?? null,
+      toFunctionKey: null,
+    });
+  }
   return {
     success: true,
     statusId: done.id,

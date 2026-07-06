@@ -16,7 +16,8 @@ import {
   Settings2,
   CalendarDays,
   ChevronDown,
-  X
+  X,
+  History
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
@@ -39,6 +40,7 @@ import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { useCollaborators } from "@/hooks/useCollaborators";
+import { recordFlowHistory } from "@/lib/flowHistory";
 
 interface PipelineStatus {
   id: string;
@@ -149,6 +151,12 @@ const KanbanCentralPage = () => {
   
   const [isDraftMode, setIsDraftMode] = useState(false);
   const [draftClients, setDraftClients] = useState<{ id: string; name: string }[]>([]);
+
+  // Modo "Registro de Cards" — mostra cards que já passaram por cada colaborador
+  const [viewMode, setViewMode] = useState<"active" | "history">("active");
+  // Map<toUserId, Array<{ demandId, lastSeenAt }>>
+  const [historyByUser, setHistoryByUser] = useState<Map<string, Array<{ demandId: string; lastSeenAt: string }>>>(new Map());
+  const [historyLoading, setHistoryLoading] = useState(false);
 
 
 
@@ -599,6 +607,59 @@ const KanbanCentralPage = () => {
     }
   };
 
+  // Buscar histórico agrupado por colaborador quando o modo "Registro de Cards" está ativo
+  const fetchHistory = useCallback(async () => {
+    if (!tenantId) return;
+    setHistoryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("demand_flow_history" as any)
+        .select("demand_id, to_user_id, created_at")
+        .eq("tenant_id", tenantId)
+        .not("to_user_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(5000);
+      if (error) throw error;
+      const map = new Map<string, Map<string, string>>(); // userId -> (demandId -> lastSeenAt)
+      (data || []).forEach((row: any) => {
+        const uid = row.to_user_id as string;
+        const did = row.demand_id as string;
+        const at = row.created_at as string;
+        if (!map.has(uid)) map.set(uid, new Map());
+        const inner = map.get(uid)!;
+        if (!inner.has(did)) inner.set(did, at); // primeira ocorrência = mais recente (ordenado desc)
+      });
+      const result = new Map<string, Array<{ demandId: string; lastSeenAt: string }>>();
+      map.forEach((inner, uid) => {
+        result.set(uid, Array.from(inner.entries()).map(([demandId, lastSeenAt]) => ({ demandId, lastSeenAt })));
+      });
+      setHistoryByUser(result);
+    } catch (err) {
+      console.error("[flowHistory] fetch error:", err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [tenantId]);
+
+  useEffect(() => {
+    if (viewMode === "history") fetchHistory();
+  }, [viewMode, fetchHistory]);
+
+  useEffect(() => {
+    if (!tenantId || viewMode !== "history") return;
+    const channel = supabase
+      .channel("dfh-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "demand_flow_history", filter: `tenant_id=eq.${tenantId}` },
+        () => fetchHistory()
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tenantId, viewMode, fetchHistory]);
+
   const handleDragEnd = async (result: any) => {
     if (!result.destination) return;
 
@@ -630,6 +691,19 @@ const KanbanCentralPage = () => {
         .eq("id", card.id);
 
       if (error) throw error;
+
+      if (tenantId) {
+        await recordFlowHistory({
+          tenantId,
+          demandId: card.id,
+          action: "manual_assignment",
+          fromUserId: previousAssignedTo,
+          toUserId: newAssignedTo,
+          fromFunctionKey: card.current_function_key ?? null,
+          toFunctionKey: card.current_function_key ?? null,
+          metadata: { source: "kanban_drag" },
+        });
+      }
 
       const collabName = newAssignedTo
         ? collaborators.find((c) => c.userId === newAssignedTo)?.fullName || "colaborador"
@@ -1105,6 +1179,19 @@ const KanbanCentralPage = () => {
 
       await supabase.from("demands").update(extra).eq("id", result.demand_id);
 
+      if (tenantId) {
+        await recordFlowHistory({
+          tenantId,
+          demandId: result.demand_id,
+          action: "created",
+          fromUserId: null,
+          toUserId: selectedCard.assigned_to ?? null,
+          fromFunctionKey: null,
+          toFunctionKey: (selectedCard as any).current_function_key ?? null,
+          metadata: { source: "manual" },
+        });
+      }
+
       sonnerToast.success("Demanda criada!");
       setIsDraftMode(false);
       setIsTaskCardOpen(false);
@@ -1155,6 +1242,15 @@ const KanbanCentralPage = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant={viewMode === "history" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode((v) => (v === "history" ? "active" : "history"))}
+            title="Ver os cards que já passaram por cada colaborador"
+          >
+            <History className="h-4 w-4 mr-1" />
+            {viewMode === "history" ? "Modo ativo" : "Registro de Cards"}
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -1424,6 +1520,15 @@ const KanbanCentralPage = () => {
       </Dialog>
 
       {/* Kanban Board (columns = collaborators) */}
+      {viewMode === "history" && (
+        <div className="mb-3 flex items-center gap-2 rounded-md border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-sm text-blue-700 dark:text-blue-300">
+          <History className="h-4 w-4" />
+          <span>
+            Modo <strong>Registro de Cards</strong>: mostrando os cards que já passaram por cada colaborador.
+            {historyLoading && " Carregando..."}
+          </span>
+        </div>
+      )}
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {[
@@ -1434,13 +1539,36 @@ const KanbanCentralPage = () => {
             })),
             { id: "__unassigned__", name: "Sem responsável", color: "hsl(var(--muted-foreground))" },
           ].map((column) => {
-            const allColumnCards = filteredCards.filter((card) => {
+            // Cards ATIVOS deste colaborador (modo normal)
+            const activeColumnCards = filteredCards.filter((card) => {
               if (column.id === "__unassigned__") return !card.assigned_to;
               return card.assigned_to === column.id;
             });
-            // Aguardando Clientes = cards na função operacional aguardando_cliente
-            const awaitingCards = allColumnCards.filter((c) => c.current_function_key === 'aguardando_cliente');
-            const columnCards = allColumnCards.filter((c) => c.current_function_key !== 'aguardando_cliente');
+
+            // Cards HISTÓRICOS: todos que já passaram por esse colaborador
+            let historyColumnCards: Array<CentralKanbanCard & { _historyAt?: string }> = [];
+            if (viewMode === "history") {
+              const rows = historyByUser.get(column.id) || [];
+              const cardIndex = new Map<string, CentralKanbanCard>();
+              [...cards, ...archivedCards].forEach((c) => cardIndex.set(c.id, c));
+              historyColumnCards = rows
+                .map((r) => {
+                  const c = cardIndex.get(r.demandId);
+                  if (!c) return null;
+                  return { ...c, _historyAt: r.lastSeenAt } as CentralKanbanCard & { _historyAt?: string };
+                })
+                .filter((x): x is CentralKanbanCard & { _historyAt?: string } => !!x);
+            }
+
+            const allColumnCards = viewMode === "history" ? historyColumnCards : activeColumnCards;
+
+            // Aguardando Clientes = cards na função operacional aguardando_cliente (apenas modo ativo)
+            const awaitingCards = viewMode === "active"
+              ? allColumnCards.filter((c) => c.current_function_key === 'aguardando_cliente')
+              : [];
+            const columnCards = viewMode === "active"
+              ? allColumnCards.filter((c) => c.current_function_key !== 'aguardando_cliente')
+              : allColumnCards;
 
             const isAwaitingCollapsed = collapsedAwaiting.has(column.id);
 
@@ -1469,6 +1597,11 @@ const KanbanCentralPage = () => {
                           {allColumnCards.length}
                         </Badge>
                       </div>
+                      {viewMode === "history" && (
+                        <span className="text-[11px] text-muted-foreground mt-1">
+                          {allColumnCards.length === 1 ? "1 card passou por aqui" : `${allColumnCards.length} cards passaram por aqui`}
+                        </span>
+                      )}
                     </div>
 
                     {/* Column Content */}
@@ -1540,7 +1673,13 @@ const KanbanCentralPage = () => {
                                     draggableId={card.id}
                                     index={index}
                                   >
-                                    {(provided, snapshot) => (
+                                    {(provided, snapshot) => {
+                                      const isHistory = viewMode === "history";
+                                      const currentOwnerName = isHistory
+                                        ? (collaborators.find((c) => c.userId === card.assigned_to)?.fullName || (card.assigned_to ? "Outro" : "Sem responsável"))
+                                        : null;
+                                      const historyAt = (card as any)._historyAt as string | undefined;
+                                      return (
                                       <div
                                         ref={(el) => {
                                           provided.innerRef(el);
@@ -1548,28 +1687,47 @@ const KanbanCentralPage = () => {
                                           else cardRefs.current.delete(card.id);
                                         }}
                                         {...provided.draggableProps}
-                                        {...provided.dragHandleProps}
+                                        {...(isHistory ? {} : provided.dragHandleProps)}
                                         className={cn(
-                                          highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
+                                          highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg",
+                                          isHistory && "opacity-80"
                                         )}
                                       >
-                                        <KanbanCard
-                                          title={card.title}
-                                          subtitle={card.clientName}
-                                          demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
-                                          dueDate={card.due_date}
-                                          dueTime={card.due_time || undefined}
-                                          cardDeliveryDate={card.delivery_date || undefined}
-                                          deliveryTime={card.delivery_time || undefined}
-                                          isDragging={snapshot.isDragging}
-                                          isOverdue={isCardOverdue(card)}
-                                          cardId={card.id}
-                                          statusName={card.status}
-                                          statusColor={card.status_color}
-                                          onClick={() => handleCardClick(card)}
-                                        />
+                                        {isHistory && (
+                                          <div className="flex flex-wrap items-center gap-1 mb-1 px-1">
+                                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-dashed border-primary/60 text-primary">
+                                              Passou por aqui
+                                            </Badge>
+                                            {historyAt && (
+                                              <span className="text-[9px] text-muted-foreground">
+                                                {new Date(historyAt).toLocaleDateString("pt-BR")}
+                                              </span>
+                                            )}
+                                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 ml-auto">
+                                              Hoje: {currentOwnerName}
+                                            </Badge>
+                                          </div>
+                                        )}
+                                        <div className={cn(isHistory && "border border-dashed border-primary/40 rounded-lg")}>
+                                          <KanbanCard
+                                            title={card.title}
+                                            subtitle={card.clientName}
+                                            demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
+                                            dueDate={card.due_date}
+                                            dueTime={card.due_time || undefined}
+                                            cardDeliveryDate={card.delivery_date || undefined}
+                                            deliveryTime={card.delivery_time || undefined}
+                                            isDragging={snapshot.isDragging}
+                                            isOverdue={isCardOverdue(card)}
+                                            cardId={card.id}
+                                            statusName={card.status}
+                                            statusColor={card.status_color}
+                                            onClick={() => handleCardClick(card)}
+                                          />
+                                        </div>
                                       </div>
-                                    )}
+                                      );
+                                    }}
                                   </Draggable>
                                 );
                               })}

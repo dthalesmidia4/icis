@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { pickAssigneeForFunction } from "@/lib/proceedDemand";
 import type { DemandTypeKey } from "@/lib/proceedDemand";
+import { recordFlowHistory } from "@/lib/flowHistory";
 
 export interface CreateCardInput {
   tenantId: string;
@@ -209,6 +210,16 @@ export async function createCardFromContent(input: CreateCardInput): Promise<Cre
     console.error("[createCardFromContent] insert error:", insErr);
     return { success: false, message: "Erro ao criar o card." };
   }
+
+  await recordFlowHistory({
+    tenantId,
+    demandId: inserted.id,
+    action: "created",
+    fromUserId: null,
+    toUserId: picked.userId ?? null,
+    fromFunctionKey: null,
+    toFunctionKey: "revisar",
+  });
 
   return {
     success: true,
