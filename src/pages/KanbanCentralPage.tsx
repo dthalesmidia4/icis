@@ -639,6 +639,19 @@ const KanbanCentralPage = () => {
 
       if (error) throw error;
 
+      if (tenantId) {
+        await recordFlowHistory({
+          tenantId,
+          demandId: card.id,
+          action: "manual_assignment",
+          fromUserId: previousAssignedTo,
+          toUserId: newAssignedTo,
+          fromFunctionKey: card.current_function_key ?? null,
+          toFunctionKey: card.current_function_key ?? null,
+          metadata: { source: "kanban_drag" },
+        });
+      }
+
       const collabName = newAssignedTo
         ? collaborators.find((c) => c.userId === newAssignedTo)?.fullName || "colaborador"
         : "Sem responsável";
