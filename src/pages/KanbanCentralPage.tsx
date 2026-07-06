@@ -108,6 +108,15 @@ const KanbanCentralPage = () => {
       return next;
     });
   }, []);
+  const [collapsedAwaiting, setCollapsedAwaiting] = useState<Set<string>>(new Set());
+  const toggleAwaiting = useCallback((columnId: string) => {
+    setCollapsedAwaiting((prev) => {
+      const next = new Set(prev);
+      if (next.has(columnId)) next.delete(columnId);
+      else next.add(columnId);
+      return next;
+    });
+  }, []);
   const [loading, setLoading] = useState(true);
   const [selectedCard, setSelectedCard] = useState<CentralKanbanCard | null>(null);
   const [isTaskCardOpen, setIsTaskCardOpen] = useState(false);
