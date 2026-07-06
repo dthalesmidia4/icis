@@ -1001,10 +1001,19 @@ const KanbanCentralPage = () => {
       publish_date: null,
       publish_time: null,
       tenant_id: tenantId,
-      delivery_date: null,
+      // Entrega padrão = início + 1h (rola para o próximo dia se passar de 23:xx)
+      delivery_date: (() => {
+        const [h, mi] = defaultStartTime.split(':').map(n => parseInt(n, 10));
+        const dt = new Date(rounded); dt.setHours(h + 1, mi, 0, 0);
+        return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+      })(),
       due_time: defaultStartTime,
 
-      delivery_time: null,
+      delivery_time: (() => {
+        const [h, mi] = defaultStartTime.split(':').map(n => parseInt(n, 10));
+        const dt = new Date(rounded); dt.setHours(h + 1, mi, 0, 0);
+        return `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+      })(),
       period_plan_id: null,
       created_at: nowIso,
       updated_at: nowIso,
@@ -1033,11 +1042,15 @@ const KanbanCentralPage = () => {
   const handleDraftSave = async () => {
     if (!selectedCard) return;
     if (!selectedCard.clientId) {
-      sonnerToast.error("Selecione um cliente");
+      sonnerToast.error("Selecione uma empresa");
       return;
     }
     if (!selectedCard.demand_type_key) {
       sonnerToast.error("Defina o tipo da demanda");
+      return;
+    }
+    if (!selectedCard.due_date) {
+      sonnerToast.error("Defina a data de início de produção");
       return;
     }
     if (!selectedCard.title?.trim()) {

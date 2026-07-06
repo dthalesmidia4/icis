@@ -183,6 +183,25 @@ const formatFileSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
+// Soma 1 hora a um par (data YYYY-MM-DD, horário HH:MM) e devolve o novo par.
+// Rola para o dia seguinte quando passar de 23:xx.
+const addOneHour = (dateStr: string, timeStr: string): { date: string; time: string } => {
+  const [h, m] = (timeStr || "00:00").split(":").map((n) => parseInt(n, 10) || 0);
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setHours(h + 1, m, 0, 0);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return { date: `${yyyy}-${mm}-${dd}`, time: `${hh}:${mi}` };
+};
+
+// Compara datetime (data + horário) — retorna true se A < B.
+const isBefore = (aDate: string, aTime: string, bDate: string, bTime: string) => {
+  return `${aDate}T${(aTime || "00:00")}` < `${bDate}T${(bTime || "00:00")}`;
+};
+
 // Converte texto plano/Markdown para HTML para o BlockEditor
 const convertToHtml = (text: string): string => {
   if (!text) return '';
@@ -1169,8 +1188,8 @@ export default function TaskCard({
                 )}
               </div>
 
-              {/* Etapa (sempre visível) */}
-              {(() => {
+              {/* Etapa — oculta durante a criação (draft). Só aparece após o card existir no kanban. */}
+              {!isDraft && (() => {
                 const FUNCTION_LABELS: Record<string, string> = {
                   planejar: "Planejar",
                   criar_roteiro: "Criar roteiro",
@@ -1396,9 +1415,12 @@ export default function TaskCard({
                         onSelect={async (date) => {
                           if (date) {
                             const formatted = date.toISOString().split('T')[0];
-                            onCardChange({ ...card, due_date: formatted, due_time: '09:00' });
+                            const bumped = addOneHour(formatted, '09:00');
+                            onCardChange({ ...card, due_date: formatted, due_time: '09:00', delivery_date: bumped.date, delivery_time: bumped.time });
                             await onSave('due_date', formatted);
                             await onSave('due_time', '09:00');
+                            await onSave('delivery_date', bumped.date);
+                            await onSave('delivery_time', bumped.time);
                           }
                         }} 
                         initialFocus 
@@ -1449,15 +1471,38 @@ export default function TaskCard({
                                 onSelect={async (date) => {
                                   if (date) {
                                     const formatted = date.toISOString().split('T')[0];
-                                    onCardChange({ ...card, due_date: formatted });
+                                    const time = card.due_time || '09:00';
+                                    const patch: any = { ...card, due_date: formatted };
+                                    // Auto-follow: se a entrega ficou para trás do novo início, empurra para início + 1h
+                                    if (!card.delivery_date || isBefore(card.delivery_date, card.delivery_time || '00:00', formatted, time)) {
+                                      const bumped = addOneHour(formatted, time);
+                                      patch.delivery_date = bumped.date;
+                                      patch.delivery_time = bumped.time;
+                                    }
+                                    onCardChange(patch);
                                     await onSave('due_date', formatted);
+                                    if (patch.delivery_date !== card.delivery_date) await onSave('delivery_date', patch.delivery_date);
+                                    if (patch.delivery_time !== card.delivery_time) await onSave('delivery_time', patch.delivery_time);
                                   }
                                 }} 
                                 initialFocus 
                               />
                             </PopoverContent>
                           </Popover>
-                          <Input type="time" value={card.due_time || '09:00'} onChange={async (e) => { const time = e.target.value; onCardChange({ ...card, due_time: time }); await onSave('due_time', time); }} className="h-9 w-[92px] text-sm shrink-0" aria-label="Horário de início de produção" />
+                          <Input type="time" value={card.due_time || '09:00'} onChange={async (e) => {
+                            const time = e.target.value;
+                            const dateStr = card.due_date || '';
+                            const patch: any = { ...card, due_time: time };
+                            if (dateStr && (!card.delivery_date || isBefore(card.delivery_date, card.delivery_time || '00:00', dateStr, time))) {
+                              const bumped = addOneHour(dateStr, time);
+                              patch.delivery_date = bumped.date;
+                              patch.delivery_time = bumped.time;
+                            }
+                            onCardChange(patch);
+                            await onSave('due_time', time);
+                            if (patch.delivery_date && patch.delivery_date !== card.delivery_date) await onSave('delivery_date', patch.delivery_date);
+                            if (patch.delivery_time && patch.delivery_time !== card.delivery_time) await onSave('delivery_time', patch.delivery_time);
+                          }} className="h-9 w-[92px] text-sm shrink-0" aria-label="Horário de início de produção" />
                         </div>
                       )}
 
