@@ -359,7 +359,12 @@ export async function deliverDemand(
   }
   const { error: uErr } = await supabase
     .from("demands")
-    .update({ status_id: done.id, current_function_key: null } as any)
+    .update({
+      status_id: done.id,
+      current_function_key: null,
+      assigned_to: null,
+      archived_at: new Date().toISOString(),
+    } as any)
     .eq("id", demandId);
   if (uErr) return { success: false, message: "Erro ao entregar a demanda." };
   return {

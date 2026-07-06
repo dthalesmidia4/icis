@@ -642,6 +642,7 @@ const KanbanCentralPage = () => {
   };
 
   const handleCardChange = (updatedCard: KanbanCardData) => {
+    const nowArchived = !!(updatedCard as any).archived_at;
     const updatedCentralCard = {
       ...updatedCard,
       demand_type: updatedCard.demand_type ?? selectedCard?.demand_type ?? null,
@@ -649,12 +650,23 @@ const KanbanCentralPage = () => {
       current_function_key: (updatedCard as any).current_function_key ?? (selectedCard as any)?.current_function_key ?? null,
       clientName: selectedCard?.clientName || "Cliente",
       clientId: selectedCard?.clientId || "",
-      periodPlanId: selectedCard?.periodPlanId || ""
+      periodPlanId: selectedCard?.periodPlanId || "",
+      isArchived: nowArchived || selectedCard?.isArchived || false,
     } as CentralKanbanCard;
     setSelectedCard(updatedCentralCard);
-    // Keep list state in sync so reopening the card preserves the current stage.
-    setCards(prev => prev.map(c => c.id === updatedCentralCard.id ? { ...c, ...updatedCentralCard } : c));
-    setArchivedCards(prev => prev.map(c => c.id === updatedCentralCard.id ? { ...c, ...updatedCentralCard } : c));
+    if (nowArchived) {
+      // Entregar: some da coluna do colaborador e vai para Demandas Completas.
+      setCards(prev => prev.filter(c => c.id !== updatedCentralCard.id));
+      setArchivedCards(prev => {
+        const exists = prev.some(c => c.id === updatedCentralCard.id);
+        return exists
+          ? prev.map(c => c.id === updatedCentralCard.id ? { ...c, ...updatedCentralCard } : c)
+          : [...prev, updatedCentralCard];
+      });
+    } else {
+      setCards(prev => prev.map(c => c.id === updatedCentralCard.id ? { ...c, ...updatedCentralCard } : c));
+      setArchivedCards(prev => prev.map(c => c.id === updatedCentralCard.id ? { ...c, ...updatedCentralCard } : c));
+    }
   };
 
   const handleSave = async (field: string, value: string) => {

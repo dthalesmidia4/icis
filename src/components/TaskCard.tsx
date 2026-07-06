@@ -425,6 +425,8 @@ export default function TaskCard({
           status_id: result.statusId,
           status: doneStatus?.name || card.status,
           current_function_key: null,
+          assigned_to: null,
+          archived_at: new Date().toISOString(),
         } as any);
         onOpenChange(false);
       } else {
