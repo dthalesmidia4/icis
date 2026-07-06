@@ -1066,82 +1066,87 @@ export default function TaskCard({
               )}
               {(isDraft || card.clientName) && <div className="h-4 w-px bg-border" />}
 
-              {isDraft ? null : readOnly ? (
-                <div 
-                  className="h-8 px-3 flex items-center gap-2 rounded-md border font-medium text-xs"
-                  style={{
-                    backgroundColor: `${statusConfig.color}15`,
-                    color: statusConfig.color,
-                    borderColor: `${statusConfig.color}40`
-                  }}
-                >
-                  <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusConfig.color }} />
-                  <span>{statusConfig.label}</span>
-                </div>
-              ) : (
-                <Select value={card.status || normalizedStatus} onValueChange={async (value) => {
-                  if (value === "Agendar Publicação") {
-                    if (onScheduleRequest) {
-                      onScheduleRequest(card);
-                      return;
-                    }
-                    if (!card.publish_date) {
-                      toast.error("Defina uma data de publicação", {
-                        description: "Para mover para 'Agendar Publicação', defina data e horário primeiro."
-                      });
-                      return;
-                    }
-                  }
-                  onCardChange({ ...card, status: value });
-                  handleFieldSave('status', value);
-                }}>
-                  <SelectTrigger 
-                    className="h-8 w-auto min-w-[170px] gap-2 border font-medium text-xs"
+              {/* Status oculto visualmente (mantido no DOM para preservar comportamento) */}
+              <div className="hidden">
+                {isDraft ? null : readOnly ? (
+                  <div
+                    className="h-8 px-3 flex items-center gap-2 rounded-md border font-medium text-xs"
                     style={{
                       backgroundColor: `${statusConfig.color}15`,
                       color: statusConfig.color,
                       borderColor: `${statusConfig.color}40`
                     }}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusConfig.color }} />
-                      <span className="truncate">{statusConfig.label}</span>
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="min-w-[220px] max-h-[420px]">
-                    <ScrollArea className="max-h-[400px]">
-                      {pipelineStatuses.length > 0 ? (
-                        pipelineStatuses.map((status, idx) => (
-                          <div key={status.id}>
-                            {idx > 0 && <Separator className="my-1" />}
-                            <SelectItem value={status.name} className="cursor-pointer">
-                              <div className="flex items-center gap-2">
-                                <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />
-                                <span className="text-xs font-medium">{status.name.toUpperCase()}</span>
-                              </div>
-                            </SelectItem>
-                          </div>
-                        ))
-                      ) : (
-                        STATUS_GROUPS.map((group, groupIdx) => (
-                          <div key={group.label}>
-                            {groupIdx > 0 && <Separator className="my-1" />}
-                            {group.statuses.map(status => (
-                              <SelectItem key={status.value} value={status.column} className="cursor-pointer">
+                    <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusConfig.color }} />
+                    <span>{statusConfig.label}</span>
+                  </div>
+                ) : (
+                  <Select value={card.status || normalizedStatus} onValueChange={async (value) => {
+                    if (value === "Agendar Publicação") {
+                      if (onScheduleRequest) {
+                        onScheduleRequest(card);
+                        return;
+                      }
+                      if (!card.publish_date) {
+                        toast.error("Defina uma data de publicação", {
+                          description: "Para mover para 'Agendar Publicação', defina data e horário primeiro."
+                        });
+                        return;
+                      }
+                    }
+                    onCardChange({ ...card, status: value });
+                    handleFieldSave('status', value);
+                  }}>
+                    <SelectTrigger
+                      className="h-8 w-auto min-w-[170px] gap-2 border font-medium text-xs"
+                      style={{
+                        backgroundColor: `${statusConfig.color}15`,
+                        color: statusConfig.color,
+                        borderColor: `${statusConfig.color}40`
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusConfig.color }} />
+                        <span className="truncate">{statusConfig.label}</span>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="min-w-[220px] max-h-[420px]">
+                      <ScrollArea className="max-h-[400px]">
+                        {pipelineStatuses.length > 0 ? (
+                          pipelineStatuses.map((status, idx) => (
+                            <div key={status.id}>
+                              {idx > 0 && <Separator className="my-1" />}
+                              <SelectItem value={status.name} className="cursor-pointer">
                                 <div className="flex items-center gap-2">
                                   <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />
-                                  <span className="text-xs font-medium">{status.label}</span>
+                                  <span className="text-xs font-medium">{status.name.toUpperCase()}</span>
                                 </div>
                               </SelectItem>
-                            ))}
-                          </div>
-                        ))
-                      )}
-                    </ScrollArea>
-                  </SelectContent>
-                </Select>
-              )}
-              {card.current_function_key && (() => {
+                            </div>
+                          ))
+                        ) : (
+                          STATUS_GROUPS.map((group, groupIdx) => (
+                            <div key={group.label}>
+                              {groupIdx > 0 && <Separator className="my-1" />}
+                              {group.statuses.map(status => (
+                                <SelectItem key={status.value} value={status.column} className="cursor-pointer">
+                                  <div className="flex items-center gap-2">
+                                    <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />
+                                    <span className="text-xs font-medium">{status.label}</span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </div>
+                          ))
+                        )}
+                      </ScrollArea>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              {/* Etapa (sempre visível) */}
+              {(() => {
                 const FUNCTION_LABELS: Record<string, string> = {
                   planejar: "Planejar",
                   criar_roteiro: "Criar roteiro",
@@ -1153,7 +1158,9 @@ export default function TaskCard({
                   publicar: "Publicar",
                   revisar_publicacao: "Revisar publicação",
                 };
-                const label = FUNCTION_LABELS[card.current_function_key] || card.current_function_key;
+                const label = card.current_function_key
+                  ? (FUNCTION_LABELS[card.current_function_key] || card.current_function_key)
+                  : "Sem etapa";
                 return (
                   <div
                     className="h-8 px-3 flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 text-primary font-medium text-xs"
@@ -1164,6 +1171,67 @@ export default function TaskCard({
                   </div>
                 );
               })()}
+
+              {/* Período (ao lado da Etapa) */}
+              <div className="h-8 px-3 flex items-center gap-2 rounded-md border border-border bg-card text-xs">
+                <Link className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="text-[10px] uppercase tracking-wide opacity-70 font-medium">Período</span>
+                {card.period_plan_id ? (
+                  <>
+                    <span className="text-foreground font-medium truncate max-w-[200px]">
+                      {periodTitle || "Carregando..."}
+                    </span>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                        onClick={async () => {
+                          if (!card) return;
+                          try {
+                            const { error } = await supabase
+                              .from("demands")
+                              .update({ period_plan_id: null })
+                              .eq("id", card.id);
+                            if (error) throw error;
+                            onCardChange({ ...card, period_plan_id: null });
+                            setPeriodTitle(null);
+                            const { toast } = await import("sonner");
+                            toast.success("Vínculo com o período removido");
+                          } catch (err) {
+                            console.error("Error unlinking period:", err);
+                            const { toast } = await import("sonner");
+                            toast.error("Erro ao remover vínculo");
+                          }
+                        }}
+                        title="Desvincular do período"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </>
+                ) : readOnly ? (
+                  <span className="text-muted-foreground">—</span>
+                ) : periodPlans.length > 0 ? (
+                  <Select onValueChange={handleLinkPeriod}>
+                    <SelectTrigger className="h-6 border-0 shadow-none px-1 text-xs w-auto min-w-[130px]" aria-label="Vincular a período">
+                      <SelectValue placeholder="Vincular" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      {periodPlans.map(pp => (
+                        <SelectItem key={pp.id} value={pp.id}>
+                          <span className="text-xs">
+                            {pp.period_title} ({format(new Date(pp.period_start + 'T00:00:00'), "dd/MM", { locale: ptBR })} - {format(new Date(pp.period_end + 'T00:00:00'), "dd/MM", { locale: ptBR })})
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span className="text-muted-foreground">
+                    {loadingPeriodPlans ? "Carregando..." : "Nenhum"}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Amber banner de Definir tipo removido — Tipo passou para a linha de triggers */}
