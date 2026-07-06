@@ -356,7 +356,7 @@ export default function TaskCard({
   const [attachmentToRemove, setAttachmentToRemove] = useState<Attachment | null>(null);
   const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
-  const [activeSection, setActiveSection] = useState<'description' | 'instructions' | 'cta' | 'observations' | 'caption' | 'anexos'>('description');
+  const [activeSection, setActiveSection] = useState<'description' | 'observations' | 'caption' | 'anexos'>('description');
   const [datesOpen, setDatesOpen] = useState(false);
   const [objectiveOpen, setObjectiveOpen] = useState(false);
   const [generatingImages, setGeneratingImages] = useState(false);
@@ -1615,8 +1615,6 @@ export default function TaskCard({
                           {(() => {
                             const sectionButtons = [
                               { id: 'description' as const, label: 'Conteúdo', icon: AlignLeft, savingKey: 'description' },
-                              { id: 'instructions' as const, label: 'Instruções de Produção', icon: FileText, savingKey: 'instructions' },
-                              { id: 'cta' as const, label: 'CTA Recomendado', icon: Megaphone, savingKey: 'instructions' },
                               { id: 'observations' as const, label: 'Observações', icon: MessageSquare, savingKey: 'observations' },
                               { id: 'caption' as const, label: 'Descrição', icon: Sparkles, savingKey: 'post_caption' },
                               { id: 'anexos' as const, label: 'Anexos', icon: Paperclip, savingKey: 'attachments' },
@@ -1660,33 +1658,11 @@ export default function TaskCard({
                               )
                             )}
 
-                            {activeSection === 'instructions' && (
-                              readOnly ? (
-                                <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(instrValue) }} />
-                              ) : (
-                                <BlockEditor
-                                  content={convertToHtml(instrValue)}
-                                  onChange={value => onCardChange({ ...card, instructions: combineInstructionsCTA(value, ctaValue) })}
-                                  onBlur={() => handleFieldSave('instructions', combineInstructionsCTA(card.instructions ? splitInstructionsCTA(card.instructions).instr : '', ctaValue))}
-                                  placeholder="Instruções de produção visual, layout, tom..."
-                                  minHeight="160px"
-                                />
-                              )
-                            )}
+                            {/* Abas "Instruções de Produção" e "CTA Recomendado" ocultadas da UI.
+                                A coluna `instructions` continua sendo preenchida pela IA/planejamento e
+                                usada pelas edge functions de geração. splitInstructionsCTA/combineInstructionsCTA
+                                permanecem no arquivo para compatibilidade futura. */}
 
-                            {activeSection === 'cta' && (
-                              readOnly ? (
-                                <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(ctaValue) }} />
-                              ) : (
-                                <BlockEditor
-                                  content={convertToHtml(ctaValue)}
-                                  onChange={value => onCardChange({ ...card, instructions: combineInstructionsCTA(instrValue, value) })}
-                                  onBlur={() => handleFieldSave('instructions', combineInstructionsCTA(instrValue, splitInstructionsCTA(card.instructions).cta))}
-                                  placeholder="Chamada para ação recomendada (ex: Agende pelo WhatsApp)"
-                                  minHeight="80px"
-                                />
-                              )
-                            )}
 
                             {activeSection === 'observations' && (
                               readOnly ? (
