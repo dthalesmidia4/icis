@@ -1060,7 +1060,7 @@ export default function TaskCard({
                   gerar_video: "Gerar vídeo",
                   editar_video: "Editar vídeo",
                   revisar: "Revisar",
-                  entregar_publicar: "Entregar/Publicar",
+                  publicar: "Publicar",
                 };
                 const label = FUNCTION_LABELS[card.current_function_key] || card.current_function_key;
                 return (
