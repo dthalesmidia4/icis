@@ -141,29 +141,40 @@ const Scheduled = () => {
     try {
       setLoading(true);
 
-      // Only fetch non-archived demands in "Agendar Publicação" status
-      const { data: demandsData, error } = await supabase
-        .from("demands")
-        .select(`
-          *,
-          pipeline_statuses!demands_status_id_fkey (
-            name,
-            color,
-            position
-          ),
-          tenant_companies!demands_client_id_fkey (
-            id,
-            fantasy_name,
-            name
-          )
-        `)
-        .eq("tenant_id", tenantId)
-        .is("archived_at", null);
-      
+      // Fetch two sources: (a) demands in "Agendar Publicação" status (legacy path);
+      // (b) demands with an active dispatch (scheduled/dispatching) in the new path.
+      const [{ data: demandsData, error }, { data: activeDispatches, error: dispErr }] = await Promise.all([
+        supabase
+          .from("demands")
+          .select(`
+            *,
+            pipeline_statuses!demands_status_id_fkey (
+              name,
+              color,
+              position
+            ),
+            tenant_companies!demands_client_id_fkey (
+              id,
+              fantasy_name,
+              name
+            )
+          `)
+          .eq("tenant_id", tenantId)
+          .is("archived_at", null),
+        supabase
+          .from("scheduled_publication_dispatches")
+          .select("card_id")
+          .eq("tenant_id", tenantId)
+          .in("status", ["scheduled", "dispatching"]),
+      ]);
+
       if (error) throw error;
+      if (dispErr) console.error("[Scheduled] dispatches fetch error", dispErr);
+
+      const dispatchCardIds = new Set((activeDispatches || []).map((d: any) => d.card_id));
 
       const allMappedCards: CentralKanbanCard[] = (demandsData || [])
-        .filter(demand => demand.pipeline_statuses?.name === "Agendar Publicação")
+        .filter(demand => demand.pipeline_statuses?.name === "Agendar Publicação" || dispatchCardIds.has(demand.id))
         .map(demand => {
           const company = demand.tenant_companies;
           return {
