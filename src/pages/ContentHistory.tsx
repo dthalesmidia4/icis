@@ -15,7 +15,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import JSZip from "jszip";
 import { createCardFromContent } from "@/lib/createCardFromContent";
-import { useTenant as _useTenant } from "@/contexts/TenantContext";
+
 interface GeneratedContent {
   id: string;
   content_type: string;
