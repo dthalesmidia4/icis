@@ -536,7 +536,9 @@ const PlanPeriod = () => {
       const ctaRecomendado = anyItem.cta_recomendado || '';
       const instrucoesParts = [instrucoesProducao, ctaRecomendado && `CTA: ${ctaRecomendado}`].filter(Boolean);
       const explicitKey = coerceDemandTypeKey(anyItem.demand_type_key || anyItem.type_key);
-      const demandTypeKey = explicitKey ?? normalizeDemandTypeKey(tipo);
+      let demandTypeKey = explicitKey ?? normalizeDemandTypeKey(tipo);
+      // "outro" nunca pode ser gerado automaticamente pela IA — apenas seleção manual no card.
+      if (demandTypeKey === "outro") demandTypeKey = null;
 
       return {
         tenant_id: tenantId,
