@@ -516,6 +516,12 @@ export async function deliverDemand(
       message: 'Não foi encontrado um status final "Feito" neste pipeline.',
     };
   }
+  const { data: currentDemand } = await supabase
+    .from("demands")
+    .select("tenant_id, assigned_to, current_function_key")
+    .eq("id", demandId)
+    .maybeSingle();
+
   const { error: uErr } = await supabase
     .from("demands")
     .update({
@@ -526,6 +532,18 @@ export async function deliverDemand(
     } as any)
     .eq("id", demandId);
   if (uErr) return { success: false, message: "Erro ao entregar a demanda." };
+
+  if (currentDemand?.tenant_id) {
+    await recordFlowHistory({
+      tenantId: currentDemand.tenant_id as string,
+      demandId,
+      action: "delivered",
+      fromUserId: (currentDemand as any).assigned_to ?? null,
+      toUserId: null,
+      fromFunctionKey: (currentDemand as any).current_function_key ?? null,
+      toFunctionKey: null,
+    });
+  }
   return {
     success: true,
     statusId: done.id,
