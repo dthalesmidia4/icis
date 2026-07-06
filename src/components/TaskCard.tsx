@@ -1534,21 +1534,21 @@ export default function TaskCard({
                         </div>
                       ) : (
                         <div className="space-y-3">
-                          <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
-                            <PopoverTrigger asChild>
-                              <Button variant="outline" className="w-full justify-start gap-2 font-normal text-sm h-9">
-                                <CalendarIcon className="h-3.5 w-3.5" />
-                                <span className="capitalize">{formatShortDate(card.publish_date)}</span>
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar mode="single" selected={card.publish_date ? new Date(card.publish_date + 'T00:00:00') : undefined} onSelect={handlePublishDateChange} initialFocus className="p-3 pointer-events-auto" />
-                            </PopoverContent>
-                          </Popover>
                           <div className="flex items-center gap-2">
-                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                            <Input type="time" value={card.publish_time || '09:00'} onChange={(e) => handlePublishTimeChange(e.target.value)} className="h-9 flex-1 text-sm" aria-label="Horário de publicação" />
+                            <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" className="flex-1 justify-start gap-2 font-normal text-sm h-9 min-w-0">
+                                  <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+                                  <span className="capitalize truncate">{formatShortDate(card.publish_date)}</span>
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar mode="single" selected={card.publish_date ? new Date(card.publish_date + 'T00:00:00') : undefined} onSelect={handlePublishDateChange} initialFocus className="p-3 pointer-events-auto" />
+                              </PopoverContent>
+                            </Popover>
+                            <Input type="time" value={card.publish_time || '09:00'} onChange={(e) => handlePublishTimeChange(e.target.value)} className="h-9 w-[92px] text-sm shrink-0" aria-label="Horário de publicação" />
                           </div>
+
                           <Separator />
                           <div className="space-y-2">
                             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Datas adicionais</h4>
