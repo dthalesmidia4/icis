@@ -1228,6 +1228,7 @@ export default function TaskCard({
                   gerar_video: "Gerar vídeo",
                   editar_video: "Editar vídeo",
                   revisar: "Revisar",
+                  enviar_cliente: "Enviar cliente",
                   publicar: "Publicar",
                   revisar_publicacao: "Revisar publicação",
                 };
