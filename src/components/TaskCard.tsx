@@ -1638,29 +1638,7 @@ export default function TaskCard({
                   </Card>
                 ) : null}
 
-                {/* Period linking for unlinked demands */}
-                {!readOnly && !card.period_plan_id && periodPlans.length > 0 && (
-                  <Card>
-                    <CardContent className="p-4">
-                      <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
-                        <Link className="h-4 w-4 text-primary" />
-                        Vincular a período
-                      </h3>
-                      <Select onValueChange={handleLinkPeriod}>
-                        <SelectTrigger className="h-9 text-sm">
-                          <SelectValue placeholder="Selecionar período" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background z-50">
-                          {periodPlans.map(pp => (
-                            <SelectItem key={pp.id} value={pp.id}>
-                              <span className="text-xs">{pp.period_title} ({format(new Date(pp.period_start + 'T00:00:00'), "dd/MM", { locale: ptBR })} - {format(new Date(pp.period_end + 'T00:00:00'), "dd/MM", { locale: ptBR })})</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </CardContent>
-                  </Card>
-                )}
+                {/* Vínculo com período movido para a linha de triggers (sempre visível). */}
 
                 {/* Ações secundárias movidas para o rodapé (ao lado da lixeira) */}
                     </div>
