@@ -1,58 +1,94 @@
-## Correção do fluxo de criação
+## Objetivo
 
-Você quer eliminar o mini-modal "Nova Demanda" (image 367) e abrir direto o **card espelho** (image 368) com todos os campos: Cliente, Tipo, Responsável, Início de Produção, Data de Entrega, Data de Publicação, Objetivo, Conteúdo, Instruções, CTA, Observações, Descrição, Anexos.
+Adicionar um modo **Registro de Cards** ao Kanban Central que mostra, por colaborador, todos os cards que já passaram por ele (não só os atuais). Para isso, precisa registrar histórico real de movimentação por função operacional / responsável.
 
-## O que muda
+---
 
-### 1. Remover completamente o mini-modal
-- O botão **"+ Criar Demanda Manual"** abre diretamente o `TaskCard` em **modo draft local** — sem criar nenhuma linha no banco ainda.
-- Nada mais aparece antes do card.
+## 1. Nova tabela `demand_flow_history`
 
-### 2. TaskCard em modo draft = formulário 100% local
-- Todos os campos (título, datas, horas, objetivo, conteúdo, instruções, CTA, observações, descrição, anexos, tipo) são editados em **estado local** dentro do card.
-- Sem autosave campo-a-campo; nada vai ao banco até o usuário clicar **Salvar Demanda**.
-- Header do card:
-  - **Cliente** — novo seletor inline (só aparece em modo draft, porque em cards reais o cliente é imutável).
-  - **Tipo da demanda** — usa o CTA "Definir tipo" que já existe no card.
-- Botões do header: **Salvar Demanda** (verde) e **Descartar** (cinza).
+Migration criando:
 
-### 3. Ao clicar "Salvar Demanda"
-- Valida: Cliente e Tipo obrigatórios; Título obrigatório.
-- Chama a RPC `create_demand_from_template` com todos os campos preenchidos de uma vez.
-- Se o usuário anexou arquivos ou usou IA no draft (ver item 4), sobe/vincula após o `demand_id` existir.
+- `id uuid pk`
+- `tenant_id uuid` (fk `tenants`)
+- `demand_id uuid` (fk `demands` on delete cascade)
+- `from_user_id uuid null`
+- `to_user_id uuid null`
+- `from_function_key text null`
+- `to_function_key text null`
+- `action text not null` — `created | proceeded | moved_back | delivered | manual_assignment`
+- `created_by uuid null`
+- `created_at timestamptz default now()`
+- `metadata jsonb default '{}'::jsonb`
 
-### 4. Recursos que exigem `demand_id` real
-Estes só funcionam depois que a demanda existe no banco:
+Índices: `(tenant_id, to_user_id)`, `(demand_id, created_at desc)`.
 
-- **Upload de anexos** — arquivos vão para storage indexados por `demand_id`.
-- **Geração por IA** — edge functions precisam do `demand_id`.
-- **Agendamento** (Agendar Publicação) — depende do `demand_id`.
-- **Prosseguir / Entregar** — fluxo operacional, só faz sentido depois de criada.
+RLS: SELECT/INSERT permitidos a quem tem acesso à tenant do card (`user_has_tenant_access` ou `super_admin`). GRANTs padrão para `authenticated` + `service_role`.
 
-**Decisão MVP recomendada:** desabilitar (com tooltip "Salve a demanda primeiro") esses 4 blocos durante o draft. O usuário salva → card recarrega no modo normal → anexa/gera/agenda normalmente.
+Não usar status. Não mexer em `status_id`.
 
-Alternativa mais complexa (fora do MVP): permitir upload durante o draft usando um bucket temporário e mover arquivos após save. Não recomendo para MVP — pouco valor, muito código.
+---
 
-### 5. Filtros `is_draft`
-Continuam ativos como já estão hoje. Nenhuma linha `is_draft = true` aparece em Kanban, Ver Conteúdos, Agendados, Completas, Cronograma, Colaboradores. Mas com essa abordagem quase nenhuma linha draft será criada (só em caso de recuperação futura).
+## 2. Backfill inicial
 
-## Arquivos a alterar
+Uma inserção derivada do estado atual das demandas ativas: para cada `demand` com `assigned_to` e/ou `current_function_key`, criar 1 linha `action = 'created'` com `to_user_id = assigned_to`, `to_function_key = current_function_key`, `created_at = COALESCE(created_at, now())`. Assim o modo já mostra algo para cards antigos, mesmo sem histórico real anterior.
 
-- `src/components/CreateDemandModal.tsx` → **deletar** (não é mais usado).
-- `src/pages/KanbanCentralPage.tsx` → botão "+" abre TaskCard direto em modo draft com card em branco; handler `handleDraftSave` chama a RPC com todos os campos.
-- `src/components/TaskCard.tsx`:
-  - No modo draft, header mostra seletor de **Cliente** (nova UI, só draft).
-  - Autosave (`handleFieldSave`, uploads, dispatches) fica **inerte** em modo draft — só atualiza estado local via `onCardChange`.
-  - Bloqueia Anexos / IA / Agendar / Prosseguir com tooltip.
-  - Botão Salvar Demanda envia o objeto completo para o parent via `onDraftSave(cardData)`.
+---
 
-## Checklist de verificação
+## 3. Instrumentar transições no código
 
-1. Clicar em **+ Criar Demanda Manual** → abre direto o card em branco (sem mini-modal).
-2. Ver seletor **Cliente** inline no header (só em draft).
-3. Ver CTA **Definir tipo** já existente.
-4. Preencher título, responsável, datas, objetivo, conteúdo, instruções, CTA, observações, descrição → tudo local.
-5. Blocos Anexos / IA / Agendar aparecem desabilitados com tooltip explicativo.
-6. Clicar **Salvar Demanda** → demanda aparece no Kanban com todos os campos.
-7. Reabrir a demanda → agora sim, anexos / IA / agendar funcionam normalmente.
-8. Clicar **Descartar** → nada foi criado no banco.
+Em `src/lib/proceedDemand.ts`, adicionar um helper `recordFlowHistory(...)` e chamar em:
+
+- `proceedDemand` — antes/depois do `update`, gravar `action='proceeded'` com `from_user_id`, `from_function_key` do estado atual e `to_user_id`, `to_function_key` do próximo passo (inclui a transição especial `enviar_cliente → aguardando_cliente` que mantém o mesmo responsável).
+- `regressDemand` — mesma lógica com `action='moved_back'`.
+- `deliverDemand` — `action='delivered'`, `to_user_id=null`, `to_function_key=null`.
+
+Na criação de card (locais que já setam `assigned_to` + `current_function_key`: `createCardFromContent.ts`, criação manual em `KanbanCentralPage`, sync de period plans se aplicável), gravar `action='created'`. Em drag-and-drop que reatribui responsável manualmente, gravar `action='manual_assignment'`.
+
+Sempre passar `tenant_id` e `created_by = auth user`.
+
+Falha ao gravar histórico **não** deve bloquear a operação principal (log-and-continue).
+
+---
+
+## 4. UI: botão e modo no Kanban Central
+
+Em `src/pages/KanbanCentralPage.tsx`:
+
+- Adicionar toggle **Registro de Cards** no header (perto dos filtros existentes). Se existir botão antigo de status ali, substitui-lo.
+- Estado `viewMode: 'active' | 'history'`.
+- Modo `active`: comportamento atual inalterado (colunas por `assigned_to`, container Aguardando clientes, etc).
+- Modo `history`:
+  - Para cada coluna de colaborador, buscar `demand_flow_history` onde `to_user_id = colaborador` na tenant, agrupar por `demand_id` mantendo a última passagem por aquele usuário.
+  - Buscar as `demands` correspondentes (mesmo que hoje estejam em outra pessoa / arquivadas recentes — decidir escopo: cards ativos + últimos 90 dias arquivados).
+  - Renderizar os cards com um estilo "histórico": opacidade reduzida, borda tracejada, badge `Passou por aqui` + data da última passagem, e badge indicando onde o card está **hoje** (responsável atual + função atual).
+  - Container **Aguardando clientes** é ocultado neste modo (é conceito do estado atual).
+  - Cabeçalho da coluna mostra contador `X cards passaram`.
+
+Realtime: assinar `demand_flow_history` para atualizar o modo histórico ao vivo (mesma pattern usada hoje para `demands`).
+
+---
+
+## 5. Fora de escopo
+
+- Não criar status novo.
+- Não alterar `status_id`, publicação automática, Demandas Completas, Conteúdo Avulso.
+- Não mudar `proceedDemand`/`regressDemand` além do registro de histórico.
+- Sem tela dedicada de auditoria por card nesta etapa (apenas o modo no Kanban). Pode vir depois.
+
+---
+
+## 6. Detalhes técnicos
+
+- Realtime: `ALTER PUBLICATION supabase_realtime ADD TABLE public.demand_flow_history;`
+- Backfill roda uma única vez na própria migration com `INSERT ... SELECT ... WHERE NOT EXISTS`.
+- Consulta do modo histórico: `select demand_id, max(created_at) as last_seen from demand_flow_history where tenant_id = ? and to_user_id in (...) group by demand_id, to_user_id`, depois `select * from demands where id in (...)`.
+- Não usar `service_role` no frontend. Toda gravação passa pela sessão do usuário com RLS.
+
+---
+
+## 7. Passos de execução
+
+1. Migration: tabela + índices + RLS + GRANTs + publicação realtime + backfill.
+2. Helper `recordFlowHistory` e instrumentação em `proceedDemand.ts` e nos pontos de criação/atribuição manual.
+3. Toggle + modo histórico no `KanbanCentralPage.tsx` com estilo distinto e badge do estado atual.
+4. Verificar build e testar fluxo: criar card → prosseguir várias vezes → voltar → entregar → alternar modos.
