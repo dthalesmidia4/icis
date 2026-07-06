@@ -345,6 +345,8 @@ export default function TaskCard({
   const [proceeding, setProceeding] = useState(false);
   const [isLastFn, setIsLastFn] = useState(false);
   const [delivering, setDelivering] = useState(false);
+  const [inlineScheduleOpen, setInlineScheduleOpen] = useState(false);
+  const [inlineScheduling, setInlineScheduling] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
