@@ -32,7 +32,7 @@ import KanbanCard from "@/components/KanbanCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import CreateColumnModal from "@/components/CreateColumnModal";
 import ManageColumnsModal from "@/components/ManageColumnsModal";
-import { CreateDemandModal } from "@/components/CreateDemandModal";
+
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
@@ -127,7 +127,7 @@ const KanbanCentralPage = () => {
   const [pipelineId, setPipelineId] = useState<string>("");
   const [isCreateColumnModalOpen, setIsCreateColumnModalOpen] = useState(false);
   const [isManageColumnsModalOpen, setIsManageColumnsModalOpen] = useState(false);
-  const [isCreateDemandModalOpen, setIsCreateDemandModalOpen] = useState(false);
+  
   const [isDraftMode, setIsDraftMode] = useState(false);
   const [draftClients, setDraftClients] = useState<{ id: string; name: string }[]>([]);
 
@@ -1097,7 +1097,7 @@ const KanbanCentralPage = () => {
           </Button>
           <Button
             size="sm"
-            onClick={() => setIsCreateDemandModalOpen(true)}
+            onClick={handleOpenDraft}
           >
             <Plus className="h-4 w-4 mr-1" />
             Nova Demanda
