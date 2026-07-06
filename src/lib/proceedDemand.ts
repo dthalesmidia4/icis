@@ -8,13 +8,15 @@ export type DemandTypeKey =
   | "criativo_estatico"
   | "carrossel"
   | "video_captado"
-  | "video_gerado";
+  | "video_gerado"
+  | "outro";
 
 export const OFFICIAL_DEMAND_TYPES: { key: DemandTypeKey; label: string }[] = [
   { key: "criativo_estatico", label: "Criativo estático" },
   { key: "carrossel", label: "Carrossel" },
   { key: "video_captado", label: "Vídeo captado" },
   { key: "video_gerado", label: "Vídeo gerado" },
+  { key: "outro", label: "Outro" },
 ];
 
 export const DEMAND_TYPE_LABEL: Record<DemandTypeKey, string> = {
@@ -22,6 +24,7 @@ export const DEMAND_TYPE_LABEL: Record<DemandTypeKey, string> = {
   carrossel: "Carrossel",
   video_captado: "Vídeo captado",
   video_gerado: "Vídeo gerado",
+  outro: "Outro",
 };
 
 /**
