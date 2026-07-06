@@ -1291,7 +1291,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       } else {
         toast.success(`${allImages.length}/${totalSlides} imagens geradas com sucesso!`);
         const urls = allImages.map(img => img.imageUrl).filter(Boolean);
-        if (urls.length > 0) await saveGeneratedContent('carousel', 'Carrossel com IA', carouselIdea, urls);
+        if (urls.length > 0) {
+          const savedId = await saveGeneratedContent('carousel', 'Carrossel com IA', carouselIdea, urls);
+          setLastCarouselContentId(savedId);
+        }
       }
     } catch (err) { console.error('Generate carousel images error:', err); toast.error('Erro inesperado ao gerar imagens.'); }
     finally { setGeneratingCarouselImages(false); setCarouselImageProgress(''); }
