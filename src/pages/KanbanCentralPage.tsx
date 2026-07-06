@@ -1597,6 +1597,11 @@ const KanbanCentralPage = () => {
                           {allColumnCards.length}
                         </Badge>
                       </div>
+                      {viewMode === "history" && (
+                        <span className="text-[11px] text-muted-foreground mt-1">
+                          {allColumnCards.length === 1 ? "1 card passou por aqui" : `${allColumnCards.length} cards passaram por aqui`}
+                        </span>
+                      )}
                     </div>
 
                     {/* Column Content */}
