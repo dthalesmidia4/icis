@@ -1243,6 +1243,15 @@ const KanbanCentralPage = () => {
 
         <div className="flex items-center gap-2">
           <Button
+            variant={viewMode === "history" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode((v) => (v === "history" ? "active" : "history"))}
+            title="Ver os cards que já passaram por cada colaborador"
+          >
+            <History className="h-4 w-4 mr-1" />
+            {viewMode === "history" ? "Modo ativo" : "Registro de Cards"}
+          </Button>
+          <Button
             variant="outline"
             size="sm"
             onClick={() => setIsCreateColumnModalOpen(true)}
