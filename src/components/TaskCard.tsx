@@ -357,6 +357,8 @@ export default function TaskCard({
   const [periodPlans, setPeriodPlans] = useState<{ id: string; period_title: string; period_start: string; period_end: string }[]>([]);
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
   const [activeSection, setActiveSection] = useState<'description' | 'instructions' | 'cta' | 'observations' | 'caption' | 'anexos'>('description');
+  const [datesOpen, setDatesOpen] = useState(false);
+  const [objectiveOpen, setObjectiveOpen] = useState(false);
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
   const [proceeding, setProceeding] = useState(false);
@@ -1202,9 +1204,8 @@ export default function TaskCard({
                       return (
                         <>
               {/* === PUBLICAÇÃO + CONTROLES (full-width, acima dos anexos) === */}
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 items-start">
-
-                {/* Responsável */}
+              <div className="space-y-4">
+                {/* Responsável (sempre visível) */}
                 <Card>
                   <CardContent className="p-4 space-y-2">
                     <h3 className="font-semibold text-sm flex items-center gap-2">
@@ -1220,7 +1221,7 @@ export default function TaskCard({
                       }}
                       disabled={readOnly}
                     >
-                      <SelectTrigger className="h-9 text-sm" aria-label="Responsável">
+                      <SelectTrigger className="h-9 text-sm max-w-sm" aria-label="Responsável">
                         <SelectValue placeholder="Sem responsável" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1233,7 +1234,27 @@ export default function TaskCard({
                   </CardContent>
                 </Card>
 
-                {/* Início de Produção */}
+                {/* Toggle Datas e Horários */}
+                <button
+                  type="button"
+                  onClick={() => setDatesOpen(v => !v)}
+                  className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
+                  aria-expanded={datesOpen}
+                >
+                  <span className="flex items-center gap-2 font-semibold text-sm">
+                    <CalendarIcon className="h-4 w-4 text-primary" />
+                    Datas e Horários
+                  </span>
+                  <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-300", datesOpen && "rotate-180")} />
+                </button>
+
+                <div className={cn(
+                  "grid transition-all duration-300 ease-in-out",
+                  datesOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                )}>
+                  <div className="overflow-hidden">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start pt-1">
+
                 {(!readOnly && !card.due_date) ? (
                   <Popover>
                     <PopoverTrigger asChild>
@@ -1552,22 +1573,43 @@ export default function TaskCard({
                 )}
 
                 {/* Ações secundárias movidas para o rodapé (ao lado da lixeira) */}
+                    </div>
+                  </div>
+                </div>
               </div>
-                          {/* Objetivo */}
-                          <section>
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className="p-1.5 bg-primary/10 rounded-md">
-                                <Target className="h-4 w-4 text-primary" />
+                          {/* Objetivo (colapsável) */}
+                          <section className="space-y-2">
+                            <button
+                              type="button"
+                              onClick={() => setObjectiveOpen(v => !v)}
+                              className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
+                              aria-expanded={objectiveOpen}
+                            >
+                              <span className="flex items-center gap-2 font-semibold text-sm">
+                                <div className="p-1 bg-primary/10 rounded-md">
+                                  <Target className="h-3.5 w-3.5 text-primary" />
+                                </div>
+                                <span className="uppercase tracking-wide">Objetivo</span>
+                                {saving && savingField === 'objective' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                              </span>
+                              <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-300", objectiveOpen && "rotate-180")} />
+                            </button>
+                            <div className={cn(
+                              "grid transition-all duration-300 ease-in-out",
+                              objectiveOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                            )}>
+                              <div className="overflow-hidden">
+                                <div className="pt-2">
+                                  {readOnly ? (
+                                    <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.objective || "") }} />
+                                  ) : (
+                                    <BlockEditor content={convertToHtml(card.objective || "")} onChange={value => onCardChange({ ...card, objective: value })} onBlur={() => handleFieldSave('objective', card.objective || '')} placeholder="Qual é a finalidade estratégica deste material?" minHeight="80px" />
+                                  )}
+                                </div>
                               </div>
-                              <h3 className="font-semibold text-foreground uppercase tracking-wide text-sm">Objetivo</h3>
-                              {saving && savingField === 'objective' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground ml-auto" />}
                             </div>
-                            {readOnly ? (
-                              <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.objective || "") }} />
-                            ) : (
-                              <BlockEditor content={convertToHtml(card.objective || "")} onChange={value => onCardChange({ ...card, objective: value })} onBlur={() => handleFieldSave('objective', card.objective || '')} placeholder="Qual é a finalidade estratégica deste material?" minHeight="80px" />
-                            )}
                           </section>
+
 
                           <Separator />
 
