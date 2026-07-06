@@ -427,6 +427,35 @@ export default function TaskCard({
     }
   };
 
+  const handleRegress = async () => {
+    if (!card || regressing) return;
+    if (!card.demand_type_key) {
+      toast.error("Defina o tipo da demanda antes de voltar.");
+      return;
+    }
+    setRegressing(true);
+    try {
+      const result = await regressDemand({
+        demandId: card.id,
+        tenantId: card.tenant_id,
+        demandTypeKey: card.demand_type_key,
+        currentFunctionKey: card.current_function_key,
+      });
+      if (result.success) {
+        toast.success(result.message);
+        onCardChange({
+          ...card,
+          assigned_to: result.assignedTo || null,
+          current_function_key: result.functionKey || null,
+        });
+      } else {
+        toast.error(result.message);
+      }
+    } finally {
+      setRegressing(false);
+    }
+  };
+
   const handleDeliver = async () => {
     if (!card || delivering) return;
     const pipelineId = pipelineStatuses[0]?.pipeline_id;
