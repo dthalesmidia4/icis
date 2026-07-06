@@ -607,6 +607,59 @@ const KanbanCentralPage = () => {
     }
   };
 
+  // Buscar histórico agrupado por colaborador quando o modo "Registro de Cards" está ativo
+  const fetchHistory = useCallback(async () => {
+    if (!tenantId) return;
+    setHistoryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("demand_flow_history" as any)
+        .select("demand_id, to_user_id, created_at")
+        .eq("tenant_id", tenantId)
+        .not("to_user_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(5000);
+      if (error) throw error;
+      const map = new Map<string, Map<string, string>>(); // userId -> (demandId -> lastSeenAt)
+      (data || []).forEach((row: any) => {
+        const uid = row.to_user_id as string;
+        const did = row.demand_id as string;
+        const at = row.created_at as string;
+        if (!map.has(uid)) map.set(uid, new Map());
+        const inner = map.get(uid)!;
+        if (!inner.has(did)) inner.set(did, at); // primeira ocorrência = mais recente (ordenado desc)
+      });
+      const result = new Map<string, Array<{ demandId: string; lastSeenAt: string }>>();
+      map.forEach((inner, uid) => {
+        result.set(uid, Array.from(inner.entries()).map(([demandId, lastSeenAt]) => ({ demandId, lastSeenAt })));
+      });
+      setHistoryByUser(result);
+    } catch (err) {
+      console.error("[flowHistory] fetch error:", err);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [tenantId]);
+
+  useEffect(() => {
+    if (viewMode === "history") fetchHistory();
+  }, [viewMode, fetchHistory]);
+
+  useEffect(() => {
+    if (!tenantId || viewMode !== "history") return;
+    const channel = supabase
+      .channel("dfh-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "demand_flow_history", filter: `tenant_id=eq.${tenantId}` },
+        () => fetchHistory()
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [tenantId, viewMode, fetchHistory]);
+
   const handleDragEnd = async (result: any) => {
     if (!result.destination) return;
 
