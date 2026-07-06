@@ -1039,10 +1039,28 @@ export default function TaskCard({
 
             {/* Linha 2: Cliente + Status */}
             <div className="flex items-center gap-4 mt-2 flex-wrap">
-              {card.clientName && (
+              {isDraft ? (
+                <Select
+                  value={card.clientId || ""}
+                  onValueChange={(v) => {
+                    const c = draftClients.find((d) => d.id === v);
+                    onDraftClientChange?.(v, c?.name || "Cliente");
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-auto min-w-[200px] text-xs font-medium">
+                    <SelectValue placeholder="Selecione o cliente *" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50 max-h-[320px]">
+                    {draftClients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : card.clientName && (
                 <span className="text-sm text-muted-foreground">{card.clientName}</span>
               )}
-              {card.clientName && <div className="h-4 w-px bg-border" />}
+              {(isDraft || card.clientName) && <div className="h-4 w-px bg-border" />}
+
               {readOnly ? (
                 <div 
                   className="h-8 px-3 flex items-center gap-2 rounded-md border font-medium text-xs"
