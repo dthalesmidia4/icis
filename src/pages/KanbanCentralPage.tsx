@@ -15,6 +15,7 @@ import {
   Plus,
   Settings2,
   CalendarDays,
+  ChevronDown,
   X
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
@@ -98,6 +99,15 @@ const KanbanCentralPage = () => {
   const { isSuperAdmin } = useAgencyRole();
   const [cards, setCards] = useState<CentralKanbanCard[]>([]);
   const [archivedCards, setArchivedCards] = useState<CentralKanbanCard[]>([]);
+  const [collapsedDateGroups, setCollapsedDateGroups] = useState<Set<string>>(new Set());
+  const toggleDateGroup = useCallback((key: string) => {
+    setCollapsedDateGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
   const [loading, setLoading] = useState(true);
   const [selectedCard, setSelectedCard] = useState<CentralKanbanCard | null>(null);
   const [isTaskCardOpen, setIsTaskCardOpen] = useState(false);
@@ -1450,9 +1460,23 @@ const KanbanCentralPage = () => {
                             return `${d}/${m}/${y}`;
                           };
 
-                          return entries.map(({ date, items }) => (
+                          return entries.map(({ date, items }) => {
+                            const groupKey = `${column.id}::${date}`;
+                            const isCollapsed = collapsedDateGroups.has(groupKey);
+                            return (
                             <div key={date} className="space-y-1">
-                              <div className="flex items-center gap-2 px-1 pt-1 pb-1 border-b border-border/40">
+                              <button
+                                type="button"
+                                onClick={() => toggleDateGroup(groupKey)}
+                                className="w-full flex items-center gap-2 px-1 pt-1 pb-1 border-b border-border/40 hover:bg-muted/40 rounded-sm transition-colors"
+                                aria-expanded={!isCollapsed}
+                                aria-label={isCollapsed ? "Expandir grupo" : "Recolher grupo"}
+                              >
+                                {isCollapsed ? (
+                                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                ) : (
+                                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                )}
                                 <CalendarDays className="h-3.5 w-3.5 text-primary" />
                                 <span className="text-xs font-bold text-foreground">
                                   {formatHeader(date)}
@@ -1460,7 +1484,8 @@ const KanbanCentralPage = () => {
                                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 ml-auto">
                                   {items.length}
                                 </Badge>
-                              </div>
+                              </button>
+                              <div className={cn(isCollapsed && "hidden")}>
                               {items.map((card) => {
                                 runningIndex += 1;
                                 const index = runningIndex;
@@ -1503,8 +1528,10 @@ const KanbanCentralPage = () => {
                                   </Draggable>
                                 );
                               })}
+                              </div>
                             </div>
-                          ));
+                            );
+                          });
                         })()}
                         {provided.placeholder}
                       </div>

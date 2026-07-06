@@ -79,27 +79,12 @@ const KanbanCard = ({
     >
       {/* Title */}
       <CardHeader className="px-3 pt-3 pb-2">
-        <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-          {demandType && (
-            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4 font-medium shrink-0 border", getDemandTypeColor(demandType))}>
-              {demandType}
-            </Badge>
-          )}
-          {statusName && (
-            <Badge
-              variant="outline"
-              className="text-[10px] px-1.5 py-0 h-4 font-medium shrink-0 border"
-              style={statusColor ? { borderColor: `${statusColor}66`, color: statusColor, backgroundColor: `${statusColor}1a` } : undefined}
-            >
-              {statusName}
-            </Badge>
-          )}
-        </div>
+        {/* Tags visuais (tipo, status, dispatch) ocultas a pedido — mantemos os dados intactos. */}
         <CardTitle className="text-sm font-semibold leading-snug line-clamp-2 text-foreground">
           {title}
         </CardTitle>
-        {cardId && <DispatchStatusBadge cardId={cardId} className="mt-2" />}
       </CardHeader>
+
       
       {/* Footer: Dates */}
       {showStartEndLabels ? (
