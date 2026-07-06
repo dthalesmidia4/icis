@@ -99,6 +99,15 @@ const KanbanCentralPage = () => {
   const { isSuperAdmin } = useAgencyRole();
   const [cards, setCards] = useState<CentralKanbanCard[]>([]);
   const [archivedCards, setArchivedCards] = useState<CentralKanbanCard[]>([]);
+  const [collapsedDateGroups, setCollapsedDateGroups] = useState<Set<string>>(new Set());
+  const toggleDateGroup = useCallback((key: string) => {
+    setCollapsedDateGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
   const [loading, setLoading] = useState(true);
   const [selectedCard, setSelectedCard] = useState<CentralKanbanCard | null>(null);
   const [isTaskCardOpen, setIsTaskCardOpen] = useState(false);
