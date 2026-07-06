@@ -524,6 +524,20 @@ const ContentHistory = () => {
                       <Download className="w-4 h-4 mr-2" />Baixar Todas ({previewContent.image_urls.length})
                     </Button>
                   )}
+                  {canGenerateCard(previewContent.content_type, previewContent.image_urls) && (
+                    <Button
+                      variant="default"
+                      className="flex-1"
+                      disabled={creatingCardId === previewContent.id}
+                      onClick={() => handleGenerateCard(previewContent)}
+                    >
+                      {creatingCardId === previewContent.id ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando card...</>
+                      ) : (
+                        <><CheckSquare className="w-4 h-4 mr-2" />Gerar Card</>
+                      )}
+                    </Button>
+                  )}
                 </div>
               </>
             )}
