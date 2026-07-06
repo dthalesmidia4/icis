@@ -1,0 +1,44 @@
+import { supabase } from "@/integrations/supabase/client";
+
+export type FlowHistoryAction =
+  | "created"
+  | "proceeded"
+  | "moved_back"
+  | "delivered"
+  | "manual_assignment";
+
+export interface RecordFlowHistoryInput {
+  tenantId: string;
+  demandId: string;
+  action: FlowHistoryAction;
+  fromUserId?: string | null;
+  toUserId?: string | null;
+  fromFunctionKey?: string | null;
+  toFunctionKey?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Registra um evento no histórico operacional de um card.
+ * Nunca deve bloquear o fluxo principal — falhas são apenas logadas.
+ */
+export async function recordFlowHistory(input: RecordFlowHistoryInput): Promise<void> {
+  try {
+    const { data: userRes } = await supabase.auth.getUser();
+    const createdBy = userRes?.user?.id ?? null;
+    const { error } = await supabase.from("demand_flow_history" as any).insert({
+      tenant_id: input.tenantId,
+      demand_id: input.demandId,
+      from_user_id: input.fromUserId ?? null,
+      to_user_id: input.toUserId ?? null,
+      from_function_key: input.fromFunctionKey ?? null,
+      to_function_key: input.toFunctionKey ?? null,
+      action: input.action,
+      created_by: createdBy,
+      metadata: input.metadata ?? {},
+    } as any);
+    if (error) console.warn("[flowHistory] insert error:", error);
+  } catch (err) {
+    console.warn("[flowHistory] unexpected error:", err);
+  }
+}
