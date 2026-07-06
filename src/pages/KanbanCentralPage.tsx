@@ -1717,9 +1717,6 @@ const KanbanCentralPage = () => {
                                       >
                                         {isHistory && (
                                           <div className="flex flex-wrap items-center gap-1 mb-1 px-1">
-                                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-dashed border-primary/60 text-primary">
-                                              Passou por aqui
-                                            </Badge>
                                             {historyAt && (
                                               <span className="text-[9px] text-muted-foreground">
                                                 {new Date(historyAt).toLocaleDateString("pt-BR")}
@@ -1730,6 +1727,7 @@ const KanbanCentralPage = () => {
                                             </Badge>
                                           </div>
                                         )}
+
                                         <div className={cn(isHistory && "border border-dashed border-primary/40 rounded-lg")}>
                                           <KanbanCard
                                             title={card.title}
