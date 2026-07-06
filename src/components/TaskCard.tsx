@@ -1967,7 +1967,13 @@ export default function TaskCard({
                       )}
 
                       {/* Upload Button */}
-                      {!readOnly && (
+                      {!readOnly && isDraft && (
+                        <div className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-border/60 rounded-lg bg-muted/30 text-sm text-muted-foreground">
+                          <Paperclip className="h-4 w-4" />
+                          Salve a demanda para anexar arquivos, gerar por IA ou agendar publicação.
+                        </div>
+                      )}
+                      {!readOnly && !isDraft && (
                         <label className={cn(
                           "flex items-center gap-2 px-4 py-3 border-2 border-dashed border-border/60 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all",
                           uploading && "opacity-50 cursor-not-allowed"
@@ -1989,6 +1995,7 @@ export default function TaskCard({
                           </span>
                         </label>
                       )}
+
                     </>
                   )}
                 </CardContent>
