@@ -290,6 +290,8 @@ const KanbanCentralPage = () => {
         .maybeSingle();
 
       if (error || !data) return;
+      if ((data as any).is_draft) return; // don't surface drafts in realtime
+
 
       const statusName = data.pipeline_statuses?.name || "Planejamento";
       const company = data.tenant_companies;
