@@ -152,6 +152,12 @@ const KanbanCentralPage = () => {
   const [isDraftMode, setIsDraftMode] = useState(false);
   const [draftClients, setDraftClients] = useState<{ id: string; name: string }[]>([]);
 
+  // Modo "Registro de Cards" — mostra cards que já passaram por cada colaborador
+  const [viewMode, setViewMode] = useState<"active" | "history">("active");
+  // Map<toUserId, Array<{ demandId, lastSeenAt }>>
+  const [historyByUser, setHistoryByUser] = useState<Map<string, Array<{ demandId: string; lastSeenAt: string }>>>(new Map());
+  const [historyLoading, setHistoryLoading] = useState(false);
+
 
 
   // Schedule modal state
