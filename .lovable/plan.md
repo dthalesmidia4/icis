@@ -1,73 +1,58 @@
-## Objetivo
+## Correção do fluxo de criação
 
-Substituir o `CreateDemandModal` atual (formulário compacto de 3–4 campos) por um modal que é o **espelho visual 100% idêntico** do `TaskCard` — mesmo layout de 2 colunas (65/35), mesmo editor de blocos, mesmos campos laterais, mesmos blocos avançados —, porém em branco na abertura.
+Você quer eliminar o mini-modal "Nova Demanda" (image 367) e abrir direto o **card espelho** (image 368) com todos os campos: Cliente, Tipo, Responsável, Início de Produção, Data de Entrega, Data de Publicação, Objetivo, Conteúdo, Instruções, CTA, Observações, Descrição, Anexos.
 
-## Abordagem recomendada: "Draft‑first"
+## O que muda
 
-O `TaskCard` é fortemente acoplado a um `demand_id` real (autosave por campo, uploads no storage vinculados ao card, edge functions de IA, agendamento, fluxo operacional). Reimplementar toda essa UI em modo "sem id" duplicaria ~2000 linhas e sairia dessincronizado em 1 semana.
+### 1. Remover completamente o mini-modal
+- O botão **"+ Criar Demanda Manual"** abre diretamente o `TaskCard` em **modo draft local** — sem criar nenhuma linha no banco ainda.
+- Nada mais aparece antes do card.
 
-Solução: quando o usuário clica em **"+ Criar Demanda Manual"**, criamos imediatamente uma **demanda draft** (rascunho invisível no Kanban) e abrimos o `TaskCard` sobre ela. O usuário edita tudo exatamente como um card normal. Ao fechar/salvar, o draft vira demanda real; se ele cancelar, o draft é descartado.
+### 2. TaskCard em modo draft = formulário 100% local
+- Todos os campos (título, datas, horas, objetivo, conteúdo, instruções, CTA, observações, descrição, anexos, tipo) são editados em **estado local** dentro do card.
+- Sem autosave campo-a-campo; nada vai ao banco até o usuário clicar **Salvar Demanda**.
+- Header do card:
+  - **Cliente** — novo seletor inline (só aparece em modo draft, porque em cards reais o cliente é imutável).
+  - **Tipo da demanda** — usa o CTA "Definir tipo" que já existe no card.
+- Botões do header: **Salvar Demanda** (verde) e **Descartar** (cinza).
 
-### Fluxo
+### 3. Ao clicar "Salvar Demanda"
+- Valida: Cliente e Tipo obrigatórios; Título obrigatório.
+- Chama a RPC `create_demand_from_template` com todos os campos preenchidos de uma vez.
+- Se o usuário anexou arquivos ou usou IA no draft (ver item 4), sobe/vincula após o `demand_id` existir.
 
-```text
-[+ Criar Demanda Manual]
-        │
-        ▼
-Mini‑seletor inicial (Cliente + Tipo)   ← 2 campos obrigatórios mínimos
-        │
-        ▼
-RPC create_demand_from_template          ← cria draft com is_draft=true
-        │
-        ▼
-Abre <TaskCard> exatamente como hoje     ← espelho 100%, vazio
-        │
-        ├── Salvar/Fechar → UPDATE is_draft=false → aparece no Kanban
-        └── Cancelar      → DELETE do draft
-```
+### 4. Recursos que exigem `demand_id` real
+Estes só funcionam depois que a demanda existe no banco:
 
-## Por que o mini‑seletor de 2 campos
+- **Upload de anexos** — arquivos vão para storage indexados por `demand_id`.
+- **Geração por IA** — edge functions precisam do `demand_id`.
+- **Agendamento** (Agendar Publicação) — depende do `demand_id`.
+- **Prosseguir / Entregar** — fluxo operacional, só faz sentido depois de criada.
 
-`Cliente` e `Tipo da Demanda` são pré‑requisitos técnicos:
-- Cliente define `tenant_id`, RLS de anexos, permissões de IA, sugestões, contas sociais.
-- Tipo define o fluxo (`flow_functions` por tipo), status inicial e permissões operacionais.
+**Decisão MVP recomendada:** desabilitar (com tooltip "Salve a demanda primeiro") esses 4 blocos durante o draft. O usuário salva → card recarrega no modo normal → anexa/gera/agenda normalmente.
 
-Sem esses dois, o `TaskCard` não consegue montar nem o menu de funções nem o botão "Prosseguir". Todos os outros campos (título, descrição, datas, anexos, agendamento, etc.) ficam em branco dentro do próprio card espelho.
+Alternativa mais complexa (fora do MVP): permitir upload durante o draft usando um bucket temporário e mover arquivos após save. Não recomendo para MVP — pouco valor, muito código.
 
-## Mudanças no código
+### 5. Filtros `is_draft`
+Continuam ativos como já estão hoje. Nenhuma linha `is_draft = true` aparece em Kanban, Ver Conteúdos, Agendados, Completas, Cronograma, Colaboradores. Mas com essa abordagem quase nenhuma linha draft será criada (só em caso de recuperação futura).
 
-### 1. Banco (mínimo)
-Adicionar coluna `is_draft boolean default false` em `demands`, com índice parcial. Filtros existentes do Kanban / Ver Conteúdos / Demandas Completas passam a excluir `is_draft = true`.
+## Arquivos a alterar
 
-### 2. `CreateDemandModal.tsx` (reescrito, curto)
-- Vira um modal pequeno com apenas **Cliente** e **Tipo da Demanda**.
-- Botão "Continuar" → cria draft via RPC → chama `onOpenCard(demandId)`.
-- Botão "Cancelar" → fecha sem criar nada.
-- Remove sugestões, período, canal, datas, descrição — tudo isso vai para dentro do TaskCard.
-
-### 3. Página que abre o modal (Kanban / Home)
-- Após o "Continuar", abre o `<TaskCard>` já existente com o `demand_id` do draft.
-- Ao fechar o TaskCard, roda `UPDATE demands SET is_draft=false` se o usuário confirmou, ou `DELETE` se cancelou.
-- Marca a demanda como "salva" no primeiro autosave de qualquer campo além dos mínimos (opcional — mais seguro exigir botão "Salvar" explícito no header do card em modo draft).
-
-### 4. `TaskCard.tsx` (ajustes cirúrgicos)
-- Detectar prop `mode: 'draft' | 'normal'`.
-- Em modo draft: header mostra "Nova demanda" + botões **Salvar** / **Descartar**; esconde botão "Prosseguir" e "Entregar" (não há fluxo antes de existir).
-- Restante do card idêntico, permitindo preencher título, descrição, datas, anexos, agendamento, etc.
-
-### 5. Filtros de listagem
-- Kanban Central, Ver Conteúdos, Ver Agendados, Demandas Completas, Home: adicionar `.eq('is_draft', false)` (ou `.or('is_draft.is.null,is_draft.eq.false')`).
-
-## Fora do MVP
-
-- Auto‑save incremental do draft (fica com "Salvar/Descartar" explícito, mais previsível).
-- Recuperação de drafts órfãos (usuário fechou aba sem salvar) — pode ser um cron `DELETE FROM demands WHERE is_draft=true AND created_at < now()-interval '24h'` num passo futuro.
+- `src/components/CreateDemandModal.tsx` → **deletar** (não é mais usado).
+- `src/pages/KanbanCentralPage.tsx` → botão "+" abre TaskCard direto em modo draft com card em branco; handler `handleDraftSave` chama a RPC com todos os campos.
+- `src/components/TaskCard.tsx`:
+  - No modo draft, header mostra seletor de **Cliente** (nova UI, só draft).
+  - Autosave (`handleFieldSave`, uploads, dispatches) fica **inerte** em modo draft — só atualiza estado local via `onCardChange`.
+  - Bloqueia Anexos / IA / Agendar / Prosseguir com tooltip.
+  - Botão Salvar Demanda envia o objeto completo para o parent via `onDraftSave(cardData)`.
 
 ## Checklist de verificação
 
-1. Clicar em "+ Criar Demanda Manual" → mini‑modal com Cliente + Tipo.
-2. Selecionar ambos → abre TaskCard vazio, layout idêntico ao de um card real.
-3. Preencher título e descrição → clicar Salvar → card aparece no Kanban.
-4. Reabrir → todos os blocos (anexos, agendamento, funções, IA) funcionam.
-5. Criar draft e clicar Descartar → nada aparece no Kanban.
-6. Confirmar que drafts NÃO aparecem em Ver Conteúdos, Ver Agendados, Demandas Completas, Home.
+1. Clicar em **+ Criar Demanda Manual** → abre direto o card em branco (sem mini-modal).
+2. Ver seletor **Cliente** inline no header (só em draft).
+3. Ver CTA **Definir tipo** já existente.
+4. Preencher título, responsável, datas, objetivo, conteúdo, instruções, CTA, observações, descrição → tudo local.
+5. Blocos Anexos / IA / Agendar aparecem desabilitados com tooltip explicativo.
+6. Clicar **Salvar Demanda** → demanda aparece no Kanban com todos os campos.
+7. Reabrir a demanda → agora sim, anexos / IA / agendar funcionam normalmente.
+8. Clicar **Descartar** → nada foi criado no banco.
