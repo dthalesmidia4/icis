@@ -128,7 +128,9 @@ const KanbanCentralPage = () => {
   const [isCreateColumnModalOpen, setIsCreateColumnModalOpen] = useState(false);
   const [isManageColumnsModalOpen, setIsManageColumnsModalOpen] = useState(false);
   const [isCreateDemandModalOpen, setIsCreateDemandModalOpen] = useState(false);
-  const [draftDemandId, setDraftDemandId] = useState<string | null>(null);
+  const [isDraftMode, setIsDraftMode] = useState(false);
+  const [draftClients, setDraftClients] = useState<{ id: string; name: string }[]>([]);
+
 
 
   // Schedule modal state
