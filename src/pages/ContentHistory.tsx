@@ -56,6 +56,37 @@ const ContentHistory = () => {
   const [loading, setLoading] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewContent, setPreviewContent] = useState<GeneratedContent | null>(null);
+  const [creatingCardId, setCreatingCardId] = useState<string | null>(null);
+
+  const canGenerateCard = (contentType: string, imageUrls: string[]) =>
+    contentType !== 'video_storyboard' && Array.isArray(imageUrls) && imageUrls.length > 0;
+
+  const handleGenerateCard = async (content: GeneratedContent) => {
+    if (!tenantId) return;
+    if (!canGenerateCard(content.content_type, content.image_urls)) {
+      toast.error('Este conteúdo não pode virar card (sem mídia final).');
+      return;
+    }
+    setCreatingCardId(content.id);
+    try {
+      const result = await createCardFromContent({
+        tenantId,
+        clientId: content.client_id,
+        contentId: content.id,
+        contentType: content.content_type,
+        prompt: content.prompt,
+        imageUrls: content.image_urls,
+      });
+      if (result.success) toast.success(result.message);
+      else if (result.duplicated) toast.info(result.message);
+      else toast.error(result.message);
+    } catch (err) {
+      console.error('[createCardFromContent] error:', err);
+      toast.error('Erro ao criar o card.');
+    } finally {
+      setCreatingCardId(null);
+    }
+  };
 
   const handleOpenInGenerator = async (content: GeneratedContent) => {
     // Ensure the correct client is selected
