@@ -614,11 +614,13 @@ const KanbanCentralPage = () => {
     if (!tenantId) return;
     setHistoryLoading(true);
     try {
+      const cutoff = new Date(Date.now() - historyDays * 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
         .from("demand_flow_history" as any)
         .select("demand_id, to_user_id, created_at")
         .eq("tenant_id", tenantId)
         .not("to_user_id", "is", null)
+        .gte("created_at", cutoff)
         .order("created_at", { ascending: false })
         .limit(5000);
       if (error) throw error;
@@ -641,7 +643,8 @@ const KanbanCentralPage = () => {
     } finally {
       setHistoryLoading(false);
     }
-  }, [tenantId]);
+  }, [tenantId, historyDays]);
+
 
   useEffect(() => {
     if (viewMode === "history") fetchHistory();
