@@ -211,6 +211,16 @@ export async function createCardFromContent(input: CreateCardInput): Promise<Cre
     return { success: false, message: "Erro ao criar o card." };
   }
 
+  await recordFlowHistory({
+    tenantId,
+    demandId: inserted.id,
+    action: "created",
+    fromUserId: null,
+    toUserId: picked.userId ?? null,
+    fromFunctionKey: null,
+    toFunctionKey: "revisar",
+  });
+
   return {
     success: true,
     demandId: inserted.id,
