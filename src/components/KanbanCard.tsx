@@ -79,6 +79,16 @@ const KanbanCard = ({
     >
       {/* Title */}
       <CardHeader className="px-3 pt-3 pb-2">
+        {subtitle && (
+          <div className="mb-1.5">
+            <span
+              className="inline-block max-w-full truncate align-bottom text-[11px] font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20"
+              title={subtitle}
+            >
+              {subtitle}
+            </span>
+          </div>
+        )}
         {/* Tags visuais (tipo, status, dispatch) ocultas a pedido — mantemos os dados intactos. */}
         <CardTitle className="text-sm font-semibold leading-snug line-clamp-2 text-foreground">
           {title}
