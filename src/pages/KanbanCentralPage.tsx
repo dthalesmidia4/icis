@@ -40,6 +40,7 @@ import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { useCollaborators } from "@/hooks/useCollaborators";
+import { recordFlowHistory } from "@/lib/flowHistory";
 
 interface PipelineStatus {
   id: string;
