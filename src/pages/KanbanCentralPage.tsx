@@ -1520,6 +1520,15 @@ const KanbanCentralPage = () => {
       </Dialog>
 
       {/* Kanban Board (columns = collaborators) */}
+      {viewMode === "history" && (
+        <div className="mb-3 flex items-center gap-2 rounded-md border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-sm text-blue-700 dark:text-blue-300">
+          <History className="h-4 w-4" />
+          <span>
+            Modo <strong>Registro de Cards</strong>: mostrando os cards que já passaram por cada colaborador.
+            {historyLoading && " Carregando..."}
+          </span>
+        </div>
+      )}
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {[
@@ -1530,13 +1539,36 @@ const KanbanCentralPage = () => {
             })),
             { id: "__unassigned__", name: "Sem responsável", color: "hsl(var(--muted-foreground))" },
           ].map((column) => {
-            const allColumnCards = filteredCards.filter((card) => {
+            // Cards ATIVOS deste colaborador (modo normal)
+            const activeColumnCards = filteredCards.filter((card) => {
               if (column.id === "__unassigned__") return !card.assigned_to;
               return card.assigned_to === column.id;
             });
-            // Aguardando Clientes = cards na função operacional aguardando_cliente
-            const awaitingCards = allColumnCards.filter((c) => c.current_function_key === 'aguardando_cliente');
-            const columnCards = allColumnCards.filter((c) => c.current_function_key !== 'aguardando_cliente');
+
+            // Cards HISTÓRICOS: todos que já passaram por esse colaborador
+            let historyColumnCards: Array<CentralKanbanCard & { _historyAt?: string }> = [];
+            if (viewMode === "history") {
+              const rows = historyByUser.get(column.id) || [];
+              const cardIndex = new Map<string, CentralKanbanCard>();
+              [...cards, ...archivedCards].forEach((c) => cardIndex.set(c.id, c));
+              historyColumnCards = rows
+                .map((r) => {
+                  const c = cardIndex.get(r.demandId);
+                  if (!c) return null;
+                  return { ...c, _historyAt: r.lastSeenAt } as CentralKanbanCard & { _historyAt?: string };
+                })
+                .filter((x): x is CentralKanbanCard & { _historyAt?: string } => !!x);
+            }
+
+            const allColumnCards = viewMode === "history" ? historyColumnCards : activeColumnCards;
+
+            // Aguardando Clientes = cards na função operacional aguardando_cliente (apenas modo ativo)
+            const awaitingCards = viewMode === "active"
+              ? allColumnCards.filter((c) => c.current_function_key === 'aguardando_cliente')
+              : [];
+            const columnCards = viewMode === "active"
+              ? allColumnCards.filter((c) => c.current_function_key !== 'aguardando_cliente')
+              : allColumnCards;
 
             const isAwaitingCollapsed = collapsedAwaiting.has(column.id);
 
