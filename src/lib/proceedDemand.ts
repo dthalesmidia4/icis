@@ -226,3 +226,81 @@ export async function proceedDemand({
     message: `Demanda enviada para ${picked.name} na função ${nextFn.name}.`,
   };
 }
+
+/**
+ * Checks whether `currentFunctionKey` is the LAST required function of the flow
+ * for the given demand type. Returns false when data is missing (safe default:
+ * keeps showing "Prosseguir").
+ */
+export async function isAtLastFlowFunction(
+  tenantId: string,
+  demandTypeKey?: string | null,
+  currentFunctionKey?: string | null,
+): Promise<boolean> {
+  const typeKey = coerceDemandTypeKey(demandTypeKey);
+  if (!typeKey || !currentFunctionKey) return false;
+
+  const [{ data: fns }, { data: rules }] = await Promise.all([
+    supabase
+      .from("flow_functions")
+      .select("function_key, position, active")
+      .eq("tenant_id", tenantId)
+      .eq("active", true)
+      .order("position"),
+    supabase
+      .from("demand_type_flow_rules")
+      .select("function_key, requirement")
+      .eq("tenant_id", tenantId)
+      .eq("demand_type_key", typeKey),
+  ]);
+  if (!fns || fns.length === 0) return false;
+  const req = new Map<string, string>();
+  (rules || []).forEach((r: any) => req.set(r.function_key, r.requirement));
+  const sequence = fns.filter((f: any) => req.get(f.function_key) === "required");
+  if (sequence.length === 0) return false;
+  return sequence[sequence.length - 1].function_key === currentFunctionKey;
+}
+
+export interface DeliverResult {
+  success: boolean;
+  message: string;
+  statusId?: string;
+  statusName?: string;
+}
+
+/**
+ * Ação "Entregar" — move a demanda para o status final ("Feito"/"Feitos") do
+ * pipeline dela e limpa `current_function_key`. Não altera `assigned_to`.
+ */
+export async function deliverDemand(
+  demandId: string,
+  pipelineId: string,
+): Promise<DeliverResult> {
+  const { data: statuses, error: sErr } = await supabase
+    .from("pipeline_statuses")
+    .select("id, name")
+    .eq("pipeline_id", pipelineId);
+  if (sErr) return { success: false, message: "Erro ao carregar status do pipeline." };
+  const done = (statuses || []).find((s: any) => {
+    const n = String(s.name || "").trim().toLowerCase();
+    return n === "feito" || n === "feitos";
+  });
+  if (!done) {
+    return {
+      success: false,
+      message: 'Não foi encontrado um status final "Feito" neste pipeline.',
+    };
+  }
+  const { error: uErr } = await supabase
+    .from("demands")
+    .update({ status_id: done.id, current_function_key: null } as any)
+    .eq("id", demandId);
+  if (uErr) return { success: false, message: "Erro ao entregar a demanda." };
+  return {
+    success: true,
+    statusId: done.id,
+    statusName: done.name,
+    message: "Demanda entregue e movida para Demandas Completas.",
+  };
+}
+
