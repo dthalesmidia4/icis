@@ -1166,32 +1166,7 @@ export default function TaskCard({
               })()}
             </div>
 
-            {/* CTA: Definir tipo (quando demand_type_key é nulo) */}
-            {!readOnly && !card.demand_type_key && (
-              <div className="mt-3 rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800/40 p-3">
-                <div className="flex flex-wrap items-center gap-3">
-                  <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-300">
-                    Definir tipo
-                  </Badge>
-                  <span className="text-sm text-amber-900 dark:text-amber-100">
-                    Escolha o tipo técnico da demanda para liberar o botão Prosseguir:
-                  </span>
-                  <div className="flex flex-wrap gap-2 ml-auto">
-                    {OFFICIAL_DEMAND_TYPES.map((opt) => (
-                      <Button
-                        key={opt.key}
-                        variant="outline"
-                        size="sm"
-                        disabled={settingType}
-                        onClick={() => handleSetDemandType(opt.key)}
-                      >
-                        {opt.label}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Amber banner de Definir tipo removido — Tipo passou para a linha de triggers */}
           </div>
 
 
