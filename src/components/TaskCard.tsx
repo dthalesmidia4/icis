@@ -1415,9 +1415,12 @@ export default function TaskCard({
                         onSelect={async (date) => {
                           if (date) {
                             const formatted = date.toISOString().split('T')[0];
-                            onCardChange({ ...card, due_date: formatted, due_time: '09:00' });
+                            const bumped = addOneHour(formatted, '09:00');
+                            onCardChange({ ...card, due_date: formatted, due_time: '09:00', delivery_date: bumped.date, delivery_time: bumped.time });
                             await onSave('due_date', formatted);
                             await onSave('due_time', '09:00');
+                            await onSave('delivery_date', bumped.date);
+                            await onSave('delivery_time', bumped.time);
                           }
                         }} 
                         initialFocus 
