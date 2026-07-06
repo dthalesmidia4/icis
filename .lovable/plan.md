@@ -1,87 +1,74 @@
 
-# Padronização segura de tipo de demanda — implementação (código)
+# Melhorias na tela "Atribuir funções aos colaboradores"
 
-Migration já rodada com sucesso (coluna `demand_type_key`, CHECK, índice e backfill conservador). Falta aplicar as mudanças de código.
+Escopo restrito à UI. Nada de fluxo, status, Kanban, demandas ou publicação.
 
-## Arquivos a alterar
+## Onde
 
-**1. `src/lib/proceedDemand.ts` (reescrever)**
-- Adiciona `DemandTypeKey`, `OFFICIAL_DEMAND_TYPES`, `DEMAND_TYPE_LABEL`, `coerceDemandTypeKey`.
-- `normalizeDemandTypeKey` novo comportamento:
-  - Contém `+` → `null` (compostos).
-  - `carrossel`/`carousel` → `carrossel`.
-  - `captad` → `video_captado`.
-  - `gerad`/`gerar` + vídeo → `video_gerado`.
-  - Só `vídeo`/`reels`/`tiktok`/`vídeos curtos` → `null` (ambíguo).
-  - `estát`/`post`/`story`/`stories` → `criativo_estatico`.
-  - Sem match → `null`. Sem fallback.
-- `proceedDemand` recebe `demandTypeKey` (não `demandType`); se nulo → `{ success:false, needsTypeKey:true, message:"Defina o tipo da demanda antes de prosseguir." }`.
+Componente único: `src/components/CollaboratorFunctionAssignmentsModal.tsx` (aberto em Configurações → "Atribuir funções aos colaboradores"). Já lê `flow_functions`, `collaborator_function_assignments` e usa `useCollaborators` (que filtra `agency_admin/manager/user`). Aproveitar a estrutura atual e adicionar as camadas visuais.
 
-**2. `src/components/TaskCard.tsx`**
-- `KanbanCardData`: adicionar `demand_type_key?: string | null`.
-- Importar `OFFICIAL_DEMAND_TYPES`, `DEMAND_TYPE_LABEL`, `DemandTypeKey`.
-- `handleProceed`: bloquear com toast quando `demand_type_key` for null; usar `demandTypeKey` no `proceedDemand`.
-- Novo `handleSetDemandType(key)`: `UPDATE demands SET demand_type=<label>, demand_type_key=<key>` + `onCardChange`.
-- UI "Definir tipo": quando `card.demand_type_key` for null, renderizar um bloco (badge amarelo + 4 botões) no topo do modal, próximo ao título/tipo. Botão Prosseguir fica `disabled` com tooltip explicando.
+## Mudanças
 
-**3. `src/pages/KanbanCentralPage.tsx`**
-- `CentralKanbanCard` já herda `demand_type_key` de `KanbanCardData`.
-- Selects usam `*` → já vem. Adicionar `demand_type_key: data.demand_type_key ?? null` em: `handleDemandInsert` (l.323), `mapDemand` (l.548), `handleDemandFullUpdate` (l.248) e `handleCardChange` (l.622).
+### 1. Derivar cobertura de cada função
 
-**4. `src/pages/CollaboratorDemands.tsx`, `CronogramaGlobal.tsx`, `CompletedDemands.tsx`**
-- Adicionar `demand_type_key: d.demand_type_key ?? null` no mapping (`select("*")` já traz o campo).
+Após carregar `functions` e `assignments`, calcular em memória (sem query extra):
 
-**5. `src/pages/PeriodClientList.tsx`**
-- Incluir `demand_type_key` na string do `.select(...)` (linha ~254, que é explícita, não `*`).
+```
+coverage[function_key] = número de colaboradores com allowed=true
+uncoveredFunctions = functions.filter(f => coverage[f.function_key] === 0)
+```
 
-**6. `src/pages/ApproveCards.tsx`**
-- No `handleApprove` (l.212–260):
-  - Importar `normalizeDemandTypeKey`, `coerceDemandTypeKey` de `@/lib/proceedDemand`.
-  - `const explicitKey = coerceDemandTypeKey((card as any).demand_type_key || (card as any).type_key);`
-  - `const demandTypeKey = explicitKey ?? normalizeDemandTypeKey(tipo);`
-  - Adicionar `demand_type_key: demandTypeKey` no `insert`.
+Recalcula automaticamente a cada toggle (o state já reflete a mudança otimista).
 
-**7. `src/pages/RejectedCards.tsx`**
-- Mesmo tratamento no `insert` (l.362).
+### 2. Alerta no topo do modal
 
-**8. `src/pages/PlanPeriod.tsx`**
-- No `demandsToInsert.map` (l.525–553):
-  - `const explicitKey = coerceDemandTypeKey(anyItem.demand_type_key || anyItem.type_key);`
-  - `demand_type_key: explicitKey ?? normalizeDemandTypeKey(tipo)`.
+Acima da tabela, renderizar um `<Alert variant="destructive">` (shadcn `alert.tsx`) apenas quando `uncoveredFunctions.length > 0`:
 
-**9. `src/components/CreateDemandModal.tsx`**
-- Substituir `DEMAND_TYPES` pelas 4 opções oficiais (`OFFICIAL_DEMAND_TYPES` importado de `@/lib/proceedDemand`), com rótulos "Criativo estático", "Carrossel", "Vídeo captado", "Vídeo gerado".
-- Novo state `demandTypeKey: DemandTypeKey | ""`.
-- Select passa a gravar `demandTypeKey` (key) e derivar `demand_type` do label.
-- Validação: exigir escolha antes de salvar.
-- Como o RPC `create_demand_from_template` não aceita `p_demand_type_key`, gravar depois via `UPDATE demands SET demand_type_key=<key> WHERE id=<result.demand_id>` (mesma abordagem já usada para `delivery_date` no arquivo).
+- Título: "Configuração incompleta do fluxo"
+- Corpo: "As seguintes funções ainda não têm colaborador atribuído:" + lista com os nomes (`f.name`).
+- Rodapé: "Enquanto essas funções estiverem vazias, o botão Prosseguir pode travar."
+- Ícone `AlertTriangle` (lucide-react).
 
-**10. `supabase/functions/generate-period-plans/index.ts`**
-- Adicionar helper server-side:
-  - `BATCH_TO_KEY = { 'Post Estático':'criativo_estatico', 'Carrossel':'carrossel', 'Vídeos Curtos': null }`.
-  - `normalizeTypeKey(text)` (mesmas regras do TS).
-- No `jsonInstruction`, incluir campo `type_key` obrigatório: enum `"criativo_estatico" | "carrossel" | "video_captado" | "video_gerado" | null`, com instrução clara:
-  - `video_captado` quando precisar gravação real (pessoa/local/produto/depoimento).
-  - `video_gerado` quando puder ser 100% IA/animação/motion/stock.
-  - Se não tiver certeza → `null`.
-- Após parse (l.457–460), enriquecer cada item:
-  ```ts
-  const forcedKey = batchType ? BATCH_TO_KEY[batchType] ?? null : null;
-  const iaKey = coerceKey(d.type_key);
-  const type_key = forcedKey ?? iaKey ?? normalizeTypeKey(d.tipo);
-  ```
-  e salvar `type_key` junto de `tipo` no objeto persistido em `default_plan`/`ultra_plan`.
+Some sozinho assim que todas as colunas ficarem cobertas.
 
-## Fora do escopo (não fazer agora)
+### 3. Destaque visual nas colunas sem colaborador
 
-Catálogo `demand_types`, `is_ad`, mudanças em `anuncio`, fluxo, status, Kanban, publicação, agendamento, permissões, auto-generate-post/carousel/aspect/dispatch (continuam usando substring por ora).
+No `<th>` e em cada `<td>` da coluna correspondente, aplicar classe condicional quando `coverage[f.function_key] === 0`:
 
-## Testes manuais após deploy
+- `<th>`: fundo amarelo suave (`bg-yellow-50 dark:bg-yellow-950/30`), borda `border-yellow-400`, e um pequeno ícone `AlertTriangle` ao lado do nome.
+- `<td>` da coluna: `bg-yellow-50/40 dark:bg-yellow-950/10` para reforçar visualmente a coluna inteira.
+- Tooltip no `<th>`: "Nenhum colaborador atribuído a esta função".
 
-1. Rodar `SELECT demand_type, demand_type_key FROM demands` → confirmar backfill (Post Estático → `criativo_estatico`, Carrossel* → `carrossel`, vídeos/ambíguos → `NULL`).
-2. Abrir card com `demand_type_key = NULL` → aparece CTA "Definir tipo"; Prosseguir bloqueado.
-3. Escolher "Carrossel" → grava rótulo + key; Prosseguir volta a funcionar.
-4. Criar demanda manual → obriga escolha das 4 opções; grava ambos os campos.
-5. Aprovar card do Planejar com `tipo="Post Estático"` → demanda com `demand_type_key="criativo_estatico"`.
-6. Aprovar card com `tipo="Vídeos Curtos"` sem `type_key` → demanda com `demand_type_key=NULL`; CTA aparece.
-7. Gerar novo Planejar → checar logs da edge: cada item traz `type_key` ou explicitamente `null`.
+Quando alguém marcar a primeira célula da coluna, o destaque desaparece imediatamente (é reativo ao state).
+
+### 4. Contador por coluna (opcional, ajuda leitura)
+
+Abaixo do nome da função no cabeçalho: pequeno badge com `coverage[function_key]` (ex.: "3 atribuídos" ou, se 0, "sem responsável" em vermelho).
+
+### 5. Salvamento
+
+Manter o `upsert` atual em `collaborator_function_assignments` (já usa `onConflict: "tenant_id,user_id,function_key"`, já faz optimistic update, já reverte em erro). Nada muda aqui.
+
+### 6. Filtro de colaboradores
+
+Já correto via `useCollaborators` (`VALID_AGENCY_ROLES = agency_admin/manager/user`). Nenhuma mudança.
+
+## Fora do escopo
+
+- Não tocar `proceedDemand.ts`.
+- Não tocar `TaskCard.tsx`.
+- Não tocar Kanban, status, demandas, publicação, agendamento.
+- Não criar migrations (tabelas e colunas usadas já existem).
+
+## Arquivos afetados
+
+- `src/components/CollaboratorFunctionAssignmentsModal.tsx` — única edição.
+
+## Teste manual
+
+1. Abrir Configurações → "Atribuir funções aos colaboradores".
+2. Ver alerta vermelho listando: Planejar, Criar roteiro, Criar arte, Captar, Gerar vídeo.
+3. Ver essas 5 colunas destacadas em amarelo com ícone de alerta.
+4. Marcar um colaborador em "Planejar" → destaque da coluna some e "Planejar" some da lista do alerta.
+5. Cobrir as demais → alerta desaparece por completo.
+6. Testar Prosseguir em um card com `demand_type_key` definido → agora avança normalmente.
