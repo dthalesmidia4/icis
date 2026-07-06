@@ -1221,7 +1221,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       if (data?.imageUrl) {
         setImage(data.imageUrl);
         toast.success('Post gerado com sucesso!');
-        await saveGeneratedContent('post', isManual ? 'Post Manual' : 'Post com IA', idea, [data.imageUrl]);
+        const savedId = await saveGeneratedContent('post', isManual ? 'Post Manual' : 'Post com IA', idea, [data.imageUrl]);
+        if (isManual) setLastManualPostContentId(savedId); else setLastPostContentId(savedId);
       } else { toast.error('Nenhuma imagem retornada.'); }
     } catch (err) { console.error('Generate post error:', err); toast.error('Erro inesperado ao gerar o post.'); }
     finally { setGenerating(false); }
