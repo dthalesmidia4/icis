@@ -101,6 +101,7 @@ const CollaboratorDemands = () => {
           created_at: d.created_at,
           updated_at: d.updated_at,
           assigned_to: d.assigned_to || null,
+          current_function_key: d.current_function_key ?? null,
           clientName: d.tenant_companies.fantasy_name || d.tenant_companies.name,
           clientId: d.client_id,
         }));
@@ -440,7 +441,20 @@ const CollaboratorDemands = () => {
         open={!!selectedCard}
         onOpenChange={(open) => { if (!open) setSelectedCard(null); }}
         card={selectedCard}
-        onCardChange={(updated) => setSelectedCard((prev) => prev ? { ...prev, ...updated } : prev)}
+        onCardChange={(updated) => {
+          const merged = selectedCard ? { ...selectedCard, ...updated } : updated;
+          const archived = !!merged.archived_at;
+          const movedToOtherUser = !!merged.assigned_to && merged.assigned_to !== userId;
+
+          if (archived || movedToOtherUser) {
+            setCards((prev) => prev.filter((c) => c.id !== merged.id));
+            setSelectedCard(null);
+            return;
+          }
+
+          setCards((prev) => prev.map((c) => c.id === merged.id ? { ...c, ...merged } : c));
+          setSelectedCard(merged);
+        }}
         onSave={handleSave}
         onFileUpload={handleFileUpload}
         onRemoveAttachment={handleRemoveAttachment}
