@@ -340,6 +340,17 @@ export default function TaskCard({
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
   const [proceeding, setProceeding] = useState(false);
+  const [isLastFn, setIsLastFn] = useState(false);
+  const [delivering, setDelivering] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!card?.tenant_id) { setIsLastFn(false); return; }
+    isAtLastFlowFunction(card.tenant_id, card.demand_type_key, card.current_function_key)
+      .then((v) => { if (!cancelled) setIsLastFn(v); })
+      .catch(() => { if (!cancelled) setIsLastFn(false); });
+    return () => { cancelled = true; };
+  }, [card?.tenant_id, card?.demand_type_key, card?.current_function_key]);
 
   const handleProceed = async () => {
     if (!card || proceeding) return;
@@ -371,6 +382,30 @@ export default function TaskCard({
       setProceeding(false);
     }
   };
+
+  const handleDeliver = async () => {
+    if (!card || delivering) return;
+    setDelivering(true);
+    try {
+      const result = await deliverDemand(card.id, card.pipeline_id);
+      if (result.success) {
+        toast.success(result.message);
+        const doneStatus = pipelineStatuses.find(s => s.id === result.statusId);
+        onCardChange({
+          ...card,
+          status_id: result.statusId,
+          status: doneStatus?.name || card.status,
+          current_function_key: null,
+        } as any);
+        onOpenChange(false);
+      } else {
+        toast.error(result.message);
+      }
+    } finally {
+      setDelivering(false);
+    }
+  };
+
 
   const [settingType, setSettingType] = useState(false);
   const handleSetDemandType = async (key: DemandTypeKey) => {
