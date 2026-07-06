@@ -154,6 +154,8 @@ const KanbanCentralPage = () => {
 
   // Modo "Registro de Cards" — mostra cards que já passaram por cada colaborador
   const [viewMode, setViewMode] = useState<"active" | "history">("active");
+  const [historyDays, setHistoryDays] = useState<number>(7);
+
   // Map<toUserId, Array<{ demandId, lastSeenAt }>>
   const [historyByUser, setHistoryByUser] = useState<Map<string, Array<{ demandId: string; lastSeenAt: string }>>>(new Map());
   const [historyLoading, setHistoryLoading] = useState(false);
