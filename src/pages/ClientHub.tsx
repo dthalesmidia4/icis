@@ -130,6 +130,12 @@ const ClientHub = () => {
   const [generatedPostImage, setGeneratedPostImage] = useState<string | null>(null);
   const [generatingManualPost, setGeneratingManualPost] = useState(false);
   const [generatedManualPostImage, setGeneratedManualPostImage] = useState<string | null>(null);
+  // ids de `generated_contents` para o botão "Gerar Card"
+  const [lastPostContentId, setLastPostContentId] = useState<string | null>(null);
+  const [lastManualPostContentId, setLastManualPostContentId] = useState<string | null>(null);
+  const [lastCarouselContentId, setLastCarouselContentId] = useState<string | null>(null);
+  const [sceneContentIds, setSceneContentIds] = useState<Record<number, string>>({});
+  const [creatingCardFor, setCreatingCardFor] = useState<string | null>(null);
   const [contentHubModalOpen, setContentHubModalOpen] = useState(false);
   const [avaliarDemandasModalOpen, setAvaliarDemandasModalOpen] = useState(false);
   const [demandaPlanejadaHubModalOpen, setDemandaPlanejadaHubModalOpen] = useState(false);
