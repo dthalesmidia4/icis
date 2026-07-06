@@ -130,6 +130,12 @@ const ClientHub = () => {
   const [generatedPostImage, setGeneratedPostImage] = useState<string | null>(null);
   const [generatingManualPost, setGeneratingManualPost] = useState(false);
   const [generatedManualPostImage, setGeneratedManualPostImage] = useState<string | null>(null);
+  // ids de `generated_contents` para o botão "Gerar Card"
+  const [lastPostContentId, setLastPostContentId] = useState<string | null>(null);
+  const [lastManualPostContentId, setLastManualPostContentId] = useState<string | null>(null);
+  const [lastCarouselContentId, setLastCarouselContentId] = useState<string | null>(null);
+  const [sceneContentIds, setSceneContentIds] = useState<Record<number, string>>({});
+  const [creatingCardFor, setCreatingCardFor] = useState<string | null>(null);
   const [contentHubModalOpen, setContentHubModalOpen] = useState(false);
   const [avaliarDemandasModalOpen, setAvaliarDemandasModalOpen] = useState(false);
   const [demandaPlanejadaHubModalOpen, setDemandaPlanejadaHubModalOpen] = useState(false);
@@ -1135,10 +1141,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
   const displayName = selectedClient.fantasy_name || selectedClient.name;
 
-  const saveGeneratedContent = async (contentType: string, title: string, prompt: string, imageUrls: string[]) => {
+  const saveGeneratedContent = async (
+    contentType: string,
+    title: string,
+    prompt: string,
+    imageUrls: string[],
+  ): Promise<string | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase.from('generated_contents').insert({
+      const { data, error } = await supabase.from('generated_contents').insert({
         tenant_id: tenantId!,
         client_id: selectedClient!.id,
         content_type: contentType,
@@ -1146,13 +1157,51 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         prompt,
         image_urls: imageUrls as any,
         created_by: user?.id || null,
-      });
+      }).select('id').single();
       if (error) {
         console.error('Error saving generated content to DB:', error);
-      } else {
-        console.log('Generated content saved successfully:', contentType, imageUrls.length, 'images');
+        return null;
       }
-    } catch (err) { console.error('Error saving generated content:', err); }
+      console.log('Generated content saved successfully:', contentType, imageUrls.length, 'images');
+      return (data as any)?.id ?? null;
+    } catch (err) {
+      console.error('Error saving generated content:', err);
+      return null;
+    }
+  };
+
+  const handleCreateCardFromContent = async (opts: {
+    key: string;
+    contentId: string | null;
+    contentType: string;
+    prompt: string;
+    imageUrls: string[];
+  }) => {
+    if (!tenantId || !selectedClient) return;
+    if (!opts.contentId) {
+      toast.error('Conteúdo ainda não foi salvo. Gere novamente antes.');
+      return;
+    }
+    setCreatingCardFor(opts.key);
+    try {
+      const { createCardFromContent } = await import('@/lib/createCardFromContent');
+      const result = await createCardFromContent({
+        tenantId,
+        clientId: selectedClient.id,
+        contentId: opts.contentId,
+        contentType: opts.contentType,
+        prompt: opts.prompt,
+        imageUrls: opts.imageUrls,
+      });
+      if (result.success) toast.success(result.message);
+      else if (result.duplicated) toast.info(result.message);
+      else toast.error(result.message);
+    } catch (err) {
+      console.error('[createCardFromContent] error:', err);
+      toast.error('Erro ao criar o card.');
+    } finally {
+      setCreatingCardFor(null);
+    }
   };
 
   const handleGeneratePost = async (idea: string, isManual: boolean = false) => {
@@ -1172,7 +1221,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       if (data?.imageUrl) {
         setImage(data.imageUrl);
         toast.success('Post gerado com sucesso!');
-        await saveGeneratedContent('post', isManual ? 'Post Manual' : 'Post com IA', idea, [data.imageUrl]);
+        const savedId = await saveGeneratedContent('post', isManual ? 'Post Manual' : 'Post com IA', idea, [data.imageUrl]);
+        if (isManual) setLastManualPostContentId(savedId); else setLastPostContentId(savedId);
       } else { toast.error('Nenhuma imagem retornada.'); }
     } catch (err) { console.error('Generate post error:', err); toast.error('Erro inesperado ao gerar o post.'); }
     finally { setGenerating(false); }
@@ -1241,7 +1291,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       } else {
         toast.success(`${allImages.length}/${totalSlides} imagens geradas com sucesso!`);
         const urls = allImages.map(img => img.imageUrl).filter(Boolean);
-        if (urls.length > 0) await saveGeneratedContent('carousel', 'Carrossel com IA', carouselIdea, urls);
+        if (urls.length > 0) {
+          const savedId = await saveGeneratedContent('carousel', 'Carrossel com IA', carouselIdea, urls);
+          setLastCarouselContentId(savedId);
+        }
       }
     } catch (err) { console.error('Generate carousel images error:', err); toast.error('Erro inesperado ao gerar imagens.'); }
     finally { setGeneratingCarouselImages(false); setCarouselImageProgress(''); }
@@ -1317,7 +1370,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           return updated;
         });
         toast.success(`Cena ${sceneIndex + 1} gerada com sucesso!`);
-        await saveGeneratedContent('video_scene', `Cena ${sceneIndex + 1} - Vídeo`, scene.scene_description, [data.videoUrl]);
+        const savedSceneId = await saveGeneratedContent('video_scene', `Cena ${sceneIndex + 1} - Vídeo`, scene.scene_description, [data.videoUrl]);
+        if (savedSceneId) setSceneContentIds(prev => ({ ...prev, [sceneIndex]: savedSceneId }));
       } else { toast.error('Nenhum vídeo retornado.'); }
     } catch (err) { console.error('Generate scene error:', err); toast.error('Erro inesperado ao gerar a cena.'); }
     finally { setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, generating: false } : s)); }
@@ -1719,6 +1773,24 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   <Download className="w-4 h-4 mr-2" />Baixar Imagem
                 </Button>
               )}
+              {generatedPostImage && (
+                <Button
+                  variant="outline"
+                  className="h-11 text-sm font-semibold flex-1"
+                  disabled={!lastPostContentId || creatingCardFor === 'ai-post'}
+                  onClick={() => handleCreateCardFromContent({
+                    key: 'ai-post',
+                    contentId: lastPostContentId,
+                    contentType: 'post',
+                    prompt: postIdea,
+                    imageUrls: [generatedPostImage],
+                  })}
+                >
+                  {creatingCardFor === 'ai-post'
+                    ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando card...</>)
+                    : (<><CheckSquare className="w-4 h-4 mr-2" />Gerar Card</>)}
+                </Button>
+              )}
               <Button className={`h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 ${generatedPostImage ? 'flex-1' : 'w-full'}`} disabled={!postIdea.trim() || generatingPost} onClick={() => handleGeneratePost(postIdea)}>
                 {generatingPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-4 h-4 mr-2" />{generatedPostImage ? 'Gerar Novamente' : 'Gerar Post'}</>)}
               </Button>
@@ -1805,6 +1877,24 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   const link = document.createElement('a'); link.href = generatedManualPostImage; link.download = `post-${selectedClient?.name || 'gerado'}-${Date.now()}.png`; link.click();
                 }}>
                   <Download className="w-4 h-4 mr-2" />Baixar Imagem
+                </Button>
+              )}
+              {generatedManualPostImage && (
+                <Button
+                  variant="outline"
+                  className="h-11 text-sm font-semibold flex-1"
+                  disabled={!lastManualPostContentId || creatingCardFor === 'manual-post'}
+                  onClick={() => handleCreateCardFromContent({
+                    key: 'manual-post',
+                    contentId: lastManualPostContentId,
+                    contentType: 'post',
+                    prompt: manualPostText,
+                    imageUrls: [generatedManualPostImage],
+                  })}
+                >
+                  {creatingCardFor === 'manual-post'
+                    ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando card...</>)
+                    : (<><CheckSquare className="w-4 h-4 mr-2" />Gerar Card</>)}
                 </Button>
               )}
               <Button className={`h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 ${generatedManualPostImage ? 'flex-1' : 'w-full'}`} disabled={!manualPostText.trim() || generatingManualPost} onClick={() => handleGeneratePost(manualPostText, true)}>
@@ -1948,7 +2038,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   } else {
                     toast.success(`${allImages.length}/${totalSlides} imagens geradas com sucesso!`);
                     const urls = allImages.map(img => img.imageUrl).filter(Boolean);
-                    if (urls.length > 0) await saveGeneratedContent('carousel', 'Carrossel Manual', 'Manual', urls);
+                    if (urls.length > 0) {
+                      const savedId = await saveGeneratedContent('carousel', 'Carrossel Manual', 'Manual', urls);
+                      setLastCarouselContentId(savedId);
+                    }
                   }
                 } catch (err) { console.error('Generate carousel images error:', err); toast.error('Erro inesperado ao gerar imagens.'); }
                 finally { setGeneratingCarouselImages(false); setCarouselImageProgress(''); }
@@ -2119,6 +2212,27 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                       });
                     }}>
                       <Download className="w-5 h-5 mr-2" />Baixar Todas
+                    </Button>
+                  )}
+                  {carouselGeneratedImages.length > 0 && (
+                    <Button
+                      variant="outline"
+                      className="h-12 text-base font-semibold flex-1"
+                      disabled={!lastCarouselContentId || creatingCardFor === 'carousel'}
+                      onClick={() => handleCreateCardFromContent({
+                        key: 'carousel',
+                        contentId: lastCarouselContentId,
+                        contentType: 'carousel',
+                        prompt: carouselIdea,
+                        imageUrls: carouselGeneratedImages
+                          .slice()
+                          .sort((a, b) => a.slideIndex - b.slideIndex)
+                          .map(i => i.imageUrl),
+                      })}
+                    >
+                      {creatingCardFor === 'carousel'
+                        ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Criando card...</>)
+                        : (<><CheckSquare className="w-5 h-5 mr-2" />Gerar Card</>)}
                     </Button>
                   )}
                   <Button className="h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 flex-1"
@@ -2377,6 +2491,29 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                   <Download className="w-3.5 h-3.5 mr-1" />Baixar
                                 </Button>
                               )}
+                              {currentScene.video_url && (() => {
+                                const sceneContentId = sceneContentIds[currentScene.originalIndex] || null;
+                                const key = `video-scene-${currentScene.originalIndex}`;
+                                return (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    disabled={!sceneContentId || creatingCardFor === key}
+                                    onClick={() => handleCreateCardFromContent({
+                                      key,
+                                      contentId: sceneContentId,
+                                      contentType: 'video_scene',
+                                      prompt: currentScene.scene_description || '',
+                                      imageUrls: [currentScene.video_url!],
+                                    })}
+                                  >
+                                    {creatingCardFor === key
+                                      ? (<><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /></>)
+                                      : (<><CheckSquare className="w-3.5 h-3.5 mr-1" />Gerar Card</>)}
+                                  </Button>
+                                );
+                              })()}
                             </div>
                             {currentScene.generating ? (
                               <div className="flex flex-col items-center justify-center py-12 gap-3 bg-black/5 flex-1">

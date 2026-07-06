@@ -10,10 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Image, LayoutGrid, Video, Film, Calendar, Loader2, Users, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Image, LayoutGrid, Video, Film, Calendar, Loader2, Users, ExternalLink, ChevronLeft, ChevronRight, CheckSquare } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import JSZip from "jszip";
+import { createCardFromContent } from "@/lib/createCardFromContent";
+
 interface GeneratedContent {
   id: string;
   content_type: string;
@@ -54,6 +56,37 @@ const ContentHistory = () => {
   const [loading, setLoading] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewContent, setPreviewContent] = useState<GeneratedContent | null>(null);
+  const [creatingCardId, setCreatingCardId] = useState<string | null>(null);
+
+  const canGenerateCard = (contentType: string, imageUrls: string[]) =>
+    contentType !== 'video_storyboard' && Array.isArray(imageUrls) && imageUrls.length > 0;
+
+  const handleGenerateCard = async (content: GeneratedContent) => {
+    if (!tenantId) return;
+    if (!canGenerateCard(content.content_type, content.image_urls)) {
+      toast.error('Este conteúdo não pode virar card (sem mídia final).');
+      return;
+    }
+    setCreatingCardId(content.id);
+    try {
+      const result = await createCardFromContent({
+        tenantId,
+        clientId: content.client_id,
+        contentId: content.id,
+        contentType: content.content_type,
+        prompt: content.prompt,
+        imageUrls: content.image_urls,
+      });
+      if (result.success) toast.success(result.message);
+      else if (result.duplicated) toast.info(result.message);
+      else toast.error(result.message);
+    } catch (err) {
+      console.error('[createCardFromContent] error:', err);
+      toast.error('Erro ao criar o card.');
+    } finally {
+      setCreatingCardId(null);
+    }
+  };
 
   const handleOpenInGenerator = async (content: GeneratedContent) => {
     // Ensure the correct client is selected
@@ -407,7 +440,7 @@ const ContentHistory = () => {
                     </div>
                   </div>
                   {content.image_urls.length > 0 && (
-                    <div className="px-4 pb-4">
+                    <div className="px-4 pb-4 space-y-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -417,6 +450,21 @@ const ContentHistory = () => {
                         <Download className="w-3.5 h-3.5 mr-2" />
                         Baixar {content.image_urls.length > 1 ? `Todas (${content.image_urls.length})` : "Mídia"}
                       </Button>
+                      {canGenerateCard(content.content_type, content.image_urls) && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="w-full"
+                          disabled={creatingCardId === content.id}
+                          onClick={(e) => { e.stopPropagation(); handleGenerateCard(content); }}
+                        >
+                          {creatingCardId === content.id ? (
+                            <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Criando card...</>
+                          ) : (
+                            <><CheckSquare className="w-3.5 h-3.5 mr-2" />Gerar Card</>
+                          )}
+                        </Button>
+                      )}
                     </div>
                   )}
                 </Card>
@@ -474,6 +522,20 @@ const ContentHistory = () => {
                   {previewContent.image_urls.length > 1 && (
                     <Button variant="outline" className="flex-1" onClick={() => handleDownloadAll(previewContent)}>
                       <Download className="w-4 h-4 mr-2" />Baixar Todas ({previewContent.image_urls.length})
+                    </Button>
+                  )}
+                  {canGenerateCard(previewContent.content_type, previewContent.image_urls) && (
+                    <Button
+                      variant="default"
+                      className="flex-1"
+                      disabled={creatingCardId === previewContent.id}
+                      onClick={() => handleGenerateCard(previewContent)}
+                    >
+                      {creatingCardId === previewContent.id ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando card...</>
+                      ) : (
+                        <><CheckSquare className="w-4 h-4 mr-2" />Gerar Card</>
+                      )}
                     </Button>
                   )}
                 </div>
