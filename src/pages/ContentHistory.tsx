@@ -459,9 +459,9 @@ const ContentHistory = () => {
                           onClick={(e) => { e.stopPropagation(); handleGenerateCard(content); }}
                         >
                           {creatingCardId === content.id ? (
-                            <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Criando card...</>
+                            <><Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />Finalizando...</>
                           ) : (
-                            <><CheckSquare className="w-3.5 h-3.5 mr-2" />Gerar Card</>
+                            <><CheckSquare className="w-3.5 h-3.5 mr-2" />Finalizar</>
                           )}
                         </Button>
                       )}
@@ -532,9 +532,9 @@ const ContentHistory = () => {
                       onClick={() => handleGenerateCard(previewContent)}
                     >
                       {creatingCardId === previewContent.id ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando card...</>
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Finalizando...</>
                       ) : (
-                        <><CheckSquare className="w-4 h-4 mr-2" />Gerar Card</>
+                        <><CheckSquare className="w-4 h-4 mr-2" />Finalizar</>
                       )}
                     </Button>
                   )}

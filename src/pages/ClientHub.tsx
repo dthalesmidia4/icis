@@ -136,6 +136,7 @@ const ClientHub = () => {
   const [lastCarouselContentId, setLastCarouselContentId] = useState<string | null>(null);
   const [sceneContentIds, setSceneContentIds] = useState<Record<number, string>>({});
   const [creatingCardFor, setCreatingCardFor] = useState<string | null>(null);
+  const [finalizedKeys, setFinalizedKeys] = useState<Set<string>>(new Set());
   const [contentHubModalOpen, setContentHubModalOpen] = useState(false);
   const [avaliarDemandasModalOpen, setAvaliarDemandasModalOpen] = useState(false);
   const [demandaPlanejadaHubModalOpen, setDemandaPlanejadaHubModalOpen] = useState(false);
@@ -1182,6 +1183,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       toast.error('Conteúdo ainda não foi salvo. Gere novamente antes.');
       return;
     }
+    if (finalizedKeys.has(opts.key)) return;
     setCreatingCardFor(opts.key);
     try {
       const { createCardFromContent } = await import('@/lib/createCardFromContent');
@@ -1193,9 +1195,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         prompt: opts.prompt,
         imageUrls: opts.imageUrls,
       });
-      if (result.success) toast.success(result.message);
-      else if (result.duplicated) toast.info(result.message);
-      else toast.error(result.message);
+      if (result.success) {
+        toast.success('Conteúdo finalizado e card criado no Kanban.');
+        setFinalizedKeys(prev => new Set(prev).add(opts.key));
+      } else if (result.duplicated) {
+        toast.info('Esse conteúdo já possui um card criado.');
+        setFinalizedKeys(prev => new Set(prev).add(opts.key));
+      } else {
+        toast.error(result.message);
+      }
     } catch (err) {
       console.error('[createCardFromContent] error:', err);
       toast.error('Erro ao criar o card.');
@@ -1766,18 +1774,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
             </div>
 
             <div className={`flex gap-3 mt-1 ${generatedPostImage ? '' : 'flex-col'}`}>
-              {generatedPostImage && (
-                <Button variant="outline" className="h-11 text-sm font-semibold flex-1" onClick={() => {
-                  const link = document.createElement('a'); link.href = generatedPostImage; link.download = `post-${selectedClient?.name || 'gerado'}-${Date.now()}.png`; link.click();
-                }}>
-                  <Download className="w-4 h-4 mr-2" />Baixar Imagem
-                </Button>
-              )}
-              {generatedPostImage && (
+              {generatedPostImage ? (
                 <Button
-                  variant="outline"
-                  className="h-11 text-sm font-semibold flex-1"
-                  disabled={!lastPostContentId || creatingCardFor === 'ai-post'}
+                  className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70"
+                  disabled={!lastPostContentId || creatingCardFor === 'ai-post' || finalizedKeys.has('ai-post')}
                   onClick={() => handleCreateCardFromContent({
                     key: 'ai-post',
                     contentId: lastPostContentId,
@@ -1787,13 +1787,16 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   })}
                 >
                   {creatingCardFor === 'ai-post'
-                    ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando card...</>)
-                    : (<><CheckSquare className="w-4 h-4 mr-2" />Gerar Card</>)}
+                    ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Finalizando...</>)
+                    : finalizedKeys.has('ai-post')
+                      ? (<><CheckSquare className="w-4 h-4 mr-2" />Finalizado</>)
+                      : (<><CheckSquare className="w-4 h-4 mr-2" />Finalizar</>)}
+                </Button>
+              ) : (
+                <Button className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70" disabled={!postIdea.trim() || generatingPost} onClick={() => handleGeneratePost(postIdea)}>
+                  {generatingPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-4 h-4 mr-2" />Gerar Post</>)}
                 </Button>
               )}
-              <Button className={`h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 ${generatedPostImage ? 'flex-1' : 'w-full'}`} disabled={!postIdea.trim() || generatingPost} onClick={() => handleGeneratePost(postIdea)}>
-                {generatingPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-4 h-4 mr-2" />{generatedPostImage ? 'Gerar Novamente' : 'Gerar Post'}</>)}
-              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -1872,18 +1875,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
             </div>
 
             <div className={`flex gap-3 mt-1 ${generatedManualPostImage ? '' : 'flex-col'}`}>
-              {generatedManualPostImage && (
-                <Button variant="outline" className="h-11 text-sm font-semibold flex-1" onClick={() => {
-                  const link = document.createElement('a'); link.href = generatedManualPostImage; link.download = `post-${selectedClient?.name || 'gerado'}-${Date.now()}.png`; link.click();
-                }}>
-                  <Download className="w-4 h-4 mr-2" />Baixar Imagem
-                </Button>
-              )}
-              {generatedManualPostImage && (
+              {generatedManualPostImage ? (
                 <Button
-                  variant="outline"
-                  className="h-11 text-sm font-semibold flex-1"
-                  disabled={!lastManualPostContentId || creatingCardFor === 'manual-post'}
+                  className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70"
+                  disabled={!lastManualPostContentId || creatingCardFor === 'manual-post' || finalizedKeys.has('manual-post')}
                   onClick={() => handleCreateCardFromContent({
                     key: 'manual-post',
                     contentId: lastManualPostContentId,
@@ -1893,13 +1888,16 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   })}
                 >
                   {creatingCardFor === 'manual-post'
-                    ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando card...</>)
-                    : (<><CheckSquare className="w-4 h-4 mr-2" />Gerar Card</>)}
+                    ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Finalizando...</>)
+                    : finalizedKeys.has('manual-post')
+                      ? (<><CheckSquare className="w-4 h-4 mr-2" />Finalizado</>)
+                      : (<><CheckSquare className="w-4 h-4 mr-2" />Finalizar</>)}
+                </Button>
+              ) : (
+                <Button className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70" disabled={!manualPostText.trim() || generatingManualPost} onClick={() => handleGeneratePost(manualPostText, true)}>
+                  {generatingManualPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />Gerar Post</>)}
                 </Button>
               )}
-              <Button className={`h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 ${generatedManualPostImage ? 'flex-1' : 'w-full'}`} disabled={!manualPostText.trim() || generatingManualPost} onClick={() => handleGeneratePost(manualPostText, true)}>
-                {generatingManualPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />{generatedManualPostImage ? 'Gerar Novamente' : 'Gerar Post'}</>)}
-              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -2205,20 +2203,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   <Button variant="outline" className="h-12 text-base font-semibold flex-1" onClick={() => { setCarouselStep(1); setCarouselGeneratedImages([]); }} disabled={generatingCarouselImages}>
                     Voltar
                   </Button>
-                  {carouselGeneratedImages.length > 0 && (
-                    <Button variant="outline" className="h-12 text-base font-semibold flex-1" onClick={() => {
-                      carouselGeneratedImages.forEach((img) => {
-                        const link = document.createElement('a'); link.href = img.imageUrl; link.download = `carousel-slide-${img.slideIndex + 1}-${Date.now()}.png`; link.click();
-                      });
-                    }}>
-                      <Download className="w-5 h-5 mr-2" />Baixar Todas
-                    </Button>
-                  )}
-                  {carouselGeneratedImages.length > 0 && (
+                  {carouselGeneratedImages.length > 0 ? (
                     <Button
-                      variant="outline"
-                      className="h-12 text-base font-semibold flex-1"
-                      disabled={!lastCarouselContentId || creatingCardFor === 'carousel'}
+                      className="h-12 text-base font-semibold flex-1 bg-gradient-to-r from-primary to-primary/70"
+                      disabled={!lastCarouselContentId || creatingCardFor === 'carousel' || finalizedKeys.has('carousel')}
                       onClick={() => handleCreateCardFromContent({
                         key: 'carousel',
                         contentId: lastCarouselContentId,
@@ -2231,14 +2219,17 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                       })}
                     >
                       {creatingCardFor === 'carousel'
-                        ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Criando card...</>)
-                        : (<><CheckSquare className="w-5 h-5 mr-2" />Gerar Card</>)}
+                        ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Finalizando...</>)
+                        : finalizedKeys.has('carousel')
+                          ? (<><CheckSquare className="w-5 h-5 mr-2" />Finalizado</>)
+                          : (<><CheckSquare className="w-5 h-5 mr-2" />Finalizar</>)}
+                    </Button>
+                  ) : (
+                    <Button className="h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 flex-1"
+                      disabled={carouselSlides.every(s => !s.text.trim()) || generatingCarouselImages} onClick={handleGenerateCarouselImages}>
+                      {generatingCarouselImages ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-5 h-5 mr-2" />Gerar Imagens</>)}
                     </Button>
                   )}
-                  <Button className="h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 flex-1"
-                    disabled={carouselSlides.every(s => !s.text.trim()) || generatingCarouselImages} onClick={handleGenerateCarouselImages}>
-                    {generatingCarouselImages ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-5 h-5 mr-2" />{carouselGeneratedImages.length > 0 ? 'Gerar Novamente' : 'Gerar Imagens'}</>)}
-                  </Button>
                 </div>
               </>
             )}
@@ -2452,19 +2443,19 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                           </div>
                         )}
 
-                        <Button
-                          className="w-full h-9 text-xs font-semibold bg-gradient-to-r from-primary to-primary/70"
-                          disabled={!scene.scene_description.trim() || scene.generating}
-                          onClick={() => handleGenerateScene(idx)}
-                        >
-                          {scene.generating ? (
-                            <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Gerando cena...</>
-                          ) : scene.video_url ? (
-                            <><Sparkles className="w-3.5 h-3.5 mr-1.5" />Gerar Novamente</>
-                          ) : (
-                            <><Play className="w-3.5 h-3.5 mr-1.5" />Gerar Cena</>
-                          )}
-                        </Button>
+                        {!scene.video_url && (
+                          <Button
+                            className="w-full h-9 text-xs font-semibold bg-gradient-to-r from-primary to-primary/70"
+                            disabled={!scene.scene_description.trim() || scene.generating}
+                            onClick={() => handleGenerateScene(idx)}
+                          >
+                            {scene.generating ? (
+                              <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Gerando cena...</>
+                            ) : (
+                              <><Play className="w-3.5 h-3.5 mr-1.5" />Gerar Cena</>
+                            )}
+                          </Button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -2484,22 +2475,16 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                           <div className="rounded-xl overflow-hidden border-2 border-primary/30 shadow-lg flex-1 min-h-0 flex flex-col">
                             <div className="flex items-center justify-between px-3 py-2 bg-muted/50">
                               <span className="text-xs font-bold text-primary">Cena {currentScene.originalIndex + 1}</span>
-                              {currentScene.video_url && (
-                                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => {
-                                  const link = document.createElement('a'); link.href = currentScene.video_url!; link.download = `scene-${currentScene.originalIndex + 1}-${Date.now()}.mp4`; link.click();
-                                }}>
-                                  <Download className="w-3.5 h-3.5 mr-1" />Baixar
-                                </Button>
-                              )}
                               {currentScene.video_url && (() => {
                                 const sceneContentId = sceneContentIds[currentScene.originalIndex] || null;
                                 const key = `video-scene-${currentScene.originalIndex}`;
+                                const isFinalized = finalizedKeys.has(key);
                                 return (
                                   <Button
-                                    variant="ghost"
+                                    variant="default"
                                     size="sm"
                                     className="h-7 text-xs"
-                                    disabled={!sceneContentId || creatingCardFor === key}
+                                    disabled={!sceneContentId || creatingCardFor === key || isFinalized}
                                     onClick={() => handleCreateCardFromContent({
                                       key,
                                       contentId: sceneContentId,
@@ -2509,8 +2494,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                     })}
                                   >
                                     {creatingCardFor === key
-                                      ? (<><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /></>)
-                                      : (<><CheckSquare className="w-3.5 h-3.5 mr-1" />Gerar Card</>)}
+                                      ? (<><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />Finalizando...</>)
+                                      : isFinalized
+                                        ? (<><CheckSquare className="w-3.5 h-3.5 mr-1" />Finalizado</>)
+                                        : (<><CheckSquare className="w-3.5 h-3.5 mr-1" />Finalizar</>)}
                                   </Button>
                                 );
                               })()}
