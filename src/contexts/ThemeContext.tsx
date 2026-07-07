@@ -72,17 +72,30 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     loadSettings();
   }, [user]);
 
-  // Respect dev theme override from localStorage; default to light
+  // Respect dev theme override from localStorage; default to light. Reactive across tabs/components.
   useEffect(() => {
-    const root = document.documentElement;
-    const saved = typeof window !== "undefined" ? localStorage.getItem("dev-theme-mode") : null;
-    if (saved === "dark") {
-      root.classList.remove("light");
-      root.classList.add("dark");
-    } else {
-      root.classList.remove("dark");
-      root.classList.add("light");
-    }
+    const apply = () => {
+      const root = document.documentElement;
+      const saved = localStorage.getItem("dev-theme-mode");
+      if (saved === "dark") {
+        root.classList.remove("light");
+        root.classList.add("dark");
+      } else {
+        root.classList.remove("dark");
+        root.classList.add("light");
+      }
+    };
+    apply();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "dev-theme-mode") apply();
+    };
+    const onCustom = () => apply();
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("dev-theme-change", onCustom);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("dev-theme-change", onCustom);
+    };
   }, [settings.mode]);
 
   // Apply primary color
