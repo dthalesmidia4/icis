@@ -2443,19 +2443,19 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                           </div>
                         )}
 
-                        <Button
-                          className="w-full h-9 text-xs font-semibold bg-gradient-to-r from-primary to-primary/70"
-                          disabled={!scene.scene_description.trim() || scene.generating}
-                          onClick={() => handleGenerateScene(idx)}
-                        >
-                          {scene.generating ? (
-                            <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Gerando cena...</>
-                          ) : scene.video_url ? (
-                            <><Sparkles className="w-3.5 h-3.5 mr-1.5" />Gerar Novamente</>
-                          ) : (
-                            <><Play className="w-3.5 h-3.5 mr-1.5" />Gerar Cena</>
-                          )}
-                        </Button>
+                        {!scene.video_url && (
+                          <Button
+                            className="w-full h-9 text-xs font-semibold bg-gradient-to-r from-primary to-primary/70"
+                            disabled={!scene.scene_description.trim() || scene.generating}
+                            onClick={() => handleGenerateScene(idx)}
+                          >
+                            {scene.generating ? (
+                              <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Gerando cena...</>
+                            ) : (
+                              <><Play className="w-3.5 h-3.5 mr-1.5" />Gerar Cena</>
+                            )}
+                          </Button>
+                        )}
                       </div>
                     ))}
                   </div>
