@@ -1774,7 +1774,6 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
             </div>
 
             <div className={`flex gap-3 mt-1 ${generatedPostImage ? '' : 'flex-col'}`}>
-            <div className={`flex gap-3 mt-1 ${generatedPostImage ? '' : 'flex-col'}`}>
               {generatedPostImage ? (
                 <Button
                   className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70"
