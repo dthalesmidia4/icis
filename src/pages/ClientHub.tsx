@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import JSZip from "jszip";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play, ChevronLeft, ChevronRight, ScrollText, Maximize2, Minimize2, RotateCcw, ArchiveRestore } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play, ChevronLeft, ChevronRight, ScrollText, Maximize2, Minimize2, RotateCcw, ArchiveRestore, RefreshCw } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useHubPermissions, type ClientHubButtonId } from "@/hooks/useHubPermissions";
 import { useAgencyRole } from "@/hooks/useAgencyRole";
@@ -2443,19 +2443,19 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                           </div>
                         )}
 
-                        {!scene.video_url && (
-                          <Button
-                            className="w-full h-9 text-xs font-semibold bg-gradient-to-r from-primary to-primary/70"
-                            disabled={!scene.scene_description.trim() || scene.generating}
-                            onClick={() => handleGenerateScene(idx)}
-                          >
-                            {scene.generating ? (
-                              <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Gerando cena...</>
-                            ) : (
-                              <><Play className="w-3.5 h-3.5 mr-1.5" />Gerar Cena</>
-                            )}
-                          </Button>
-                        )}
+                        <Button
+                          className="w-full h-9 text-xs font-semibold bg-gradient-to-r from-primary to-primary/70"
+                          disabled={!scene.scene_description.trim() || scene.generating}
+                          onClick={() => handleGenerateScene(idx)}
+                        >
+                          {scene.generating ? (
+                            <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Gerando cena...</>
+                          ) : scene.video_url ? (
+                            <><RefreshCw className="w-3.5 h-3.5 mr-1.5" />Gerar Novamente</>
+                          ) : (
+                            <><Play className="w-3.5 h-3.5 mr-1.5" />Gerar Cena</>
+                          )}
+                        </Button>
                       </div>
                     ))}
                   </div>
