@@ -180,6 +180,71 @@ const PlanPeriod = () => {
   const [pollingProgress, setPollingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState("Gerando demandas...");
 
+  // Sugestão automática de configuração de período
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const [suggestion, setSuggestion] = useState<null | {
+    confidence: 'alta' | 'media' | 'baixa';
+    alertas: string[];
+    evidencias_usadas: string[];
+    justificativa_geral: string;
+    sugestao: Record<string, any>;
+  }>(null);
+  const [suggestionOpen, setSuggestionOpen] = useState(false);
+
+  const handleSuggestConfig = async () => {
+    if (!selectedClient || !tenantId) {
+      toast.error('Selecione um cliente antes de pedir sugestão');
+      return;
+    }
+    setSuggestionLoading(true);
+    setSuggestion(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('suggest-period-config', {
+        body: { companyId: selectedClient.id, tenantId, todayISO: new Date().toISOString() },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Falha ao gerar sugestão');
+      setSuggestion(data);
+      setSuggestionOpen(true);
+      toast.success(`Sugestão pronta (confiança: ${data.confidence})`);
+    } catch (e: any) {
+      console.error('suggest-period-config error', e);
+      toast.error(e?.message || 'Erro ao sugerir configuração');
+    } finally {
+      setSuggestionLoading(false);
+    }
+  };
+
+  const handleApplySuggestion = () => {
+    if (!suggestion?.sugestao) return;
+    const s = suggestion.sugestao;
+    if (s.period_title) setPeriodTitle(s.period_title);
+    if (s.period_start) setPeriodStart(new Date(s.period_start + 'T00:00:00'));
+    if (s.period_end) setPeriodEnd(new Date(s.period_end + 'T00:00:00'));
+    if (Array.isArray(s.selected_channels)) setSelectedChannels(s.selected_channels);
+    if (Array.isArray(s.objetivos_selecionados)) setObjetivosSelecionados(s.objetivos_selecionados);
+    if (typeof s.objetivo_outro === 'string') setObjetivoOutro(s.objetivo_outro);
+    if (typeof s.meta_numerica === 'string') setMetaNumerica(s.meta_numerica);
+    if (typeof s.porque_objetivo === 'string') setPorqueObjetivo(s.porque_objetivo);
+    if (typeof s.produto_foco === 'string') setProdutoFoco(s.produto_foco);
+    if (s.tem_promocao === 'sim' || s.tem_promocao === 'nao') setTemPromocao(s.tem_promocao);
+    if (typeof s.promocao_descricao === 'string') setPromocaoDescricao(s.promocao_descricao);
+    if (typeof s.como_comprar === 'string') setComoComprar(s.como_comprar);
+    if (s.tem_data_comemorativa === 'sim' || s.tem_data_comemorativa === 'nao') setTemDataComemorativa(s.tem_data_comemorativa);
+    if (typeof s.data_comemorativa_descricao === 'string') setDataComemorativaDescricao(s.data_comemorativa_descricao);
+    if (s.tem_novidade === 'sim' || s.tem_novidade === 'nao') setTemNovidade(s.tem_novidade);
+    if (typeof s.novidade_descricao === 'string') setNovidadeDescricao(s.novidade_descricao);
+    if (['sim', 'nao', 'talvez'].includes(s.disponibilidade_video)) setDisponibilidadeVideo(s.disponibilidade_video);
+    if (s.tem_materiais_novos === 'sim' || s.tem_materiais_novos === 'nao') setTemMateriaisNovos(s.tem_materiais_novos);
+    if (typeof s.materiais_novos_descricao === 'string') setMateriaisNovosDescricao(s.materiais_novos_descricao);
+    if (typeof s.quantidade_conteudos === 'number' && s.quantidade_conteudos > 0) setQuantidadeConteudos(s.quantidade_conteudos);
+    if (typeof s.observations === 'string') setObservations(s.observations);
+    if (typeof s.budget === 'string') setBudget(s.budget);
+    toast.success('Sugestão aplicada ao formulário — revise antes de gerar');
+    setSuggestionOpen(false);
+  };
+
+
   // Fetch period history and check for incomplete periods
   useEffect(() => {
     const fetchHistory = async () => {
