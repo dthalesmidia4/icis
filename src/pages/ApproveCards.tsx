@@ -573,30 +573,38 @@ const ApproveCards = () => {
                       const isApproved = approvedIndexes.has(card._index);
                       const isApproving = approvingIndex === card._index;
                       return (
-                        <div key={card._index} className={cn("relative", isApproved && "opacity-60")}>
-                          <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
-                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleOpenEditCard(card); }}>
+                        <div
+                          key={card._index}
+                          className={cn(
+                            "flex flex-col md:flex-row md:items-stretch gap-3",
+                            isApproved && "opacity-60"
+                          )}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <DemandaCard demanda={card} variant="normal" />
+                          </div>
+                          <div className="flex flex-row md:flex-col items-stretch justify-end gap-2 shrink-0 md:w-44">
+                            <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" onClick={(e) => { e.stopPropagation(); handleOpenEditCard(card); }}>
                               <Pencil className="w-4 h-4" />
                             </Button>
                             {isApproved ? (
-                              <Badge variant="default" className="bg-green-600 text-sm py-1 px-3">
+                              <Badge variant="default" className="bg-green-600 text-sm py-1 px-3 flex items-center justify-center flex-1 md:flex-none">
                                 <Check className="w-3.5 h-3.5 mr-1.5" />
                                 Aprovado
                               </Badge>
                             ) : (
                               <>
-                                <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleReject(card); }} className="gap-1">
+                                <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleReject(card); }} className="gap-1 flex-1 md:flex-none">
                                   <ThumbsDown className="w-3.5 h-3.5" />
                                   Reprovar
                                 </Button>
-                                <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving}>
+                                <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving} className="flex-1 md:flex-none">
                                   {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                                   Aprovar Card
                                 </Button>
                               </>
                             )}
                           </div>
-                          <DemandaCard demanda={card} variant="normal" />
                         </div>
                       );
                     })}
@@ -616,30 +624,38 @@ const ApproveCards = () => {
                       const isApproved = approvedIndexes.has(card._index);
                       const isApproving = approvingIndex === card._index;
                       return (
-                        <div key={card._index} className={cn("relative", isApproved && "opacity-60")}>
-                          <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
-                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleOpenEditCard(card); }}>
+                        <div
+                          key={card._index}
+                          className={cn(
+                            "flex flex-col md:flex-row md:items-stretch gap-3",
+                            isApproved && "opacity-60"
+                          )}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <DemandaCard demanda={card} variant="ultra" />
+                          </div>
+                          <div className="flex flex-row md:flex-col items-stretch justify-end gap-2 shrink-0 md:w-44">
+                            <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" onClick={(e) => { e.stopPropagation(); handleOpenEditCard(card); }}>
                               <Pencil className="w-4 h-4" />
                             </Button>
                             {isApproved ? (
-                              <Badge variant="default" className="bg-green-600 text-sm py-1 px-3">
+                              <Badge variant="default" className="bg-green-600 text-sm py-1 px-3 flex items-center justify-center flex-1 md:flex-none">
                                 <Check className="w-3.5 h-3.5 mr-1.5" />
                                 Aprovado
                               </Badge>
                             ) : (
                               <>
-                                <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleReject(card); }} className="gap-1">
+                                <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleReject(card); }} className="gap-1 flex-1 md:flex-none">
                                   <ThumbsDown className="w-3.5 h-3.5" />
                                   Reprovar
                                 </Button>
-                                <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving}>
+                                <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving} className="flex-1 md:flex-none">
                                   {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                                   Aprovar Card
                                 </Button>
                               </>
                             )}
                           </div>
-                          <DemandaCard demanda={card} variant="ultra" />
                         </div>
                       );
                     })}
