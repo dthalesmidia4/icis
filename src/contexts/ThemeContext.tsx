@@ -72,11 +72,17 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     loadSettings();
   }, [user]);
 
-  // Force light mode always
+  // Respect dev theme override from localStorage; default to light
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove('dark');
-    root.classList.add('light');
+    const saved = typeof window !== "undefined" ? localStorage.getItem("dev-theme-mode") : null;
+    if (saved === "dark") {
+      root.classList.remove("light");
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+      root.classList.add("light");
+    }
   }, [settings.mode]);
 
   // Apply primary color
