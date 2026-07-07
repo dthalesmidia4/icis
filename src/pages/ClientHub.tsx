@@ -2475,22 +2475,16 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                           <div className="rounded-xl overflow-hidden border-2 border-primary/30 shadow-lg flex-1 min-h-0 flex flex-col">
                             <div className="flex items-center justify-between px-3 py-2 bg-muted/50">
                               <span className="text-xs font-bold text-primary">Cena {currentScene.originalIndex + 1}</span>
-                              {currentScene.video_url && (
-                                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => {
-                                  const link = document.createElement('a'); link.href = currentScene.video_url!; link.download = `scene-${currentScene.originalIndex + 1}-${Date.now()}.mp4`; link.click();
-                                }}>
-                                  <Download className="w-3.5 h-3.5 mr-1" />Baixar
-                                </Button>
-                              )}
                               {currentScene.video_url && (() => {
                                 const sceneContentId = sceneContentIds[currentScene.originalIndex] || null;
                                 const key = `video-scene-${currentScene.originalIndex}`;
+                                const isFinalized = finalizedKeys.has(key);
                                 return (
                                   <Button
-                                    variant="ghost"
+                                    variant="default"
                                     size="sm"
                                     className="h-7 text-xs"
-                                    disabled={!sceneContentId || creatingCardFor === key}
+                                    disabled={!sceneContentId || creatingCardFor === key || isFinalized}
                                     onClick={() => handleCreateCardFromContent({
                                       key,
                                       contentId: sceneContentId,
@@ -2500,8 +2494,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                     })}
                                   >
                                     {creatingCardFor === key
-                                      ? (<><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /></>)
-                                      : (<><CheckSquare className="w-3.5 h-3.5 mr-1" />Gerar Card</>)}
+                                      ? (<><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />Finalizando...</>)
+                                      : isFinalized
+                                        ? (<><CheckSquare className="w-3.5 h-3.5 mr-1" />Finalizado</>)
+                                        : (<><CheckSquare className="w-3.5 h-3.5 mr-1" />Finalizar</>)}
                                   </Button>
                                 );
                               })()}
