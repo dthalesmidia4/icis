@@ -1774,18 +1774,11 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
             </div>
 
             <div className={`flex gap-3 mt-1 ${generatedPostImage ? '' : 'flex-col'}`}>
-              {generatedPostImage && (
-                <Button variant="outline" className="h-11 text-sm font-semibold flex-1" onClick={() => {
-                  const link = document.createElement('a'); link.href = generatedPostImage; link.download = `post-${selectedClient?.name || 'gerado'}-${Date.now()}.png`; link.click();
-                }}>
-                  <Download className="w-4 h-4 mr-2" />Baixar Imagem
-                </Button>
-              )}
-              {generatedPostImage && (
+            <div className={`flex gap-3 mt-1 ${generatedPostImage ? '' : 'flex-col'}`}>
+              {generatedPostImage ? (
                 <Button
-                  variant="outline"
-                  className="h-11 text-sm font-semibold flex-1"
-                  disabled={!lastPostContentId || creatingCardFor === 'ai-post'}
+                  className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70"
+                  disabled={!lastPostContentId || creatingCardFor === 'ai-post' || finalizedKeys.has('ai-post')}
                   onClick={() => handleCreateCardFromContent({
                     key: 'ai-post',
                     contentId: lastPostContentId,
@@ -1795,13 +1788,16 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   })}
                 >
                   {creatingCardFor === 'ai-post'
-                    ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando card...</>)
-                    : (<><CheckSquare className="w-4 h-4 mr-2" />Gerar Card</>)}
+                    ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Finalizando...</>)
+                    : finalizedKeys.has('ai-post')
+                      ? (<><CheckSquare className="w-4 h-4 mr-2" />Finalizado</>)
+                      : (<><CheckSquare className="w-4 h-4 mr-2" />Finalizar</>)}
+                </Button>
+              ) : (
+                <Button className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70" disabled={!postIdea.trim() || generatingPost} onClick={() => handleGeneratePost(postIdea)}>
+                  {generatingPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-4 h-4 mr-2" />Gerar Post</>)}
                 </Button>
               )}
-              <Button className={`h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 ${generatedPostImage ? 'flex-1' : 'w-full'}`} disabled={!postIdea.trim() || generatingPost} onClick={() => handleGeneratePost(postIdea)}>
-                {generatingPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-4 h-4 mr-2" />{generatedPostImage ? 'Gerar Novamente' : 'Gerar Post'}</>)}
-              </Button>
             </div>
           </DialogContent>
         </Dialog>
