@@ -180,6 +180,74 @@ const PlanPeriod = () => {
   const [pollingProgress, setPollingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState("Gerando demandas...");
 
+  // Sugestão automática (MVP)
+  const [suggestion, setSuggestion] = useState<any | null>(null);
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
+
+  const CHANNEL_IDS = ['instagram', 'facebook', 'tiktok', 'youtube', 'linkedin'];
+  const OBJETIVO_OPCOES_VALID = ['Gerar vendas', 'Atrair leads', 'Lançar produto', 'Crescer seguidores', 'Educar o mercado'];
+
+  const requestSuggestion = async () => {
+    if (!selectedClient || !tenantId) {
+      toast.error('Selecione um cliente primeiro');
+      return;
+    }
+    setSuggestionLoading(true);
+    try {
+      const currentForm = {
+        periodTitle, selectedChannels, objetivosSelecionados, objetivoOutro,
+        metaNumerica, porqueObjetivo, produtoFoco, temPromocao, promocaoDescricao,
+        comoComprar, temDataComemorativa, dataComemorativaDescricao, temNovidade,
+        novidadeDescricao, disponibilidadeVideo, temMateriaisNovos,
+        materiaisNovosDescricao, quantidadeConteudos, observations,
+      };
+      const { data, error } = await supabase.functions.invoke('suggest-period-config', {
+        body: { tenantId, companyId: selectedClient.id, currentForm },
+      });
+      if (error) throw error;
+      if (!data?.success || !data?.suggestion) throw new Error(data?.error || 'Sem sugestão');
+      setSuggestion(data.suggestion);
+      toast.success('Sugestão gerada — revise antes de aplicar');
+    } catch (e: any) {
+      console.error('[PlanPeriod] suggest error:', e);
+      toast.error(e?.message || 'Erro ao gerar sugestão');
+    } finally {
+      setSuggestionLoading(false);
+    }
+  };
+
+  const applySuggestion = () => {
+    if (!suggestion) return;
+    const s = suggestion;
+    if (typeof s.period_title === 'string' && s.period_title.trim()) setPeriodTitle(s.period_title.trim());
+    const parseDate = (v: any): Date | undefined => {
+      if (typeof v !== 'string') return undefined;
+      const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) return undefined;
+      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    };
+    const sd = parseDate(s.start_date);
+    const ed = parseDate(s.end_date);
+    if (sd) setPeriodStart(sd);
+    if (ed) setPeriodEnd(ed);
+    if (Array.isArray(s.canais_sugeridos)) {
+      const chans = s.canais_sugeridos
+        .map((c: any) => String(c).toLowerCase().trim())
+        .filter((c: string) => CHANNEL_IDS.includes(c));
+      if (chans.length) setSelectedChannels(chans);
+    }
+    if (Array.isArray(s.objetivos_sugeridos)) {
+      const objs = s.objetivos_sugeridos.filter((o: any) => OBJETIVO_OPCOES_VALID.includes(o));
+      if (objs.length) setObjetivosSelecionados(objs);
+    }
+    if (typeof s.objetivo_outro === 'string' && s.objetivo_outro.trim()) setObjetivoOutro(s.objetivo_outro.trim());
+    if (typeof s.produto_foco === 'string' && s.produto_foco.trim() && !produtoFoco) setProdutoFoco(s.produto_foco.trim());
+    const q = Number(s.quantidade_conteudos);
+    if (Number.isFinite(q) && q > 0) setQuantidadeConteudos(Math.max(1, Math.min(50, Math.floor(q))));
+    toast.success('Sugestão aplicada — ajuste o que quiser antes de gerar');
+  };
+
+
   // Fetch period history and check for incomplete periods
   useEffect(() => {
     const fetchHistory = async () => {
@@ -824,6 +892,88 @@ const PlanPeriod = () => {
     </Card>}
 
     <div className="space-y-4 sm:space-y-6">
+      {/* Sugestão automática (MVP) */}
+      <Card className="p-4 sm:p-6 border-primary/40 bg-primary/5">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="flex-1">
+            <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+              Sugestão automática de configuração
+            </h3>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+              A IA analisa a estratégia, anamnese, canais ativos e planos anteriores para sugerir período, quantidade e distribuição.
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={requestSuggestion}
+            disabled={suggestionLoading}
+            className="shrink-0"
+          >
+            {suggestionLoading ? (
+              <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Gerando…</>
+            ) : (
+              <><Sparkles className="w-4 h-4 mr-2" />Sugerir configuração automaticamente</>
+            )}
+          </Button>
+        </div>
+
+        {suggestion && (
+          <div className="mt-4 rounded-lg border bg-background p-4 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+              {suggestion.period_title && (
+                <p><span className="text-muted-foreground">Título:</span> <span className="font-medium">{suggestion.period_title}</span></p>
+              )}
+              {(suggestion.period_days || (suggestion.start_date && suggestion.end_date)) && (
+                <p>
+                  <span className="text-muted-foreground">Período:</span>{' '}
+                  <span className="font-medium">
+                    {suggestion.period_days ? `${suggestion.period_days} dias` : ''}
+                    {suggestion.start_date && suggestion.end_date ? ` (${suggestion.start_date} → ${suggestion.end_date})` : ''}
+                  </span>
+                </p>
+              )}
+              {suggestion.quantidade_conteudos != null && (
+                <p><span className="text-muted-foreground">Quantidade:</span> <span className="font-medium">{suggestion.quantidade_conteudos} conteúdos</span></p>
+              )}
+              {Array.isArray(suggestion.canais_sugeridos) && suggestion.canais_sugeridos.length > 0 && (
+                <p><span className="text-muted-foreground">Canais:</span> <span className="font-medium">{suggestion.canais_sugeridos.join(', ')}</span></p>
+              )}
+            </div>
+            {Array.isArray(suggestion.distribuicao) && suggestion.distribuicao.length > 0 && (
+              <div className="text-sm">
+                <span className="text-muted-foreground">Distribuição sugerida:</span>{' '}
+                <span className="font-medium">
+                  {suggestion.distribuicao.map((d: any) => `${d.quantity} ${d.type}`).join(' · ')}
+                </span>
+              </div>
+            )}
+            {Array.isArray(suggestion.objetivos_sugeridos) && suggestion.objetivos_sugeridos.length > 0 && (
+              <div className="text-sm">
+                <span className="text-muted-foreground">Objetivos:</span>{' '}
+                <span className="font-medium">{suggestion.objetivos_sugeridos.join(', ')}</span>
+              </div>
+            )}
+            {suggestion.justificativa && (
+              <p className="text-sm text-muted-foreground italic border-l-2 border-primary/40 pl-3">
+                {suggestion.justificativa}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button size="sm" onClick={applySuggestion}>
+                <Check className="w-4 h-4 mr-1" /> Aplicar sugestão
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setSuggestion(null)}>
+                <X className="w-4 h-4 mr-1" /> Ignorar
+              </Button>
+              <Button size="sm" variant="ghost" onClick={requestSuggestion} disabled={suggestionLoading}>
+                <RefreshCw className="w-4 h-4 mr-1" /> Gerar outra
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+
       {/* Period Info */}
       <Card className="p-4 sm:p-6">
         <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
