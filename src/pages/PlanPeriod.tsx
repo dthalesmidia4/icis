@@ -180,6 +180,74 @@ const PlanPeriod = () => {
   const [pollingProgress, setPollingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState("Gerando demandas...");
 
+  // Sugestão automática (MVP)
+  const [suggestion, setSuggestion] = useState<any | null>(null);
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
+
+  const CHANNEL_IDS = ['instagram', 'facebook', 'tiktok', 'youtube', 'linkedin'];
+  const OBJETIVO_OPCOES_VALID = ['Gerar vendas', 'Atrair leads', 'Lançar produto', 'Crescer seguidores', 'Educar o mercado'];
+
+  const requestSuggestion = async () => {
+    if (!selectedClient || !tenantId) {
+      toast.error('Selecione um cliente primeiro');
+      return;
+    }
+    setSuggestionLoading(true);
+    try {
+      const currentForm = {
+        periodTitle, selectedChannels, objetivosSelecionados, objetivoOutro,
+        metaNumerica, porqueObjetivo, produtoFoco, temPromocao, promocaoDescricao,
+        comoComprar, temDataComemorativa, dataComemorativaDescricao, temNovidade,
+        novidadeDescricao, disponibilidadeVideo, temMateriaisNovos,
+        materiaisNovosDescricao, quantidadeConteudos, observations,
+      };
+      const { data, error } = await supabase.functions.invoke('suggest-period-config', {
+        body: { tenantId, companyId: selectedClient.id, currentForm },
+      });
+      if (error) throw error;
+      if (!data?.success || !data?.suggestion) throw new Error(data?.error || 'Sem sugestão');
+      setSuggestion(data.suggestion);
+      toast.success('Sugestão gerada — revise antes de aplicar');
+    } catch (e: any) {
+      console.error('[PlanPeriod] suggest error:', e);
+      toast.error(e?.message || 'Erro ao gerar sugestão');
+    } finally {
+      setSuggestionLoading(false);
+    }
+  };
+
+  const applySuggestion = () => {
+    if (!suggestion) return;
+    const s = suggestion;
+    if (typeof s.period_title === 'string' && s.period_title.trim()) setPeriodTitle(s.period_title.trim());
+    const parseDate = (v: any): Date | undefined => {
+      if (typeof v !== 'string') return undefined;
+      const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) return undefined;
+      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    };
+    const sd = parseDate(s.start_date);
+    const ed = parseDate(s.end_date);
+    if (sd) setPeriodStart(sd);
+    if (ed) setPeriodEnd(ed);
+    if (Array.isArray(s.canais_sugeridos)) {
+      const chans = s.canais_sugeridos
+        .map((c: any) => String(c).toLowerCase().trim())
+        .filter((c: string) => CHANNEL_IDS.includes(c));
+      if (chans.length) setSelectedChannels(chans);
+    }
+    if (Array.isArray(s.objetivos_sugeridos)) {
+      const objs = s.objetivos_sugeridos.filter((o: any) => OBJETIVO_OPCOES_VALID.includes(o));
+      if (objs.length) setObjetivosSelecionados(objs);
+    }
+    if (typeof s.objetivo_outro === 'string' && s.objetivo_outro.trim()) setObjetivoOutro(s.objetivo_outro.trim());
+    if (typeof s.produto_foco === 'string' && s.produto_foco.trim() && !produtoFoco) setProdutoFoco(s.produto_foco.trim());
+    const q = Number(s.quantidade_conteudos);
+    if (Number.isFinite(q) && q > 0) setQuantidadeConteudos(Math.max(1, Math.min(50, Math.floor(q))));
+    toast.success('Sugestão aplicada — ajuste o que quiser antes de gerar');
+  };
+
+
   // Fetch period history and check for incomplete periods
   useEffect(() => {
     const fetchHistory = async () => {
