@@ -33,6 +33,7 @@ const DevHub = () => {
       root.classList.add("light");
       localStorage.setItem(THEME_KEY, "light");
     }
+    window.dispatchEvent(new Event("dev-theme-change"));
     setIsDark(next);
   };
 
