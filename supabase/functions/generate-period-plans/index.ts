@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
         const questions = qs.questions as string[];
         const answers = qs.answers as Record<string, string>;
         questionsSnippet = questions.map((q: string, i: number) => {
-          const answer = answers[i.toString()] || '';
+          const answer = (answers[`question_${i}`] || '').trim();
           return answer ? `${q}: ${answer}` : '';
         }).filter(Boolean).join(' | ').substring(0, 600);
       }
