@@ -280,7 +280,8 @@ export default function GenerateQuestions() {
       return;
     }
 
-    const questionsHtml = strategicQuestions.map((question, idx) => {
+    const numberedQuestions = allQuestions.map((q) => q.hint ? `${q.question} (${q.hint})` : q.question);
+    const questionsHtml = numberedQuestions.map((question, idx) => {
       const key = `question_${idx}`;
       const answer = answers[key]?.trim() || "";
       return `
@@ -293,6 +294,23 @@ export default function GenerateQuestions() {
         </div>
       `;
     }).join("");
+
+    const guidelinesHtml = `
+      <h3 style="font-size:13px;margin-top:24px;margin-bottom:8px;">🎯 Diretrizes Estratégicas para IA</h3>
+      ${guidelineFields.map((g) => {
+        const answer = answers[g.key]?.trim() || "";
+        const label = g.hint ? `${g.question} (${g.hint})` : g.question;
+        return `
+          <div class="question-block">
+            <p class="question"><strong>${label}</strong></p>
+            ${answer
+              ? `<p class="answer">${answer.replace(/\n/g, "<br>")}</p>`
+              : `<div class="blank-space"></div>`
+            }
+          </div>
+        `;
+      }).join("")}
+    `;
 
     printWindow.document.write(`
       <!DOCTYPE html>
