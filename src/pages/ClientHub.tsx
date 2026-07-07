@@ -1183,6 +1183,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       toast.error('Conteúdo ainda não foi salvo. Gere novamente antes.');
       return;
     }
+    if (finalizedKeys.has(opts.key)) return;
     setCreatingCardFor(opts.key);
     try {
       const { createCardFromContent } = await import('@/lib/createCardFromContent');
@@ -1194,9 +1195,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         prompt: opts.prompt,
         imageUrls: opts.imageUrls,
       });
-      if (result.success) toast.success(result.message);
-      else if (result.duplicated) toast.info(result.message);
-      else toast.error(result.message);
+      if (result.success) {
+        toast.success('Conteúdo finalizado e card criado no Kanban.');
+        setFinalizedKeys(prev => new Set(prev).add(opts.key));
+      } else if (result.duplicated) {
+        toast.info('Esse conteúdo já possui um card criado.');
+        setFinalizedKeys(prev => new Set(prev).add(opts.key));
+      } else {
+        toast.error(result.message);
+      }
     } catch (err) {
       console.error('[createCardFromContent] error:', err);
       toast.error('Erro ao criar o card.');
