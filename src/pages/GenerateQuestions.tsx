@@ -333,6 +333,7 @@ export default function GenerateQuestions() {
         <h1>Anamnese - Planejamento de Conteúdo</h1>
         <h2>${clientName}</h2>
         ${questionsHtml}
+        ${guidelinesHtml}
         <script>window.onload = function() { window.print(); }</script>
       </body>
       </html>
