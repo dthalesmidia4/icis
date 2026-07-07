@@ -74,6 +74,12 @@ const DevHub = () => {
         <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
           Gerencie prompts e APIs do sistema
         </p>
+        <div className="mt-6 flex justify-center">
+          <Button variant="outline" onClick={toggleTheme} className="gap-2">
+            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {isDark ? "Modo claro" : "Modo escuro"}
+          </Button>
+        </div>
       </div>
 
       {/* Cards de Desenvolvimento */}
