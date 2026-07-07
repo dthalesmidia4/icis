@@ -6,6 +6,9 @@ verify_jwt = false
 [functions.generate-period-plans]
 verify_jwt = false
 
+[functions.suggest-period-config]
+verify_jwt = false
+
 [functions.send-invitation-email]
 verify_jwt = false
 

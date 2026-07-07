@@ -180,6 +180,71 @@ const PlanPeriod = () => {
   const [pollingProgress, setPollingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState("Gerando demandas...");
 
+  // Sugestão automática de configuração de período
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const [suggestion, setSuggestion] = useState<null | {
+    confidence: 'alta' | 'media' | 'baixa';
+    alertas: string[];
+    evidencias_usadas: string[];
+    justificativa_geral: string;
+    sugestao: Record<string, any>;
+  }>(null);
+  const [suggestionOpen, setSuggestionOpen] = useState(false);
+
+  const handleSuggestConfig = async () => {
+    if (!selectedClient || !tenantId) {
+      toast.error('Selecione um cliente antes de pedir sugestão');
+      return;
+    }
+    setSuggestionLoading(true);
+    setSuggestion(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('suggest-period-config', {
+        body: { companyId: selectedClient.id, tenantId, todayISO: new Date().toISOString() },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Falha ao gerar sugestão');
+      setSuggestion(data);
+      setSuggestionOpen(true);
+      toast.success(`Sugestão pronta (confiança: ${data.confidence})`);
+    } catch (e: any) {
+      console.error('suggest-period-config error', e);
+      toast.error(e?.message || 'Erro ao sugerir configuração');
+    } finally {
+      setSuggestionLoading(false);
+    }
+  };
+
+  const handleApplySuggestion = () => {
+    if (!suggestion?.sugestao) return;
+    const s = suggestion.sugestao;
+    if (s.period_title) setPeriodTitle(s.period_title);
+    if (s.period_start) setPeriodStart(new Date(s.period_start + 'T00:00:00'));
+    if (s.period_end) setPeriodEnd(new Date(s.period_end + 'T00:00:00'));
+    if (Array.isArray(s.selected_channels)) setSelectedChannels(s.selected_channels);
+    if (Array.isArray(s.objetivos_selecionados)) setObjetivosSelecionados(s.objetivos_selecionados);
+    if (typeof s.objetivo_outro === 'string') setObjetivoOutro(s.objetivo_outro);
+    if (typeof s.meta_numerica === 'string') setMetaNumerica(s.meta_numerica);
+    if (typeof s.porque_objetivo === 'string') setPorqueObjetivo(s.porque_objetivo);
+    if (typeof s.produto_foco === 'string') setProdutoFoco(s.produto_foco);
+    if (s.tem_promocao === 'sim' || s.tem_promocao === 'nao') setTemPromocao(s.tem_promocao);
+    if (typeof s.promocao_descricao === 'string') setPromocaoDescricao(s.promocao_descricao);
+    if (typeof s.como_comprar === 'string') setComoComprar(s.como_comprar);
+    if (s.tem_data_comemorativa === 'sim' || s.tem_data_comemorativa === 'nao') setTemDataComemorativa(s.tem_data_comemorativa);
+    if (typeof s.data_comemorativa_descricao === 'string') setDataComemorativaDescricao(s.data_comemorativa_descricao);
+    if (s.tem_novidade === 'sim' || s.tem_novidade === 'nao') setTemNovidade(s.tem_novidade);
+    if (typeof s.novidade_descricao === 'string') setNovidadeDescricao(s.novidade_descricao);
+    if (['sim', 'nao', 'talvez'].includes(s.disponibilidade_video)) setDisponibilidadeVideo(s.disponibilidade_video);
+    if (s.tem_materiais_novos === 'sim' || s.tem_materiais_novos === 'nao') setTemMateriaisNovos(s.tem_materiais_novos);
+    if (typeof s.materiais_novos_descricao === 'string') setMateriaisNovosDescricao(s.materiais_novos_descricao);
+    if (typeof s.quantidade_conteudos === 'number' && s.quantidade_conteudos > 0) setQuantidadeConteudos(s.quantidade_conteudos);
+    if (typeof s.observations === 'string') setObservations(s.observations);
+    if (typeof s.budget === 'string') setBudget(s.budget);
+    toast.success('Sugestão aplicada ao formulário — revise antes de gerar');
+    setSuggestionOpen(false);
+  };
+
+
   // Fetch period history and check for incomplete periods
   useEffect(() => {
     const fetchHistory = async () => {
@@ -822,6 +887,86 @@ const PlanPeriod = () => {
         </div>
       </div>
     </Card>}
+
+    {/* Sugestão automática de configuração */}
+    <Card className="mb-6 p-4 sm:p-5 border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0">
+          <Sparkles className="w-5 h-5 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h4 className="font-semibold text-base">Sugerir configuração automática</h4>
+          <p className="text-sm text-muted-foreground mb-3">
+            A IA analisa a estratégia geral, anamnese, diretrizes e histórico deste cliente e sugere todos os campos abaixo.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={handleSuggestConfig} disabled={suggestionLoading || !selectedClient}>
+              {suggestionLoading ? (<><RefreshCw className="w-4 h-4 mr-1 animate-spin" />Analisando cliente…</>) : (<><Sparkles className="w-4 h-4 mr-1" />Gerar sugestão</>)}
+            </Button>
+            {suggestion && (
+              <Button size="sm" variant="outline" onClick={() => setSuggestionOpen(true)}>
+                Ver sugestão ({suggestion.confidence})
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </Card>
+
+    {/* Modal de sugestão */}
+    <Dialog open={suggestionOpen} onOpenChange={setSuggestionOpen}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            Sugestão automática — confiança: <Badge variant={suggestion?.confidence === 'alta' ? 'default' : suggestion?.confidence === 'media' ? 'secondary' : 'outline'}>{suggestion?.confidence || '-'}</Badge>
+          </DialogTitle>
+        </DialogHeader>
+        {suggestion && (
+          <div className="space-y-4">
+            {suggestion.alertas?.length > 0 && (
+              <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3">
+                <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 mb-1 flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> Alertas</p>
+                <ul className="text-sm list-disc pl-5 space-y-1">
+                  {suggestion.alertas.map((a, i) => <li key={i}>{a}</li>)}
+                </ul>
+              </div>
+            )}
+            {suggestion.justificativa_geral && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Lógica geral</p>
+                <p className="text-sm">{suggestion.justificativa_geral}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Evidências usadas ({suggestion.evidencias_usadas?.length || 0})</p>
+              <ul className="text-xs text-muted-foreground list-disc pl-5 space-y-0.5 max-h-40 overflow-y-auto">
+                {suggestion.evidencias_usadas?.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            </div>
+            <div className="rounded-md border p-3 bg-muted/30">
+              <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Prévia dos campos sugeridos</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                <div><b>Título:</b> {suggestion.sugestao.period_title || '—'}</div>
+                <div><b>Período:</b> {suggestion.sugestao.period_start} → {suggestion.sugestao.period_end} ({suggestion.sugestao.period_days}d)</div>
+                <div><b>Canais:</b> {(suggestion.sugestao.selected_channels || []).join(', ') || '—'}</div>
+                <div><b>Quantidade:</b> {suggestion.sugestao.quantidade_conteudos || '—'}</div>
+                <div className="sm:col-span-2"><b>Objetivos:</b> {(suggestion.sugestao.objetivos_selecionados || []).join(', ') || '—'}{suggestion.sugestao.objetivo_outro ? ` + ${suggestion.sugestao.objetivo_outro}` : ''}</div>
+                <div className="sm:col-span-2"><b>Produto foco:</b> {suggestion.sugestao.produto_foco || '—'}</div>
+                <div><b>Vídeo:</b> {suggestion.sugestao.disponibilidade_video || '—'}</div>
+                <div><b>Materiais novos:</b> {suggestion.sugestao.tem_materiais_novos || '—'}</div>
+                <div><b>Promoção:</b> {suggestion.sugestao.tem_promocao || '—'}</div>
+                <div><b>Data comemorativa:</b> {suggestion.sugestao.tem_data_comemorativa || '—'}</div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setSuggestionOpen(false)}>Cancelar</Button>
+              <Button onClick={handleApplySuggestion}><Check className="w-4 h-4 mr-1" />Aplicar ao formulário</Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
 
     <div className="space-y-4 sm:space-y-6">
       {/* Period Info */}
