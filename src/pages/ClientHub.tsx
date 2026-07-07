@@ -1875,18 +1875,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
             </div>
 
             <div className={`flex gap-3 mt-1 ${generatedManualPostImage ? '' : 'flex-col'}`}>
-              {generatedManualPostImage && (
-                <Button variant="outline" className="h-11 text-sm font-semibold flex-1" onClick={() => {
-                  const link = document.createElement('a'); link.href = generatedManualPostImage; link.download = `post-${selectedClient?.name || 'gerado'}-${Date.now()}.png`; link.click();
-                }}>
-                  <Download className="w-4 h-4 mr-2" />Baixar Imagem
-                </Button>
-              )}
-              {generatedManualPostImage && (
+              {generatedManualPostImage ? (
                 <Button
-                  variant="outline"
-                  className="h-11 text-sm font-semibold flex-1"
-                  disabled={!lastManualPostContentId || creatingCardFor === 'manual-post'}
+                  className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70"
+                  disabled={!lastManualPostContentId || creatingCardFor === 'manual-post' || finalizedKeys.has('manual-post')}
                   onClick={() => handleCreateCardFromContent({
                     key: 'manual-post',
                     contentId: lastManualPostContentId,
@@ -1896,13 +1888,16 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   })}
                 >
                   {creatingCardFor === 'manual-post'
-                    ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando card...</>)
-                    : (<><CheckSquare className="w-4 h-4 mr-2" />Gerar Card</>)}
+                    ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Finalizando...</>)
+                    : finalizedKeys.has('manual-post')
+                      ? (<><CheckSquare className="w-4 h-4 mr-2" />Finalizado</>)
+                      : (<><CheckSquare className="w-4 h-4 mr-2" />Finalizar</>)}
+                </Button>
+              ) : (
+                <Button className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70" disabled={!manualPostText.trim() || generatingManualPost} onClick={() => handleGeneratePost(manualPostText, true)}>
+                  {generatingManualPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />Gerar Post</>)}
                 </Button>
               )}
-              <Button className={`h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 ${generatedManualPostImage ? 'flex-1' : 'w-full'}`} disabled={!manualPostText.trim() || generatingManualPost} onClick={() => handleGeneratePost(manualPostText, true)}>
-                {generatingManualPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />{generatedManualPostImage ? 'Gerar Novamente' : 'Gerar Post'}</>)}
-              </Button>
             </div>
           </DialogContent>
         </Dialog>
