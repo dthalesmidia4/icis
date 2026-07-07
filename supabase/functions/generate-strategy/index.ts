@@ -102,27 +102,66 @@ DADOS DO CLIENTE:
 - Telefone: ${company.phone}
 `;
 
-    // Preparar respostas das perguntas guias (6 perguntas)
+    // Buscar sessão da anamnese (perguntas + respostas pareadas por índice)
+    const { data: sessionData } = await supabase
+      .from('question_sessions')
+      .select('questions, answers')
+      .eq('company_id', companyId)
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const sessionQuestions: string[] = Array.isArray(sessionData?.questions)
+      ? (sessionData!.questions as any[]).map((q) => (typeof q === 'string' ? q : q?.question || String(q)))
+      : [];
+    const sessionAnswers: Record<string, string> =
+      (sessionData?.answers && typeof sessionData.answers === 'object')
+        ? (sessionData!.answers as Record<string, string>)
+        : (answers || {});
+
+    // Montar bloco de perguntas indexadas (question_0 .. question_N)
+    let indexedQA = '';
+    if (sessionQuestions.length > 0) {
+      indexedQA = sessionQuestions
+        .map((q, i) => {
+          const a = (sessionAnswers[`question_${i}`] || '').trim();
+          return `${i + 1}. ${q}\nResposta: ${a || 'Não respondido'}`;
+        })
+        .join('\n\n');
+    } else {
+      const keys = Object.keys(sessionAnswers)
+        .filter((k) => /^question_\d+$/.test(k))
+        .sort((a, b) => Number(a.replace('question_', '')) - Number(b.replace('question_', '')));
+      indexedQA = keys
+        .map((k, i) => `${i + 1}. (${k})\nResposta: ${(sessionAnswers[k] || '').trim() || 'Não respondido'}`)
+        .join('\n\n');
+    }
+
+    // Diretrizes Estratégicas para IA (campos nomeados do novo bloco)
+    const guidelineFields: { key: string; label: string }[] = [
+      { key: 'tone_of_voice', label: 'Tom de voz desejado' },
+      { key: 'content_pillars', label: 'Pilares de conteúdo' },
+      { key: 'preferred_ctas', label: 'CTAs preferidos' },
+      { key: 'forbidden_words', label: 'Palavras/temas proibidos' },
+      { key: 'active_channels', label: 'Canais ativos hoje' },
+      { key: 'offer_and_ticket', label: 'Oferta principal e ticket médio' },
+      { key: 'main_competitors', label: 'Principais concorrentes' },
+    ];
+    const guidelinesBlock = guidelineFields
+      .map(({ key, label }) => {
+        const v = (sessionAnswers[key] || '').trim();
+        return `- ${label}: ${v || '(não informado)'}`;
+      })
+      .join('\n');
+
     const questionsAndAnswers = `
-RESPOSTAS DAS PERGUNTAS ESTRATÉGICAS:
+RESPOSTAS DA ANAMNESE ESTRATÉGICA:
 
-1. O que você deseja alcançar com sua comunicação neste momento? (Objetivo principal)
-${answers.question_0 || 'Não respondido'}
+${indexedQA || '(sem respostas registradas)'}
 
-2. Por que esse objetivo é importante para você agora? (Motivação)
-${answers.question_1 || 'Não respondido'}
-
-3. Quem você deseja atingir com esse conteúdo? (Público-alvo)
-${answers.question_2 || 'Não respondido'}
-
-4. Como você prefere que essa comunicação seja feita? (Tom e formatos)
-${answers.question_3 || 'Não respondido'}
-
-5. Existe algum estilo de comunicação ou abordagem que você NÃO quer que seja utilizada? (Restrições de comunicação)
-${answers.question_4 || 'Não respondido'}
-
-6. Quais são os seus principais diferenciais frente aos concorrentes? (Diferenciais competitivos)
-${answers.question_5 || 'Não respondido'}
+DIRETRIZES ESTRATÉGICAS PARA IA (respostas estruturadas):
+${guidelinesBlock}
 `;
 
     const userPrompt = `
@@ -130,8 +169,9 @@ ${clientContext}
 
 ${questionsAndAnswers}
 
-Com base nas informações acima, crie uma ESTRATÉGIA GLOBAL DE MARKETING que seja clara, objetiva e acionável.
+Com base em TODAS as respostas da anamnese e nas diretrizes estratégicas acima, crie uma ESTRATÉGIA GLOBAL DE MARKETING clara, objetiva e acionável.
 A estratégia deve ser atemporal (não vinculada a um período específico) e servir como guia principal para todas as ações de marketing do cliente.
+Use as diretrizes estruturadas (tom de voz, pilares, CTAs, palavras proibidas, canais, oferta, concorrentes) como restrições e prioridades fortes ao gerar a estratégia.
 
 Formate a estratégia em texto corrido, bem estruturado e organizado por tópicos principais.
 Seja direto, prático e aplicável à realidade do negócio.

@@ -112,9 +112,28 @@ const anamnesisSections: QuestionSection[] = [
   },
 ];
 
+// Bloco final com campos NOMEADOS (não usam índice) — não colide com question_N
+interface GuidelineField {
+  key: string;
+  question: string;
+  hint?: string;
+}
+const guidelineFields: GuidelineField[] = [
+  { key: "tone_of_voice", question: "Descreva o tom de voz ideal em 1–2 linhas.", hint: "Ex.: próximo, técnico, provocador, acolhedor." },
+  { key: "content_pillars", question: "Liste 3 a 5 pilares de conteúdo (temas recorrentes)." },
+  { key: "preferred_ctas", question: "Quais CTAs você quer priorizar?", hint: "Ex.: chamar no WhatsApp, agendar consulta, comentar 'EU'." },
+  { key: "forbidden_words", question: "Palavras, temas ou abordagens que nunca devem aparecer." },
+  { key: "active_channels", question: "Quais canais estão ativos hoje?", hint: "Instagram, LinkedIn, WhatsApp, YouTube, TikTok…" },
+  { key: "offer_and_ticket", question: "Qual é a oferta principal e faixa de ticket médio?" },
+  { key: "main_competitors", question: "Cite 2–3 concorrentes ou referências que você admira ou compete diretamente." },
+];
+
 // Flatten questions for backward compatibility with keys
 const allQuestions = anamnesisSections.flatMap((s) => s.questions);
-const strategicQuestions = allQuestions.map((q) => q.hint ? `${q.question} (${q.hint})` : q.question);
+const strategicQuestions = [
+  ...allQuestions.map((q) => q.hint ? `${q.question} (${q.hint})` : q.question),
+  ...guidelineFields.map((g) => `[Diretriz: ${g.key}] ${g.question}${g.hint ? ` (${g.hint})` : ''}`),
+];
 
 export default function GenerateQuestions() {
   const navigate = useNavigate();
@@ -261,7 +280,8 @@ export default function GenerateQuestions() {
       return;
     }
 
-    const questionsHtml = strategicQuestions.map((question, idx) => {
+    const numberedQuestions = allQuestions.map((q) => q.hint ? `${q.question} (${q.hint})` : q.question);
+    const questionsHtml = numberedQuestions.map((question, idx) => {
       const key = `question_${idx}`;
       const answer = answers[key]?.trim() || "";
       return `
@@ -274,6 +294,23 @@ export default function GenerateQuestions() {
         </div>
       `;
     }).join("");
+
+    const guidelinesHtml = `
+      <h3 style="font-size:13px;margin-top:24px;margin-bottom:8px;">🎯 Diretrizes Estratégicas para IA</h3>
+      ${guidelineFields.map((g) => {
+        const answer = answers[g.key]?.trim() || "";
+        const label = g.hint ? `${g.question} (${g.hint})` : g.question;
+        return `
+          <div class="question-block">
+            <p class="question"><strong>${label}</strong></p>
+            ${answer
+              ? `<p class="answer">${answer.replace(/\n/g, "<br>")}</p>`
+              : `<div class="blank-space"></div>`
+            }
+          </div>
+        `;
+      }).join("")}
+    `;
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -296,6 +333,7 @@ export default function GenerateQuestions() {
         <h1>Anamnese - Planejamento de Conteúdo</h1>
         <h2>${clientName}</h2>
         ${questionsHtml}
+        ${guidelinesHtml}
         <script>window.onload = function() { window.print(); }</script>
       </body>
       </html>
@@ -592,6 +630,43 @@ export default function GenerateQuestions() {
             </div>
           ));
         })()}
+
+        {/* Bloco final com chaves nomeadas — Diretrizes Estratégicas para IA */}
+        <div className="space-y-5">
+          <div className="flex items-center gap-3 pb-2 border-b border-border/50">
+            <span className="text-xl">🎯</span>
+            <h2 className="text-lg font-bold text-foreground tracking-wide uppercase">
+              Diretrizes Estratégicas para IA
+            </h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Campos curtos usados diretamente pela IA como restrições e prioridades ao gerar estratégia, planejamentos e conteúdos.
+          </p>
+          {guidelineFields.map((g) => (
+            <div key={g.key} className="space-y-3">
+              <Label
+                htmlFor={g.key}
+                className="text-base font-semibold text-foreground leading-relaxed block cursor-pointer"
+              >
+                {g.question}
+                {g.hint && (
+                  <span className="block mt-1 text-muted-foreground font-normal text-sm">
+                    ({g.hint})
+                  </span>
+                )}
+              </Label>
+              <AutoResizeTextarea
+                id={g.key}
+                value={answers[g.key] || ""}
+                onChange={(e) => handleAnswerChange(g.key, e.target.value)}
+                placeholder="Digite sua resposta aqui..."
+                aria-label={`Resposta para: ${g.question}`}
+                minHeight={90}
+                className="focus:ring-2 focus:ring-primary/20 transition-all bg-muted/50 text-foreground placeholder:text-muted-foreground border-border/50"
+              />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
