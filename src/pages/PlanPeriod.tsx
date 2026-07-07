@@ -892,6 +892,88 @@ const PlanPeriod = () => {
     </Card>}
 
     <div className="space-y-4 sm:space-y-6">
+      {/* Sugestão automática (MVP) */}
+      <Card className="p-4 sm:p-6 border-primary/40 bg-primary/5">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="flex-1">
+            <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+              Sugestão automática de configuração
+            </h3>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+              A IA analisa a estratégia, anamnese, canais ativos e planos anteriores para sugerir período, quantidade e distribuição.
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={requestSuggestion}
+            disabled={suggestionLoading}
+            className="shrink-0"
+          >
+            {suggestionLoading ? (
+              <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Gerando…</>
+            ) : (
+              <><Sparkles className="w-4 h-4 mr-2" />Sugerir configuração automaticamente</>
+            )}
+          </Button>
+        </div>
+
+        {suggestion && (
+          <div className="mt-4 rounded-lg border bg-background p-4 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+              {suggestion.period_title && (
+                <p><span className="text-muted-foreground">Título:</span> <span className="font-medium">{suggestion.period_title}</span></p>
+              )}
+              {(suggestion.period_days || (suggestion.start_date && suggestion.end_date)) && (
+                <p>
+                  <span className="text-muted-foreground">Período:</span>{' '}
+                  <span className="font-medium">
+                    {suggestion.period_days ? `${suggestion.period_days} dias` : ''}
+                    {suggestion.start_date && suggestion.end_date ? ` (${suggestion.start_date} → ${suggestion.end_date})` : ''}
+                  </span>
+                </p>
+              )}
+              {suggestion.quantidade_conteudos != null && (
+                <p><span className="text-muted-foreground">Quantidade:</span> <span className="font-medium">{suggestion.quantidade_conteudos} conteúdos</span></p>
+              )}
+              {Array.isArray(suggestion.canais_sugeridos) && suggestion.canais_sugeridos.length > 0 && (
+                <p><span className="text-muted-foreground">Canais:</span> <span className="font-medium">{suggestion.canais_sugeridos.join(', ')}</span></p>
+              )}
+            </div>
+            {Array.isArray(suggestion.distribuicao) && suggestion.distribuicao.length > 0 && (
+              <div className="text-sm">
+                <span className="text-muted-foreground">Distribuição sugerida:</span>{' '}
+                <span className="font-medium">
+                  {suggestion.distribuicao.map((d: any) => `${d.quantity} ${d.type}`).join(' · ')}
+                </span>
+              </div>
+            )}
+            {Array.isArray(suggestion.objetivos_sugeridos) && suggestion.objetivos_sugeridos.length > 0 && (
+              <div className="text-sm">
+                <span className="text-muted-foreground">Objetivos:</span>{' '}
+                <span className="font-medium">{suggestion.objetivos_sugeridos.join(', ')}</span>
+              </div>
+            )}
+            {suggestion.justificativa && (
+              <p className="text-sm text-muted-foreground italic border-l-2 border-primary/40 pl-3">
+                {suggestion.justificativa}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button size="sm" onClick={applySuggestion}>
+                <Check className="w-4 h-4 mr-1" /> Aplicar sugestão
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setSuggestion(null)}>
+                <X className="w-4 h-4 mr-1" /> Ignorar
+              </Button>
+              <Button size="sm" variant="ghost" onClick={requestSuggestion} disabled={suggestionLoading}>
+                <RefreshCw className="w-4 h-4 mr-1" /> Gerar outra
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+
       {/* Period Info */}
       <Card className="p-4 sm:p-6">
         <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
