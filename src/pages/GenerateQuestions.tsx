@@ -630,6 +630,43 @@ export default function GenerateQuestions() {
             </div>
           ));
         })()}
+
+        {/* Bloco final com chaves nomeadas — Diretrizes Estratégicas para IA */}
+        <div className="space-y-5">
+          <div className="flex items-center gap-3 pb-2 border-b border-border/50">
+            <span className="text-xl">🎯</span>
+            <h2 className="text-lg font-bold text-foreground tracking-wide uppercase">
+              Diretrizes Estratégicas para IA
+            </h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Campos curtos usados diretamente pela IA como restrições e prioridades ao gerar estratégia, planejamentos e conteúdos.
+          </p>
+          {guidelineFields.map((g) => (
+            <div key={g.key} className="space-y-3">
+              <Label
+                htmlFor={g.key}
+                className="text-base font-semibold text-foreground leading-relaxed block cursor-pointer"
+              >
+                {g.question}
+                {g.hint && (
+                  <span className="block mt-1 text-muted-foreground font-normal text-sm">
+                    ({g.hint})
+                  </span>
+                )}
+              </Label>
+              <AutoResizeTextarea
+                id={g.key}
+                value={answers[g.key] || ""}
+                onChange={(e) => handleAnswerChange(g.key, e.target.value)}
+                placeholder="Digite sua resposta aqui..."
+                aria-label={`Resposta para: ${g.question}`}
+                minHeight={90}
+                className="focus:ring-2 focus:ring-primary/20 transition-all bg-muted/50 text-foreground placeholder:text-muted-foreground border-border/50"
+              />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
