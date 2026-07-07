@@ -143,28 +143,85 @@ const PlanPeriod = () => {
   const [materiaisNovosDescricao, setMateriaisNovosDescricao] = useState("");
   const [quantidadeConteudos, setQuantidadeConteudos] = useState<number>(10);
 
-  // Linha de produção derivada da quantidade escolhida (proporção 4:2:4 = Post/Vídeo/Carrossel)
-  const productionLine = useMemo(() => {
-    const target = Math.max(1, Math.min(50, Number(quantidadeConteudos) || 10));
-    const base = [
-      { type: 'Post Estático', ratio: 4 },
-      { type: 'Vídeos Curtos', ratio: 2 },
-      { type: 'Carrossel', ratio: 4 },
-    ];
-    if (target === 10) return base.map(b => ({ type: b.type, quantity: b.ratio }));
-    const raw = base.map(b => ({ type: b.type, quantity: Math.max(1, Math.round((b.ratio / 10) * target)) }));
-    let diff = target - raw.reduce((s, r) => s + r.quantity, 0);
-    while (diff !== 0) {
-      const idx = diff > 0
-        ? raw.indexOf(raw.reduce((a, b) => (a.quantity >= b.quantity ? a : b)))
-        : raw.indexOf(raw.reduce((a, b) => (a.quantity <= b.quantity ? a : b)));
-      raw[idx].quantity += diff > 0 ? 1 : -1;
-      if (raw[idx].quantity < 1) raw[idx].quantity = 1;
-      diff = target - raw.reduce((s, r) => s + r.quantity, 0);
-      if (raw.every(r => r.quantity <= 1) && diff < 0) break;
+  // Linha de produção — state real (não derivado). Recalculado automaticamente enquanto
+  // productionLineOverridden === false; quando aplicamos uma sugestão da IA, marcamos
+  // como overridden para preservar o mix retornado pela IA até o usuário editar quantidade
+  // ou disponibilidade de vídeo novamente.
+  const [productionLine, setProductionLine] = useState<{ type: string; quantity: number }[]>([
+    { type: 'Post Estático', quantity: 4 },
+    { type: 'Vídeos Curtos', quantity: 2 },
+    { type: 'Carrossel', quantity: 4 },
+  ]);
+  const [productionLineOverridden, setProductionLineOverridden] = useState(false);
+
+  const computeDefaultProductionLine = (
+    target: number,
+    videoAvailability: 'sim' | 'nao' | 'talvez' | ''
+  ): { type: string; quantity: number }[] => {
+    const total = Math.max(1, Math.min(50, Math.floor(Number(target) || 10)));
+    // Se o cliente disse que NÃO tem vídeo, zera Vídeos Curtos e usa 5:0:5 (post/carrossel)
+    const base = videoAvailability === 'nao'
+      ? [
+          { type: 'Post Estático', ratio: 5 },
+          { type: 'Vídeos Curtos', ratio: 0 },
+          { type: 'Carrossel', ratio: 5 },
+        ]
+      : [
+          { type: 'Post Estático', ratio: 4 },
+          { type: 'Vídeos Curtos', ratio: 2 },
+          { type: 'Carrossel', ratio: 4 },
+        ];
+    const ratioSum = base.reduce((s, b) => s + b.ratio, 0);
+    const raw = base.map((b) => ({
+      type: b.type,
+      quantity: b.ratio === 0 ? 0 : Math.max(1, Math.round((b.ratio / ratioSum) * total)),
+    }));
+    let diff = total - raw.reduce((s, r) => s + r.quantity, 0);
+    let guard = 0;
+    while (diff !== 0 && guard < 200) {
+      // Só ajusta buckets com ratio > 0
+      const adjustable = raw.filter((r, i) => base[i].ratio > 0);
+      const target2 = diff > 0
+        ? adjustable.reduce((a, b) => (a.quantity >= b.quantity ? a : b))
+        : adjustable.reduce((a, b) => (a.quantity <= b.quantity ? a : b));
+      target2.quantity += diff > 0 ? 1 : -1;
+      if (target2.quantity < 1 && diff < 0) target2.quantity = 1;
+      diff = total - raw.reduce((s, r) => s + r.quantity, 0);
+      guard++;
     }
     return raw;
-  }, [quantidadeConteudos]);
+  };
+
+  // Recalcula productionLine quando quantidade ou disponibilidadeVideo mudam,
+  // exceto quando o usuário aplicou uma sugestão personalizada.
+  useEffect(() => {
+    if (productionLineOverridden) return;
+    setProductionLine(computeDefaultProductionLine(
+      quantidadeConteudos,
+      disponibilidadeVideo as 'sim' | 'nao' | 'talvez' | ''
+    ));
+  }, [quantidadeConteudos, disponibilidadeVideo, productionLineOverridden]);
+
+  // Se o usuário mudar disponibilidadeVideo para "nao" DEPOIS de aplicar sugestão com vídeos,
+  // zeramos vídeos e redistribuímos (regra de segurança independente do overridden).
+  useEffect(() => {
+    if (disponibilidadeVideo !== 'nao') return;
+    setProductionLine((prev) => {
+      const videos = prev.find((p) => p.type === 'Vídeos Curtos')?.quantity || 0;
+      if (videos === 0) return prev;
+      const post = prev.find((p) => p.type === 'Post Estático')?.quantity || 0;
+      const carr = prev.find((p) => p.type === 'Carrossel')?.quantity || 0;
+      const halfToPost = Math.ceil(videos / 2);
+      const halfToCarr = videos - halfToPost;
+      return prev.map((p) => {
+        if (p.type === 'Vídeos Curtos') return { ...p, quantity: 0 };
+        if (p.type === 'Post Estático') return { ...p, quantity: post + halfToPost };
+        if (p.type === 'Carrossel') return { ...p, quantity: carr + halfToCarr };
+        return p;
+      });
+    });
+  }, [disponibilidadeVideo]);
+
   const productionLineTotal = useMemo(
     () => productionLine.reduce((s, r) => s + r.quantity, 0),
     [productionLine]
@@ -180,9 +237,14 @@ const PlanPeriod = () => {
   const [pollingProgress, setPollingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState("Gerando demandas...");
 
-  // Sugestão automática (MVP)
+  // Sugestão automática (MVP v2 — schema completo)
   const [suggestion, setSuggestion] = useState<any | null>(null);
   const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const [suggestionDataAvailability, setSuggestionDataAvailability] = useState<{
+    hasStrategy?: boolean;
+    hasAnamnese?: boolean;
+    hasNamedGuidelines?: boolean;
+  } | null>(null);
 
   const CHANNEL_IDS = ['instagram', 'facebook', 'tiktok', 'youtube', 'linkedin'];
   const OBJETIVO_OPCOES_VALID = ['Gerar vendas', 'Atrair leads', 'Lançar produto', 'Crescer seguidores', 'Educar o mercado'];
@@ -207,7 +269,13 @@ const PlanPeriod = () => {
       if (error) throw error;
       if (!data?.success || !data?.suggestion) throw new Error(data?.error || 'Sem sugestão');
       setSuggestion(data.suggestion);
-      toast.success('Sugestão gerada — revise antes de aplicar');
+      setSuggestionDataAvailability(data.dataAvailability || null);
+      const conf = data.suggestion.confidence;
+      if (conf === 'baixa' && !data.dataAvailability?.hasStrategy && !data.dataAvailability?.hasAnamnese) {
+        toast.error('Sem dados suficientes — preencha anamnese e estratégia primeiro.');
+      } else {
+        toast.success(`Sugestão gerada (confiança ${conf}) — revise antes de aplicar`);
+      }
     } catch (e: any) {
       console.error('[PlanPeriod] suggest error:', e);
       toast.error(e?.message || 'Erro ao gerar sugestão');
@@ -219,32 +287,127 @@ const PlanPeriod = () => {
   const applySuggestion = () => {
     if (!suggestion) return;
     const s = suggestion;
-    if (typeof s.period_title === 'string' && s.period_title.trim()) setPeriodTitle(s.period_title.trim());
+
+    // Helpers — nunca sobrescreve o que o usuário já preencheu
+    const setIfEmptyStr = (current: string, setter: (v: string) => void, value: any) => {
+      if (typeof value !== 'string') return;
+      const v = value.trim();
+      if (v && !current.trim()) setter(v);
+    };
+    const setIfEmptyArr = <T,>(current: T[], setter: (v: T[]) => void, value: any) => {
+      if (!Array.isArray(value) || value.length === 0) return;
+      if (current.length === 0) setter(value);
+    };
+    const setIfSelectEmpty = <T extends string>(current: T | '', setter: (v: any) => void, value: any, allowed: T[]) => {
+      if (current !== '') return;
+      if (typeof value === 'string' && allowed.includes(value as T)) setter(value);
+    };
+
+    // Título + datas
+    setIfEmptyStr(periodTitle, setPeriodTitle, s.period_title);
     const parseDate = (v: any): Date | undefined => {
       if (typeof v !== 'string') return undefined;
       const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
       if (!m) return undefined;
       return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
     };
-    const sd = parseDate(s.start_date);
-    const ed = parseDate(s.end_date);
-    if (sd) setPeriodStart(sd);
-    if (ed) setPeriodEnd(ed);
-    if (Array.isArray(s.canais_sugeridos)) {
-      const chans = s.canais_sugeridos
-        .map((c: any) => String(c).toLowerCase().trim())
-        .filter((c: string) => CHANNEL_IDS.includes(c));
-      if (chans.length) setSelectedChannels(chans);
+    let sd = parseDate(s.start_date);
+    let ed = parseDate(s.end_date);
+    if (!sd && s.period_days > 0) {
+      sd = new Date();
+      ed = new Date();
+      ed.setDate(ed.getDate() + Math.floor(Number(s.period_days)) - 1);
     }
-    if (Array.isArray(s.objetivos_sugeridos)) {
-      const objs = s.objetivos_sugeridos.filter((o: any) => OBJETIVO_OPCOES_VALID.includes(o));
-      if (objs.length) setObjetivosSelecionados(objs);
+    if (!periodStart && sd) setPeriodStart(sd);
+    if (!periodEnd && ed) setPeriodEnd(ed);
+
+    // Canais (aceita novo schema selected_channels ou legado canais_sugeridos)
+    const rawChans: any[] = Array.isArray(s.selected_channels)
+      ? s.selected_channels
+      : (Array.isArray(s.canais_sugeridos) ? s.canais_sugeridos : []);
+    const chans = rawChans
+      .map((c: any) => String(c).toLowerCase().trim())
+      .filter((c: string) => CHANNEL_IDS.includes(c));
+    if (selectedChannels.length === 0 && chans.length) setSelectedChannels(chans);
+
+    // Bloco 1 — Objetivo
+    const b1 = s.bloco_1_objetivo || {};
+    const objsIn: string[] = Array.isArray(b1.objetivosSelecionados)
+      ? b1.objetivosSelecionados
+      : (Array.isArray(s.objetivos_sugeridos) ? s.objetivos_sugeridos : []);
+    const objs = objsIn.filter((o: any) => OBJETIVO_OPCOES_VALID.includes(o));
+    setIfEmptyArr(objetivosSelecionados, setObjetivosSelecionados, objs);
+    setIfEmptyStr(objetivoOutro, setObjetivoOutro, b1.objetivoOutro ?? s.objetivo_outro);
+    setIfEmptyStr(metaNumerica, setMetaNumerica, b1.metaNumerica);
+    setIfEmptyStr(porqueObjetivo, setPorqueObjetivo, b1.porqueObjetivo);
+
+    // Bloco 2 — Oferta
+    const b2 = s.bloco_2_oferta || {};
+    setIfEmptyStr(produtoFoco, setProdutoFoco, b2.produtoFoco ?? s.produto_foco);
+    if (temPromocao === '') {
+      if (b2.temPromocao === true) setTemPromocao('sim');
+      else if (b2.temPromocao === false && (b2.promocaoDescricao || '').trim() === '') setTemPromocao('nao');
     }
-    if (typeof s.objetivo_outro === 'string' && s.objetivo_outro.trim()) setObjetivoOutro(s.objetivo_outro.trim());
-    if (typeof s.produto_foco === 'string' && s.produto_foco.trim() && !produtoFoco) setProdutoFoco(s.produto_foco.trim());
-    const q = Number(s.quantidade_conteudos);
-    if (Number.isFinite(q) && q > 0) setQuantidadeConteudos(Math.max(1, Math.min(50, Math.floor(q))));
-    toast.success('Sugestão aplicada — ajuste o que quiser antes de gerar');
+    setIfEmptyStr(promocaoDescricao, setPromocaoDescricao, b2.promocaoDescricao);
+    setIfEmptyStr(comoComprar, setComoComprar, b2.comoComprar);
+
+    // Bloco 3 — Contexto
+    const b3 = s.bloco_3_contexto || {};
+    if (temDataComemorativa === '') {
+      if (b3.temDataComemorativa === true) setTemDataComemorativa('sim');
+      else if (b3.temDataComemorativa === false && (b3.dataComemorativaDescricao || '').trim() === '') setTemDataComemorativa('nao');
+    }
+    setIfEmptyStr(dataComemorativaDescricao, setDataComemorativaDescricao, b3.dataComemorativaDescricao);
+    if (temNovidade === '') {
+      if (b3.temNovidade === true) setTemNovidade('sim');
+      else if (b3.temNovidade === false && (b3.novidadeDescricao || '').trim() === '') setTemNovidade('nao');
+    }
+    setIfEmptyStr(novidadeDescricao, setNovidadeDescricao, b3.novidadeDescricao);
+
+    // Bloco 4 — Produção
+    const b4 = s.bloco_4_producao || {};
+    // Map "parcial" (schema) → "talvez" (state)
+    const dvRaw = String(b4.disponibilidadeVideo || '').toLowerCase();
+    const dvMapped = dvRaw === 'parcial' ? 'talvez' : dvRaw;
+    setIfSelectEmpty(disponibilidadeVideo, setDisponibilidadeVideo, dvMapped, ['sim', 'nao', 'talvez']);
+    if (temMateriaisNovos === '') {
+      if (b4.temMateriaisNovos === true) setTemMateriaisNovos('sim');
+      else if (b4.temMateriaisNovos === false && (b4.materiaisNovosDescricao || '').trim() === '') setTemMateriaisNovos('nao');
+    }
+    setIfEmptyStr(materiaisNovosDescricao, setMateriaisNovosDescricao, b4.materiaisNovosDescricao);
+    const q = Number(b4.quantidadeConteudos ?? s.quantidade_conteudos);
+    if (Number.isFinite(q) && q > 0 && quantidadeConteudos === 10) {
+      setQuantidadeConteudos(Math.max(1, Math.min(50, Math.floor(q))));
+    }
+    setIfEmptyStr(observations, setObservations, b4.observations);
+
+    // production_line — aplica ao STATE real (persistido em period_plans)
+    const pl = s.production_line || {};
+    const postQ = Math.max(0, Math.floor(Number(pl.post_estatico) || 0));
+    const carrQ = Math.max(0, Math.floor(Number(pl.carrossel) || 0));
+    const videoQ = Math.max(0, Math.floor(Number(pl.video_captado) || 0)) + Math.max(0, Math.floor(Number(pl.video_gerado) || 0));
+    const plSum = postQ + carrQ + videoQ;
+    if (plSum > 0) {
+      // Se disponibilidadeVideo="nao" no state final, força zero em vídeo (segurança extra)
+      const noVideo = (dvMapped === 'nao') || (disponibilidadeVideo === 'nao');
+      const finalVideo = noVideo ? 0 : videoQ;
+      const extra = noVideo ? videoQ : 0;
+      const halfP = Math.ceil(extra / 2);
+      const halfC = extra - halfP;
+      setProductionLine([
+        { type: 'Post Estático', quantity: postQ + halfP },
+        { type: 'Vídeos Curtos', quantity: finalVideo },
+        { type: 'Carrossel', quantity: carrQ + halfC },
+      ]);
+      setProductionLineOverridden(true);
+    }
+
+    const alertCount = Array.isArray(s.alertas) ? s.alertas.length : 0;
+    if (alertCount > 0) {
+      toast.info(`Sugestão aplicada com ${alertCount} alerta(s) — revise cada bloco antes de gerar.`);
+    } else {
+      toast.success('Sugestão aplicada — ajuste o que quiser antes de gerar');
+    }
   };
 
 
@@ -918,60 +1081,151 @@ const PlanPeriod = () => {
           </Button>
         </div>
 
-        {suggestion && (
-          <div className="mt-4 rounded-lg border bg-background p-4 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-              {suggestion.period_title && (
-                <p><span className="text-muted-foreground">Título:</span> <span className="font-medium">{suggestion.period_title}</span></p>
-              )}
-              {(suggestion.period_days || (suggestion.start_date && suggestion.end_date)) && (
-                <p>
-                  <span className="text-muted-foreground">Período:</span>{' '}
-                  <span className="font-medium">
-                    {suggestion.period_days ? `${suggestion.period_days} dias` : ''}
-                    {suggestion.start_date && suggestion.end_date ? ` (${suggestion.start_date} → ${suggestion.end_date})` : ''}
+        {suggestion && (() => {
+          const s = suggestion;
+          const b1 = s.bloco_1_objetivo || {};
+          const b2 = s.bloco_2_oferta || {};
+          const b3 = s.bloco_3_contexto || {};
+          const b4 = s.bloco_4_producao || {};
+          const pl = s.production_line || {};
+          const alerts: string[] = Array.isArray(s.alertas) ? s.alertas : [];
+          const canaisEst: any[] = Array.isArray(s.canais_estrategicos) ? s.canais_estrategicos : [];
+          const conf = s.confidence || 'baixa';
+          const confColor = conf === 'alta'
+            ? 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/40'
+            : conf === 'media'
+              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/40'
+              : 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/40';
+          const noBase = suggestionDataAvailability
+            ? (suggestionDataAvailability.hasStrategy === false && suggestionDataAvailability.hasAnamnese === false)
+            : false;
+          const selChans: string[] = Array.isArray(s.selected_channels)
+            ? s.selected_channels
+            : (Array.isArray(s.canais_sugeridos) ? s.canais_sugeridos : []);
+          const objs: string[] = Array.isArray(b1.objetivosSelecionados) && b1.objetivosSelecionados.length
+            ? b1.objetivosSelecionados
+            : (Array.isArray(s.objetivos_sugeridos) ? s.objetivos_sugeridos : []);
+
+          return (
+            <div className="mt-4 rounded-lg border bg-background p-4 space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium', confColor)}>
+                  Confiança: {conf}
+                </span>
+                {suggestionDataAvailability && (
+                  <span className="text-xs text-muted-foreground">
+                    Estratégia: {suggestionDataAvailability.hasStrategy ? '✓' : '—'} · Anamnese: {suggestionDataAvailability.hasAnamnese ? '✓' : '—'} · Diretrizes nomeadas: {suggestionDataAvailability.hasNamedGuidelines ? '✓' : '—'}
                   </span>
+                )}
+              </div>
+
+              {alerts.length > 0 && (
+                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3">
+                  <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1 mb-1">
+                    <AlertTriangle className="w-3.5 h-3.5" /> Alertas
+                  </p>
+                  <ul className="text-xs text-amber-900 dark:text-amber-200 list-disc pl-5 space-y-0.5">
+                    {alerts.map((a, i) => <li key={i}>{a}</li>)}
+                  </ul>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                {s.period_title && (
+                  <p><span className="text-muted-foreground">Título:</span> <span className="font-medium">{s.period_title}</span></p>
+                )}
+                {(s.period_days || (s.start_date && s.end_date)) && (
+                  <p>
+                    <span className="text-muted-foreground">Período:</span>{' '}
+                    <span className="font-medium">
+                      {s.period_days ? `${s.period_days} dias` : ''}
+                      {s.start_date && s.end_date ? ` (${s.start_date} → ${s.end_date})` : ''}
+                    </span>
+                  </p>
+                )}
+                {b4.quantidadeConteudos > 0 && (
+                  <p><span className="text-muted-foreground">Quantidade:</span> <span className="font-medium">{b4.quantidadeConteudos} conteúdos</span></p>
+                )}
+                {selChans.length > 0 && (
+                  <p><span className="text-muted-foreground">Canais:</span> <span className="font-medium">{selChans.join(', ')}</span></p>
+                )}
+                {b4.disponibilidadeVideo && (
+                  <p><span className="text-muted-foreground">Vídeo:</span> <span className="font-medium">{b4.disponibilidadeVideo}</span></p>
+                )}
+                {s.sugestao_frequencia && (
+                  <p><span className="text-muted-foreground">Frequência:</span> <span className="font-medium">{s.sugestao_frequencia}</span></p>
+                )}
+              </div>
+
+              {(pl.post_estatico || pl.carrossel || pl.video_captado || pl.video_gerado) ? (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Linha de produção:</span>{' '}
+                  <span className="font-medium">
+                    {pl.post_estatico || 0} Post Estático · {pl.carrossel || 0} Carrossel · {pl.video_captado || 0} Vídeo Captado · {pl.video_gerado || 0} Vídeo Gerado
+                  </span>
+                </div>
+              ) : null}
+
+              {objs.length > 0 && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Objetivos:</span>{' '}
+                  <span className="font-medium">{objs.join(', ')}</span>
+                </div>
+              )}
+
+              {b2.produtoFoco && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Produto foco:</span>{' '}
+                  <span className="font-medium">{b2.produtoFoco}</span>
+                </div>
+              )}
+
+              {canaisEst.length > 0 && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Canais estratégicos:</span>
+                  <ul className="mt-1 space-y-0.5 pl-4 list-disc">
+                    {canaisEst.map((c: any, i: number) => (
+                      <li key={i}>
+                        <span className="font-medium">{c.canal}</span> <span className="text-xs text-muted-foreground">({c.prioridade})</span>
+                        {c.justificativa && <span className="text-xs text-muted-foreground"> — {c.justificativa}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {(s.justificativa_estrategica || s.justificativa) && (
+                <div className="text-sm bg-primary/5 border-l-2 border-primary/40 pl-3 py-2">
+                  <p className="text-xs font-semibold text-muted-foreground mb-1">Justificativa estratégica</p>
+                  <p className="text-sm">{s.justificativa_estrategica || s.justificativa}</p>
+                </div>
+              )}
+
+              {conf !== 'alta' && !noBase && (
+                <p className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Sugestão baseada em dados parciais — revise cada bloco antes de aplicar.
                 </p>
               )}
-              {suggestion.quantidade_conteudos != null && (
-                <p><span className="text-muted-foreground">Quantidade:</span> <span className="font-medium">{suggestion.quantidade_conteudos} conteúdos</span></p>
+              {noBase && (
+                <p className="text-xs text-red-700 dark:text-red-400 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Sem estratégia nem anamnese — preencha esses módulos antes de aplicar uma sugestão.
+                </p>
               )}
-              {Array.isArray(suggestion.canais_sugeridos) && suggestion.canais_sugeridos.length > 0 && (
-                <p><span className="text-muted-foreground">Canais:</span> <span className="font-medium">{suggestion.canais_sugeridos.join(', ')}</span></p>
-              )}
-            </div>
-            {Array.isArray(suggestion.distribuicao) && suggestion.distribuicao.length > 0 && (
-              <div className="text-sm">
-                <span className="text-muted-foreground">Distribuição sugerida:</span>{' '}
-                <span className="font-medium">
-                  {suggestion.distribuicao.map((d: any) => `${d.quantity} ${d.type}`).join(' · ')}
-                </span>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button size="sm" onClick={applySuggestion} disabled={noBase}>
+                  <Check className="w-4 h-4 mr-1" /> Aplicar sugestão
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => { setSuggestion(null); setSuggestionDataAvailability(null); }}>
+                  <X className="w-4 h-4 mr-1" /> Ignorar
+                </Button>
+                <Button size="sm" variant="ghost" onClick={requestSuggestion} disabled={suggestionLoading}>
+                  <RefreshCw className="w-4 h-4 mr-1" /> Gerar outra
+                </Button>
               </div>
-            )}
-            {Array.isArray(suggestion.objetivos_sugeridos) && suggestion.objetivos_sugeridos.length > 0 && (
-              <div className="text-sm">
-                <span className="text-muted-foreground">Objetivos:</span>{' '}
-                <span className="font-medium">{suggestion.objetivos_sugeridos.join(', ')}</span>
-              </div>
-            )}
-            {suggestion.justificativa && (
-              <p className="text-sm text-muted-foreground italic border-l-2 border-primary/40 pl-3">
-                {suggestion.justificativa}
-              </p>
-            )}
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Button size="sm" onClick={applySuggestion}>
-                <Check className="w-4 h-4 mr-1" /> Aplicar sugestão
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => setSuggestion(null)}>
-                <X className="w-4 h-4 mr-1" /> Ignorar
-              </Button>
-              <Button size="sm" variant="ghost" onClick={requestSuggestion} disabled={suggestionLoading}>
-                <RefreshCw className="w-4 h-4 mr-1" /> Gerar outra
-              </Button>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </Card>
 
       {/* Period Info */}
