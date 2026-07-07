@@ -1,10 +1,40 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { FileCode, Wifi, Link2, Share2 } from "lucide-react";
+import { FileCode, Wifi, Link2, Share2, Sun, Moon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+
+const THEME_KEY = "dev-theme-mode";
 
 const DevHub = () => {
   const navigate = useNavigate();
+  const [isDark, setIsDark] = useState<boolean>(() =>
+    typeof document !== "undefined" && document.documentElement.classList.contains("dark")
+  );
+
+  useEffect(() => {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === "dark") {
+      document.documentElement.classList.remove("light");
+      document.documentElement.classList.add("dark");
+      setIsDark(true);
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const root = document.documentElement;
+    const next = !isDark;
+    if (next) {
+      root.classList.remove("light");
+      root.classList.add("dark");
+      localStorage.setItem(THEME_KEY, "dark");
+    } else {
+      root.classList.remove("dark");
+      root.classList.add("light");
+      localStorage.setItem(THEME_KEY, "light");
+    }
+    setIsDark(next);
+  };
 
   const devCards = [
     {
