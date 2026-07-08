@@ -1318,6 +1318,19 @@ const PlanPeriod = () => {
             d.period_plan_id === selectedHistoryPlan.id || !d.period_plan_id
           );
 
+          // Ultra origin detection: source==='ultra_card' (new cards) OR title matches an item in ultra_plan (legacy)
+          const ultraTitles = new Set<string>(
+            Array.isArray(selectedHistoryPlan.ultra_plan)
+              ? (selectedHistoryPlan.ultra_plan as any[])
+                  .map((i: any) => (i?.titulo || i?.title || '').trim().toLowerCase())
+                  .filter(Boolean)
+              : []
+          );
+          const isUltraDemand = (d: any) =>
+            d.source === 'ultra_card' ||
+            (d.title && ultraTitles.has(String(d.title).trim().toLowerCase()));
+
+
           // Sort by best-available date: publish_date > delivery_date > due_date > created_at
           const bestDate = (d: any): string => {
             const raw = d.publish_date || d.delivery_date || d.due_date || d.created_at || '';
@@ -1401,7 +1414,7 @@ const PlanPeriod = () => {
                       </h3>
                       <div className="grid gap-3 sm:grid-cols-2">
                         {dateGroups.get(dateKey)!.map((demand: any) => {
-                          const isUltra = demand.source === 'ultra_card';
+                          const isUltra = isUltraDemand(demand);
                           const typeKey = demand.demand_type_key || '';
                           const typeLabel = TYPE_LABELS[typeKey] || demand.demand_type || 'Sem tipo';
                           const stageLabel = demand.current_function_key
