@@ -1312,10 +1312,11 @@ const PlanPeriod = () => {
         // --- "Período Atual": unified list (Normal + Ultra) as blocks with tags ---
         if (isLatestView) {
           const allClientDemands = periodDemandMetrics['__all_client__']?.demands || [];
+          const isLatestPeriod = periodHistory[0]?.id === selectedHistoryPlan.id;
 
-          // Show demands linked to this period + unlinked (manual) demands
+          // Show demands linked to this period; include unlinked (manual) only for the most recent period
           const periodDemands = allClientDemands.filter((d: any) =>
-            d.period_plan_id === selectedHistoryPlan.id || !d.period_plan_id
+            d.period_plan_id === selectedHistoryPlan.id || (isLatestPeriod && !d.period_plan_id)
           );
 
           // Ultra origin detection: source==='ultra_card' (new cards) OR title matches an item in ultra_plan (legacy)
