@@ -619,7 +619,7 @@ const ApproveCards = () => {
                 <div>
                   <h3 className="text-sm font-semibold text-primary uppercase tracking-wide mb-3 flex items-center gap-2">
                     <Rocket className="w-4 h-4" />
-                    Demandas Ultra ({ultraCards.length})
+                    Demandas Ultra — {ultraPending} pendente{ultraPending === 1 ? '' : 's'} · {ultraCards.length - ultraPending} aprovada{(ultraCards.length - ultraPending) === 1 ? '' : 's'}
                   </h3>
                   <div className="space-y-3">
                     {ultraCards.map((card) => {
