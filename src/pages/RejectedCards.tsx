@@ -153,11 +153,15 @@ const RejectedCards = () => {
     updatedCard: any,
     requirementsToApply: string | null,
   ) => {
-    if (!period || !selectedClient || !tenantId) return;
+    if (!selectedClient || !tenantId) return;
     const card = cards[cardIndex];
+    if (!card) return;
+    const period = periods.find(p => p.id === card._periodId);
+    if (!period) return;
+
     const updatedRejected = [...(period.rejected_plan || [])];
-    updatedRejected[cardIndex] = {
-      ...updatedRejected[cardIndex],
+    updatedRejected[card._rejectedIndex] = {
+      ...updatedRejected[card._rejectedIndex],
       ...updatedCard,
       _originalSource: card._originalSource,
       _rejectedAt: card._rejectedAt,
@@ -188,17 +192,29 @@ const RejectedCards = () => {
       console.log('[Reeval] content_requirements update OK');
     }
 
-    setPeriod({ ...period, rejected_plan: updatedRejected });
-    setCards(updatedRejected.map((item: any, i: number) => ({
-      ...item,
-      _index: i,
-      _originalSource: item._originalSource || 'default',
-      _rejectedAt: item._rejectedAt,
-    })));
+    const newPeriods = periods.map(p => p.id === period.id ? { ...p, rejected_plan: updatedRejected } : p);
+    setPeriods(newPeriods);
+    const newCards: RejectedCardItem[] = [];
+    let g = 0;
+    for (const p of newPeriods) {
+      p.rejected_plan.forEach((item: any, i: number) => {
+        newCards.push({
+          ...item,
+          _index: g++,
+          _originalSource: item._originalSource || 'default',
+          _rejectedAt: item._rejectedAt,
+          _periodId: p.id,
+          _periodTitle: p.period_title,
+          _rejectedIndex: i,
+        });
+      });
+    }
+    setCards(newCards);
   };
 
   const handleReevaluate = async () => {
-    if (reevalCardIndex === null || !period || !selectedClient || !tenantId) return;
+    if (reevalCardIndex === null || !selectedClient || !tenantId) return;
+
     if (!reevalReason.trim()) {
       toast.error("Descreva o motivo da reavaliação");
       return;
