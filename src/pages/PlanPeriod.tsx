@@ -1312,10 +1312,11 @@ const PlanPeriod = () => {
         // --- "Período Atual": unified list (Normal + Ultra) as blocks with tags ---
         if (isLatestView) {
           const allClientDemands = periodDemandMetrics['__all_client__']?.demands || [];
+          const isLatestPeriod = periodHistory[0]?.id === selectedHistoryPlan.id;
 
-          // Show demands linked to this period + unlinked (manual) demands
+          // Show demands linked to this period; include unlinked (manual) only for the most recent period
           const periodDemands = allClientDemands.filter((d: any) =>
-            d.period_plan_id === selectedHistoryPlan.id || !d.period_plan_id
+            d.period_plan_id === selectedHistoryPlan.id || (isLatestPeriod && !d.period_plan_id)
           );
 
           // Ultra origin detection: source==='ultra_card' (new cards) OR title matches an item in ultra_plan (legacy)
@@ -1386,16 +1387,40 @@ const PlanPeriod = () => {
 
           return (
             <div className="space-y-6">
-              {/* Period date - large */}
+              {/* Period selector + date */}
               <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <CalendarIcon className="w-5 h-5 text-primary" />
                   <span className="text-xl font-bold text-foreground">
                     {format(new Date(selectedHistoryPlan.period_start + 'T00:00:00'), "dd/MM/yyyy")} – {format(new Date(selectedHistoryPlan.period_end + 'T00:00:00'), "dd/MM/yyyy")}
                   </span>
+                  {periodHistory.length > 1 && (
+                    <Select
+                      value={selectedHistoryPlan.id}
+                      onValueChange={(id) => {
+                        const p = periodHistory.find(x => x.id === id);
+                        if (p) setSelectedHistoryPlan(p);
+                      }}
+                    >
+                      <SelectTrigger className="h-9 w-[280px]">
+                        <SelectValue placeholder="Selecionar período" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {periodHistory.map((p, idx) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {idx === 0 ? '● ' : ''}{p.period_title} ({format(new Date(p.period_start + 'T00:00:00'), 'dd/MM/yy')} – {format(new Date(p.period_end + 'T00:00:00'), 'dd/MM/yy')})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {!isLatestPeriod && (
+                    <Badge variant="outline" className="text-xs">Período anterior</Badge>
+                  )}
                 </div>
                 <Badge variant="secondary" className="text-sm px-3 py-1">{sortedDemands.length} demandas</Badge>
               </div>
+
 
               {sortedDemands.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
