@@ -279,7 +279,7 @@ const PlanPeriod = () => {
           const { data: demandsData, error: demandsError } = await supabase
             .from('demands')
             .select(`
-              id, title, period_plan_id, channel, demand_type, publish_date, publish_time, source, objective, instructions,
+              id, title, period_plan_id, channel, demand_type, demand_type_key, current_function_key, publish_date, publish_time, delivery_date, due_date, created_at, assigned_to, source, objective, instructions,
               pipeline_statuses!demands_status_id_fkey (
                 name, is_final, color
               )
