@@ -83,7 +83,7 @@ const ClientHub = () => {
   const { tenantId } = useTenant();
   const { canAccess: canAccessButton } = useHubPermissions();
   const { role } = useAgencyRole();
-  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  
   const [contentModalOpen, setContentModalOpen] = useState(false);
   const [productionModalOpen, setProductionModalOpen] = useState(false);
   const [selectedContentType, setSelectedContentType] = useState<string | null>(null);
