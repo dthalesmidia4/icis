@@ -1019,65 +1019,46 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
   useEffect(() => {
     if (!selectedClient || !tenantId) return;
-    const fetchCount = async () => {
+    const fetchCounts = async () => {
       try {
         const { data: periods } = await supabase
           .from('period_plans')
-          .select('id, default_plan, ultra_plan')
+          .select('id, default_plan, ultra_plan, rejected_plan')
           .eq('company_id', selectedClient.id)
           .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false })
           .limit(5);
-        if (!periods) return;
-        for (const p of periods) {
+        if (!periods) {
+          setApprovedCardsCount(0);
+          setRejectedCardsCount(0);
+          return;
+        }
+        const currentPeriod = periods.find(p => {
           const dp = Array.isArray(p.default_plan) ? p.default_plan : [];
           const up = Array.isArray(p.ultra_plan) ? p.ultra_plan : [];
-          const totalCards = dp.length + up.length;
-          if (totalCards > 0) {
-            const { data: existingDemands } = await supabase
-              .from('demands')
-              .select('title')
-              .eq('period_plan_id', p.id)
-              .eq('client_id', selectedClient.id);
-            const approvedTitles = new Set((existingDemands || []).map(d => d.title));
-            const allItems = [...dp, ...up] as any[];
-            const pending = allItems.filter(item => {
-              const title = item.titulo || item.title || '';
-              return !approvedTitles.has(title);
-            });
-            setPendingCardsCount(pending.length);
-            return;
-          }
+          return dp.length > 0 || up.length > 0;
+        });
+        if (!currentPeriod) {
+          setApprovedCardsCount(0);
+          setRejectedCardsCount(0);
+          return;
         }
-        setPendingCardsCount(0);
+        const { data: existingDemands } = await supabase
+          .from('demands')
+          .select('title')
+          .eq('period_plan_id', currentPeriod.id)
+          .eq('client_id', selectedClient.id);
+        setApprovedCardsCount((existingDemands || []).length);
+        const rejected = Array.isArray((currentPeriod as any).rejected_plan)
+          ? (currentPeriod as any).rejected_plan
+          : [];
+        setRejectedCardsCount(rejected.length);
       } catch {
-        // silently fail
+        setApprovedCardsCount(0);
+        setRejectedCardsCount(0);
       }
     };
-    fetchCount();
-  }, [selectedClient, tenantId]);
-
-  useEffect(() => {
-    if (!selectedClient || !tenantId) return;
-    const fetchRejectedCount = async () => {
-      try {
-        const { data: periods } = await supabase
-          .from('period_plans')
-          .select('rejected_plan')
-          .eq('company_id', selectedClient.id)
-          .eq('tenant_id', tenantId);
-        if (!periods) return;
-        let total = 0;
-        for (const p of periods) {
-          const rp = Array.isArray(p.rejected_plan) ? p.rejected_plan : [];
-          total += rp.length;
-        }
-        setRejectedCardsCount(total);
-      } catch {
-        // silently fail
-      }
-    };
-    fetchRejectedCount();
+    fetchCounts();
   }, [selectedClient, tenantId]);
 
   // Handle opening content from history navigation state
