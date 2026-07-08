@@ -115,13 +115,8 @@ const RejectedCards = () => {
         rejected_plan: Array.isArray(p.rejected_plan) ? p.rejected_plan : [],
       }));
 
-      // Only show rejected cards from the period the client is currently in.
-      const emAndamentoWithRejected = normalizedAll.find(
-        (p) => p.operational_status === 'em_andamento' && p.rejected_plan.length > 0
-      );
-      const emAndamento = normalizedAll.find((p) => p.operational_status === 'em_andamento');
-      const anyWithRejected = normalizedAll.find((p) => p.rejected_plan.length > 0);
-      const currentPeriod = emAndamentoWithRejected || emAndamento || anyWithRejected || null;
+      // Escopo estrito: somente o período atual (em_andamento) do cliente.
+      const currentPeriod = normalizedAll.find((p) => p.operational_status === 'em_andamento') || null;
       const normalized: PeriodData[] = currentPeriod ? [currentPeriod] : [];
 
       setPeriods(normalized);
