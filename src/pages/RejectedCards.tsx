@@ -344,11 +344,14 @@ const RejectedCards = () => {
   };
 
   const handleApproveCard = async (index: number) => {
-    if (!period || !selectedClient || !tenantId || !pipelineId || !initialStatusId) return;
+    if (!selectedClient || !tenantId || !pipelineId || !initialStatusId) return;
+    const card = cards[index];
+    if (!card) return;
+    const period = periods.find(p => p.id === card._periodId);
+    if (!period) return;
 
     setApprovingIndex(index);
     try {
-      const card = cards[index];
       const title = card.titulo || card.title || 'Sem título';
       const tipo = card.tipo || card.tipo_conteudo || card.type || null;
       const channel = card.canal || card.channel || null;
@@ -384,7 +387,7 @@ const RejectedCards = () => {
 
       // Remove from rejected_plan
       const updatedRejected = [...(period.rejected_plan || [])];
-      updatedRejected.splice(index, 1);
+      updatedRejected.splice(card._rejectedIndex, 1);
 
       const { error: updateError } = await supabase
         .from('period_plans')
@@ -393,12 +396,32 @@ const RejectedCards = () => {
 
       if (updateError) throw updateError;
 
-      setPeriod({ ...period, rejected_plan: updatedRejected });
-      setCards(updatedRejected.map((item: any, i: number) => ({
-        ...item,
-        _index: i,
-        _originalSource: item._originalSource || 'default',
-      })));
+      const newPeriods = periods.map(p => p.id === period.id ? { ...p, rejected_plan: updatedRejected } : p);
+      setPeriods(newPeriods);
+      const newCards: RejectedCardItem[] = [];
+      let g = 0;
+      for (const p of newPeriods) {
+        p.rejected_plan.forEach((item: any, i: number) => {
+          newCards.push({
+            ...item,
+            _index: g++,
+            _originalSource: item._originalSource || 'default',
+            _rejectedAt: item._rejectedAt,
+            _periodId: p.id,
+            _periodTitle: p.period_title,
+            _rejectedIndex: i,
+          });
+        });
+      }
+      setCards(newCards);
+
+      toast.success(`"${title}" aprovado e enviado ao Kanban!`);
+
+      // Trigger auto image generation (fire-and-forget)
+      if (insertedData?.id) {
+        triggerAutoGenerate(title, tipo, insertedData.id);
+      }
+
 
       toast.success(`"${title}" aprovado e enviado ao Kanban!`);
 
