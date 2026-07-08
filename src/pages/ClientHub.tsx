@@ -87,7 +87,7 @@ const ClientHub = () => {
   const [contentModalOpen, setContentModalOpen] = useState(false);
   const [productionModalOpen, setProductionModalOpen] = useState(false);
   const [selectedContentType, setSelectedContentType] = useState<string | null>(null);
-  const [pendingCardsCount, setPendingCardsCount] = useState(0);
+  const [approvedCardsCount, setApprovedCardsCount] = useState(0);
   const [rejectedCardsCount, setRejectedCardsCount] = useState(0);
   const [visualIdentityModalOpen, setVisualIdentityModalOpen] = useState(false);
   const [videoModalOpen, setVideoModalOpen] = useState(false);
@@ -1019,65 +1019,46 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
   useEffect(() => {
     if (!selectedClient || !tenantId) return;
-    const fetchCount = async () => {
+    const fetchCounts = async () => {
       try {
         const { data: periods } = await supabase
           .from('period_plans')
-          .select('id, default_plan, ultra_plan')
+          .select('id, default_plan, ultra_plan, rejected_plan')
           .eq('company_id', selectedClient.id)
           .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false })
           .limit(5);
-        if (!periods) return;
-        for (const p of periods) {
+        if (!periods) {
+          setApprovedCardsCount(0);
+          setRejectedCardsCount(0);
+          return;
+        }
+        const currentPeriod = periods.find(p => {
           const dp = Array.isArray(p.default_plan) ? p.default_plan : [];
           const up = Array.isArray(p.ultra_plan) ? p.ultra_plan : [];
-          const totalCards = dp.length + up.length;
-          if (totalCards > 0) {
-            const { data: existingDemands } = await supabase
-              .from('demands')
-              .select('title')
-              .eq('period_plan_id', p.id)
-              .eq('client_id', selectedClient.id);
-            const approvedTitles = new Set((existingDemands || []).map(d => d.title));
-            const allItems = [...dp, ...up] as any[];
-            const pending = allItems.filter(item => {
-              const title = item.titulo || item.title || '';
-              return !approvedTitles.has(title);
-            });
-            setPendingCardsCount(pending.length);
-            return;
-          }
+          return dp.length > 0 || up.length > 0;
+        });
+        if (!currentPeriod) {
+          setApprovedCardsCount(0);
+          setRejectedCardsCount(0);
+          return;
         }
-        setPendingCardsCount(0);
+        const { data: existingDemands } = await supabase
+          .from('demands')
+          .select('title')
+          .eq('period_plan_id', currentPeriod.id)
+          .eq('client_id', selectedClient.id);
+        setApprovedCardsCount((existingDemands || []).length);
+        const rejected = Array.isArray((currentPeriod as any).rejected_plan)
+          ? (currentPeriod as any).rejected_plan
+          : [];
+        setRejectedCardsCount(rejected.length);
       } catch {
-        // silently fail
+        setApprovedCardsCount(0);
+        setRejectedCardsCount(0);
       }
     };
-    fetchCount();
-  }, [selectedClient, tenantId]);
-
-  useEffect(() => {
-    if (!selectedClient || !tenantId) return;
-    const fetchRejectedCount = async () => {
-      try {
-        const { data: periods } = await supabase
-          .from('period_plans')
-          .select('rejected_plan')
-          .eq('company_id', selectedClient.id)
-          .eq('tenant_id', tenantId);
-        if (!periods) return;
-        let total = 0;
-        for (const p of periods) {
-          const rp = Array.isArray(p.rejected_plan) ? p.rejected_plan : [];
-          total += rp.length;
-        }
-        setRejectedCardsCount(total);
-      } catch {
-        // silently fail
-      }
-    };
-    fetchRejectedCount();
+    fetchCounts();
   }, [selectedClient, tenantId]);
 
   // Handle opening content from history navigation state
@@ -1412,7 +1393,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     { id: 'client_anamnese' as ClientHubButtonId, title: "Anamnese", icon: FileText, action: () => navigate("/client-guide") },
     { id: 'client_estrategia' as ClientHubButtonId, title: "Estratégia", icon: Lightbulb, action: () => navigate("/strategies") },
     { id: 'client_planejar_periodo' as ClientHubButtonId, title: "Planejar Período", icon: CalendarDays, action: () => setPlanPeriodModalOpen(true) },
-    { id: 'client_aprovar_producao' as ClientHubButtonId, title: "Avaliar Demandas", icon: CheckSquare, action: () => setAvaliarDemandasModalOpen(true), badge: (pendingCardsCount + rejectedCardsCount) > 0 ? (pendingCardsCount + rejectedCardsCount) : undefined },
+    { id: 'client_aprovar_producao' as ClientHubButtonId, title: "Avaliar Demandas", icon: CheckSquare, action: () => setAvaliarDemandasModalOpen(true), badge: (approvedCardsCount + rejectedCardsCount) > 0 ? (approvedCardsCount + rejectedCardsCount) : undefined },
     { id: 'client_cronograma_atual' as ClientHubButtonId, title: "Cronograma Atual", icon: Clock, action: () => navigate("/plan-period?tab=history&view=latest") },
     { id: 'client_historico' as ClientHubButtonId, title: "Histórico de Períodos", icon: History, action: () => navigate("/plan-period?tab=history") },
     { id: 'client_identidade_visual' as ClientHubButtonId, title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
@@ -1511,8 +1492,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
               <Card className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-green-500/50 active:scale-[0.98]"
                 onClick={() => { setAvaliarDemandasModalOpen(false); navigate('/approve-cards'); }}>
                 <div className="absolute inset-0 bg-green-500 opacity-5 group-hover:opacity-10 transition-opacity" />
-                {pendingCardsCount > 0 && (
-                  <div className="absolute top-2 right-2 z-10 bg-destructive text-destructive-foreground text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">{pendingCardsCount}</div>
+                {approvedCardsCount > 0 && (
+                  <div className="absolute top-2 right-2 z-10 bg-green-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">{approvedCardsCount}</div>
                 )}
                 <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-green-500 flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
