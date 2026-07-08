@@ -99,62 +99,40 @@ const RejectedCards = () => {
         if (status) setInitialStatusId(status.id);
       }
 
-      const savedPeriodId = localStorage.getItem(`approve_cards_period_${selectedClient.id}`);
-
-      const { data: periods, error } = await supabase
+      const { data: periodsData, error } = await supabase
         .from('period_plans')
         .select('id, period_title, period_start, period_end, default_plan, ultra_plan, rejected_plan')
         .eq('company_id', selectedClient.id)
         .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      let bestPeriod: PeriodData | null = null;
+      const normalized: PeriodData[] = (periodsData || []).map((p: any) => ({
+        ...p,
+        default_plan: Array.isArray(p.default_plan) ? p.default_plan : [],
+        ultra_plan: Array.isArray(p.ultra_plan) ? p.ultra_plan : [],
+        rejected_plan: Array.isArray(p.rejected_plan) ? p.rejected_plan : [],
+      }));
 
-      if (savedPeriodId) {
-        const saved = (periods || []).find(p => p.id === savedPeriodId);
-        if (saved) {
-          const rp = Array.isArray((saved as any).rejected_plan) ? (saved as any).rejected_plan : [];
-          // Only use saved period if it actually has rejected cards
-          if (rp.length > 0) {
-            bestPeriod = { ...saved, rejected_plan: rp } as PeriodData;
-          }
-        }
+      setPeriods(normalized);
+
+      const allRejected: RejectedCardItem[] = [];
+      let globalIdx = 0;
+      for (const p of normalized) {
+        p.rejected_plan.forEach((item: any, i: number) => {
+          allRejected.push({
+            ...item,
+            _index: globalIdx++,
+            _originalSource: item._originalSource || 'default',
+            _rejectedAt: item._rejectedAt,
+            _periodId: p.id,
+            _periodTitle: p.period_title,
+            _rejectedIndex: i,
+          });
+        });
       }
-
-      if (!bestPeriod && periods && periods.length > 0) {
-        // Find first period with rejected cards
-        for (const p of periods) {
-          const rp = Array.isArray((p as any).rejected_plan) ? (p as any).rejected_plan : [];
-          if (rp.length > 0) {
-            bestPeriod = { ...p, rejected_plan: rp } as PeriodData;
-            break;
-          }
-        }
-        if (!bestPeriod) {
-          bestPeriod = {
-            ...periods[0],
-            rejected_plan: Array.isArray((periods[0] as any).rejected_plan) ? (periods[0] as any).rejected_plan : [],
-          } as PeriodData;
-        }
-      }
-
-      setPeriod(bestPeriod);
-
-      if (bestPeriod) {
-        const rp = bestPeriod.rejected_plan || [];
-        const rejectedCards: RejectedCardItem[] = rp.map((item: any, i: number) => ({
-          ...item,
-          _index: i,
-          _originalSource: item._originalSource || 'default',
-          _rejectedAt: item._rejectedAt,
-        }));
-        setCards(rejectedCards);
-      } else {
-        setCards([]);
-      }
+      setCards(allRejected);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error("Erro ao carregar dados");
@@ -162,6 +140,7 @@ const RejectedCards = () => {
       setLoading(false);
     }
   };
+
 
   const handleOpenReevaluate = (index: number) => {
     setReevalCardIndex(index);
