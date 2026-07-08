@@ -54,6 +54,14 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 200 80% 30%;
     --sidebar-border: 210 13% 91%;
     --sidebar-ring: 200 80% 55%;
+
+    --ultra: 270 60% 55%;
+    --ultra-foreground: 0 0% 100%;
+    --approve: 142 70% 45%;
+    --approve-foreground: 142 70% 25%;
+    --reject: 0 72% 55%;
+    --reject-foreground: 0 72% 35%;
+
   }
 
   .dark {
@@ -100,6 +108,14 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 0 0% 95%;
     --sidebar-border: 220 5% 24%;
     --sidebar-ring: 200 80% 60%;
+
+    --ultra: 270 60% 65%;
+    --ultra-foreground: 0 0% 100%;
+    --approve: 142 70% 55%;
+    --approve-foreground: 0 0% 100%;
+    --reject: 0 72% 65%;
+    --reject-foreground: 0 0% 100%;
+
   }
 
   /* Primary Color Variants */
@@ -335,7 +351,106 @@ All colors MUST be HSL.
   .full-mobile {
     @apply w-full sm:w-auto;
   }
+
+  /* Glassmorphism cards */
+  .glass-card {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transition: var(--transition-smooth);
+  }
+  .glass-card-blue {
+    @apply glass-card;
+    background-color: hsl(var(--primary) / 0.06);
+    border-color: hsl(var(--primary) / 0.22);
+    box-shadow: 0 4px 20px -4px hsl(var(--primary) / 0.08);
+  }
+  .glass-card-blue:hover {
+    background-color: hsl(var(--primary) / 0.12);
+    border-color: hsl(var(--primary) / 0.35);
+    box-shadow: 0 6px 24px -4px hsl(var(--primary) / 0.14);
+  }
+  .dark .glass-card-blue {
+    background-color: hsl(var(--primary) / 0.10);
+    border-color: hsl(var(--primary) / 0.30);
+    box-shadow: 0 4px 24px -4px hsl(var(--primary) / 0.15);
+  }
+  .dark .glass-card-blue:hover {
+    background-color: hsl(var(--primary) / 0.16);
+    border-color: hsl(var(--primary) / 0.45);
+    box-shadow: 0 6px 28px -4px hsl(var(--primary) / 0.22);
+  }
+  .glass-card-purple {
+    @apply glass-card;
+    background-color: hsl(var(--ultra) / 0.06);
+    border-color: hsl(var(--ultra) / 0.22);
+    box-shadow: 0 4px 20px -4px hsl(var(--ultra) / 0.08);
+  }
+  .glass-card-purple:hover {
+    background-color: hsl(var(--ultra) / 0.12);
+    border-color: hsl(var(--ultra) / 0.35);
+    box-shadow: 0 6px 24px -4px hsl(var(--ultra) / 0.14);
+  }
+  .dark .glass-card-purple {
+    background-color: hsl(var(--ultra) / 0.10);
+    border-color: hsl(var(--ultra) / 0.30);
+    box-shadow: 0 4px 24px -4px hsl(var(--ultra) / 0.15);
+  }
+  .dark .glass-card-purple:hover {
+    background-color: hsl(var(--ultra) / 0.16);
+    border-color: hsl(var(--ultra) / 0.45);
+    box-shadow: 0 6px 28px -4px hsl(var(--ultra) / 0.22);
+  }
+
+  /* Glassmorphism action buttons */
+  .glass-btn {
+    @apply min-h-[36px] px-3 py-1.5 font-medium text-sm inline-flex items-center justify-center gap-1.5 transition-all;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .glass-btn-approve {
+    @apply glass-btn;
+    background-color: hsl(var(--approve) / 0.12);
+    border: 1px solid hsl(var(--approve) / 0.45);
+    color: hsl(var(--approve-foreground));
+  }
+  .glass-btn-approve:hover {
+    background-color: hsl(var(--approve) / 0.22);
+    border-color: hsl(var(--approve) / 0.70);
+    box-shadow: 0 4px 14px -2px hsl(var(--approve) / 0.22);
+  }
+  .glass-btn-approve:active {
+    background-color: hsl(var(--approve) / 0.30);
+  }
+  .dark .glass-btn-approve {
+    background-color: hsl(var(--approve) / 0.15);
+    color: hsl(var(--ultra-foreground));
+  }
+  .dark .glass-btn-approve:hover {
+    background-color: hsl(var(--approve) / 0.25);
+  }
+  .glass-btn-reject {
+    @apply glass-btn;
+    background-color: hsl(var(--reject) / 0.10);
+    border: 1px solid hsl(var(--reject) / 0.45);
+    color: hsl(var(--reject-foreground));
+  }
+  .glass-btn-reject:hover {
+    background-color: hsl(var(--reject) / 0.20);
+    border-color: hsl(var(--reject) / 0.70);
+    box-shadow: 0 4px 14px -2px hsl(var(--reject) / 0.22);
+  }
+  .glass-btn-reject:active {
+    background-color: hsl(var(--reject) / 0.28);
+  }
+  .dark .glass-btn-reject {
+    background-color: hsl(var(--reject) / 0.14);
+    color: hsl(var(--ultra-foreground));
+  }
+  .dark .glass-btn-reject:hover {
+    background-color: hsl(var(--reject) / 0.24);
+  }
 }
+
 
 /* Fix para tabelas responsivas */
 @layer components {
