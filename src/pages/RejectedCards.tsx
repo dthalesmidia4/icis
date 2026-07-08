@@ -31,7 +31,11 @@ interface RejectedCardItem extends DemandaItem {
   _index: number;
   _originalSource: string;
   _rejectedAt?: string;
+  _periodId: string;
+  _periodTitle?: string;
+  _rejectedIndex: number;
 }
+
 
 const RejectedCards = () => {
   const navigate = useNavigate();
