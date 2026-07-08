@@ -242,7 +242,7 @@ const ApproveCards = () => {
         channel,
         demand_type: tipo,
         demand_type_key: demandTypeKey,
-        source: 'card',
+        source: card._source === 'ultra' ? 'ultra_card' : 'card',
         observations: null,
       } as any).select('id').single();
 
