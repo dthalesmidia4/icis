@@ -581,7 +581,7 @@ const ApproveCards = () => {
                           )}
                         >
                           <div className="flex-1 min-w-0">
-                            <DemandaCard demanda={card} variant="normal" className="glass-card-blue" />
+                            <DemandaCard demanda={card} variant="normal" />
                           </div>
                           <div className="flex flex-row md:flex-col items-stretch justify-end gap-2 shrink-0 md:w-44">
                             <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" onClick={(e) => { e.stopPropagation(); handleOpenEditCard(card); }}>
@@ -594,18 +594,17 @@ const ApproveCards = () => {
                               </Badge>
                             ) : (
                               <>
-                                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleReject(card); }} className="gap-1 flex-1 md:flex-none glass-btn-reject">
+                                <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleReject(card); }} className="gap-1 flex-1 md:flex-none">
                                   <ThumbsDown className="w-3.5 h-3.5" />
                                   Reprovar
                                 </Button>
-                                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving} className="flex-1 md:flex-none glass-btn-approve">
+                                <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving} className="flex-1 md:flex-none">
                                   {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                                   Aprovar Card
                                 </Button>
                               </>
                             )}
                           </div>
-
                         </div>
                       );
                     })}
@@ -633,7 +632,7 @@ const ApproveCards = () => {
                           )}
                         >
                           <div className="flex-1 min-w-0">
-                            <DemandaCard demanda={card} variant="ultra" className="glass-card-purple" />
+                            <DemandaCard demanda={card} variant="ultra" />
                           </div>
                           <div className="flex flex-row md:flex-col items-stretch justify-end gap-2 shrink-0 md:w-44">
                             <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" onClick={(e) => { e.stopPropagation(); handleOpenEditCard(card); }}>
@@ -646,18 +645,17 @@ const ApproveCards = () => {
                               </Badge>
                             ) : (
                               <>
-                                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleReject(card); }} className="gap-1 flex-1 md:flex-none glass-btn-reject">
+                                <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleReject(card); }} className="gap-1 flex-1 md:flex-none">
                                   <ThumbsDown className="w-3.5 h-3.5" />
                                   Reprovar
                                 </Button>
-                                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving} className="flex-1 md:flex-none glass-btn-approve">
+                                <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving} className="flex-1 md:flex-none">
                                   {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                                   Aprovar Card
                                 </Button>
                               </>
                             )}
                           </div>
-
                         </div>
                       );
                     })}
