@@ -42,12 +42,13 @@ const RejectedCards = () => {
   const { selectedClient, isInitialized } = useSelectedClient();
   const { tenantId } = useTenant();
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<PeriodData | null>(null);
+  const [periods, setPeriods] = useState<PeriodData[]>([]);
   const [cards, setCards] = useState<RejectedCardItem[]>([]);
   const [pipelineId, setPipelineId] = useState<string | null>(null);
   const [initialStatusId, setInitialStatusId] = useState<string | null>(null);
   const [approvingIndex, setApprovingIndex] = useState<number | null>(null);
   const [approvedIndexes, setApprovedIndexes] = useState<Set<number>>(new Set());
+
 
   // Reevaluate modal
   const [reevalModalOpen, setReevalModalOpen] = useState(false);
