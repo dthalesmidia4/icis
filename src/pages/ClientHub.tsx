@@ -1492,8 +1492,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
               <Card className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-green-500/50 active:scale-[0.98]"
                 onClick={() => { setAvaliarDemandasModalOpen(false); navigate('/approve-cards'); }}>
                 <div className="absolute inset-0 bg-green-500 opacity-5 group-hover:opacity-10 transition-opacity" />
-                {pendingCardsCount > 0 && (
-                  <div className="absolute top-2 right-2 z-10 bg-destructive text-destructive-foreground text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">{pendingCardsCount}</div>
+                {approvedCardsCount > 0 && (
+                  <div className="absolute top-2 right-2 z-10 bg-green-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">{approvedCardsCount}</div>
                 )}
                 <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-green-500 flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
