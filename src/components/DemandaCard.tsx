@@ -37,7 +37,9 @@ interface DemandaCardProps {
   demanda: DemandaItem;
   compact?: boolean;
   variant?: 'normal' | 'ultra' | 'default';
+  className?: string;
 }
+
 
 // Helper to parse all fields
 function parseDemanda(demanda: DemandaItem) {
@@ -65,7 +67,8 @@ function parseDemanda(demanda: DemandaItem) {
   return { title, tipo, channel, objetivo, content, dateStr, formattedDate, instrucoes, cta };
 }
 
-export const DemandaCard = ({ demanda, compact = false, variant = 'default' }: DemandaCardProps) => {
+export const DemandaCard = ({ demanda, compact = false, variant = 'default', className }: DemandaCardProps) => {
+
   const [detailOpen, setDetailOpen] = useState(false);
   const { title, tipo, channel, objetivo, content, formattedDate, instrucoes, cta } = parseDemanda(demanda);
 
@@ -93,9 +96,10 @@ export const DemandaCard = ({ demanda, compact = false, variant = 'default' }: D
   return (
     <>
       <Card
-        className={`p-4 border ${bgClass} cursor-pointer hover:shadow-md transition-shadow`}
+        className={cn("p-4 border cursor-pointer", bgClass, className)}
         onClick={() => setDetailOpen(true)}
       >
+
         <div className="flex items-center gap-3 flex-wrap">
           {tipo && <Badge variant="secondary" className="shrink-0">{tipo}</Badge>}
           <h4 className="text-lg font-semibold flex-1 min-w-0">{title}</h4>
