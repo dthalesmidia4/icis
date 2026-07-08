@@ -1048,7 +1048,12 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           .select('title')
           .eq('period_plan_id', currentPeriod.id)
           .eq('client_id', selectedClient.id);
-        setApprovedCardsCount((existingDemands || []).length);
+        const dp = Array.isArray(currentPeriod.default_plan) ? currentPeriod.default_plan : [];
+        const up = Array.isArray(currentPeriod.ultra_plan) ? currentPeriod.ultra_plan : [];
+        const savedTitles = new Set((existingDemands || []).map((d: any) => d.title));
+        const allPlanCards = [...dp, ...up];
+        const pending = allPlanCards.filter((c: any) => !savedTitles.has(c?.titulo || c?.title || '')).length;
+        setApprovedCardsCount(pending);
         const rejected = Array.isArray((currentPeriod as any).rejected_plan)
           ? (currentPeriod as any).rejected_plan
           : [];
