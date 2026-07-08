@@ -112,7 +112,7 @@ const ApproveCards = () => {
       // Fetch latest periods with generated plans
       const { data: periods, error } = await supabase
         .from('period_plans')
-        .select('id, period_title, period_start, period_end, status, default_plan, ultra_plan')
+        .select('id, period_title, period_start, period_end, status, default_plan, ultra_plan, operational_status')
         .eq('company_id', selectedClient.id)
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
@@ -120,16 +120,20 @@ const ApproveCards = () => {
 
       if (error) throw error;
 
-      // Pick the most recent period that has generated plans; fallback to latest overall
+      // Prefer the period the client is currently in (em_andamento) with plans.
       let bestPeriod: PeriodData | null = null;
       if (periods && periods.length > 0) {
-        const withPlans = periods.find(p => {
+        const hasPlans = (p: any) => {
           const dp = Array.isArray(p.default_plan) ? p.default_plan : [];
           const up = Array.isArray(p.ultra_plan) ? p.ultra_plan : [];
           return dp.length > 0 || up.length > 0;
-        });
-        bestPeriod = (withPlans || periods[0]) as PeriodData;
+        };
+        const emAndamentoWith = periods.find((p: any) => p.operational_status === 'em_andamento' && hasPlans(p));
+        const emAndamento = periods.find((p: any) => p.operational_status === 'em_andamento');
+        const anyWith = periods.find(hasPlans);
+        bestPeriod = (emAndamentoWith || emAndamento || anyWith || periods[0]) as PeriodData;
       }
+
 
       setPeriod(bestPeriod);
 
