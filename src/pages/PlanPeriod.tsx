@@ -1318,6 +1318,19 @@ const PlanPeriod = () => {
             d.period_plan_id === selectedHistoryPlan.id || !d.period_plan_id
           );
 
+          // Ultra origin detection: source==='ultra_card' (new cards) OR title matches an item in ultra_plan (legacy)
+          const ultraTitles = new Set<string>(
+            Array.isArray(selectedHistoryPlan.ultra_plan)
+              ? (selectedHistoryPlan.ultra_plan as any[])
+                  .map((i: any) => (i?.titulo || i?.title || '').trim().toLowerCase())
+                  .filter(Boolean)
+              : []
+          );
+          const isUltraDemand = (d: any) =>
+            d.source === 'ultra_card' ||
+            (d.title && ultraTitles.has(String(d.title).trim().toLowerCase()));
+
+
           // Sort by best-available date: publish_date > delivery_date > due_date > created_at
           const bestDate = (d: any): string => {
             const raw = d.publish_date || d.delivery_date || d.due_date || d.created_at || '';
