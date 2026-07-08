@@ -568,7 +568,7 @@ const ApproveCards = () => {
                 <div>
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
                     <Shield className="w-4 h-4" />
-                    Demandas Normais ({defaultCards.length})
+                    Demandas Normais — {defaultPending} pendente{defaultPending === 1 ? '' : 's'} · {defaultCards.length - defaultPending} aprovada{(defaultCards.length - defaultPending) === 1 ? '' : 's'}
                   </h3>
                   <div className="space-y-3">
                     {defaultCards.map((card) => {
