@@ -120,18 +120,10 @@ const ApproveCards = () => {
 
       if (error) throw error;
 
-      // Prefer the period the client is currently in (em_andamento) with plans.
+      // Escopo estrito: SOMENTE o período atual do cliente (em_andamento).
       let bestPeriod: PeriodData | null = null;
       if (periods && periods.length > 0) {
-        const hasPlans = (p: any) => {
-          const dp = Array.isArray(p.default_plan) ? p.default_plan : [];
-          const up = Array.isArray(p.ultra_plan) ? p.ultra_plan : [];
-          return dp.length > 0 || up.length > 0;
-        };
-        const emAndamentoWith = periods.find((p: any) => p.operational_status === 'em_andamento' && hasPlans(p));
-        const emAndamento = periods.find((p: any) => p.operational_status === 'em_andamento');
-        const anyWith = periods.find(hasPlans);
-        bestPeriod = (emAndamentoWith || emAndamento || anyWith || periods[0]) as PeriodData;
+        bestPeriod = (periods.find((p: any) => p.operational_status === 'em_andamento') || null) as PeriodData | null;
       }
 
 

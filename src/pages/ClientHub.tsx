@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import BackButton from "@/components/BackButton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { getPeriodDemandReviewCounts } from "@/lib/periodCounts";
 import VisualIdentityModal from "@/components/VisualIdentityModal";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -1018,59 +1019,28 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   }, [selectedClient?.id, tenantId]);
 
   useEffect(() => {
+    // Sempre resetar antes de recarregar para não vazar contagem do cliente/período anterior.
+    setApprovedCardsCount(0);
+    setRejectedCardsCount(0);
     if (!selectedClient || !tenantId) return;
-    const fetchCounts = async () => {
+    let cancelled = false;
+    (async () => {
       try {
-        const { data: periods } = await supabase
-          .from('period_plans')
-          .select('id, default_plan, ultra_plan, rejected_plan, operational_status')
-          .eq('company_id', selectedClient.id)
-          .eq('tenant_id', tenantId)
-          .order('created_at', { ascending: false })
-          .limit(10);
-        if (!periods) {
-          setApprovedCardsCount(0);
-          setRejectedCardsCount(0);
-          return;
-        }
-        const hasContent = (p: any) => {
-          const dp = Array.isArray(p.default_plan) ? p.default_plan : [];
-          const up = Array.isArray(p.ultra_plan) ? p.ultra_plan : [];
-          const rp = Array.isArray(p.rejected_plan) ? p.rejected_plan : [];
-          return dp.length > 0 || up.length > 0 || rp.length > 0;
-        };
-        // Prefer the period the client is currently in (em_andamento).
-        const currentPeriod =
-          periods.find((p: any) => p.operational_status === 'em_andamento' && hasContent(p)) ||
-          periods.find((p: any) => p.operational_status === 'em_andamento') ||
-          periods.find(hasContent);
-        if (!currentPeriod) {
-          setApprovedCardsCount(0);
-          setRejectedCardsCount(0);
-          return;
-        }
-        const { data: existingDemands } = await supabase
-          .from('demands')
-          .select('title')
-          .eq('period_plan_id', currentPeriod.id)
-          .eq('client_id', selectedClient.id);
-        const dp = Array.isArray(currentPeriod.default_plan) ? currentPeriod.default_plan : [];
-        const up = Array.isArray(currentPeriod.ultra_plan) ? currentPeriod.ultra_plan : [];
-        const savedTitles = new Set((existingDemands || []).map((d: any) => d.title));
-        const allPlanCards = [...dp, ...up];
-        const pending = allPlanCards.filter((c: any) => !savedTitles.has(c?.titulo || c?.title || '')).length;
-        setApprovedCardsCount(pending);
-        const rejected = Array.isArray((currentPeriod as any).rejected_plan)
-          ? (currentPeriod as any).rejected_plan
-          : [];
-        setRejectedCardsCount(rejected.length);
+        const counts = await getPeriodDemandReviewCounts({
+          tenantId,
+          clientId: selectedClient.id,
+        });
+        if (cancelled) return;
+        setApprovedCardsCount(counts.pendingApprovalCount);
+        setRejectedCardsCount(counts.rejectedCount);
       } catch {
+        if (cancelled) return;
         setApprovedCardsCount(0);
         setRejectedCardsCount(0);
       }
-    };
-    fetchCounts();
-  }, [selectedClient, tenantId]);
+    })();
+    return () => { cancelled = true; };
+  }, [selectedClient?.id, tenantId]);
 
 
   // Handle opening content from history navigation state
