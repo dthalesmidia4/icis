@@ -1414,7 +1414,7 @@ const PlanPeriod = () => {
                       </h3>
                       <div className="grid gap-3 sm:grid-cols-2">
                         {dateGroups.get(dateKey)!.map((demand: any) => {
-                          const isUltra = demand.source === 'ultra_card';
+                          const isUltra = isUltraDemand(demand);
                           const typeKey = demand.demand_type_key || '';
                           const typeLabel = TYPE_LABELS[typeKey] || demand.demand_type || 'Sem tipo';
                           const stageLabel = demand.current_function_key
