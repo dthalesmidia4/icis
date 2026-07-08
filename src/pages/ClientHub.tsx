@@ -83,7 +83,7 @@ const ClientHub = () => {
   const { tenantId } = useTenant();
   const { canAccess: canAccessButton } = useHubPermissions();
   const { role } = useAgencyRole();
-  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  
   const [contentModalOpen, setContentModalOpen] = useState(false);
   const [productionModalOpen, setProductionModalOpen] = useState(false);
   const [selectedContentType, setSelectedContentType] = useState<string | null>(null);
@@ -1413,7 +1413,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     { id: 'client_estrategia' as ClientHubButtonId, title: "Estratégia", icon: Lightbulb, action: () => navigate("/strategies") },
     { id: 'client_planejar_periodo' as ClientHubButtonId, title: "Planejar Período", icon: CalendarDays, action: () => setPlanPeriodModalOpen(true) },
     { id: 'client_aprovar_producao' as ClientHubButtonId, title: "Avaliar Demandas", icon: CheckSquare, action: () => setAvaliarDemandasModalOpen(true), badge: (pendingCardsCount + rejectedCardsCount) > 0 ? (pendingCardsCount + rejectedCardsCount) : undefined },
-    { id: 'client_cronograma_atual' as ClientHubButtonId, title: "Cronograma Atual", icon: Clock, action: () => setScheduleModalOpen(true) },
+    { id: 'client_cronograma_atual' as ClientHubButtonId, title: "Cronograma Atual", icon: Clock, action: () => navigate("/plan-period?tab=history&view=latest") },
     { id: 'client_historico' as ClientHubButtonId, title: "Histórico de Períodos", icon: History, action: () => navigate("/plan-period?tab=history") },
     { id: 'client_identidade_visual' as ClientHubButtonId, title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
     { id: 'client_conteudo_avulso' as ClientHubButtonId, title: "Conteúdo Avulso", icon: PenTool, action: () => setContentHubModalOpen(true) },
@@ -2236,35 +2236,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           </DialogContent>
         </Dialog>
 
-        <Dialog open={scheduleModalOpen} onOpenChange={setScheduleModalOpen}>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-xl">Cronograma Atual</DialogTitle>
-            </DialogHeader>
-            <div className="grid grid-cols-2 gap-4 sm:gap-6 py-4">
-              <Card className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
-                onClick={() => { setScheduleModalOpen(false); navigate("/plan-period?tab=history&view=latest"); }}>
-                <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
-                <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
-                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
-                  </div>
-                  <h3 className="text-sm sm:text-base font-bold transition-colors text-primary">Demanda Comum</h3>
-                </div>
-              </Card>
-              <Card className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]"
-                onClick={() => { setScheduleModalOpen(false); navigate("/plan-period?tab=history&view=latest&mode=ultra"); }}>
-                <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
-                <div className="relative p-4 sm:p-5 flex flex-col items-center justify-center text-center min-h-[110px] sm:min-h-[130px]">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary flex items-center justify-center mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
-                    <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
-                  </div>
-                  <h3 className="text-sm sm:text-base font-bold transition-colors text-primary">Demanda Ultra</h3>
-                </div>
-              </Card>
-            </div>
-          </DialogContent>
-        </Dialog>
+
+
 
         <VisualIdentityModal open={visualIdentityModalOpen} onOpenChange={setVisualIdentityModalOpen} companyId={selectedClient?.id || ''} companyName={selectedClient?.fantasy_name || selectedClient?.name || ''} tenantId={tenantId || ''} />
 
