@@ -450,6 +450,8 @@ const ApproveCards = () => {
 
   const defaultCards = cards.filter(c => c._source === 'default');
   const ultraCards = cards.filter(c => c._source === 'ultra');
+  const defaultPending = defaultCards.filter(c => !approvedIndexes.has(c._index)).length;
+  const ultraPending = ultraCards.filter(c => !approvedIndexes.has(c._index)).length;
 
   const formatDateStr = (d: string) => {
     try {
