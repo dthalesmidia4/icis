@@ -546,7 +546,7 @@ const ApproveCards = () => {
                   className="gap-2"
                 >
                   <Shield className="w-4 h-4" />
-                  Revisar Demandas Normais ({defaultCards.length})
+                  Revisar Demandas Normais ({defaultPending}/{defaultCards.length})
                 </Button>
               )}
               {ultraCards.length > 0 && (
