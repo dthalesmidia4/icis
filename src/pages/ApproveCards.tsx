@@ -556,7 +556,7 @@ const ApproveCards = () => {
                   className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
                 >
                   <Rocket className="w-4 h-4" />
-                  Revisar Demandas Ultra ({ultraCards.length})
+                  Revisar Demandas Ultra ({ultraPending}/{ultraCards.length})
                 </Button>
               )}
             </div>
