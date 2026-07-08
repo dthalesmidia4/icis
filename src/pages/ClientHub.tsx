@@ -1023,21 +1023,27 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       try {
         const { data: periods } = await supabase
           .from('period_plans')
-          .select('id, default_plan, ultra_plan, rejected_plan')
+          .select('id, default_plan, ultra_plan, rejected_plan, operational_status')
           .eq('company_id', selectedClient.id)
           .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false })
-          .limit(5);
+          .limit(10);
         if (!periods) {
           setApprovedCardsCount(0);
           setRejectedCardsCount(0);
           return;
         }
-        const currentPeriod = periods.find(p => {
+        const hasContent = (p: any) => {
           const dp = Array.isArray(p.default_plan) ? p.default_plan : [];
           const up = Array.isArray(p.ultra_plan) ? p.ultra_plan : [];
-          return dp.length > 0 || up.length > 0;
-        });
+          const rp = Array.isArray(p.rejected_plan) ? p.rejected_plan : [];
+          return dp.length > 0 || up.length > 0 || rp.length > 0;
+        };
+        // Prefer the period the client is currently in (em_andamento).
+        const currentPeriod =
+          periods.find((p: any) => p.operational_status === 'em_andamento' && hasContent(p)) ||
+          periods.find((p: any) => p.operational_status === 'em_andamento') ||
+          periods.find(hasContent);
         if (!currentPeriod) {
           setApprovedCardsCount(0);
           setRejectedCardsCount(0);
@@ -1065,6 +1071,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     };
     fetchCounts();
   }, [selectedClient, tenantId]);
+
 
   // Handle opening content from history navigation state
   useEffect(() => {

@@ -101,19 +101,28 @@ const RejectedCards = () => {
 
       const { data: periodsData, error } = await supabase
         .from('period_plans')
-        .select('id, period_title, period_start, period_end, default_plan, ultra_plan, rejected_plan')
+        .select('id, period_title, period_start, period_end, default_plan, ultra_plan, rejected_plan, operational_status')
         .eq('company_id', selectedClient.id)
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const normalized: PeriodData[] = (periodsData || []).map((p: any) => ({
+      const normalizedAll: (PeriodData & { operational_status?: string })[] = (periodsData || []).map((p: any) => ({
         ...p,
         default_plan: Array.isArray(p.default_plan) ? p.default_plan : [],
         ultra_plan: Array.isArray(p.ultra_plan) ? p.ultra_plan : [],
         rejected_plan: Array.isArray(p.rejected_plan) ? p.rejected_plan : [],
       }));
+
+      // Only show rejected cards from the period the client is currently in.
+      const emAndamentoWithRejected = normalizedAll.find(
+        (p) => p.operational_status === 'em_andamento' && p.rejected_plan.length > 0
+      );
+      const emAndamento = normalizedAll.find((p) => p.operational_status === 'em_andamento');
+      const anyWithRejected = normalizedAll.find((p) => p.rejected_plan.length > 0);
+      const currentPeriod = emAndamentoWithRejected || emAndamento || anyWithRejected || null;
+      const normalized: PeriodData[] = currentPeriod ? [currentPeriod] : [];
 
       setPeriods(normalized);
 
@@ -133,6 +142,7 @@ const RejectedCards = () => {
         });
       }
       setCards(allRejected);
+
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error("Erro ao carregar dados");
