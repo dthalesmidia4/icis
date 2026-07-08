@@ -1309,28 +1309,72 @@ const PlanPeriod = () => {
           .filter((d: any) => !d.pipeline_statuses?.is_final)
           .sort((a: any, b: any) => (a.publish_date || '').localeCompare(b.publish_date || ''));
 
-        // --- "Período Atual": show approved demands from DB ---
+        // --- "Período Atual": unified list (Normal + Ultra) as blocks with tags ---
         if (isLatestView) {
-          const isUltraMode = searchParams.get('mode') === 'ultra';
           const allClientDemands = periodDemandMetrics['__all_client__']?.demands || [];
-          
+
           // Show demands linked to this period + unlinked (manual) demands
-          const periodDemands = allClientDemands.filter((d: any) => 
+          const periodDemands = allClientDemands.filter((d: any) =>
             d.period_plan_id === selectedHistoryPlan.id || !d.period_plan_id
           );
-          
-          const filteredDemands = isUltraMode 
-            ? (metrics.demands || []).filter((d: any) => d.source === 'card')
-            : periodDemands;
-          
-          const sortedDemands = [...filteredDemands].sort((a: any, b: any) => 
-            (a.publish_date || '').localeCompare(b.publish_date || '')
-          );
+
+          // Sort by best-available date: publish_date > delivery_date > due_date > created_at
+          const bestDate = (d: any): string => {
+            const raw = d.publish_date || d.delivery_date || d.due_date || d.created_at || '';
+            return typeof raw === 'string' ? raw.slice(0, 10) : '';
+          };
+          const sortedDemands = [...periodDemands].sort((a: any, b: any) => {
+            const av = bestDate(a) || '9999-99-99';
+            const bv = bestDate(b) || '9999-99-99';
+            return av.localeCompare(bv);
+          });
+
+          const FUNCTION_LABELS: Record<string, string> = {
+            planejar: 'Planejar',
+            criar_roteiro: 'Criar roteiro',
+            criar_arte: 'Criar arte',
+            captar: 'Captar',
+            gerar_video: 'Gerar vídeo',
+            editar_video: 'Editar vídeo',
+            revisar: 'Revisar',
+            enviar_cliente: 'Enviar cliente',
+            aguardando_cliente: 'Aguardando cliente',
+            publicar: 'Publicar',
+            revisar_publicacao: 'Revisar publicação',
+          };
+          const TYPE_LABELS: Record<string, string> = {
+            post_estatico: 'Post Estático',
+            carrossel: 'Carrossel',
+            video_captado: 'Vídeo Captado',
+            video_gerado: 'Vídeo Gerado',
+          };
+
+          // Group by best-available date
+          const dateGroups = new Map<string, any[]>();
+          sortedDemands.forEach((d: any) => {
+            const key = bestDate(d) || '__no_date__';
+            if (!dateGroups.has(key)) dateGroups.set(key, []);
+            dateGroups.get(key)!.push(d);
+          });
+          const orderedDates = Array.from(dateGroups.keys()).sort((a, b) => {
+            if (a === '__no_date__') return 1;
+            if (b === '__no_date__') return -1;
+            return a.localeCompare(b);
+          });
+
+          const formatGroupDate = (key: string) => {
+            if (key === '__no_date__') return 'Sem data definida';
+            try {
+              return format(new Date(key + 'T00:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+            } catch {
+              return key;
+            }
+          };
 
           return (
             <div className="space-y-6">
               {/* Period date - large */}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
                   <CalendarIcon className="w-5 h-5 text-primary" />
                   <span className="text-xl font-bold text-foreground">
@@ -1340,92 +1384,7 @@ const PlanPeriod = () => {
                 <Badge variant="secondary" className="text-sm px-3 py-1">{sortedDemands.length} demandas</Badge>
               </div>
 
-              {sortedDemands.length > 0 ? (() => {
-                // Group demands by status
-                const groups = new Map<string, { status: any; demands: any[] }>();
-                const noStatusKey = '__no_status__';
-                sortedDemands.forEach((d: any) => {
-                  const s = d.pipeline_statuses;
-                  const key = s?.id ? String(s.id) : noStatusKey;
-                  if (!groups.has(key)) {
-                    groups.set(key, {
-                      status: s || { id: noStatusKey, name: 'Sem status', color: '#64748b', order_index: 9999 },
-                      demands: [],
-                    });
-                  }
-                  groups.get(key)!.demands.push(d);
-                });
-                const orderedGroups = Array.from(groups.values()).sort(
-                  (a, b) => (a.status.order_index ?? 9999) - (b.status.order_index ?? 9999)
-                );
-
-                return (
-                  <div className="space-y-3">
-                    {orderedGroups.map((group) => {
-                      const key = String(group.status.id);
-                      const isCollapsed = !!collapsedStatusGroups[key];
-                      return (
-                        <div key={key} className="rounded-lg border border-border/50 bg-card overflow-hidden">
-                          <button
-                            type="button"
-                            onClick={() => setCollapsedStatusGroups(prev => ({ ...prev, [key]: !prev[key] }))}
-                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left"
-                          >
-                            {isCollapsed ? (
-                              <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" />
-                            )}
-                            <span
-                              className="w-2.5 h-2.5 rounded-full shrink-0"
-                              style={{ backgroundColor: group.status.color }}
-                            />
-                            <span className="font-semibold text-foreground flex-1 min-w-0 truncate">
-                              {group.status.name}
-                            </span>
-                            <Badge
-                              className="text-xs"
-                              style={{
-                                backgroundColor: `${group.status.color}20`,
-                                color: group.status.color,
-                                borderColor: `${group.status.color}40`,
-                              }}
-                            >
-                              {group.demands.length}
-                            </Badge>
-                          </button>
-                          {!isCollapsed && (
-                            <div className="border-t border-border/50 divide-y divide-border/50">
-                              {group.demands.map((demand: any, idx: number) => (
-                                <div
-                                  key={demand.id || idx}
-                                  className="flex items-center gap-3 px-4 py-3 bg-background/50 hover:bg-muted/40 transition-colors"
-                                >
-                                  <div className="flex-1 min-w-0">
-                                    <h4 className="text-sm font-semibold text-foreground truncate">{demand.title}</h4>
-                                    {(demand.publish_date || demand.delivery_date) && (
-                                      <p className="text-xs text-muted-foreground mt-0.5">
-                                        {demand.publish_date
-                                          ? `Publicação: ${format(new Date(demand.publish_date + 'T00:00:00'), 'dd/MM/yyyy')}`
-                                          : `Entrega: ${format(new Date(demand.delivery_date + 'T00:00:00'), 'dd/MM/yyyy')}`}
-                                      </p>
-                                    )}
-                                  </div>
-                                  {demand.demand_type && (
-                                    <Badge variant="secondary" className="text-xs shrink-0">
-                                      {demand.demand_type}
-                                    </Badge>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })() : (
+              {sortedDemands.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <CalendarIcon className="w-10 h-10 mx-auto mb-2 opacity-30" />
                   <p className="text-sm">Nenhuma demanda aprovada neste período</p>
@@ -1433,10 +1392,73 @@ const PlanPeriod = () => {
                     Ir para Aprovação
                   </Button>
                 </div>
+              ) : (
+                <div className="space-y-6">
+                  {orderedDates.map((dateKey) => (
+                    <div key={dateKey} className="space-y-2">
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-1">
+                        {formatGroupDate(dateKey)}
+                      </h3>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {dateGroups.get(dateKey)!.map((demand: any) => {
+                          const isUltra = demand.source === 'ultra_card';
+                          const typeKey = demand.demand_type_key || '';
+                          const typeLabel = TYPE_LABELS[typeKey] || demand.demand_type || 'Sem tipo';
+                          const stageLabel = demand.current_function_key
+                            ? (FUNCTION_LABELS[demand.current_function_key] || demand.current_function_key)
+                            : demand.pipeline_statuses?.name || 'Sem etapa';
+                          return (
+                            <div
+                              key={demand.id}
+                              className={`rounded-xl border p-4 transition-colors ${
+                                isUltra
+                                  ? 'border-purple-400/60 bg-purple-500/5 hover:bg-purple-500/10 dark:border-purple-500/40'
+                                  : 'border-border/60 bg-card hover:bg-muted/40'
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                                {isUltra && (
+                                  <Badge className="text-[10px] font-bold uppercase tracking-wide bg-purple-600 text-white hover:bg-purple-600 border-transparent">
+                                    Ultra
+                                  </Badge>
+                                )}
+                                <Badge variant="secondary" className="text-xs">{typeLabel}</Badge>
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs"
+                                  style={demand.pipeline_statuses?.color ? {
+                                    color: demand.pipeline_statuses.color,
+                                    borderColor: `${demand.pipeline_statuses.color}66`,
+                                    backgroundColor: `${demand.pipeline_statuses.color}14`,
+                                  } : undefined}
+                                >
+                                  {stageLabel}
+                                </Badge>
+                              </div>
+                              <h4 className="text-sm font-semibold text-foreground leading-snug line-clamp-2">
+                                {demand.title}
+                              </h4>
+                              <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                                {demand.channel && <span>{demand.channel}</span>}
+                                {demand.publish_date && (
+                                  <span>Publicação: {format(new Date(demand.publish_date + 'T00:00:00'), 'dd/MM')}</span>
+                                )}
+                                {!demand.publish_date && demand.delivery_date && (
+                                  <span>Entrega: {format(new Date(demand.delivery_date + 'T00:00:00'), 'dd/MM')}</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           );
         }
+
 
         // --- Normal history modal ---
         return (
