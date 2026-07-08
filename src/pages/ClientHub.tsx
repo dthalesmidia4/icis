@@ -87,7 +87,7 @@ const ClientHub = () => {
   const [contentModalOpen, setContentModalOpen] = useState(false);
   const [productionModalOpen, setProductionModalOpen] = useState(false);
   const [selectedContentType, setSelectedContentType] = useState<string | null>(null);
-  const [pendingCardsCount, setPendingCardsCount] = useState(0);
+  const [approvedCardsCount, setApprovedCardsCount] = useState(0);
   const [rejectedCardsCount, setRejectedCardsCount] = useState(0);
   const [visualIdentityModalOpen, setVisualIdentityModalOpen] = useState(false);
   const [videoModalOpen, setVideoModalOpen] = useState(false);
