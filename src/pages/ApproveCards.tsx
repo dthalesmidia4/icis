@@ -450,6 +450,8 @@ const ApproveCards = () => {
 
   const defaultCards = cards.filter(c => c._source === 'default');
   const ultraCards = cards.filter(c => c._source === 'ultra');
+  const defaultPending = defaultCards.filter(c => !approvedIndexes.has(c._index)).length;
+  const ultraPending = ultraCards.filter(c => !approvedIndexes.has(c._index)).length;
 
   const formatDateStr = (d: string) => {
     try {
@@ -544,7 +546,7 @@ const ApproveCards = () => {
                   className="gap-2"
                 >
                   <Shield className="w-4 h-4" />
-                  Revisar Demandas Normais ({defaultCards.length})
+                  Revisar Demandas Normais ({defaultPending}/{defaultCards.length})
                 </Button>
               )}
               {ultraCards.length > 0 && (
@@ -554,7 +556,7 @@ const ApproveCards = () => {
                   className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
                 >
                   <Rocket className="w-4 h-4" />
-                  Revisar Demandas Ultra ({ultraCards.length})
+                  Revisar Demandas Ultra ({ultraPending}/{ultraCards.length})
                 </Button>
               )}
             </div>
@@ -566,7 +568,7 @@ const ApproveCards = () => {
                 <div>
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
                     <Shield className="w-4 h-4" />
-                    Demandas Normais ({defaultCards.length})
+                    Demandas Normais — {defaultPending} pendente{defaultPending === 1 ? '' : 's'} · {defaultCards.length - defaultPending} aprovada{(defaultCards.length - defaultPending) === 1 ? '' : 's'}
                   </h3>
                   <div className="space-y-3">
                     {defaultCards.map((card) => {
@@ -617,7 +619,7 @@ const ApproveCards = () => {
                 <div>
                   <h3 className="text-sm font-semibold text-primary uppercase tracking-wide mb-3 flex items-center gap-2">
                     <Rocket className="w-4 h-4" />
-                    Demandas Ultra ({ultraCards.length})
+                    Demandas Ultra — {ultraPending} pendente{ultraPending === 1 ? '' : 's'} · {ultraCards.length - ultraPending} aprovada{(ultraCards.length - ultraPending) === 1 ? '' : 's'}
                   </h3>
                   <div className="space-y-3">
                     {ultraCards.map((card) => {
