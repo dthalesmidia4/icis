@@ -198,7 +198,154 @@ const PlanPeriod = () => {
   }>(null);
   const [suggestionOpen, setSuggestionOpen] = useState(false);
 
+  // === Draft persistence (Salvar Rascunho do Planejamento) ===
+  const buildDraftPayload = useCallback(() => ({
+    periodTitle,
+    periodStart: periodStart?.toISOString() ?? null,
+    periodEnd: periodEnd?.toISOString() ?? null,
+    budget,
+    observations,
+    excludedFormats,
+    selectedChannels,
+    objetivosSelecionados,
+    objetivoOutro,
+    metaNumerica,
+    porqueObjetivo,
+    produtoFoco,
+    temPromocao,
+    promocaoDescricao,
+    comoComprar,
+    temDataComemorativa,
+    dataComemorativaDescricao,
+    temNovidade,
+    novidadeDescricao,
+    disponibilidadeVideo,
+    temMateriaisNovos,
+    materiaisNovosDescricao,
+    quantidadeConteudos,
+  }), [
+    periodTitle, periodStart, periodEnd, budget, observations, excludedFormats, selectedChannels,
+    objetivosSelecionados, objetivoOutro, metaNumerica, porqueObjetivo,
+    produtoFoco, temPromocao, promocaoDescricao, comoComprar,
+    temDataComemorativa, dataComemorativaDescricao, temNovidade, novidadeDescricao,
+    disponibilidadeVideo, temMateriaisNovos, materiaisNovosDescricao, quantidadeConteudos,
+  ]);
+
+  // Reset draft state on client change
+  useEffect(() => {
+    draftHydrated.current = false;
+    setDraftId(null);
+    setDraftLastSaved(null);
+    setDraftLoading(true);
+  }, [selectedClient?.id]);
+
+  // Load latest draft on mount / client change
+  useEffect(() => {
+    const loadDraft = async () => {
+      if (!selectedClient || !tenantId) {
+        setDraftLoading(false);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from('period_plans')
+          .select('id, form_draft, updated_at')
+          .eq('tenant_id', tenantId)
+          .eq('company_id', selectedClient.id)
+          .eq('status', 'draft')
+          .not('form_draft', 'is', null)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        if (data?.form_draft) {
+          const d: any = data.form_draft;
+          setDraftId(data.id);
+          if (d.periodTitle !== undefined) setPeriodTitle(d.periodTitle || "");
+          if (d.periodStart) setPeriodStart(new Date(d.periodStart));
+          if (d.periodEnd) setPeriodEnd(new Date(d.periodEnd));
+          if (d.budget !== undefined) setBudget(d.budget || "");
+          if (d.observations !== undefined) setObservations(d.observations || "");
+          if (Array.isArray(d.excludedFormats)) setExcludedFormats(d.excludedFormats);
+          if (Array.isArray(d.selectedChannels)) setSelectedChannels(d.selectedChannels);
+          if (Array.isArray(d.objetivosSelecionados)) setObjetivosSelecionados(d.objetivosSelecionados);
+          if (d.objetivoOutro !== undefined) setObjetivoOutro(d.objetivoOutro || "");
+          if (d.metaNumerica !== undefined) setMetaNumerica(d.metaNumerica || "");
+          if (d.porqueObjetivo !== undefined) setPorqueObjetivo(d.porqueObjetivo || "");
+          if (d.produtoFoco !== undefined) setProdutoFoco(d.produtoFoco || "");
+          if (d.temPromocao !== undefined) setTemPromocao(d.temPromocao || "");
+          if (d.promocaoDescricao !== undefined) setPromocaoDescricao(d.promocaoDescricao || "");
+          if (d.comoComprar !== undefined) setComoComprar(d.comoComprar || "");
+          if (d.temDataComemorativa !== undefined) setTemDataComemorativa(d.temDataComemorativa || "");
+          if (d.dataComemorativaDescricao !== undefined) setDataComemorativaDescricao(d.dataComemorativaDescricao || "");
+          if (d.temNovidade !== undefined) setTemNovidade(d.temNovidade || "");
+          if (d.novidadeDescricao !== undefined) setNovidadeDescricao(d.novidadeDescricao || "");
+          if (d.disponibilidadeVideo !== undefined) setDisponibilidadeVideo(d.disponibilidadeVideo || "");
+          if (d.temMateriaisNovos !== undefined) setTemMateriaisNovos(d.temMateriaisNovos || "");
+          if (d.materiaisNovosDescricao !== undefined) setMateriaisNovosDescricao(d.materiaisNovosDescricao || "");
+          if (typeof d.quantidadeConteudos === 'number') setQuantidadeConteudos(d.quantidadeConteudos);
+          if (data.updated_at) setDraftLastSaved(new Date(data.updated_at));
+        }
+      } catch (e) {
+        console.error('Erro ao carregar rascunho:', e);
+      } finally {
+        setDraftLoading(false);
+        setTimeout(() => { draftHydrated.current = true; }, 200);
+      }
+    };
+    loadDraft();
+  }, [selectedClient?.id, tenantId]);
+
+  const handleSaveDraft = useCallback(async () => {
+    if (!selectedClient || !tenantId) {
+      toast.error('Selecione um cliente antes de salvar');
+      return;
+    }
+    setIsSavingDraft(true);
+    try {
+      const payload = buildDraftPayload();
+      if (draftId) {
+        const { error } = await supabase
+          .from('period_plans')
+          .update({
+            form_draft: payload,
+            period_title: periodTitle || null,
+            period_start: periodStart ? periodStart.toISOString().slice(0, 10) : null,
+            period_end: periodEnd ? periodEnd.toISOString().slice(0, 10) : null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', draftId)
+          .eq('tenant_id', tenantId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from('period_plans')
+          .insert({
+            tenant_id: tenantId,
+            company_id: selectedClient.id,
+            status: 'draft',
+            period_title: periodTitle || 'Rascunho',
+            period_start: periodStart ? periodStart.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+            period_end: periodEnd ? periodEnd.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+            form_draft: payload,
+          })
+          .select('id')
+          .single();
+        if (error) throw error;
+        if (data?.id) setDraftId(data.id);
+      }
+      setDraftLastSaved(new Date());
+      toast.success('Rascunho salvo com sucesso');
+    } catch (e: any) {
+      console.error('Erro ao salvar rascunho:', e);
+      toast.error(e?.message || 'Erro ao salvar rascunho');
+    } finally {
+      setIsSavingDraft(false);
+    }
+  }, [selectedClient, tenantId, draftId, buildDraftPayload, periodTitle, periodStart, periodEnd]);
+
   const handleSuggestConfig = async () => {
+
     if (!selectedClient || !tenantId) {
       toast.error('Selecione um cliente antes de pedir sugestão');
       return;
