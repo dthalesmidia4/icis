@@ -1,0 +1,1 @@
+ALTER TABLE public.period_plans ADD COLUMN IF NOT EXISTS form_draft jsonb;

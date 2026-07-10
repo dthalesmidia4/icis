@@ -144,12 +144,16 @@ export default function GenerateQuestions() {
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  
-  // Auto-save states
+
+  // Save states
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [isManualSaving, setIsManualSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLoadedInitialData = useRef(false);
+  // Reset when client changes to prevent cross-client data leaks
+  const currentClientRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!selectedClient) {
@@ -158,6 +162,17 @@ export default function GenerateQuestions() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Reset state when client changes
+  useEffect(() => {
+    if (selectedClient?.id !== currentClientRef.current) {
+      currentClientRef.current = selectedClient?.id || null;
+      setAnswers({});
+      setSessionId(null);
+      setLastSaved(null);
+      hasLoadedInitialData.current = false;
+    }
+  }, [selectedClient?.id]);
 
   const { data: questionSession, isLoading: loadingSession } = useQuery({
     queryKey: ["question-session", selectedClient?.id, tenantId],
@@ -169,7 +184,7 @@ export default function GenerateQuestions() {
         .select("*")
         .eq("company_id", selectedClient.id)
         .eq("tenant_id", tenantId)
-        .order("created_at", { ascending: false })
+        .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
@@ -200,49 +215,117 @@ export default function GenerateQuestions() {
     enabled: !!selectedClient && !!tenantId,
   });
 
+  // Hydrate from loaded session, then unlock auto-save
   useEffect(() => {
-    if (questionSession?.answers) {
-      setAnswers(questionSession.answers as StrategicAnswers);
+    if (loadingSession) return;
+    if (questionSession) {
+      setSessionId(questionSession.id);
+      if (questionSession.answers) {
+        setAnswers(questionSession.answers as StrategicAnswers);
+      }
+      if (questionSession.updated_at) {
+        setLastSaved(new Date(questionSession.updated_at));
+      }
     }
-  }, [questionSession]);
+    // Delay to skip initial render's auto-save
+    const t = setTimeout(() => {
+      hasLoadedInitialData.current = true;
+    }, 200);
+    return () => clearTimeout(t);
+  }, [questionSession, loadingSession]);
+
+  // Core save routine — insert if no session yet, otherwise update by id
+  const persistSession = useCallback(async () => {
+    if (!selectedClient || !tenantId) throw new Error("Cliente ou tenant ausente");
+    // Guard: never overwrite with empty payload
+    if (Object.keys(answers).length === 0) return;
+
+    if (sessionId) {
+      const { error } = await supabase
+        .from("question_sessions")
+        .update({
+          answers,
+          questions: strategicQuestions,
+          status: "in_progress",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", sessionId)
+        .eq("tenant_id", tenantId)
+        .eq("company_id", selectedClient.id);
+      if (error) throw error;
+    } else {
+      const { data, error } = await supabase
+        .from("question_sessions")
+        .insert({
+          company_id: selectedClient.id,
+          tenant_id: tenantId,
+          answers,
+          questions: strategicQuestions,
+          status: "in_progress",
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      if (data?.id) setSessionId(data.id);
+    }
+    setLastSaved(new Date());
+  }, [selectedClient, tenantId, answers, sessionId]);
 
   // Auto-save silencioso
   const handleAutoSave = useCallback(async () => {
-    if (!selectedClient || !tenantId) return;
-    if (Object.keys(answers).length === 0) return;
-
+    if (!hasLoadedInitialData.current) return;
     setIsAutoSaving(true);
     try {
-      const { error } = await supabase.from("question_sessions").upsert({
-        company_id: selectedClient.id,
-        tenant_id: tenantId,
-        answers,
-        questions: strategicQuestions,
-        status: "in_progress",
-      });
-
-      if (error) throw error;
-      setLastSaved(new Date());
+      await persistSession();
     } catch (error) {
       console.error("Erro no auto-save:", error);
     } finally {
       setIsAutoSaving(false);
     }
-  }, [selectedClient, tenantId, answers]);
+  }, [persistSession]);
+
+  // Manual save
+  const handleManualSave = useCallback(async () => {
+    if (!selectedClient || !tenantId) return;
+    setIsManualSaving(true);
+    try {
+      // Force-save even if empty by inserting stub
+      if (Object.keys(answers).length === 0 && !sessionId) {
+        const { data, error } = await supabase
+          .from("question_sessions")
+          .insert({
+            company_id: selectedClient.id,
+            tenant_id: tenantId,
+            answers: {},
+            questions: strategicQuestions,
+            status: "in_progress",
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        if (data?.id) setSessionId(data.id);
+        setLastSaved(new Date());
+      } else {
+        await persistSession();
+      }
+      sonnerToast.success("Anamnese salva com sucesso.");
+    } catch (error: any) {
+      console.error("Erro ao salvar anamnese:", error);
+      sonnerToast.error("Não foi possível salvar a anamnese. Tente novamente.");
+    } finally {
+      setIsManualSaving(false);
+    }
+  }, [selectedClient, tenantId, answers, sessionId, persistSession]);
 
   // Debounce auto-save: salvar 1.5s após parar de digitar
   useEffect(() => {
-    // Não ativar auto-save no carregamento inicial
     if (!hasLoadedInitialData.current) return;
     if (!selectedClient || !tenantId) return;
     if (Object.keys(answers).length === 0) return;
 
-    // Limpar timeout anterior
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
     }
-
-    // Aguardar 1.5s de inatividade antes de salvar
     autoSaveTimeoutRef.current = setTimeout(() => {
       handleAutoSave();
     }, 1500);
@@ -253,16 +336,6 @@ export default function GenerateQuestions() {
       }
     };
   }, [answers, selectedClient, tenantId, handleAutoSave]);
-
-  // Marcar que os dados iniciais foram carregados
-  useEffect(() => {
-    if (questionSession) {
-      // Pequeno delay para evitar trigger do auto-save no load
-      setTimeout(() => {
-        hasLoadedInitialData.current = true;
-      }, 100);
-    }
-  }, [questionSession]);
 
   const handleClear = () => {
     setAnswers({});
