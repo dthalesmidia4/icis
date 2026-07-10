@@ -62,14 +62,34 @@ Deno.serve(async (req) => {
     const mascotInline = await fetchInlineImages(effectiveMascotUrls);
     const logoInline = vi.logo.url ? await fetchInlineImage(vi.logo.url) : null;
 
-    const contentSection = [
-      `IDEIA DO USUÁRIO (use como tema/contexto, NÃO reproduza este texto integralmente na imagem): "${idea}"`,
-      "",
-      `REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO:`,
-      `- A ideia acima descreve o TEMA do post. NÃO copie o texto da ideia literalmente na imagem.`,
-      `- Crie um TÍTULO CURTO e impactante baseado na ideia para usar como tipografia na imagem.`,
-      `- Apenas títulos curtos e textos de gancho/CTA devem aparecer como tipografia na imagem.`,
-    ].join("\n");
+    const manualText = (typeof exactText === "string" && exactText.trim()) ? exactText : idea;
+    const contentSection = isManual
+      ? [
+          `🚨 MODO MANUAL — TEXTO EXATO OBRIGATÓRIO NA ARTE 🚨`,
+          ``,
+          `O texto abaixo DEVE aparecer na arte EXATAMENTE como está escrito, sem qualquer alteração, reescrita, correção, tradução, resumo, complemento, reordenação ou substituição de palavras. Preserve pontuação, acentos, quebras de linha, maiúsculas/minúsculas e emojis.`,
+          ``,
+          `TEXTO EXATO (copiar caractere por caractere na tipografia da arte):`,
+          `"""`,
+          `${manualText}`,
+          `"""`,
+          ``,
+          `REGRAS OBRIGATÓRIAS:`,
+          `- NÃO invente nenhum outro texto, título, subtítulo, CTA, hashtag, URL ou legenda na imagem.`,
+          `- NÃO corrija ortografia, gramática ou estilo do texto acima.`,
+          `- NÃO traduza, resuma, parafraseie ou complete o texto.`,
+          `- Se houver qualquer texto visível na imagem, ele deve ser EXATAMENTE o texto acima — nada mais, nada menos.`,
+          `- Você TEM total liberdade criativa apenas para: layout, composição, hierarquia visual, tipografia (fonte/tamanho/cor), fundo, cores da marca, elementos gráficos, ilustrações e mascotes.`,
+          `- Toda a criatividade deve estar no VISUAL, nunca no texto.`,
+        ].join("\n")
+      : [
+          `IDEIA DO USUÁRIO (use como tema/contexto, NÃO reproduza este texto integralmente na imagem): "${idea}"`,
+          "",
+          `REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO:`,
+          `- A ideia acima descreve o TEMA do post. NÃO copie o texto da ideia literalmente na imagem.`,
+          `- Crie um TÍTULO CURTO e impactante baseado na ideia para usar como tipografia na imagem.`,
+          `- Apenas títulos curtos e textos de gancho/CTA devem aparecer como tipografia na imagem.`,
+        ].join("\n");
 
     const imagePrompt = buildStaticPostPrompt({
       vi,
