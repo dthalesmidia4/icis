@@ -1175,11 +1175,13 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     }
   };
 
-  const handleGeneratePost = async (idea: string, isManual: boolean = false) => {
+  const handleGeneratePost = async (idea: string, isManual: boolean = false, keepPrevious: boolean = false) => {
     const setGenerating = isManual ? setGeneratingManualPost : setGeneratingPost;
     const setImage = isManual ? setGeneratedManualPostImage : setGeneratedPostImage;
+    // Allow "Gerar novamente" to re-enable Finalizar for the new variation
+    setFinalizedKeys(prev => { const next = new Set(prev); next.delete(isManual ? 'manual-post' : 'ai-post'); return next; });
     setGenerating(true);
-    setImage(null);
+    if (!keepPrevious) setImage(null);
     try {
       const selectedMascotUrls = mascotImages
         .filter(m => selectedMascotIds.includes(m.id))
