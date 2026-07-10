@@ -325,9 +325,10 @@ const PlanPeriod = () => {
             company_id: selectedClient.id,
             status: 'draft',
             objective: 'Rascunho',
-            period_title: periodTitle || 'Rascunho',
+            period_title: periodTitle || 'Rascunho sem título',
             period_start: periodStart ? periodStart.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
             period_end: periodEnd ? periodEnd.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+            priority_channel: selectedChannels[0] || 'Não definido',
             form_draft: payload,
           } as any)
           .select('id')
@@ -335,6 +336,7 @@ const PlanPeriod = () => {
         if (error) throw error;
         if (data?.id) setDraftId(data.id);
       }
+
       setDraftLastSaved(new Date());
       toast.success('Rascunho salvo com sucesso');
     } catch (e: any) {
