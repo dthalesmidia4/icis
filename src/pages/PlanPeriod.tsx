@@ -98,6 +98,27 @@ const PlanPeriod = () => {
   // Incomplete period resume state
   const [incompletePeriod, setIncompletePeriod] = useState<PeriodPlanHistory | null>(null);
 
+  // Visual identity gate — blocks the "Planejar Período" form when no preset exists
+  const [hasVisualIdentity, setHasVisualIdentity] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!selectedClient?.id || !tenantId) return;
+    let cancelled = false;
+    const check = async () => {
+      const { count } = await supabase
+        .from('visual_identity_presets')
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', selectedClient.id)
+        .eq('tenant_id', tenantId);
+      if (!cancelled) setHasVisualIdentity((count ?? 0) > 0);
+    };
+    check();
+    const channel = supabase
+      .channel(`plan-vi-${selectedClient.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'visual_identity_presets', filter: `company_id=eq.${selectedClient.id}` }, check)
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(channel); };
+  }, [selectedClient?.id, tenantId]);
+
   // Form state
   const [periodTitle, setPeriodTitle] = useState("");
   const [periodStart, setPeriodStart] = useState<Date | undefined>(undefined);
