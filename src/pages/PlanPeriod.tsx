@@ -1351,8 +1351,26 @@ const PlanPeriod = () => {
           </div>
         </div>
       </Card>
+
+      {/* Salvar rascunho do planejamento */}
+      <Card className="p-4 flex flex-col sm:flex-row items-center justify-between gap-3 sticky bottom-4 z-10 shadow-lg border-primary/20">
+        <div className="text-sm text-muted-foreground">
+          {isSavingDraft ? (
+            <span className="flex items-center gap-2"><RefreshCw className="w-3 h-3 animate-spin" /> Salvando rascunho...</span>
+          ) : draftLastSaved ? (
+            <span className="flex items-center gap-2"><Check className="w-3 h-3 text-green-500" /> Último salvamento: {draftLastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          ) : (
+            <span>Rascunho ainda não salvo</span>
+          )}
+        </div>
+        <Button onClick={handleSaveDraft} disabled={isSavingDraft || draftLoading} variant="secondary">
+          {isSavingDraft ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
+          Salvar Rascunho do Planejamento
+        </Button>
+      </Card>
     </div>
   </div>;
+
 
   const renderCompleted = () => {
     const totalDemands = normalSavedCount + ultraSavedCount;
