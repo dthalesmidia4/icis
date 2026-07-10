@@ -195,7 +195,7 @@ const ContentHistory = () => {
       setLoading(false);
     };
     fetchContents();
-  }, [tenantId, filterClientId, clients]);
+  }, [tenantId, effectiveClientId, selectedClient?.id, clients]);
 
   const handleDownload = async (url: string, index: number) => {
     const ext = isVideoUrl(url) ? "mp4" : "png";
