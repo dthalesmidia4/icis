@@ -588,9 +588,9 @@ export default function GenerateQuestions() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Indicador de Auto-Save */}
+            {/* Indicador de Auto-Save + último salvamento */}
             <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground px-3">
-              {isAutoSaving ? (
+              {isAutoSaving || isManualSaving ? (
                 <>
                   <Loader2 className="h-3 w-3 animate-spin" />
                   <span>Salvando...</span>
@@ -598,11 +598,14 @@ export default function GenerateQuestions() {
               ) : lastSaved ? (
                 <>
                   <Check className="h-3 w-3 text-green-500" />
-                  <span>Salvo automaticamente</span>
+                  <span>
+                    Último salvamento:{" "}
+                    {lastSaved.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
                 </>
               ) : null}
             </div>
-            
+
             {/* Botões individuais para Desktop */}
             <Button onClick={handleClear} variant="outline" className="hidden md:flex">
               <Trash2 className="w-4 h-4 mr-2" />
@@ -612,13 +615,22 @@ export default function GenerateQuestions() {
               <FileDown className="w-4 h-4 mr-2" />
               Exportar PDF
             </Button>
-            
+            <Button onClick={handleManualSave} disabled={isManualSaving || isAutoSaving} variant="secondary">
+              {isManualSaving ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Cloud className="w-4 h-4 mr-2" />
+              )}
+              Salvar Anamnese
+            </Button>
+
             {/* Botão principal sempre visível */}
             <Button onClick={handleGenerateStrategyClick} disabled={isGeneratingStrategy}>
               {isGeneratingStrategy && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               <Sparkles className="w-4 h-4 mr-2" />
               Gerar Estratégia
             </Button>
+
           </div>
         }
       />
