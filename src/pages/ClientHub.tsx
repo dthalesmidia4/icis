@@ -963,23 +963,33 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
 
 
+  const refetchPresets = async () => {
+    if (!selectedClient?.id || !tenantId) return;
+    const { data } = await supabase
+      .from('visual_identity_presets')
+      .select('id, name, primary_color, secondary_color')
+      .eq('company_id', selectedClient.id)
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: true });
+    if (data) {
+      setPresets(data);
+      if (data.length > 0) {
+        setSelectedPresetId((current) => current ?? data[0].id);
+      }
+    }
+  };
+
   useEffect(() => {
     if (!selectedClient?.id || !tenantId) return;
-    const fetchPresets = async () => {
-      const { data } = await supabase
-        .from('visual_identity_presets')
-        .select('id, name, primary_color, secondary_color')
-        .eq('company_id', selectedClient.id)
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: true });
-      if (data) {
-        setPresets(data);
-        if (data.length > 0) {
-          setSelectedPresetId((current) => current ?? data[0].id);
-        }
-      }
-    };
-    fetchPresets();
+    refetchPresets();
+    const channel = supabase
+      .channel(`vi-presets-${selectedClient.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'visual_identity_presets', filter: `company_id=eq.${selectedClient.id}` }, () => {
+        refetchPresets();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient?.id, tenantId]);
 
   useEffect(() => {
