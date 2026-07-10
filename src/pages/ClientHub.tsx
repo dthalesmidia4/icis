@@ -963,23 +963,33 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
 
 
+  const refetchPresets = async () => {
+    if (!selectedClient?.id || !tenantId) return;
+    const { data } = await supabase
+      .from('visual_identity_presets')
+      .select('id, name, primary_color, secondary_color')
+      .eq('company_id', selectedClient.id)
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: true });
+    if (data) {
+      setPresets(data);
+      if (data.length > 0) {
+        setSelectedPresetId((current) => current ?? data[0].id);
+      }
+    }
+  };
+
   useEffect(() => {
     if (!selectedClient?.id || !tenantId) return;
-    const fetchPresets = async () => {
-      const { data } = await supabase
-        .from('visual_identity_presets')
-        .select('id, name, primary_color, secondary_color')
-        .eq('company_id', selectedClient.id)
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: true });
-      if (data) {
-        setPresets(data);
-        if (data.length > 0) {
-          setSelectedPresetId((current) => current ?? data[0].id);
-        }
-      }
-    };
-    fetchPresets();
+    refetchPresets();
+    const channel = supabase
+      .channel(`vi-presets-${selectedClient.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'visual_identity_presets', filter: `company_id=eq.${selectedClient.id}` }, () => {
+        refetchPresets();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient?.id, tenantId]);
 
   useEffect(() => {
@@ -1373,15 +1383,18 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
   const isAdmin = role === 'agency_admin' || role === 'super_admin' || role === 'agency_manager';
 
+  const hasVisualIdentity = presets.length > 0;
+  const planPeriodBlockedMessage = "Para planejar um período, primeiro configure a Identidade Visual do cliente.";
+
   const allActionCards = [
 
     { id: 'client_anamnese' as ClientHubButtonId, title: "Anamnese", icon: FileText, action: () => navigate("/client-guide") },
     { id: 'client_estrategia' as ClientHubButtonId, title: "Estratégia", icon: Lightbulb, action: () => navigate("/strategies") },
-    { id: 'client_planejar_periodo' as ClientHubButtonId, title: "Planejar Período", icon: CalendarDays, action: () => setPlanPeriodModalOpen(true) },
+    { id: 'client_identidade_visual' as ClientHubButtonId, title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
+    { id: 'client_planejar_periodo' as ClientHubButtonId, title: "Planejar Período", icon: CalendarDays, action: () => setPlanPeriodModalOpen(true), disabled: !hasVisualIdentity, disabledTooltip: planPeriodBlockedMessage },
     { id: 'client_aprovar_producao' as ClientHubButtonId, title: "Avaliar Demandas", icon: CheckSquare, action: () => setAvaliarDemandasModalOpen(true), badge: (approvedCardsCount + rejectedCardsCount) > 0 ? (approvedCardsCount + rejectedCardsCount) : undefined },
     { id: 'client_cronograma_atual' as ClientHubButtonId, title: "Cronograma Atual", icon: Clock, action: () => navigate("/plan-period?tab=history&view=latest") },
     { id: 'client_historico' as ClientHubButtonId, title: "Histórico de Períodos", icon: History, action: () => navigate("/plan-period?tab=history") },
-    { id: 'client_identidade_visual' as ClientHubButtonId, title: "Identidade Visual", icon: Palette, action: () => setVisualIdentityModalOpen(true) },
     { id: 'client_conteudo_avulso' as ClientHubButtonId, title: "Conteúdo Avulso", icon: PenTool, action: () => setContentHubModalOpen(true) },
     
     { id: 'client_demanda_planejada' as ClientHubButtonId, title: "Demanda Planejada", icon: ClipboardList, action: () => setDemandaPlanejadaHubModalOpen(true) },
@@ -1416,8 +1429,22 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {actionCards.map((card, index) => (
-            <Card key={index} className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]" onClick={card.action}>
+          {actionCards.map((card, index) => {
+            const isDisabled = 'disabled' in card && card.disabled;
+            const tooltip = isDisabled && 'disabledTooltip' in card ? (card as any).disabledTooltip : undefined;
+            return (
+            <Card
+              key={index}
+              title={tooltip}
+              className={`group relative overflow-hidden transition-all duration-300 border-2 active:scale-[0.98] ${isDisabled ? 'cursor-not-allowed opacity-50 grayscale' : 'cursor-pointer hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 hover:border-primary/50'}`}
+              onClick={() => {
+                if (isDisabled) {
+                  toast.error(tooltip || 'Ação indisponível');
+                  return;
+                }
+                card.action();
+              }}
+            >
               <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
               {'badge' in card && card.badge && (
                 <div className="absolute top-2 right-2 z-10 bg-destructive text-destructive-foreground text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">{card.badge}</div>
@@ -1427,9 +1454,13 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   <card.icon className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                 </div>
                 <h3 className="text-sm sm:text-base font-bold transition-colors text-primary">{card.title}</h3>
+                {isDisabled && tooltip && (
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 px-2 leading-tight">{tooltip}</p>
+                )}
               </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
 
         {/* Modal Hub Conteúdo Avulso - Criar ou Histórico */}
@@ -2235,7 +2266,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
 
 
-        <VisualIdentityModal open={visualIdentityModalOpen} onOpenChange={setVisualIdentityModalOpen} companyId={selectedClient?.id || ''} companyName={selectedClient?.fantasy_name || selectedClient?.name || ''} tenantId={tenantId || ''} />
+        <VisualIdentityModal open={visualIdentityModalOpen} onOpenChange={(open) => { setVisualIdentityModalOpen(open); if (!open) refetchPresets(); }} companyId={selectedClient?.id || ''} companyName={selectedClient?.fantasy_name || selectedClient?.name || ''} tenantId={tenantId || ''} />
 
         {/* Modal Vídeo - Storyboard */}
         <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) { setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); setVideoAspectRatio('9:16'); setSelectedMascotIds([]); setVideoStep(1); setVideoScenes([]); setVideoPreviewIndex(0); } }}>

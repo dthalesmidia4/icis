@@ -98,6 +98,27 @@ const PlanPeriod = () => {
   // Incomplete period resume state
   const [incompletePeriod, setIncompletePeriod] = useState<PeriodPlanHistory | null>(null);
 
+  // Visual identity gate — blocks the "Planejar Período" form when no preset exists
+  const [hasVisualIdentity, setHasVisualIdentity] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!selectedClient?.id || !tenantId) return;
+    let cancelled = false;
+    const check = async () => {
+      const { count } = await supabase
+        .from('visual_identity_presets')
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', selectedClient.id)
+        .eq('tenant_id', tenantId);
+      if (!cancelled) setHasVisualIdentity((count ?? 0) > 0);
+    };
+    check();
+    const channel = supabase
+      .channel(`plan-vi-${selectedClient.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'visual_identity_presets', filter: `company_id=eq.${selectedClient.id}` }, check)
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(channel); };
+  }, [selectedClient?.id, tenantId]);
+
   // Form state
   const [periodTitle, setPeriodTitle] = useState("");
   const [periodStart, setPeriodStart] = useState<Date | undefined>(undefined);
@@ -1954,7 +1975,22 @@ const PlanPeriod = () => {
     }] : []} rightContent={currentStep === 'completed' ? <Badge variant="outline" className="text-xs">Concluído</Badge> : null} />
 
     <div className="container max-w-6xl mx-auto px-6 py-8">
-      {currentStep === 'form' && (activeTab === 'history' ? renderHistory() : renderForm())}
+      {currentStep === 'form' && activeTab === 'new' && hasVisualIdentity === false ? (
+        <Card className="p-8 text-center max-w-xl mx-auto">
+          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-6 h-6 text-primary" />
+          </div>
+          <h2 className="text-xl font-bold mb-2">Configure a Identidade Visual primeiro</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            Para planejar um período, o cliente precisa ter uma Identidade Visual salva (cores, tipografia, logo).
+          </p>
+          <Button onClick={() => navigate('/client-hub')} className="bg-gradient-to-r from-primary to-primary/70">
+            Ir para o Hub do Cliente
+          </Button>
+        </Card>
+      ) : (
+        currentStep === 'form' && (activeTab === 'history' ? renderHistory() : renderForm())
+      )}
 
       {currentStep === 'loading-normal' && renderLoading(loadingMessage)}
       {currentStep === 'loading-ultra' && renderLoading(loadingMessage)}
