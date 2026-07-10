@@ -756,6 +756,23 @@ export default function GenerateQuestions() {
             </div>
           ))}
         </div>
+
+        {/* Botão de salvar no rodapé */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-border/50">
+          <div className="text-sm text-muted-foreground">
+            {lastSaved
+              ? `Último salvamento: ${lastSaved.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+              : "Ainda não salvo"}
+          </div>
+          <Button onClick={handleManualSave} disabled={isManualSaving || isAutoSaving} size="lg">
+            {isManualSaving ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            ) : (
+              <Cloud className="w-4 h-4 mr-2" />
+            )}
+            Salvar Anamnese
+          </Button>
+        </div>
       </div>
     </div>
   );
