@@ -1419,8 +1419,22 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {actionCards.map((card, index) => (
-            <Card key={index} className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]" onClick={card.action}>
+          {actionCards.map((card, index) => {
+            const isDisabled = 'disabled' in card && card.disabled;
+            const tooltip = isDisabled && 'disabledTooltip' in card ? (card as any).disabledTooltip : undefined;
+            return (
+            <Card
+              key={index}
+              title={tooltip}
+              className={`group relative overflow-hidden transition-all duration-300 border-2 active:scale-[0.98] ${isDisabled ? 'cursor-not-allowed opacity-50 grayscale' : 'cursor-pointer hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 hover:border-primary/50'}`}
+              onClick={() => {
+                if (isDisabled) {
+                  toast.error(tooltip || 'Ação indisponível');
+                  return;
+                }
+                card.action();
+              }}
+            >
               <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
               {'badge' in card && card.badge && (
                 <div className="absolute top-2 right-2 z-10 bg-destructive text-destructive-foreground text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">{card.badge}</div>
@@ -1430,9 +1444,13 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   <card.icon className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                 </div>
                 <h3 className="text-sm sm:text-base font-bold transition-colors text-primary">{card.title}</h3>
+                {isDisabled && tooltip && (
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 px-2 leading-tight">{tooltip}</p>
+                )}
               </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
 
         {/* Modal Hub Conteúdo Avulso - Criar ou Histórico */}
