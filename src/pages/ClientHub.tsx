@@ -1852,23 +1852,33 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
             <div className={`flex gap-3 mt-1 ${generatedManualPostImage ? '' : 'flex-col'}`}>
               {generatedManualPostImage ? (
-                <Button
-                  className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70"
-                  disabled={!lastManualPostContentId || creatingCardFor === 'manual-post' || finalizedKeys.has('manual-post')}
-                  onClick={() => handleCreateCardFromContent({
-                    key: 'manual-post',
-                    contentId: lastManualPostContentId,
-                    contentType: 'post',
-                    prompt: manualPostText,
-                    imageUrls: [generatedManualPostImage],
-                  })}
-                >
-                  {creatingCardFor === 'manual-post'
-                    ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Finalizando...</>)
-                    : finalizedKeys.has('manual-post')
-                      ? (<><CheckSquare className="w-4 h-4 mr-2" />Finalizado</>)
-                      : (<><CheckSquare className="w-4 h-4 mr-2" />Finalizar</>)}
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    className="h-11 text-sm font-semibold flex-1"
+                    disabled={!manualPostText.trim() || generatingManualPost || creatingCardFor === 'manual-post'}
+                    onClick={() => handleGeneratePost(manualPostText, true, true)}
+                  >
+                    {generatingManualPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-4 h-4 mr-2" />Gerar novamente</>)}
+                  </Button>
+                  <Button
+                    className="h-11 text-sm font-semibold flex-1 bg-gradient-to-r from-primary to-primary/70"
+                    disabled={!lastManualPostContentId || creatingCardFor === 'manual-post' || finalizedKeys.has('manual-post') || generatingManualPost}
+                    onClick={() => handleCreateCardFromContent({
+                      key: 'manual-post',
+                      contentId: lastManualPostContentId,
+                      contentType: 'post',
+                      prompt: manualPostText,
+                      imageUrls: [generatedManualPostImage],
+                    })}
+                  >
+                    {creatingCardFor === 'manual-post'
+                      ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Finalizando...</>)
+                      : finalizedKeys.has('manual-post')
+                        ? (<><CheckSquare className="w-4 h-4 mr-2" />Finalizado</>)
+                        : (<><CheckSquare className="w-4 h-4 mr-2" />Finalizar</>)}
+                  </Button>
+                </>
               ) : (
                 <Button className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70" disabled={!manualPostText.trim() || generatingManualPost} onClick={() => handleGeneratePost(manualPostText, true)}>
                   {generatingManualPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />Gerar Post</>)}
