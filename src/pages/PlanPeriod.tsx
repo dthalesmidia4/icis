@@ -180,6 +180,13 @@ const PlanPeriod = () => {
   const [pollingProgress, setPollingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState("Gerando demandas...");
 
+  // Draft persistence
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [draftLoading, setDraftLoading] = useState(true);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [draftLastSaved, setDraftLastSaved] = useState<Date | null>(null);
+  const draftHydrated = useRef(false);
+
   // Sugestão automática de configuração de período
   const [suggestionLoading, setSuggestionLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<null | {
