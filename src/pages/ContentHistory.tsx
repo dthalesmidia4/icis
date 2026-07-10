@@ -52,7 +52,7 @@ const ContentHistory = () => {
   const { tenantId } = useTenant();
   const [contents, setContents] = useState<GeneratedContent[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
-  const [filterClientId, setFilterClientId] = useState<string>("all");
+  const [filterClientId, setFilterClientId] = useState<string>(selectedClient?.id ?? "all");
   const [loading, setLoading] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewContent, setPreviewContent] = useState<GeneratedContent | null>(null);
@@ -148,16 +148,23 @@ const ContentHistory = () => {
     fetchClients();
   }, [tenantId]);
 
-  // If coming from ClientHub with a selected client, pre-filter
+  // If coming from ClientHub with a selected client, pre-filter (and reset if client changes)
   useEffect(() => {
     if (selectedClient?.id) {
       setFilterClientId(selectedClient.id);
+      setContents([]);
     }
   }, [selectedClient?.id]);
 
-  // Fetch contents
+  // Effective client filter: when a client is selected in context, force it (never "all")
+  const effectiveClientId = selectedClient?.id ?? (filterClientId !== "all" ? filterClientId : null);
+
+  // Fetch contents — always scoped by tenant_id AND (when applicable) client_id
   useEffect(() => {
     if (!tenantId) return;
+    // If we're inside a client context but haven't resolved its id yet, don't fetch
+    if (selectedClient && !selectedClient.id) return;
+
     const fetchContents = async () => {
       setLoading(true);
       let query = supabase
@@ -166,20 +173,20 @@ const ContentHistory = () => {
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false });
 
-      if (filterClientId !== "all") {
-        query = query.eq("client_id", filterClientId);
+      if (effectiveClientId) {
+        query = query.eq("client_id", effectiveClientId);
       }
 
       const { data, error } = await query;
       if (error) {
         console.error("Error fetching contents:", error);
         toast.error("Erro ao carregar histórico");
+        setContents([]);
       } else {
         const mapped = (data || []).map((d: any) => ({
           ...d,
           image_urls: Array.isArray(d.image_urls) ? d.image_urls : [],
         }));
-        // Enrich with client name
         setContents(mapped.map((c: any) => {
           const client = clients.find(cl => cl.id === c.client_id);
           return { ...c, client_name: client ? (client.fantasy_name || client.name) : undefined };
@@ -188,7 +195,7 @@ const ContentHistory = () => {
       setLoading(false);
     };
     fetchContents();
-  }, [tenantId, filterClientId, clients]);
+  }, [tenantId, effectiveClientId, selectedClient?.id, clients]);
 
   const handleDownload = async (url: string, index: number) => {
     const ext = isVideoUrl(url) ? "mp4" : "png";
