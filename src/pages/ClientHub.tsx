@@ -1217,9 +1217,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     finally { setGeneratingCarousel(false); }
   };
 
-  const handleGenerateCarouselImages = async () => {
+  const handleGenerateCarouselImages = async (keepPrevious: boolean = false) => {
+    setFinalizedKeys(prev => { const next = new Set(prev); next.delete('carousel'); return next; });
     setGeneratingCarouselImages(true);
-    setCarouselGeneratedImages([]);
+    if (!keepPrevious) setCarouselGeneratedImages([]);
     setCarouselImageProgress('Preparando geração...');
     try {
       const selectedMascotUrls = mascotImages.filter(m => selectedMascotIds.includes(m.id)).map(m => m.image_url);
