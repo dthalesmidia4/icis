@@ -1741,23 +1741,33 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
             <div className={`flex gap-3 mt-1 ${generatedPostImage ? '' : 'flex-col'}`}>
               {generatedPostImage ? (
-                <Button
-                  className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70"
-                  disabled={!lastPostContentId || creatingCardFor === 'ai-post' || finalizedKeys.has('ai-post')}
-                  onClick={() => handleCreateCardFromContent({
-                    key: 'ai-post',
-                    contentId: lastPostContentId,
-                    contentType: 'post',
-                    prompt: postIdea,
-                    imageUrls: [generatedPostImage],
-                  })}
-                >
-                  {creatingCardFor === 'ai-post'
-                    ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Finalizando...</>)
-                    : finalizedKeys.has('ai-post')
-                      ? (<><CheckSquare className="w-4 h-4 mr-2" />Finalizado</>)
-                      : (<><CheckSquare className="w-4 h-4 mr-2" />Finalizar</>)}
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    className="h-11 text-sm font-semibold flex-1"
+                    disabled={!postIdea.trim() || generatingPost || creatingCardFor === 'ai-post'}
+                    onClick={() => handleGeneratePost(postIdea, false, true)}
+                  >
+                    {generatingPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-4 h-4 mr-2" />Gerar novamente</>)}
+                  </Button>
+                  <Button
+                    className="h-11 text-sm font-semibold flex-1 bg-gradient-to-r from-primary to-primary/70"
+                    disabled={!lastPostContentId || creatingCardFor === 'ai-post' || finalizedKeys.has('ai-post') || generatingPost}
+                    onClick={() => handleCreateCardFromContent({
+                      key: 'ai-post',
+                      contentId: lastPostContentId,
+                      contentType: 'post',
+                      prompt: postIdea,
+                      imageUrls: [generatedPostImage],
+                    })}
+                  >
+                    {creatingCardFor === 'ai-post'
+                      ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Finalizando...</>)
+                      : finalizedKeys.has('ai-post')
+                        ? (<><CheckSquare className="w-4 h-4 mr-2" />Finalizado</>)
+                        : (<><CheckSquare className="w-4 h-4 mr-2" />Finalizar</>)}
+                  </Button>
+                </>
               ) : (
                 <Button className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70" disabled={!postIdea.trim() || generatingPost} onClick={() => handleGeneratePost(postIdea)}>
                   {generatingPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-4 h-4 mr-2" />Gerar Post</>)}
