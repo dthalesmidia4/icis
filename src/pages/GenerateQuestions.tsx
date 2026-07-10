@@ -577,6 +577,10 @@ export default function GenerateQuestions() {
                     </>
                   )}
                 </div>
+                <DropdownMenuItem onClick={handleManualSave} disabled={isManualSaving}>
+                  <Cloud className="w-4 h-4 mr-2" />
+                  Salvar Anamnese
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleClear}>
                   <Trash2 className="w-4 h-4 mr-2" />
                   Limpar Tudo
