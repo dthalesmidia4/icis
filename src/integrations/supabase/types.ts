@@ -986,6 +986,7 @@ export type Database = {
           created_at: string
           default_plan: Json
           final_plan: Json | null
+          form_draft: Json | null
           id: string
           objective: string
           observations: string | null
@@ -1013,6 +1014,7 @@ export type Database = {
           created_at?: string
           default_plan?: Json
           final_plan?: Json | null
+          form_draft?: Json | null
           id?: string
           objective: string
           observations?: string | null
@@ -1040,6 +1042,7 @@ export type Database = {
           created_at?: string
           default_plan?: Json
           final_plan?: Json | null
+          form_draft?: Json | null
           id?: string
           objective?: string
           observations?: string | null
