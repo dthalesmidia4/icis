@@ -2192,7 +2192,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                     </Button>
                   ) : (
                     <Button className="h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 flex-1"
-                      disabled={carouselSlides.every(s => !s.text.trim()) || generatingCarouselImages} onClick={handleGenerateCarouselImages}>
+                      disabled={carouselSlides.every(s => !s.text.trim()) || generatingCarouselImages} onClick={() => handleGenerateCarouselImages()}>
                       {generatingCarouselImages ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-5 h-5 mr-2" />Gerar Imagens</>)}
                     </Button>
                   )}
