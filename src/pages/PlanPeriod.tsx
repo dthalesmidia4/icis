@@ -313,7 +313,7 @@ const PlanPeriod = () => {
             period_start: periodStart ? periodStart.toISOString().slice(0, 10) : null,
             period_end: periodEnd ? periodEnd.toISOString().slice(0, 10) : null,
             updated_at: new Date().toISOString(),
-          })
+          } as any)
           .eq('id', draftId)
           .eq('tenant_id', tenantId);
         if (error) throw error;
