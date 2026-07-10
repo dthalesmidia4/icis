@@ -1175,11 +1175,13 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     }
   };
 
-  const handleGeneratePost = async (idea: string, isManual: boolean = false) => {
+  const handleGeneratePost = async (idea: string, isManual: boolean = false, keepPrevious: boolean = false) => {
     const setGenerating = isManual ? setGeneratingManualPost : setGeneratingPost;
     const setImage = isManual ? setGeneratedManualPostImage : setGeneratedPostImage;
+    // Allow "Gerar novamente" to re-enable Finalizar for the new variation
+    setFinalizedKeys(prev => { const next = new Set(prev); next.delete(isManual ? 'manual-post' : 'ai-post'); return next; });
     setGenerating(true);
-    setImage(null);
+    if (!keepPrevious) setImage(null);
     try {
       const selectedMascotUrls = mascotImages
         .filter(m => selectedMascotIds.includes(m.id))
@@ -1215,9 +1217,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     finally { setGeneratingCarousel(false); }
   };
 
-  const handleGenerateCarouselImages = async () => {
+  const handleGenerateCarouselImages = async (keepPrevious: boolean = false) => {
+    setFinalizedKeys(prev => { const next = new Set(prev); next.delete('carousel'); return next; });
     setGeneratingCarouselImages(true);
-    setCarouselGeneratedImages([]);
+    if (!keepPrevious) setCarouselGeneratedImages([]);
     setCarouselImageProgress('Preparando geração...');
     try {
       const selectedMascotUrls = mascotImages.filter(m => selectedMascotIds.includes(m.id)).map(m => m.image_url);
@@ -1738,23 +1741,33 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
             <div className={`flex gap-3 mt-1 ${generatedPostImage ? '' : 'flex-col'}`}>
               {generatedPostImage ? (
-                <Button
-                  className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70"
-                  disabled={!lastPostContentId || creatingCardFor === 'ai-post' || finalizedKeys.has('ai-post')}
-                  onClick={() => handleCreateCardFromContent({
-                    key: 'ai-post',
-                    contentId: lastPostContentId,
-                    contentType: 'post',
-                    prompt: postIdea,
-                    imageUrls: [generatedPostImage],
-                  })}
-                >
-                  {creatingCardFor === 'ai-post'
-                    ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Finalizando...</>)
-                    : finalizedKeys.has('ai-post')
-                      ? (<><CheckSquare className="w-4 h-4 mr-2" />Finalizado</>)
-                      : (<><CheckSquare className="w-4 h-4 mr-2" />Finalizar</>)}
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    className="h-11 text-sm font-semibold flex-1"
+                    disabled={!postIdea.trim() || generatingPost || creatingCardFor === 'ai-post'}
+                    onClick={() => handleGeneratePost(postIdea, false, true)}
+                  >
+                    {generatingPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-4 h-4 mr-2" />Gerar novamente</>)}
+                  </Button>
+                  <Button
+                    className="h-11 text-sm font-semibold flex-1 bg-gradient-to-r from-primary to-primary/70"
+                    disabled={!lastPostContentId || creatingCardFor === 'ai-post' || finalizedKeys.has('ai-post') || generatingPost}
+                    onClick={() => handleCreateCardFromContent({
+                      key: 'ai-post',
+                      contentId: lastPostContentId,
+                      contentType: 'post',
+                      prompt: postIdea,
+                      imageUrls: [generatedPostImage],
+                    })}
+                  >
+                    {creatingCardFor === 'ai-post'
+                      ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Finalizando...</>)
+                      : finalizedKeys.has('ai-post')
+                        ? (<><CheckSquare className="w-4 h-4 mr-2" />Finalizado</>)
+                        : (<><CheckSquare className="w-4 h-4 mr-2" />Finalizar</>)}
+                  </Button>
+                </>
               ) : (
                 <Button className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70" disabled={!postIdea.trim() || generatingPost} onClick={() => handleGeneratePost(postIdea)}>
                   {generatingPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-4 h-4 mr-2" />Gerar Post</>)}
@@ -1839,23 +1852,33 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
             <div className={`flex gap-3 mt-1 ${generatedManualPostImage ? '' : 'flex-col'}`}>
               {generatedManualPostImage ? (
-                <Button
-                  className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70"
-                  disabled={!lastManualPostContentId || creatingCardFor === 'manual-post' || finalizedKeys.has('manual-post')}
-                  onClick={() => handleCreateCardFromContent({
-                    key: 'manual-post',
-                    contentId: lastManualPostContentId,
-                    contentType: 'post',
-                    prompt: manualPostText,
-                    imageUrls: [generatedManualPostImage],
-                  })}
-                >
-                  {creatingCardFor === 'manual-post'
-                    ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Finalizando...</>)
-                    : finalizedKeys.has('manual-post')
-                      ? (<><CheckSquare className="w-4 h-4 mr-2" />Finalizado</>)
-                      : (<><CheckSquare className="w-4 h-4 mr-2" />Finalizar</>)}
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    className="h-11 text-sm font-semibold flex-1"
+                    disabled={!manualPostText.trim() || generatingManualPost || creatingCardFor === 'manual-post'}
+                    onClick={() => handleGeneratePost(manualPostText, true, true)}
+                  >
+                    {generatingManualPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-4 h-4 mr-2" />Gerar novamente</>)}
+                  </Button>
+                  <Button
+                    className="h-11 text-sm font-semibold flex-1 bg-gradient-to-r from-primary to-primary/70"
+                    disabled={!lastManualPostContentId || creatingCardFor === 'manual-post' || finalizedKeys.has('manual-post') || generatingManualPost}
+                    onClick={() => handleCreateCardFromContent({
+                      key: 'manual-post',
+                      contentId: lastManualPostContentId,
+                      contentType: 'post',
+                      prompt: manualPostText,
+                      imageUrls: [generatedManualPostImage],
+                    })}
+                  >
+                    {creatingCardFor === 'manual-post'
+                      ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Finalizando...</>)
+                      : finalizedKeys.has('manual-post')
+                        ? (<><CheckSquare className="w-4 h-4 mr-2" />Finalizado</>)
+                        : (<><CheckSquare className="w-4 h-4 mr-2" />Finalizar</>)}
+                  </Button>
+                </>
               ) : (
                 <Button className="h-11 text-sm font-semibold w-full bg-gradient-to-r from-primary to-primary/70" disabled={!manualPostText.trim() || generatingManualPost} onClick={() => handleGeneratePost(manualPostText, true)}>
                   {generatingManualPost ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />Gerar Post</>)}
@@ -2167,29 +2190,39 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                     Voltar
                   </Button>
                   {carouselGeneratedImages.length > 0 ? (
-                    <Button
-                      className="h-12 text-base font-semibold flex-1 bg-gradient-to-r from-primary to-primary/70"
-                      disabled={!lastCarouselContentId || creatingCardFor === 'carousel' || finalizedKeys.has('carousel')}
-                      onClick={() => handleCreateCardFromContent({
-                        key: 'carousel',
-                        contentId: lastCarouselContentId,
-                        contentType: 'carousel',
-                        prompt: carouselIdea,
-                        imageUrls: carouselGeneratedImages
-                          .slice()
-                          .sort((a, b) => a.slideIndex - b.slideIndex)
-                          .map(i => i.imageUrl),
-                      })}
-                    >
-                      {creatingCardFor === 'carousel'
-                        ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Finalizando...</>)
-                        : finalizedKeys.has('carousel')
-                          ? (<><CheckSquare className="w-5 h-5 mr-2" />Finalizado</>)
-                          : (<><CheckSquare className="w-5 h-5 mr-2" />Finalizar</>)}
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        className="h-12 text-base font-semibold flex-1"
+                        disabled={carouselSlides.every(s => !s.text.trim()) || generatingCarouselImages || creatingCardFor === 'carousel'}
+                        onClick={() => handleGenerateCarouselImages(true)}
+                      >
+                        {generatingCarouselImages ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-5 h-5 mr-2" />Gerar novamente</>)}
+                      </Button>
+                      <Button
+                        className="h-12 text-base font-semibold flex-1 bg-gradient-to-r from-primary to-primary/70"
+                        disabled={!lastCarouselContentId || creatingCardFor === 'carousel' || finalizedKeys.has('carousel') || generatingCarouselImages}
+                        onClick={() => handleCreateCardFromContent({
+                          key: 'carousel',
+                          contentId: lastCarouselContentId,
+                          contentType: 'carousel',
+                          prompt: carouselIdea,
+                          imageUrls: carouselGeneratedImages
+                            .slice()
+                            .sort((a, b) => a.slideIndex - b.slideIndex)
+                            .map(i => i.imageUrl),
+                        })}
+                      >
+                        {creatingCardFor === 'carousel'
+                          ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Finalizando...</>)
+                          : finalizedKeys.has('carousel')
+                            ? (<><CheckSquare className="w-5 h-5 mr-2" />Finalizado</>)
+                            : (<><CheckSquare className="w-5 h-5 mr-2" />Finalizar</>)}
+                      </Button>
+                    </>
                   ) : (
                     <Button className="h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 flex-1"
-                      disabled={carouselSlides.every(s => !s.text.trim()) || generatingCarouselImages} onClick={handleGenerateCarouselImages}>
+                      disabled={carouselSlides.every(s => !s.text.trim()) || generatingCarouselImages} onClick={() => handleGenerateCarouselImages()}>
                       {generatingCarouselImages ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-5 h-5 mr-2" />Gerar Imagens</>)}
                     </Button>
                   )}
