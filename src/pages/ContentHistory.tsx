@@ -52,7 +52,7 @@ const ContentHistory = () => {
   const { tenantId } = useTenant();
   const [contents, setContents] = useState<GeneratedContent[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
-  const [filterClientId, setFilterClientId] = useState<string>("all");
+  const [filterClientId, setFilterClientId] = useState<string>(selectedClient?.id ?? "all");
   const [loading, setLoading] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewContent, setPreviewContent] = useState<GeneratedContent | null>(null);
