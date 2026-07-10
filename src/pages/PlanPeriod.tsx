@@ -324,11 +324,12 @@ const PlanPeriod = () => {
             tenant_id: tenantId,
             company_id: selectedClient.id,
             status: 'draft',
+            objective: 'Rascunho',
             period_title: periodTitle || 'Rascunho',
             period_start: periodStart ? periodStart.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
             period_end: periodEnd ? periodEnd.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
             form_draft: payload,
-          })
+          } as any)
           .select('id')
           .single();
         if (error) throw error;
