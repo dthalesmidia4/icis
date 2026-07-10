@@ -1975,7 +1975,22 @@ const PlanPeriod = () => {
     }] : []} rightContent={currentStep === 'completed' ? <Badge variant="outline" className="text-xs">Concluído</Badge> : null} />
 
     <div className="container max-w-6xl mx-auto px-6 py-8">
-      {currentStep === 'form' && (activeTab === 'history' ? renderHistory() : renderForm())}
+      {currentStep === 'form' && activeTab === 'new' && hasVisualIdentity === false ? (
+        <Card className="p-8 text-center max-w-xl mx-auto">
+          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-6 h-6 text-primary" />
+          </div>
+          <h2 className="text-xl font-bold mb-2">Configure a Identidade Visual primeiro</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            Para planejar um período, o cliente precisa ter uma Identidade Visual salva (cores, tipografia, logo).
+          </p>
+          <Button onClick={() => navigate('/client-hub')} className="bg-gradient-to-r from-primary to-primary/70">
+            Ir para o Hub do Cliente
+          </Button>
+        </Card>
+      ) : (
+        currentStep === 'form' && (activeTab === 'history' ? renderHistory() : renderForm())
+      )}
 
       {currentStep === 'loading-normal' && renderLoading(loadingMessage)}
       {currentStep === 'loading-ultra' && renderLoading(loadingMessage)}
