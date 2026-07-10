@@ -2190,26 +2190,36 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                     Voltar
                   </Button>
                   {carouselGeneratedImages.length > 0 ? (
-                    <Button
-                      className="h-12 text-base font-semibold flex-1 bg-gradient-to-r from-primary to-primary/70"
-                      disabled={!lastCarouselContentId || creatingCardFor === 'carousel' || finalizedKeys.has('carousel')}
-                      onClick={() => handleCreateCardFromContent({
-                        key: 'carousel',
-                        contentId: lastCarouselContentId,
-                        contentType: 'carousel',
-                        prompt: carouselIdea,
-                        imageUrls: carouselGeneratedImages
-                          .slice()
-                          .sort((a, b) => a.slideIndex - b.slideIndex)
-                          .map(i => i.imageUrl),
-                      })}
-                    >
-                      {creatingCardFor === 'carousel'
-                        ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Finalizando...</>)
-                        : finalizedKeys.has('carousel')
-                          ? (<><CheckSquare className="w-5 h-5 mr-2" />Finalizado</>)
-                          : (<><CheckSquare className="w-5 h-5 mr-2" />Finalizar</>)}
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        className="h-12 text-base font-semibold flex-1"
+                        disabled={carouselSlides.every(s => !s.text.trim()) || generatingCarouselImages || creatingCardFor === 'carousel'}
+                        onClick={() => handleGenerateCarouselImages(true)}
+                      >
+                        {generatingCarouselImages ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Gerando...</>) : (<><Sparkles className="w-5 h-5 mr-2" />Gerar novamente</>)}
+                      </Button>
+                      <Button
+                        className="h-12 text-base font-semibold flex-1 bg-gradient-to-r from-primary to-primary/70"
+                        disabled={!lastCarouselContentId || creatingCardFor === 'carousel' || finalizedKeys.has('carousel') || generatingCarouselImages}
+                        onClick={() => handleCreateCardFromContent({
+                          key: 'carousel',
+                          contentId: lastCarouselContentId,
+                          contentType: 'carousel',
+                          prompt: carouselIdea,
+                          imageUrls: carouselGeneratedImages
+                            .slice()
+                            .sort((a, b) => a.slideIndex - b.slideIndex)
+                            .map(i => i.imageUrl),
+                        })}
+                      >
+                        {creatingCardFor === 'carousel'
+                          ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Finalizando...</>)
+                          : finalizedKeys.has('carousel')
+                            ? (<><CheckSquare className="w-5 h-5 mr-2" />Finalizado</>)
+                            : (<><CheckSquare className="w-5 h-5 mr-2" />Finalizar</>)}
+                      </Button>
+                    </>
                   ) : (
                     <Button className="h-12 text-base font-semibold bg-gradient-to-r from-primary to-primary/70 flex-1"
                       disabled={carouselSlides.every(s => !s.text.trim()) || generatingCarouselImages} onClick={() => handleGenerateCarouselImages()}>
