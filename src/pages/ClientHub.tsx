@@ -2266,7 +2266,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
 
 
-        <VisualIdentityModal open={visualIdentityModalOpen} onOpenChange={setVisualIdentityModalOpen} companyId={selectedClient?.id || ''} companyName={selectedClient?.fantasy_name || selectedClient?.name || ''} tenantId={tenantId || ''} />
+        <VisualIdentityModal open={visualIdentityModalOpen} onOpenChange={(open) => { setVisualIdentityModalOpen(open); if (!open) refetchPresets(); }} companyId={selectedClient?.id || ''} companyName={selectedClient?.fantasy_name || selectedClient?.name || ''} tenantId={tenantId || ''} />
 
         {/* Modal Vídeo - Storyboard */}
         <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) { setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); setVideoAspectRatio('9:16'); setSelectedMascotIds([]); setVideoStep(1); setVideoScenes([]); setVideoPreviewIndex(0); } }}>
