@@ -480,7 +480,7 @@ export default function TaskCard({
     try {
       // Card Diário: opção (b) — mantém colaborador/função; só finaliza na última ocorrência
       if (card.is_daily_card && !isDraft) {
-        const occ = await completeDailyOccurrence(card.id);
+        const occ = await completeDailyOccurrence(card.id) as any;
         if (!occ.success) {
           toast.error(occ.message);
           return;
