@@ -296,9 +296,13 @@ const KanbanCentralPage = () => {
             };
           })
         );
-        setSelectedCard(prev => 
-          prev && prev.id === demandId ? { ...prev, status: newStatusName, title: payload.title ?? prev.title } : prev
-        );
+        setSelectedCard(prev => {
+          if (prev && prev.id === demandId) {
+            sonnerToast.info("Este card foi atualizado por outro usuário.", { id: `rt-updated-${demandId}` });
+            return { ...prev, status: newStatusName, title: payload.title ?? prev.title };
+          }
+          return prev;
+        });
       }
       
       return currentColumns; // Don't change columns
