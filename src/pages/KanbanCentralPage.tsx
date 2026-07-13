@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
+import { useRealtimeDemandFlowHistory, useRealtimeFlowConfig } from "@/hooks/realtime";
 import { useColumnPermissions } from "@/hooks/useColumnPermissions";
 import TaskCard, { getColumnFromStatus, getStatusFromColumn } from "@/components/TaskCard";
 import type { KanbanCardData, Attachment } from "@/components/TaskCard";
