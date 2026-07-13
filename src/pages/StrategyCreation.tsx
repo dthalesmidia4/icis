@@ -301,7 +301,7 @@ export default function StrategyCreation() {
                     id="strategy"
                     placeholder="Exemplo:&#10;## Objetivos&#10;Aumentar presença digital através de conteúdo educativo nas redes sociais...&#10;&#10;## Público-Alvo&#10;Profissionais de 25-45 anos interessados em tecnologia..."
                     value={strategyText}
-                    onChange={e => setStrategyText(e.target.value)}
+                    onChange={e => { dirtyRef.current = true; setStrategyText(e.target.value); }}
                     className="min-h-[300px] resize-y"
                   />
                 </div>
