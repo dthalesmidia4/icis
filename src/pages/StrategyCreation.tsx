@@ -76,6 +76,48 @@ export default function StrategyCreation() {
     }
   };
 
+  useRealtimeStrategies({
+    tenantId,
+    companyId: selectedClient?.id ?? null,
+    enabled: !!(selectedClient?.id && tenantId),
+    onChange: (event) => {
+      const row = event.new || event.old;
+      if (!row) return;
+      if (event.type === 'DELETE') {
+        if (existingStrategy && row.id === existingStrategy.id) {
+          setExistingStrategy(null);
+          setStrategyText('');
+          lastSavedTextRef.current = '';
+          dirtyRef.current = false;
+          setIsEditMode(true);
+        }
+        return;
+      }
+      const incomingText = (row.strategy_text as string) || '';
+      if (incomingText === lastSavedTextRef.current) return;
+      if (!isEditMode || !dirtyRef.current) {
+        setExistingStrategy(row);
+        setStrategyText(incomingText);
+        lastSavedTextRef.current = incomingText;
+        dirtyRef.current = false;
+      } else {
+        toast.info('A estratégia foi atualizada em outra aba.', {
+          action: {
+            label: 'Recarregar',
+            onClick: () => {
+              setExistingStrategy(row);
+              setStrategyText(incomingText);
+              lastSavedTextRef.current = incomingText;
+              dirtyRef.current = false;
+              setIsEditMode(false);
+            },
+          },
+          duration: 10000,
+        });
+      }
+    },
+  });
+
   const handleSave = async () => {
     if (!strategyText.trim()) {
       toast.error('Por favor, descreva a estratégia');
