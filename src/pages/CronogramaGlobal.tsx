@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
+import { useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 
 interface CompanyOption {
   id: string;
