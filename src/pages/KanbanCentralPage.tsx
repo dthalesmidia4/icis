@@ -1201,6 +1201,18 @@ const KanbanCentralPage = () => {
       if (selectedCard.post_caption) extra.post_caption = selectedCard.post_caption;
       if (selectedCard.assigned_to) extra.assigned_to = selectedCard.assigned_to;
       if (selectedCard.additional_publish_dates?.length) extra.additional_publish_dates = selectedCard.additional_publish_dates;
+      if ((selectedCard as any).is_daily_card) {
+        extra.is_daily_card = true;
+        extra.daily_start_date = (selectedCard as any).daily_start_date ?? null;
+        extra.daily_end_date = (selectedCard as any).daily_end_date ?? null;
+        extra.daily_time = (selectedCard as any).daily_time ?? null;
+        extra.daily_exclude_weekends = (selectedCard as any).daily_exclude_weekends ?? true;
+        extra.daily_exclude_holidays = (selectedCard as any).daily_exclude_holidays ?? true;
+        extra.daily_next_date = (selectedCard as any).daily_next_date ?? null;
+        extra.daily_total_occurrences = (selectedCard as any).daily_total_occurrences ?? null;
+        extra.daily_completed_occurrences = 0;
+        extra.daily_completed_dates = [];
+      }
 
       await supabase.from("demands").update(extra).eq("id", result.demand_id);
 
