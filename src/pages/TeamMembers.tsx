@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAgency } from '@/contexts/AgencyContext';
+import { useRealtimeFlowConfig, useDebouncedCallback } from '@/hooks/realtime';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -65,6 +66,29 @@ export default function TeamMembers() {
       loadColumns();
     }
   }, [agencyId, agencyLoading]);
+
+  const debouncedReload = useDebouncedCallback(() => {
+    if (!agencyId) return;
+    loadMembers();
+    if (selectedMember) loadMemberPermissions(selectedMember.id);
+  }, 300);
+
+  useRealtimeFlowConfig({
+    tenantId: agencyId ?? null,
+    enabled: !!agencyId,
+    onChange: () => debouncedReload(),
+  });
+
+  // Realtime para profiles/user_roles do tenant
+  useEffect(() => {
+    if (!agencyId) return;
+    const channel = supabase
+      .channel(`rt-team-members-${agencyId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_roles', filter: `tenant_id=eq.${agencyId}` }, () => debouncedReload())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => debouncedReload())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [agencyId]);
 
   const loadMembers = async () => {
     if (!agencyId) return;
