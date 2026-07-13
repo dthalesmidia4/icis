@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
+import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 
 interface PeriodData {
   id: string;
@@ -83,6 +84,23 @@ const ApproveCards = () => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isInitialized]);
+
+  const debouncedRefetch = useDebouncedCallback(() => {
+    fetchData();
+  }, 250);
+
+  useRealtimePeriodPlans({
+    tenantId,
+    clientId: selectedClient?.id ?? null,
+    onChange: () => debouncedRefetch(),
+    enabled: !!tenantId && !!selectedClient?.id,
+  });
+  useRealtimeDemands({
+    tenantId,
+    clientId: selectedClient?.id ?? null,
+    onChange: () => debouncedRefetch(),
+    enabled: !!tenantId && !!selectedClient?.id,
+  });
 
   // No longer using localStorage for period persistence - always show most recent period with plans
 

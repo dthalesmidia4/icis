@@ -7,6 +7,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
+import { useRealtimePeriodPlans, useDebouncedCallback } from "@/hooks/realtime";
 import { Sparkles, Zap, Check, X, Package, History, Plus, Calendar as CalendarIcon, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Instagram, Facebook, Youtube, Linkedin, ChevronDown, TrendingUp, CheckSquare, Rocket, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -424,83 +425,101 @@ const PlanPeriod = () => {
 
 
   // Fetch period history and check for incomplete periods
-  useEffect(() => {
-    const fetchHistory = async () => {
-      if (!selectedClient || !tenantId) return;
-      setLoadingHistory(true);
-      try {
-        const { data, error } = await supabase.from('period_plans').select('id, period_title, period_start, period_end, objective, priority_channel, primary_mode, status, operational_status, created_at, final_plan, default_plan, ultra_plan').eq('company_id', selectedClient.id).eq('tenant_id', tenantId).order('created_at', { ascending: false });
-        if (error) throw error;
-        const historyData = data as unknown as PeriodPlanHistory[] || [];
-        setPeriodHistory(historyData);
+  const fetchHistory = useCallback(async () => {
+    if (!selectedClient || !tenantId) return;
+    setLoadingHistory(true);
+    try {
+      const { data, error } = await supabase.from('period_plans').select('id, period_title, period_start, period_end, objective, priority_channel, primary_mode, status, operational_status, created_at, final_plan, default_plan, ultra_plan').eq('company_id', selectedClient.id).eq('tenant_id', tenantId).order('created_at', { ascending: false });
+      if (error) throw error;
+      const historyData = data as unknown as PeriodPlanHistory[] || [];
+      setPeriodHistory(historyData);
 
-        // Check for incomplete periods.
-        // Includes anything that's mid-flight OR a draft/error that already has
-        // partial demands persisted from an early save (so users can resume).
-        const incomplete = historyData.find(p => {
-          const recoverableStatus = p.status === 'generating_default' || p.status === 'generating_ultra';
-          const hasPartial = Array.isArray(p.default_plan) && p.default_plan.length > 0
-            && (!Array.isArray(p.final_plan) || p.final_plan.length === 0);
-          const stuckDraft = (p.status === 'draft' || p.status === 'error') && hasPartial;
-          return recoverableStatus || stuckDraft;
-        });
-        if (incomplete) {
-          setIncompletePeriod(incomplete);
-        }
-
-        // Fetch demand metrics for all periods + all client demands
-        if (historyData.length > 0) {
-          setLoadingMetrics(true);
-          const periodIds = historyData.map(p => p.id);
-          
-          // Fetch all demands for the client (period-linked AND unlinked)
-          const { data: demandsData, error: demandsError } = await supabase
-            .from('demands')
-            .select(`
-              id, title, period_plan_id, channel, demand_type, demand_type_key, current_function_key, publish_date, publish_time, delivery_date, due_date, created_at, assigned_to, source, objective, instructions,
-              pipeline_statuses!demands_status_id_fkey (
-                name, is_final, color
-              )
-            `)
-            .eq('tenant_id', tenantId)
-            .eq('client_id', selectedClient.id)
-            .is('archived_at', null);
-
-          if (!demandsError && demandsData) {
-            const metrics: Record<string, { total: number; published: number; demands: any[] }> = {};
-            demandsData.forEach(d => {
-              // Group by period_plan_id for period metrics
-              if (d.period_plan_id && periodIds.includes(d.period_plan_id)) {
-                if (!metrics[d.period_plan_id]) {
-                  metrics[d.period_plan_id] = { total: 0, published: 0, demands: [] };
-                }
-                metrics[d.period_plan_id].total++;
-                metrics[d.period_plan_id].demands.push(d);
-                if (d.pipeline_statuses?.is_final) {
-                  metrics[d.period_plan_id].published++;
-                }
-              }
-            });
-            
-            // Store ALL client demands under a special key for the latest view
-            metrics['__all_client__'] = {
-              total: demandsData.length,
-              published: demandsData.filter(d => d.pipeline_statuses?.is_final).length,
-              demands: demandsData
-            };
-            
-            setPeriodDemandMetrics(metrics);
-          }
-          setLoadingMetrics(false);
-        }
-      } catch (error) {
-        console.error('Error fetching period history:', error);
-      } finally {
-        setLoadingHistory(false);
+      const incomplete = historyData.find(p => {
+        const recoverableStatus = p.status === 'generating_default' || p.status === 'generating_ultra';
+        const hasPartial = Array.isArray(p.default_plan) && p.default_plan.length > 0
+          && (!Array.isArray(p.final_plan) || p.final_plan.length === 0);
+        const stuckDraft = (p.status === 'draft' || p.status === 'error') && hasPartial;
+        return recoverableStatus || stuckDraft;
+      });
+      if (incomplete) {
+        setIncompletePeriod(incomplete);
       }
-    };
-    fetchHistory();
+
+      if (historyData.length > 0) {
+        setLoadingMetrics(true);
+        const periodIds = historyData.map(p => p.id);
+        const { data: demandsData, error: demandsError } = await supabase
+          .from('demands')
+          .select(`
+            id, title, period_plan_id, channel, demand_type, demand_type_key, current_function_key, publish_date, publish_time, delivery_date, due_date, created_at, assigned_to, source, objective, instructions,
+            pipeline_statuses!demands_status_id_fkey (
+              name, is_final, color
+            )
+          `)
+          .eq('tenant_id', tenantId)
+          .eq('client_id', selectedClient.id)
+          .is('archived_at', null);
+
+        if (!demandsError && demandsData) {
+          const metrics: Record<string, { total: number; published: number; demands: any[] }> = {};
+          demandsData.forEach(d => {
+            if (d.period_plan_id && periodIds.includes(d.period_plan_id)) {
+              if (!metrics[d.period_plan_id]) {
+                metrics[d.period_plan_id] = { total: 0, published: 0, demands: [] };
+              }
+              metrics[d.period_plan_id].total++;
+              metrics[d.period_plan_id].demands.push(d);
+              if (d.pipeline_statuses?.is_final) {
+                metrics[d.period_plan_id].published++;
+              }
+            }
+          });
+          metrics['__all_client__'] = {
+            total: demandsData.length,
+            published: demandsData.filter(d => d.pipeline_statuses?.is_final).length,
+            demands: demandsData
+          };
+          setPeriodDemandMetrics(metrics);
+        }
+        setLoadingMetrics(false);
+      }
+    } catch (error) {
+      console.error('Error fetching period history:', error);
+    } finally {
+      setLoadingHistory(false);
+    }
   }, [selectedClient, tenantId]);
+
+  useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+  // Realtime: refetch period history when server changes; warn if user is filling the form.
+  const isDirtyRef = useRef(false);
+  isDirtyRef.current = currentStep === 'form' && activeTab === 'new' && (
+    !!periodTitle || selectedChannels.length > 0 || objetivosSelecionados.length > 0
+  );
+  const reloadWarnedRef = useRef(false);
+  const debouncedFetchHistory = useDebouncedCallback(() => { fetchHistory(); }, 300);
+  useRealtimePeriodPlans({
+    tenantId,
+    clientId: selectedClient?.id ?? null,
+    onChange: () => {
+      if (isDirtyRef.current) {
+        if (!reloadWarnedRef.current) {
+          reloadWarnedRef.current = true;
+          toast.info('Este planejamento foi atualizado em outra aba. Recarregar dados?', {
+            action: {
+              label: 'Recarregar',
+              onClick: () => { reloadWarnedRef.current = false; fetchHistory(); },
+            },
+          });
+        }
+      } else {
+        debouncedFetchHistory();
+      }
+    },
+    enabled: !!tenantId && !!selectedClient?.id,
+  });
+
 
   // Auto-open latest period if view=latest
   useEffect(() => {

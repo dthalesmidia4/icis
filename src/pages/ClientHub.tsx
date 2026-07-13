@@ -12,6 +12,7 @@ import BackButton from "@/components/BackButton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { getPeriodDemandReviewCounts } from "@/lib/periodCounts";
+import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 import VisualIdentityModal from "@/components/VisualIdentityModal";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -1028,6 +1029,21 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     fetchRequirements();
   }, [selectedClient?.id, tenantId]);
 
+  const reloadReviewCounts = async () => {
+    if (!selectedClient || !tenantId) return;
+    try {
+      const counts = await getPeriodDemandReviewCounts({
+        tenantId,
+        clientId: selectedClient.id,
+      });
+      setApprovedCardsCount(counts.pendingApprovalCount);
+      setRejectedCardsCount(counts.rejectedCount);
+    } catch {
+      setApprovedCardsCount(0);
+      setRejectedCardsCount(0);
+    }
+  };
+
   useEffect(() => {
     // Sempre resetar antes de recarregar para não vazar contagem do cliente/período anterior.
     setApprovedCardsCount(0);
@@ -1051,6 +1067,23 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     })();
     return () => { cancelled = true; };
   }, [selectedClient?.id, tenantId]);
+
+  const debouncedReloadCounts = useDebouncedCallback(() => {
+    reloadReviewCounts();
+  }, 300);
+
+  useRealtimePeriodPlans({
+    tenantId,
+    clientId: selectedClient?.id ?? null,
+    onChange: () => debouncedReloadCounts(),
+    enabled: !!tenantId && !!selectedClient?.id,
+  });
+  useRealtimeDemands({
+    tenantId,
+    clientId: selectedClient?.id ?? null,
+    onChange: () => debouncedReloadCounts(),
+    enabled: !!tenantId && !!selectedClient?.id,
+  });
 
 
   // Handle opening content from history navigation state

@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
+import { useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 
 interface CompanyOption {
   id: string;
@@ -152,6 +153,14 @@ const CronogramaGlobal = () => {
   }, [tenantId, selectedId]);
 
   useEffect(() => { fetchDemands(); }, [fetchDemands]);
+
+  const debouncedRefetch = useDebouncedCallback(() => { fetchDemands(); }, 250);
+  useRealtimeDemands({
+    tenantId,
+    clientId: selectedId || null,
+    onChange: () => debouncedRefetch(),
+    enabled: !!tenantId && !!selectedId,
+  });
 
   const handleSelect = (id: string) => {
     setSelectedId(id);

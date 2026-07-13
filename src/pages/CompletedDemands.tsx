@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
+import { useRealtimeDemands, useRealtimePeriodPlans, useDebouncedCallback } from "@/hooks/realtime";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
@@ -40,6 +41,21 @@ const CompletedDemands = () => {
   useRealtimeAttachments({
     tenantId,
     onAttachmentUpdate: handleRealtimeUpdate,
+    enabled: !!tenantId,
+  });
+
+  const debouncedRefetch = useDebouncedCallback(() => {
+    fetchDataRef.current?.();
+  }, 250);
+
+  useRealtimeDemands({
+    tenantId,
+    onChange: () => debouncedRefetch(),
+    enabled: !!tenantId,
+  });
+  useRealtimePeriodPlans({
+    tenantId,
+    onChange: () => debouncedRefetch(),
     enabled: !!tenantId,
   });
 
@@ -147,6 +163,9 @@ const CompletedDemands = () => {
       setLoading(false);
     }
   }, [tenantId]);
+
+  const fetchDataRef = useRef(fetchData);
+  useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
 
   useEffect(() => {
     if (!tenantLoading && tenantId) fetchData();
