@@ -1176,8 +1176,142 @@ const PlanPeriod = () => {
     </Dialog>
 
     <div className="space-y-4 sm:space-y-6">
+      {/* Preenchimento por voz */}
+      {tenantId && selectedClient && (
+        <VoiceFillPanel
+          formType="period_planning"
+          tenantId={tenantId}
+          clientId={selectedClient.id}
+          fields={PERIOD_PLANNING_FIELDS}
+          currentValues={{
+            periodTitle,
+            periodStart: periodStart?.toISOString().slice(0, 10),
+            periodEnd: periodEnd?.toISOString().slice(0, 10),
+            selectedChannels,
+            objetivosSelecionados,
+            objetivoOutro,
+            metaNumerica,
+            porqueObjetivo,
+            produtoFoco,
+            temPromocao,
+            promocaoDescricao,
+            comoComprar,
+            temDataComemorativa,
+            dataComemorativaDescricao,
+            temNovidade,
+            novidadeDescricao,
+            disponibilidadeVideo,
+            temMateriaisNovos,
+            materiaisNovosDescricao,
+            quantidadeConteudos,
+            observations,
+          }}
+          onApply={(applied: AppliedField[]) => {
+            const appendStr = (prev: string, next: string) =>
+              prev.trim() ? `${prev}\n\n${next}` : next;
+            for (const a of applied) {
+              const strat = a.strategy;
+              const v = a.value;
+              switch (a.key) {
+                case "periodTitle": {
+                  const s = String(v ?? "").trim();
+                  if (!s) break;
+                  setPeriodTitle((prev) => (strat === "append" && prev.trim() ? appendStr(prev, s) : s));
+                  break;
+                }
+                case "periodStart": {
+                  const d = normalizeDate(v);
+                  if (d) setPeriodStart(d);
+                  break;
+                }
+                case "periodEnd": {
+                  const d = normalizeDate(v);
+                  if (d) setPeriodEnd(d);
+                  break;
+                }
+                case "selectedChannels": {
+                  const arr = normalizeStringArray(v, CHANNEL_OPTIONS);
+                  if (arr.length === 0) break;
+                  setSelectedChannels((prev) =>
+                    strat === "append"
+                      ? Array.from(new Set([...prev, ...arr]))
+                      : arr
+                  );
+                  break;
+                }
+                case "objetivosSelecionados": {
+                  const arr = normalizeStringArray(v, OBJETIVO_OPTIONS);
+                  if (arr.length === 0) break;
+                  setObjetivosSelecionados((prev) =>
+                    strat === "append"
+                      ? Array.from(new Set([...prev, ...arr]))
+                      : arr
+                  );
+                  break;
+                }
+                case "objetivoOutro":
+                case "metaNumerica":
+                case "porqueObjetivo":
+                case "produtoFoco":
+                case "promocaoDescricao":
+                case "comoComprar":
+                case "dataComemorativaDescricao":
+                case "novidadeDescricao":
+                case "materiaisNovosDescricao":
+                case "observations": {
+                  const s = String(v ?? "").trim();
+                  if (!s) break;
+                  const setters: Record<string, (fn: (p: string) => string) => void> = {
+                    objetivoOutro: setObjetivoOutro,
+                    metaNumerica: setMetaNumerica,
+                    porqueObjetivo: setPorqueObjetivo,
+                    produtoFoco: setProdutoFoco,
+                    promocaoDescricao: setPromocaoDescricao,
+                    comoComprar: setComoComprar,
+                    dataComemorativaDescricao: setDataComemorativaDescricao,
+                    novidadeDescricao: setNovidadeDescricao,
+                    materiaisNovosDescricao: setMateriaisNovosDescricao,
+                    observations: setObservations,
+                  };
+                  setters[a.key]?.((prev) =>
+                    strat === "append" && prev.trim() ? appendStr(prev, s) : s
+                  );
+                  break;
+                }
+                case "temPromocao":
+                case "temDataComemorativa":
+                case "temNovidade":
+                case "temMateriaisNovos": {
+                  const b = normalizeBooleanSimNao(v);
+                  if (!b) break;
+                  const setters: Record<string, (v: "sim" | "nao") => void> = {
+                    temPromocao: setTemPromocao,
+                    temDataComemorativa: setTemDataComemorativa,
+                    temNovidade: setTemNovidade,
+                    temMateriaisNovos: setTemMateriaisNovos,
+                  };
+                  setters[a.key]?.(b);
+                  break;
+                }
+                case "disponibilidadeVideo": {
+                  const d = normalizeDisponibilidadeVideo(v);
+                  if (d) setDisponibilidadeVideo(d);
+                  break;
+                }
+                case "quantidadeConteudos": {
+                  const n = normalizeNumber(v);
+                  if (n != null) setQuantidadeConteudos(Math.max(1, Math.min(50, Math.round(n))));
+                  break;
+                }
+              }
+            }
+          }}
+        />
+      )}
+
       {/* Period Info */}
       <Card className="p-4 sm:p-6">
+
         <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center gap-2">
           <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
           Informações do Período
