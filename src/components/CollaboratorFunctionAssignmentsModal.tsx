@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { useRealtimeFlowConfig } from "@/hooks/realtime";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
@@ -56,6 +57,18 @@ export function CollaboratorFunctionAssignmentsModal({ open, onOpenChange }: Pro
   useEffect(() => {
     if (open && agencyId) load(agencyId);
   }, [open, agencyId]);
+
+  const savingRef = useRef<string | null>(null);
+  useEffect(() => { savingRef.current = saving; }, [saving]);
+
+  useRealtimeFlowConfig({
+    tenantId: agencyId ?? null,
+    enabled: open && !!agencyId,
+    onChange: () => {
+      if (savingRef.current) return;
+      if (agencyId) load(agencyId);
+    },
+  });
 
   const toggle = async (userId: string, functionKey: string) => {
     if (!agencyId) return;
