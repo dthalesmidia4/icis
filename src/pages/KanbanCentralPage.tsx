@@ -204,6 +204,8 @@ const KanbanCentralPage = () => {
     if (selectedStatusFilter !== "all") {
       baseCards = baseCards.filter(card => card.status === selectedStatusFilter);
     }
+    // Ocultar cards diários cuja próxima ocorrência ainda não chegou
+    baseCards = baseCards.filter(card => isDailyCardVisibleNow(card as any));
     return baseCards;
   }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter]);
 
