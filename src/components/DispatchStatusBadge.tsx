@@ -3,6 +3,8 @@ import { Loader2, CheckCircle2, AlertCircle, Clock, RotateCw } from "lucide-reac
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { useRealtimeScheduledDispatches } from "@/hooks/realtime";
+import { useTenant } from "@/contexts/TenantContext";
 
 type DispatchStatus = "scheduled" | "dispatching" | "published" | "failed";
 
@@ -19,6 +21,7 @@ interface Props {
 }
 
 const DispatchStatusBadge = ({ cardId, className }: Props) => {
+  const { tenantId } = useTenant();
   const [dispatch, setDispatch] = useState<DispatchRow | null>(null);
   const [retrying, setRetrying] = useState(false);
 
@@ -35,20 +38,20 @@ const DispatchStatusBadge = ({ cardId, className }: Props) => {
 
   useEffect(() => {
     fetchLatest();
-    const channel = supabase
-      .channel(`dispatch-${cardId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "scheduled_publication_dispatches", filter: `card_id=eq.${cardId}` },
-        () => fetchLatest()
-      )
-      .subscribe();
-    const interval = setInterval(fetchLatest, 15000);
+    // Fallback polling reduzido — realtime é a fonte principal
+    const interval = setInterval(fetchLatest, 60000);
     return () => {
-      supabase.removeChannel(channel);
       clearInterval(interval);
     };
   }, [cardId, fetchLatest]);
+
+  // Realtime principal: atualiza apenas quando dispatches deste card mudarem
+  useRealtimeScheduledDispatches({
+    tenantId,
+    cardId,
+    enabled: !!tenantId && !!cardId,
+    onChange: () => fetchLatest(),
+  });
 
   if (!dispatch) return null;
 
