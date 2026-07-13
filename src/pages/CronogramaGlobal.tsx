@@ -154,6 +154,14 @@ const CronogramaGlobal = () => {
 
   useEffect(() => { fetchDemands(); }, [fetchDemands]);
 
+  const debouncedRefetch = useDebouncedCallback(() => { fetchDemands(); }, 250);
+  useRealtimeDemands({
+    tenantId,
+    clientId: selectedId || null,
+    onChange: () => debouncedRefetch(),
+    enabled: !!tenantId && !!selectedId,
+  });
+
   const handleSelect = (id: string) => {
     setSelectedId(id);
     const c = companies.find((x) => x.id === id);
