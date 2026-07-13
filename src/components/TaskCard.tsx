@@ -110,6 +110,17 @@ export interface KanbanCardData {
   demand_type_key?: string | null;
   assigned_to?: string | null;
   current_function_key?: string | null;
+  // Card Diário (recorrência)
+  is_daily_card?: boolean;
+  daily_start_date?: string | null;
+  daily_end_date?: string | null;
+  daily_time?: string | null;
+  daily_exclude_weekends?: boolean;
+  daily_exclude_holidays?: boolean;
+  daily_next_date?: string | null;
+  daily_total_occurrences?: number | null;
+  daily_completed_occurrences?: number;
+  daily_completed_dates?: string[];
   // Computed/display fields (not in DB)
   clientId?: string;
   clientName?: string;
