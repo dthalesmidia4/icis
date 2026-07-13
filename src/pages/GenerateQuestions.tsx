@@ -500,6 +500,29 @@ export default function GenerateQuestions() {
     }
   };
 
+  const voiceFields = [
+    ...getAnamnesisIndexedFields(allQuestions.map((q) => q.question)),
+    ...ANAMNESIS_GUIDELINE_FIELDS,
+  ];
+
+  const handleVoiceApply = (applied: AppliedField[]) => {
+    dirtyRef.current = true;
+    setAnswers((prev) => {
+      const next = { ...prev };
+      for (const a of applied) {
+        const newVal = typeof a.value === "string" ? a.value : String(a.value ?? "");
+        if (!newVal.trim()) continue;
+        const existing = next[a.key] || "";
+        if (a.strategy === "append" && existing.trim()) {
+          next[a.key] = `${existing}\n\n${newVal}`;
+        } else {
+          next[a.key] = newVal;
+        }
+      }
+      return next;
+    });
+  };
+
   // Realtime — sincroniza anamnese salva em outra aba
   useRealtimeQuestionSessions({
     tenantId,
