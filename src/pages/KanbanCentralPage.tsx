@@ -1856,6 +1856,10 @@ const KanbanCentralPage = () => {
                                       cardId={card.id}
                                       statusName={card.status}
                                       statusColor={(card as any).status_color}
+                                      isDailyCard={(card as any).is_daily_card}
+                                      dailyCompleted={(card as any).daily_completed_occurrences}
+                                      dailyTotal={(card as any).daily_total_occurrences}
+                                      dailyNextDate={(card as any).daily_next_date}
                                       onClick={() => handleCardClick(card)}
                                     />
                                   </div>
