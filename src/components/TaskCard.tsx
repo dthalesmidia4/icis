@@ -485,7 +485,7 @@ export default function TaskCard({
           toast.error(occ.message);
           return;
         }
-        if (occ.finished) {
+        if (occ.finished === true) {
           // Última ocorrência → segue com deliverDemand normal
           const result = await deliverDemand(card.id, pipelineId);
           if (result.success) {
@@ -506,10 +506,11 @@ export default function TaskCard({
           return;
         }
         // Não é a última → não arquiva; só oculta até a próxima data
-        toast.success(`Ocorrência entregue. Próxima: ${formatBRDate(occ.nextDate)}.`);
+        const nextDate = occ.nextDate;
+        toast.success(`Ocorrência entregue. Próxima: ${formatBRDate(nextDate)}.`);
         onCardChange({
           ...card,
-          daily_next_date: occ.nextDate,
+          daily_next_date: nextDate,
           daily_completed_occurrences: (card.daily_completed_occurrences || 0) + 1,
         } as any);
         onOpenChange(false);
