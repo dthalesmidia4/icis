@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, Edit2, Trash2, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
+import { useRealtimeStrategies } from '@/hooks/realtime';
 
 export default function StrategyCreation() {
   const navigate = useNavigate();
@@ -24,6 +25,8 @@ export default function StrategyCreation() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isLoadingStrategy, setIsLoadingStrategy] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const dirtyRef = useRef(false);
+  const lastSavedTextRef = useRef<string>('');
   
   useEffect(() => {
     if (!selectedClient) {
