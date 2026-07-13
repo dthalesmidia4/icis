@@ -411,7 +411,7 @@ const PlanPeriod = () => {
     if (typeof s.data_comemorativa_descricao === 'string') setDataComemorativaDescricao(s.data_comemorativa_descricao);
     if (s.tem_novidade === 'sim' || s.tem_novidade === 'nao') setTemNovidade(s.tem_novidade);
     if (typeof s.novidade_descricao === 'string') setNovidadeDescricao(s.novidade_descricao);
-    if (['sim', 'nao', 'talvez'].includes(s.disponibilidade_video)) setDisponibilidadeVideo(s.disponibilidade_video);
+    if (['sim', 'nao', 'parcial', 'talvez'].includes(s.disponibilidade_video)) setDisponibilidadeVideo(s.disponibilidade_video === 'talvez' ? 'parcial' : s.disponibilidade_video);
     if (s.tem_materiais_novos === 'sim' || s.tem_materiais_novos === 'nao') setTemMateriaisNovos(s.tem_materiais_novos);
     if (typeof s.materiais_novos_descricao === 'string') setMateriaisNovosDescricao(s.materiais_novos_descricao);
     if (typeof s.quantidade_conteudos === 'number' && s.quantidade_conteudos > 0) setQuantidadeConteudos(s.quantidade_conteudos);
