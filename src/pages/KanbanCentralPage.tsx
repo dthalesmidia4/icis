@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
+import { useRealtimeDemandFlowHistory, useRealtimeFlowConfig } from "@/hooks/realtime";
 import { useColumnPermissions } from "@/hooks/useColumnPermissions";
 import TaskCard, { getColumnFromStatus, getStatusFromColumn } from "@/components/TaskCard";
 import type { KanbanCardData, Attachment } from "@/components/TaskCard";
@@ -295,9 +296,13 @@ const KanbanCentralPage = () => {
             };
           })
         );
-        setSelectedCard(prev => 
-          prev && prev.id === demandId ? { ...prev, status: newStatusName, title: payload.title ?? prev.title } : prev
-        );
+        setSelectedCard(prev => {
+          if (prev && prev.id === demandId) {
+            sonnerToast.info("Este card foi atualizado por outro usuário.", { id: `rt-updated-${demandId}` });
+            return { ...prev, status: newStatusName, title: payload.title ?? prev.title };
+          }
+          return prev;
+        });
       }
       
       return currentColumns; // Don't change columns
@@ -668,20 +673,17 @@ const KanbanCentralPage = () => {
     if (viewMode === "history") fetchHistory();
   }, [viewMode, fetchHistory]);
 
-  useEffect(() => {
-    if (!tenantId || viewMode !== "history") return;
-    const channel = supabase
-      .channel("dfh-realtime")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "demand_flow_history", filter: `tenant_id=eq.${tenantId}` },
-        () => fetchHistory()
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [tenantId, viewMode, fetchHistory]);
+  useRealtimeDemandFlowHistory({
+    tenantId,
+    enabled: !!tenantId && viewMode === "history",
+    onInsert: () => fetchHistory(),
+  });
+
+  useRealtimeFlowConfig({
+    tenantId,
+    enabled: !!tenantId,
+    onChange: () => fetchColumns(),
+  });
 
   const handleDragEnd = async (result: any) => {
     if (!result.destination) return;

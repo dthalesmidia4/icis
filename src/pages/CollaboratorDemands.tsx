@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useCollaborators } from "@/hooks/useCollaborators";
 import { toast as sonnerToast } from "sonner";
 import BackButton from "@/components/BackButton";
+import { useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 
 import { getRoleLabel } from "@/lib/constants/roles";
 
@@ -118,6 +119,17 @@ const CollaboratorDemands = () => {
   useEffect(() => {
     if (!tenantLoading && tenantId && userId) fetchData();
   }, [tenantId, tenantLoading, userId, fetchData]);
+
+  const debouncedRefetch = useDebouncedCallback(() => {
+    if (tenantId && userId) fetchData();
+  }, 200);
+
+  useRealtimeDemands({
+    tenantId,
+    assignedTo: userId,
+    enabled: !!tenantId && !!userId,
+    onChange: () => debouncedRefetch(),
+  });
 
   type SortKey = "title" | "due_date" | "due_time" | "delivery_date" | "delivery_time" | "assigned";
   const [sortKey, setSortKey] = useState<SortKey>("due_date");
