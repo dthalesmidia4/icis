@@ -17,6 +17,8 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Tag } from "lucide-react";
 import { proceedDemand, regressDemand, deliverDemand, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, type DemandTypeKey } from "@/lib/proceedDemand";
+import { completeDailyOccurrence, formatBR as formatBRDate } from "@/lib/dailyCards";
+import { DailyCardSection } from "@/components/DailyCardSection";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { CalendarClock } from "lucide-react";
