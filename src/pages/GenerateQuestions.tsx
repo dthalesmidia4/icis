@@ -271,6 +271,7 @@ export default function GenerateQuestions() {
       if (data?.id) setSessionId(data.id);
     }
     setLastSaved(new Date());
+    dirtyRef.current = false;
   }, [selectedClient, tenantId, answers, sessionId]);
 
   // Auto-save silencioso
