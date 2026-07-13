@@ -31,6 +31,18 @@ import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { VoiceFillPanel } from "@/components/voice/VoiceFillPanel";
+import type { AppliedField } from "@/components/voice/VoiceReviewPanel";
+import {
+  PERIOD_PLANNING_FIELDS,
+  normalizeBooleanSimNao,
+  normalizeDisponibilidadeVideo,
+  normalizeDate,
+  normalizeStringArray,
+  normalizeNumber,
+  CHANNEL_OPTIONS,
+  OBJETIVO_OPTIONS,
+} from "@/lib/voiceFieldSchemas";
 
 interface PlanItem {
   titulo: string;
