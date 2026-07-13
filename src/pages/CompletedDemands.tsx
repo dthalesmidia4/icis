@@ -44,6 +44,21 @@ const CompletedDemands = () => {
     enabled: !!tenantId,
   });
 
+  const debouncedRefetch = useDebouncedCallback(() => {
+    fetchDataRef.current?.();
+  }, 250);
+
+  useRealtimeDemands({
+    tenantId,
+    onChange: () => debouncedRefetch(),
+    enabled: !!tenantId,
+  });
+  useRealtimePeriodPlans({
+    tenantId,
+    onChange: () => debouncedRefetch(),
+    enabled: !!tenantId,
+  });
+
   const fetchData = useCallback(async () => {
     if (!tenantId) return;
     setLoading(true);
