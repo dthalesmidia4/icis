@@ -12,6 +12,7 @@ import BackButton from "@/components/BackButton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { getPeriodDemandReviewCounts } from "@/lib/periodCounts";
+import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 import VisualIdentityModal from "@/components/VisualIdentityModal";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
