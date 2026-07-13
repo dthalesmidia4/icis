@@ -28,6 +28,7 @@ import type { KanbanCardData, Attachment } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { isDailyCardVisibleNow } from "@/lib/dailyCards";
 import SmartSearchBar from "@/components/SmartSearchBar";
 import { cn } from "@/lib/utils";
 import BackButton from "@/components/BackButton";
@@ -203,6 +204,8 @@ const KanbanCentralPage = () => {
     if (selectedStatusFilter !== "all") {
       baseCards = baseCards.filter(card => card.status === selectedStatusFilter);
     }
+    // Ocultar cards diários cuja próxima ocorrência ainda não chegou
+    baseCards = baseCards.filter(card => isDailyCardVisibleNow(card as any));
     return baseCards;
   }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter]);
 
@@ -597,8 +600,18 @@ const KanbanCentralPage = () => {
           current_function_key: demand.current_function_key ?? null,
           assigned_to: demand.assigned_to || null,
           status_color: demand.pipeline_statuses?.color || null,
-          additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates : []
-        };
+          additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates : [],
+          is_daily_card: !!demand.is_daily_card,
+          daily_start_date: demand.daily_start_date ?? null,
+          daily_end_date: demand.daily_end_date ?? null,
+          daily_time: demand.daily_time ?? null,
+          daily_exclude_weekends: demand.daily_exclude_weekends ?? true,
+          daily_exclude_holidays: demand.daily_exclude_holidays ?? true,
+          daily_next_date: demand.daily_next_date ?? null,
+          daily_total_occurrences: demand.daily_total_occurrences ?? null,
+          daily_completed_occurrences: demand.daily_completed_occurrences ?? 0,
+          daily_completed_dates: Array.isArray(demand.daily_completed_dates) ? demand.daily_completed_dates : [],
+        } as any;
       };
 
       const activeCards = (activeData || []).map(d => mapDemand(d, false));
@@ -1201,6 +1214,18 @@ const KanbanCentralPage = () => {
       if (selectedCard.post_caption) extra.post_caption = selectedCard.post_caption;
       if (selectedCard.assigned_to) extra.assigned_to = selectedCard.assigned_to;
       if (selectedCard.additional_publish_dates?.length) extra.additional_publish_dates = selectedCard.additional_publish_dates;
+      if ((selectedCard as any).is_daily_card) {
+        extra.is_daily_card = true;
+        extra.daily_start_date = (selectedCard as any).daily_start_date ?? null;
+        extra.daily_end_date = (selectedCard as any).daily_end_date ?? null;
+        extra.daily_time = (selectedCard as any).daily_time ?? null;
+        extra.daily_exclude_weekends = (selectedCard as any).daily_exclude_weekends ?? true;
+        extra.daily_exclude_holidays = (selectedCard as any).daily_exclude_holidays ?? true;
+        extra.daily_next_date = (selectedCard as any).daily_next_date ?? null;
+        extra.daily_total_occurrences = (selectedCard as any).daily_total_occurrences ?? null;
+        extra.daily_completed_occurrences = 0;
+        extra.daily_completed_dates = [];
+      }
 
       await supabase.from("demands").update(extra).eq("id", result.demand_id);
 
@@ -1763,6 +1788,10 @@ const KanbanCentralPage = () => {
                                             cardId={card.id}
                                             statusName={card.status}
                                             statusColor={card.status_color}
+                                            isDailyCard={(card as any).is_daily_card}
+                                            dailyCompleted={(card as any).daily_completed_occurrences}
+                                            dailyTotal={(card as any).daily_total_occurrences}
+                                            dailyNextDate={(card as any).daily_next_date}
                                             onClick={() => handleCardClick(card)}
                                           />
                                         </div>
@@ -1827,6 +1856,10 @@ const KanbanCentralPage = () => {
                                       cardId={card.id}
                                       statusName={card.status}
                                       statusColor={(card as any).status_color}
+                                      isDailyCard={(card as any).is_daily_card}
+                                      dailyCompleted={(card as any).daily_completed_occurrences}
+                                      dailyTotal={(card as any).daily_total_occurrences}
+                                      dailyNextDate={(card as any).daily_next_date}
                                       onClick={() => handleCardClick(card)}
                                     />
                                   </div>

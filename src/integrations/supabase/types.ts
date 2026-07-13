@@ -612,6 +612,15 @@ export type Database = {
           created_at: string
           created_by: string | null
           current_function_key: string | null
+          daily_completed_dates: Json
+          daily_completed_occurrences: number
+          daily_end_date: string | null
+          daily_exclude_holidays: boolean
+          daily_exclude_weekends: boolean
+          daily_next_date: string | null
+          daily_start_date: string | null
+          daily_time: string | null
+          daily_total_occurrences: number | null
           delivery_date: string | null
           delivery_time: string | null
           demand_type: string | null
@@ -621,6 +630,7 @@ export type Database = {
           due_time: string | null
           id: string
           instructions: string | null
+          is_daily_card: boolean
           is_draft: boolean
           objective: string | null
           observations: string | null
@@ -647,6 +657,15 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_function_key?: string | null
+          daily_completed_dates?: Json
+          daily_completed_occurrences?: number
+          daily_end_date?: string | null
+          daily_exclude_holidays?: boolean
+          daily_exclude_weekends?: boolean
+          daily_next_date?: string | null
+          daily_start_date?: string | null
+          daily_time?: string | null
+          daily_total_occurrences?: number | null
           delivery_date?: string | null
           delivery_time?: string | null
           demand_type?: string | null
@@ -656,6 +675,7 @@ export type Database = {
           due_time?: string | null
           id?: string
           instructions?: string | null
+          is_daily_card?: boolean
           is_draft?: boolean
           objective?: string | null
           observations?: string | null
@@ -682,6 +702,15 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           current_function_key?: string | null
+          daily_completed_dates?: Json
+          daily_completed_occurrences?: number
+          daily_end_date?: string | null
+          daily_exclude_holidays?: boolean
+          daily_exclude_weekends?: boolean
+          daily_next_date?: string | null
+          daily_start_date?: string | null
+          daily_time?: string | null
+          daily_total_occurrences?: number | null
           delivery_date?: string | null
           delivery_time?: string | null
           demand_type?: string | null
@@ -691,6 +720,7 @@ export type Database = {
           due_time?: string | null
           id?: string
           instructions?: string | null
+          is_daily_card?: boolean
           is_draft?: boolean
           objective?: string | null
           observations?: string | null

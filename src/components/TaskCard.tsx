@@ -17,6 +17,8 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Tag } from "lucide-react";
 import { proceedDemand, regressDemand, deliverDemand, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, type DemandTypeKey } from "@/lib/proceedDemand";
+import { completeDailyOccurrence, formatBR as formatBRDate } from "@/lib/dailyCards";
+import { DailyCardSection } from "@/components/DailyCardSection";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { CalendarClock } from "lucide-react";
@@ -110,6 +112,17 @@ export interface KanbanCardData {
   demand_type_key?: string | null;
   assigned_to?: string | null;
   current_function_key?: string | null;
+  // Card Diário (recorrência)
+  is_daily_card?: boolean;
+  daily_start_date?: string | null;
+  daily_end_date?: string | null;
+  daily_time?: string | null;
+  daily_exclude_weekends?: boolean;
+  daily_exclude_holidays?: boolean;
+  daily_next_date?: string | null;
+  daily_total_occurrences?: number | null;
+  daily_completed_occurrences?: number;
+  daily_completed_dates?: string[];
   // Computed/display fields (not in DB)
   clientId?: string;
   clientName?: string;
@@ -465,6 +478,45 @@ export default function TaskCard({
     }
     setDelivering(true);
     try {
+      // Card Diário: opção (b) — mantém colaborador/função; só finaliza na última ocorrência
+      if (card.is_daily_card && !isDraft) {
+        const occ = await completeDailyOccurrence(card.id) as any;
+        if (!occ.success) {
+          toast.error(occ.message);
+          return;
+        }
+        if (occ.finished === true) {
+          // Última ocorrência → segue com deliverDemand normal
+          const result = await deliverDemand(card.id, pipelineId);
+          if (result.success) {
+            toast.success("Card Diário finalizado — última ocorrência entregue.");
+            const doneStatus = pipelineStatuses.find(s => s.id === result.statusId);
+            onCardChange({
+              ...card,
+              status_id: result.statusId,
+              status: doneStatus?.name || card.status,
+              current_function_key: null,
+              assigned_to: null,
+              archived_at: new Date().toISOString(),
+            } as any);
+            onOpenChange(false);
+          } else {
+            toast.error(result.message);
+          }
+          return;
+        }
+        // Não é a última → não arquiva; só oculta até a próxima data
+        const nextDate = occ.nextDate;
+        toast.success(`Ocorrência entregue. Próxima: ${formatBRDate(nextDate)}.`);
+        onCardChange({
+          ...card,
+          daily_next_date: nextDate,
+          daily_completed_occurrences: (card.daily_completed_occurrences || 0) + 1,
+        } as any);
+        onOpenChange(false);
+        return;
+      }
+
       const result = await deliverDemand(card.id, pipelineId);
       if (result.success) {
         toast.success(result.message);
@@ -1446,6 +1498,47 @@ export default function TaskCard({
                     </div>
                   </div>
                 </div>
+
+                {/* Card Diário (recorrência) */}
+                {(isDraft || card.is_daily_card) && (
+                  <div className="mb-4">
+                    <DailyCardSection
+                      editable={isDraft || !!card.is_daily_card}
+                      values={{
+                        is_daily_card: !!card.is_daily_card,
+                        daily_start_date: card.daily_start_date ?? null,
+                        daily_end_date: card.daily_end_date ?? null,
+                        daily_time: card.daily_time ?? null,
+                        daily_exclude_weekends: card.daily_exclude_weekends ?? true,
+                        daily_exclude_holidays: card.daily_exclude_holidays ?? true,
+                        daily_next_date: card.daily_next_date ?? null,
+                        daily_total_occurrences: card.daily_total_occurrences ?? null,
+                        daily_completed_occurrences: card.daily_completed_occurrences ?? 0,
+                        daily_completed_dates: card.daily_completed_dates ?? [],
+                      }}
+                      onChange={async (v) => {
+                        const patch: any = { ...card, ...v };
+                        onCardChange(patch);
+                        // Persistir apenas para cards já existentes (não draft)
+                        if (!isDraft && card.id) {
+                          await supabase
+                            .from("demands")
+                            .update({
+                              is_daily_card: v.is_daily_card,
+                              daily_start_date: v.daily_start_date,
+                              daily_end_date: v.daily_end_date,
+                              daily_time: v.daily_time,
+                              daily_exclude_weekends: v.daily_exclude_weekends,
+                              daily_exclude_holidays: v.daily_exclude_holidays,
+                              daily_next_date: v.daily_next_date,
+                              daily_total_occurrences: v.daily_total_occurrences,
+                            } as any)
+                            .eq("id", card.id);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
 
                 {/* Painel expandido: Datas e Horários */}
                 <div className={cn(
