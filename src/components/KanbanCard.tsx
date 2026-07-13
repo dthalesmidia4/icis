@@ -65,19 +65,25 @@ const KanbanCard = ({
   emphasizeDelivery = false,
   showStartEndLabels = false,
   emphasizeStart = false,
+  isDailyCard = false,
+  dailyCompleted = 0,
+  dailyTotal = null,
+  dailyNextDate = null,
   onClick
 }: KanbanCardProps) => {
   const formattedDueDate = dueDate ? new Date(dueDate + 'T00:00:00').toLocaleDateString("pt-BR") : null;
   const formattedCardDeliveryDate = cardDeliveryDate ? new Date(cardDeliveryDate + 'T00:00:00').toLocaleDateString("pt-BR") : null;
   const formattedDueTime = dueTime ? dueTime.slice(0, 5) : null;
   const formattedDeliveryTime = deliveryTime ? deliveryTime.slice(0, 5) : null;
+  const formattedNextDaily = dailyNextDate ? new Date(dailyNextDate + 'T00:00:00').toLocaleDateString("pt-BR") : null;
 
   return (
     <Card
       className={cn(
         "mb-3 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-border/50",
         isDragging && "shadow-xl rotate-1 scale-105",
-        isOverdue && "bg-red-500/10 border-red-500/30 dark:bg-red-500/15 dark:border-red-500/40"
+        isOverdue && "bg-red-500/10 border-red-500/30 dark:bg-red-500/15 dark:border-red-500/40",
+        isDailyCard && "border-l-4 border-l-amber-500"
       )}
       onClick={onClick}
     >
@@ -91,6 +97,23 @@ const KanbanCard = ({
             >
               {subtitle}
             </span>
+          </div>
+        )}
+        {isDailyCard && (
+          <div className="mb-1.5 flex flex-wrap gap-1">
+            <Badge className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30">
+              Card Diário
+            </Badge>
+            {dailyTotal != null && (
+              <Badge variant="outline" className="text-[10px]">
+                Ocorrência {Math.min(dailyCompleted + 1, dailyTotal)} de {dailyTotal}
+              </Badge>
+            )}
+            {formattedNextDaily && (
+              <Badge variant="outline" className="text-[10px]">
+                Próx: {formattedNextDaily}
+              </Badge>
+            )}
           </div>
         )}
         {/* Tags visuais (tipo, status, dispatch) ocultas a pedido — mantemos os dados intactos. */}
