@@ -669,20 +669,17 @@ const KanbanCentralPage = () => {
     if (viewMode === "history") fetchHistory();
   }, [viewMode, fetchHistory]);
 
-  useEffect(() => {
-    if (!tenantId || viewMode !== "history") return;
-    const channel = supabase
-      .channel("dfh-realtime")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "demand_flow_history", filter: `tenant_id=eq.${tenantId}` },
-        () => fetchHistory()
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [tenantId, viewMode, fetchHistory]);
+  useRealtimeDemandFlowHistory({
+    tenantId,
+    enabled: !!tenantId && viewMode === "history",
+    onInsert: () => fetchHistory(),
+  });
+
+  useRealtimeFlowConfig({
+    tenantId,
+    enabled: !!tenantId,
+    onChange: () => fetchColumns(),
+  });
 
   const handleDragEnd = async (result: any) => {
     if (!result.destination) return;
