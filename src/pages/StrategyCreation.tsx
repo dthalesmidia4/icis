@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, Edit2, Trash2, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/PageHeader';
+import { useRealtimeStrategies } from '@/hooks/realtime';
 
 export default function StrategyCreation() {
   const navigate = useNavigate();
@@ -24,6 +25,8 @@ export default function StrategyCreation() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isLoadingStrategy, setIsLoadingStrategy] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const dirtyRef = useRef(false);
+  const lastSavedTextRef = useRef<string>('');
   
   useEffect(() => {
     if (!selectedClient) {
@@ -58,6 +61,8 @@ export default function StrategyCreation() {
       if (data) {
         setExistingStrategy(data);
         setStrategyText(data.strategy_text);
+        lastSavedTextRef.current = data.strategy_text || '';
+        dirtyRef.current = false;
         setIsEditMode(false);
       } else {
         setIsEditMode(true);
@@ -70,6 +75,48 @@ export default function StrategyCreation() {
       setIsLoadingStrategy(false);
     }
   };
+
+  useRealtimeStrategies({
+    tenantId,
+    companyId: selectedClient?.id ?? null,
+    enabled: !!(selectedClient?.id && tenantId),
+    onChange: (event) => {
+      const row = event.new || event.old;
+      if (!row) return;
+      if (event.type === 'DELETE') {
+        if (existingStrategy && row.id === existingStrategy.id) {
+          setExistingStrategy(null);
+          setStrategyText('');
+          lastSavedTextRef.current = '';
+          dirtyRef.current = false;
+          setIsEditMode(true);
+        }
+        return;
+      }
+      const incomingText = (row.strategy_text as string) || '';
+      if (incomingText === lastSavedTextRef.current) return;
+      if (!isEditMode || !dirtyRef.current) {
+        setExistingStrategy(row);
+        setStrategyText(incomingText);
+        lastSavedTextRef.current = incomingText;
+        dirtyRef.current = false;
+      } else {
+        toast.info('A estratégia foi atualizada em outra aba.', {
+          action: {
+            label: 'Recarregar',
+            onClick: () => {
+              setExistingStrategy(row);
+              setStrategyText(incomingText);
+              lastSavedTextRef.current = incomingText;
+              dirtyRef.current = false;
+              setIsEditMode(false);
+            },
+          },
+          duration: 10000,
+        });
+      }
+    },
+  });
 
   const handleSave = async () => {
     if (!strategyText.trim()) {
@@ -110,6 +157,8 @@ export default function StrategyCreation() {
       toast.success('✅ Estratégia salva com sucesso!');
       
       setExistingStrategy(strategyData);
+      lastSavedTextRef.current = strategyText;
+      dirtyRef.current = false;
       setIsEditMode(false);
     } catch (error) {
       console.error('Erro ao salvar estratégia:', error);
@@ -294,7 +343,7 @@ export default function StrategyCreation() {
                     id="strategy"
                     placeholder="Exemplo:&#10;## Objetivos&#10;Aumentar presença digital através de conteúdo educativo nas redes sociais...&#10;&#10;## Público-Alvo&#10;Profissionais de 25-45 anos interessados em tecnologia..."
                     value={strategyText}
-                    onChange={e => setStrategyText(e.target.value)}
+                    onChange={e => { dirtyRef.current = true; setStrategyText(e.target.value); }}
                     className="min-h-[300px] resize-y"
                   />
                 </div>

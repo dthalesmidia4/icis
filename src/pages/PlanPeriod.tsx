@@ -7,7 +7,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
-import { useRealtimePeriodPlans, useDebouncedCallback } from "@/hooks/realtime";
+import { useRealtimePeriodPlans, useDebouncedCallback, useRealtimeVisualIdentity } from "@/hooks/realtime";
 import { Sparkles, Zap, Check, X, Package, History, Plus, Calendar as CalendarIcon, ChevronRight, LayoutGrid, Trash2, AlertTriangle, PlayCircle, List, RefreshCw, Instagram, Facebook, Youtube, Linkedin, ChevronDown, TrendingUp, CheckSquare, Rocket, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -101,24 +101,22 @@ const PlanPeriod = () => {
 
   // Visual identity gate — blocks the "Planejar Período" form when no preset exists
   const [hasVisualIdentity, setHasVisualIdentity] = useState<boolean | null>(null);
-  useEffect(() => {
+  const checkVisualIdentity = useCallback(async () => {
     if (!selectedClient?.id || !tenantId) return;
-    let cancelled = false;
-    const check = async () => {
-      const { count } = await supabase
-        .from('visual_identity_presets')
-        .select('id', { count: 'exact', head: true })
-        .eq('company_id', selectedClient.id)
-        .eq('tenant_id', tenantId);
-      if (!cancelled) setHasVisualIdentity((count ?? 0) > 0);
-    };
-    check();
-    const channel = supabase
-      .channel(`plan-vi-${selectedClient.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'visual_identity_presets', filter: `company_id=eq.${selectedClient.id}` }, check)
-      .subscribe();
-    return () => { cancelled = true; supabase.removeChannel(channel); };
+    const { count } = await supabase
+      .from('visual_identity_presets')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', selectedClient.id)
+      .eq('tenant_id', tenantId);
+    setHasVisualIdentity((count ?? 0) > 0);
   }, [selectedClient?.id, tenantId]);
+  useEffect(() => { checkVisualIdentity(); }, [checkVisualIdentity]);
+  useRealtimeVisualIdentity({
+    tenantId,
+    companyId: selectedClient?.id ?? null,
+    enabled: !!(selectedClient?.id && tenantId),
+    onChange: () => { checkVisualIdentity(); },
+  });
 
   // Form state
   const [periodTitle, setPeriodTitle] = useState("");

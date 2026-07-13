@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useRealtimeFlowConfig } from "@/hooks/realtime";
 
 interface Props {
   open: boolean;
@@ -151,6 +152,18 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
   useEffect(() => {
     if (open && agencyId) load(agencyId);
   }, [open, agencyId]);
+
+  const savingRef = useRef<string | null>(null);
+  useEffect(() => { savingRef.current = saving; }, [saving]);
+
+  useRealtimeFlowConfig({
+    tenantId: agencyId ?? null,
+    enabled: open && !!agencyId,
+    onChange: () => {
+      if (savingRef.current) return; // ignora eco do próprio save
+      if (agencyId) load(agencyId);
+    },
+  });
 
   const cycle = async (demandKey: string, fnKey: string) => {
     if (!agencyId) return;

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Palette, Dog, Save, Upload, Trash2, GripVertical, ArrowLeft, Plus, Check, Pencil, ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useRealtimeVisualIdentity } from "@/hooks/realtime";
 
 interface VisualIdentityModalProps {
   open: boolean;
@@ -146,6 +147,13 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
       fetchPresets();
     }
   }, [open, companyId]);
+
+  useRealtimeVisualIdentity({
+    tenantId,
+    companyId,
+    enabled: open && !!companyId && !!tenantId,
+    onChange: () => { fetchPresets(); },
+  });
 
   const fetchPresets = async () => {
     const { data } = await supabase
