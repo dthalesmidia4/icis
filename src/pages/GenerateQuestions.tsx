@@ -9,6 +9,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { PageHeader } from "@/components/PageHeader";
 import { Loader2, Trash2, FileDown, MoreVertical, Sparkles, Check, Cloud, Lightbulb, AlertTriangle } from "lucide-react";
+import { useRealtimeQuestionSessions } from "@/hooks/realtime";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -152,6 +153,7 @@ export default function GenerateQuestions() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLoadedInitialData = useRef(false);
+  const dirtyRef = useRef(false);
   // Reset when client changes to prevent cross-client data leaks
   const currentClientRef = useRef<string | null>(null);
 
@@ -483,6 +485,7 @@ export default function GenerateQuestions() {
 
   // Limpar erro de validação quando o usuário digita
   const handleAnswerChange = (key: string, value: string) => {
+    dirtyRef.current = true;
     setAnswers((prev) => ({ ...prev, [key]: value }));
     if (validationErrors.has(key) && value.trim().length > 0) {
       setValidationErrors((prev) => {
@@ -492,6 +495,47 @@ export default function GenerateQuestions() {
       });
     }
   };
+
+  // Realtime — sincroniza anamnese salva em outra aba
+  useRealtimeQuestionSessions({
+    tenantId,
+    companyId: selectedClient?.id ?? null,
+    enabled: !!(selectedClient?.id && tenantId),
+    onChange: (event) => {
+      const row = event.new || event.old;
+      if (!row) return;
+      // Ignora se for outra sessão (sessão nossa ainda não foi criada, sessão diferente pertence a outra linha)
+      if (sessionId && row.id !== sessionId) return;
+      // Ignora eco do próprio save (updated_at coincide com o último salvamento local em ~1s)
+      if (row.updated_at && lastSaved) {
+        const rowTime = new Date(row.updated_at).getTime();
+        if (Math.abs(rowTime - lastSaved.getTime()) < 1500) return;
+      }
+      if (!dirtyRef.current) {
+        // Sem alterações locais — atualiza automaticamente
+        if (row.answers && typeof row.answers === 'object') {
+          setAnswers(row.answers as StrategicAnswers);
+        }
+        if (row.id) setSessionId(row.id);
+        if (row.updated_at) setLastSaved(new Date(row.updated_at));
+      } else {
+        sonnerToast.info("Há uma versão mais recente da anamnese salva.", {
+          action: {
+            label: "Recarregar dados",
+            onClick: () => {
+              if (row.answers && typeof row.answers === 'object') {
+                setAnswers(row.answers as StrategicAnswers);
+              }
+              if (row.id) setSessionId(row.id);
+              if (row.updated_at) setLastSaved(new Date(row.updated_at));
+              dirtyRef.current = false;
+            },
+          },
+          duration: 10000,
+        });
+      }
+    },
+  });
 
   if (!selectedClient) return null;
 
