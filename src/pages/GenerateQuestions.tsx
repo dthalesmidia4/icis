@@ -30,6 +30,9 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { toast as sonnerToast } from "sonner";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { VoiceFillPanel } from "@/components/voice/VoiceFillPanel";
+import type { AppliedField } from "@/components/voice/VoiceReviewPanel";
+import { getAnamnesisIndexedFields, ANAMNESIS_GUIDELINE_FIELDS } from "@/lib/voiceFieldSchemas";
 
 interface StrategicAnswers {
   [key: string]: string;
