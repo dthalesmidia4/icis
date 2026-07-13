@@ -1361,7 +1361,7 @@ const PlanPeriod = () => {
             <RadioGroup value={disponibilidadeVideo} onValueChange={(v) => setDisponibilidadeVideo(v as any)} className="flex gap-4">
               <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="sim" /> <span className="text-sm">Sim</span></label>
               <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="nao" /> <span className="text-sm">Não</span></label>
-              <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="talvez" /> <span className="text-sm">Talvez</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><RadioGroupItem value="parcial" /> <span className="text-sm">Parcial</span></label>
             </RadioGroup>
           </div>
           <div>
