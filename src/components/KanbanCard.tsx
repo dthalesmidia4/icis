@@ -21,6 +21,10 @@ interface KanbanCardProps {
   emphasizeDelivery?: boolean;
   showStartEndLabels?: boolean;
   emphasizeStart?: boolean;
+  isDailyCard?: boolean;
+  dailyCompleted?: number;
+  dailyTotal?: number | null;
+  dailyNextDate?: string | null;
   onClick?: () => void;
 }
 
