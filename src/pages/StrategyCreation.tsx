@@ -61,6 +61,8 @@ export default function StrategyCreation() {
       if (data) {
         setExistingStrategy(data);
         setStrategyText(data.strategy_text);
+        lastSavedTextRef.current = data.strategy_text || '';
+        dirtyRef.current = false;
         setIsEditMode(false);
       } else {
         setIsEditMode(true);
@@ -113,6 +115,8 @@ export default function StrategyCreation() {
       toast.success('✅ Estratégia salva com sucesso!');
       
       setExistingStrategy(strategyData);
+      lastSavedTextRef.current = strategyText;
+      dirtyRef.current = false;
       setIsEditMode(false);
     } catch (error) {
       console.error('Erro ao salvar estratégia:', error);
