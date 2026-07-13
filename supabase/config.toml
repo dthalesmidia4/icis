@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.generate-post-caption]
 verify_jwt = false
+
+[functions.transcribe-and-map-form-voice]
+verify_jwt = true

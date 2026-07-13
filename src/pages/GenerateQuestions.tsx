@@ -30,6 +30,9 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { toast as sonnerToast } from "sonner";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { VoiceFillPanel } from "@/components/voice/VoiceFillPanel";
+import type { AppliedField } from "@/components/voice/VoiceReviewPanel";
+import { getAnamnesisIndexedFields, ANAMNESIS_GUIDELINE_FIELDS } from "@/lib/voiceFieldSchemas";
 
 interface StrategicAnswers {
   [key: string]: string;
@@ -497,6 +500,29 @@ export default function GenerateQuestions() {
     }
   };
 
+  const voiceFields = [
+    ...getAnamnesisIndexedFields(allQuestions.map((q) => q.question)),
+    ...ANAMNESIS_GUIDELINE_FIELDS,
+  ];
+
+  const handleVoiceApply = (applied: AppliedField[]) => {
+    dirtyRef.current = true;
+    setAnswers((prev) => {
+      const next = { ...prev };
+      for (const a of applied) {
+        const newVal = typeof a.value === "string" ? a.value : String(a.value ?? "");
+        if (!newVal.trim()) continue;
+        const existing = next[a.key] || "";
+        if (a.strategy === "append" && existing.trim()) {
+          next[a.key] = `${existing}\n\n${newVal}`;
+        } else {
+          next[a.key] = newVal;
+        }
+      }
+      return next;
+    });
+  };
+
   // Realtime — sincroniza anamnese salva em outra aba
   useRealtimeQuestionSessions({
     tenantId,
@@ -708,8 +734,23 @@ export default function GenerateQuestions() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Preenchimento por voz */}
+      {tenantId && selectedClient && (
+        <div className="max-w-3xl mx-auto px-6 pt-6">
+          <VoiceFillPanel
+            formType="anamnesis"
+            tenantId={tenantId}
+            clientId={selectedClient.id}
+            fields={voiceFields}
+            currentValues={answers}
+            onApply={handleVoiceApply}
+          />
+        </div>
+      )}
+
       {/* Questionário por Seções */}
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-10">
+
         {(() => {
           let globalIdx = 0;
           return anamnesisSections.map((section) => (
