@@ -158,7 +158,7 @@ const PlanPeriod = () => {
   const [novidadeDescricao, setNovidadeDescricao] = useState("");
 
   // Bloco 4 — Capacidade de produção do período
-  const [disponibilidadeVideo, setDisponibilidadeVideo] = useState<'sim' | 'nao' | 'talvez' | ''>('');
+  const [disponibilidadeVideo, setDisponibilidadeVideo] = useState<'sim' | 'nao' | 'parcial' | ''>('');
   const [temMateriaisNovos, setTemMateriaisNovos] = useState<'sim' | 'nao' | ''>('');
   const [materiaisNovosDescricao, setMateriaisNovosDescricao] = useState("");
   const [quantidadeConteudos, setQuantidadeConteudos] = useState<number>(10);
