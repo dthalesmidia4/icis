@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
+import { useRealtimeDemands, useRealtimeScheduledDispatches, useDebouncedCallback } from "@/hooks/realtime";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
@@ -93,6 +94,21 @@ const Scheduled = () => {
     tenantId,
     onAttachmentUpdate: handleRealtimeUpdate,
     enabled: !!tenantId
+  });
+
+  // Realtime: refetch quando demandas ou dispatches do tenant mudam
+  const debouncedRefetch = useDebouncedCallback(() => {
+    fetchScheduledCards();
+  }, 300);
+  useRealtimeDemands({
+    tenantId,
+    enabled: !!tenantId,
+    onChange: () => debouncedRefetch(),
+  });
+  useRealtimeScheduledDispatches({
+    tenantId,
+    enabled: !!tenantId,
+    onChange: () => debouncedRefetch(),
   });
 
   useEffect(() => {
