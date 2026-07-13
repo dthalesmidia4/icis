@@ -120,6 +120,17 @@ const CollaboratorDemands = () => {
     if (!tenantLoading && tenantId && userId) fetchData();
   }, [tenantId, tenantLoading, userId, fetchData]);
 
+  const debouncedRefetch = useDebouncedCallback(() => {
+    if (tenantId && userId) fetchData();
+  }, 200);
+
+  useRealtimeDemands({
+    tenantId,
+    assignedTo: userId,
+    enabled: !!tenantId && !!userId,
+    onChange: () => debouncedRefetch(),
+  });
+
   type SortKey = "title" | "due_date" | "due_time" | "delivery_date" | "delivery_time" | "assigned";
   const [sortKey, setSortKey] = useState<SortKey>("due_date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
