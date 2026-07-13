@@ -164,6 +164,9 @@ const CompletedDemands = () => {
     }
   }, [tenantId]);
 
+  const fetchDataRef = useRef(fetchData);
+  useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+
   useEffect(() => {
     if (!tenantLoading && tenantId) fetchData();
   }, [tenantId, tenantLoading, fetchData]);
