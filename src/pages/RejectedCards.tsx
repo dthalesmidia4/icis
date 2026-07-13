@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import ContentRequirementsDiffModal from "@/components/ContentRequirementsDiffModal";
 import { cn } from "@/lib/utils";
 import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
+import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 
 interface PeriodData {
   id: string;
