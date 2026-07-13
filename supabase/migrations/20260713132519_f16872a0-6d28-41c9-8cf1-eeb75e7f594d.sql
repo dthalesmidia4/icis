@@ -1,0 +1,3 @@
+ALTER PUBLICATION supabase_realtime ADD TABLE public.generated_contents;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.scheduled_publication_dispatches;
+ALTER TABLE public.scheduled_publication_dispatches REPLICA IDENTITY FULL;

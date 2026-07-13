@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import JSZip from "jszip";
 import { createCardFromContent } from "@/lib/createCardFromContent";
+import { useRealtimeGeneratedContents } from "@/hooks/realtime";
 
 interface GeneratedContent {
   id: string;
@@ -57,6 +58,7 @@ const ContentHistory = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewContent, setPreviewContent] = useState<GeneratedContent | null>(null);
   const [creatingCardId, setCreatingCardId] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const canGenerateCard = (contentType: string, imageUrls: string[]) =>
     contentType !== 'video_storyboard' && Array.isArray(imageUrls) && imageUrls.length > 0;
@@ -195,7 +197,15 @@ const ContentHistory = () => {
       setLoading(false);
     };
     fetchContents();
-  }, [tenantId, effectiveClientId, selectedClient?.id, clients]);
+  }, [tenantId, effectiveClientId, selectedClient?.id, clients, refreshKey]);
+
+  // Realtime: refresca a lista quando conteúdos do tenant/cliente mudam
+  useRealtimeGeneratedContents({
+    tenantId,
+    clientId: effectiveClientId,
+    enabled: !!tenantId,
+    onChange: () => setRefreshKey((k) => k + 1),
+  });
 
   const handleDownload = async (url: string, index: number) => {
     const ext = isVideoUrl(url) ? "mp4" : "png";
