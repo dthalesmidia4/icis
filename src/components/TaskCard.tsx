@@ -1499,6 +1499,47 @@ export default function TaskCard({
                   </div>
                 </div>
 
+                {/* Card Diário (recorrência) */}
+                {(isDraft || card.is_daily_card) && (
+                  <div className="mb-4">
+                    <DailyCardSection
+                      editable={isDraft || !!card.is_daily_card}
+                      values={{
+                        is_daily_card: !!card.is_daily_card,
+                        daily_start_date: card.daily_start_date ?? null,
+                        daily_end_date: card.daily_end_date ?? null,
+                        daily_time: card.daily_time ?? null,
+                        daily_exclude_weekends: card.daily_exclude_weekends ?? true,
+                        daily_exclude_holidays: card.daily_exclude_holidays ?? true,
+                        daily_next_date: card.daily_next_date ?? null,
+                        daily_total_occurrences: card.daily_total_occurrences ?? null,
+                        daily_completed_occurrences: card.daily_completed_occurrences ?? 0,
+                        daily_completed_dates: card.daily_completed_dates ?? [],
+                      }}
+                      onChange={async (v) => {
+                        const patch: any = { ...card, ...v };
+                        onCardChange(patch);
+                        // Persistir apenas para cards já existentes (não draft)
+                        if (!isDraft && card.id) {
+                          await supabase
+                            .from("demands")
+                            .update({
+                              is_daily_card: v.is_daily_card,
+                              daily_start_date: v.daily_start_date,
+                              daily_end_date: v.daily_end_date,
+                              daily_time: v.daily_time,
+                              daily_exclude_weekends: v.daily_exclude_weekends,
+                              daily_exclude_holidays: v.daily_exclude_holidays,
+                              daily_next_date: v.daily_next_date,
+                              daily_total_occurrences: v.daily_total_occurrences,
+                            } as any)
+                            .eq("id", card.id);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+
                 {/* Painel expandido: Datas e Horários */}
                 <div className={cn(
                   "grid transition-all duration-300 ease-in-out",
