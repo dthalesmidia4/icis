@@ -478,6 +478,44 @@ export default function TaskCard({
     }
     setDelivering(true);
     try {
+      // Card Diário: opção (b) — mantém colaborador/função; só finaliza na última ocorrência
+      if (card.is_daily_card && !isDraft) {
+        const occ = await completeDailyOccurrence(card.id);
+        if (!occ.success) {
+          toast.error(occ.message);
+          return;
+        }
+        if (occ.finished) {
+          // Última ocorrência → segue com deliverDemand normal
+          const result = await deliverDemand(card.id, pipelineId);
+          if (result.success) {
+            toast.success("Card Diário finalizado — última ocorrência entregue.");
+            const doneStatus = pipelineStatuses.find(s => s.id === result.statusId);
+            onCardChange({
+              ...card,
+              status_id: result.statusId,
+              status: doneStatus?.name || card.status,
+              current_function_key: null,
+              assigned_to: null,
+              archived_at: new Date().toISOString(),
+            } as any);
+            onOpenChange(false);
+          } else {
+            toast.error(result.message);
+          }
+          return;
+        }
+        // Não é a última → não arquiva; só oculta até a próxima data
+        toast.success(`Ocorrência entregue. Próxima: ${formatBRDate(occ.nextDate)}.`);
+        onCardChange({
+          ...card,
+          daily_next_date: occ.nextDate,
+          daily_completed_occurrences: (card.daily_completed_occurrences || 0) + 1,
+        } as any);
+        onOpenChange(false);
+        return;
+      }
+
       const result = await deliverDemand(card.id, pipelineId);
       if (result.success) {
         toast.success(result.message);
