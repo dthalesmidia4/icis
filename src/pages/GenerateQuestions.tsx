@@ -734,8 +734,23 @@ export default function GenerateQuestions() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Preenchimento por voz */}
+      {tenantId && selectedClient && (
+        <div className="max-w-3xl mx-auto px-6 pt-6">
+          <VoiceFillPanel
+            formType="anamnesis"
+            tenantId={tenantId}
+            clientId={selectedClient.id}
+            fields={voiceFields}
+            currentValues={answers}
+            onApply={handleVoiceApply}
+          />
+        </div>
+      )}
+
       {/* Questionário por Seções */}
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-10">
+
         {(() => {
           let globalIdx = 0;
           return anamnesisSections.map((section) => (
