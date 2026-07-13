@@ -77,6 +77,23 @@ const RejectedCards = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isInitialized]);
 
+  const debouncedRefetch = useDebouncedCallback(() => {
+    fetchData();
+  }, 250);
+
+  useRealtimePeriodPlans({
+    tenantId,
+    clientId: selectedClient?.id ?? null,
+    onChange: () => debouncedRefetch(),
+    enabled: !!tenantId && !!selectedClient?.id,
+  });
+  useRealtimeDemands({
+    tenantId,
+    clientId: selectedClient?.id ?? null,
+    onChange: () => debouncedRefetch(),
+    enabled: !!tenantId && !!selectedClient?.id,
+  });
+
   const fetchData = async () => {
     if (!selectedClient || !tenantId) return;
     setLoading(true);
