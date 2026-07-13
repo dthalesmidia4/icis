@@ -229,36 +229,73 @@ const ApproveCards = () => {
 
     setApprovingIndex(card._index);
     try {
-      const title = card.titulo || card.title || 'Sem título';
-      const tipo = card.tipo || card.tipo_conteudo || card.type || null;
-      const channel = card.canal || card.channel || null;
-      const objetivo = card.objetivo || card.objective || null;
-      const conteudo = card.conteudo || card.descricao || card.description || null;
-      const instrucoes = card.instrucoes_de_producao || null;
-      const cta = card.cta_recomendado || null;
-      const dateStr = card.data_sugerida || card.suggested_date || card.date || null;
+      const c: any = card;
+      const pick = (...vals: any[]) => {
+        for (const v of vals) {
+          if (v === null || v === undefined) continue;
+          const s = typeof v === 'string' ? v.trim() : v;
+          if (s !== '' && s !== null && s !== undefined) return s;
+        }
+        return null;
+      };
 
-      const instructionParts = [instrucoes, cta ? `CTA: ${cta}` : ''].filter(Boolean);
-      const explicitKey = coerceDemandTypeKey((card as any).demand_type_key || (card as any).type_key);
+      const title = pick(c.titulo, c.title) || 'Sem título';
+      const tipo = pick(c.tipo, c.tipo_conteudo, c.type, c.formato);
+      const channel = pick(c.canal, c.channel, c.plataforma);
+      const objetivo = pick(c.objetivo, c.objective, c.goal);
+      const conteudo = pick(
+        c.conteudo, c.texto_da_peca, c.descricao_da_tarefa,
+        c.descricao, c.description, c.content, c.copy, c.copy_sugerida
+      );
+      const instrucoes = pick(
+        c.instrucoes_de_producao, c.instrucoes, c.instructions,
+        c.production_instructions, c.briefing
+      );
+      const cta = pick(c.cta_recomendado, c.cta, c.call_to_action);
+      const caption = pick(c.legenda, c.caption, c.post_caption);
+      const dateStr = pick(c.data_sugerida, c.suggested_date, c.date, c.publish_date, c.data_publicacao);
+      const racional = pick(c.racional_estrategico, c.rationale, c.strategic_rationale, c.racional);
+      const conceitoUltra = pick(c.conceito_ultra, c.ultra_concept, c.conceito);
+      const hook = pick(c.hook, c.gancho);
+      const tomDeVoz = pick(c.tom_de_voz, c.tone_of_voice);
+      const observacoesExtra = pick(c.observacoes, c.observations, c.notas, c.notes);
+
+      const instructionParts = [
+        instrucoes,
+        cta ? `CTA: ${cta}` : '',
+        hook ? `Hook: ${hook}` : '',
+        tomDeVoz ? `Tom de voz: ${tomDeVoz}` : '',
+      ].filter(Boolean);
+
+      const observationsParts = [
+        racional ? `Racional estratégico:\n${racional}` : '',
+        conceitoUltra ? `Conceito ultra:\n${conceitoUltra}` : '',
+        caption ? `Legenda sugerida:\n${caption}` : '',
+        observacoesExtra ? `Observações:\n${observacoesExtra}` : '',
+      ].filter(Boolean);
+
+      const explicitKey = coerceDemandTypeKey(c.demand_type_key || c.type_key);
       const demandTypeKey = explicitKey ?? normalizeDemandTypeKey(tipo);
 
-      const { data: insertedData, error } = await supabase.from('demands').insert({
+      const payload: any = {
         tenant_id: tenantId,
         client_id: selectedClient.id,
         pipeline_id: pipelineId,
         status_id: initialStatusId,
         period_plan_id: period.id,
         title,
-        objective: objetivo,
-        description: conteudo || null,
-        instructions: instructionParts.join('\n\n') || null,
-        publish_date: dateStr || null,
-        channel,
-        demand_type: tipo,
-        demand_type_key: demandTypeKey,
         source: card._source === 'ultra' ? 'ultra_card' : 'card',
-        observations: null,
-      } as any).select('id').single();
+      };
+      if (objetivo) payload.objective = objetivo;
+      if (conteudo) payload.description = conteudo;
+      if (instructionParts.length) payload.instructions = instructionParts.join('\n\n');
+      if (dateStr) payload.publish_date = dateStr;
+      if (channel) payload.channel = channel;
+      if (tipo) payload.demand_type = tipo;
+      if (demandTypeKey) payload.demand_type_key = demandTypeKey;
+      if (observationsParts.length) payload.observations = observationsParts.join('\n\n');
+
+      const { data: insertedData, error } = await supabase.from('demands').insert(payload).select('id').single();
 
       if (error) throw error;
 
