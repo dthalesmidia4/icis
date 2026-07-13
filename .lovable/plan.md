@@ -1,62 +1,82 @@
-# Fase 0 + Fase 1 — Real Time Instantâneo
+# Preenchimento por voz — Anamnese e Planejar Período (v4)
 
-Fase 0 (banco) já foi executada: publisher `supabase_realtime` recebeu `demands`, `demand_flow_history`, `flow_functions`, `demand_type_flow_rules`, `collaborator_function_assignments`, `pipeline_statuses`, `profiles`, `user_roles`, e `REPLICA IDENTITY FULL` foi aplicado em `demands` e `demand_flow_history`.
+Único ajuste em relação ao v3: `disponibilidadeVideo` usa o enum canônico do sistema **`sim | nao | parcial`** (nunca `talvez` nem boolean).
 
-Falta o código. Aprove para prosseguir com as edições abaixo.
+## 1. Valor canônico de `disponibilidadeVideo`
 
-## 1. Hooks centralizados (novos arquivos)
+- Tipo canônico: `"sim" | "nao" | "parcial"`.
+- Frontend, edge, IA e persistência usam **os mesmos três literais**.
+- A IA pode ouvir "talvez" na fala; o normalizador converte para `"parcial"` antes de aplicar.
 
-Pasta `src/hooks/realtime/`:
+Mapeamento de fala natural → valor canônico:
+- `sim` — "consigo gravar vídeos", "temos disponibilidade para vídeo", "sim, vamos gravar", "com certeza".
+- `nao` — "não teremos vídeos", "sem vídeos esse mês", "não conseguimos gravar", "impossível".
+- `parcial` — "talvez alguns vídeos", "pouca disponibilidade", "podemos gravar parcialmente", "depende", "alguns vídeos", "as vezes".
 
-- **`_shared.ts`** — `useDebouncedCallback(fn, delay=200)`, cancela no unmount.
-- **`useRealtimeDemands.ts`** — assina `demands` com filtro server-side `tenant_id=eq.<id>`; aplica filtros locais opcionais `clientId`, `periodPlanId`, `assignedTo` (considera `old` e `new` para captar entrada/saída do colaborador). Callback `onChange({type, id, new, old})`. Um canal por escopo, cleanup com `removeChannel`.
-- **`useRealtimeDemandFlowHistory.ts`** — assina apenas `INSERT` em `demand_flow_history`, filtro server-side por tenant, filtro local por `demandId`/`clientId`.
-- **`useRealtimeFlowConfig.ts`** — um canal único agregando `flow_functions`, `demand_type_flow_rules`, `collaborator_function_assignments` (filtrados por tenant). Callback debounced.
-- **`index.ts`** — reexports.
+## 2. Arquivos e trechos afetados por esse ajuste
 
-O `useRealtimeAttachments` existente é mantido intacto (usado em `CompletedDemands` e `Scheduled`, fora do escopo desta fase).
+### `src/lib/voiceFieldSchemas.ts`
+- `VoiceFieldType`: renomeia `enum_sim_nao_talvez` → `enum_disponibilidade_video`.
+- `PERIOD_PLANNING_FIELDS` → entrada `disponibilidadeVideo` fica com `type: "enum_disponibilidade_video"` e `hint: "sim | nao | parcial"`.
+- Remove `normalizeSimNaoTalvez`; adiciona:
+  ```ts
+  export function normalizeDisponibilidadeVideo(v: unknown): "sim" | "nao" | "parcial" | null
+  ```
+  que aceita boolean, `"sim"/"nao"/"parcial"` diretos, e sinônimos ("talvez", "as vezes", "às vezes", "pouca", "depende", "parcialmente" → `parcial`).
 
-## 2. `KanbanCentralPage.tsx`
+### `supabase/functions/transcribe-and-map-form-voice/index.ts`
+- Whitelist replicada declara `disponibilidadeVideo` como enum `sim | nao | parcial`.
+- Prompt da IA (system) inclui explicitamente:
+  > `disponibilidadeVideo`: retorne **apenas** um destes três valores literais: `"sim"`, `"nao"` ou `"parcial"`. "Talvez", "às vezes", "pouca disponibilidade", "depende" → `"parcial"`. Não invente outros valores.
+- Zod: `disponibilidadeVideo: z.enum(["sim","nao","parcial"])`.
+- Validação de saída: qualquer valor fora do enum → campo descartado.
 
-- Substituir o canal inline `dfh-realtime` (linhas ~669–685) por `useRealtimeDemandFlowHistory` chamando `fetchHistory` só quando `viewMode === "history"`.
-- Adicionar `useRealtimeFlowConfig` chamando `fetchColumns()` (colunas de colaborador dependem de `flow_functions`/atribuições).
-- Manter `useRealtimeAttachments` como está — já cobre INSERT/UPDATE/DELETE de `demands` e alimenta `handleDemandFullUpdate`. A seção **Aguardando Clientes** já reage automaticamente porque depende de `current_function_key`, que faz parte do payload.
-- Em `handleDemandFullUpdate`, quando `selectedCard?.id === demandId` e o modal está aberto, disparar `sonnerToast.info("Este card foi atualizado por outro usuário.")` uma vez por evento (rate limit por ref) — dados continuam sendo atualizados no estado, mas o usuário é avisado.
+### `src/pages/PlanPeriod.tsx`
+- Altera o tipo do state para acompanhar o enum canônico:
+  ```ts
+  const [disponibilidadeVideo, setDisponibilidadeVideo] =
+    useState<"sim" | "nao" | "parcial" | "">("");
+  ```
+  (única alteração no arquivo além da injeção do `VoiceFillPanel`; a UI de seleção existente passa a expor `parcial` no lugar de `talvez`, mantendo os mesmos três botões.)
+- No `aplicaComSetters` do painel de voz:
+  ```ts
+  case "disponibilidadeVideo": {
+    const v = normalizeDisponibilidadeVideo(mapped.value);
+    if (v) setDisponibilidadeVideo(v);
+    break;
+  }
+  ```
+- Persistência de rascunho (`buildDraftPayload` / `loadDraft`) continua igual — apenas o literal muda de `talvez` para `parcial`.
 
-## 3. `CollaboratorDemands.tsx`
+## 3. Restante da proposta (inalterado em relação ao v3)
 
-- Adicionar `useRealtimeDemands({ tenantId, assignedTo: userId, onChange })`.
-- `onChange` chama uma versão debounced (200ms) de `fetchData()`. Assim entram/saem cards do colaborador automaticamente.
+Arquitetura completa aprovada, mantida sem mudanças:
 
-## 4. `TaskCard.tsx`
+- Edge Function `transcribe-and-map-form-voice` com `verify_jwt = true`.
+- Validações em ordem: auth (`getClaims`), acesso ao tenant (`user_roles` ou super_admin), cliente pertence ao tenant (`tenant_companies`), whitelist de campos por `formType`.
+- `tenantId`/`clientId` do frontend **nunca** confiados cegamente — sempre revalidados no servidor.
+- Áudio nunca persistido (nem Storage, nem tabela).
+- Transcrição via gateway `/v1/audio/transcriptions` com `openai/gpt-4o-transcribe`, `LOVABLE_API_KEY` do ambiente.
+- Interpretação via `/v1/chat/completions` com `response_format: { type: "json_object" }` usando o modelo do `_shared/models.ts`.
+- Retorno: `{ transcript, mappedFields: { key: { value, sourceText, confidence } }, unmappedText }`.
+- Frontend: `VoiceFillPanel` (toggle escrita/voz + gravação + envio) + `VoiceReviewPanel` (revisão com Substituir/Adicionar/Ignorar por campo). Campos preenchidos nunca sobrescritos sem escolha.
+- Gravação: Web Audio API → WAV 16 kHz mono, corte automático em 60 s.
+- Sem salvamento automático. Usuário salva com os botões existentes **Salvar Anamnese** e **Salvar Rascunho do Planejamento**.
+- Whitelist canônica única em `src/lib/voiceFieldSchemas.ts` + espelho no `index.ts` da edge, com comentário `// Mantenha sincronizado com src/lib/voiceFieldSchemas.ts` nos dois lados.
+- Booleanos (`temPromocao`, `temNovidade`, `temDataComemorativa`, `temMateriaisNovos`) permanecem `boolean_sim_nao` → armazenados como `"sim"` / `"nao"`.
+- Nenhuma alteração em perguntas da anamnese, geração de estratégia, geração de planejamento, Kanban, cards, demandas, publicação, aprovação, identidade visual ou realtime.
 
-- Sem mudança estrutural. O componente é controlado (`card` vem por prop), portanto atualizações externas já refletem quando o pai atualiza `selectedCard`. O aviso ao usuário é disparado pelo pai (item 2).
+## 4. Arquivos
 
-## 5. Regras aplicadas
-
-- **Escopo**: filtro server-side por `tenant_id` em todos os canais; filtros extras (`client_id`, `period_plan_id`, `assigned_to`) no callback para evitar vazamento entre clientes.
-- **Cleanup**: todo `useEffect` retorna `supabase.removeChannel(channel)`.
-- **Sem duplicidade**: `useRealtimeAttachments` no Kanban não é duplicado — apenas o canal do histórico é migrado.
-- **Sem mexer** em ApproveCards, RejectedCards, CompletedDemands, ContentHistory, Scheduled, GenerateQuestions, StrategyCreation, VisualIdentity, TeamMembers, FunctionPermissionsModal, CollaboratorFunctionAssignmentsModal.
-- **Sem mudança de regra de negócio**: nenhuma edição em `proceedDemand`, `regressDemand`, criação de cards, aprovação, publicação, agendamento.
-
-## 6. Arquivos alterados/criados
-
-Criados:
-- `src/hooks/realtime/_shared.ts`
-- `src/hooks/realtime/useRealtimeDemands.ts`
-- `src/hooks/realtime/useRealtimeDemandFlowHistory.ts`
-- `src/hooks/realtime/useRealtimeFlowConfig.ts`
-- `src/hooks/realtime/index.ts`
+Novos:
+- `supabase/functions/transcribe-and-map-form-voice/index.ts`
+- `src/components/voice/VoiceFillPanel.tsx`
+- `src/components/voice/VoiceReviewPanel.tsx`
+- `src/hooks/useVoiceRecorder.ts`
+- `src/lib/wavEncoder.ts`
+- `src/lib/voiceFieldSchemas.ts`
 
 Editados:
-- `src/pages/KanbanCentralPage.tsx` (substitui canal DFH inline + adiciona flow config + toast no modal)
-- `src/pages/CollaboratorDemands.tsx` (assina demandas do colaborador)
-
-## 7. Checklist de validação (duas abas)
-
-- Kanban: prosseguir/voltar/entregar em uma aba reflete na outra.
-- Aguardando Clientes: card entra/sai do container sem refresh.
-- Registro de Cards: contadores e cards atualizam ao registrar novo histórico.
-- Modal aberto: não fecha; título/status atualizam; toast avisa.
-- Troca de cliente/colaborador: canal antigo é removido; sem vazamento.
+- `supabase/config.toml` (registra `[functions.transcribe-and-map-form-voice] verify_jwt = true`)
+- `src/pages/GenerateQuestions.tsx` (injeta painel; sem outras mudanças)
+- `src/pages/PlanPeriod.tsx` (injeta painel + troca literal `talvez` → `parcial` no state/UI de `disponibilidadeVideo`)
