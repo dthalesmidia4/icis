@@ -1,62 +1,62 @@
-# MVP — Melhorias na Anamnese Estratégica
+# Fase 0 + Fase 1 — Real Time Instantâneo
 
-Três mudanças, sem migration, sem reordenar perguntas antigas, preservando `question_0..question_27`.
+Fase 0 (banco) já foi executada: publisher `supabase_realtime` recebeu `demands`, `demand_flow_history`, `flow_functions`, `demand_type_flow_rules`, `collaborator_function_assignments`, `pipeline_statuses`, `profiles`, `user_roles`, e `REPLICA IDENTITY FULL` foi aplicado em `demands` e `demand_flow_history`.
 
-## 1. `supabase/functions/generate-strategy/index.ts`
+Falta o código. Aprove para prosseguir com as edições abaixo.
 
-Substituir o trecho que hoje usa só `answers.question_0..question_5` por:
+## 1. Hooks centralizados (novos arquivos)
 
-- Buscar `question_sessions` (últimos `questions` + `answers`) do cliente/tenant.
-- Iterar `questions[i]` pareado com `answers[\`question_${i}\`]` → monta bloco "RESPOSTAS DA ANAMNESE ESTRATÉGICA" com **todas** as perguntas.
-- Fallback: se não houver `questions` salvo, iterar as chaves `question_N` presentes em `answers`.
-- Ler os novos campos nomeados (ver parte 3) e montar bloco "DIRETRIZES ESTRATÉGICAS PARA IA".
-- Concatenar os dois blocos no `userPrompt` e instruir a IA a tratar as diretrizes como restrições fortes.
+Pasta `src/hooks/realtime/`:
 
-Nenhum outro trecho da função muda (persistência em `strategies`, chamada OpenAI, modelo, etc. permanecem).
+- **`_shared.ts`** — `useDebouncedCallback(fn, delay=200)`, cancela no unmount.
+- **`useRealtimeDemands.ts`** — assina `demands` com filtro server-side `tenant_id=eq.<id>`; aplica filtros locais opcionais `clientId`, `periodPlanId`, `assignedTo` (considera `old` e `new` para captar entrada/saída do colaborador). Callback `onChange({type, id, new, old})`. Um canal por escopo, cleanup com `removeChannel`.
+- **`useRealtimeDemandFlowHistory.ts`** — assina apenas `INSERT` em `demand_flow_history`, filtro server-side por tenant, filtro local por `demandId`/`clientId`.
+- **`useRealtimeFlowConfig.ts`** — um canal único agregando `flow_functions`, `demand_type_flow_rules`, `collaborator_function_assignments` (filtrados por tenant). Callback debounced.
+- **`index.ts`** — reexports.
 
-## 2. `supabase/functions/generate-period-plans/index.ts`
+O `useRealtimeAttachments` existente é mantido intacto (usado em `CompletedDemands` e `Scheduled`, fora do escopo desta fase).
 
-Corrigir o bug de chave (linhas 137–147):
+## 2. `KanbanCentralPage.tsx`
 
-```ts
-// antes: answers[i.toString()]
-const answer = (answers[`question_${i}`] || '').trim();
-```
+- Substituir o canal inline `dfh-realtime` (linhas ~669–685) por `useRealtimeDemandFlowHistory` chamando `fetchHistory` só quando `viewMode === "history"`.
+- Adicionar `useRealtimeFlowConfig` chamando `fetchColumns()` (colunas de colaborador dependem de `flow_functions`/atribuições).
+- Manter `useRealtimeAttachments` como está — já cobre INSERT/UPDATE/DELETE de `demands` e alimenta `handleDemandFullUpdate`. A seção **Aguardando Clientes** já reage automaticamente porque depende de `current_function_key`, que faz parte do payload.
+- Em `handleDemandFullUpdate`, quando `selectedCard?.id === demandId` e o modal está aberto, disparar `sonnerToast.info("Este card foi atualizado por outro usuário.")` uma vez por evento (rate limit por ref) — dados continuam sendo atualizados no estado, mas o usuário é avisado.
 
-Manter o resto igual (limite de 600 chars, join com " | ").
+## 3. `CollaboratorDemands.tsx`
 
-`reevaluate-card` já usa `question_${i}` corretamente — nenhuma mudança lá.
+- Adicionar `useRealtimeDemands({ tenantId, assignedTo: userId, onChange })`.
+- `onChange` chama uma versão debounced (200ms) de `fetchData()`. Assim entram/saem cards do colaborador automaticamente.
 
-## 3. `src/pages/GenerateQuestions.tsx` — novo bloco final
+## 4. `TaskCard.tsx`
 
-Adicionar uma 8ª seção ao final, **sem tocar nas 7 seções existentes** e **sem alterar as chaves `question_0..question_27`**. Este bloco usa **chaves nomeadas** (não índices), então nunca colide com o histórico.
+- Sem mudança estrutural. O componente é controlado (`card` vem por prop), portanto atualizações externas já refletem quando o pai atualiza `selectedCard`. O aviso ao usuário é disparado pelo pai (item 2).
 
-Seção: **🎯 Diretrizes Estratégicas para IA** (texto livre, curtos, não obrigatórios)
+## 5. Regras aplicadas
 
-| Campo (chave em `answers`) | Pergunta |
-|---|---|
-| `tone_of_voice` | Descreva o tom de voz ideal em 1–2 linhas (ex.: próximo, técnico, provocador). |
-| `content_pillars` | Liste 3 a 5 pilares de conteúdo (temas recorrentes). |
-| `preferred_ctas` | Quais CTAs você quer priorizar? (ex.: chamar no WhatsApp, agendar consulta) |
-| `forbidden_words` | Palavras, temas ou abordagens que **nunca** devem aparecer. |
-| `active_channels` | Quais canais estão ativos hoje? (Instagram, LinkedIn, WhatsApp, YouTube…) |
-| `offer_and_ticket` | Qual é a oferta principal e faixa de ticket médio? |
-| `main_competitors` | Cite 2–3 concorrentes/referências que você admira ou compete diretamente. |
+- **Escopo**: filtro server-side por `tenant_id` em todos os canais; filtros extras (`client_id`, `period_plan_id`, `assigned_to`) no callback para evitar vazamento entre clientes.
+- **Cleanup**: todo `useEffect` retorna `supabase.removeChannel(channel)`.
+- **Sem duplicidade**: `useRealtimeAttachments` no Kanban não é duplicado — apenas o canal do histórico é migrado.
+- **Sem mexer** em ApproveCards, RejectedCards, CompletedDemands, ContentHistory, Scheduled, GenerateQuestions, StrategyCreation, VisualIdentity, TeamMembers, FunctionPermissionsModal, CollaboratorFunctionAssignmentsModal.
+- **Sem mudança de regra de negócio**: nenhuma edição em `proceedDemand`, `regressDemand`, criação de cards, aprovação, publicação, agendamento.
 
-Detalhes de UI:
-- Renderizar o bloco após a seção "Contexto de Mercado" usando o mesmo padrão visual (`AutoResizeTextarea`, header com emoji/título).
-- Manter auto-save existente — as chaves nomeadas entram em `answers` junto com as numéricas, o upsert já cobre.
-- Ajustar `strategicQuestions` (o snapshot salvo em `question_sessions.questions`) para incluir as novas perguntas **ao final**, mantendo a ordem das 28 originais nos índices 0..27. As chaves nomeadas do novo bloco não usam índice, então não afetam pareamento.
-- Ajustar o export PDF para também renderizar o novo bloco (nomeado por rótulo).
+## 6. Arquivos alterados/criados
 
-## Riscos e mitigação
+Criados:
+- `src/hooks/realtime/_shared.ts`
+- `src/hooks/realtime/useRealtimeDemands.ts`
+- `src/hooks/realtime/useRealtimeDemandFlowHistory.ts`
+- `src/hooks/realtime/useRealtimeFlowConfig.ts`
+- `src/hooks/realtime/index.ts`
 
-- Respostas antigas: preservadas — nenhuma chave numérica muda.
-- `generate-strategy` passa a gerar textos maiores/diferentes: comportamento esperado; o modal "Estratégia já registrada" já protege sobrescrita.
-- `generate-period-plans` passa a receber contexto real da anamnese (hoje recebe vazio): efeito positivo, mas altera o output dos próximos planejamentos.
-- Sem migration; `answers` é jsonb aditivo.
+Editados:
+- `src/pages/KanbanCentralPage.tsx` (substitui canal DFH inline + adiciona flow config + toast no modal)
+- `src/pages/CollaboratorDemands.tsx` (assina demandas do colaborador)
 
-## Validação
+## 7. Checklist de validação (duas abas)
 
-- `tsgo --noEmit` no frontend.
-- Testar geração de estratégia com um cliente que já tenha anamnese preenchida e conferir se o prompt inclui todas as respostas + diretrizes.
+- Kanban: prosseguir/voltar/entregar em uma aba reflete na outra.
+- Aguardando Clientes: card entra/sai do container sem refresh.
+- Registro de Cards: contadores e cards atualizam ao registrar novo histórico.
+- Modal aberto: não fecha; título/status atualizam; toast avisa.
+- Troca de cliente/colaborador: canal antigo é removido; sem vazamento.
