@@ -12,7 +12,7 @@ import BackButton from "@/components/BackButton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { getPeriodDemandReviewCounts } from "@/lib/periodCounts";
-import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
+import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback, useRealtimeVisualIdentity, useRealtimeStrategies } from "@/hooks/realtime";
 import VisualIdentityModal from "@/components/VisualIdentityModal";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -983,15 +983,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   useEffect(() => {
     if (!selectedClient?.id || !tenantId) return;
     refetchPresets();
-    const channel = supabase
-      .channel(`vi-presets-${selectedClient.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'visual_identity_presets', filter: `company_id=eq.${selectedClient.id}` }, () => {
-        refetchPresets();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient?.id, tenantId]);
+
+  useRealtimeVisualIdentity({
+    tenantId,
+    companyId: selectedClient?.id ?? null,
+    enabled: !!(selectedClient?.id && tenantId),
+    onChange: () => { refetchPresets(); },
+  });
 
   useEffect(() => {
     if (!selectedClient?.id || !tenantId) return;
