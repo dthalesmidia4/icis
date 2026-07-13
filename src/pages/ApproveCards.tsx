@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
+import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 
 interface PeriodData {
   id: string;
