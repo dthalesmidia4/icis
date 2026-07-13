@@ -597,8 +597,18 @@ const KanbanCentralPage = () => {
           current_function_key: demand.current_function_key ?? null,
           assigned_to: demand.assigned_to || null,
           status_color: demand.pipeline_statuses?.color || null,
-          additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates : []
-        };
+          additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates : [],
+          is_daily_card: !!demand.is_daily_card,
+          daily_start_date: demand.daily_start_date ?? null,
+          daily_end_date: demand.daily_end_date ?? null,
+          daily_time: demand.daily_time ?? null,
+          daily_exclude_weekends: demand.daily_exclude_weekends ?? true,
+          daily_exclude_holidays: demand.daily_exclude_holidays ?? true,
+          daily_next_date: demand.daily_next_date ?? null,
+          daily_total_occurrences: demand.daily_total_occurrences ?? null,
+          daily_completed_occurrences: demand.daily_completed_occurrences ?? 0,
+          daily_completed_dates: Array.isArray(demand.daily_completed_dates) ? demand.daily_completed_dates : [],
+        } as any;
       };
 
       const activeCards = (activeData || []).map(d => mapDemand(d, false));
