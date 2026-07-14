@@ -1542,7 +1542,8 @@ export default function TaskCard({
                   </div>
                 )}
 
-                {/* Painel expandido: Datas e Horários */}
+                {/* Painel expandido: Datas e Horários — ocultado para Card Diário */}
+                {!card.is_daily_card && (
                 <div className={cn(
                   "grid transition-all duration-300 ease-in-out",
                   datesOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
