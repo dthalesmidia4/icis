@@ -14,6 +14,7 @@ import { useCollaborators } from "@/hooks/useCollaborators";
 import { toast as sonnerToast } from "sonner";
 import BackButton from "@/components/BackButton";
 import { useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
+import { isDailyCardVisibleNow } from "@/lib/dailyCards";
 
 import { getRoleLabel } from "@/lib/constants/roles";
 
