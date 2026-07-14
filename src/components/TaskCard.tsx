@@ -1451,19 +1451,21 @@ export default function TaskCard({
                   </div>
 
 
-                  {/* Toggle Datas e Horários */}
-                  <button
-                    type="button"
-                    onClick={() => setDatesOpen(v => !v)}
-                    className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
-                    aria-expanded={datesOpen}
-                  >
-                    <span className="flex items-center gap-2 font-semibold text-sm">
-                      <CalendarIcon className="h-4 w-4 text-primary" />
-                      Datas e Horários
-                    </span>
-                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-300", datesOpen && "rotate-180")} />
-                  </button>
+                  {/* Toggle Datas e Horários — oculto para Card Diário (usa apenas campos diários) */}
+                  {!card.is_daily_card && (
+                    <button
+                      type="button"
+                      onClick={() => setDatesOpen(v => !v)}
+                      className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
+                      aria-expanded={datesOpen}
+                    >
+                      <span className="flex items-center gap-2 font-semibold text-sm">
+                        <CalendarIcon className="h-4 w-4 text-primary" />
+                        Datas e Horários
+                      </span>
+                      <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-300", datesOpen && "rotate-180")} />
+                    </button>
+                  )}
 
                   {/* Toggle Objetivo */}
                   <button
