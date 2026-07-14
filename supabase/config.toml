@@ -6,6 +6,12 @@ verify_jwt = false
 [functions.generate-period-plans]
 verify_jwt = false
 
+[functions.generate-normal-demands]
+verify_jwt = false
+
+[functions.generate-ultra-demands]
+verify_jwt = false
+
 [functions.suggest-period-config]
 verify_jwt = false
 
