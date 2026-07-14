@@ -4,13 +4,13 @@ project_id = "neriayolipcupycirwhf"
 verify_jwt = false
 
 [functions.generate-period-plans]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-normal-demands]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-ultra-demands]
-verify_jwt = false
+verify_jwt = true
 
 [functions.suggest-period-config]
 verify_jwt = false
