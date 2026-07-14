@@ -97,11 +97,20 @@ export function nextValidDate(
 export function isDailyCardVisibleNow(card: {
   is_daily_card?: boolean | null;
   daily_next_date?: string | null;
+  daily_time?: string | null;
 }): boolean {
   if (!card?.is_daily_card) return true;
   if (!card.daily_next_date) return true;
-  const today = toDateOnly(new Date());
-  return card.daily_next_date <= today;
+  const now = new Date();
+  const today = toDateOnly(now);
+  if (card.daily_next_date > today) return false;
+  if (card.daily_next_date < today) return true;
+  // Mesma data — respeitar horário
+  if (!card.daily_time) return true;
+  const [hh, mm] = card.daily_time.split(":").map(Number);
+  const scheduled = new Date(now);
+  scheduled.setHours(hh || 0, mm || 0, 0, 0);
+  return now >= scheduled;
 }
 
 /**
