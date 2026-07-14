@@ -1170,8 +1170,13 @@ const KanbanCentralPage = () => {
       sonnerToast.error("Defina o tipo da demanda");
       return;
     }
-    if (!selectedCard.due_date) {
+    const isDaily = !!(selectedCard as any).is_daily_card;
+    if (!isDaily && !selectedCard.due_date) {
       sonnerToast.error("Defina a data de início de produção");
+      return;
+    }
+    if (isDaily && !(selectedCard as any).daily_start_date) {
+      sonnerToast.error("Defina a data de início do Card Diário");
       return;
     }
     if (!selectedCard.title?.trim()) {
@@ -1180,6 +1185,11 @@ const KanbanCentralPage = () => {
     }
     try {
       const chosenLabel = selectedCard.demand_type || selectedCard.demand_type_key;
+      // Para Card Diário, não passamos publish_date/due_date reais (evita herdar data de criação como entrega).
+      // A RPC exige due_date apenas se o status inicial requerer; usamos daily_start_date como fallback técnico.
+      const dueDateArg = isDaily
+        ? ((selectedCard as any).daily_start_date || null)
+        : (selectedCard.due_date || null);
       const { data, error } = await supabase.rpc("create_demand_from_template", {
         p_client_id: selectedCard.clientId,
         p_template_id: null,
@@ -1189,8 +1199,8 @@ const KanbanCentralPage = () => {
         p_description: selectedCard.description || null,
         p_demand_type: chosenLabel,
         p_channel: selectedCard.channel || null,
-        p_publish_date: selectedCard.publish_date || null,
-        p_due_date: selectedCard.due_date || null,
+        p_publish_date: isDaily ? null : (selectedCard.publish_date || null),
+        p_due_date: dueDateArg,
         p_period_plan_id: selectedCard.period_plan_id || null
       });
       if (error) throw error;
@@ -1204,27 +1214,34 @@ const KanbanCentralPage = () => {
       const extra: Record<string, any> = {
         demand_type_key: selectedCard.demand_type_key,
       };
-      if (selectedCard.delivery_date) extra.delivery_date = selectedCard.delivery_date;
-      if (selectedCard.due_time) extra.due_time = selectedCard.due_time;
-      if (selectedCard.delivery_time) extra.delivery_time = selectedCard.delivery_time;
-      if (selectedCard.publish_time) extra.publish_time = selectedCard.publish_time;
       if (selectedCard.objective) extra.objective = selectedCard.objective;
       if (selectedCard.instructions) extra.instructions = selectedCard.instructions;
       if (selectedCard.observations) extra.observations = selectedCard.observations;
       if (selectedCard.post_caption) extra.post_caption = selectedCard.post_caption;
       if (selectedCard.assigned_to) extra.assigned_to = selectedCard.assigned_to;
-      if (selectedCard.additional_publish_dates?.length) extra.additional_publish_dates = selectedCard.additional_publish_dates;
-      if ((selectedCard as any).is_daily_card) {
+
+      if (isDaily) {
+        // Card Diário: NÃO usar delivery/publish/due — depende só dos campos diários.
+        extra.delivery_date = null;
+        extra.delivery_time = null;
+        extra.publish_time = null;
+        extra.due_time = null;
         extra.is_daily_card = true;
         extra.daily_start_date = (selectedCard as any).daily_start_date ?? null;
         extra.daily_end_date = (selectedCard as any).daily_end_date ?? null;
         extra.daily_time = (selectedCard as any).daily_time ?? null;
         extra.daily_exclude_weekends = (selectedCard as any).daily_exclude_weekends ?? true;
         extra.daily_exclude_holidays = (selectedCard as any).daily_exclude_holidays ?? true;
-        extra.daily_next_date = (selectedCard as any).daily_next_date ?? null;
+        extra.daily_next_date = (selectedCard as any).daily_next_date ?? (selectedCard as any).daily_start_date ?? null;
         extra.daily_total_occurrences = (selectedCard as any).daily_total_occurrences ?? null;
         extra.daily_completed_occurrences = 0;
         extra.daily_completed_dates = [];
+      } else {
+        if (selectedCard.delivery_date) extra.delivery_date = selectedCard.delivery_date;
+        if (selectedCard.due_time) extra.due_time = selectedCard.due_time;
+        if (selectedCard.delivery_time) extra.delivery_time = selectedCard.delivery_time;
+        if (selectedCard.publish_time) extra.publish_time = selectedCard.publish_time;
+        if (selectedCard.additional_publish_dates?.length) extra.additional_publish_dates = selectedCard.additional_publish_dates;
       }
 
       await supabase.from("demands").update(extra).eq("id", result.demand_id);
