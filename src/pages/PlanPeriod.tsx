@@ -679,7 +679,8 @@ const PlanPeriod = () => {
     if (options?.isFinalBatch) invokeBody.isFinalBatch = true;
 
     let directError: any = null;
-    const edgeFunctionPromise = supabase.functions.invoke('generate-period-plans', {
+    const targetFn = planType === "ultra" ? "generate-ultra-demands" : "generate-normal-demands";
+    const edgeFunctionPromise = supabase.functions.invoke(targetFn, {
       body: invokeBody
     }).then(({ data, error }) => {
       console.log(`[PlanPeriod] Edge function response (${planType}${options?.batchType ? `/${options.batchType}` : ''}):`, { hasData: !!data, error });
