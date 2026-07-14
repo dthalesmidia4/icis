@@ -115,14 +115,8 @@ const CollaboratorDemands = () => {
           daily_total_occurrences: d.daily_total_occurrences ?? null,
           daily_completed_occurrences: d.daily_completed_occurrences ?? 0,
           daily_completed_dates: Array.isArray(d.daily_completed_dates) ? d.daily_completed_dates : [],
-        })).filter((c: any) => {
-          // Ocultar cards diários cuja próxima ocorrência ainda não chegou
-          if (!c.is_daily_card) return true;
-          if (!c.daily_next_date) return true;
-          const today = new Date();
-          const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-          return c.daily_next_date <= iso;
-        });
+        })).filter((c: any) => isDailyCardVisibleNow(c));
+
         setCards(mapped);
       }
     } catch (err) {
