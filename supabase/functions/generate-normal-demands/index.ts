@@ -232,7 +232,6 @@ Formato: {"plan":[...],"summary":"resumo curto do racional"}`;
       updated_at: new Date().toISOString(),
       default_plan: mergedDefault,
       status: (Array.isArray(periodPlan.ultra_plan) && periodPlan.ultra_plan.length > 0) ? "generated" : "draft",
-      normal_summary: summary || (periodPlan as any).normal_summary || "",
     };
     const { error: saveErr } = await (supabase as any).from("period_plans").update(saveData).eq("id", periodPlanId);
     if (saveErr) console.error("SAVE FAILED:", JSON.stringify(saveErr));
