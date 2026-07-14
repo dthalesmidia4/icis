@@ -10,6 +10,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildPlanningContext } from "../_shared/planning-context.ts";
+import { requireTenantAndPlanAccess } from "../_shared/require-tenant-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
