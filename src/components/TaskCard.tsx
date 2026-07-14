@@ -1112,6 +1112,19 @@ export default function TaskCard({
                       <span>Descartar</span>
                     </Button>
                   </>
+                ) : card.is_daily_card ? (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-11 gap-2 shrink-0"
+                    onClick={handleDeliver}
+                    disabled={delivering}
+                    aria-label="Entregar ocorrência diária"
+                    title="Registrar a ocorrência de hoje e reagendar para o próximo dia válido"
+                  >
+                    {delivering ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    <span>Entregar ocorrência</span>
+                  </Button>
                 ) : (
                   <>
                     {card.current_function_key && (
