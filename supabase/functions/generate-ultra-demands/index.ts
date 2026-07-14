@@ -48,7 +48,14 @@ Deno.serve(async (req) => {
 
     if (!periodPlanId || !tenantId) throw new Error("periodPlanId e tenantId são obrigatórios");
 
-    supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const auth = await requireTenantAndPlanAccess(req, tenantId, periodPlanId);
+    if (!auth.ok) {
+      return new Response(JSON.stringify({ error: auth.error }), {
+        status: auth.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    supabase = auth.admin;
 
     const ctx = await buildPlanningContext(supabase, periodPlanId, tenantId);
     const { company, periodPlan, contextText } = ctx;
