@@ -73,6 +73,14 @@ Deno.serve(async (req) => {
 
     // Anti-repetition block from the CURRENT default_plan saved in DB
     const defaultPlanArr = Array.isArray(periodPlan.default_plan) ? periodPlan.default_plan as any[] : [];
+    if (defaultPlanArr.length === 0 && body.allowWithoutNormal !== true) {
+      console.warn("[ultra] default_plan vazio — bloqueando geração para preservar anti-repetição");
+      return new Response(JSON.stringify({
+        success: false,
+        code: "missing_default_plan",
+        error: "Gere primeiro as Demandas Normais para que as Demandas Ultra possam evitar repetição e criar ideias mais fortes.",
+      }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const antiRepetitionBlock = summarizeDefaultPlanForUltra(defaultPlanArr);
 
     const ultraDefinition = `# DEFINIÇÃO DE DEMANDA ULTRA (LEIA COM ATENÇÃO)
