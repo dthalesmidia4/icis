@@ -108,11 +108,19 @@ ${antiRepetitionBlock}`;
 
     const brand = truncate(company.fantasy_name || company.name, 80);
 
+    const PROMPT_LIMIT = 8000;
+    const safeTruncate = (label: string, content: string, limit = PROMPT_LIMIT) => {
+      if (!content) return "";
+      if (content.length <= limit) return content;
+      console.warn(`[ultra] Prompt customizado "${label}" foi truncado de ${content.length} para ${limit} caracteres.`);
+      return truncate(content, limit);
+    };
+
     const promptSections: string[] = [];
-    if (planPrompt) promptSections.push(`# DIRETRIZES GERAIS DE PLANO DE MARKETING\n${truncate(planPrompt, 2200)}`);
+    if (planPrompt) promptSections.push(`# DIRETRIZES GERAIS DE PLANO DE MARKETING\n${safeTruncate("generate_plan_prompt", planPrompt)}`);
     promptSections.push(ultraDefinition);
-    if (advancedPrompt) promptSections.push(`# REGRAS DE PLANEJAMENTO AVANÇADO\n${truncate(advancedPrompt, 2500)}`);
-    promptSections.push(`# REGRAS TÁTICAS DE GERAÇÃO (aplicam-se também à Ultra)\n${truncate(demandasPrompt, 2200)}`);
+    if (advancedPrompt) promptSections.push(`# REGRAS DE PLANEJAMENTO AVANÇADO\n${safeTruncate("advanced_planning_prompt", advancedPrompt)}`);
+    promptSections.push(`# REGRAS TÁTICAS DE GERAÇÃO (aplicam-se também à Ultra)\n${safeTruncate("generate_demandas_prompt", demandasPrompt)}`);
     promptSections.push(antiRepetitionSection);
 
     const systemPrompt = promptSections.join("\n\n---\n\n");
