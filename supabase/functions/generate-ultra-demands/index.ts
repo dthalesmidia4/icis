@@ -73,6 +73,14 @@ Deno.serve(async (req) => {
 
     // Anti-repetition block from the CURRENT default_plan saved in DB
     const defaultPlanArr = Array.isArray(periodPlan.default_plan) ? periodPlan.default_plan as any[] : [];
+    if (defaultPlanArr.length === 0 && body.allowWithoutNormal !== true) {
+      console.warn("[ultra] default_plan vazio — bloqueando geração para preservar anti-repetição");
+      return new Response(JSON.stringify({
+        success: false,
+        code: "missing_default_plan",
+        error: "Gere primeiro as Demandas Normais para que as Demandas Ultra possam evitar repetição e criar ideias mais fortes.",
+      }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const antiRepetitionBlock = summarizeDefaultPlanForUltra(defaultPlanArr);
 
     const ultraDefinition = `# DEFINIÇÃO DE DEMANDA ULTRA (LEIA COM ATENÇÃO)
@@ -100,11 +108,19 @@ ${antiRepetitionBlock}`;
 
     const brand = truncate(company.fantasy_name || company.name, 80);
 
+    const PROMPT_LIMIT = 8000;
+    const safeTruncate = (label: string, content: string, limit = PROMPT_LIMIT) => {
+      if (!content) return "";
+      if (content.length <= limit) return content;
+      console.warn(`[ultra] Prompt customizado "${label}" foi truncado de ${content.length} para ${limit} caracteres.`);
+      return truncate(content, limit);
+    };
+
     const promptSections: string[] = [];
-    if (planPrompt) promptSections.push(`# DIRETRIZES GERAIS DE PLANO DE MARKETING\n${truncate(planPrompt, 2200)}`);
+    if (planPrompt) promptSections.push(`# DIRETRIZES GERAIS DE PLANO DE MARKETING\n${safeTruncate("generate_plan_prompt", planPrompt)}`);
     promptSections.push(ultraDefinition);
-    if (advancedPrompt) promptSections.push(`# REGRAS DE PLANEJAMENTO AVANÇADO\n${truncate(advancedPrompt, 2500)}`);
-    promptSections.push(`# REGRAS TÁTICAS DE GERAÇÃO (aplicam-se também à Ultra)\n${truncate(demandasPrompt, 2200)}`);
+    if (advancedPrompt) promptSections.push(`# REGRAS DE PLANEJAMENTO AVANÇADO\n${safeTruncate("advanced_planning_prompt", advancedPrompt)}`);
+    promptSections.push(`# REGRAS TÁTICAS DE GERAÇÃO (aplicam-se também à Ultra)\n${safeTruncate("generate_demandas_prompt", demandasPrompt)}`);
     promptSections.push(antiRepetitionSection);
 
     const systemPrompt = promptSections.join("\n\n---\n\n");
