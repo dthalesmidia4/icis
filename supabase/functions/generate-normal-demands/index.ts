@@ -242,12 +242,15 @@ Formato: {"plan":[...],"summary":"resumo curto do racional"}`;
 
     // Persist
     const existingDefault = Array.isArray(periodPlan.default_plan) ? periodPlan.default_plan as any[] : [];
+    const existingUltra = Array.isArray(periodPlan.ultra_plan) ? periodPlan.ultra_plan as any[] : [];
     const mergedDefault = isBatch ? [...existingDefault, ...planDemands] : planDemands;
+    const recomputedFinal = [...mergedDefault, ...existingUltra];
 
     const saveData: any = {
       updated_at: new Date().toISOString(),
       default_plan: mergedDefault,
-      status: (Array.isArray(periodPlan.ultra_plan) && periodPlan.ultra_plan.length > 0) ? "generated" : "draft",
+      final_plan: recomputedFinal,
+      status: existingUltra.length > 0 ? "generated" : "draft",
     };
     const { error: saveErr } = await (supabase as any).from("period_plans").update(saveData).eq("id", periodPlanId);
     if (saveErr) console.error("SAVE FAILED:", JSON.stringify(saveErr));
