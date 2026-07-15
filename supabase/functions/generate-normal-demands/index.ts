@@ -111,10 +111,18 @@ Deno.serve(async (req) => {
 Demanda Normal é uma demanda estratégica, consistente, executável e alinhada ao planejamento do período. Serve para manter presença, educação, autoridade, relacionamento, posicionamento ou conversão quando permitido. Deve ser bem feita, mas NÃO precisa ser uma campanha especial ou uma ideia de alto impacto.
 Regras: obedecer linha de produção; obedecer canal prioritário; obedecer restrições; evitar repetição; ser clara para a equipe produzir; preservar tom de voz e estratégia definidos nas Diretrizes; não exagerar criatividade se isso fugir do planejamento.`;
 
+    const PROMPT_LIMIT = 8000;
+    const safeTruncate = (label: string, content: string, limit = PROMPT_LIMIT) => {
+      if (!content) return "";
+      if (content.length <= limit) return content;
+      console.warn(`[normal] Prompt customizado "${label}" foi truncado de ${content.length} para ${limit} caracteres.`);
+      return truncate(content, limit);
+    };
+
     const promptSections: string[] = [];
-    if (planPrompt) promptSections.push(`# DIRETRIZES GERAIS DE PLANO DE MARKETING\n${truncate(planPrompt, 2200)}`);
+    if (planPrompt) promptSections.push(`# DIRETRIZES GERAIS DE PLANO DE MARKETING\n${safeTruncate("generate_plan_prompt", planPrompt)}`);
     promptSections.push(normalDefinition);
-    promptSections.push(`# REGRAS TÁTICAS DE GERAÇÃO DE DEMANDAS\n${truncate(demandasPrompt, 2500)}`);
+    promptSections.push(`# REGRAS TÁTICAS DE GERAÇÃO DE DEMANDAS\n${safeTruncate("generate_demandas_prompt", demandasPrompt)}`);
 
     const brand = truncate(company.fantasy_name || company.name, 80);
     const jsonInstruction = `\n\nResponda APENAS JSON válido, sem markdown. Canal: "${periodPlan.priority_channel}". Plano NORMAL.
