@@ -1038,6 +1038,10 @@ const PlanPeriod = () => {
   // Generate ultra plans
   const handleGenerateUltra = async () => {
     try {
+      if (!defaultPlan || defaultPlan.length === 0) {
+        toast.error('Gere primeiro as Demandas Normais para que as Demandas Ultra possam evitar repetição e criar ideias mais fortes.');
+        return;
+      }
       setCurrentStep('loading-ultra');
       setLoadingMessage("Gerando demandas ultra...");
       setPollingProgress(10);
