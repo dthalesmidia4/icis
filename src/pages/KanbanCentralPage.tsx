@@ -1687,7 +1687,9 @@ const KanbanCentralPage = () => {
               name: c.fullName,
               color: "hsl(var(--primary))",
             })),
-            { id: "__unassigned__", name: "Sem responsável", color: "hsl(var(--muted-foreground))" },
+            ...((viewMode === "history" || filteredCards.some((c) => !c.assigned_to))
+              ? [{ id: "__unassigned__", name: "Sem responsável", color: "hsl(var(--muted-foreground))" }]
+              : []),
           ].map((column) => {
             // Cards ATIVOS deste colaborador (modo normal)
             const activeColumnCards = filteredCards.filter((card) => {
@@ -1757,6 +1759,20 @@ const KanbanCentralPage = () => {
                         <Badge variant="secondary" className="text-xs ml-auto">
                           {allColumnCards.length}
                         </Badge>
+                        {column.id !== "__unassigned__" && viewMode !== "history" && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/colaboradores/${column.id}`);
+                            }}
+                            className="h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            title="Modo foco"
+                            aria-label={`Modo foco: ${column.name}`}
+                          >
+                            <Focus className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                       {viewMode === "history" && (
                         <span className="text-[11px] text-muted-foreground mt-1">
