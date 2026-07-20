@@ -123,9 +123,10 @@ const KanbanCentralPage = () => {
       return next;
     });
   }, []);
-  const [collapsedReview, setCollapsedReview] = useState<Set<string>>(new Set());
+  // Grupo "Em Revisão" inicia recolhido por padrão; guardamos as colunas expandidas explicitamente.
+  const [expandedReview, setExpandedReview] = useState<Set<string>>(new Set());
   const toggleReview = useCallback((columnId: string) => {
-    setCollapsedReview((prev) => {
+    setExpandedReview((prev) => {
       const next = new Set(prev);
       if (next.has(columnId)) next.delete(columnId);
       else next.add(columnId);
@@ -1329,7 +1330,7 @@ const KanbanCentralPage = () => {
   }
 
   return (
-    <div className="mt-4 px-4 sm:px-6">
+    <div className="mt-4 px-3 sm:px-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
@@ -1702,7 +1703,7 @@ const KanbanCentralPage = () => {
               : nonAwaitingCards;
 
             const isAwaitingCollapsed = collapsedAwaiting.has(column.id);
-            const isReviewCollapsed = collapsedReview.has(column.id);
+            const isReviewCollapsed = !expandedReview.has(column.id);
 
             return (
               <Droppable key={column.id} droppableId={column.id}>
