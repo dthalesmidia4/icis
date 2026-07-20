@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { Home, Users, Target, FileText, Lightbulb, Calendar, ListTodo, LayoutGrid, Code, User, Settings } from "lucide-react";
+import { Home, Users, Target, FileText, Lightbulb, Calendar, CalendarDays, ListTodo, LayoutGrid, Code, User, Settings } from "lucide-react";
 
 export interface BreadcrumbItem {
   label: string;
