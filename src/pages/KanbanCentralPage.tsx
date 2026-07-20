@@ -1085,6 +1085,27 @@ const KanbanCentralPage = () => {
     fetchAllCards();
   };
 
+  // Inline dates update from KanbanCard popover
+  const handleInlineDatesChange = useCallback(
+    async (cardId: string, changes: { due_date?: string | null; due_time?: string | null; delivery_date?: string | null; delivery_time?: string | null }) => {
+      try {
+        const payload: Record<string, any> = {};
+        if ("due_date" in changes) payload.due_date = changes.due_date;
+        if ("due_time" in changes) payload.due_time = changes.due_time;
+        if ("delivery_date" in changes) payload.delivery_date = changes.delivery_date;
+        if ("delivery_time" in changes) payload.delivery_time = changes.delivery_time;
+        const { error } = await supabase.from("demands").update(payload).eq("id", cardId);
+        if (error) throw error;
+        setCards((prev) => prev.map((c) => (c.id === cardId ? ({ ...c, ...payload } as CentralKanbanCard) : c)));
+        sonnerToast.success("Datas atualizadas");
+      } catch (err: any) {
+        console.error("[KanbanCentral] update dates error", err);
+        sonnerToast.error(err?.message || "Erro ao atualizar datas");
+      }
+    },
+    [],
+  );
+
   // Open TaskCard directly in draft mode with a blank in-memory card. No DB row created yet.
   const handleOpenDraft = async () => {
     if (!tenantId) return;
