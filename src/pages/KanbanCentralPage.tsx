@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +45,7 @@ import { useCollaborators } from "@/hooks/useCollaborators";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { assignInitialResponsible } from "@/lib/initialFlowFunction";
 import { isReviewFunction } from "@/lib/flowFunctions";
+import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 
 interface PipelineStatus {
   id: string;
