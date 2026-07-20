@@ -1,29 +1,31 @@
-## Ajustes UI Kanban Central + Backfill "Sem etapa"
+## Ajustes finos + correção do bug "tudo virou Revisar"
 
-### 1. InlineDates: uma linha só (voltar layout anterior)
-Em `src/components/KanbanCard.tsx`, o componente `InlineDates` voltará ao layout horizontal em linha única: início à esquerda, término à direita, no formato compacto (ex.: `Ini: 20/07 15:30 · Fim: 20/07 16:30`), truncando com ellipsis se faltar espaço. O popover continua abrindo os dois calendários lado a lado ao clicar.
+### 1. Reduzir sutilmente o respiro adicionado
+Em `src/pages/KanbanCentralPage.tsx`, trocar o padding do container raiz de `px-4 sm:px-6` para algo mais suave (ex.: `px-3 sm:px-4`). Continua respirando da sidebar e da borda direita, mas sem exagero.
 
-### 2. Tab entre horários no popover de datas
-No popover de `InlineDates`, os inputs `time` de início e término receberão `tabIndex` sequenciais e o input de início terá `onKeyDown` que intercepta `Tab` (sem shift) para focar explicitamente o input de término via `ref`. Isso garante que Tab pule do hh:mm de início direto para o hh:mm de término, ignorando eventuais botões do calendário entre eles.
+### 2. Grupo "Em Revisão" recolhido por padrão
+No mesmo arquivo (`KanbanCentralPage.tsx`), o estado do grupo "Em Revisão" hoje inicia expandido. Alterar para iniciar **recolhido** por padrão — o usuário expande manualmente clicando no header. Mantém a mesma regra de só agrupar quando houver 3+ cards em função de revisão por coluna. O grupo "Aguardando Clientes" segue com o comportamento atual (não mexer).
 
-### 3. Respiro lateral na tela Visão Geral
-Em `src/pages/KanbanCentralPage.tsx`, ajustar o container raiz para incluir padding horizontal (ex.: `px-6`) para que:
-- Cabeçalho ("Visão geral das Tarefas" + botões Registro/Novo Status/Nova Demanda) não encoste na sidebar à esquerda nem na borda direita.
-- Barra de busca e filtros também respeitem o mesmo respiro.
+### 3. Diagnóstico do bug "tudo em Revisar" (confirmado)
+Auditoria feita no banco (`demand_flow_history` + `demand_type_flow_rules`):
 
-### 4. Alinhamento do avatar "DM" na sidebar com o cabeçalho
-Na sidebar (`src/components/AppSidebar.tsx` ou equivalente), reduzir a altura do bloco superior do avatar de usuário para que sua base inferior alinhe com a base inferior do cabeçalho "Visão geral das Tarefas". Ajuste via `h-*`/`py-*` no header da sidebar para bater com a altura efetiva do header da página (a confirmar lendo os dois arquivos).
+- **Criação nova está correta.** Cards criados manualmente ou via aprovação chamam `assignInitialResponsible`, que resolve corretamente a primeira função ativa por `position` respeitando as regras `required` do tipo. Exemplo verificado: dois cards "Outro" criados às 18:21 foram para `planejar` (correto), como registrado em `demand_flow_history` com `action='created'` e `to_function_key='planejar'`.
+- **A regressão veio da migração de backfill anterior** (`20260720192849_...sql`), que setou `current_function_key = 'revisar'` **fixo** para todo card órfão, sem respeitar as regras por tipo. Isso empurrou dezenas de cards (inclusive os "Outro" recém-criados que estavam com key nula) para `revisar`, poluindo as colunas de responsáveis que nem têm função de revisão (Henrique, Lúcia etc.).
+- **Tipo `outro` não força revisar.** As regras de fluxo para `outro` marcam como `required` apenas `planejar` e `revisar`; a primeira por `position` é `planejar` (position 0). Ou seja, novo card "Outro" deve nascer em `planejar`, não em `revisar`. O código está correto — o problema foi só o backfill.
 
-### 5. Migração: backfill dos cards "Sem etapa" da Lúcia (e demais órfãos)
-Migration SQL que:
-- Seleciona demandas ativas (não arquivadas, não em `feito`/`enviar_cliente`) com `current_function_key IS NULL`.
-- Para cada uma, resolve a primeira função ativa de revisão do fluxo do tenant/tipo (mesma lógica de `resolveInitialFunction`, priorizando função de revisão quando existir; caso contrário, primeira função ativa do fluxo).
-- Atualiza `current_function_key` e, se `assigned_to` estiver nulo, atribui ao responsável padrão da função.
-- Insere linha em `demand_flow_history` marcando o backfill (`action = 'backfill_initial_function'`).
+### 4. Migração corretiva (reverter o backfill)
+Nova migração SQL que:
 
-Executada uma vez para corrigir os ~22 cards órfãos existentes (incluindo os da coluna Lúcia visíveis como "Sem etapa" em Agendar Publicação).
+1. Seleciona todos os cards afetados pelo backfill anterior via `demand_flow_history` onde `action = 'backfill_initial_function'` e `metadata->>'source' = 'sql_backfill_sem_etapa'`, filtrando apenas os que ainda estão em `current_function_key = 'revisar'` (para não desfazer movimentos legítimos que o usuário fez depois).
+2. Para cada card, resolve a **função inicial correta** via SQL replicando a lógica de `resolveInitialFunction`:
+   - Se houver regras `required` em `demand_type_flow_rules` para o `demand_type_key` do card → primeira função `required` ordenada por `flow_functions.position`.
+   - Caso contrário (sem key ou sem regras) → primeira `flow_functions` ativa por `position` do tenant (tipicamente `planejar`).
+3. Atualiza `current_function_key` para o valor resolvido. `assigned_to` fica como está (não mexe, para preservar quem já pegou o card).
+4. Insere linha em `demand_flow_history` com `action = 'backfill_correction'` e `metadata = {source: 'sql_undo_revisar_backfill'}` para rastreabilidade.
+
+Não altera cards que legitimamente estão em `revisar` (movidos pelos usuários ou pelo fluxo normal), pois esses não têm o registro `backfill_initial_function` correspondente.
 
 ### Detalhes técnicos
-- Arquivos alterados: `src/components/KanbanCard.tsx`, `src/pages/KanbanCentralPage.tsx`, arquivo da sidebar (a identificar), + 1 migração SQL.
-- Sem alteração de contratos de dados; sem novos endpoints.
-- Realtime e demais fluxos permanecem intactos.
+- Arquivos alterados: `src/pages/KanbanCentralPage.tsx` (padding + estado inicial do grupo Revisão) + 1 migração SQL corretiva.
+- Nenhuma mudança em `assignInitialResponsible` ou nas regras de tipo — o fluxo de criação já está correto.
+- Sem impacto em realtime, RLS ou contratos de dados.
