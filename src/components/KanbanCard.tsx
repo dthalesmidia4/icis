@@ -290,7 +290,7 @@ const KanbanCard = ({
       </CardHeader>
 
       {showInline && !hideDueDate && (
-        <CardContent className="px-3 pb-3 pt-0">
+        <CardContent className="px-2.5 pb-2.5 pt-0">
           <InlineDates
             dueDate={dueDate}
             dueTime={dueTime}
@@ -303,7 +303,7 @@ const KanbanCard = ({
         </CardContent>
       )}
       {showInline && hideDueDate && cardDeliveryDate && (
-        <CardContent className="px-3 pb-3 pt-0">
+        <CardContent className="px-2.5 pb-2.5 pt-0">
           <InlineDates
             dueDate={undefined}
             dueTime={undefined}
