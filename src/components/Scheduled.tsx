@@ -696,12 +696,22 @@ const Scheduled = () => {
                     <th className="text-left font-semibold px-3 py-2">Horário</th>
                     <th className="text-left font-semibold px-3 py-2">Empresa</th>
                     <th className="text-left font-semibold px-3 py-2">Nome</th>
+                    <th className="text-left font-semibold px-3 py-2">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {dayItems.map((card) => {
                     const dt = getPublicationDateTime(card)!;
                     const { cleanTitle } = extractContentType(card.title);
+                    const dispatchStatus = (card as any).dispatch_status as string | null;
+                    const statusMeta: Record<string, { label: string; className: string }> = {
+                      scheduled: { label: "Agendado", className: "bg-primary/10 text-primary border-primary/30" },
+                      dispatching: { label: "Enviando", className: "bg-amber-500/10 text-amber-600 border-amber-500/30" },
+                      sent: { label: "Publicado", className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" },
+                      failed: { label: "Falhou", className: "bg-destructive/10 text-destructive border-destructive/30" },
+                      canceled: { label: "Cancelado", className: "bg-muted text-muted-foreground border-border" },
+                    };
+                    const badge = dispatchStatus ? statusMeta[dispatchStatus] : null;
                     return (
                       <tr
                         key={card.id}
@@ -718,6 +728,15 @@ const Scheduled = () => {
                         </td>
                         <td className="px-3 py-3 align-middle whitespace-nowrap text-sm font-medium text-foreground">
                           {cleanTitle}
+                        </td>
+                        <td className="px-3 py-3 align-middle whitespace-nowrap">
+                          {badge ? (
+                            <Badge variant="outline" className={cn("text-[10px] font-semibold", badge.className)}>
+                              {badge.label}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
                         </td>
                       </tr>
                     );
