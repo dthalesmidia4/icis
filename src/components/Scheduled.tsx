@@ -169,7 +169,7 @@ const Scheduled = () => {
       // Etapa 1: buscar todos os dispatches do tenant (inclui sent/failed/canceled p/ histórico)
       const { data: allDispatches, error: dispErr } = await supabase
         .from("scheduled_publication_dispatches")
-        .select("card_id, status, scheduled_at")
+        .select("card_id, status, scheduled_at, dispatched_at")
         .eq("tenant_id", tenantId)
         .in("status", ["scheduled", "dispatching", "sent", "failed", "canceled"]);
 
