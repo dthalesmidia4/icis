@@ -528,21 +528,11 @@ const Scheduled = () => {
   }
 
   return (
-    <div className="mt-4">
+    <div className="mt-4 px-3 sm:px-4">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => (backTo ? navigate(backTo) : navigate(-1))}
-          className="gap-1 -ml-2"
-          aria-label="Voltar"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Voltar
-        </Button>
-        <div className="p-2 bg-violet-500/10 rounded-lg">
-          <CalendarDays className="h-5 w-5 text-violet-500" />
+        <div className="p-2 bg-primary/10 rounded-lg">
+          <CalendarDays className="h-5 w-5 text-primary" />
         </div>
         <h2 className="text-xl sm:text-2xl font-bold text-foreground">
           Agendamento
@@ -551,6 +541,7 @@ const Scheduled = () => {
           {filteredCards.length} {filteredCards.length === 1 ? 'item' : 'itens'}
         </Badge>
       </div>
+
 
 
       {/* Search and Filter */}
