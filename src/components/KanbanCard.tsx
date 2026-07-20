@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -76,6 +76,7 @@ const InlineDates = ({ dueDate, dueTime, deliveryDate, deliveryTime, isOverdue, 
   const [startTime, setStartTime] = useState<string>(dueTime?.slice(0, 5) || "");
   const [endTime, setEndTime] = useState<string>(deliveryTime?.slice(0, 5) || "");
   const [saving, setSaving] = useState(false);
+  const endTimeRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -94,12 +95,12 @@ const InlineDates = ({ dueDate, dueTime, deliveryDate, deliveryTime, isOverdue, 
   const label = (
     <div
       className={cn(
-        "flex flex-col gap-0.5 rounded-md px-2 py-1 text-[11px] font-medium leading-tight",
+        "flex items-center gap-2 rounded-md px-2 py-1 text-[11px] font-medium leading-tight min-w-0",
         isOverdue ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-muted/60 text-foreground",
         editable && "hover:bg-muted cursor-pointer transition-colors",
       )}
     >
-      <div className="flex items-center gap-1 min-w-0">
+      <div className="flex items-center gap-1 min-w-0 flex-1">
         <CalendarIcon className="h-3 w-3 shrink-0 text-amber-500" />
         <span className="text-muted-foreground shrink-0">Ini:</span>
         {dStart ? (
@@ -111,7 +112,7 @@ const InlineDates = ({ dueDate, dueTime, deliveryDate, deliveryTime, isOverdue, 
           <span className="text-muted-foreground">—</span>
         )}
       </div>
-      <div className="flex items-center gap-1 min-w-0">
+      <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
         <CalendarIcon className={cn("h-3 w-3 shrink-0", isOverdue ? "text-red-500" : "text-emerald-500")} />
         <span className="text-muted-foreground shrink-0">Fim:</span>
         {dEnd ? (
@@ -160,6 +161,13 @@ const InlineDates = ({ dueDate, dueTime, deliveryDate, deliveryTime, isOverdue, 
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Tab" && !e.shiftKey) {
+                    e.preventDefault();
+                    endTimeRef.current?.focus();
+                  }
+                }}
+                tabIndex={1}
                 className="h-8 text-xs"
               />
             </div>
@@ -175,9 +183,11 @@ const InlineDates = ({ dueDate, dueTime, deliveryDate, deliveryTime, isOverdue, 
             <div className="flex items-center gap-2">
               <Label className="text-xs text-muted-foreground w-12">Hora</Label>
               <Input
+                ref={endTimeRef}
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
+                tabIndex={2}
                 className="h-8 text-xs"
               />
             </div>

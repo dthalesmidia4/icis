@@ -1329,7 +1329,7 @@ const KanbanCentralPage = () => {
   }
 
   return (
-    <div className="mt-4">
+    <div className="mt-4 px-4 sm:px-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
