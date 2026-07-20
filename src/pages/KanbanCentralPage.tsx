@@ -148,6 +148,8 @@ const KanbanCentralPage = () => {
   const [dateGroupBy, setDateGroupBy] = useState<"start" | "delivery">("start");
   const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const { collaborators } = useCollaborators(tenantId);
+  const navigate = useNavigate();
+  const { activeDispatchIds, count: scheduledCount } = useActiveDispatchIds(tenantId);
   const [periods, setPeriods] = useState<Array<{
     id: string;
     period_title: string;
