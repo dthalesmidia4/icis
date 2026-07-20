@@ -19,6 +19,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
+import { assignInitialResponsible } from "@/lib/initialFlowFunction";
 import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 
 interface PeriodData {
@@ -302,8 +303,11 @@ const ApproveCards = () => {
       setApprovedIndexes(prev => new Set([...prev, card._index]));
       toast.success(`"${title}" aprovado e enviado ao Kanban!`);
 
-      // Trigger auto image generation (fire-and-forget)
+      // Atribui a etapa inicial (function_key + responsável) para não deixar o card "Sem etapa"
       if (insertedData?.id) {
+        await assignInitialResponsible(insertedData.id, tenantId, demandTypeKey, {
+          metadataSource: card._source === 'ultra' ? 'ultra_card' : 'card',
+        });
         triggerAutoGenerate(title, tipo, insertedData.id);
       }
     } catch (error) {

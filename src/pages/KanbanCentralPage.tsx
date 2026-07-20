@@ -43,6 +43,7 @@ import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { useCollaborators } from "@/hooks/useCollaborators";
 import { recordFlowHistory } from "@/lib/flowHistory";
+import { assignInitialResponsible } from "@/lib/initialFlowFunction";
 import { isReviewFunction } from "@/lib/flowFunctions";
 
 interface PipelineStatus {
@@ -1283,16 +1284,12 @@ const KanbanCentralPage = () => {
       await supabase.from("demands").update(extra).eq("id", result.demand_id);
 
       if (tenantId) {
-        await recordFlowHistory({
+        await assignInitialResponsible(
+          result.demand_id,
           tenantId,
-          demandId: result.demand_id,
-          action: "created",
-          fromUserId: null,
-          toUserId: selectedCard.assigned_to ?? null,
-          fromFunctionKey: null,
-          toFunctionKey: (selectedCard as any).current_function_key ?? null,
-          metadata: { source: "manual" },
-        });
+          selectedCard.demand_type_key ?? null,
+          { metadataSource: "manual" },
+        );
       }
 
       sonnerToast.success("Demanda criada!");
@@ -1765,10 +1762,23 @@ const KanbanCentralPage = () => {
                           });
 
                           let runningIndex = -1;
+                          const _today = new Date();
+                          const isoOf = (d: Date) => {
+                            const y = d.getFullYear();
+                            const m = String(d.getMonth() + 1).padStart(2, "0");
+                            const day = String(d.getDate()).padStart(2, "0");
+                            return `${y}-${m}-${day}`;
+                          };
+                          const todayISO = isoOf(_today);
+                          const yesterdayISO = isoOf(new Date(_today.getFullYear(), _today.getMonth(), _today.getDate() - 1));
+                          const tomorrowISO = isoOf(new Date(_today.getFullYear(), _today.getMonth(), _today.getDate() + 1));
                           const formatHeader = (date: string) => {
                             if (date === "__no_date__") {
                               return dateGroupBy === "start" ? "Sem data de início" : "Sem data de término";
                             }
+                            if (date === todayISO) return "Hoje";
+                            if (date === yesterdayISO) return "Ontem";
+                            if (date === tomorrowISO) return "Amanhã";
                             const [y, m, d] = date.split("-");
                             return `${d}/${m}/${y}`;
                           };
