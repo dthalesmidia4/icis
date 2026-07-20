@@ -198,6 +198,10 @@ const Scheduled = ({ backTo }: { backTo?: string } = {}) => {
         .eq("is_draft", false)
         .or(orFilter);
 
+      if (error) throw error;
+
+
+
 
       // Mantém o dispatch mais recente por card_id
       const dispatchByCard = new Map<string, { status: string; scheduled_at: string | null }>();
