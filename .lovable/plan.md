@@ -1,46 +1,31 @@
 ## Diagnóstico
 
-Aferi o banco de dados: **existem 9 cards na coluna da Lúcia (etapa `planejar`) que já têm agendamento ativo** em `scheduled_publication_dispatches` (status `scheduled`, com `scheduled_at` entre 22/07 e 31/07). Ou seja, o usuário já finalizou o conteúdo e agendou a publicação — não há mais nenhuma ação operacional pendente, mas eles continuam ocupando a coluna e criando a sensação de "avalanche".
+**1. Fluxo "só é agendado se o usuário finalizou" — está correto**
 
-Exemplos confirmados: `ESTÁTICO, QUANDO 1 MINUTO FAZ A DIFERENÇA` (22/07 11:00), `CARROSSEL, MEU PET ESTÁ MUITO QUIETO` (27/07), `BURNOUT` (29/07), etc.
+Aferi `createOrUpdateScheduleDispatch`: só é chamado em 3 pontos (`KanbanCentralPage`, `TaskCard`, `PeriodClientList`), todos dentro de `SchedulePublicationModal.onConfirm` — ou seja, o usuário abriu o modal de programação, escolheu data/hora e clicou em confirmar. Não há criação automática/lateral de dispatch. Portanto o filtro do Kanban ("esconder cards com dispatch ativo") só remove cards que o usuário efetivamente finalizou como programados. Nenhuma burocracia extra necessária.
 
-Sua leitura está correta: eles não pertencem a `revisar`, nem a `planejar` — pertencem a uma "prateleira" de acompanhamento visual (a tela `Conteúdos Agendados`).
+**2. Botão "Voltar" avulso e destino errado**
 
-## O que vou fazer
+`src/pages/Kanban.tsx` (rota `/scheduled`) renderiza `<BackButton to="/home" />` fora do componente, acima do header. Além disso, o destino é fixo em `/home`, ignorando de onde o usuário veio (Kanban Central ou Hub do Cliente).
 
-### 1. Ocultar do Kanban Central os cards já agendados
-Na `KanbanCentralPage`, filtrar da visão operacional qualquer card cujo `id` esteja em `scheduled_publication_dispatches` com status `scheduled` ou `dispatching` no tenant atual.
+**3. Posts passados não aparecem**
 
-- **Sem mover de coluna** e **sem alterar `assigned_to`**: assim, se o dispatch falhar/for cancelado, o card volta a aparecer imediatamente na coluna do responsável, exatamente onde estava.
-- O filtro também respeita o modo "Registro de Cards" (o histórico continua mostrando esses cards).
-- Toast informativo uma única vez por sessão: "N cards já agendados foram movidos para Conteúdos Agendados".
+Em `Scheduled.tsx` linha 179 o fetch aplica `.is("archived_at", null)`. Demandas na coluna "Feito" são auto-arquivadas (memória `completed-demands-archive`), então dispatches `sent`/`failed`/`canceled` desses cards ficam de fora. O print de Julho/2026 confirma: nenhum dia anterior a hoje mostra item, apesar de haver dispatches passados.
 
-### 2. Novo botão "Conteúdos agendados" no header secundário do Kanban Central
-Adicionar botão ao lado de "Novo Status" / "Nova Demanda", com:
-- Ícone `CalendarDays` + label "Conteúdos agendados".
-- **Badge discreto** (bolinha pequena com número) mostrando a contagem de dispatches ativos (`scheduled` + `dispatching`) do tenant, atualizada em realtime via `useRealtimeScheduledDispatches`.
-- Clique navega para `/scheduled`.
+## Alterações
 
-### 3. Página `/scheduled` passa a mostrar passados
-Hoje `Scheduled.tsx` mostra apenas cards com dispatch ativo/futuro. Vou:
-- Buscar também dispatches com status `sent`, `failed` e `canceled`.
-- Agrupar visualmente em duas seções:
-  - **Agendados** (futuro, ordenado por data crescente) — comportamento atual.
-  - **Já publicados / passados** (data ≤ hoje, ordenado decrescente), com badge de status (Publicado, Falhou, Cancelado).
-- Mantém o filtro por cliente e a busca já existentes.
+### A. Header do Scheduled com Voltar contextual
+- `src/components/Scheduled.tsx`: aceitar prop `backTo?: string` e renderizar botão Voltar (ícone `ArrowLeft` + label) **dentro** do header, à esquerda do ícone/título, alinhado verticalmente. Ao clicar: `navigate(backTo)` se fornecido, senão `navigate(-1)`.
+- `src/pages/Kanban.tsx`: remover `<BackButton>` avulso; passar `backTo` derivado de `location.state?.from` (fallback `/home`).
+- `src/pages/KanbanCentralPage.tsx`: no `onClick` do botão "Conteúdos agendados" (linha 1360), navegar com `navigate("/scheduled", { state: { from: "/kanban-central" } })`.
+- Fazer o mesmo em qualquer outro entry-point conhecido para `/scheduled` que passe pelo hub (manter fallback `/home`).
 
-### 4. Sem migração de dados
-Nada de mover cards no banco. O filtro é 100% de visualização — é o comportamento correto e reversível.
-
-## Detalhes técnicos
-
-- Novo hook `useActiveDispatchIds(tenantId)` em `src/hooks/` que retorna `Set<string>` de `card_id` com dispatch em `scheduled`/`dispatching`. Usa realtime já disponível.
-- `KanbanCentralPage.fetchAllCards`: aplica `.filter(c => !activeDispatchIds.has(c.id))` antes do agrupamento por coluna. Modo "Registro de Cards" ignora esse filtro.
-- Botão no header segue o padrão visual dos atuais ("Novo Status", "Nova Demanda"): `variant="outline"` com badge `absolute -top-1 -right-1` pequeno em `bg-primary text-primary-foreground`.
-- `Scheduled.tsx`: separar `activeCards` em `upcomingCards` e `pastCards` com base em `getPublicationDateTime(card) >= now`; renderizar duas seções com headings.
+### B. Incluir posts publicados/passados (histórico)
+- `src/components/Scheduled.tsx` `fetchScheduledCards`:
+  - Remover `.is("archived_at", null)` do SELECT de `demands` **ou** trocar por consulta em duas etapas: (1) pegar `card_id`s dos dispatches; (2) buscar demandas por `.in("id", cardIds)` sem filtro `archived_at`, mais um `OR` das demandas com status "Agendar Publicação" e `archived_at IS NULL` (mantém o path legado).
+  - Preservar `dispatch_status` para o badge existente ("Publicado", "Falhou", "Cancelado").
+  - Manter ordenação por data (passados aparecem naturalmente nos dias anteriores do calendário).
 
 ## Fora do escopo
-
-- Não altero `current_function_key` desses cards.
-- Não crio nova coluna/etapa "Agendado" no fluxo operacional (a "coluna" já é a página `/scheduled`).
-- Não mexo no fluxo de dispatch em si (`run-scheduled-dispatches`, `createOrUpdateScheduleDispatch`).
+- Nenhuma mudança de regra de negócio no momento em que o dispatch é criado (fluxo confirmado como correto).
+- Nenhuma mudança no `KanbanCentralPage` além do `navigate` com `state.from`.

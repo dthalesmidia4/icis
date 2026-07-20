@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive, Calendar, ChevronLeft } from "lucide-react";
+import { ArrowLeft, ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive, Calendar, ChevronLeft } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTenant } from "@/contexts/TenantContext";
@@ -22,7 +23,8 @@ interface CentralKanbanCard extends KanbanCardData {
   isArchived: boolean;
 }
 
-const Scheduled = () => {
+const Scheduled = ({ backTo }: { backTo?: string } = {}) => {
+  const navigate = useNavigate();
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const [allCards, setAllCards] = useState<CentralKanbanCard[]>([]);
   const [activeCards, setActiveCards] = useState<CentralKanbanCard[]>([]);
@@ -157,37 +159,49 @@ const Scheduled = () => {
     try {
       setLoading(true);
 
-      // Fetch two sources: (a) demands in "Agendar Publicação" status (legacy path);
-      // (b) demands with any dispatch (scheduled/dispatching/sent/failed/canceled) — permite ver histórico.
-      const [{ data: demandsData, error }, { data: allDispatches, error: dispErr }] = await Promise.all([
-        supabase
-          .from("demands")
-          .select(`
-            *,
-            pipeline_statuses!demands_status_id_fkey (
-              name,
-              color,
-              position
-            ),
-            tenant_companies!demands_client_id_fkey (
-              id,
-              fantasy_name,
-              name
-            )
-          `)
-          .eq("tenant_id", tenantId)
-          .is("archived_at", null)
-          .eq("is_draft", false),
+      // Etapa 1: buscar todos os dispatches do tenant (inclui sent/failed/canceled p/ histórico)
+      const { data: allDispatches, error: dispErr } = await supabase
+        .from("scheduled_publication_dispatches")
+        .select("card_id, status, scheduled_at")
+        .eq("tenant_id", tenantId)
+        .in("status", ["scheduled", "dispatching", "sent", "failed", "canceled"]);
 
-        supabase
-          .from("scheduled_publication_dispatches")
-          .select("card_id, status, scheduled_at")
-          .eq("tenant_id", tenantId)
-          .in("status", ["scheduled", "dispatching", "sent", "failed", "canceled"]),
-      ]);
+      if (dispErr) console.error("[Scheduled] dispatches fetch error", dispErr);
+
+      const dispatchCardIds = Array.from(
+        new Set((allDispatches || []).map((d: any) => d?.card_id).filter(Boolean))
+      );
+
+      // Etapa 2: buscar demandas — inclui arquivadas somente quando têm dispatch (histórico de publicados)
+      const demandsSelect = `
+        *,
+        pipeline_statuses!demands_status_id_fkey (
+          name,
+          color,
+          position
+        ),
+        tenant_companies!demands_client_id_fkey (
+          id,
+          fantasy_name,
+          name
+        )
+      `;
+
+      const orFilter = dispatchCardIds.length > 0
+        ? `archived_at.is.null,id.in.(${dispatchCardIds.join(",")})`
+        : "archived_at.is.null";
+
+      const { data: demandsData, error } = await supabase
+        .from("demands")
+        .select(demandsSelect)
+        .eq("tenant_id", tenantId)
+        .eq("is_draft", false)
+        .or(orFilter);
 
       if (error) throw error;
-      if (dispErr) console.error("[Scheduled] dispatches fetch error", dispErr);
+
+
+
 
       // Mantém o dispatch mais recente por card_id
       const dispatchByCard = new Map<string, { status: string; scheduled_at: string | null }>();
@@ -510,6 +524,16 @@ const Scheduled = () => {
     <div className="mt-4">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => (backTo ? navigate(backTo) : navigate(-1))}
+          className="gap-1 -ml-2"
+          aria-label="Voltar"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Voltar
+        </Button>
         <div className="p-2 bg-violet-500/10 rounded-lg">
           <CalendarDays className="h-5 w-5 text-violet-500" />
         </div>
@@ -520,6 +544,7 @@ const Scheduled = () => {
           {filteredCards.length} {filteredCards.length === 1 ? 'item' : 'itens'}
         </Badge>
       </div>
+
 
       {/* Search and Filter */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
