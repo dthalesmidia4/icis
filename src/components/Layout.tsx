@@ -44,5 +44,6 @@ export const Layout = ({ children }: LayoutProps) => {
         <LateDemandPopup />
       </div>
     </SidebarProvider>
+    </BreadcrumbOverrideProvider>
   );
 };
