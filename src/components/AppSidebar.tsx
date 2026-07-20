@@ -208,13 +208,13 @@ function DesktopSidebar() {
         expanded ? "w-52" : "w-16"
       )}
     >
-      {/* Header com Avatar */}
-      <div className="border-b p-2">
+      {/* Header com Avatar - altura alinhada ao header do Layout (py-3 + conteúdo) */}
+      <div className="border-b px-2 flex items-center h-[49px]">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 w-full p-1 hover:bg-accent rounded-lg transition-all duration-300 group" aria-label="Menu do perfil">
-              <Avatar className="h-10 w-10 flex-shrink-0 border-2 border-primary transition-all duration-300 group-hover:border-primary/80">
-                <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-sm font-bold">
+              <Avatar className="h-8 w-8 flex-shrink-0 border-2 border-primary transition-all duration-300 group-hover:border-primary/80">
+                <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-primary-foreground text-xs font-bold">
                   {userName ? getInitials(userName) : 'U'}
                 </AvatarFallback>
               </Avatar>
