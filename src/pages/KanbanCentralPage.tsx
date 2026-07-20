@@ -1762,10 +1762,23 @@ const KanbanCentralPage = () => {
                           });
 
                           let runningIndex = -1;
+                          const _today = new Date();
+                          const isoOf = (d: Date) => {
+                            const y = d.getFullYear();
+                            const m = String(d.getMonth() + 1).padStart(2, "0");
+                            const day = String(d.getDate()).padStart(2, "0");
+                            return `${y}-${m}-${day}`;
+                          };
+                          const todayISO = isoOf(_today);
+                          const yesterdayISO = isoOf(new Date(_today.getFullYear(), _today.getMonth(), _today.getDate() - 1));
+                          const tomorrowISO = isoOf(new Date(_today.getFullYear(), _today.getMonth(), _today.getDate() + 1));
                           const formatHeader = (date: string) => {
                             if (date === "__no_date__") {
                               return dateGroupBy === "start" ? "Sem data de início" : "Sem data de término";
                             }
+                            if (date === todayISO) return "Hoje";
+                            if (date === yesterdayISO) return "Ontem";
+                            if (date === tomorrowISO) return "Amanhã";
                             const [y, m, d] = date.split("-");
                             return `${d}/${m}/${y}`;
                           };
