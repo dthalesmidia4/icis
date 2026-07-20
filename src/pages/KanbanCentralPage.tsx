@@ -121,6 +121,17 @@ const KanbanCentralPage = () => {
       return next;
     });
   }, []);
+  const [collapsedReview, setCollapsedReview] = useState<Set<string>>(new Set());
+  const toggleReview = useCallback((columnId: string) => {
+    setCollapsedReview((prev) => {
+      const next = new Set(prev);
+      if (next.has(columnId)) next.delete(columnId);
+      else next.add(columnId);
+      return next;
+    });
+  }, []);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const savingDraftRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [selectedCard, setSelectedCard] = useState<CentralKanbanCard | null>(null);
   const [isTaskCardOpen, setIsTaskCardOpen] = useState(false);
