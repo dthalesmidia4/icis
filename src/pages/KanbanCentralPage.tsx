@@ -1703,7 +1703,7 @@ const KanbanCentralPage = () => {
               : nonAwaitingCards;
 
             const isAwaitingCollapsed = collapsedAwaiting.has(column.id);
-            const isReviewCollapsed = collapsedReview.has(column.id);
+            const isReviewCollapsed = !expandedReview.has(column.id);
 
             return (
               <Droppable key={column.id} droppableId={column.id}>
