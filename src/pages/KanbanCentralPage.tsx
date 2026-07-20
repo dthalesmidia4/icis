@@ -1669,11 +1669,22 @@ const KanbanCentralPage = () => {
             const awaitingCards = viewMode === "active"
               ? allColumnCards.filter((c) => c.current_function_key === 'aguardando_cliente')
               : [];
-            const columnCards = viewMode === "active"
+            const nonAwaitingCards = viewMode === "active"
               ? allColumnCards.filter((c) => c.current_function_key !== 'aguardando_cliente')
               : allColumnCards;
 
+            // Revisão: agrupar SE houver 3 ou mais cards em função de revisão neste colaborador (só modo ativo)
+            const reviewCandidateCards = viewMode === "active"
+              ? nonAwaitingCards.filter((c) => isReviewFunction(c.current_function_key))
+              : [];
+            const shouldGroupReview = reviewCandidateCards.length >= 3;
+            const reviewCards = shouldGroupReview ? reviewCandidateCards : [];
+            const columnCards = shouldGroupReview
+              ? nonAwaitingCards.filter((c) => !isReviewFunction(c.current_function_key))
+              : nonAwaitingCards;
+
             const isAwaitingCollapsed = collapsedAwaiting.has(column.id);
+            const isReviewCollapsed = collapsedReview.has(column.id);
 
             return (
               <Droppable key={column.id} droppableId={column.id}>
