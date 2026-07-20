@@ -40,6 +40,9 @@ const CollaboratorDemands = () => {
   const [collaboratorRole, setCollaboratorRole] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
+  useBreadcrumbOverride("collaboratorName", collaboratorName);
+
+
   const fetchData = useCallback(async () => {
     if (!tenantId || !userId) return;
     setLoading(true);
