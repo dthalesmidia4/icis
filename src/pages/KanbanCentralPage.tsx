@@ -123,9 +123,10 @@ const KanbanCentralPage = () => {
       return next;
     });
   }, []);
-  const [collapsedReview, setCollapsedReview] = useState<Set<string>>(new Set());
+  // Grupo "Em Revisão" inicia recolhido por padrão; guardamos as colunas expandidas explicitamente.
+  const [expandedReview, setExpandedReview] = useState<Set<string>>(new Set());
   const toggleReview = useCallback((columnId: string) => {
-    setCollapsedReview((prev) => {
+    setExpandedReview((prev) => {
       const next = new Set(prev);
       if (next.has(columnId)) next.delete(columnId);
       else next.add(columnId);
