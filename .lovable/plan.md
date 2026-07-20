@@ -1,59 +1,54 @@
 ## Objetivo
-Padronizar a tela de **Foco do Colaborador** (`/colaboradores/:userId`) para seguir a mesma estrutura visual/breadcrumb já aplicada em "Visão Geral" e "Agendamentos".
+Levar duas melhorias do Kanban Central para o **Modo Foco** (`/colaboradores/:userId`):
 
-## Mudanças
+1. Agrupar demandas **Aguardando clientes** e **Em revisão**, com as mesmas regras e comportamento de colapso do Kanban.
+2. Exibir o **nome da empresa antes do título** na linha da tabela, como já aparece nos cards.
 
-### 1. Breadcrumb — `src/hooks/useBreadcrumb.tsx`
-Adicionar suporte à rota dinâmica `/colaboradores/:userId`, gerando:
+## Regras de agrupamento (idênticas ao Kanban Central)
+- **Aguardando clientes**: cards cujo `current_function_key === 'aguardando_cliente'`. Sempre agrupa quando há ao menos 1.
+- **Em revisão**: cards cujo `isReviewFunction(current_function_key)` retorna true. Só agrupa quando houver **3 ou mais**; caso contrário, ficam misturados na lista principal.
+- **Principais**: todos os demais.
+- Ambos os grupos iniciam **recolhidos** por padrão. O estado de expansão é local à página (não precisa persistir entre sessões).
 
-`Home > Visão Geral > Demandas de {nome}`
+## Layout
+Manter a tabela atual, mas quebrá-la em seções:
 
-Como o breadcrumb hoje é baseado em `routeConfig` estático, incluir um match parcial semelhante ao já feito para `/clientes/:id`:
+```text
+[Tabela principal]  cards que não são awaiting nem review
+[Header colapsável] Aguardando clientes (N)
+   [Tabela filha]   linhas dos awaiting (quando expandido)
+[Header colapsável] Em revisão (N)
+   [Tabela filha]   linhas dos review (quando expandido, só se >=3)
+```
 
-- Se `path.startsWith('/colaboradores/')`, retornar itens:
-  - `Home` → `/home`
-  - `Visão Geral` → `/kanban-central` (ícone `LayoutGrid`)
-  - `Demandas de {collaboratorName}` (ícone `User`)
+- Os headers de grupo usam o mesmo visual dos grupos do Kanban Central (chevron + rótulo + contador).
+- As tabelas filhas reutilizam o mesmo `<TableHeader>` (ordenação já se aplica dentro de cada grupo via a mesma `sortedCards`).
+- Se algum grupo está vazio, não renderiza.
 
-O nome do colaborador virá de um contexto leve: expor pelo próprio `CollaboratorDemands.tsx` o nome via `document.title` já não serve. A abordagem mais simples e consistente com o padrão atual é adicionar um estado global leve (ex.: reutilizar `SelectedClientContext` não cabe aqui). Solução escolhida: aceitar placeholder `{collaboratorName}` no breadcrumb e resolvê-lo a partir de um novo contexto minúsculo `PageTitleContext` (ou, mais simples, ler direto do DOM). 
-
-Abordagem final (mais simples): **passar o nome via `history state`** já disponível quando o usuário clica em "Modo foco" no Kanban, e adicionalmente fazer o próprio `useBreadcrumb` aceitar override via um novo hook `useBreadcrumbOverride(label)` que a página chama com o nome carregado do Supabase. Isso mantém o breadcrumb correto mesmo em reload direto na URL.
-
-### 2. Página — `src/pages/CollaboratorDemands.tsx`
-Substituir o bloco atual (BackButton solto + título centralizado) pelo mesmo padrão de header usado em `KanbanCentralPage.tsx` e `Scheduled.tsx`:
+## Nome da empresa antes do título
+Na coluna "Nome da demanda", substituir apenas o título por:
 
 ```tsx
-<div className="mt-4 px-3 sm:px-4">
-  <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-    <div className="flex items-center gap-3">
-      <div className="p-2 bg-primary/10 rounded-lg">
-        <User className="h-5 w-5 text-primary" />
-      </div>
-      <h2 className="text-xl sm:text-2xl font-bold text-foreground">
-        Demandas de {collaboratorName}
-      </h2>
-      <Badge variant="secondary">
-        {totalCards} {totalCards === 1 ? 'demanda' : 'demandas'}
-      </Badge>
-    </div>
-    {/* espaço reservado para futuras ações à direita */}
-  </div>
-  ...
+<div className="flex flex-col gap-0.5">
+  {card.clientName && (
+    <span className="text-[10px] font-semibold uppercase tracking-wide text-primary/80">
+      {card.clientName}
+    </span>
+  )}
+  <span className="uppercase tracking-wide text-sm">{card.title}</span>
 </div>
 ```
 
-- Remover o `BackButton` solto (a navegação passa a ser feita pelo breadcrumb do Layout, igual às outras telas).
-- Remover a linha secundária centralizada (`collaboratorRole • Cards atribuídos…`); o papel pode virar um `Badge` discreto ao lado do título para preservar a informação sem quebrar o padrão.
-- Ajustar o container para `container` do Layout (remover `max-w-7xl mx-auto` se o Layout já provê), mantendo consistência com Visão Geral.
-
-### 3. Registrar override do título
-Chamar `useBreadcrumbOverride({ collaboratorName })` (ou equivalente) após carregar o profile, para que o breadcrumb renderize "Demandas de João" em vez do placeholder.
+- `clientName` já é populado no fetch atual (via `tenant_companies`), sem mudança de query.
+- Preservar o modo de edição inline sem alterar sua UI.
 
 ## Detalhes técnicos
-- Novo contexto mínimo `BreadcrumbOverrideContext` com `{ values, setValues }`, provider no `Layout`. `useBreadcrumb` substitui `{collaboratorName}` da mesma forma que já faz com `{clientName}`.
-- Manter tipos existentes de `BreadcrumbItem`.
-- Não alterar lógica de fetch, ordenação, tabela, cards ou realtime.
+- Adicionar `import { isReviewFunction } from "@/lib/flowFunctions"`.
+- Estados: `const [awaitingOpen, setAwaitingOpen] = useState(false)` e `const [reviewOpen, setReviewOpen] = useState(false)`.
+- Derivar `awaitingCards`, `reviewCards` e `mainCards` a partir de `sortedCards`. Usar `shouldGroupReview = reviewCandidateCards.length >= 3` para decidir se o grupo Em revisão aparece.
+- Reaproveitar o componente `TableRow` já existente encapsulando o render de uma linha em uma função local `renderRow(card)` para evitar duplicação entre as três seções.
+- `totalCards` continua sendo `cards.length` (não muda o badge do header).
 
 ## Fora de escopo
-- Alterar comportamento do botão "Modo foco" no Kanban.
-- Mudar dados exibidos na tabela.
+- Alterar ordenação, edição inline, `TaskCard` modal ou realtime.
+- Mudar a coluna "Responsável" (segue mostrando o nome do colaborador atual).
