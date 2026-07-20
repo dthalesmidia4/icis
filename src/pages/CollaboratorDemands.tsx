@@ -329,21 +329,25 @@ const CollaboratorDemands = () => {
   }
 
   return (
-    <div className="container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      <BackButton to="/home" />
-
-      <div className="flex flex-col items-center gap-2 mb-6 text-center">
-        <div className="flex items-center gap-2">
-          <User className="h-6 w-6 text-primary" />
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+    <div className="mt-4 px-3 sm:px-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <User className="h-5 w-5 text-primary" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">
             Demandas de {collaboratorName}
-          </h1>
-          <Badge variant="secondary" className="text-sm">{totalCards}</Badge>
+          </h2>
+          <Badge variant="secondary">
+            {totalCards} {totalCards === 1 ? 'demanda' : 'demandas'}
+          </Badge>
+          {collaboratorRole && (
+            <Badge variant="outline" className="text-xs">{collaboratorRole}</Badge>
+          )}
         </div>
-        <p className="text-sm text-muted-foreground">
-          {collaboratorRole ? `${collaboratorRole} • ` : ""}Cards atribuídos a este colaborador
-        </p>
       </div>
+
 
       {totalCards === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
