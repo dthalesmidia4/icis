@@ -1284,16 +1284,12 @@ const KanbanCentralPage = () => {
       await supabase.from("demands").update(extra).eq("id", result.demand_id);
 
       if (tenantId) {
-        await recordFlowHistory({
+        await assignInitialResponsible(
+          result.demand_id,
           tenantId,
-          demandId: result.demand_id,
-          action: "created",
-          fromUserId: null,
-          toUserId: selectedCard.assigned_to ?? null,
-          fromFunctionKey: null,
-          toFunctionKey: (selectedCard as any).current_function_key ?? null,
-          metadata: { source: "manual" },
-        });
+          selectedCard.demand_type_key ?? null,
+          { metadataSource: "manual" },
+        );
       }
 
       sonnerToast.success("Demanda criada!");
