@@ -303,8 +303,11 @@ const ApproveCards = () => {
       setApprovedIndexes(prev => new Set([...prev, card._index]));
       toast.success(`"${title}" aprovado e enviado ao Kanban!`);
 
-      // Trigger auto image generation (fire-and-forget)
+      // Atribui a etapa inicial (function_key + responsável) para não deixar o card "Sem etapa"
       if (insertedData?.id) {
+        await assignInitialResponsible(insertedData.id, tenantId, demandTypeKey, {
+          metadataSource: card._source === 'ultra' ? 'ultra_card' : 'card',
+        });
         triggerAutoGenerate(title, tipo, insertedData.id);
       }
     } catch (error) {
