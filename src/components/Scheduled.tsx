@@ -159,37 +159,45 @@ const Scheduled = ({ backTo }: { backTo?: string } = {}) => {
     try {
       setLoading(true);
 
-      // Fetch two sources: (a) demands in "Agendar Publicação" status (legacy path);
-      // (b) demands with any dispatch (scheduled/dispatching/sent/failed/canceled) — permite ver histórico.
-      const [{ data: demandsData, error }, { data: allDispatches, error: dispErr }] = await Promise.all([
-        supabase
-          .from("demands")
-          .select(`
-            *,
-            pipeline_statuses!demands_status_id_fkey (
-              name,
-              color,
-              position
-            ),
-            tenant_companies!demands_client_id_fkey (
-              id,
-              fantasy_name,
-              name
-            )
-          `)
-          .eq("tenant_id", tenantId)
-          .is("archived_at", null)
-          .eq("is_draft", false),
+      // Etapa 1: buscar todos os dispatches do tenant (inclui sent/failed/canceled p/ histórico)
+      const { data: allDispatches, error: dispErr } = await supabase
+        .from("scheduled_publication_dispatches")
+        .select("card_id, status, scheduled_at")
+        .eq("tenant_id", tenantId)
+        .in("status", ["scheduled", "dispatching", "sent", "failed", "canceled"]);
 
-        supabase
-          .from("scheduled_publication_dispatches")
-          .select("card_id, status, scheduled_at")
-          .eq("tenant_id", tenantId)
-          .in("status", ["scheduled", "dispatching", "sent", "failed", "canceled"]),
-      ]);
-
-      if (error) throw error;
       if (dispErr) console.error("[Scheduled] dispatches fetch error", dispErr);
+
+      const dispatchCardIds = Array.from(
+        new Set((allDispatches || []).map((d: any) => d?.card_id).filter(Boolean))
+      );
+
+      // Etapa 2: buscar demandas — inclui arquivadas somente quando têm dispatch (histórico de publicados)
+      const demandsSelect = `
+        *,
+        pipeline_statuses!demands_status_id_fkey (
+          name,
+          color,
+          position
+        ),
+        tenant_companies!demands_client_id_fkey (
+          id,
+          fantasy_name,
+          name
+        )
+      `;
+
+      const orFilter = dispatchCardIds.length > 0
+        ? `archived_at.is.null,id.in.(${dispatchCardIds.join(",")})`
+        : "archived_at.is.null";
+
+      const { data: demandsData, error } = await supabase
+        .from("demands")
+        .select(demandsSelect)
+        .eq("tenant_id", tenantId)
+        .eq("is_draft", false)
+        .or(orFilter);
+
 
       // Mantém o dispatch mais recente por card_id
       const dispatchByCard = new Map<string, { status: string; scheduled_at: string | null }>();
