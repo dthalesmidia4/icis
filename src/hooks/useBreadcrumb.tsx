@@ -128,6 +128,7 @@ const routeConfig: Record<string, BreadcrumbConfig> = {
 export function useBreadcrumb() {
   const location = useLocation();
   const { selectedClient } = useSelectedClient();
+  const overrides = useBreadcrumbOverrideValues();
 
   const breadcrumbs = useMemo((): BreadcrumbItem[] => {
     const path = location.pathname;
@@ -147,6 +148,14 @@ export function useBreadcrumb() {
           ],
           requiresClient: true
         };
+      } else if (path.startsWith('/colaboradores/') && path !== '/minha-empresa/colaboradores') {
+        config = {
+          items: [
+            { label: 'Home', href: '/home', icon: Home },
+            { label: 'Visão Geral', href: '/kanban-central', icon: LayoutGrid },
+            { label: 'Demandas de {collaboratorName}', icon: User }
+          ]
+        };
       }
     }
 
@@ -155,14 +164,22 @@ export function useBreadcrumb() {
       return [{ label: 'Home', href: '/home', icon: Home }];
     }
 
-    // Substituir {clientName} pelo nome real do cliente
+    // Substituir tokens
     const clientName = selectedClient?.fantasy_name || selectedClient?.name || 'Cliente';
+    const tokens: Record<string, string> = {
+      clientName,
+      collaboratorName: overrides.collaboratorName || 'Colaborador',
+      ...overrides,
+    };
     
     return config.items.map(item => ({
       ...item,
-      label: item.label.replace('{clientName}', clientName)
+      label: Object.entries(tokens).reduce(
+        (acc, [k, v]) => acc.replace(`{${k}}`, v),
+        item.label
+      )
     }));
-  }, [location.pathname, selectedClient]);
+  }, [location.pathname, selectedClient, overrides]);
 
   const currentPage = breadcrumbs[breadcrumbs.length - 1];
   const parentBreadcrumbs = breadcrumbs.slice(0, -1);
