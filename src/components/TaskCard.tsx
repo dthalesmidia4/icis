@@ -160,6 +160,8 @@ interface TaskCardProps {
   isDraft?: boolean;
   onDraftSave?: () => Promise<void> | void;
   onDraftDiscard?: () => Promise<void> | void;
+  /** Disables draft save/discard buttons while the parent is persisting. */
+  savingDraft?: boolean;
   /** Options list for the inline client selector (draft only). */
   draftClients?: { id: string; name: string }[];
   /** Called when the user picks a client in draft mode. */
