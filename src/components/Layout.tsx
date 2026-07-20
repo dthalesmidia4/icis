@@ -3,6 +3,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar, MobileHeader } from "@/components/AppSidebar";
 import { NavigationBreadcrumb, MobileBreadcrumb } from "@/components/NavigationBreadcrumb";
 import LateDemandPopup from "@/components/LateDemandPopup";
+import { BreadcrumbOverrideProvider } from "@/contexts/BreadcrumbOverrideContext";
 
 interface LayoutProps {
   children: ReactNode;
@@ -10,6 +11,7 @@ interface LayoutProps {
 
 export const Layout = ({ children }: LayoutProps) => {
   return (
+    <BreadcrumbOverrideProvider>
     <SidebarProvider>
       <div className="h-screen w-full flex flex-col md:flex-row overflow-hidden">
         {/* Mobile Header - Fixed at top */}
@@ -42,5 +44,6 @@ export const Layout = ({ children }: LayoutProps) => {
         <LateDemandPopup />
       </div>
     </SidebarProvider>
+    </BreadcrumbOverrideProvider>
   );
 };
