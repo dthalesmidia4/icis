@@ -223,8 +223,13 @@ const KanbanCentralPage = () => {
     }
     // Ocultar cards diários cuja próxima ocorrência ainda não chegou
     baseCards = baseCards.filter(card => isDailyCardVisibleNow(card as any));
+    // Ocultar cards com dispatch ativo (agendados/em envio) — eles vivem na tela /scheduled
+    // O modo "Registro de Cards" (viewMode === "history") ignora esse filtro, para preservar o histórico.
+    if (viewMode !== "history" && activeDispatchIds.size > 0) {
+      baseCards = baseCards.filter(card => !activeDispatchIds.has(card.id));
+    }
     return baseCards;
-  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter]);
+  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, activeDispatchIds, viewMode]);
 
   // Todos os cards para busca (incluindo arquivados)
   const allSearchableCards = useMemo(() => {
