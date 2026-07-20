@@ -24,6 +24,7 @@ interface CentralKanbanCard extends KanbanCardData {
   dispatch_status?: string | null;
   dispatch_scheduled_at?: string | null;
   dispatch_dispatched_at?: string | null;
+  dispatch_published_at?: string | null;
 }
 
 const Scheduled = () => {
@@ -126,6 +127,7 @@ const Scheduled = () => {
   // Get publication datetime — prioritize dispatch (real source of truth
   // for what was actually scheduled/published) over the demand's mutable fields.
   const getPublicationDateTime = (card: CentralKanbanCard): Date | null => {
+    if (card.dispatch_published_at) return new Date(card.dispatch_published_at);
     if (card.dispatch_dispatched_at) return new Date(card.dispatch_dispatched_at);
     if (card.dispatch_scheduled_at) return new Date(card.dispatch_scheduled_at);
     if (card.publish_date) {
@@ -166,12 +168,12 @@ const Scheduled = () => {
     try {
       setLoading(true);
 
-      // Etapa 1: buscar todos os dispatches do tenant (inclui sent/failed/canceled p/ histórico)
+      // Etapa 1: buscar todos os dispatches do tenant (inclui published/failed/cancelled p/ histórico)
       const { data: allDispatches, error: dispErr } = await supabase
         .from("scheduled_publication_dispatches")
-        .select("card_id, status, scheduled_at, dispatched_at")
+        .select("card_id, status, scheduled_at, dispatched_at, published_at")
         .eq("tenant_id", tenantId)
-        .in("status", ["scheduled", "dispatching", "sent", "failed", "canceled"]);
+        .in("status", ["scheduled", "dispatching", "published", "failed", "cancelled"]);
 
       if (dispErr) console.error("[Scheduled] dispatches fetch error", dispErr);
 
@@ -211,16 +213,21 @@ const Scheduled = () => {
 
 
       // Mantém o dispatch mais recente por card_id
-      const dispatchByCard = new Map<string, { status: string; scheduled_at: string | null; dispatched_at: string | null }>();
+      const dispatchByCard = new Map<string, { status: string; scheduled_at: string | null; dispatched_at: string | null; published_at: string | null }>();
       (allDispatches || []).forEach((d: any) => {
         if (!d?.card_id) return;
         const prev = dispatchByCard.get(d.card_id);
-        const entry = { status: d.status, scheduled_at: d.scheduled_at ?? null, dispatched_at: d.dispatched_at ?? null };
+        const entry = {
+          status: d.status,
+          scheduled_at: d.scheduled_at ?? null,
+          dispatched_at: d.dispatched_at ?? null,
+          published_at: d.published_at ?? null,
+        };
         if (!prev) {
           dispatchByCard.set(d.card_id, entry);
         } else {
-          const prevTime = prev.scheduled_at ? new Date(prev.scheduled_at).getTime() : 0;
-          const currTime = d.scheduled_at ? new Date(d.scheduled_at).getTime() : 0;
+          const prevTime = new Date(prev.published_at || prev.dispatched_at || prev.scheduled_at || 0).getTime();
+          const currTime = new Date(entry.published_at || entry.dispatched_at || entry.scheduled_at || 0).getTime();
           if (currTime >= prevTime) {
             dispatchByCard.set(d.card_id, entry);
           }
@@ -260,6 +267,7 @@ const Scheduled = () => {
             dispatch_status: dispatch?.status ?? null,
             dispatch_scheduled_at: dispatch?.scheduled_at ?? null,
             dispatch_dispatched_at: dispatch?.dispatched_at ?? null,
+            dispatch_published_at: dispatch?.published_at ?? null,
           } as CentralKanbanCard;
         });
 
@@ -733,9 +741,9 @@ const Scheduled = () => {
                     const statusMeta: Record<string, { label: string; className: string }> = {
                       scheduled: { label: "Agendado", className: "bg-primary/10 text-primary border-primary/30" },
                       dispatching: { label: "Enviando", className: "bg-amber-500/10 text-amber-600 border-amber-500/30" },
-                      sent: { label: "Publicado", className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" },
+                      published: { label: "Publicado", className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" },
                       failed: { label: "Falhou", className: "bg-destructive/10 text-destructive border-destructive/30" },
-                      canceled: { label: "Cancelado", className: "bg-muted text-muted-foreground border-border" },
+                      cancelled: { label: "Cancelado", className: "bg-muted text-muted-foreground border-border" },
                     };
                     const badge = dispatchStatus ? statusMeta[dispatchStatus] : null;
                     return (
