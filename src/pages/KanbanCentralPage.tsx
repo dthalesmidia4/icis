@@ -1355,6 +1355,24 @@ const KanbanCentralPage = () => {
 
         <div className="flex items-center gap-2">
           <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/scheduled")}
+            title="Ver todos os conteúdos com publicação agendada"
+            className="relative"
+          >
+            <CalendarDays className="h-4 w-4 mr-1" />
+            Conteúdos agendados
+            {scheduledCount > 0 && (
+              <span
+                className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shadow-sm"
+                aria-label={`${scheduledCount} agendamentos ativos`}
+              >
+                {scheduledCount > 99 ? "99+" : scheduledCount}
+              </span>
+            )}
+          </Button>
+          <Button
             variant={viewMode === "history" ? "default" : "outline"}
             size="sm"
             onClick={() => setViewMode((v) => (v === "history" ? "active" : "history"))}
