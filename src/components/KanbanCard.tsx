@@ -94,39 +94,34 @@ const InlineDates = ({ dueDate, dueTime, deliveryDate, deliveryTime, isOverdue, 
   const label = (
     <div
       className={cn(
-        "flex items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium",
+        "flex flex-col gap-0.5 rounded-md px-2 py-1 text-[11px] font-medium leading-tight",
         isOverdue ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-muted/60 text-foreground",
         editable && "hover:bg-muted cursor-pointer transition-colors",
       )}
     >
-      <div className="flex items-center gap-1.5 min-w-0">
-        <CalendarIcon className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-        <span className="truncate">
-          <span className="text-muted-foreground">Início:</span>{" "}
-          {dStart ? (
-            <span className="font-semibold">
-              {dStart}
-              {tStart && ` ${tStart}`}
-            </span>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </span>
+      <div className="flex items-center gap-1 min-w-0">
+        <CalendarIcon className="h-3 w-3 shrink-0 text-amber-500" />
+        <span className="text-muted-foreground shrink-0">Ini:</span>
+        {dStart ? (
+          <span className="font-semibold truncate">
+            {dStart}
+            {tStart && ` ${tStart}`}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
       </div>
-      <span className="h-3 w-px bg-border shrink-0" />
-      <div className="flex items-center gap-1.5 min-w-0">
-        <CalendarIcon className={cn("h-3.5 w-3.5 shrink-0", isOverdue ? "text-red-500" : "text-emerald-500")} />
-        <span className="truncate">
-          <span className="text-muted-foreground">Término:</span>{" "}
-          {dEnd ? (
-            <span className={cn("font-semibold", isOverdue && "text-red-600 dark:text-red-400")}>
-              {dEnd}
-              {tEnd && ` ${tEnd}`}
-            </span>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </span>
+      <div className="flex items-center gap-1 min-w-0">
+        <CalendarIcon className={cn("h-3 w-3 shrink-0", isOverdue ? "text-red-500" : "text-emerald-500")} />
+        <span className="text-muted-foreground shrink-0">Fim:</span>
+        {dEnd ? (
+          <span className={cn("font-semibold truncate", isOverdue && "text-red-600 dark:text-red-400")}>
+            {dEnd}
+            {tEnd && ` ${tEnd}`}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )}
       </div>
     </div>
   );
