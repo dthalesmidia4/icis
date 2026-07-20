@@ -379,7 +379,8 @@ export default function TaskCard({
   onDraftSave,
   onDraftDiscard,
   draftClients = [],
-  onDraftClientChange
+  onDraftClientChange,
+  savingDraft = false
 }: TaskCardProps) {
 
 
