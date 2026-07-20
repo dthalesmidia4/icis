@@ -542,6 +542,11 @@ All colors MUST be HSL.
   min-width: 0;
 }
 
+.ProseMirror ul[data-type="taskList"] li > div > p {
+  margin: 0;
+  line-height: 1.4;
+}
+
 /* Checked items - strikethrough and muted */
 .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div {
   text-decoration: line-through;
