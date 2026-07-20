@@ -43,6 +43,7 @@ import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { useCollaborators } from "@/hooks/useCollaborators";
 import { recordFlowHistory } from "@/lib/flowHistory";
+import { assignInitialResponsible } from "@/lib/initialFlowFunction";
 import { isReviewFunction } from "@/lib/flowFunctions";
 
 interface PipelineStatus {
