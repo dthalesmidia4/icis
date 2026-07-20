@@ -1,82 +1,47 @@
-# Preenchimento por voz — Anamnese e Planejar Período (v4)
 
-Único ajuste em relação ao v3: `disponibilidadeVideo` usa o enum canônico do sistema **`sim | nao | parcial`** (nunca `talvez` nem boolean).
+## 1. Cliques repetidos ao criar demanda
 
-## 1. Valor canônico de `disponibilidadeVideo`
+**Diagnóstico:** o botão "Salvar Demanda" (modo draft do `TaskCard`) chama `handleDraftSave` em `KanbanCentralPage.tsx`, que executa uma RPC + `UPDATE` + `recordFlowHistory` + `fetchAllCards`. Não há trava — cada clique dispara uma nova criação em paralelo.
 
-- Tipo canônico: `"sim" | "nao" | "parcial"`.
-- Frontend, edge, IA e persistência usam **os mesmos três literais**.
-- A IA pode ouvir "talvez" na fala; o normalizador converte para `"parcial"` antes de aplicar.
+**Correção:**
+- Adicionar estado `isSavingDraft` em `KanbanCentralPage.tsx`. Guarda no início de `handleDraftSave` (retorna se já `true`), `finally` reseta.
+- Passar `savingDraft={isSavingDraft}` para `TaskCard`.
+- No `TaskCard` (bloco isDraft, linhas ~1090-1102): aceitar prop `savingDraft`, aplicar `disabled={savingDraft}` no botão "Salvar Demanda" e trocar ícone por `Loader2 animate-spin` + texto "Salvando…" enquanto ativo. Desabilitar também o botão "Descartar" durante o save.
+- Como camada extra de segurança, usar `useRef<boolean>` para descartar chamadas concorrentes mesmo se o React ainda não re-renderizou.
 
-Mapeamento de fala natural → valor canônico:
-- `sim` — "consigo gravar vídeos", "temos disponibilidade para vídeo", "sim, vamos gravar", "com certeza".
-- `nao` — "não teremos vídeos", "sem vídeos esse mês", "não conseguimos gravar", "impossível".
-- `parcial` — "talvez alguns vídeos", "pouca disponibilidade", "podemos gravar parcialmente", "depende", "alguns vídeos", "as vezes".
+## 2. Nome da empresa antes do título
 
-## 2. Arquivos e trechos afetados por esse ajuste
+No `KanbanCard.tsx` o `subtitle` (nome do cliente) já vem, mas hoje é renderizado como badge azul pequena (fonte 11px, cores primary). O usuário quer o nome da empresa **acima do título, no mesmo estilo tipográfico do título**.
 
-### `src/lib/voiceFieldSchemas.ts`
-- `VoiceFieldType`: renomeia `enum_sim_nao_talvez` → `enum_disponibilidade_video`.
-- `PERIOD_PLANNING_FIELDS` → entrada `disponibilidadeVideo` fica com `type: "enum_disponibilidade_video"` e `hint: "sim | nao | parcial"`.
-- Remove `normalizeSimNaoTalvez`; adiciona:
-  ```ts
-  export function normalizeDisponibilidadeVideo(v: unknown): "sim" | "nao" | "parcial" | null
-  ```
-  que aceita boolean, `"sim"/"nao"/"parcial"` diretos, e sinônimos ("talvez", "as vezes", "às vezes", "pouca", "depende", "parcialmente" → `parcial`).
+**Correção em `src/components/KanbanCard.tsx`:**
+- Remover o wrapper de badge (background/border/uppercase) do `subtitle`.
+- Renderizar como texto simples acima do título: mesma família de fonte, `text-sm font-semibold text-foreground`, `line-clamp-1` e `truncate` para não estourar. Manter `title={subtitle}` para tooltip.
 
-### `supabase/functions/transcribe-and-map-form-voice/index.ts`
-- Whitelist replicada declara `disponibilidadeVideo` como enum `sim | nao | parcial`.
-- Prompt da IA (system) inclui explicitamente:
-  > `disponibilidadeVideo`: retorne **apenas** um destes três valores literais: `"sim"`, `"nao"` ou `"parcial"`. "Talvez", "às vezes", "pouca disponibilidade", "depende" → `"parcial"`. Não invente outros valores.
-- Zod: `disponibilidadeVideo: z.enum(["sim","nao","parcial"])`.
-- Validação de saída: qualquer valor fora do enum → campo descartado.
+## 3. Datas de início e término em uma única linha
 
-### `src/pages/PlanPeriod.tsx`
-- Altera o tipo do state para acompanhar o enum canônico:
-  ```ts
-  const [disponibilidadeVideo, setDisponibilidadeVideo] =
-    useState<"sim" | "nao" | "parcial" | "">("");
-  ```
-  (única alteração no arquivo além da injeção do `VoiceFillPanel`; a UI de seleção existente passa a expor `parcial` no lugar de `talvez`, mantendo os mesmos três botões.)
-- No `aplicaComSetters` do painel de voz:
-  ```ts
-  case "disponibilidadeVideo": {
-    const v = normalizeDisponibilidadeVideo(mapped.value);
-    if (v) setDisponibilidadeVideo(v);
-    break;
-  }
-  ```
-- Persistência de rascunho (`buildDraftPayload` / `loadDraft`) continua igual — apenas o literal muda de `talvez` para `parcial`.
+Hoje, em `KanbanCard.tsx` (bloco `showStartEndLabels`), início e término ocupam duas linhas empilhadas.
 
-## 3. Restante da proposta (inalterado em relação ao v3)
+**Correção:**
+- Substituir por **um componente único** clicável (`button` do card, `stopPropagation`) que exibe: à esquerda "Início: dd/mm HH:MM", separador vertical, à direita "Término: dd/mm HH:MM". Mesma linha, `flex justify-between items-center`, texto compacto (`text-xs`), fundo neutro (`bg-muted/40`), cor vermelha se overdue.
+- Ao clicar, abrir um `Popover` contendo dois calendários lado a lado (Início | Término), cada um com input de horário. O Popover reaproveita o `Calendar` (shadcn) já existente.
+- A confirmação do Popover chama uma nova prop `onDatesChange({ due_date, due_time, delivery_date, delivery_time })`, propagada de `KanbanCentralPage` para atualizar via `supabase.from("demands").update(...)` + realtime.
+- Fora do Kanban Central (Cronograma, etc.), a nova prop é opcional; sem handler o Popover fica somente leitura ou é substituído pela visualização não-clicável.
 
-Arquitetura completa aprovada, mantida sem mudanças:
+## 4. Agrupar cards na coluna de Revisão (por responsável)
 
-- Edge Function `transcribe-and-map-form-voice` com `verify_jwt = true`.
-- Validações em ordem: auth (`getClaims`), acesso ao tenant (`user_roles` ou super_admin), cliente pertence ao tenant (`tenant_companies`), whitelist de campos por `formType`.
-- `tenantId`/`clientId` do frontend **nunca** confiados cegamente — sempre revalidados no servidor.
-- Áudio nunca persistido (nem Storage, nem tabela).
-- Transcrição via gateway `/v1/audio/transcriptions` com `openai/gpt-4o-transcribe`, `LOVABLE_API_KEY` do ambiente.
-- Interpretação via `/v1/chat/completions` com `response_format: { type: "json_object" }` usando o modelo do `_shared/models.ts`.
-- Retorno: `{ transcript, mappedFields: { key: { value, sourceText, confidence } }, unmappedText }`.
-- Frontend: `VoiceFillPanel` (toggle escrita/voz + gravação + envio) + `VoiceReviewPanel` (revisão com Substituir/Adicionar/Ignorar por campo). Campos preenchidos nunca sobrescritos sem escolha.
-- Gravação: Web Audio API → WAV 16 kHz mono, corte automático em 60 s.
-- Sem salvamento automático. Usuário salva com os botões existentes **Salvar Anamnese** e **Salvar Rascunho do Planejamento**.
-- Whitelist canônica única em `src/lib/voiceFieldSchemas.ts` + espelho no `index.ts` da edge, com comentário `// Mantenha sincronizado com src/lib/voiceFieldSchemas.ts` nos dois lados.
-- Booleanos (`temPromocao`, `temNovidade`, `temDataComemorativa`, `temMateriaisNovos`) permanecem `boolean_sim_nao` → armazenados como `"sim"` / `"nao"`.
-- Nenhuma alteração em perguntas da anamnese, geração de estratégia, geração de planejamento, Kanban, cards, demandas, publicação, aprovação, identidade visual ou realtime.
+Hoje só cards com `current_function_key === 'aguardando_cliente'` são agrupados em "Aguardando clientes". Queremos comportamento análogo para revisão, mas condicional.
 
-## 4. Arquivos
+**Correção em `KanbanCentralPage.tsx` (bloco de montagem da coluna, ~linhas 1650-1660 e 1828-1887):**
+- Separar `revisionCards = columnCards.filter(c => c.current_function_key === 'revisar' || status name inclui 'revis')`. Confirmar o valor real inspecionando `flow_functions` — se a chave for outra (`revisao`, `revisar_arte`, etc.), listar todas as function_keys do fluxo e agrupar as que representam revisão. Se houver dúvida, adicionar helper `isReviewFunction(key)` centralizado em `src/lib/flowFunctions.ts` (novo).
+- Aplicar regra: se `revisionCards.length >= 3`, remover esses cards de `columnCards` e renderizar uma seção colapsável **"Em Revisão (N)"** com o mesmo estilo visual da seção "Aguardando clientes", em cor distinta (âmbar/laranja). Se `< 3`, manter renderização inline atual (sem seção).
+- Estado de colapso: reutilizar padrão de `collapsedAwaiting` — criar `collapsedReview: Set<string>` (por `column.id`) e helper `toggleReview`.
 
-Novos:
-- `supabase/functions/transcribe-and-map-form-voice/index.ts`
-- `src/components/voice/VoiceFillPanel.tsx`
-- `src/components/voice/VoiceReviewPanel.tsx`
-- `src/hooks/useVoiceRecorder.ts`
-- `src/lib/wavEncoder.ts`
-- `src/lib/voiceFieldSchemas.ts`
+## Detalhes técnicos
 
-Editados:
-- `supabase/config.toml` (registra `[functions.transcribe-and-map-form-voice] verify_jwt = true`)
-- `src/pages/GenerateQuestions.tsx` (injeta painel; sem outras mudanças)
-- `src/pages/PlanPeriod.tsx` (injeta painel + troca literal `talvez` → `parcial` no state/UI de `disponibilidadeVideo`)
+- Arquivos alterados:
+  - `src/pages/KanbanCentralPage.tsx` — guard `isSavingDraft`, agrupamento de revisão, handler `onDatesChange`.
+  - `src/components/TaskCard.tsx` — prop `savingDraft`, botão desabilitado + loader.
+  - `src/components/KanbanCard.tsx` — subtitle como título superior; componente único de datas com Popover.
+  - `src/lib/flowFunctions.ts` (novo) — helper `isReviewFunction`.
+- Sem migrações de banco. Sem alteração de contratos server-side.
+- Verificar após mudanças: build TS, e um smoke visual do Kanban Central (screenshot Playwright) confirmando: nome da empresa em cima, datas numa linha só, botão de salvar bloqueado no segundo clique, agrupamento de revisão aparecendo em coluna com ≥3 cards.

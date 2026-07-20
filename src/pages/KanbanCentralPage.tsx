@@ -43,6 +43,7 @@ import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { useCollaborators } from "@/hooks/useCollaborators";
 import { recordFlowHistory } from "@/lib/flowHistory";
+import { isReviewFunction } from "@/lib/flowFunctions";
 
 interface PipelineStatus {
   id: string;
@@ -121,6 +122,17 @@ const KanbanCentralPage = () => {
       return next;
     });
   }, []);
+  const [collapsedReview, setCollapsedReview] = useState<Set<string>>(new Set());
+  const toggleReview = useCallback((columnId: string) => {
+    setCollapsedReview((prev) => {
+      const next = new Set(prev);
+      if (next.has(columnId)) next.delete(columnId);
+      else next.add(columnId);
+      return next;
+    });
+  }, []);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const savingDraftRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [selectedCard, setSelectedCard] = useState<CentralKanbanCard | null>(null);
   const [isTaskCardOpen, setIsTaskCardOpen] = useState(false);
@@ -1073,6 +1085,27 @@ const KanbanCentralPage = () => {
     fetchAllCards();
   };
 
+  // Inline dates update from KanbanCard popover
+  const handleInlineDatesChange = useCallback(
+    async (cardId: string, changes: { due_date?: string | null; due_time?: string | null; delivery_date?: string | null; delivery_time?: string | null }) => {
+      try {
+        const payload: Record<string, any> = {};
+        if ("due_date" in changes) payload.due_date = changes.due_date;
+        if ("due_time" in changes) payload.due_time = changes.due_time;
+        if ("delivery_date" in changes) payload.delivery_date = changes.delivery_date;
+        if ("delivery_time" in changes) payload.delivery_time = changes.delivery_time;
+        const { error } = await supabase.from("demands").update(payload).eq("id", cardId);
+        if (error) throw error;
+        setCards((prev) => prev.map((c) => (c.id === cardId ? ({ ...c, ...payload } as CentralKanbanCard) : c)));
+        sonnerToast.success("Datas atualizadas");
+      } catch (err: any) {
+        console.error("[KanbanCentral] update dates error", err);
+        sonnerToast.error(err?.message || "Erro ao atualizar datas");
+      }
+    },
+    [],
+  );
+
   // Open TaskCard directly in draft mode with a blank in-memory card. No DB row created yet.
   const handleOpenDraft = async () => {
     if (!tenantId) return;
@@ -1161,6 +1194,7 @@ const KanbanCentralPage = () => {
   };
 
   const handleDraftSave = async () => {
+    if (savingDraftRef.current) return;
     if (!selectedCard) return;
     if (!selectedCard.clientId) {
       sonnerToast.error("Selecione uma empresa");
@@ -1183,6 +1217,8 @@ const KanbanCentralPage = () => {
       sonnerToast.error("Informe um título");
       return;
     }
+    savingDraftRef.current = true;
+    setIsSavingDraft(true);
     try {
       const chosenLabel = selectedCard.demand_type || selectedCard.demand_type_key;
       // Para Card Diário, não passamos publish_date/due_date reais (evita herdar data de criação como entrega).
@@ -1267,6 +1303,9 @@ const KanbanCentralPage = () => {
     } catch (err: any) {
       console.error("Error saving draft demand:", err);
       sonnerToast.error(err?.message || "Erro ao salvar demanda");
+    } finally {
+      savingDraftRef.current = false;
+      setIsSavingDraft(false);
     }
   };
 
@@ -1651,11 +1690,22 @@ const KanbanCentralPage = () => {
             const awaitingCards = viewMode === "active"
               ? allColumnCards.filter((c) => c.current_function_key === 'aguardando_cliente')
               : [];
-            const columnCards = viewMode === "active"
+            const nonAwaitingCards = viewMode === "active"
               ? allColumnCards.filter((c) => c.current_function_key !== 'aguardando_cliente')
               : allColumnCards;
 
+            // Revisão: agrupar SE houver 3 ou mais cards em função de revisão neste colaborador (só modo ativo)
+            const reviewCandidateCards = viewMode === "active"
+              ? nonAwaitingCards.filter((c) => isReviewFunction(c.current_function_key))
+              : [];
+            const shouldGroupReview = reviewCandidateCards.length >= 3;
+            const reviewCards = shouldGroupReview ? reviewCandidateCards : [];
+            const columnCards = shouldGroupReview
+              ? nonAwaitingCards.filter((c) => !isReviewFunction(c.current_function_key))
+              : nonAwaitingCards;
+
             const isAwaitingCollapsed = collapsedAwaiting.has(column.id);
+            const isReviewCollapsed = collapsedReview.has(column.id);
 
             return (
               <Droppable key={column.id} droppableId={column.id}>
@@ -1810,6 +1860,7 @@ const KanbanCentralPage = () => {
                                             dailyTotal={(card as any).daily_total_occurrences}
                                             dailyNextDate={(card as any).daily_next_date}
                                             onClick={() => handleCardClick(card)}
+                                            onDatesChange={isHistory ? undefined : (changes) => handleInlineDatesChange(card.id, changes)}
                                           />
                                         </div>
                                       </div>
@@ -1878,6 +1929,68 @@ const KanbanCentralPage = () => {
                                       dailyTotal={(card as any).daily_total_occurrences}
                                       dailyNextDate={(card as any).daily_next_date}
                                       onClick={() => handleCardClick(card)}
+                                      onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Em Revisão — agrupa quando há 3+ cards em função de revisão neste colaborador */}
+                        {reviewCards.length > 0 && (
+                          <div className="mt-3 pt-2 border-t-2 border-amber-500/60">
+                            <button
+                              type="button"
+                              onClick={() => toggleReview(column.id)}
+                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 transition-colors border border-amber-500/40"
+                              aria-expanded={!isReviewCollapsed}
+                            >
+                              {isReviewCollapsed ? (
+                                <ChevronRight className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                              ) : (
+                                <ChevronDown className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                              )}
+                              <span className="text-sm font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">
+                                Em revisão
+                              </span>
+                              <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 ml-auto bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-500/40 font-bold">
+                                {reviewCards.length}
+                              </Badge>
+                            </button>
+
+                            {!isReviewCollapsed && (
+                              <div className="mt-1 space-y-1">
+                                {reviewCards.map((card) => (
+                                  <div
+                                    key={card.id}
+                                    ref={(el) => {
+                                      if (el) cardRefs.current.set(card.id, el);
+                                      else cardRefs.current.delete(card.id);
+                                    }}
+                                    className={cn(
+                                      highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
+                                    )}
+                                  >
+                                    <KanbanCard
+                                      title={card.title}
+                                      subtitle={card.clientName}
+                                      demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
+                                      dueDate={card.due_date}
+                                      dueTime={card.due_time || undefined}
+                                      cardDeliveryDate={card.delivery_date || undefined}
+                                      deliveryTime={card.delivery_time || undefined}
+                                      isOverdue={isCardOverdue(card)}
+                                      cardId={card.id}
+                                      statusName={card.status}
+                                      statusColor={(card as any).status_color}
+                                      isDailyCard={(card as any).is_daily_card}
+                                      dailyCompleted={(card as any).daily_completed_occurrences}
+                                      dailyTotal={(card as any).daily_total_occurrences}
+                                      dailyNextDate={(card as any).daily_next_date}
+                                      onClick={() => handleCardClick(card)}
+                                      onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
                                     />
                                   </div>
                                 ))}
@@ -1911,6 +2024,7 @@ const KanbanCentralPage = () => {
         }}
         isDraft={isDraftMode}
         onDraftSave={handleDraftSave}
+        savingDraft={isSavingDraft}
         onDraftDiscard={handleDraftDiscard}
         draftClients={draftClients}
         onDraftClientChange={handleDraftClientChange}
