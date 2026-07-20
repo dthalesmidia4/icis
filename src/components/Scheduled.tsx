@@ -23,7 +23,8 @@ interface CentralKanbanCard extends KanbanCardData {
   isArchived: boolean;
 }
 
-const Scheduled = () => {
+const Scheduled = ({ backTo }: { backTo?: string } = {}) => {
+  const navigate = useNavigate();
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const [allCards, setAllCards] = useState<CentralKanbanCard[]>([]);
   const [activeCards, setActiveCards] = useState<CentralKanbanCard[]>([]);
