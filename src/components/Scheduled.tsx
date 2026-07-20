@@ -211,17 +211,18 @@ const Scheduled = () => {
 
 
       // Mantém o dispatch mais recente por card_id
-      const dispatchByCard = new Map<string, { status: string; scheduled_at: string | null }>();
+      const dispatchByCard = new Map<string, { status: string; scheduled_at: string | null; dispatched_at: string | null }>();
       (allDispatches || []).forEach((d: any) => {
         if (!d?.card_id) return;
         const prev = dispatchByCard.get(d.card_id);
+        const entry = { status: d.status, scheduled_at: d.scheduled_at ?? null, dispatched_at: d.dispatched_at ?? null };
         if (!prev) {
-          dispatchByCard.set(d.card_id, { status: d.status, scheduled_at: d.scheduled_at ?? null });
+          dispatchByCard.set(d.card_id, entry);
         } else {
           const prevTime = prev.scheduled_at ? new Date(prev.scheduled_at).getTime() : 0;
           const currTime = d.scheduled_at ? new Date(d.scheduled_at).getTime() : 0;
           if (currTime >= prevTime) {
-            dispatchByCard.set(d.card_id, { status: d.status, scheduled_at: d.scheduled_at ?? null });
+            dispatchByCard.set(d.card_id, entry);
           }
         }
       });
@@ -257,7 +258,9 @@ const Scheduled = () => {
             demand_type: demand.demand_type,
             additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates as string[] : [],
             dispatch_status: dispatch?.status ?? null,
-          } as CentralKanbanCard & { dispatch_status: string | null };
+            dispatch_scheduled_at: dispatch?.scheduled_at ?? null,
+            dispatch_dispatched_at: dispatch?.dispatched_at ?? null,
+          } as CentralKanbanCard;
         });
 
       // Sort by publication date
