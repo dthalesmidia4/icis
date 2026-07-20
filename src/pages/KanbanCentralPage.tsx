@@ -1173,6 +1173,7 @@ const KanbanCentralPage = () => {
   };
 
   const handleDraftSave = async () => {
+    if (savingDraftRef.current) return;
     if (!selectedCard) return;
     if (!selectedCard.clientId) {
       sonnerToast.error("Selecione uma empresa");
@@ -1195,6 +1196,8 @@ const KanbanCentralPage = () => {
       sonnerToast.error("Informe um título");
       return;
     }
+    savingDraftRef.current = true;
+    setIsSavingDraft(true);
     try {
       const chosenLabel = selectedCard.demand_type || selectedCard.demand_type_key;
       // Para Card Diário, não passamos publish_date/due_date reais (evita herdar data de criação como entrega).
