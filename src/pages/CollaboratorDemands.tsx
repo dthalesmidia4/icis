@@ -182,9 +182,9 @@ const CollaboratorDemands = () => {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return arr;
-  }, [cards, sortKey, sortDir, collaboratorName]);
+  }, [cards, sortKey, sortDir, collaboratorName, activeDispatchIds]);
 
-  const totalCards = cards.length;
+  const totalCards = sortedCards.length;
 
   const [awaitingOpen, setAwaitingOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
