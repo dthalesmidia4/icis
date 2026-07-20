@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollaborators } from "@/hooks/useCollaborators";
 import { toast as sonnerToast } from "sonner";
-import BackButton from "@/components/BackButton";
+import { useBreadcrumbOverride } from "@/contexts/BreadcrumbOverrideContext";
 import { useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 import { isDailyCardVisibleNow } from "@/lib/dailyCards";
 
