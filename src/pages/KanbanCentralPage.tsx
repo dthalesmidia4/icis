@@ -17,7 +17,8 @@ import {
   CalendarDays,
   ChevronDown,
   X,
-  History
+  History,
+  Focus
 } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
@@ -115,9 +116,10 @@ const KanbanCentralPage = () => {
       return next;
     });
   }, []);
-  const [collapsedAwaiting, setCollapsedAwaiting] = useState<Set<string>>(new Set());
+  // Grupo "Aguardando clientes" inicia recolhido por padrão; guardamos as colunas expandidas explicitamente.
+  const [expandedAwaiting, setExpandedAwaiting] = useState<Set<string>>(new Set());
   const toggleAwaiting = useCallback((columnId: string) => {
-    setCollapsedAwaiting((prev) => {
+    setExpandedAwaiting((prev) => {
       const next = new Set(prev);
       if (next.has(columnId)) next.delete(columnId);
       else next.add(columnId);
@@ -1728,7 +1730,7 @@ const KanbanCentralPage = () => {
               ? nonAwaitingCards.filter((c) => !isReviewFunction(c.current_function_key))
               : nonAwaitingCards;
 
-            const isAwaitingCollapsed = collapsedAwaiting.has(column.id);
+            const isAwaitingCollapsed = !expandedAwaiting.has(column.id);
             const isReviewCollapsed = !expandedReview.has(column.id);
 
             return (
