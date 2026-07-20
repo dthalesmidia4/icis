@@ -1,8 +1,20 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, CalendarClock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import DispatchStatusBadge from "@/components/DispatchStatusBadge";
+
+export interface CardDatesChange {
+  due_date?: string | null;
+  due_time?: string | null;
+  delivery_date?: string | null;
+  delivery_time?: string | null;
+}
 
 interface KanbanCardProps {
   title: string;
@@ -26,56 +38,220 @@ interface KanbanCardProps {
   dailyTotal?: number | null;
   dailyNextDate?: string | null;
   onClick?: () => void;
+  onDatesChange?: (changes: CardDatesChange) => Promise<void> | void;
 }
 
-const DEMAND_TYPE_COLORS: Record<string, string> = {
-  carrossel: "bg-violet-500/15 text-violet-600 border-violet-500/30 dark:text-violet-400",
-  post: "bg-blue-500/15 text-blue-600 border-blue-500/30 dark:text-blue-400",
-  reel: "bg-pink-500/15 text-pink-600 border-pink-500/30 dark:text-pink-400",
-  reels: "bg-pink-500/15 text-pink-600 border-pink-500/30 dark:text-pink-400",
-  stories: "bg-orange-500/15 text-orange-600 border-orange-500/30 dark:text-orange-400",
-  story: "bg-orange-500/15 text-orange-600 border-orange-500/30 dark:text-orange-400",
-  captação: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30 dark:text-emerald-400",
-  video: "bg-red-500/15 text-red-600 border-red-500/30 dark:text-red-400",
-  vídeo: "bg-red-500/15 text-red-600 border-red-500/30 dark:text-red-400",
+const toISO = (d?: Date | null): string | null => {
+  if (!d) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+const parseISO = (s?: string | null): Date | undefined => {
+  if (!s) return undefined;
+  const [y, m, d] = s.split("-").map(Number);
+  if (!y || !m || !d) return undefined;
+  return new Date(y, m - 1, d);
 };
 
-const getDemandTypeColor = (type: string): string => {
-  const lower = type.toLowerCase();
-  for (const [key, value] of Object.entries(DEMAND_TYPE_COLORS)) {
-    if (lower.includes(key)) return value;
-  }
-  return "bg-muted text-muted-foreground border-border";
+const fmtDate = (s?: string | null) =>
+  s ? new Date(s + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : null;
+const fmtTime = (t?: string | null) => (t ? t.slice(0, 5) : null);
+
+interface InlineDatesProps {
+  dueDate?: string;
+  dueTime?: string;
+  deliveryDate?: string;
+  deliveryTime?: string;
+  isOverdue?: boolean;
+  editable: boolean;
+  onSave?: (c: CardDatesChange) => Promise<void> | void;
+}
+
+const InlineDates = ({ dueDate, dueTime, deliveryDate, deliveryTime, isOverdue, editable, onSave }: InlineDatesProps) => {
+  const [open, setOpen] = useState(false);
+  const [start, setStart] = useState<Date | undefined>(parseISO(dueDate));
+  const [end, setEnd] = useState<Date | undefined>(parseISO(deliveryDate));
+  const [startTime, setStartTime] = useState<string>(dueTime?.slice(0, 5) || "");
+  const [endTime, setEndTime] = useState<string>(deliveryTime?.slice(0, 5) || "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setStart(parseISO(dueDate));
+      setEnd(parseISO(deliveryDate));
+      setStartTime(dueTime?.slice(0, 5) || "");
+      setEndTime(deliveryTime?.slice(0, 5) || "");
+    }
+  }, [open, dueDate, deliveryDate, dueTime, deliveryTime]);
+
+  const dStart = fmtDate(dueDate);
+  const dEnd = fmtDate(deliveryDate);
+  const tStart = fmtTime(dueTime);
+  const tEnd = fmtTime(deliveryTime);
+
+  const label = (
+    <div
+      className={cn(
+        "flex items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium",
+        isOverdue ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-muted/60 text-foreground",
+        editable && "hover:bg-muted cursor-pointer transition-colors",
+      )}
+    >
+      <div className="flex items-center gap-1.5 min-w-0">
+        <CalendarIcon className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+        <span className="truncate">
+          <span className="text-muted-foreground">Início:</span>{" "}
+          {dStart ? (
+            <span className="font-semibold">
+              {dStart}
+              {tStart && ` ${tStart}`}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </span>
+      </div>
+      <span className="h-3 w-px bg-border shrink-0" />
+      <div className="flex items-center gap-1.5 min-w-0">
+        <CalendarIcon className={cn("h-3.5 w-3.5 shrink-0", isOverdue ? "text-red-500" : "text-emerald-500")} />
+        <span className="truncate">
+          <span className="text-muted-foreground">Término:</span>{" "}
+          {dEnd ? (
+            <span className={cn("font-semibold", isOverdue && "text-red-600 dark:text-red-400")}>
+              {dEnd}
+              {tEnd && ` ${tEnd}`}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          )}
+        </span>
+      </div>
+    </div>
+  );
+
+  if (!editable) return label;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="w-full text-left"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {label}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-auto p-0 pointer-events-auto"
+        align="start"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border">
+          <div className="p-3 space-y-2">
+            <Label className="text-xs font-semibold text-amber-600 dark:text-amber-400">Início</Label>
+            <Calendar
+              mode="single"
+              selected={start}
+              onSelect={setStart}
+              initialFocus
+              className={cn("p-0 pointer-events-auto")}
+            />
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground w-12">Hora</Label>
+              <Input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
+          <div className="p-3 space-y-2">
+            <Label className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Término</Label>
+            <Calendar
+              mode="single"
+              selected={end}
+              onSelect={setEnd}
+              className={cn("p-0 pointer-events-auto")}
+            />
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground w-12">Hora</Label>
+              <Input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 p-3 border-t border-border">
+          <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button
+            size="sm"
+            disabled={saving}
+            onClick={async () => {
+              if (!onSave) {
+                setOpen(false);
+                return;
+              }
+              setSaving(true);
+              try {
+                await onSave({
+                  due_date: toISO(start),
+                  due_time: startTime || null,
+                  delivery_date: toISO(end),
+                  delivery_time: endTime || null,
+                });
+                setOpen(false);
+              } finally {
+                setSaving(false);
+              }
+            }}
+          >
+            Salvar
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 };
 
 const KanbanCard = ({
   title,
   subtitle,
-  demandType,
+  demandType: _demandType,
   dueDate,
   dueTime,
   cardDeliveryDate,
   deliveryTime,
   isDragging = false,
   isOverdue = false,
-  cardId,
-  statusName,
-  statusColor,
+  cardId: _cardId,
+  statusName: _statusName,
+  statusColor: _statusColor,
   hideDueDate = false,
-  emphasizeDelivery = false,
+  emphasizeDelivery: _emphasizeDelivery = false,
   showStartEndLabels = false,
-  emphasizeStart = false,
+  emphasizeStart: _emphasizeStart = false,
   isDailyCard = false,
   dailyCompleted = 0,
   dailyTotal = null,
   dailyNextDate = null,
-  onClick
+  onClick,
+  onDatesChange,
 }: KanbanCardProps) => {
-  const formattedDueDate = dueDate ? new Date(dueDate + 'T00:00:00').toLocaleDateString("pt-BR") : null;
-  const formattedCardDeliveryDate = cardDeliveryDate ? new Date(cardDeliveryDate + 'T00:00:00').toLocaleDateString("pt-BR") : null;
-  const formattedDueTime = dueTime ? dueTime.slice(0, 5) : null;
-  const formattedDeliveryTime = deliveryTime ? deliveryTime.slice(0, 5) : null;
-  const formattedNextDaily = dailyNextDate ? new Date(dailyNextDate + 'T00:00:00').toLocaleDateString("pt-BR") : null;
+  const formattedNextDaily = dailyNextDate
+    ? new Date(dailyNextDate + "T00:00:00").toLocaleDateString("pt-BR")
+    : null;
+
+  const hasAnyDate = !!(dueDate || cardDeliveryDate);
+  const showInline = showStartEndLabels || hasAnyDate;
 
   return (
     <Card
@@ -83,24 +259,21 @@ const KanbanCard = ({
         "mb-3 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-border/50",
         isDragging && "shadow-xl rotate-1 scale-105",
         isOverdue && "bg-red-500/10 border-red-500/30 dark:bg-red-500/15 dark:border-red-500/40",
-        isDailyCard && "border-l-4 border-l-amber-500"
+        isDailyCard && "border-l-4 border-l-amber-500",
       )}
       onClick={onClick}
     >
-      {/* Title */}
-      <CardHeader className="px-3 pt-3 pb-2">
+      <CardHeader className="px-3 pt-3 pb-2 space-y-1">
         {subtitle && (
-          <div className="mb-1.5">
-            <span
-              className="inline-block max-w-full truncate align-bottom text-[11px] font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20"
-              title={subtitle}
-            >
-              {subtitle}
-            </span>
+          <div
+            className="text-sm font-semibold text-foreground/80 truncate leading-snug"
+            title={subtitle}
+          >
+            {subtitle}
           </div>
         )}
         {isDailyCard && (
-          <div className="mb-1.5 flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1">
             <Badge className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30">
               Card Diário
             </Badge>
@@ -116,95 +289,35 @@ const KanbanCard = ({
             )}
           </div>
         )}
-        {/* Tags visuais (tipo, status, dispatch) ocultas a pedido — mantemos os dados intactos. */}
         <CardTitle className="text-sm font-semibold leading-snug line-clamp-2 text-foreground">
           {title}
         </CardTitle>
       </CardHeader>
 
-      
-      {/* Footer: Dates */}
-      {showStartEndLabels ? (
+      {showInline && !hideDueDate && (
         <CardContent className="px-3 pb-3 pt-0">
-          <div className="flex flex-col gap-1.5">
-            {emphasizeStart ? (
-              <>
-                <div className={cn(
-                  "flex items-center gap-1.5 rounded-md w-fit text-sm font-bold px-3 py-2",
-                  isOverdue ? "text-red-500 bg-red-500/15" : "text-emerald-500 bg-emerald-500/10"
-                )}>
-                  <Calendar className="h-4 w-4" />
-                  <span>Término:</span>
-                  {formattedCardDeliveryDate ? (
-                    <span>
-                      {formattedCardDeliveryDate}
-                      {formattedDeliveryTime && ` · ${formattedDeliveryTime}`}
-                    </span>
-                  ) : (
-                    <span>sem data definida</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md w-fit text-amber-500 bg-amber-500/10">
-                  <CalendarClock className="h-3.5 w-3.5" />
-                  <span className="font-semibold">Início:</span>
-                  <span>{formattedDueTime || "sem horário"}</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md w-fit text-amber-500 bg-amber-500/10">
-                  <CalendarClock className="h-3.5 w-3.5" />
-                  <span className="font-semibold">Início:</span>
-                  <span>{formattedDueTime || "sem horário"}</span>
-                </div>
-                <div className={cn(
-                  "flex items-center gap-1.5 rounded-md w-fit text-sm font-bold px-3 py-2",
-                  isOverdue ? "text-red-500 bg-red-500/15" : "text-emerald-500 bg-emerald-500/10"
-                )}>
-                  <Calendar className="h-4 w-4" />
-                  <span>Término:</span>
-                  {formattedCardDeliveryDate ? (
-                    <span>
-                      {formattedCardDeliveryDate}
-                      {formattedDeliveryTime && ` · ${formattedDeliveryTime}`}
-                    </span>
-                  ) : (
-                    <span>sem data definida</span>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+          <InlineDates
+            dueDate={dueDate}
+            dueTime={dueTime}
+            deliveryDate={cardDeliveryDate}
+            deliveryTime={deliveryTime}
+            isOverdue={isOverdue}
+            editable={!!onDatesChange}
+            onSave={onDatesChange}
+          />
         </CardContent>
-      ) : (( !hideDueDate && formattedDueDate) || formattedCardDeliveryDate) && (
+      )}
+      {showInline && hideDueDate && cardDeliveryDate && (
         <CardContent className="px-3 pb-3 pt-0">
-          <div className="flex flex-col gap-1.5">
-            {!hideDueDate && formattedDueDate && (
-              <div className={cn(
-                "flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-md w-fit",
-                isOverdue ? "text-red-500 bg-red-500/15" : "text-amber-500 bg-amber-500/10"
-              )}>
-                <CalendarClock className="h-3.5 w-3.5" />
-                <span>{formattedDueDate}</span>
-                {formattedDueTime && (
-                  <span>• {formattedDueTime}</span>
-                )}
-              </div>
-            )}
-            {formattedCardDeliveryDate && (
-              <div className={cn(
-                "flex items-center gap-1.5 rounded-md w-fit",
-                emphasizeDelivery ? "text-sm font-bold px-3 py-2" : "text-xs font-medium px-2.5 py-1.5",
-                isOverdue ? "text-red-500 bg-red-500/15" : "text-emerald-500 bg-emerald-500/10"
-              )}>
-                <Calendar className={emphasizeDelivery ? "h-4 w-4" : "h-3.5 w-3.5"} />
-                <span>{formattedCardDeliveryDate}</span>
-                {formattedDeliveryTime && (
-                  <span>• {formattedDeliveryTime}</span>
-                )}
-              </div>
-            )}
-          </div>
+          <InlineDates
+            dueDate={undefined}
+            dueTime={undefined}
+            deliveryDate={cardDeliveryDate}
+            deliveryTime={deliveryTime}
+            isOverdue={isOverdue}
+            editable={!!onDatesChange}
+            onSave={onDatesChange}
+          />
         </CardContent>
       )}
     </Card>
