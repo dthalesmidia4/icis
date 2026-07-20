@@ -123,7 +123,11 @@ const Scheduled = () => {
   }, [tenantId, tenantLoading]);
 
   // Get publication datetime
+  // Get publication datetime — prioritize dispatch (real source of truth
+  // for what was actually scheduled/published) over the demand's mutable fields.
   const getPublicationDateTime = (card: CentralKanbanCard): Date | null => {
+    if (card.dispatch_dispatched_at) return new Date(card.dispatch_dispatched_at);
+    if (card.dispatch_scheduled_at) return new Date(card.dispatch_scheduled_at);
     if (card.publish_date) {
       return new Date(`${card.publish_date}T${card.publish_time || '09:00'}:00`);
     }
