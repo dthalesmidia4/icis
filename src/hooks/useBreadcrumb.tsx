@@ -73,13 +73,13 @@ const routeConfig: Record<string, BreadcrumbConfig> = {
   '/kanban-central': {
     items: [
       { label: 'Home', href: '/home', icon: Home },
-      { label: 'Kanban Central', icon: LayoutGrid }
+      { label: 'Visão Geral', icon: LayoutGrid }
     ]
   },
   '/scheduled': {
     items: [
       { label: 'Home', href: '/home', icon: Home },
-      { label: 'Kanban Central', href: '/kanban-central', icon: LayoutGrid },
+      { label: 'Visão Geral', href: '/kanban-central', icon: LayoutGrid },
       { label: 'Agendamentos', icon: CalendarDays }
     ]
   },

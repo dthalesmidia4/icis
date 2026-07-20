@@ -1,55 +1,58 @@
-## Diagnóstico
+## Diagnóstico confirmado
 
-**Cabeçalho vazio (breadcrumb)**  
-O `Layout` global renderiza `NavigationBreadcrumb` no header do topo, mas `/scheduled` **não está mapeado** em `src/hooks/useBreadcrumb.tsx`. Por isso o header aparece vazio e o "Voltar" + "Agendamento" acabaram sendo empurrados para dentro do corpo da página, criando duplicidade com o padrão usado em `/kanban-central` (que só tem ícone + título + badge + ações no corpo, sem "Voltar" — quem faz esse papel é o breadcrumb).
+1. **Header/breadcrumb**
+   - O texto `Kanban Central` aparece no breadcrumb em `src/hooks/useBreadcrumb.tsx` para:
+     - `/kanban-central`
+     - `/scheduled`
+   - Portanto, para o header ficar como solicitado, a rota deve exibir `Home > Visão Geral > Agendamentos`.
 
-**Posts publicados não aparecem em datas passadas**  
-Fluxo real de um dispatch bem-sucedido em `run-scheduled-dispatches`:
-1. Dispatch vira `status = "sent"`.
-2. Demand recebe `status = "Publicado"` e `current_function_key = "revisar_publicacao"`.
-3. `archived_at` só é setado depois, quando o card chega em "Feito".
+2. **Erro dos posts publicados no calendário**
+   - A tabela `scheduled_publication_dispatches` usa os status reais:
+     - `scheduled`
+     - `dispatching`
+     - `published`
+     - `failed`
+     - `cancelled`
+   - O job `run-scheduled-dispatches` marca posts concluídos como `published` e preenche `published_at`.
+   - A tela `Scheduled.tsx` está buscando status incorretos:
+     - busca `sent`, mas o banco usa `published`
+     - busca `canceled`, mas o banco usa `cancelled`
+     - não busca `published`
+   - Resultado: assim que um post é publicado, ele sai da consulta da tela e desaparece do calendário.
+   - A consulta ao banco confirmou que existem **17 dispatches publicados** e **9 agendados**, mas o filtro atual da tela só captura os **9 agendados**.
 
-O `fetchScheduledCards` até traz esses cards (via OR `id.in.(dispatchCardIds)`), mas o calendário posiciona cada item por `card.publish_date` + `card.publish_time` da **demand**. Depois da publicação esses campos podem ser alterados pelo revisor, ou o card pode nem ter `publish_time` (só `due_date`), fazendo o item cair em datas erradas ou sumir da grade. A fonte real da data em que foi/será publicado é o `scheduled_at` do dispatch (e `dispatched_at` quando `sent`), que hoje é ignorado no posicionamento.
+## Plano de correção
 
-## Plano
+1. **Renomear o header/breadcrumb**
+   - Alterar `src/hooks/useBreadcrumb.tsx`:
+     - `/kanban-central`: `Kanban Central` → `Visão Geral`
+     - `/scheduled`: `Home > Visão Geral > Agendamentos`
 
-### 1. Breadcrumb da rota `/scheduled`
-Em `src/hooks/useBreadcrumb.tsx`, adicionar:
-```
-'/scheduled': {
-  items: [
-    { label: 'Home', href: '/home', icon: Home },
-    { label: 'Kanban Central', href: '/kanban-central', icon: LayoutGrid },
-    { label: 'Agendamentos', icon: CalendarDays }
-  ]
-}
-```
-Assim o header superior passa a mostrar **Home > Kanban Central > Agendamentos** automaticamente (desktop e mobile), e "Kanban Central" fica clicável — substitui o botão "Voltar" avulso.
+2. **Corrigir a busca do calendário de agendamentos**
+   - Em `src/components/Scheduled.tsx`, trocar o filtro de status para os valores reais do banco:
+     - de `scheduled`, `dispatching`, `sent`, `failed`, `canceled`
+     - para `scheduled`, `dispatching`, `published`, `failed`, `cancelled`
 
-### 2. Alinhar o cabeçalho do corpo com o padrão de "Visão geral das Tarefas"
-Em `src/components/Scheduled.tsx`:
-- Remover o botão "Voltar" e a prop `backTo` (o breadcrumb assume esse papel).
-- Trocar o wrapper para o mesmo padrão da Visão geral: `<div className="mt-4 px-3 sm:px-4">`.
-- Trocar o header interno para o mesmo layout: ícone em `bg-primary/10 rounded-lg` (usando `CalendarDays` na cor `text-primary`, sem o roxo divergente) + `h2 text-xl sm:text-2xl font-bold` "Agendamento" + `Badge` com contagem, tudo em `flex items-center gap-3 mb-4`.
+3. **Corrigir o badge/status visual no modal do dia**
+   - Em `Scheduled.tsx`, trocar:
+     - `sent` → `published` com label `Publicado`
+     - `canceled` → `cancelled` com label `Cancelado`
 
-Em `src/pages/Kanban.tsx`:
-- Remover o wrapper `container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8` (o padding vai para dentro do próprio `Scheduled`, evitando padding duplicado).
-- Remover a passagem de `backTo` (não é mais necessária).
+4. **Usar a melhor data para posicionar publicados**
+   - Ajustar a estrutura do card para também carregar `published_at`.
+   - Priorizar a data assim:
+     1. `published_at`
+     2. `dispatched_at`
+     3. `scheduled_at`
+     4. `publish_date`
+     5. `due_date`
+   - Isso evita que um conteúdo já publicado apareça em data incorreta caso a demanda tenha sido movida ou alterada depois.
 
-Em `src/pages/KanbanCentralPage.tsx`:
-- Remover o `state: { from: "/kanban-central" }` do `navigate("/scheduled", ...)` (não é mais lido).
+5. **Manter integridade do fluxo**
+   - Não alterar banco, RLS, edge function ou status do job.
+   - A correção será apenas de leitura/visualização, alinhando a tela aos status reais que o sistema já grava.
 
-### 3. Corrigir posicionamento e visibilidade de posts já publicados
-Em `src/components/Scheduled.tsx`, dentro de `fetchScheduledCards`:
-- Ampliar o `select` de dispatches para trazer `scheduled_at, dispatched_at, status`.
-- Guardar `dispatch_scheduled_at` e `dispatch_dispatched_at` no `CentralKanbanCard` (extendendo a interface).
-
-Em `getPublicationDateTime`:
-- **Prioridade nova**: se o card tem dispatch, usar `dispatched_at` (quando `status = "sent"`) ou `scheduled_at` como fonte da data/hora exibida no calendário. Só cair para `publish_date`/`publish_time` da demand quando não houver dispatch.
-- Isso garante que posts já publicados apareçam exatamente no dia em que foram publicados, mesmo se o revisor alterou `publish_date` da demand depois.
-
-Manter o filtro OR já existente (`archived_at.is.null` OU `id.in.(dispatchCardIds)`) e o badge de status já implementado no modal do dia (Publicado / Falhou / Cancelado).
-
-## Impacto
-- Somente `src/components/Scheduled.tsx`, `src/pages/Kanban.tsx`, `src/pages/KanbanCentralPage.tsx` (uma linha) e `src/hooks/useBreadcrumb.tsx`.
-- Sem migrações, sem mudança de schema, sem alteração no fluxo de publicação/edge function.
+6. **Validação após implementar**
+   - Confirmar no preview que datas passadas de julho exibem os posts `Publicado`.
+   - Confirmar que o contador da tela sobe de 9 para incluir também os publicados.
+   - Confirmar que o breadcrumb fica `Home > Visão Geral > Agendamentos`.
