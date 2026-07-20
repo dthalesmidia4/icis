@@ -158,8 +158,8 @@ const Scheduled = () => {
       setLoading(true);
 
       // Fetch two sources: (a) demands in "Agendar Publicação" status (legacy path);
-      // (b) demands with an active dispatch (scheduled/dispatching) in the new path.
-      const [{ data: demandsData, error }, { data: activeDispatches, error: dispErr }] = await Promise.all([
+      // (b) demands with any dispatch (scheduled/dispatching/sent/failed/canceled) — permite ver histórico.
+      const [{ data: demandsData, error }, { data: allDispatches, error: dispErr }] = await Promise.all([
         supabase
           .from("demands")
           .select(`
@@ -181,20 +181,35 @@ const Scheduled = () => {
 
         supabase
           .from("scheduled_publication_dispatches")
-          .select("card_id")
+          .select("card_id, status, scheduled_at")
           .eq("tenant_id", tenantId)
-          .in("status", ["scheduled", "dispatching"]),
+          .in("status", ["scheduled", "dispatching", "sent", "failed", "canceled"]),
       ]);
 
       if (error) throw error;
       if (dispErr) console.error("[Scheduled] dispatches fetch error", dispErr);
 
-      const dispatchCardIds = new Set((activeDispatches || []).map((d: any) => d.card_id));
+      // Mantém o dispatch mais recente por card_id
+      const dispatchByCard = new Map<string, { status: string; scheduled_at: string | null }>();
+      (allDispatches || []).forEach((d: any) => {
+        if (!d?.card_id) return;
+        const prev = dispatchByCard.get(d.card_id);
+        if (!prev) {
+          dispatchByCard.set(d.card_id, { status: d.status, scheduled_at: d.scheduled_at ?? null });
+        } else {
+          const prevTime = prev.scheduled_at ? new Date(prev.scheduled_at).getTime() : 0;
+          const currTime = d.scheduled_at ? new Date(d.scheduled_at).getTime() : 0;
+          if (currTime >= prevTime) {
+            dispatchByCard.set(d.card_id, { status: d.status, scheduled_at: d.scheduled_at ?? null });
+          }
+        }
+      });
 
       const allMappedCards: CentralKanbanCard[] = (demandsData || [])
-        .filter(demand => demand.pipeline_statuses?.name === "Agendar Publicação" || dispatchCardIds.has(demand.id))
+        .filter(demand => demand.pipeline_statuses?.name === "Agendar Publicação" || dispatchByCard.has(demand.id))
         .map(demand => {
           const company = demand.tenant_companies;
+          const dispatch = dispatchByCard.get(demand.id) || null;
           return {
             id: demand.id,
             title: demand.title,
@@ -219,8 +234,9 @@ const Scheduled = () => {
             source: demand.source,
             demand_id: demand.id,
             demand_type: demand.demand_type,
-            additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates as string[] : []
-          };
+            additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates as string[] : [],
+            dispatch_status: dispatch?.status ?? null,
+          } as CentralKanbanCard & { dispatch_status: string | null };
         });
 
       // Sort by publication date
