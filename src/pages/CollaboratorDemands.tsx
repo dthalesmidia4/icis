@@ -378,114 +378,178 @@ const CollaboratorDemands = () => {
           <User className="h-12 w-12 mx-auto mb-4 opacity-30" />
           <p className="text-lg font-medium">Nenhuma demanda atribuída a este colaborador no momento.</p>
         </div>
-      ) : (
-        <div className="rounded-lg border border-border bg-card/40 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                {([
-                  { k: "title", label: "Nome da demanda" },
-                  { k: "due_date", label: "Início" },
-                  { k: "delivery_date", label: "Entrega" },
-                  { k: "assigned", label: "Responsável" },
-                ] as { k: SortKey; label: string }[]).map(({ k, label }) => (
-                  <TableHead key={k} className="whitespace-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort(k)}
-                      className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-primary transition-colors"
-                    >
-                      {label}
-                      <SortIcon k={k} />
-                    </button>
-                  </TableHead>
-                ))}
-                <TableHead className="w-20 text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedCards.map((card) => {
-                const overdue = isOverdue(card.delivery_date, card.delivery_time, card.status);
-                const isEditing = editingId === card.id;
-                return (
-                  <TableRow
-                    key={card.id}
-                    onClick={() => { if (!isEditing) setSelectedCard(card); }}
-                    className={`${isEditing ? "" : "cursor-pointer"} ${overdue ? "bg-destructive/10 hover:bg-destructive/15" : ""}`}
+      ) : (() => {
+        const renderTableHeader = () => (
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              {([
+                { k: "title", label: "Nome da demanda" },
+                { k: "due_date", label: "Início" },
+                { k: "delivery_date", label: "Entrega" },
+                { k: "assigned", label: "Responsável" },
+              ] as { k: SortKey; label: string }[]).map(({ k, label }) => (
+                <TableHead key={k} className="whitespace-nowrap">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort(k)}
+                    className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-primary transition-colors"
                   >
-                    <TableCell className="font-medium text-foreground">
-                      {isEditing ? (
-                        <Input
-                          value={editDraft.title}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setEditDraft((d) => ({ ...d, title: e.target.value }))}
-                          className="h-8"
-                        />
-                      ) : (
-                        <span className="uppercase tracking-wide text-sm">{card.title}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {isEditing ? (
-                        <div className="flex gap-2">
-                          <Input type="date" value={editDraft.due_date} onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => setEditDraft((d) => ({ ...d, due_date: e.target.value }))} className="h-8 w-36" />
-                          <Input type="time" value={editDraft.due_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => setEditDraft((d) => ({ ...d, due_time: e.target.value }))} className="h-8 w-28" />
-                        </div>
-                      ) : (
-                        <span>{formatDate(card.due_date)}{card.due_time ? ` · ${formatTime(card.due_time)}` : ""}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className={`whitespace-nowrap ${overdue && !isEditing ? "text-destructive font-semibold" : ""}`}>
-                      {isEditing ? (
-                        <div className="flex gap-2">
-                          <Input type="date" value={editDraft.delivery_date} onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => setEditDraft((d) => ({ ...d, delivery_date: e.target.value }))} className="h-8 w-36" />
-                          <Input type="time" value={editDraft.delivery_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => setEditDraft((d) => ({ ...d, delivery_time: e.target.value }))} className="h-8 w-28" />
-                        </div>
-                      ) : (
-                        <span>{formatDate(card.delivery_date)}{card.delivery_time ? ` · ${formatTime(card.delivery_time)}` : ""}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {isEditing ? (
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <Select value={editDraft.assigned_to} onValueChange={(v) => setEditDraft((d) => ({ ...d, assigned_to: v }))}>
-                            <SelectTrigger className="h-8 w-44"><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                            <SelectContent>
-                              {collaborators.map((c) => (
-                                <SelectItem key={c.userId} value={c.userId}>{c.fullName}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ) : collaboratorName}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {isEditing ? (
-                        <div className="inline-flex gap-1">
-                          <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-500" onClick={(e) => saveEdit(card.id, e)}>
-                            <Check className="h-4 w-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" onClick={cancelEdit}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => startEdit(card, e)} aria-label="Editar">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+                    {label}
+                    <SortIcon k={k} />
+                  </button>
+                </TableHead>
+              ))}
+              <TableHead className="w-20 text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+        );
+
+        const renderRow = (card: KanbanCardData) => {
+          const overdue = isOverdue(card.delivery_date, card.delivery_time, card.status);
+          const isEditing = editingId === card.id;
+          return (
+            <TableRow
+              key={card.id}
+              onClick={() => { if (!isEditing) setSelectedCard(card); }}
+              className={`${isEditing ? "" : "cursor-pointer"} ${overdue ? "bg-destructive/10 hover:bg-destructive/15" : ""}`}
+            >
+              <TableCell className="font-medium text-foreground">
+                {isEditing ? (
+                  <Input
+                    value={editDraft.title}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setEditDraft((d) => ({ ...d, title: e.target.value }))}
+                    className="h-8"
+                  />
+                ) : (
+                  <div className="flex flex-col gap-0.5">
+                    {card.clientName && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-primary/80">
+                        {card.clientName}
+                      </span>
+                    )}
+                    <span className="uppercase tracking-wide text-sm">{card.title}</span>
+                  </div>
+                )}
+              </TableCell>
+              <TableCell className="whitespace-nowrap">
+                {isEditing ? (
+                  <div className="flex gap-2">
+                    <Input type="date" value={editDraft.due_date} onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setEditDraft((d) => ({ ...d, due_date: e.target.value }))} className="h-8 w-36" />
+                    <Input type="time" value={editDraft.due_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setEditDraft((d) => ({ ...d, due_time: e.target.value }))} className="h-8 w-28" />
+                  </div>
+                ) : (
+                  <span>{formatDate(card.due_date)}{card.due_time ? ` · ${formatTime(card.due_time)}` : ""}</span>
+                )}
+              </TableCell>
+              <TableCell className={`whitespace-nowrap ${overdue && !isEditing ? "text-destructive font-semibold" : ""}`}>
+                {isEditing ? (
+                  <div className="flex gap-2">
+                    <Input type="date" value={editDraft.delivery_date} onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setEditDraft((d) => ({ ...d, delivery_date: e.target.value }))} className="h-8 w-36" />
+                    <Input type="time" value={editDraft.delivery_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setEditDraft((d) => ({ ...d, delivery_time: e.target.value }))} className="h-8 w-28" />
+                  </div>
+                ) : (
+                  <span>{formatDate(card.delivery_date)}{card.delivery_time ? ` · ${formatTime(card.delivery_time)}` : ""}</span>
+                )}
+              </TableCell>
+              <TableCell className="whitespace-nowrap text-muted-foreground">
+                {isEditing ? (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <Select value={editDraft.assigned_to} onValueChange={(v) => setEditDraft((d) => ({ ...d, assigned_to: v }))}>
+                      <SelectTrigger className="h-8 w-44"><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                      <SelectContent>
+                        {collaborators.map((c) => (
+                          <SelectItem key={c.userId} value={c.userId}>{c.fullName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : collaboratorName}
+              </TableCell>
+              <TableCell className="text-right">
+                {isEditing ? (
+                  <div className="inline-flex gap-1">
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-500" onClick={(e) => saveEdit(card.id, e)}>
+                      <Check className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" onClick={cancelEdit}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => startEdit(card, e)} aria-label="Editar">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                )}
+              </TableCell>
+            </TableRow>
+          );
+        };
+
+        const renderGroup = (rows: KanbanCardData[]) => (
+          <div className="rounded-lg border border-border bg-card/40 overflow-hidden">
+            <Table>
+              {renderTableHeader()}
+              <TableBody>{rows.map(renderRow)}</TableBody>
+            </Table>
+          </div>
+        );
+
+        return (
+          <div className="space-y-4">
+            {mainCards.length > 0 && renderGroup(mainCards)}
+
+            {awaitingCards.length > 0 && (
+              <div className="rounded-lg border border-border bg-card/40 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setAwaitingOpen((v) => !v)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors border-b border-border"
+                  aria-expanded={awaitingOpen}
+                >
+                  {awaitingOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  <Clock className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-sm">Aguardando clientes</span>
+                  <Badge variant="secondary" className="ml-1">{awaitingCards.length}</Badge>
+                </button>
+                {awaitingOpen && (
+                  <Table>
+                    {renderTableHeader()}
+                    <TableBody>{awaitingCards.map(renderRow)}</TableBody>
+                  </Table>
+                )}
+              </div>
+            )}
+
+            {shouldGroupReview && reviewCards.length > 0 && (
+              <div className="rounded-lg border border-border bg-card/40 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setReviewOpen((v) => !v)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors border-b border-border"
+                  aria-expanded={reviewOpen}
+                >
+                  {reviewOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  <Eye className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-sm">Em revisão</span>
+                  <Badge variant="secondary" className="ml-1">{reviewCards.length}</Badge>
+                </button>
+                {reviewOpen && (
+                  <Table>
+                    {renderTableHeader()}
+                    <TableBody>{reviewCards.map(renderRow)}</TableBody>
+                  </Table>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
 
 
 
