@@ -1357,7 +1357,7 @@ const KanbanCentralPage = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate("/scheduled", { state: { from: "/kanban-central" } })}
+            onClick={() => navigate("/scheduled")}
             title="Ver todos os conteúdos com publicação agendada"
             className="relative"
           >
