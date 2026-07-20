@@ -1282,6 +1282,9 @@ const KanbanCentralPage = () => {
     } catch (err: any) {
       console.error("Error saving draft demand:", err);
       sonnerToast.error(err?.message || "Erro ao salvar demanda");
+    } finally {
+      savingDraftRef.current = false;
+      setIsSavingDraft(false);
     }
   };
 
