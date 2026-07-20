@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +45,7 @@ import { useCollaborators } from "@/hooks/useCollaborators";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { assignInitialResponsible } from "@/lib/initialFlowFunction";
 import { isReviewFunction } from "@/lib/flowFunctions";
+import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 
 interface PipelineStatus {
   id: string;
@@ -147,6 +148,8 @@ const KanbanCentralPage = () => {
   const [dateGroupBy, setDateGroupBy] = useState<"start" | "delivery">("start");
   const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const { collaborators } = useCollaborators(tenantId);
+  const navigate = useNavigate();
+  const { activeDispatchIds, count: scheduledCount } = useActiveDispatchIds(tenantId);
   const [periods, setPeriods] = useState<Array<{
     id: string;
     period_title: string;
@@ -220,8 +223,13 @@ const KanbanCentralPage = () => {
     }
     // Ocultar cards diários cuja próxima ocorrência ainda não chegou
     baseCards = baseCards.filter(card => isDailyCardVisibleNow(card as any));
+    // Ocultar cards com dispatch ativo (agendados/em envio) — eles vivem na tela /scheduled
+    // O modo "Registro de Cards" (viewMode === "history") ignora esse filtro, para preservar o histórico.
+    if (viewMode !== "history" && activeDispatchIds.size > 0) {
+      baseCards = baseCards.filter(card => !activeDispatchIds.has(card.id));
+    }
     return baseCards;
-  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter]);
+  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, activeDispatchIds, viewMode]);
 
   // Todos os cards para busca (incluindo arquivados)
   const allSearchableCards = useMemo(() => {
@@ -1346,6 +1354,24 @@ const KanbanCentralPage = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/scheduled")}
+            title="Ver todos os conteúdos com publicação agendada"
+            className="relative"
+          >
+            <CalendarDays className="h-4 w-4 mr-1" />
+            Conteúdos agendados
+            {scheduledCount > 0 && (
+              <span
+                className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shadow-sm"
+                aria-label={`${scheduledCount} agendamentos ativos`}
+              >
+                {scheduledCount > 99 ? "99+" : scheduledCount}
+              </span>
+            )}
+          </Button>
           <Button
             variant={viewMode === "history" ? "default" : "outline"}
             size="sm"

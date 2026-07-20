@@ -158,8 +158,8 @@ const Scheduled = () => {
       setLoading(true);
 
       // Fetch two sources: (a) demands in "Agendar Publicação" status (legacy path);
-      // (b) demands with an active dispatch (scheduled/dispatching) in the new path.
-      const [{ data: demandsData, error }, { data: activeDispatches, error: dispErr }] = await Promise.all([
+      // (b) demands with any dispatch (scheduled/dispatching/sent/failed/canceled) — permite ver histórico.
+      const [{ data: demandsData, error }, { data: allDispatches, error: dispErr }] = await Promise.all([
         supabase
           .from("demands")
           .select(`
@@ -181,20 +181,35 @@ const Scheduled = () => {
 
         supabase
           .from("scheduled_publication_dispatches")
-          .select("card_id")
+          .select("card_id, status, scheduled_at")
           .eq("tenant_id", tenantId)
-          .in("status", ["scheduled", "dispatching"]),
+          .in("status", ["scheduled", "dispatching", "sent", "failed", "canceled"]),
       ]);
 
       if (error) throw error;
       if (dispErr) console.error("[Scheduled] dispatches fetch error", dispErr);
 
-      const dispatchCardIds = new Set((activeDispatches || []).map((d: any) => d.card_id));
+      // Mantém o dispatch mais recente por card_id
+      const dispatchByCard = new Map<string, { status: string; scheduled_at: string | null }>();
+      (allDispatches || []).forEach((d: any) => {
+        if (!d?.card_id) return;
+        const prev = dispatchByCard.get(d.card_id);
+        if (!prev) {
+          dispatchByCard.set(d.card_id, { status: d.status, scheduled_at: d.scheduled_at ?? null });
+        } else {
+          const prevTime = prev.scheduled_at ? new Date(prev.scheduled_at).getTime() : 0;
+          const currTime = d.scheduled_at ? new Date(d.scheduled_at).getTime() : 0;
+          if (currTime >= prevTime) {
+            dispatchByCard.set(d.card_id, { status: d.status, scheduled_at: d.scheduled_at ?? null });
+          }
+        }
+      });
 
       const allMappedCards: CentralKanbanCard[] = (demandsData || [])
-        .filter(demand => demand.pipeline_statuses?.name === "Agendar Publicação" || dispatchCardIds.has(demand.id))
+        .filter(demand => demand.pipeline_statuses?.name === "Agendar Publicação" || dispatchByCard.has(demand.id))
         .map(demand => {
           const company = demand.tenant_companies;
+          const dispatch = dispatchByCard.get(demand.id) || null;
           return {
             id: demand.id,
             title: demand.title,
@@ -219,8 +234,9 @@ const Scheduled = () => {
             source: demand.source,
             demand_id: demand.id,
             demand_type: demand.demand_type,
-            additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates as string[] : []
-          };
+            additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates as string[] : [],
+            dispatch_status: dispatch?.status ?? null,
+          } as CentralKanbanCard & { dispatch_status: string | null };
         });
 
       // Sort by publication date
@@ -680,12 +696,22 @@ const Scheduled = () => {
                     <th className="text-left font-semibold px-3 py-2">Horário</th>
                     <th className="text-left font-semibold px-3 py-2">Empresa</th>
                     <th className="text-left font-semibold px-3 py-2">Nome</th>
+                    <th className="text-left font-semibold px-3 py-2">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {dayItems.map((card) => {
                     const dt = getPublicationDateTime(card)!;
                     const { cleanTitle } = extractContentType(card.title);
+                    const dispatchStatus = (card as any).dispatch_status as string | null;
+                    const statusMeta: Record<string, { label: string; className: string }> = {
+                      scheduled: { label: "Agendado", className: "bg-primary/10 text-primary border-primary/30" },
+                      dispatching: { label: "Enviando", className: "bg-amber-500/10 text-amber-600 border-amber-500/30" },
+                      sent: { label: "Publicado", className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30" },
+                      failed: { label: "Falhou", className: "bg-destructive/10 text-destructive border-destructive/30" },
+                      canceled: { label: "Cancelado", className: "bg-muted text-muted-foreground border-border" },
+                    };
+                    const badge = dispatchStatus ? statusMeta[dispatchStatus] : null;
                     return (
                       <tr
                         key={card.id}
@@ -702,6 +728,15 @@ const Scheduled = () => {
                         </td>
                         <td className="px-3 py-3 align-middle whitespace-nowrap text-sm font-medium text-foreground">
                           {cleanTitle}
+                        </td>
+                        <td className="px-3 py-3 align-middle whitespace-nowrap">
+                          {badge ? (
+                            <Badge variant="outline" className={cn("text-[10px] font-semibold", badge.className)}>
+                              {badge.label}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
                         </td>
                       </tr>
                     );

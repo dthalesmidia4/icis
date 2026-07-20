@@ -1,31 +1,46 @@
-## Ajustes finos + correção do bug "tudo virou Revisar"
+## Diagnóstico
 
-### 1. Reduzir sutilmente o respiro adicionado
-Em `src/pages/KanbanCentralPage.tsx`, trocar o padding do container raiz de `px-4 sm:px-6` para algo mais suave (ex.: `px-3 sm:px-4`). Continua respirando da sidebar e da borda direita, mas sem exagero.
+Aferi o banco de dados: **existem 9 cards na coluna da Lúcia (etapa `planejar`) que já têm agendamento ativo** em `scheduled_publication_dispatches` (status `scheduled`, com `scheduled_at` entre 22/07 e 31/07). Ou seja, o usuário já finalizou o conteúdo e agendou a publicação — não há mais nenhuma ação operacional pendente, mas eles continuam ocupando a coluna e criando a sensação de "avalanche".
 
-### 2. Grupo "Em Revisão" recolhido por padrão
-No mesmo arquivo (`KanbanCentralPage.tsx`), o estado do grupo "Em Revisão" hoje inicia expandido. Alterar para iniciar **recolhido** por padrão — o usuário expande manualmente clicando no header. Mantém a mesma regra de só agrupar quando houver 3+ cards em função de revisão por coluna. O grupo "Aguardando Clientes" segue com o comportamento atual (não mexer).
+Exemplos confirmados: `ESTÁTICO, QUANDO 1 MINUTO FAZ A DIFERENÇA` (22/07 11:00), `CARROSSEL, MEU PET ESTÁ MUITO QUIETO` (27/07), `BURNOUT` (29/07), etc.
 
-### 3. Diagnóstico do bug "tudo em Revisar" (confirmado)
-Auditoria feita no banco (`demand_flow_history` + `demand_type_flow_rules`):
+Sua leitura está correta: eles não pertencem a `revisar`, nem a `planejar` — pertencem a uma "prateleira" de acompanhamento visual (a tela `Conteúdos Agendados`).
 
-- **Criação nova está correta.** Cards criados manualmente ou via aprovação chamam `assignInitialResponsible`, que resolve corretamente a primeira função ativa por `position` respeitando as regras `required` do tipo. Exemplo verificado: dois cards "Outro" criados às 18:21 foram para `planejar` (correto), como registrado em `demand_flow_history` com `action='created'` e `to_function_key='planejar'`.
-- **A regressão veio da migração de backfill anterior** (`20260720192849_...sql`), que setou `current_function_key = 'revisar'` **fixo** para todo card órfão, sem respeitar as regras por tipo. Isso empurrou dezenas de cards (inclusive os "Outro" recém-criados que estavam com key nula) para `revisar`, poluindo as colunas de responsáveis que nem têm função de revisão (Henrique, Lúcia etc.).
-- **Tipo `outro` não força revisar.** As regras de fluxo para `outro` marcam como `required` apenas `planejar` e `revisar`; a primeira por `position` é `planejar` (position 0). Ou seja, novo card "Outro" deve nascer em `planejar`, não em `revisar`. O código está correto — o problema foi só o backfill.
+## O que vou fazer
 
-### 4. Migração corretiva (reverter o backfill)
-Nova migração SQL que:
+### 1. Ocultar do Kanban Central os cards já agendados
+Na `KanbanCentralPage`, filtrar da visão operacional qualquer card cujo `id` esteja em `scheduled_publication_dispatches` com status `scheduled` ou `dispatching` no tenant atual.
 
-1. Seleciona todos os cards afetados pelo backfill anterior via `demand_flow_history` onde `action = 'backfill_initial_function'` e `metadata->>'source' = 'sql_backfill_sem_etapa'`, filtrando apenas os que ainda estão em `current_function_key = 'revisar'` (para não desfazer movimentos legítimos que o usuário fez depois).
-2. Para cada card, resolve a **função inicial correta** via SQL replicando a lógica de `resolveInitialFunction`:
-   - Se houver regras `required` em `demand_type_flow_rules` para o `demand_type_key` do card → primeira função `required` ordenada por `flow_functions.position`.
-   - Caso contrário (sem key ou sem regras) → primeira `flow_functions` ativa por `position` do tenant (tipicamente `planejar`).
-3. Atualiza `current_function_key` para o valor resolvido. `assigned_to` fica como está (não mexe, para preservar quem já pegou o card).
-4. Insere linha em `demand_flow_history` com `action = 'backfill_correction'` e `metadata = {source: 'sql_undo_revisar_backfill'}` para rastreabilidade.
+- **Sem mover de coluna** e **sem alterar `assigned_to`**: assim, se o dispatch falhar/for cancelado, o card volta a aparecer imediatamente na coluna do responsável, exatamente onde estava.
+- O filtro também respeita o modo "Registro de Cards" (o histórico continua mostrando esses cards).
+- Toast informativo uma única vez por sessão: "N cards já agendados foram movidos para Conteúdos Agendados".
 
-Não altera cards que legitimamente estão em `revisar` (movidos pelos usuários ou pelo fluxo normal), pois esses não têm o registro `backfill_initial_function` correspondente.
+### 2. Novo botão "Conteúdos agendados" no header secundário do Kanban Central
+Adicionar botão ao lado de "Novo Status" / "Nova Demanda", com:
+- Ícone `CalendarDays` + label "Conteúdos agendados".
+- **Badge discreto** (bolinha pequena com número) mostrando a contagem de dispatches ativos (`scheduled` + `dispatching`) do tenant, atualizada em realtime via `useRealtimeScheduledDispatches`.
+- Clique navega para `/scheduled`.
 
-### Detalhes técnicos
-- Arquivos alterados: `src/pages/KanbanCentralPage.tsx` (padding + estado inicial do grupo Revisão) + 1 migração SQL corretiva.
-- Nenhuma mudança em `assignInitialResponsible` ou nas regras de tipo — o fluxo de criação já está correto.
-- Sem impacto em realtime, RLS ou contratos de dados.
+### 3. Página `/scheduled` passa a mostrar passados
+Hoje `Scheduled.tsx` mostra apenas cards com dispatch ativo/futuro. Vou:
+- Buscar também dispatches com status `sent`, `failed` e `canceled`.
+- Agrupar visualmente em duas seções:
+  - **Agendados** (futuro, ordenado por data crescente) — comportamento atual.
+  - **Já publicados / passados** (data ≤ hoje, ordenado decrescente), com badge de status (Publicado, Falhou, Cancelado).
+- Mantém o filtro por cliente e a busca já existentes.
+
+### 4. Sem migração de dados
+Nada de mover cards no banco. O filtro é 100% de visualização — é o comportamento correto e reversível.
+
+## Detalhes técnicos
+
+- Novo hook `useActiveDispatchIds(tenantId)` em `src/hooks/` que retorna `Set<string>` de `card_id` com dispatch em `scheduled`/`dispatching`. Usa realtime já disponível.
+- `KanbanCentralPage.fetchAllCards`: aplica `.filter(c => !activeDispatchIds.has(c.id))` antes do agrupamento por coluna. Modo "Registro de Cards" ignora esse filtro.
+- Botão no header segue o padrão visual dos atuais ("Novo Status", "Nova Demanda"): `variant="outline"` com badge `absolute -top-1 -right-1` pequeno em `bg-primary text-primary-foreground`.
+- `Scheduled.tsx`: separar `activeCards` em `upcomingCards` e `pastCards` com base em `getPublicationDateTime(card) >= now`; renderizar duas seções com headings.
+
+## Fora do escopo
+
+- Não altero `current_function_key` desses cards.
+- Não crio nova coluna/etapa "Agendado" no fluxo operacional (a "coluna" já é a página `/scheduled`).
+- Não mexo no fluxo de dispatch em si (`run-scheduled-dispatches`, `createOrUpdateScheduleDispatch`).
