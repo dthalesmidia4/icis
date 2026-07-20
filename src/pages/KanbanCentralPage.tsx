@@ -1929,6 +1929,7 @@ const KanbanCentralPage = () => {
                                       dailyTotal={(card as any).daily_total_occurrences}
                                       dailyNextDate={(card as any).daily_next_date}
                                       onClick={() => handleCardClick(card)}
+                                      onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
                                     />
                                   </div>
                                 ))}
