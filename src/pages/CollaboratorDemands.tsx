@@ -16,6 +16,7 @@ import { useBreadcrumbOverride } from "@/contexts/BreadcrumbOverrideContext";
 import { useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 import { isDailyCardVisibleNow } from "@/lib/dailyCards";
 import { isReviewFunction } from "@/lib/flowFunctions";
+import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 
 import { getRoleLabel } from "@/lib/constants/roles";
 
@@ -160,8 +161,10 @@ const CollaboratorDemands = () => {
     }
   };
 
+  const { activeDispatchIds } = useActiveDispatchIds(tenantId);
+
   const sortedCards = useMemo(() => {
-    const arr = [...cards];
+    const arr = [...cards].filter((c) => !activeDispatchIds.has(c.id));
     const getVal = (c: KanbanCardData): string => {
       switch (sortKey) {
         case "title": return (c.title || "").toLowerCase();
@@ -179,9 +182,9 @@ const CollaboratorDemands = () => {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return arr;
-  }, [cards, sortKey, sortDir, collaboratorName]);
+  }, [cards, sortKey, sortDir, collaboratorName, activeDispatchIds]);
 
-  const totalCards = cards.length;
+  const totalCards = sortedCards.length;
 
   const [awaitingOpen, setAwaitingOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
