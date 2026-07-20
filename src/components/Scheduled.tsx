@@ -661,16 +661,25 @@ const Scheduled = () => {
                     type="button"
                     onClick={() => setSelectedDay(cell.date!)}
                     className={cn(
-                      "min-h-[110px] text-left bg-background rounded-md border-2 p-1.5 flex flex-col gap-1 transition-all hover:border-primary hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary",
+                      "min-h-[110px] text-left rounded-md border-2 p-1.5 flex flex-col gap-1 transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary",
                       isToday
-                        ? "border-primary ring-2 ring-primary/30 bg-primary/5"
-                        : hasItems
-                          ? "border-primary/40"
-                          : "border-primary/15"
+                        ? "bg-primary text-primary-foreground border-primary ring-2 ring-primary/50 ring-offset-1 ring-offset-background hover:border-primary"
+                        : cn(
+                            "bg-background hover:border-primary",
+                            hasItems ? "border-primary/40" : "border-primary/15"
+                          )
                     )}
                   >
-                    <div className={cn("text-xs font-bold self-end px-1", isToday || hasItems ? "text-primary" : "text-muted-foreground")}>
-                      {cell.date.getDate()}
+                    <div className="self-end px-1">
+                      {isToday ? (
+                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-primary-foreground text-primary text-xs font-bold px-1.5">
+                          {cell.date.getDate()}
+                        </span>
+                      ) : (
+                        <span className={cn("text-xs font-bold", hasItems ? "text-primary" : "text-muted-foreground")}>
+                          {cell.date.getDate()}
+                        </span>
+                      )}
                     </div>
                     <div className="flex flex-col gap-0.5 overflow-hidden">
                       {visible.map((c) => {
@@ -679,7 +688,12 @@ const Scheduled = () => {
                         return (
                           <div
                             key={c.id}
-                            className="text-[10px] leading-tight bg-primary text-primary-foreground rounded px-1 py-0.5 truncate border border-primary/60 shadow-sm"
+                            className={cn(
+                              "text-[10px] leading-tight rounded px-1 py-0.5 truncate shadow-sm border",
+                              isToday
+                                ? "bg-primary-foreground/15 text-primary-foreground border-primary-foreground/30"
+                                : "bg-primary text-primary-foreground border-primary/60"
+                            )}
                             title={`${c.clientName} — ${cleanTitle}`}
                           >
                             <span className="font-bold">{dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
@@ -691,7 +705,7 @@ const Scheduled = () => {
                         );
                       })}
                       {extra > 0 && (
-                        <div className="text-[10px] font-semibold text-primary px-1">+{extra} agendamento{extra > 1 ? "s" : ""}</div>
+                        <div className={cn("text-[10px] font-semibold px-1", isToday ? "text-primary-foreground" : "text-primary")}>+{extra} agendamento{extra > 1 ? "s" : ""}</div>
                       )}
                     </div>
                   </button>
