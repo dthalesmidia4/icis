@@ -161,8 +161,10 @@ const CollaboratorDemands = () => {
     }
   };
 
+  const { activeDispatchIds } = useActiveDispatchIds(tenantId);
+
   const sortedCards = useMemo(() => {
-    const arr = [...cards];
+    const arr = [...cards].filter((c) => !activeDispatchIds.has(c.id));
     const getVal = (c: KanbanCardData): string => {
       switch (sortKey) {
         case "title": return (c.title || "").toLowerCase();
