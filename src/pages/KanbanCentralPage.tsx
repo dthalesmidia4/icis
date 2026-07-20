@@ -1929,6 +1929,7 @@ const KanbanCentralPage = () => {
         }}
         isDraft={isDraftMode}
         onDraftSave={handleDraftSave}
+        savingDraft={isSavingDraft}
         onDraftDiscard={handleDraftDiscard}
         draftClients={draftClients}
         onDraftClientChange={handleDraftClientChange}
