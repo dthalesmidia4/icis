@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive, Calendar, ChevronLeft } from "lucide-react";
+import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive, Calendar, ChevronLeft } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTenant } from "@/contexts/TenantContext";
@@ -21,9 +21,12 @@ interface CentralKanbanCard extends KanbanCardData {
   clientName: string;
   clientId: string;
   isArchived: boolean;
+  dispatch_status?: string | null;
+  dispatch_scheduled_at?: string | null;
+  dispatch_dispatched_at?: string | null;
 }
 
-const Scheduled = ({ backTo }: { backTo?: string } = {}) => {
+const Scheduled = () => {
   const navigate = useNavigate();
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const [allCards, setAllCards] = useState<CentralKanbanCard[]>([]);
@@ -120,7 +123,11 @@ const Scheduled = ({ backTo }: { backTo?: string } = {}) => {
   }, [tenantId, tenantLoading]);
 
   // Get publication datetime
+  // Get publication datetime — prioritize dispatch (real source of truth
+  // for what was actually scheduled/published) over the demand's mutable fields.
   const getPublicationDateTime = (card: CentralKanbanCard): Date | null => {
+    if (card.dispatch_dispatched_at) return new Date(card.dispatch_dispatched_at);
+    if (card.dispatch_scheduled_at) return new Date(card.dispatch_scheduled_at);
     if (card.publish_date) {
       return new Date(`${card.publish_date}T${card.publish_time || '09:00'}:00`);
     }
@@ -162,7 +169,7 @@ const Scheduled = ({ backTo }: { backTo?: string } = {}) => {
       // Etapa 1: buscar todos os dispatches do tenant (inclui sent/failed/canceled p/ histórico)
       const { data: allDispatches, error: dispErr } = await supabase
         .from("scheduled_publication_dispatches")
-        .select("card_id, status, scheduled_at")
+        .select("card_id, status, scheduled_at, dispatched_at")
         .eq("tenant_id", tenantId)
         .in("status", ["scheduled", "dispatching", "sent", "failed", "canceled"]);
 
@@ -204,17 +211,18 @@ const Scheduled = ({ backTo }: { backTo?: string } = {}) => {
 
 
       // Mantém o dispatch mais recente por card_id
-      const dispatchByCard = new Map<string, { status: string; scheduled_at: string | null }>();
+      const dispatchByCard = new Map<string, { status: string; scheduled_at: string | null; dispatched_at: string | null }>();
       (allDispatches || []).forEach((d: any) => {
         if (!d?.card_id) return;
         const prev = dispatchByCard.get(d.card_id);
+        const entry = { status: d.status, scheduled_at: d.scheduled_at ?? null, dispatched_at: d.dispatched_at ?? null };
         if (!prev) {
-          dispatchByCard.set(d.card_id, { status: d.status, scheduled_at: d.scheduled_at ?? null });
+          dispatchByCard.set(d.card_id, entry);
         } else {
           const prevTime = prev.scheduled_at ? new Date(prev.scheduled_at).getTime() : 0;
           const currTime = d.scheduled_at ? new Date(d.scheduled_at).getTime() : 0;
           if (currTime >= prevTime) {
-            dispatchByCard.set(d.card_id, { status: d.status, scheduled_at: d.scheduled_at ?? null });
+            dispatchByCard.set(d.card_id, entry);
           }
         }
       });
@@ -250,7 +258,9 @@ const Scheduled = ({ backTo }: { backTo?: string } = {}) => {
             demand_type: demand.demand_type,
             additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates as string[] : [],
             dispatch_status: dispatch?.status ?? null,
-          } as CentralKanbanCard & { dispatch_status: string | null };
+            dispatch_scheduled_at: dispatch?.scheduled_at ?? null,
+            dispatch_dispatched_at: dispatch?.dispatched_at ?? null,
+          } as CentralKanbanCard;
         });
 
       // Sort by publication date
@@ -521,21 +531,11 @@ const Scheduled = ({ backTo }: { backTo?: string } = {}) => {
   }
 
   return (
-    <div className="mt-4">
+    <div className="mt-4 px-3 sm:px-4">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => (backTo ? navigate(backTo) : navigate(-1))}
-          className="gap-1 -ml-2"
-          aria-label="Voltar"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Voltar
-        </Button>
-        <div className="p-2 bg-violet-500/10 rounded-lg">
-          <CalendarDays className="h-5 w-5 text-violet-500" />
+        <div className="p-2 bg-primary/10 rounded-lg">
+          <CalendarDays className="h-5 w-5 text-primary" />
         </div>
         <h2 className="text-xl sm:text-2xl font-bold text-foreground">
           Agendamento
@@ -544,6 +544,7 @@ const Scheduled = ({ backTo }: { backTo?: string } = {}) => {
           {filteredCards.length} {filteredCards.length === 1 ? 'item' : 'itens'}
         </Badge>
       </div>
+
 
 
       {/* Search and Filter */}

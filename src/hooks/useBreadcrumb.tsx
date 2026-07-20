@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { Home, Users, Target, FileText, Lightbulb, Calendar, ListTodo, LayoutGrid, Code, User, Settings } from "lucide-react";
+import { Home, Users, Target, FileText, Lightbulb, Calendar, CalendarDays, ListTodo, LayoutGrid, Code, User, Settings } from "lucide-react";
 
 export interface BreadcrumbItem {
   label: string;
@@ -74,6 +74,13 @@ const routeConfig: Record<string, BreadcrumbConfig> = {
     items: [
       { label: 'Home', href: '/home', icon: Home },
       { label: 'Kanban Central', icon: LayoutGrid }
+    ]
+  },
+  '/scheduled': {
+    items: [
+      { label: 'Home', href: '/home', icon: Home },
+      { label: 'Kanban Central', href: '/kanban-central', icon: LayoutGrid },
+      { label: 'Agendamentos', icon: CalendarDays }
     ]
   },
   '/dev-hub': {

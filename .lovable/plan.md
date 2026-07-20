@@ -1,31 +1,55 @@
 ## Diagnóstico
 
-**1. Fluxo "só é agendado se o usuário finalizou" — está correto**
+**Cabeçalho vazio (breadcrumb)**  
+O `Layout` global renderiza `NavigationBreadcrumb` no header do topo, mas `/scheduled` **não está mapeado** em `src/hooks/useBreadcrumb.tsx`. Por isso o header aparece vazio e o "Voltar" + "Agendamento" acabaram sendo empurrados para dentro do corpo da página, criando duplicidade com o padrão usado em `/kanban-central` (que só tem ícone + título + badge + ações no corpo, sem "Voltar" — quem faz esse papel é o breadcrumb).
 
-Aferi `createOrUpdateScheduleDispatch`: só é chamado em 3 pontos (`KanbanCentralPage`, `TaskCard`, `PeriodClientList`), todos dentro de `SchedulePublicationModal.onConfirm` — ou seja, o usuário abriu o modal de programação, escolheu data/hora e clicou em confirmar. Não há criação automática/lateral de dispatch. Portanto o filtro do Kanban ("esconder cards com dispatch ativo") só remove cards que o usuário efetivamente finalizou como programados. Nenhuma burocracia extra necessária.
+**Posts publicados não aparecem em datas passadas**  
+Fluxo real de um dispatch bem-sucedido em `run-scheduled-dispatches`:
+1. Dispatch vira `status = "sent"`.
+2. Demand recebe `status = "Publicado"` e `current_function_key = "revisar_publicacao"`.
+3. `archived_at` só é setado depois, quando o card chega em "Feito".
 
-**2. Botão "Voltar" avulso e destino errado**
+O `fetchScheduledCards` até traz esses cards (via OR `id.in.(dispatchCardIds)`), mas o calendário posiciona cada item por `card.publish_date` + `card.publish_time` da **demand**. Depois da publicação esses campos podem ser alterados pelo revisor, ou o card pode nem ter `publish_time` (só `due_date`), fazendo o item cair em datas erradas ou sumir da grade. A fonte real da data em que foi/será publicado é o `scheduled_at` do dispatch (e `dispatched_at` quando `sent`), que hoje é ignorado no posicionamento.
 
-`src/pages/Kanban.tsx` (rota `/scheduled`) renderiza `<BackButton to="/home" />` fora do componente, acima do header. Além disso, o destino é fixo em `/home`, ignorando de onde o usuário veio (Kanban Central ou Hub do Cliente).
+## Plano
 
-**3. Posts passados não aparecem**
+### 1. Breadcrumb da rota `/scheduled`
+Em `src/hooks/useBreadcrumb.tsx`, adicionar:
+```
+'/scheduled': {
+  items: [
+    { label: 'Home', href: '/home', icon: Home },
+    { label: 'Kanban Central', href: '/kanban-central', icon: LayoutGrid },
+    { label: 'Agendamentos', icon: CalendarDays }
+  ]
+}
+```
+Assim o header superior passa a mostrar **Home > Kanban Central > Agendamentos** automaticamente (desktop e mobile), e "Kanban Central" fica clicável — substitui o botão "Voltar" avulso.
 
-Em `Scheduled.tsx` linha 179 o fetch aplica `.is("archived_at", null)`. Demandas na coluna "Feito" são auto-arquivadas (memória `completed-demands-archive`), então dispatches `sent`/`failed`/`canceled` desses cards ficam de fora. O print de Julho/2026 confirma: nenhum dia anterior a hoje mostra item, apesar de haver dispatches passados.
+### 2. Alinhar o cabeçalho do corpo com o padrão de "Visão geral das Tarefas"
+Em `src/components/Scheduled.tsx`:
+- Remover o botão "Voltar" e a prop `backTo` (o breadcrumb assume esse papel).
+- Trocar o wrapper para o mesmo padrão da Visão geral: `<div className="mt-4 px-3 sm:px-4">`.
+- Trocar o header interno para o mesmo layout: ícone em `bg-primary/10 rounded-lg` (usando `CalendarDays` na cor `text-primary`, sem o roxo divergente) + `h2 text-xl sm:text-2xl font-bold` "Agendamento" + `Badge` com contagem, tudo em `flex items-center gap-3 mb-4`.
 
-## Alterações
+Em `src/pages/Kanban.tsx`:
+- Remover o wrapper `container max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8` (o padding vai para dentro do próprio `Scheduled`, evitando padding duplicado).
+- Remover a passagem de `backTo` (não é mais necessária).
 
-### A. Header do Scheduled com Voltar contextual
-- `src/components/Scheduled.tsx`: aceitar prop `backTo?: string` e renderizar botão Voltar (ícone `ArrowLeft` + label) **dentro** do header, à esquerda do ícone/título, alinhado verticalmente. Ao clicar: `navigate(backTo)` se fornecido, senão `navigate(-1)`.
-- `src/pages/Kanban.tsx`: remover `<BackButton>` avulso; passar `backTo` derivado de `location.state?.from` (fallback `/home`).
-- `src/pages/KanbanCentralPage.tsx`: no `onClick` do botão "Conteúdos agendados" (linha 1360), navegar com `navigate("/scheduled", { state: { from: "/kanban-central" } })`.
-- Fazer o mesmo em qualquer outro entry-point conhecido para `/scheduled` que passe pelo hub (manter fallback `/home`).
+Em `src/pages/KanbanCentralPage.tsx`:
+- Remover o `state: { from: "/kanban-central" }` do `navigate("/scheduled", ...)` (não é mais lido).
 
-### B. Incluir posts publicados/passados (histórico)
-- `src/components/Scheduled.tsx` `fetchScheduledCards`:
-  - Remover `.is("archived_at", null)` do SELECT de `demands` **ou** trocar por consulta em duas etapas: (1) pegar `card_id`s dos dispatches; (2) buscar demandas por `.in("id", cardIds)` sem filtro `archived_at`, mais um `OR` das demandas com status "Agendar Publicação" e `archived_at IS NULL` (mantém o path legado).
-  - Preservar `dispatch_status` para o badge existente ("Publicado", "Falhou", "Cancelado").
-  - Manter ordenação por data (passados aparecem naturalmente nos dias anteriores do calendário).
+### 3. Corrigir posicionamento e visibilidade de posts já publicados
+Em `src/components/Scheduled.tsx`, dentro de `fetchScheduledCards`:
+- Ampliar o `select` de dispatches para trazer `scheduled_at, dispatched_at, status`.
+- Guardar `dispatch_scheduled_at` e `dispatch_dispatched_at` no `CentralKanbanCard` (extendendo a interface).
 
-## Fora do escopo
-- Nenhuma mudança de regra de negócio no momento em que o dispatch é criado (fluxo confirmado como correto).
-- Nenhuma mudança no `KanbanCentralPage` além do `navigate` com `state.from`.
+Em `getPublicationDateTime`:
+- **Prioridade nova**: se o card tem dispatch, usar `dispatched_at` (quando `status = "sent"`) ou `scheduled_at` como fonte da data/hora exibida no calendário. Só cair para `publish_date`/`publish_time` da demand quando não houver dispatch.
+- Isso garante que posts já publicados apareçam exatamente no dia em que foram publicados, mesmo se o revisor alterou `publish_date` da demand depois.
+
+Manter o filtro OR já existente (`archived_at.is.null` OU `id.in.(dispatchCardIds)`) e o badge de status já implementado no modal do dia (Publicado / Falhou / Cancelado).
+
+## Impacto
+- Somente `src/components/Scheduled.tsx`, `src/pages/Kanban.tsx`, `src/pages/KanbanCentralPage.tsx` (uma linha) e `src/hooks/useBreadcrumb.tsx`.
+- Sem migrações, sem mudança de schema, sem alteração no fluxo de publicação/edge function.
