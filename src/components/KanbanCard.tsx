@@ -258,10 +258,10 @@ const KanbanCard = ({
       )}
       onClick={onClick}
     >
-      <CardHeader className="px-3 pt-3 pb-2 space-y-1">
+      <CardHeader className="px-2.5 pt-2.5 pb-1.5 space-y-1">
         {subtitle && (
           <div
-            className="text-sm font-semibold text-foreground/80 truncate leading-snug"
+            className="text-xs font-semibold text-foreground/80 leading-snug line-clamp-2 break-words"
             title={subtitle}
           >
             {subtitle}
