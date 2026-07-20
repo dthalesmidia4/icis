@@ -183,6 +183,26 @@ const CollaboratorDemands = () => {
 
   const totalCards = cards.length;
 
+  const [awaitingOpen, setAwaitingOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+
+  const { awaitingCards, reviewCards, mainCards, shouldGroupReview } = useMemo(() => {
+    const awaiting = sortedCards.filter((c) => c.current_function_key === "aguardando_cliente");
+    const nonAwaiting = sortedCards.filter((c) => c.current_function_key !== "aguardando_cliente");
+    const reviewCandidates = nonAwaiting.filter((c) => isReviewFunction(c.current_function_key));
+    const shouldGroup = reviewCandidates.length >= 3;
+    const main = shouldGroup
+      ? nonAwaiting.filter((c) => !isReviewFunction(c.current_function_key))
+      : nonAwaiting;
+    return {
+      awaitingCards: awaiting,
+      reviewCards: shouldGroup ? reviewCandidates : [],
+      mainCards: main,
+      shouldGroupReview: shouldGroup,
+    };
+  }, [sortedCards]);
+
+
   const formatDate = (d?: string | null) => {
     if (!d) return "—";
     const [y, m, day] = d.split("-");
