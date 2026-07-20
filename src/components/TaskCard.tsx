@@ -1096,18 +1096,27 @@ export default function TaskCard({
                       variant="default"
                       size="sm"
                       className="h-11 gap-2 shrink-0"
-                      onClick={() => onDraftSave?.()}
+                      onClick={() => {
+                        if (savingDraft) return;
+                        onDraftSave?.();
+                      }}
+                      disabled={savingDraft}
                       aria-label="Salvar demanda"
                       title="Salvar e enviar para o Kanban"
                     >
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span>Salvar Demanda</span>
+                      {savingDraft ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4" />
+                      )}
+                      <span>{savingDraft ? "Salvando…" : "Salvar Demanda"}</span>
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-11 gap-2 shrink-0 text-destructive hover:text-destructive"
                       onClick={() => onDraftDiscard?.()}
+                      disabled={savingDraft}
                       aria-label="Descartar rascunho"
                       title="Descartar sem salvar"
                     >
