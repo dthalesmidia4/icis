@@ -10,7 +10,7 @@ import { DemandReviewModal } from "@/components/DemandReviewModal";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarDays, Package, AlertCircle, RefreshCw, Check, CheckCheck, Eye, Shield, Rocket, Pencil, ThumbsDown, Settings2 } from "lucide-react";
+import { CalendarDays, AlertCircle, RefreshCw, Check, CheckCheck, Shield, Rocket, Pencil, ThumbsDown, Settings2 } from "lucide-react";
 import PeriodConfigViewerModal from "@/components/PeriodConfigViewerModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,8 +33,10 @@ interface PeriodData {
 }
 
 interface CardItem extends DemandaItem {
-  _index: number;
+  _periodId: string;
   _source: 'default' | 'ultra';
+  _indexInPlan: number; // index inside its source array
+  _uid: string;         // stable id "${periodId}:${source}:${index}"
 }
 
 const ApproveCards = () => {
@@ -42,10 +44,10 @@ const ApproveCards = () => {
   const { selectedClient, isInitialized } = useSelectedClient();
   const { tenantId } = useTenant();
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<PeriodData | null>(null);
-  const [cards, setCards] = useState<CardItem[]>([]);
-  const [approvedIndexes, setApprovedIndexes] = useState<Set<number>>(new Set());
-  const [approvingIndex, setApprovingIndex] = useState<number | null>(null);
+  const [periods, setPeriods] = useState<PeriodData[]>([]);
+  const [cardsByPeriod, setCardsByPeriod] = useState<Record<string, CardItem[]>>({});
+  const [approvedKeys, setApprovedKeys] = useState<Set<string>>(new Set()); // `${periodId}::${title}`
+  const [approvingUid, setApprovingUid] = useState<string | null>(null);
   const [pipelineId, setPipelineId] = useState<string | null>(null);
   const [initialStatusId, setInitialStatusId] = useState<string | null>(null);
 
@@ -53,8 +55,10 @@ const ApproveCards = () => {
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [reviewMode, setReviewMode] = useState<'normal' | 'ultra'>('normal');
   const [reviewDemands, setReviewDemands] = useState<any[]>([]);
+  const [reviewPeriodId, setReviewPeriodId] = useState<string | null>(null);
 
   // Edit period modal state
+  const [editingPeriod, setEditingPeriod] = useState<PeriodData | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editStart, setEditStart] = useState('');
@@ -62,7 +66,7 @@ const ApproveCards = () => {
   const [editSaving, setEditSaving] = useState(false);
 
   // Period config viewer
-  const [configViewerOpen, setConfigViewerOpen] = useState(false);
+  const [configViewerPeriodId, setConfigViewerPeriodId] = useState<string | null>(null);
 
   // Edit card modal state
   const [editCardModalOpen, setEditCardModalOpen] = useState(false);
@@ -75,6 +79,93 @@ const ApproveCards = () => {
   const [editCardDate, setEditCardDate] = useState('');
   const [editCardSaving, setEditCardSaving] = useState(false);
 
+  const approvedKey = (periodId: string, title: string) => `${periodId}::${(title || '').trim()}`;
+
+  const fetchData = useCallback(async () => {
+    if (!selectedClient || !tenantId) return;
+    setLoading(true);
+    try {
+      const { data: pipeline } = await supabase
+        .from('pipelines')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('is_default', true)
+        .maybeSingle();
+
+      if (pipeline) {
+        setPipelineId(pipeline.id);
+        const { data: status } = await supabase
+          .from('pipeline_statuses')
+          .select('id')
+          .eq('pipeline_id', pipeline.id)
+          .eq('is_initial', true)
+          .maybeSingle();
+        if (status) setInitialStatusId(status.id);
+      }
+
+      // ALL em_andamento periods for this client — same criterion as Visão Geral.
+      const { data: periodsRaw, error } = await supabase
+        .from('period_plans')
+        .select('id, period_title, period_start, period_end, status, default_plan, ultra_plan, operational_status')
+        .eq('company_id', selectedClient.id)
+        .eq('tenant_id', tenantId)
+        .eq('operational_status', 'em_andamento')
+        .order('period_start', { ascending: true });
+
+      if (error) throw error;
+
+      const allPeriods = (periodsRaw || []) as unknown as PeriodData[];
+      setPeriods(allPeriods);
+
+      // Build cards per period
+      const byPeriod: Record<string, CardItem[]> = {};
+      const allTitlesByPeriod: Record<string, string[]> = {};
+      allPeriods.forEach((p) => {
+        const dp = Array.isArray(p.default_plan) ? p.default_plan : [];
+        const up = Array.isArray(p.ultra_plan) ? p.ultra_plan : [];
+        const list: CardItem[] = [
+          ...dp.map((item: any, i: number) => ({
+            ...item,
+            _periodId: p.id,
+            _source: 'default' as const,
+            _indexInPlan: i,
+            _uid: `${p.id}:default:${i}`,
+          })),
+          ...up.map((item: any, i: number) => ({
+            ...item,
+            _periodId: p.id,
+            _source: 'ultra' as const,
+            _indexInPlan: i,
+            _uid: `${p.id}:ultra:${i}`,
+          })),
+        ];
+        byPeriod[p.id] = list;
+        allTitlesByPeriod[p.id] = list.map(c => String((c as any).titulo ?? (c as any).title ?? '').trim()).filter(Boolean);
+      });
+      setCardsByPeriod(byPeriod);
+
+      // Which cards are already materialized as demands
+      const periodIds = allPeriods.map(p => p.id);
+      const approved = new Set<string>();
+      if (periodIds.length > 0) {
+        const { data: existingDemands } = await supabase
+          .from('demands')
+          .select('title, period_plan_id')
+          .in('period_plan_id', periodIds)
+          .eq('client_id', selectedClient.id);
+        (existingDemands || []).forEach((d: any) => {
+          if (d.period_plan_id && d.title) approved.add(approvedKey(d.period_plan_id, d.title));
+        });
+      }
+      setApprovedKeys(approved);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      toast.error("Erro ao carregar dados");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedClient, tenantId]);
+
   useEffect(() => {
     if (!isInitialized) return;
     if (!selectedClient) {
@@ -86,9 +177,7 @@ const ApproveCards = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isInitialized]);
 
-  const debouncedRefetch = useDebouncedCallback(() => {
-    fetchData();
-  }, 250);
+  const debouncedRefetch = useDebouncedCallback(() => { fetchData(); }, 250);
 
   useRealtimePeriodPlans({
     tenantId,
@@ -103,93 +192,6 @@ const ApproveCards = () => {
     enabled: !!tenantId && !!selectedClient?.id,
   });
 
-  // No longer using localStorage for period persistence - always show most recent period with plans
-
-  const fetchData = async () => {
-    if (!selectedClient || !tenantId) return;
-    setLoading(true);
-    try {
-      // Fetch pipeline + initial status
-      const { data: pipeline } = await supabase
-        .from('pipelines')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .eq('is_default', true)
-        .single();
-
-      if (pipeline) {
-        setPipelineId(pipeline.id);
-        const { data: status } = await supabase
-          .from('pipeline_statuses')
-          .select('id')
-          .eq('pipeline_id', pipeline.id)
-          .eq('is_initial', true)
-          .single();
-        if (status) setInitialStatusId(status.id);
-      }
-
-      // Fetch latest periods with generated plans
-      const { data: periods, error } = await supabase
-        .from('period_plans')
-        .select('id, period_title, period_start, period_end, status, default_plan, ultra_plan, operational_status')
-        .eq('company_id', selectedClient.id)
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-
-      // Escopo estrito: SOMENTE o período atual do cliente (em_andamento).
-      let bestPeriod: PeriodData | null = null;
-      if (periods && periods.length > 0) {
-        bestPeriod = (periods.find((p: any) => p.operational_status === 'em_andamento') || null) as PeriodData | null;
-      }
-
-
-      setPeriod(bestPeriod);
-
-      if (bestPeriod) {
-        const dp = Array.isArray(bestPeriod.default_plan) ? bestPeriod.default_plan : [];
-        const up = Array.isArray(bestPeriod.ultra_plan) ? bestPeriod.ultra_plan : [];
-        
-        const allCards: CardItem[] = [
-          ...dp.map((item: any, i: number) => ({ ...item, _index: i, _source: 'default' as const })),
-          ...up.map((item: any, i: number) => ({ ...item, _index: dp.length + i, _source: 'ultra' as const })),
-        ];
-        setCards(allCards);
-
-        // Check which cards are already saved as demands
-        if (allCards.length > 0) {
-          const { data: existingDemands } = await supabase
-            .from('demands')
-            .select('title')
-            .eq('period_plan_id', bestPeriod.id)
-            .eq('client_id', selectedClient.id);
-
-          if (existingDemands) {
-            const savedTitles = new Set(existingDemands.map(d => d.title));
-            const alreadyApproved = new Set<number>();
-            allCards.forEach(card => {
-              const title = card.titulo || card.title || '';
-              if (savedTitles.has(title)) {
-                alreadyApproved.add(card._index);
-              }
-            });
-            setApprovedIndexes(alreadyApproved);
-          }
-        }
-      } else {
-        setCards([]);
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error("Erro ao carregar dados");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fire-and-forget auto image generation for static posts and carousels
   const triggerAutoGenerate = useCallback((demandTitle: string, demandType: string | null, demandId: string) => {
     const tipo = (demandType || '').toLowerCase();
     const isStaticPost = tipo.includes('post');
@@ -199,36 +201,29 @@ const ApproveCards = () => {
     const functionName = isCarousel ? 'auto-generate-carousel' : 'auto-generate-post';
     const label = isCarousel ? 'carrossel' : 'imagem';
 
-    console.log(`[AutoGen] Triggering ${functionName} for "${demandTitle}" (type: ${demandType})`);
     toast.info(`Gerando ${label} automaticamente para "${demandTitle}"...`, { duration: 5000 });
 
     supabase.functions.invoke(functionName, {
       body: { demandId, source: 'planned', minimalText: true },
     }).then(({ data, error }) => {
       if (error) {
-        console.error('[AutoGen] Error:', error);
         toast.error(`Erro na geração automática de "${demandTitle}"`);
         return;
       }
-      if (data?.skipped) {
-        console.log('[AutoGen] Skipped:', data.reason);
-        return;
-      }
+      if (data?.skipped) return;
       if (data?.success) {
         const msg = isCarousel
           ? `${data.totalGenerated} slides gerados e anexados a "${demandTitle}"!`
           : `Imagem gerada e anexada a "${demandTitle}"!`;
         toast.success(msg);
       }
-    }).catch(err => {
-      console.error('[AutoGen] Exception:', err);
-    });
+    }).catch(err => console.error('[AutoGen] Exception:', err));
   }, []);
 
   const handleApprove = useCallback(async (card: CardItem) => {
-    if (!selectedClient || !tenantId || !pipelineId || !initialStatusId || !period) return;
+    if (!selectedClient || !tenantId || !pipelineId || !initialStatusId) return;
 
-    setApprovingIndex(card._index);
+    setApprovingUid(card._uid);
     try {
       const c: any = card;
       const pick = (...vals: any[]) => {
@@ -283,7 +278,7 @@ const ApproveCards = () => {
         client_id: selectedClient.id,
         pipeline_id: pipelineId,
         status_id: initialStatusId,
-        period_plan_id: period.id,
+        period_plan_id: card._periodId,
         title,
         source: card._source === 'ultra' ? 'ultra_card' : 'card',
       };
@@ -297,13 +292,11 @@ const ApproveCards = () => {
       if (observationsParts.length) payload.observations = observationsParts.join('\n\n');
 
       const { data: insertedData, error } = await supabase.from('demands').insert(payload).select('id').single();
-
       if (error) throw error;
 
-      setApprovedIndexes(prev => new Set([...prev, card._index]));
+      setApprovedKeys(prev => new Set([...prev, approvedKey(card._periodId, title)]));
       toast.success(`"${title}" aprovado e enviado ao Kanban!`);
 
-      // Atribui a etapa inicial (function_key + responsável) para não deixar o card "Sem etapa"
       if (insertedData?.id) {
         await assignInitialResponsible(insertedData.id, tenantId, demandTypeKey, {
           metadataSource: card._source === 'ultra' ? 'ultra_card' : 'card',
@@ -314,21 +307,26 @@ const ApproveCards = () => {
       console.error('Error approving card:', error);
       toast.error("Erro ao aprovar card");
     } finally {
-      setApprovingIndex(null);
+      setApprovingUid(null);
     }
-  }, [selectedClient, tenantId, pipelineId, initialStatusId, period, triggerAutoGenerate]);
+  }, [selectedClient, tenantId, pipelineId, initialStatusId, triggerAutoGenerate]);
 
   const handleApproveAll = async () => {
-    const pending = cards.filter(c => !approvedIndexes.has(c._index));
-    if (pending.length === 0) return;
-
+    const pending: CardItem[] = [];
+    Object.values(cardsByPeriod).forEach(list => {
+      list.forEach(c => {
+        const title = String((c as any).titulo ?? (c as any).title ?? '').trim();
+        if (!approvedKeys.has(approvedKey(c._periodId, title))) pending.push(c);
+      });
+    });
     for (const card of pending) {
       await handleApprove(card);
     }
   };
 
   const handleReject = useCallback(async (card: CardItem) => {
-    if (!period || !selectedClient) return;
+    const period = periods.find(p => p.id === card._periodId);
+    if (!period) return;
 
     try {
       const isDefault = card._source === 'default';
@@ -337,14 +335,9 @@ const ApproveCards = () => {
         ? (Array.isArray(period.default_plan) ? [...period.default_plan] : [])
         : (Array.isArray(period.ultra_plan) ? [...period.ultra_plan] : []);
 
-      const indexInPlan = isDefault ? card._index : card._index - (Array.isArray(period.default_plan) ? period.default_plan.length : 0);
+      if (card._indexInPlan < 0 || card._indexInPlan >= plan.length) return;
 
-      if (indexInPlan < 0 || indexInPlan >= plan.length) return;
-
-      // Remove from plan
-      const [removedCard] = plan.splice(indexInPlan, 1);
-
-      // Add to rejected_plan
+      const [removedCard] = plan.splice(card._indexInPlan, 1);
       const rejectedPlan = Array.isArray((period as any).rejected_plan) ? [...(period as any).rejected_plan] : [];
       rejectedPlan.push({
         ...removedCard,
@@ -368,61 +361,83 @@ const ApproveCards = () => {
       console.error('Error rejecting card:', error);
       toast.error("Erro ao reprovar card");
     }
-  }, [period, selectedClient]);
+  }, [periods, fetchData]);
 
-  // Open review modal for a specific plan type
-  const handleOpenReview = (mode: 'normal' | 'ultra') => {
-    if (!period) return;
-    const planData = mode === 'normal' 
-      ? (Array.isArray(period.default_plan) ? period.default_plan : [])
-      : (Array.isArray(period.ultra_plan) ? period.ultra_plan : []);
+  const handleOpenReview = (periodId: string, mode: 'normal' | 'ultra') => {
+    const p = periods.find(x => x.id === periodId);
+    if (!p) return;
+    const planData = mode === 'normal'
+      ? (Array.isArray(p.default_plan) ? p.default_plan : [])
+      : (Array.isArray(p.ultra_plan) ? p.ultra_plan : []);
     setReviewMode(mode);
     setReviewDemands(planData);
+    setReviewPeriodId(periodId);
     setReviewModalOpen(true);
   };
 
-  // Handle review confirm - update the JSON plan with selected items
-  const handleReviewConfirm = async (selectedDemands: any[], _smartSelections: any[]) => {
+  const handleReviewConfirm = async (selectedDemands: any[]) => {
     setReviewModalOpen(false);
-    if (!period) return;
-
+    if (!reviewPeriodId) return;
     try {
       const field = reviewMode === 'normal' ? 'default_plan' : 'ultra_plan';
       await supabase.from('period_plans').update({
         [field]: selectedDemands as unknown as null
-      } as any).eq('id', period.id);
-
+      } as any).eq('id', reviewPeriodId);
       toast.success(`${selectedDemands.length} demandas ${reviewMode === 'normal' ? 'normais' : 'ultra'} atualizadas!`);
-      fetchData(); // Reload to reflect changes
+      fetchData();
     } catch (error) {
       console.error('Error updating plan:', error);
       toast.error('Erro ao atualizar demandas');
     }
   };
 
-  if (!isInitialized || !selectedClient) return null;
-
-  const handleOpenEditPeriod = () => {
-    if (!period) return;
-    setEditTitle(period.period_title);
-    setEditStart(period.period_start);
-    setEditEnd(period.period_end);
+  const handleOpenEditPeriod = (p: PeriodData) => {
+    setEditingPeriod(p);
+    setEditTitle(p.period_title);
+    setEditStart(p.period_start);
+    setEditEnd(p.period_end);
     setEditModalOpen(true);
+  };
+
+  const handleSaveEditPeriod = async () => {
+    if (!editingPeriod || !editTitle.trim() || !editStart || !editEnd) {
+      toast.error("Preencha todos os campos");
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const { error } = await supabase.from('period_plans').update({
+        period_title: editTitle.trim(),
+        period_start: editStart,
+        period_end: editEnd,
+      }).eq('id', editingPeriod.id);
+      if (error) throw error;
+      setEditModalOpen(false);
+      toast.success("Período atualizado!");
+      fetchData();
+    } catch (error) {
+      console.error('Error updating period:', error);
+      toast.error("Erro ao atualizar período");
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   const handleOpenEditCard = (card: CardItem) => {
     setEditingCard(card);
-    setEditCardTitle(card.titulo || card.title || '');
-    setEditCardType(card.tipo || card.tipo_conteudo || card.type || '');
-    setEditCardChannel(card.canal || card.channel || '');
-    setEditCardObjective(card.objetivo || card.objective || '');
-    setEditCardContent(card.conteudo || card.descricao || card.description || '');
-    setEditCardDate(card.data_sugerida || card.suggested_date || card.date || '');
+    setEditCardTitle((card as any).titulo || (card as any).title || '');
+    setEditCardType((card as any).tipo || (card as any).tipo_conteudo || (card as any).type || '');
+    setEditCardChannel((card as any).canal || (card as any).channel || '');
+    setEditCardObjective((card as any).objetivo || (card as any).objective || '');
+    setEditCardContent((card as any).conteudo || (card as any).descricao || (card as any).description || '');
+    setEditCardDate((card as any).data_sugerida || (card as any).suggested_date || (card as any).date || '');
     setEditCardModalOpen(true);
   };
 
   const handleSaveEditCard = async () => {
-    if (!period || !editingCard) return;
+    if (!editingCard) return;
+    const period = periods.find(p => p.id === editingCard._periodId);
+    if (!period) return;
     setEditCardSaving(true);
     try {
       const isDefault = editingCard._source === 'default';
@@ -431,11 +446,9 @@ const ApproveCards = () => {
         ? (Array.isArray(period.default_plan) ? [...period.default_plan] : [])
         : (Array.isArray(period.ultra_plan) ? [...period.ultra_plan] : []);
 
-      const indexInPlan = isDefault ? editingCard._index : editingCard._index - (Array.isArray(period.default_plan) ? period.default_plan.length : 0);
-
-      if (indexInPlan >= 0 && indexInPlan < plan.length) {
-        const item = { ...plan[indexInPlan] };
-        // Update all possible key variants
+      const idx = editingCard._indexInPlan;
+      if (idx >= 0 && idx < plan.length) {
+        const item = { ...plan[idx] };
         if ('titulo' in item) item.titulo = editCardTitle;
         else item.title = editCardTitle;
         if ('tipo' in item) item.tipo = editCardType;
@@ -452,20 +465,16 @@ const ApproveCards = () => {
         else if ('suggested_date' in item) item.suggested_date = editCardDate;
         else item.date = editCardDate;
 
-        plan[indexInPlan] = item;
+        plan[idx] = item;
 
         const { error } = await supabase.from('period_plans').update({
           [planKey]: plan as unknown as null,
         } as any).eq('id', period.id);
-
         if (error) throw error;
 
-        // Update local state
-        const updatedPeriod = { ...period, [planKey]: plan };
-        setPeriod(updatedPeriod as PeriodData);
-        fetchData();
         setEditCardModalOpen(false);
         toast.success("Card atualizado!");
+        fetchData();
       }
     } catch (error) {
       console.error('Error updating card:', error);
@@ -475,38 +484,9 @@ const ApproveCards = () => {
     }
   };
 
-  const handleSaveEditPeriod = async () => {
-    if (!period || !editTitle.trim() || !editStart || !editEnd) {
-      toast.error("Preencha todos os campos");
-      return;
-    }
-    setEditSaving(true);
-    try {
-      const { error } = await supabase.from('period_plans').update({
-        period_title: editTitle.trim(),
-        period_start: editStart,
-        period_end: editEnd,
-      }).eq('id', period.id);
-      if (error) throw error;
-      setPeriod({ ...period, period_title: editTitle.trim(), period_start: editStart, period_end: editEnd });
-      setEditModalOpen(false);
-      toast.success("Período atualizado!");
-    } catch (error) {
-      console.error('Error updating period:', error);
-      toast.error("Erro ao atualizar período");
-    } finally {
-      setEditSaving(false);
-    }
-  };
+  if (!isInitialized || !selectedClient) return null;
 
   const displayName = selectedClient.fantasy_name || selectedClient.name;
-  const pendingCount = cards.filter(c => !approvedIndexes.has(c._index)).length;
-  const approvedCount = approvedIndexes.size;
-
-  const defaultCards = cards.filter(c => c._source === 'default');
-  const ultraCards = cards.filter(c => c._source === 'ultra');
-  const defaultPending = defaultCards.filter(c => !approvedIndexes.has(c._index)).length;
-  const ultraPending = ultraCards.filter(c => !approvedIndexes.has(c._index)).length;
 
   const formatDateStr = (d: string) => {
     try {
@@ -515,6 +495,19 @@ const ApproveCards = () => {
       return d;
     }
   };
+
+  // Global counts (across all periods)
+  let totalCards = 0;
+  let pendingCount = 0;
+  Object.values(cardsByPeriod).forEach(list => {
+    list.forEach(c => {
+      totalCards++;
+      const title = String((c as any).titulo ?? (c as any).title ?? '').trim();
+      if (!approvedKeys.has(approvedKey(c._periodId, title))) pendingCount++;
+    });
+  });
+
+  const anyCards = totalCards > 0;
 
   return (
     <div className="pb-8">
@@ -545,185 +538,194 @@ const ApproveCards = () => {
               <Skeleton key={i} className="h-32 w-full rounded-lg" />
             ))}
           </div>
-        ) : !period || cards.length === 0 ? (
+        ) : !anyCards ? (
           <Card className="p-8 text-center mt-6">
             <AlertCircle className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nenhum card gerado</h3>
+            <h3 className="text-lg font-semibold mb-2">Nenhum card pendente</h3>
             <p className="text-muted-foreground mb-4">
-              Nenhum período com cards gerados foi encontrado. Gere um novo período primeiro.
+              Não há períodos em andamento com cards pendentes de avaliação.
             </p>
             <Button onClick={() => navigate('/plan-period')}>
               Planejar Período
             </Button>
           </Card>
         ) : (
-          <div className="mt-6 space-y-6">
-            {/* Period header */}
-            <Card className="p-4 sm:p-6 border-primary/20 bg-primary/5 relative">
-              <div className="flex items-center justify-center gap-3 flex-wrap pr-10">
-                <CalendarDays className="w-5 h-5 text-primary" />
-                <h2 className="text-xl sm:text-2xl font-bold">{period.period_title}</h2>
-                <span className="text-xl sm:text-2xl text-muted-foreground">
-                  {formatDateStr(period.period_start)} — {formatDateStr(period.period_end)}
-                </span>
-              </div>
-              <div className="absolute top-3 right-3 flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  title="Ver configurações respondidas"
-                  onClick={() => setConfigViewerOpen(true)}
-                >
-                  <Settings2 className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleOpenEditPeriod}
-                >
-                  <Pencil className="w-4 h-4" />
-                </Button>
-              </div>
-            </Card>
+          <div className="mt-6 space-y-8">
+            {periods.map((period) => {
+              const list = cardsByPeriod[period.id] || [];
+              if (list.length === 0) return null;
+              const defaultCards = list.filter(c => c._source === 'default');
+              const ultraCards = list.filter(c => c._source === 'ultra');
+              const defaultPending = defaultCards.filter(c => !approvedKeys.has(approvedKey(period.id, String((c as any).titulo ?? (c as any).title ?? '').trim()))).length;
+              const ultraPending = ultraCards.filter(c => !approvedKeys.has(approvedKey(period.id, String((c as any).titulo ?? (c as any).title ?? '').trim()))).length;
 
-            <PeriodConfigViewerModal
-              open={configViewerOpen}
-              onOpenChange={setConfigViewerOpen}
-              periodId={period.id}
-            />
+              return (
+                <div key={period.id} className="space-y-4">
+                  <Card className="p-4 sm:p-6 border-primary/20 bg-primary/5 relative">
+                    <div className="flex items-center justify-center gap-3 flex-wrap pr-10">
+                      <CalendarDays className="w-5 h-5 text-primary" />
+                      <h2 className="text-xl sm:text-2xl font-bold">{period.period_title}</h2>
+                      <span className="text-base sm:text-lg text-muted-foreground">
+                        {formatDateStr(period.period_start)} — {formatDateStr(period.period_end)}
+                      </span>
+                    </div>
+                    <div className="absolute top-3 right-3 flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Ver configurações respondidas"
+                        onClick={() => setConfigViewerPeriodId(period.id)}
+                      >
+                        <Settings2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenEditPeriod(period)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </Card>
 
-            {/* Review buttons */}
-            <div className="flex flex-wrap gap-3">
-              {defaultCards.length > 0 && (
-                <Button
-                  variant="outline"
-                  onClick={() => handleOpenReview('normal')}
-                  className="gap-2"
-                >
-                  <Shield className="w-4 h-4" />
-                  Revisar Demandas Normais ({defaultPending}/{defaultCards.length})
-                </Button>
-              )}
-              {ultraCards.length > 0 && (
-                <Button
-                  variant="outline"
-                  onClick={() => handleOpenReview('ultra')}
-                  className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
-                >
-                  <Rocket className="w-4 h-4" />
-                  Revisar Demandas Ultra ({ultraPending}/{ultraCards.length})
-                </Button>
-              )}
-            </div>
+                  <div className="flex flex-wrap gap-3">
+                    {defaultCards.length > 0 && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleOpenReview(period.id, 'normal')}
+                        className="gap-2"
+                      >
+                        <Shield className="w-4 h-4" />
+                        Revisar Demandas Normais ({defaultPending}/{defaultCards.length})
+                      </Button>
+                    )}
+                    {ultraCards.length > 0 && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleOpenReview(period.id, 'ultra')}
+                        className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                      >
+                        <Rocket className="w-4 h-4" />
+                        Revisar Demandas Ultra ({ultraPending}/{ultraCards.length})
+                      </Button>
+                    )}
+                  </div>
 
-            {/* Cards list */}
-            <div className="space-y-4">
-              {/* Default cards section */}
-              {defaultCards.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-                    <Shield className="w-4 h-4" />
-                    Demandas Normais — {defaultPending} pendente{defaultPending === 1 ? '' : 's'} · {defaultCards.length - defaultPending} aprovada{(defaultCards.length - defaultPending) === 1 ? '' : 's'}
-                  </h3>
-                  <div className="space-y-3">
-                    {defaultCards.map((card) => {
-                      const isApproved = approvedIndexes.has(card._index);
-                      const isApproving = approvingIndex === card._index;
-                      return (
-                        <div
-                          key={card._index}
-                          className={cn(
-                            "flex flex-col md:flex-row md:items-stretch gap-3",
-                            isApproved && "opacity-60"
-                          )}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <DemandaCard demanda={card} variant="normal" />
-                          </div>
-                          <div className="flex flex-row md:flex-col items-stretch justify-end gap-2 shrink-0 md:w-44">
-                            <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" onClick={(e) => { e.stopPropagation(); handleOpenEditCard(card); }}>
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                            {isApproved ? (
-                              <Badge variant="default" className="bg-green-600 text-sm py-1 px-3 flex items-center justify-center flex-1 md:flex-none">
-                                <Check className="w-3.5 h-3.5 mr-1.5" />
-                                Aprovado
-                              </Badge>
-                            ) : (
-                              <>
-                                <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleReject(card); }} className="gap-1 flex-1 md:flex-none">
-                                  <ThumbsDown className="w-3.5 h-3.5" />
-                                  Reprovar
-                                </Button>
-                                <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving} className="flex-1 md:flex-none">
-                                  {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-                                  Aprovar Card
-                                </Button>
-                              </>
-                            )}
-                          </div>
+                  <div className="space-y-4">
+                    {defaultCards.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
+                          <Shield className="w-4 h-4" />
+                          Demandas Normais — {defaultPending} pendente{defaultPending === 1 ? '' : 's'} · {defaultCards.length - defaultPending} aprovada{(defaultCards.length - defaultPending) === 1 ? '' : 's'}
+                        </h3>
+                        <div className="space-y-3">
+                          {defaultCards.map((card) => {
+                            const title = String((card as any).titulo ?? (card as any).title ?? '').trim();
+                            const isApproved = approvedKeys.has(approvedKey(period.id, title));
+                            const isApproving = approvingUid === card._uid;
+                            return (
+                              <div
+                                key={card._uid}
+                                className={cn(
+                                  "flex flex-col md:flex-row md:items-stretch gap-3",
+                                  isApproved && "opacity-60"
+                                )}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <DemandaCard demanda={card} variant="normal" />
+                                </div>
+                                <div className="flex flex-row md:flex-col items-stretch justify-end gap-2 shrink-0 md:w-44">
+                                  <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" onClick={(e) => { e.stopPropagation(); handleOpenEditCard(card); }}>
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                  {isApproved ? (
+                                    <Badge variant="default" className="bg-green-600 text-sm py-1 px-3 flex items-center justify-center flex-1 md:flex-none">
+                                      <Check className="w-3.5 h-3.5 mr-1.5" />
+                                      Aprovado
+                                    </Badge>
+                                  ) : (
+                                    <>
+                                      <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleReject(card); }} className="gap-1 flex-1 md:flex-none">
+                                        <ThumbsDown className="w-3.5 h-3.5" />
+                                        Reprovar
+                                      </Button>
+                                      <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving} className="flex-1 md:flex-none">
+                                        {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                                        Aprovar Card
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+                      </div>
+                    )}
+
+                    {ultraCards.length > 0 && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-primary uppercase tracking-wide mb-3 flex items-center gap-2">
+                          <Rocket className="w-4 h-4" />
+                          Demandas Ultra — {ultraPending} pendente{ultraPending === 1 ? '' : 's'} · {ultraCards.length - ultraPending} aprovada{(ultraCards.length - ultraPending) === 1 ? '' : 's'}
+                        </h3>
+                        <div className="space-y-3">
+                          {ultraCards.map((card) => {
+                            const title = String((card as any).titulo ?? (card as any).title ?? '').trim();
+                            const isApproved = approvedKeys.has(approvedKey(period.id, title));
+                            const isApproving = approvingUid === card._uid;
+                            return (
+                              <div
+                                key={card._uid}
+                                className={cn(
+                                  "flex flex-col md:flex-row md:items-stretch gap-3",
+                                  isApproved && "opacity-60"
+                                )}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <DemandaCard demanda={card} variant="ultra" />
+                                </div>
+                                <div className="flex flex-row md:flex-col items-stretch justify-end gap-2 shrink-0 md:w-44">
+                                  <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" onClick={(e) => { e.stopPropagation(); handleOpenEditCard(card); }}>
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                  {isApproved ? (
+                                    <Badge variant="default" className="bg-green-600 text-sm py-1 px-3 flex items-center justify-center flex-1 md:flex-none">
+                                      <Check className="w-3.5 h-3.5 mr-1.5" />
+                                      Aprovado
+                                    </Badge>
+                                  ) : (
+                                    <>
+                                      <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleReject(card); }} className="gap-1 flex-1 md:flex-none">
+                                        <ThumbsDown className="w-3.5 h-3.5" />
+                                        Reprovar
+                                      </Button>
+                                      <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving} className="flex-1 md:flex-none">
+                                        {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                                        Aprovar Card
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
-
-              {/* Ultra cards section */}
-              {ultraCards.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-primary uppercase tracking-wide mb-3 flex items-center gap-2">
-                    <Rocket className="w-4 h-4" />
-                    Demandas Ultra — {ultraPending} pendente{ultraPending === 1 ? '' : 's'} · {ultraCards.length - ultraPending} aprovada{(ultraCards.length - ultraPending) === 1 ? '' : 's'}
-                  </h3>
-                  <div className="space-y-3">
-                    {ultraCards.map((card) => {
-                      const isApproved = approvedIndexes.has(card._index);
-                      const isApproving = approvingIndex === card._index;
-                      return (
-                        <div
-                          key={card._index}
-                          className={cn(
-                            "flex flex-col md:flex-row md:items-stretch gap-3",
-                            isApproved && "opacity-60"
-                          )}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <DemandaCard demanda={card} variant="ultra" />
-                          </div>
-                          <div className="flex flex-row md:flex-col items-stretch justify-end gap-2 shrink-0 md:w-44">
-                            <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" onClick={(e) => { e.stopPropagation(); handleOpenEditCard(card); }}>
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                            {isApproved ? (
-                              <Badge variant="default" className="bg-green-600 text-sm py-1 px-3 flex items-center justify-center flex-1 md:flex-none">
-                                <Check className="w-3.5 h-3.5 mr-1.5" />
-                                Aprovado
-                              </Badge>
-                            ) : (
-                              <>
-                                <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleReject(card); }} className="gap-1 flex-1 md:flex-none">
-                                  <ThumbsDown className="w-3.5 h-3.5" />
-                                  Reprovar
-                                </Button>
-                                <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprove(card); }} disabled={isApproving} className="flex-1 md:flex-none">
-                                  {isApproving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-                                  Aprovar Card
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
+              );
+            })}
           </div>
         )}
 
-        {/* Review Modal */}
+        <PeriodConfigViewerModal
+          open={!!configViewerPeriodId}
+          onOpenChange={(v) => { if (!v) setConfigViewerPeriodId(null); }}
+          periodId={configViewerPeriodId || ''}
+        />
+
         <DemandReviewModal
           open={reviewModalOpen}
           onOpenChange={setReviewModalOpen}
@@ -735,7 +737,6 @@ const ApproveCards = () => {
           confirmLabel={`Confirmar Seleção (${reviewDemands.length})`}
         />
 
-        {/* Edit Period Modal */}
         <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -766,7 +767,6 @@ const ApproveCards = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Edit Card Modal */}
         <Dialog open={editCardModalOpen} onOpenChange={setEditCardModalOpen}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>

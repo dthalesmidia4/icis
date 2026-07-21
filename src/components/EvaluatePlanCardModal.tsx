@@ -348,8 +348,10 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
           <>
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Isso remove o card do plano atual e envia para <strong>reavaliação</strong>.
-                Você pode registrar um motivo opcional para orientar a próxima geração.
+                Isso remove o card do plano atual e o guarda em <strong>Cards Reprovados</strong> com o motivo informado.
+                Nada é regenerado automaticamente — o sistema apenas aprende com o motivo.
+                Para pedir uma nova versão, use a tela <strong>Cards Reprovados</strong> depois; para descartar
+                de vez, basta deixar o card lá sem pedir reavaliação.
               </p>
               <div className="space-y-1.5">
                 <Label>Motivo (opcional)</Label>
