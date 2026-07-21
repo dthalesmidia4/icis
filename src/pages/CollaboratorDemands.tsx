@@ -540,10 +540,10 @@ const CollaboratorDemands = () => {
                         onClick={() => setEvaluateModalCard(ec)}
                         className="w-full text-left px-4 py-3 hover:bg-purple-500/10 transition-colors"
                       >
-                        <div className="text-[10px] font-semibold uppercase tracking-wide text-purple-600/90 dark:text-purple-300/90 mb-0.5">
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-purple-600/90 dark:text-purple-300/90 mb-0.5 truncate">
                           {ec.clientName}
                         </div>
-                        <div className="text-sm font-medium text-foreground">{ec.title}</div>
+                        <div className="text-sm font-medium text-foreground break-words line-clamp-2">{ec.title}</div>
                         <div className="mt-1 flex flex-wrap gap-1">
                           {ec.demandType && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{ec.demandType}</span>

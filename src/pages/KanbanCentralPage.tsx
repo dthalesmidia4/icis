@@ -1989,7 +1989,7 @@ const KanbanCentralPage = () => {
                                     <div className="text-[10px] font-semibold uppercase tracking-wide text-purple-600/90 dark:text-purple-300/90 mb-0.5 truncate">
                                       {ec.clientName}
                                     </div>
-                                    <div className="text-sm font-medium text-foreground truncate">
+                                    <div className="text-sm font-medium text-foreground break-words line-clamp-2">
                                       {ec.title}
                                     </div>
                                     <div className="mt-1 flex flex-wrap gap-1">
