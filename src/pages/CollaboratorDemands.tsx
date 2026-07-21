@@ -639,6 +639,14 @@ const CollaboratorDemands = () => {
         onDelete={handleDelete}
         pipelineStatuses={pipelineStatuses}
       />
+
+      <EvaluatePlanCardModal
+        open={!!evaluateModalCard}
+        onOpenChange={(v) => { if (!v) setEvaluateModalCard(null); }}
+        card={evaluateModalCard}
+        tenantId={tenantId}
+        onDone={() => refetchEval()}
+      />
     </div>
   );
 };
