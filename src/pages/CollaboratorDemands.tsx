@@ -164,6 +164,13 @@ const CollaboratorDemands = () => {
   };
 
   const { activeDispatchIds } = useActiveDispatchIds(tenantId);
+  const { byAssignee: evalByAssignee, refetch: refetchEval } = usePendingEvaluationCards(tenantId);
+  const evaluateCards = useMemo(
+    () => (userId ? (evalByAssignee.get(userId) || []) : []),
+    [evalByAssignee, userId],
+  );
+  const [evaluateOpen, setEvaluateOpen] = useState(false);
+  const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
 
   const sortedCards = useMemo(() => {
     const arr = [...cards].filter((c) => !activeDispatchIds.has(c.id));
