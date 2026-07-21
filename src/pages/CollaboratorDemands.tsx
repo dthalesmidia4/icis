@@ -17,6 +17,8 @@ import { useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 import { isDailyCardVisibleNow } from "@/lib/dailyCards";
 import { isReviewFunction } from "@/lib/flowFunctions";
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
+import { usePendingEvaluationCards, type PendingEvaluationCard } from "@/hooks/usePendingEvaluationCards";
+import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
 
 import { getRoleLabel } from "@/lib/constants/roles";
 
