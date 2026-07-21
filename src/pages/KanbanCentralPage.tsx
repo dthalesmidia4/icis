@@ -1954,6 +1954,68 @@ const KanbanCentralPage = () => {
                         })()}
                         {provided.placeholder}
 
+                        {/* Avaliar — cards planejados aguardando aprovação atribuídos a esse responsável */}
+                        {evaluateCards.length > 0 && (
+                          <div className="mt-3 pt-2 border-t-2 border-purple-500/60">
+                            <button
+                              type="button"
+                              onClick={() => toggleEvaluate(column.id)}
+                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 transition-colors border border-purple-500/40"
+                              aria-expanded={!isEvaluateCollapsed}
+                            >
+                              {isEvaluateCollapsed ? (
+                                <ChevronRight className="h-5 w-5 text-purple-600 dark:text-purple-400 shrink-0" />
+                              ) : (
+                                <ChevronDown className="h-5 w-5 text-purple-600 dark:text-purple-400 shrink-0" />
+                              )}
+                              <ClipboardCheck className="h-4 w-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                              <span className="text-sm font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
+                                Avaliar
+                              </span>
+                              <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 ml-auto bg-purple-500/25 text-purple-700 dark:text-purple-300 border-purple-500/40 font-bold">
+                                {evaluateCards.length}
+                              </Badge>
+                            </button>
+
+                            {!isEvaluateCollapsed && (
+                              <div className="mt-1 space-y-1">
+                                {evaluateCards.map((ec) => (
+                                  <button
+                                    type="button"
+                                    key={ec.key}
+                                    onClick={() => setEvaluateModalCard(ec)}
+                                    className="w-full text-left rounded-lg border border-purple-500/30 bg-background hover:border-purple-500/60 hover:bg-purple-500/5 transition-colors p-2.5"
+                                  >
+                                    <div className="text-[10px] font-semibold uppercase tracking-wide text-purple-600/90 dark:text-purple-300/90 mb-0.5 truncate">
+                                      {ec.clientName}
+                                    </div>
+                                    <div className="text-sm font-medium text-foreground truncate">
+                                      {ec.title}
+                                    </div>
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                      {ec.demandType && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                          {ec.demandType}
+                                        </span>
+                                      )}
+                                      {ec.suggestedDate && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                          {ec.suggestedDate}
+                                        </span>
+                                      )}
+                                      {ec.source === "ultra" && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                                          Ultra
+                                        </span>
+                                      )}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* Aguardando clientes — cards em `aguardando_cliente` ficam agrupados aqui */}
                         {awaitingCards.length > 0 && (
                           <div className="mt-3 pt-2 border-t-2 border-blue-500/60">
