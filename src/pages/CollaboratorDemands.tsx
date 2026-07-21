@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, User, ArrowUp, ArrowDown, Pencil, Check, X, ChevronDown, ChevronRight, Clock, Eye } from "lucide-react";
+import { Loader2, User, ArrowUp, ArrowDown, Pencil, Check, X, ChevronDown, ChevronRight, Clock, Eye, ClipboardCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useTenant } from "@/contexts/TenantContext";
@@ -17,6 +17,8 @@ import { useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 import { isDailyCardVisibleNow } from "@/lib/dailyCards";
 import { isReviewFunction } from "@/lib/flowFunctions";
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
+import { usePendingEvaluationCards, type PendingEvaluationCard } from "@/hooks/usePendingEvaluationCards";
+import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
 
 import { getRoleLabel } from "@/lib/constants/roles";
 
@@ -162,6 +164,13 @@ const CollaboratorDemands = () => {
   };
 
   const { activeDispatchIds } = useActiveDispatchIds(tenantId);
+  const { byAssignee: evalByAssignee, refetch: refetchEval } = usePendingEvaluationCards(tenantId);
+  const evaluateCards = useMemo(
+    () => (userId ? (evalByAssignee.get(userId) || []) : []),
+    [evalByAssignee, userId],
+  );
+  const [evaluateOpen, setEvaluateOpen] = useState(false);
+  const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
 
   const sortedCards = useMemo(() => {
     const arr = [...cards].filter((c) => !activeDispatchIds.has(c.id));
@@ -372,11 +381,16 @@ const CollaboratorDemands = () => {
           {collaboratorRole && (
             <Badge variant="outline" className="text-xs">{collaboratorRole}</Badge>
           )}
+          {evaluateCards.length > 0 && (
+            <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/40">
+              {evaluateCards.length} a avaliar
+            </Badge>
+          )}
         </div>
       </div>
 
 
-      {totalCards === 0 ? (
+      {totalCards === 0 && evaluateCards.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <User className="h-12 w-12 mx-auto mb-4 opacity-30" />
           <p className="text-lg font-medium">Nenhuma demanda atribuída a este colaborador no momento.</p>
@@ -504,6 +518,50 @@ const CollaboratorDemands = () => {
 
         return (
           <div className="space-y-4">
+            {evaluateCards.length > 0 && (
+              <div className="rounded-lg border border-purple-500/40 bg-purple-500/5 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setEvaluateOpen((v) => !v)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-purple-500/10 transition-colors border-b border-purple-500/30"
+                  aria-expanded={evaluateOpen}
+                >
+                  {evaluateOpen ? <ChevronDown className="h-4 w-4 text-purple-600 dark:text-purple-400" /> : <ChevronRight className="h-4 w-4 text-purple-600 dark:text-purple-400" />}
+                  <ClipboardCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <span className="font-medium text-sm text-purple-700 dark:text-purple-300 uppercase tracking-wide">Avaliar</span>
+                  <Badge className="ml-1 bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/40">{evaluateCards.length}</Badge>
+                </button>
+                {evaluateOpen && (
+                  <div className="divide-y divide-purple-500/20">
+                    {evaluateCards.map((ec) => (
+                      <button
+                        key={ec.key}
+                        type="button"
+                        onClick={() => setEvaluateModalCard(ec)}
+                        className="w-full text-left px-4 py-3 hover:bg-purple-500/10 transition-colors"
+                      >
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-purple-600/90 dark:text-purple-300/90 mb-0.5">
+                          {ec.clientName}
+                        </div>
+                        <div className="text-sm font-medium text-foreground">{ec.title}</div>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {ec.demandType && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{ec.demandType}</span>
+                          )}
+                          {ec.suggestedDate && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{ec.suggestedDate}</span>
+                          )}
+                          {ec.source === "ultra" && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">Ultra</span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {mainCards.length > 0 && renderGroup(mainCards)}
 
             {awaitingCards.length > 0 && (
@@ -580,6 +638,14 @@ const CollaboratorDemands = () => {
         onReorderAttachments={handleReorderAttachments}
         onDelete={handleDelete}
         pipelineStatuses={pipelineStatuses}
+      />
+
+      <EvaluatePlanCardModal
+        open={!!evaluateModalCard}
+        onOpenChange={(v) => { if (!v) setEvaluateModalCard(null); }}
+        card={evaluateModalCard}
+        tenantId={tenantId}
+        onDone={() => refetchEval()}
       />
     </div>
   );
