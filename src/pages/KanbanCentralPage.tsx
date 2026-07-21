@@ -139,6 +139,17 @@ const KanbanCentralPage = () => {
       return next;
     });
   }, []);
+  // Grupo "Avaliar" (cards planejados aguardando aprovação) — recolhido por padrão.
+  const [expandedEvaluate, setExpandedEvaluate] = useState<Set<string>>(new Set());
+  const toggleEvaluate = useCallback((columnId: string) => {
+    setExpandedEvaluate((prev) => {
+      const next = new Set(prev);
+      if (next.has(columnId)) next.delete(columnId);
+      else next.add(columnId);
+      return next;
+    });
+  }, []);
+  const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const savingDraftRef = useRef(false);
   const [loading, setLoading] = useState(true);
