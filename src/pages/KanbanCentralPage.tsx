@@ -1752,6 +1752,12 @@ const KanbanCentralPage = () => {
             const isAwaitingCollapsed = !expandedAwaiting.has(column.id);
             const isReviewCollapsed = !expandedReview.has(column.id);
 
+            // Avaliar: cards planejados aguardando aprovação atribuídos a esse colaborador
+            const evaluateCards = viewMode === "active"
+              ? (evalByAssignee.get(column.id) || [])
+              : [];
+            const isEvaluateCollapsed = !expandedEvaluate.has(column.id);
+
             return (
               <Droppable key={column.id} droppableId={column.id}>
                 {(provided, snapshot) => (
