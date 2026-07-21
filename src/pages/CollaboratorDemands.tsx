@@ -381,11 +381,16 @@ const CollaboratorDemands = () => {
           {collaboratorRole && (
             <Badge variant="outline" className="text-xs">{collaboratorRole}</Badge>
           )}
+          {evaluateCards.length > 0 && (
+            <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/40">
+              {evaluateCards.length} a avaliar
+            </Badge>
+          )}
         </div>
       </div>
 
 
-      {totalCards === 0 ? (
+      {totalCards === 0 && evaluateCards.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <User className="h-12 w-12 mx-auto mb-4 opacity-30" />
           <p className="text-lg font-medium">Nenhuma demanda atribuída a este colaborador no momento.</p>
