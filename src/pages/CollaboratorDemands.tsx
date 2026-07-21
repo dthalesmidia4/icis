@@ -518,6 +518,50 @@ const CollaboratorDemands = () => {
 
         return (
           <div className="space-y-4">
+            {evaluateCards.length > 0 && (
+              <div className="rounded-lg border border-purple-500/40 bg-purple-500/5 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setEvaluateOpen((v) => !v)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-purple-500/10 transition-colors border-b border-purple-500/30"
+                  aria-expanded={evaluateOpen}
+                >
+                  {evaluateOpen ? <ChevronDown className="h-4 w-4 text-purple-600 dark:text-purple-400" /> : <ChevronRight className="h-4 w-4 text-purple-600 dark:text-purple-400" />}
+                  <ClipboardCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <span className="font-medium text-sm text-purple-700 dark:text-purple-300 uppercase tracking-wide">Avaliar</span>
+                  <Badge className="ml-1 bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/40">{evaluateCards.length}</Badge>
+                </button>
+                {evaluateOpen && (
+                  <div className="divide-y divide-purple-500/20">
+                    {evaluateCards.map((ec) => (
+                      <button
+                        key={ec.key}
+                        type="button"
+                        onClick={() => setEvaluateModalCard(ec)}
+                        className="w-full text-left px-4 py-3 hover:bg-purple-500/10 transition-colors"
+                      >
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-purple-600/90 dark:text-purple-300/90 mb-0.5">
+                          {ec.clientName}
+                        </div>
+                        <div className="text-sm font-medium text-foreground">{ec.title}</div>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {ec.demandType && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{ec.demandType}</span>
+                          )}
+                          {ec.suggestedDate && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{ec.suggestedDate}</span>
+                          )}
+                          {ec.source === "ultra" && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">Ultra</span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {mainCards.length > 0 && renderGroup(mainCards)}
 
             {awaitingCards.length > 0 && (
