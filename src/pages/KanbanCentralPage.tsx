@@ -2149,6 +2149,14 @@ const KanbanCentralPage = () => {
       </DragDropContext>
 
       {/* TaskCard Modal */}
+      <EvaluatePlanCardModal
+        open={!!evaluateModalCard}
+        onOpenChange={(v) => { if (!v) setEvaluateModalCard(null); }}
+        card={evaluateModalCard}
+        tenantId={tenantId}
+        onDone={() => refetchEval()}
+      />
+
       <TaskCard
         open={isTaskCardOpen}
         onOpenChange={(open) => {
