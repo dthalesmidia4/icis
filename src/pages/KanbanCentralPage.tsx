@@ -1702,7 +1702,9 @@ const KanbanCentralPage = () => {
               name: c.fullName,
               color: "hsl(var(--primary))",
             })),
-            ...((viewMode === "history" || filteredCards.some((c) => !c.assigned_to))
+            ...((viewMode === "history"
+              || filteredCards.some((c) => !c.assigned_to)
+              || (evalByAssignee.get("__unassigned__")?.length ?? 0) > 0)
               ? [{ id: "__unassigned__", name: "Sem responsável", color: "hsl(var(--muted-foreground))" }]
               : []),
           ].map((column) => {
