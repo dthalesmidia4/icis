@@ -121,6 +121,7 @@ export async function approvePlanCard(ctx: PlanCardContext): Promise<string> {
 
 /**
  * Move um card do plano para `rejected_plan` (para reavaliação futura).
+ * `reason` (opcional) fica registrado em `_rejectReason` para enriquecer a reavaliação.
  */
 export async function rejectPlanCard(params: {
   periodId: string;
@@ -130,6 +131,7 @@ export async function rejectPlanCard(params: {
   currentDefault: any[];
   currentUltra: any[];
   currentRejected: any[];
+  reason?: string | null;
 }) {
   const isDefault = params.source === "default";
   const plan = isDefault ? [...params.currentDefault] : [...params.currentUltra];
@@ -137,10 +139,12 @@ export async function rejectPlanCard(params: {
 
   const [removed] = plan.splice(params.indexInPlan, 1);
   const rejected = [...(params.currentRejected || [])];
+  const reason = (params.reason ?? "").trim();
   rejected.push({
     ...removed,
     _originalSource: params.source,
     _rejectedAt: new Date().toISOString(),
+    ...(reason ? { _rejectReason: reason } : {}),
   });
 
   const key = isDefault ? "default_plan" : "ultra_plan";
@@ -154,3 +158,69 @@ export async function rejectPlanCard(params: {
 
   if (error) throw error;
 }
+
+/**
+ * Aplica um patch parcial em um item do plano (default_plan/ultra_plan),
+ * preservando as demais chaves. Usa nomes canônicos em pt-BR.
+ */
+export async function updatePlanCard(params: {
+  periodId: string;
+  source: "default" | "ultra";
+  indexInPlan: number;
+  currentDefault: any[];
+  currentUltra: any[];
+  patch: {
+    titulo?: string;
+    tipo?: string;
+    canal?: string;
+    objetivo?: string;
+    conteudo?: string;
+    data_sugerida?: string;
+  };
+}) {
+  const isDefault = params.source === "default";
+  const plan = isDefault ? [...params.currentDefault] : [...params.currentUltra];
+  if (params.indexInPlan < 0 || params.indexInPlan >= plan.length) return;
+
+  const item = { ...plan[params.indexInPlan] };
+  const p = params.patch;
+  if (p.titulo !== undefined) {
+    if ("titulo" in item || !("title" in item)) item.titulo = p.titulo;
+    else item.title = p.titulo;
+  }
+  if (p.tipo !== undefined) {
+    if ("tipo" in item || (!("tipo_conteudo" in item) && !("type" in item))) item.tipo = p.tipo;
+    else if ("tipo_conteudo" in item) item.tipo_conteudo = p.tipo;
+    else item.type = p.tipo;
+  }
+  if (p.canal !== undefined) {
+    if ("canal" in item || !("channel" in item)) item.canal = p.canal;
+    else item.channel = p.canal;
+  }
+  if (p.objetivo !== undefined) {
+    if ("objetivo" in item || !("objective" in item)) item.objetivo = p.objetivo;
+    else item.objective = p.objetivo;
+  }
+  if (p.conteudo !== undefined) {
+    if ("conteudo" in item) item.conteudo = p.conteudo;
+    else if ("descricao" in item) item.descricao = p.conteudo;
+    else if ("description" in item) item.description = p.conteudo;
+    else item.conteudo = p.conteudo;
+  }
+  if (p.data_sugerida !== undefined) {
+    if ("data_sugerida" in item || (!("suggested_date" in item) && !("date" in item))) item.data_sugerida = p.data_sugerida;
+    else if ("suggested_date" in item) item.suggested_date = p.data_sugerida;
+    else item.date = p.data_sugerida;
+  }
+  plan[params.indexInPlan] = item;
+
+  const key = isDefault ? "default_plan" : "ultra_plan";
+  const { error } = await supabase
+    .from("period_plans")
+    .update({ [key]: plan as unknown as null } as any)
+    .eq("id", params.periodId);
+
+  if (error) throw error;
+  return item;
+}
+
