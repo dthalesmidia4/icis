@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, User, ArrowUp, ArrowDown, Pencil, Check, X, ChevronDown, ChevronRight, Clock, Eye } from "lucide-react";
+import { Loader2, User, ArrowUp, ArrowDown, Pencil, Check, X, ChevronDown, ChevronRight, Clock, Eye, ClipboardCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useTenant } from "@/contexts/TenantContext";
