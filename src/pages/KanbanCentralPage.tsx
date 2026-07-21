@@ -47,6 +47,9 @@ import { recordFlowHistory } from "@/lib/flowHistory";
 import { assignInitialResponsible } from "@/lib/initialFlowFunction";
 import { isReviewFunction } from "@/lib/flowFunctions";
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
+import { usePendingEvaluationCards, type PendingEvaluationCard } from "@/hooks/usePendingEvaluationCards";
+import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
+import { ClipboardCheck } from "lucide-react";
 
 interface PipelineStatus {
   id: string;
