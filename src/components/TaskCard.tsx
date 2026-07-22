@@ -1773,28 +1773,30 @@ export default function TaskCard({
                     );
                   })()}
 
-                  {/* Objetivo — chip com Popover */}
+                  {/* Objetivo — apenas ícone (Popover com BlockEditor) */}
                   {(() => {
                     const preview = (card.objective || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-                    const truncated = preview.length > 40 ? preview.slice(0, 40) + '…' : preview;
+                    const hasContent = preview.length > 0;
                     return (
                       <Popover open={objectiveOpen} onOpenChange={(open) => { setObjectiveOpen(open); if (!open) handleFieldSave('objective', card.objective || ''); }}>
                         <PopoverTrigger asChild>
                           <button
                             type="button"
                             className={cn(
-                              "inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded hover:bg-background/60 transition-colors max-w-[280px] min-w-0",
-                              preview ? "text-foreground" : "text-muted-foreground"
+                              "relative inline-flex items-center justify-center h-7 w-7 rounded hover:bg-background/60 transition-colors",
+                              hasContent ? "text-primary" : "text-muted-foreground"
                             )}
-                            aria-label="Objetivo"
+                            aria-label={hasContent ? `Objetivo: ${preview}` : "Adicionar objetivo"}
+                            title={hasContent ? preview.slice(0, 200) + (preview.length > 200 ? '…' : '') : "Objetivo estratégico"}
                           >
-                            <Target className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="truncate">{preview ? truncated : 'Adicionar objetivo'}</span>
-                            {saving && savingField === 'objective' && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
-                            <ChevronDown className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform", objectiveOpen && "rotate-180")} />
+                            <Target className="h-4 w-4" />
+                            {hasContent && (
+                              <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
+                            )}
+                            {saving && savingField === 'objective' && <Loader2 className="absolute -bottom-1 -right-1 h-3 w-3 animate-spin text-muted-foreground" />}
                           </button>
                         </PopoverTrigger>
-                        <PopoverContent align="end" className="w-[520px] p-3">
+                        <PopoverContent align="start" className="w-[520px] p-3">
                           {readOnly ? (
                             <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.objective || "") }} />
                           ) : (
