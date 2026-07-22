@@ -1231,12 +1231,12 @@ export default function TaskCard({
                     };
 
                     return (
-                      <div className="flex items-center gap-0.5 shrink-0 rounded-lg bg-muted/40 p-0.5">
+                      <div className="flex items-center gap-0 shrink-0 rounded-md bg-muted/30 px-0.5 py-0.5">
                         {prev && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-9 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                            className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/70"
                             onClick={handleRegress}
                             disabled={regressing || !card.demand_type_key}
                             title={`Voltar para ${prev.name}`}
@@ -1249,9 +1249,9 @@ export default function TaskCard({
                           <Popover open={stepPickerOpen} onOpenChange={setStepPickerOpen}>
                             <PopoverTrigger asChild>
                               <Button
-                                variant="secondary"
+                                variant="ghost"
                                 size="sm"
-                                className="h-9 gap-1.5 text-xs font-semibold"
+                                className="h-8 gap-1 text-xs font-medium text-foreground/80 hover:text-foreground hover:bg-muted/70 border-x border-border/40 rounded-none px-2"
                                 disabled={seq.length === 0}
                                 title="Selecionar etapa manualmente"
                               >
@@ -1287,9 +1287,9 @@ export default function TaskCard({
                         )}
                         {isLastFn ? (
                           <Button
-                            variant="default"
+                            variant="ghost"
                             size="sm"
-                            className="h-9 gap-1.5 text-xs"
+                            className="h-8 gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10"
                             onClick={handleDeliver}
                             disabled={delivering}
                             title="Entregar demanda e mover para Demandas Completas"
@@ -1299,9 +1299,9 @@ export default function TaskCard({
                           </Button>
                         ) : nextIsPublicar ? (
                           <Button
-                            variant="default"
+                            variant="ghost"
                             size="sm"
-                            className="h-9 gap-1.5 text-xs"
+                            className="h-8 gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10"
                             onClick={() => setInlineScheduleOpen(true)}
                             title="Agendar a publicação nas redes sociais conectadas"
                           >
@@ -1310,9 +1310,9 @@ export default function TaskCard({
                           </Button>
                         ) : (
                           <Button
-                            variant="default"
+                            variant="ghost"
                             size="sm"
-                            className="h-9 gap-1.5 text-xs"
+                            className="h-8 gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10"
                             onClick={handleProceed}
                             disabled={proceeding || !card.demand_type_key}
                             title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : (isEnviarCliente ? "Marcar como enviado ao cliente" : `Enviar para ${nextLabel}`)}
@@ -1322,6 +1322,7 @@ export default function TaskCard({
                           </Button>
                         )}
                       </div>
+
                     );
                   })()
                 )
