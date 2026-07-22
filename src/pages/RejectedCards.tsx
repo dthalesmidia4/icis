@@ -544,6 +544,20 @@ const RejectedCards = () => {
                   <div className="flex flex-wrap gap-2 pt-1 border-t border-border/40">
                     <Button
                       size="sm"
+                      onClick={() => handleReevaluateClick(idx)}
+                      disabled={busy}
+                      className="gap-1.5"
+                    >
+                      {reevaluatingIndex === idx ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-3.5 h-3.5" />
+                      )}
+                      Reavaliar com IA
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() => handleRestoreCard(idx)}
                       disabled={busy}
                       className="gap-1.5"
