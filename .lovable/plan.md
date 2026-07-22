@@ -1,77 +1,78 @@
-# Refinamento do cabeçalho do TaskCard
 
-## 1. Badge do cliente sem preenchimento
+## Objetivo
 
-Hoje o nome da empresa vem em `Badge variant="secondary"` (fundo cinza-azulado). Compete com o título. Trocar por um chip "ghost":
+Refinar o header do modal de demanda (`src/components/TaskCard.tsx`) para reduzir o peso visual dos controles principais, reorganizar a linha do título com a Estratégia à esquerda, unificar os popovers de data com o padrão já usado nos cards da Visão Geral, e eliminar a linha solta do Período.
 
-- Remover background: `border-transparent bg-transparent px-0`.
-- Cor do texto: `text-primary` (usa nosso azul semântico) — no dark mode, `dark:text-foreground` (branco/quase branco).
-- Manter truncate/max-width para não empurrar o título.
-- Sem borda, sem sombra. Só o nome, com peso semibold.
+## Mudanças
 
-## 2. Título um pouco menor
+### 1. Aliviar os botões "Planejar / Criar arte" (linha 1197–1288)
 
-Título atual: `text-3xl md:text-4xl`. Diminuir para `text-2xl md:text-3xl` (mantém hierarquia mas devolve espaço para os controles à direita).
+O grupo hoje usa `Button variant="secondary"` (etapa atual) + `Button variant="default"` (próxima etapa), ambos com background sólido, o que os faz parecerem "colados" e competirem entre si. Vamos transformar o grupo em uma única barra segmentada leve:
 
-## 3. Barra de controles reorganizada — tudo à esquerda, sem espaço vazio no meio
+- Container: manter `rounded-lg bg-muted/40 p-0.5`, mas reduzir altura para `h-8` (mais discreto) e apertar espaçamento (`gap-0`).
+- Botão "voltar etapa" (prev): já é `ghost` — manter, só ajustar para `h-8` e remover borda visível.
+- Botão "etapa atual" (popover trigger): trocar `variant="secondary"` por `variant="ghost"` com `text-foreground/80` e um pequeno `border-x border-border/40` que sirva de divisor sutil, em vez de um bloco preenchido.
+- Botão "próximo passo" (Planejar / Criar arte / Agendar Publicação / Entregar): manter como ação primária mas suavizar — usar `variant="ghost"` + `text-primary hover:bg-primary/10` + ícone `ArrowRight` primário; para o caso `isLastFn` (Entregar) e `nextIsPublicar` (Agendar Publicação) manter também em ghost primário para consistência. A hierarquia continua legível porque só ele fica com cor primária, mas sem mais o bloco azul chapado.
 
-Situação atual: Responsável e Tipo à esquerda, `flex-1` empurrando Datas + Objetivo para a direita — sobra um vão no meio.
+Resultado: uma única faixa cinza clara com três chips fantasmagóricos, ação principal indicada por cor primária no texto/ícone.
 
-Nova ordem, tudo alinhado à esquerda com separadores discretos:
+### 2. Estratégia do cliente como primeiro item da linha do título (linha 1078–1106 e 1808–1840)
 
+Hoje o "Objetivo estratégico" (ícone `Target`) vive na barra inferior de controles. Ele passa a ser o **primeiro item** da linha 1 do header, antes do nome da empresa e do título:
+
+Nova ordem da linha 1:
 ```
-[👤 Lúcia Cotrim ▾]  ·  [🏷 Criativo estático ▾]   |   [📅 Início 23/02 09:00 ▾]  [📤 Pub 23/02 09:00 ▾]   |   [🎯]
-```
-
-Mudanças concretas:
-
-- **Remover** o `<div className="flex-1" />` que criava o vão.
-- **Separar Datas em dois chips independentes** (afetam mecanismos diferentes):
-  - Chip "Início/Entrega" (ícone `Calendar`, âmbar) — abre popover com Início de Produção + Data de Entrega + Datas adicionais.
-  - Chip "Publicação" (ícone `Send` ou `CalendarClock`, azul primário) — abre popover só com Data de Publicação + hora.
-  - Cada chip mostra o valor resumido inline, ou `+ Início` / `+ Publicação` quando vazio.
-  - Enter em qualquer input continua salvando e fechando (comportamento já implementado no popover atual, será replicado nos dois novos).
-- **Objetivo (Estratégia da empresa)**: reduzir a só o ícone `Target` como chip clicável. `aria-label="Estratégia da empresa"` + `title="Estratégia da empresa"` mostra o texto no hover. Quando o campo tem conteúdo, o ícone ganha um dot indicador (`bg-primary`) no canto para sinalizar "há conteúdo". Abre o mesmo popover atual com o `BlockEditor`.
-- Separadores: bullet `·` fino entre Responsável e Tipo; barra vertical `|` (`h-4 w-px bg-border`) entre grupos lógicos (identidade | datas | estratégia).
-
-## 4. Etapa integrada aos botões Voltar / Prosseguir
-
-Situação atual: uma linha inteira só para mostrar o chip "Etapa: Planejar" + chip "Período". E os botões `Voltar demanda` / `Prosseguir` no topo direito só mostram o rótulo genérico.
-
-Nova composição na linha superior direita (substitui os dois botões atuais + o chip "Etapa" da linha 2):
-
-```
-[ ← Revisar ]  [ Planejar ▾ ]  [ Criar arte → ]
+[🎯 Estratégia] · [Yön Contadores] [Título da demanda]        [prev · atual · próx] [X]
 ```
 
-- **Botão Voltar**: mostra a seta e o **nome da etapa anterior** do fluxo (ex.: `← Revisar`). Se não houver anterior, o botão fica oculto (como hoje).
-- **Chip central "Etapa atual"**: mostra o nome da etapa atual (ex.: `Planejar`) com um chevron `▾`. Clicar abre um popover com a lista de todas as etapas do pipeline daquele `demand_type_key`, destacando a atual e permitindo pular para qualquer outra. Selecionar uma etapa dispara o mesmo mecanismo de `handleProceed`/`handleRegress` estendido — ou uma variante que aceita "ir para função X" (chama a lógica existente de `pickAssigneeForFunction` + update em `current_function_key`, reaproveitando o padrão de `proceedDemand.ts`).
-- **Botão Prosseguir**: mostra a seta e o **nome da próxima etapa** (ex.: `Criar arte →`). Mantém as variantes especiais atuais:
-  - Última função → `Entregar ✓`
-  - `publicar` → `Agendar Publicação`
-  - `enviar_cliente` → `Enviar ao cliente →`
-- Peso visual: os três botões ficam `variant="ghost"` com padding leve; o central usa `bg-muted/40` para indicar que é o "estado atual"; setas usam `text-muted-foreground` e ganham `text-primary` no hover.
-- Fechar (`X`) permanece à direita, separado por um `flex-1` para empurrar apenas ele.
+- Remover o Popover do Objetivo da barra inferior (linhas 1808–1840).
+- Reinseri-lo antes de `card.clientName`, dentro do mesmo `div` flex do título:
+  - Trigger: botão pequeno `h-8 w-8` (ghost) com ícone `Target` (`text-primary` quando `hasContent`, senão `text-muted-foreground`), mesmo dot indicador de conteúdo.
+  - `aria-label`, `title` e um pequeno `<span className="sr-only">Estratégia do cliente</span>` para leitores de tela.
+  - Adicionar também um `Label`/hint visível **dentro do PopoverContent** no topo: `<div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2">Estratégia do cliente</div>` — é a "label" pedida para descrever o que é aquele ícone/popover, sem poluir a linha do título.
+- O `PopoverContent` mantém o `BlockEditor` existente e a persistência via `handleFieldSave('objective', ...)`.
 
-Para descobrir prev/next names sem duplicar lógica: adicionar um helper leve em `src/lib/flowFunctions.ts` (`getPipelineSequence(demandTypeKey)`) que carrega `flow_functions` uma vez e devolve o array — o TaskCard usa isso para renderizar os nomes; o clique continua chamando `proceedDemand` / `regressDemand` já existentes.
+### 3. Datas com o mesmo popover da Visão Geral (linha 1540–1806)
 
-## 5. Linha "Etapa + Período" enxugada
+Hoje a linha inferior tem dois "chips" (Produção e Publicação) que abrem popovers customizados com duas linhas empilhadas. Vamos alinhar com o padrão de `src/components/KanbanCard.tsx` (linhas 130–226), que abre lado a lado dois calendários (Início | Término) com inputs de hora e navegação Tab/Enter — exatamente o que o usuário está pedindo.
 
-Como Etapa migrou para os botões, a segunda linha do header fica só com o chip **Período** (quando aplicável) e o select de cliente (no modo draft). Isso reduz o header em uma linha inteira.
+Passo a passo:
+
+- Extrair o corpo do popover atual do `KanbanCard.tsx` (o `<PopoverContent>` com dois `<Calendar>` lado a lado + inputs `time` com `tabIndex` 1/2 e `endTimeRef` para Tab) para um componente compartilhado:
+  - Novo arquivo: `src/components/kanban/StartEndDatePopover.tsx` (`StartEndDatePopover` para Produção e um `SingleDateTimePopover` para Publicação, no mesmo arquivo).
+  - Props: `startDate`, `startTime`, `endDate`, `endTime`, `onSave({due_date, due_time, delivery_date, delivery_time})`, `disabled`, `trigger` (ReactNode).
+  - Preservar o comportamento de Tab do input `Início/Hora` → foco em `Término/Hora`, e Enter salvando.
+- Refatorar `KanbanCard.tsx` para consumir esse componente (mesma UI, zero regressão).
+- Em `TaskCard.tsx`, substituir o Popover atual de "Produção" (chip com `Início Segunda, 23/02/2026`) pelo mesmo `StartEndDatePopover`, usando o chip existente como `trigger`.
+- Para o chip "Publicação", usar `SingleDateTimePopover` (mesma estética: um Calendar + input `time` com Tab/Enter e botão Salvar), preservando o suporte a `additional_publish_dates` como sub-lista logo abaixo do Calendar, dentro do mesmo `PopoverContent` (mantém o comportamento atual, só troca a moldura para o padrão visual do KanbanCard).
+
+Isso resolve: mesma experiência visual do card da Visão Geral, mesmos atalhos de teclado (Tab entre horas, Enter para salvar), e um único ponto de manutenção.
+
+### 4. Período inline, no fim da barra de controles (linhas 1409–1471)
+
+- Remover o bloco `Período` da linha própria (linhas 1412–1471).
+- Reinserir dentro da mesma barra `bg-muted/30` da linha "Responsável · Tipo · Produção · Publicação · Objetivo", depois de Publicação e antes do (agora removido) Objetivo:
+  ```
+  [👤 Responsável] · [🏷 Tipo] · [📅 Produção] · [📣 Publicação] · [🔗 inteligencia continua 4.0 ✕]
+  ```
+- Estilo do chip: `inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded hover:bg-background/60`, ícone `Link` em `text-muted-foreground`, título do período truncado em `max-w-[200px]`. Botão `✕` continua desvinculando via `supabase.from("demands").update({ period_plan_id: null })`.
+- Quando não vinculado e `periodPlans.length > 0`, exibir mini `Select` inline com placeholder "Vincular período".
+- Isso elimina a linha inteira que hoje o Período ocupa sozinho e mantém a hierarquia coerente com os demais chips.
+
+## Detalhes técnicos
+
+- Nenhuma mudança em lógica de negócio ou schema. Só reestruturação visual e extração de um componente reutilizável de date picker.
+- `handleFieldSave`, `onSave`, `handlePublishDateChange`, `handlePublishTimeChange`, `handleAddAdditionalDate`, `handleRemoveAdditionalDate`, `handleLinkPeriod`, `proceedDemand`, `regressDemand`, `jumpToFunction`, `handleDeliver` permanecem inalterados; só os wrappers visuais mudam.
+- O padrão `pointer-events-auto` no Calendar dentro de Popover é preservado (necessário no shadcn Popover).
+- Componente compartilhado localizado em `src/components/kanban/StartEndDatePopover.tsx` para ser importado tanto por `KanbanCard.tsx` quanto por `TaskCard.tsx`.
 
 ## Arquivos afetados
 
-- `src/components/TaskCard.tsx`:
-  - Linhas ~1074–1077: refazer badge do cliente (ghost, azul/branco).
-  - Linhas ~1087–1096: reduzir tamanho do título.
-  - Linhas ~1148–1210: substituir botões Voltar/Prosseguir pela composição `[← prev] [etapa atual ▾] [next →]`.
-  - Linhas ~1328–1356: remover chip Etapa da linha 2 (movido para os botões).
-  - Linhas ~1437–1900: reordenar barra de controles — remover `flex-1` do meio, separar chip de Datas em dois (Início/Entrega e Publicação), reduzir Objetivo a ícone com tooltip + dot indicador.
-- `src/lib/flowFunctions.ts`: adicionar `getPipelineSequence(demandTypeKey)` helper (ou expor a partir do que `proceedDemand.ts` já usa internamente).
-- `src/lib/proceedDemand.ts`: opcionalmente exportar/expor uma função `jumpToFunction(demandId, functionKey)` para o novo dropdown de etapa (reaproveitando `pickAssigneeForFunction` + update). Se preferir menor risco: primeiro passo pode ser dropdown read-only mostrando as etapas, sem permitir pular — decidir na implementação.
+- `src/components/TaskCard.tsx` — header, barra de controles.
+- `src/components/KanbanCard.tsx` — passa a consumir o componente compartilhado.
+- `src/components/kanban/StartEndDatePopover.tsx` — novo.
 
-## Fora do escopo
+## Fora de escopo
 
-- Nada de lógica de negócio nova nem mudança em edge functions, RLS, ou schema.
-- Comportamento de save (blur, Enter) dos popovers permanece.
-- Nenhuma mudança no body do card (abas Conteúdo/Anexos/etc).
+- Nenhuma alteração em lógica de estágios, tipos de demanda, RLS, ou edge functions.
+- Não mexer no comportamento de "Datas adicionais" além de recolocá-lo dentro do novo popover de Publicação.

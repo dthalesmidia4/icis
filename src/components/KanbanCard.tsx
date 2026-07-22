@@ -1,13 +1,8 @@
-import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { StartEndDatePopover } from "@/components/kanban/StartEndDatePopover";
 
 export interface CardDatesChange {
   due_date?: string | null;
@@ -70,23 +65,6 @@ interface InlineDatesProps {
 }
 
 const InlineDates = ({ dueDate, dueTime, deliveryDate, deliveryTime, isOverdue, editable, onSave }: InlineDatesProps) => {
-  const [open, setOpen] = useState(false);
-  const [start, setStart] = useState<Date | undefined>(parseISO(dueDate));
-  const [end, setEnd] = useState<Date | undefined>(parseISO(deliveryDate));
-  const [startTime, setStartTime] = useState<string>(dueTime?.slice(0, 5) || "");
-  const [endTime, setEndTime] = useState<string>(deliveryTime?.slice(0, 5) || "");
-  const [saving, setSaving] = useState(false);
-  const endTimeRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (open) {
-      setStart(parseISO(dueDate));
-      setEnd(parseISO(deliveryDate));
-      setStartTime(dueTime?.slice(0, 5) || "");
-      setEndTime(deliveryTime?.slice(0, 5) || "");
-    }
-  }, [open, dueDate, deliveryDate, dueTime, deliveryTime]);
-
   const dStart = fmtDate(dueDate);
   const dEnd = fmtDate(deliveryDate);
   const tStart = fmtTime(dueTime);
@@ -95,7 +73,7 @@ const InlineDates = ({ dueDate, dueTime, deliveryDate, deliveryTime, isOverdue, 
   const label = (
     <div
       className={cn(
-        "flex items-center gap-2 rounded-md px-2 py-1 text-[11px] font-medium leading-tight min-w-0",
+        "flex items-center gap-2 rounded-md px-2 py-1 text-[11px] font-medium leading-tight min-w-0 w-full text-left",
         isOverdue ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-muted/60 text-foreground",
         editable && "hover:bg-muted cursor-pointer transition-colors",
       )}
@@ -127,105 +105,24 @@ const InlineDates = ({ dueDate, dueTime, deliveryDate, deliveryTime, isOverdue, 
     </div>
   );
 
-  if (!editable) return label;
+  if (!editable || !onSave) return label;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="w-full text-left"
-          onClick={(e) => e.stopPropagation()}
-        >
+    <StartEndDatePopover
+      trigger={
+        <button type="button" className="w-full text-left" onClick={(e) => e.stopPropagation()}>
           {label}
         </button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-auto p-0 pointer-events-auto"
-        align="start"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border">
-          <div className="p-3 space-y-2">
-            <Label className="text-xs font-semibold text-amber-600 dark:text-amber-400">Início</Label>
-            <Calendar
-              mode="single"
-              selected={start}
-              onSelect={setStart}
-              initialFocus
-              className={cn("p-0 pointer-events-auto")}
-            />
-            <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground w-12">Hora</Label>
-              <Input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Tab" && !e.shiftKey) {
-                    e.preventDefault();
-                    endTimeRef.current?.focus();
-                  }
-                }}
-                tabIndex={1}
-                className="h-8 text-xs"
-              />
-            </div>
-          </div>
-          <div className="p-3 space-y-2">
-            <Label className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Término</Label>
-            <Calendar
-              mode="single"
-              selected={end}
-              onSelect={setEnd}
-              className={cn("p-0 pointer-events-auto")}
-            />
-            <div className="flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground w-12">Hora</Label>
-              <Input
-                ref={endTimeRef}
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                tabIndex={2}
-                className="h-8 text-xs"
-              />
-            </div>
-          </div>
-        </div>
-        <div className="flex justify-end gap-2 p-3 border-t border-border">
-          <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={saving}>
-            Cancelar
-          </Button>
-          <Button
-            size="sm"
-            disabled={saving}
-            onClick={async () => {
-              if (!onSave) {
-                setOpen(false);
-                return;
-              }
-              setSaving(true);
-              try {
-                await onSave({
-                  due_date: toISO(start),
-                  due_time: startTime || null,
-                  delivery_date: toISO(end),
-                  delivery_time: endTime || null,
-                });
-                setOpen(false);
-              } finally {
-                setSaving(false);
-              }
-            }}
-          >
-            Salvar
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
+      }
+      dueDate={dueDate}
+      dueTime={dueTime}
+      deliveryDate={deliveryDate}
+      deliveryTime={deliveryTime}
+      onSave={onSave}
+    />
   );
 };
+
 
 const KanbanCard = ({
   title,
