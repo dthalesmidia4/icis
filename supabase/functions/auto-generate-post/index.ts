@@ -89,15 +89,17 @@ Deno.serve(async (req) => {
     const demandObjective = demand.objective || "";
 
     const contentSection = [
-      `TÍTULO DO POST (pode aparecer como texto na imagem):\n"${demandTitle}"`,
+      `TÍTULO INTERNO DO CARD (apenas referência de nomenclatura — PROIBIDO renderizar este texto na imagem):\n"${demandTitle}"`,
       demandObjective ? `\nOBJETIVO DO POST (contexto temático para o design):\n${demandObjective}` : "",
       demandDescription ? `\nCONTEXTO TEMÁTICO (NÃO inclua este texto na imagem — é a legenda para a descrição da rede social):\n${demandDescription}` : "",
       demandInstructions ? `\nINSTRUÇÕES DE PRODUÇÃO VISUAL (siga estas diretrizes para o design):\n${demandInstructions}` : "",
       "",
       `REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO:`,
+      `- O "TÍTULO INTERNO DO CARD" é nomenclatura interna do sistema (identificador da tarefa). NUNCA renderize esse texto na imagem, nem parcialmente, nem parafraseado literalmente.`,
       `- O campo "CONTEXTO TEMÁTICO" contém a LEGENDA que será publicada na DESCRIÇÃO do post na rede social. Este texto NÃO deve aparecer na imagem.`,
-      `- Apenas o TÍTULO e textos curtos de gancho/CTA devem aparecer como tipografia na imagem.`,
-      `- A legenda serve apenas para você entender o tema e tom do post.`,
+      `- Crie um TÍTULO VISUAL CURTO e original (2-6 palavras impactantes) derivado do OBJETIVO/INSTRUÇÕES/CONTEXTO para usar como tipografia principal da arte — não copie o título interno do card.`,
+      `- Apenas esse título visual curto e eventuais textos de gancho/CTA curtos devem aparecer como tipografia na imagem.`,
+      `- A legenda e o título interno servem apenas para você entender o tema e tom do post.`,
     ].filter(Boolean).join("\n");
 
     const ratio = aspectFromDemandType(demand.demand_type);

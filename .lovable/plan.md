@@ -1,50 +1,37 @@
+## Problema
 
-## Diagnóstico
+1. Em demandas planejadas, o **título do card** (ex.: "Statera – Quando indicar uma Avaliação Neuropsicológica? (3 sinais práticos)") está aparecendo renderizado na arte gerada. O título é nomenclatura interna do card — nunca deveria virar tipografia da imagem.
+2. O fluxo **Carrossel Manual** (`ClientHub` → Carrossel → Manual) chama `generate-carousel-images` com `aiModel: 'gpt2'` hardcoded, sem picker. Não segue a mesma UX do carrossel/estático via IA, que já tem seletor com default GPT Image 2.
 
-Você tem razão. Como o fluxo de "Descartar" só foi introduzido recentemente, **todos os cards atualmente em `rejected_plan` são reprovações antigas que deveriam estar em Avaliar**, não num arquivo de descartes. Além disso, a tela hoje tem 4 ações com papéis sobrepostos:
+## Escopo da mudança
 
-- **Reavaliar com IA** → regera + volta para Avaliar. Faz sentido.
-- **Resgatar para avaliação** → devolve o card sem regerar. Redundante como ação manual — é exatamente o que deveria ter acontecido automaticamente na reprovação antiga.
-- **Aprovar e enviar ao Kanban** → aprova, mas mostra só o título; usuário não vê conteúdo, canal, CTA, objetivo. Aprovação às cegas.
-- **Abrir Avaliação** → abre o modal completo. Redundância com o card em si.
+### 1. Tirar o título da imagem (estático planejado + avulso)
 
-## O que fazer
+**`supabase/functions/auto-generate-post/index.ts`** (usado por "Gerar estático com IA" no card e pelo fluxo automático pós-aprovação):
+- Trocar o bloco `TÍTULO DO POST (pode aparecer como texto na imagem)` por `TÍTULO INTERNO DO CARD (apenas contexto — PROIBIDO renderizar este texto na imagem)`.
+- Ajustar a "REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO" para explicitar:
+  - O título é identificador interno, NUNCA deve virar tipografia.
+  - A tipografia visual deve ser derivada do **Objetivo/Instruções/Descrição** (gancho curto), criando um título visual novo e conciso.
+  - Se nenhum gancho estiver disponível, o modelo gera um título visual curto a partir do tema — sem copiar o título do card.
 
-### 1. Backfill: devolver reprovados legados para Avaliar
-Migração one-shot (client-side, executada uma vez ao carregar a tela ou via script curto no `RejectedCards`) que percorre todos os `period_plans` do tenant/cliente atual e move cada item de `rejected_plan` que **não** tenha a flag `_discarded: true` de volta para `default_plan` ou `ultra_plan` conforme `_originalSource`, preservando `_rejectReason` no card para que a próxima reavaliação use como contexto.
+**`supabase/functions/generate-standalone-post/index.ts`**: manter o modo Manual (texto exato) intacto; no modo automático (`isManual=false`) já não passa título de card, então nada a alterar.
 
-Depois do backfill, `rejected_plan` só conterá cards que o usuário explicitamente descartar daqui pra frente.
+**`supabase/functions/auto-generate-carousel/index.ts`**: o `demand.title` só alimenta a geração de textos dos slides (etapa OpenAI), não vai para o prompt de imagem. Renomear rótulo para `Título interno (apenas referência)` para reforçar que o modelo de texto não deve reproduzi-lo literalmente nos slides.
 
-### 2. Marcar descartes futuros
-No `EvaluatePlanCardModal`, quando o usuário escolher **Descartar** (fluxo já existente), gravar `_discarded: true` + `_discardedAt` no item movido para `rejected_plan`. Assim a tela Reprovados passa a mostrar só descartes intencionais.
+### 2. Picker de modelo no Carrossel Manual
 
-### 3. Redesenhar a tela Reprovados
-Como agora ela mostra apenas descartes (não reprovações no fluxo), simplificar para 2 ações + preview completo:
-
-- **Remover** os botões "Resgatar para avaliação" e "Abrir Avaliação" (redundantes).
-- **Manter** duas ações:
-  - **Reavaliar com IA** — regenera com o motivo e devolve para Avaliar.
-  - **Aprovar e enviar ao Kanban** — só habilitado depois que o usuário expandir/ler o conteúdo.
-- **Expandir o card** para mostrar todos os campos planejados (objetivo, descrição/conteúdo, instruções, CTA, canal, data) num bloco colapsável "Ver conteúdo planejado", de modo que a aprovação seja informada.
-
-### 4. Corrigir duplicação do nome da empresa
-No título dos cards desta tela, remover o prefixo `"<Nome do Cliente> – "` quando presente (o badge já identifica o cliente). Regra aplicada só na renderização — não altera dados.
-
-## Detalhes técnicos
-
-- `src/pages/RejectedCards.tsx`:
-  - Novo `useEffect` (executa uma vez por período carregado) que faz o backfill: para cada item sem `_discarded`, chama uma variante batch do `restoreRejectedCard` que devolve todos de uma vez por período (um único `update` por `period_plans` para reduzir writes).
-  - Remover handlers/botões `handleRestoreCard` e link "Abrir Avaliação".
-  - Renderizar bloco colapsável com os campos do `raw` (objetivo, conteúdo, instruções, cta, canal, data). Estado local `expandedIds: Set<string>`.
-  - Função utilitária `stripClientPrefix(title, clientName)` para limpar o título só no render.
-- `src/lib/evaluatePlanCard.ts`:
-  - Nova função `bulkRestoreNonDiscarded(periodId, plan)` usada pelo backfill.
-  - Ao marcar como descartado no fluxo de avaliação, incluir `_discarded: true` + `_discardedAt` (ajuste onde hoje empurramos para `rejected_plan` a partir do descarte).
-- `src/components/EvaluatePlanCardModal.tsx`: garantir que a ação "Descartar" grave a flag `_discarded` no item movido.
-
-Nada muda em RLS, edge functions ou schema — é tudo JSONB em `period_plans`.
+**`src/pages/ClientHub.tsx`**:
+- No `Dialog manualCarouselOpen` (linha ~1955), adicionar um `Select` de modelo idêntico ao do modal de carrossel IA (Nanobanana 3 / Nanobanana 2.5 / GPT Image 2), reutilizando o state `carouselAiModel` já existente (default `'gpt2'`).
+- Substituir o `aiModel: 'gpt2'` hardcoded na chamada `generate-carousel-images` (linha 2065) por `carouselAiModel`.
+- Resetar `carouselAiModel` no `onOpenChange` do modal manual, mantendo consistência com o modal IA.
 
 ## Fora de escopo
 
-- Alterar o fluxo de "Reavaliar com IA" em si (continua igual).
-- Alterar tela de Avaliar / Visão Geral.
+- Não alterar o fluxo `Manual → Texto exato` do post estático (usuário quer o texto literal).
+- Não mexer em prompts de vídeo, storyboard, ou publicação.
+- Não alterar `models.ts` (`DEFAULT_IMAGE_MODEL = 'gpt2'` já é a fonte única).
+
+## Verificação
+
+- Reprocessar a demanda "Statera – Quando indicar..." via "Gerar estático com IA" e confirmar que o título do card não aparece na arte.
+- Abrir Carrossel Manual e conferir o seletor de modelo com GPT Image 2 pré-selecionado.
