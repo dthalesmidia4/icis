@@ -1078,6 +1078,42 @@ export default function TaskCard({
             <div className="flex items-center justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex min-w-0 items-center gap-3">
+                  {/* Estratégia do cliente — primeiro item da linha */}
+                  {!isDraft && (() => {
+                    const preview = (card.objective || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+                    const hasContent = preview.length > 0;
+                    return (
+                      <Popover open={objectiveOpen} onOpenChange={(open) => { setObjectiveOpen(open); if (!open) handleFieldSave('objective', card.objective || ''); }}>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className={cn(
+                              "relative inline-flex items-center justify-center h-8 w-8 rounded-md shrink-0 hover:bg-muted transition-colors",
+                              hasContent ? "text-primary" : "text-muted-foreground"
+                            )}
+                            aria-label="Estratégia do cliente"
+                            title={hasContent ? preview.slice(0, 200) + (preview.length > 200 ? '…' : '') : "Estratégia do cliente"}
+                          >
+                            <Target className="h-4 w-4" />
+                            <span className="sr-only">Estratégia do cliente</span>
+                            {hasContent && (
+                              <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
+                            )}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-[520px] p-3">
+                          <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-2 font-semibold">
+                            Estratégia do cliente
+                          </div>
+                          {readOnly ? (
+                            <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.objective || "") }} />
+                          ) : (
+                            <BlockEditor content={convertToHtml(card.objective || "")} onChange={value => onCardChange({ ...card, objective: value })} onBlur={() => handleFieldSave('objective', card.objective || '')} placeholder="Qual é a finalidade estratégica deste material?" minHeight="120px" />
+                          )}
+                        </PopoverContent>
+                      </Popover>
+                    );
+                  })()}
                   {!isDraft && card.clientName && (
                     <span className="max-w-[220px] shrink-0 truncate text-xl md:text-2xl font-bold text-primary dark:text-foreground" title={card.clientName}>
                       {card.clientName}
