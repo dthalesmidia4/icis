@@ -7,14 +7,15 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Undo2, RefreshCw, Check, Loader2, ThumbsDown, ArrowUpRight, Sparkles } from "lucide-react";
+import { RefreshCw, Check, Loader2, ThumbsDown, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
-import { restoreRejectedCard } from "@/lib/evaluatePlanCard";
+import { bulkRestoreNonDiscarded } from "@/lib/evaluatePlanCard";
+
 import ContentRequirementsDiffModal from "@/components/ContentRequirementsDiffModal";
 import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 
@@ -40,6 +41,18 @@ interface RejectedCardItem {
 }
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+const stripClientPrefix = (title: string, clientName?: string) => {
+  if (!title || !clientName) return title;
+  const patterns = [
+    new RegExp(`^\\s*${clientName.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}\\s*[–-—:]\\s*`, "i"),
+  ];
+  for (const re of patterns) {
+    if (re.test(title)) return title.replace(re, "").trim();
+  }
+  return title;
+};
+
 
 const pick = (...vals: any[]): string => {
   for (const v of vals) {
@@ -75,8 +88,10 @@ const RejectedCards = () => {
   const [pipelineId, setPipelineId] = useState<string | null>(null);
   const [initialStatusId, setInitialStatusId] = useState<string | null>(null);
   const [approvingIndex, setApprovingIndex] = useState<number | null>(null);
-  const [restoringIndex, setRestoringIndex] = useState<number | null>(null);
   const [reevaluatingIndex, setReevaluatingIndex] = useState<number | null>(null);
+  const [expandedIdx, setExpandedIdx] = useState<Set<number>>(new Set());
+  const [backfilledPeriods, setBackfilledPeriods] = useState<Set<string>>(new Set());
+
 
   // Prompt for missing reason
   const [reasonPromptIndex, setReasonPromptIndex] = useState<number | null>(null);
@@ -162,12 +177,65 @@ const RejectedCards = () => {
 
       setPeriods(normalized);
 
-      // Filtro de 30 dias: cards sem _rejectedAt (legado) aparecem também.
+      // Backfill one-shot: cards reprovados sem `_discarded` são legados de um
+      // fluxo anterior sem opção de descarte — devolvê-los para avaliação.
+      const toBackfill = normalized.filter(
+        (p) =>
+          !backfilledPeriods.has(p.id) &&
+          p.rejected_plan.some((it: any) => !it?._discarded),
+      );
+      if (toBackfill.length > 0) {
+        let totalMoved = 0;
+        for (const p of toBackfill) {
+          try {
+            const moved = await bulkRestoreNonDiscarded({
+              periodId: p.id,
+              currentDefault: p.default_plan,
+              currentUltra: p.ultra_plan,
+              currentRejected: p.rejected_plan,
+            });
+            totalMoved += moved;
+          } catch (e) {
+            console.warn("[RejectedCards] backfill failed for period", p.id, e);
+          }
+        }
+        setBackfilledPeriods((prev) => {
+          const next = new Set(prev);
+          toBackfill.forEach((p) => next.add(p.id));
+          return next;
+        });
+        if (totalMoved > 0) {
+          toast.success(
+            `${totalMoved} card(s) devolvido(s) para avaliação — só descartes explícitos permanecem aqui.`,
+          );
+          // Refetch limpo após o backfill.
+          const { data: refreshed } = await supabase
+            .from("period_plans")
+            .select("id, period_title, period_start, period_end, default_plan, ultra_plan, rejected_plan")
+            .eq("company_id", selectedClient.id)
+            .eq("tenant_id", tenantId)
+            .order("created_at", { ascending: false });
+          if (refreshed) {
+            const renorm: PeriodData[] = refreshed.map((p: any) => ({
+              ...p,
+              default_plan: Array.isArray(p.default_plan) ? p.default_plan : [],
+              ultra_plan: Array.isArray(p.ultra_plan) ? p.ultra_plan : [],
+              rejected_plan: Array.isArray(p.rejected_plan) ? p.rejected_plan : [],
+            }));
+            setPeriods(renorm);
+            normalized.length = 0;
+            renorm.forEach((r) => normalized.push(r));
+          }
+        }
+      }
+
+      // Mostra apenas descartes intencionais + respeita janela de 30 dias.
       const now = Date.now();
       const collected: RejectedCardItem[] = [];
       let globalIdx = 0;
       for (const p of normalized) {
         p.rejected_plan.forEach((item: any, i: number) => {
+          if (!item?._discarded) return;
           const rejectedAt = item?._rejectedAt ? new Date(item._rejectedAt).getTime() : null;
           if (rejectedAt && now - rejectedAt > THIRTY_DAYS_MS) return;
           collected.push({
@@ -182,7 +250,6 @@ const RejectedCards = () => {
           });
         });
       }
-      // ordena por mais recente
       collected.sort((a, b) => {
         const ta = a._rejectedAt ? new Date(a._rejectedAt).getTime() : 0;
         const tb = b._rejectedAt ? new Date(b._rejectedAt).getTime() : 0;
@@ -197,29 +264,7 @@ const RejectedCards = () => {
     }
   };
 
-  const handleRestoreCard = async (index: number) => {
-    const item = cards[index];
-    if (!item) return;
-    const period = periods.find((p) => p.id === item._periodId);
-    if (!period) return;
-    setRestoringIndex(index);
-    try {
-      await restoreRejectedCard({
-        periodId: period.id,
-        rejectedIndex: item._rejectedIndex,
-        currentDefault: period.default_plan,
-        currentUltra: period.ultra_plan,
-        currentRejected: period.rejected_plan,
-      });
-      toast.success("Card devolvido para avaliação");
-      await fetchData();
-    } catch (e: any) {
-      console.error("Error restoring card:", e);
-      toast.error(e?.message || "Erro ao resgatar card");
-    } finally {
-      setRestoringIndex(null);
-    }
-  };
+
 
   // Move a rejected card back into the active plan, but with a revised body from AI.
   const applyReevaluatedToActivePlan = async (
@@ -487,12 +532,27 @@ const RejectedCards = () => {
         <div className="mt-5 space-y-3">
           {cards.map((item, idx) => {
             const c = item.raw;
-            const title = pick(c.titulo, c.title) || "Sem título";
+            const rawTitle = pick(c.titulo, c.title) || "Sem título";
+            const title = stripClientPrefix(rawTitle, displayName);
             const tipo = pick(c.tipo, c.tipo_conteudo, c.type);
             const channel = pick(c.canal, c.channel);
             const date = pick(c.data_sugerida, c.suggested_date, c.date);
+            const objetivo = pick(c.objetivo, c.objective);
+            const conteudo = pick(c.conteudo, c.descricao, c.description);
+            const instrucoes = pick(c.instrucoes_de_producao);
+            const cta = pick(c.cta_recomendado);
             const isUltra = item._originalSource === "ultra";
-            const busy = approvingIndex === idx || restoringIndex === idx || reevaluatingIndex === idx;
+            const busy = approvingIndex === idx || reevaluatingIndex === idx;
+            const isExpanded = expandedIdx.has(idx);
+            const hasBody = !!(objetivo || conteudo || instrucoes || cta);
+            const toggleExpand = () => {
+              setExpandedIdx((prev) => {
+                const next = new Set(prev);
+                if (next.has(idx)) next.delete(idx);
+                else next.add(idx);
+                return next;
+              });
+            };
             return (
               <Card
                 key={idx}
@@ -520,12 +580,12 @@ const RejectedCards = () => {
                     )}
                     {item._rejectedAt && (
                       <span className="text-muted-foreground ml-auto">
-                        Reprovado {formatRejectedAt(item._rejectedAt)}
+                        Descartado {formatRejectedAt(item._rejectedAt)}
                       </span>
                     )}
                   </div>
 
-                  {/* Título */}
+                  {/* Título (sem prefixo repetido do cliente) */}
                   <h3 className="text-base sm:text-lg font-semibold leading-snug">
                     {title}
                   </h3>
@@ -537,6 +597,52 @@ const RejectedCards = () => {
                         Motivo da reprovação
                       </div>
                       <p className="text-sm whitespace-pre-wrap">{item._rejectReason}</p>
+                    </div>
+                  )}
+
+                  {/* Conteúdo planejado (colapsável) */}
+                  {hasBody && (
+                    <div className="rounded-md border border-border/60">
+                      <button
+                        type="button"
+                        onClick={toggleExpand}
+                        className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium hover:bg-muted/40 transition-colors"
+                      >
+                        <span>Ver conteúdo planejado</span>
+                        {isExpanded ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                      </button>
+                      {isExpanded && (
+                        <div className="px-3 py-3 border-t border-border/60 space-y-3 text-sm">
+                          {objetivo && (
+                            <div>
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">Objetivo</div>
+                              <p className="whitespace-pre-wrap">{objetivo}</p>
+                            </div>
+                          )}
+                          {conteudo && (
+                            <div>
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">Conteúdo</div>
+                              <p className="whitespace-pre-wrap">{conteudo}</p>
+                            </div>
+                          )}
+                          {instrucoes && (
+                            <div>
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">Instruções de produção</div>
+                              <p className="whitespace-pre-wrap">{instrucoes}</p>
+                            </div>
+                          )}
+                          {cta && (
+                            <div>
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">CTA</div>
+                              <p className="whitespace-pre-wrap">{cta}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -558,23 +664,10 @@ const RejectedCards = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleRestoreCard(idx)}
-                      disabled={busy}
-                      className="gap-1.5"
-                    >
-                      {restoringIndex === idx ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Undo2 className="w-3.5 h-3.5" />
-                      )}
-                      Resgatar para avaliação
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
                       onClick={() => handleApproveCard(idx)}
-                      disabled={busy || !pipelineId || !initialStatusId}
+                      disabled={busy || !pipelineId || !initialStatusId || (hasBody && !isExpanded)}
                       className="gap-1.5"
+                      title={hasBody && !isExpanded ? "Abra 'Ver conteúdo planejado' para revisar antes de aprovar" : undefined}
                     >
                       {approvingIndex === idx ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -583,21 +676,13 @@ const RejectedCards = () => {
                       )}
                       Aprovar e enviar ao Kanban
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => navigate("/approve-cards")}
-                      className="gap-1.5 ml-auto text-muted-foreground"
-                    >
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                      Abrir Avaliação
-                    </Button>
                   </div>
                 </div>
               </Card>
             );
           })}
         </div>
+
       )}
 
       {/* Prompt to collect a reason when the archived card doesn't have one */}

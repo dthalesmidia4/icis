@@ -284,8 +284,10 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
       currentUltra: Array.isArray(period.ultra_plan) ? period.ultra_plan : [],
       currentRejected: Array.isArray((period as any).rejected_plan) ? (period as any).rejected_plan : [],
       reason: rejectReason,
+      discarded: true,
     });
   };
+
 
   const handleReevaluate = async () => {
     if (!tenantId) return;
