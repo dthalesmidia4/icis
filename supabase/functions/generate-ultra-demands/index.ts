@@ -362,6 +362,10 @@ Formato final: {"plan":[...${customQuantity} itens...],"summary":"resumo do raci
         por_que_e_ultra: d.por_que_e_ultra ?? "",
         evidencias_usadas: Array.isArray(d.evidencias_usadas) ? d.evidencias_usadas : [],
         anti_repeticao: d.anti_repeticao ?? "",
+        tendencia_usada: d.tendencia_usada ?? "",
+        insight_de_pesquisa: d.insight_de_pesquisa ?? "",
+        fonte_ou_contexto: d.fonte_ou_contexto ?? "",
+        por_que_e_relevante_para_o_cliente: d.por_que_e_relevante_para_o_cliente ?? "",
       };
     });
     const summary = parsed.summary || "";
