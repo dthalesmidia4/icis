@@ -299,8 +299,12 @@ const RejectedCards = () => {
         }
       }
     } catch (error: any) {
-      console.error('Error reevaluating:', error);
-      toast.error(error.message || "Erro ao reavaliar card");
+      console.error('[Reeval] Error reevaluating:', error);
+      const raw = error?.context?.responseText || error?.message || '';
+      const msg = /OPENAI_API_KEY|api key/i.test(raw)
+        ? "Chave OpenAI ausente. Configure OPENAI_API_KEY em Dev → APIs."
+        : (error?.message || "Erro ao reavaliar card");
+      toast.error(msg, { duration: 8000, description: raw && raw !== error?.message ? raw.slice(0, 240) : undefined });
     } finally {
       setReevalLoading(false);
     }
