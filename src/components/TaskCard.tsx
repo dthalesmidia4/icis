@@ -1519,13 +1519,9 @@ export default function TaskCard({
                   {!card.is_daily_card && (() => {
                     const startStr = card.due_date ? `${formatShortDate(card.due_date)}${card.due_time ? ' ' + card.due_time : ''}` : null;
                     const endStr = card.delivery_date ? `${formatShortDate(card.delivery_date)}${card.delivery_time ? ' ' + card.delivery_time : ''}` : null;
-                    const summary = startStr && endStr
-                      ? `${startStr} → ${endStr}`
-                      : startStr
-                        ? `Início ${startStr}`
-                        : endStr
-                          ? `Entrega ${endStr}`
-                          : 'Produção';
+                    const summary = (startStr || endStr)
+                      ? `Início ${startStr ?? '—'} · Fim ${endStr ?? '—'}`
+                      : 'Produção';
                     return (
                       <StartEndDatePopover
                         dueDate={card.due_date}
@@ -1551,7 +1547,7 @@ export default function TaskCard({
                           <button
                             type="button"
                             className={cn(
-                              "inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded hover:bg-background/60 transition-colors max-w-[300px] min-w-0",
+                              "inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded hover:bg-background/60 transition-colors max-w-[420px] min-w-0",
                               (startStr || endStr) ? "text-foreground" : "text-muted-foreground"
                             )}
                             aria-label="Datas de produção"
