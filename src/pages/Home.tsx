@@ -64,7 +64,8 @@ const Home = () => {
     isAdmin,
     isAdminOnly,
     canAccess,
-  });
+  }).filter((c) => c.id !== 'schedule');
+
 
   const handleCardClick = (card: typeof actionCards[0]) => {
     if (card.opensClientModal) {
