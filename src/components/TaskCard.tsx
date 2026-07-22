@@ -399,16 +399,22 @@ export default function TaskCard({
   const [proceeding, setProceeding] = useState(false);
   const [regressing, setRegressing] = useState(false);
   const [isLastFn, setIsLastFn] = useState(false);
+  const [pipelineSequence, setPipelineSequence] = useState<{ function_key: string; name: string }[]>([]);
+  const [stepPickerOpen, setStepPickerOpen] = useState(false);
+  const [jumpingStep, setJumpingStep] = useState(false);
   const [delivering, setDelivering] = useState(false);
   const [inlineScheduleOpen, setInlineScheduleOpen] = useState(false);
   const [inlineScheduling, setInlineScheduling] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    if (!card?.tenant_id) { setIsLastFn(false); return; }
+    if (!card?.tenant_id) { setIsLastFn(false); setPipelineSequence([]); return; }
     isAtLastFlowFunction(card.tenant_id, card.demand_type_key, card.current_function_key)
       .then((v) => { if (!cancelled) setIsLastFn(v); })
       .catch(() => { if (!cancelled) setIsLastFn(false); });
+    getPipelineSequence(card.tenant_id, card.demand_type_key)
+      .then((seq) => { if (!cancelled) setPipelineSequence(seq); })
+      .catch(() => { if (!cancelled) setPipelineSequence([]); });
     return () => { cancelled = true; };
   }, [card?.tenant_id, card?.demand_type_key, card?.current_function_key]);
 
