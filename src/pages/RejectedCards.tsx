@@ -299,8 +299,12 @@ const RejectedCards = () => {
         }
       }
     } catch (error: any) {
-      console.error('Error reevaluating:', error);
-      toast.error(error.message || "Erro ao reavaliar card");
+      console.error('[Reeval] Error reevaluating:', error);
+      const raw = error?.context?.responseText || error?.message || '';
+      const msg = /OPENAI_API_KEY|api key/i.test(raw)
+        ? "Chave OpenAI ausente. Configure OPENAI_API_KEY em Dev → APIs."
+        : (error?.message || "Erro ao reavaliar card");
+      toast.error(msg, { duration: 8000, description: raw && raw !== error?.message ? raw.slice(0, 240) : undefined });
     } finally {
       setReevalLoading(false);
     }
@@ -444,19 +448,56 @@ const RejectedCards = () => {
       if (insertedData?.id) {
         triggerAutoGenerate(title, tipo, insertedData.id);
       }
-
-
-      toast.success(`"${title}" aprovado e enviado ao Kanban!`);
-
-      // Trigger auto image generation (fire-and-forget)
-      if (insertedData?.id) {
-        triggerAutoGenerate(title, tipo, insertedData.id);
-      }
     } catch (error) {
       console.error('Error approving card:', error);
       toast.error("Erro ao aprovar card");
     } finally {
       setApprovingIndex(null);
+    }
+  };
+
+  const [discardingIndex, setDiscardingIndex] = useState<number | null>(null);
+  const [discardConfirmIndex, setDiscardConfirmIndex] = useState<number | null>(null);
+
+  const handleDiscardCard = async (index: number) => {
+    const card = cards[index];
+    if (!card) return;
+    const period = periods.find(p => p.id === card._periodId);
+    if (!period) return;
+    setDiscardingIndex(index);
+    try {
+      const updatedRejected = [...(period.rejected_plan || [])];
+      updatedRejected.splice(card._rejectedIndex, 1);
+      const { error } = await supabase
+        .from('period_plans')
+        .update({ rejected_plan: updatedRejected as unknown as null })
+        .eq('id', period.id);
+      if (error) throw error;
+      const newPeriods = periods.map(p => p.id === period.id ? { ...p, rejected_plan: updatedRejected } : p);
+      setPeriods(newPeriods);
+      const newCards: RejectedCardItem[] = [];
+      let g = 0;
+      for (const p of newPeriods) {
+        p.rejected_plan.forEach((item: any, i: number) => {
+          newCards.push({
+            ...item,
+            _index: g++,
+            _originalSource: item._originalSource || 'default',
+            _rejectedAt: item._rejectedAt,
+            _periodId: p.id,
+            _periodTitle: p.period_title,
+            _rejectedIndex: i,
+          });
+        });
+      }
+      setCards(newCards);
+      toast.success("Card descartado definitivamente");
+    } catch (e: any) {
+      console.error('Error discarding card:', e);
+      toast.error(e?.message || "Erro ao descartar card");
+    } finally {
+      setDiscardingIndex(null);
+      setDiscardConfirmIndex(null);
     }
   };
 
@@ -501,11 +542,21 @@ const RejectedCards = () => {
         ) : (
           <div className="mt-6 space-y-4">
             <p className="text-sm text-muted-foreground">
-              {cards.length} card(s) reprovado(s) — Clique em "Reavaliar Conteúdo" para melhorar com IA ou "Aprovar" para enviar ao Kanban.
+              {cards.length} card(s) reprovado(s) — <strong>Reavaliar</strong> pede uma nova versão à IA; <strong>Aprovar</strong> envia ao Kanban; <strong>Descartar</strong> apaga o card definitivamente (o motivo da reprovação já foi aprendido).
             </p>
             {cards.map((card, idx) => (
               <div key={idx} className="relative">
                 <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => { e.stopPropagation(); setDiscardConfirmIndex(idx); }}
+                    className="gap-1 text-destructive hover:text-destructive"
+                    disabled={discardingIndex === idx}
+                  >
+                    {discardingIndex === idx ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ThumbsDown className="w-3.5 h-3.5" />}
+                    Descartar
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -533,6 +584,30 @@ const RejectedCards = () => {
             ))}
           </div>
         )}
+
+        <Dialog open={discardConfirmIndex !== null} onOpenChange={(o) => { if (!o) setDiscardConfirmIndex(null); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Descartar card definitivamente?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              O card será removido permanentemente da lista de reprovados. Nada será regenerado. O motivo da reprovação já foi salvo para aprendizado. Esta ação não pode ser desfeita.
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDiscardConfirmIndex(null)} disabled={discardingIndex !== null}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => discardConfirmIndex !== null && handleDiscardCard(discardConfirmIndex)}
+                disabled={discardingIndex !== null}
+              >
+                {discardingIndex !== null ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ThumbsDown className="w-4 h-4 mr-2" />}
+                Descartar definitivamente
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Reevaluate Modal */}
         <Dialog open={reevalModalOpen} onOpenChange={setReevalModalOpen}>
