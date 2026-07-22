@@ -883,7 +883,7 @@ export default function TaskCard({
       // Regenerate based on type — preserve existing attachments (new ones are appended)
       if (isCarousel) {
         const { data, error } = await supabase.functions.invoke("auto-generate-carousel", {
-          body: { demandId: card.id, aiModel: "gpt2" },
+          body: { demandId: card.id, aiModel: selectedAiModel },
         });
         if (error) throw error;
         if (data?.error) {
@@ -893,7 +893,7 @@ export default function TaskCard({
         toast.success("Carrossel regenerado com sucesso!");
       } else {
         const { data, error } = await supabase.functions.invoke("generate-post-image", {
-          body: { demandId: card.id, aiModel: "gpt2" },
+          body: { demandId: card.id, aiModel: selectedAiModel },
         });
         if (error) throw error;
         if (data?.error) {
