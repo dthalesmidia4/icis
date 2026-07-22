@@ -232,11 +232,22 @@ Formato: {"plan":[...],"summary":"resumo curto do racional"}`;
       return null;
     };
 
+    const stripBrandPrefix = (t: string): string => {
+      if (!t) return t;
+      const brandRaw = (company.fantasy_name || company.name || "").trim();
+      if (!brandRaw) return t.trim();
+      const esc = brandRaw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      // remove "Brand – ", "Brand - ", "Brand — ", "Brand: ", "Brand | " (case/space insensitive) at start
+      const re = new RegExp(`^\\s*${esc}\\s*[\\-\\u2013\\u2014:|]\\s*`, "i");
+      return t.replace(re, "").trim();
+    };
+
     const planDemands = (parsed.plan || []).map((d: any) => {
       const tipo = batchType ? batchType : (d.tipo || d.demand_type || "");
       const forcedKey = batchType && Object.prototype.hasOwnProperty.call(BATCH_TO_KEY, batchType) ? BATCH_TO_KEY[batchType] : null;
       const type_key = forcedKey ?? coerceKey(d.type_key) ?? normalizeKey(tipo);
-      return { ...d, canal: priorityChannel, tipo, type_key };
+      const titulo = stripBrandPrefix(String(d.titulo || d.title || ""));
+      return { ...d, titulo, canal: priorityChannel, tipo, type_key };
     });
     const summary = parsed.summary || "";
 
