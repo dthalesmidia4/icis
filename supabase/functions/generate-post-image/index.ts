@@ -163,14 +163,16 @@ Deno.serve(async (req) => {
             `Texto principal: "${slide.title}"`,
             slide.body ? `Texto complementar: "${slide.body}"` : "",
             "",
-            demand.title ? `TÍTULO DO POST (pode aparecer como texto na imagem):\n"${demand.title}"` : "",
-            demand.objective ? `OBJETIVO DO POST (contexto temático para o design):\n${demand.objective}` : "",
+            demand.title ? `TÍTULO INTERNO DO CARD (apenas nomenclatura interna do sistema — PROIBIDO renderizar este texto na imagem, nem parcial nem parafraseado):\n"${demand.title}"` : "",
+            demand.objective ? `OBJETIVO DO POST (contexto temático para o design — NÃO renderizar como texto na imagem):\n${demand.objective}` : "",
             demand.description ? `CONTEXTO TEMÁTICO (NÃO inclua este texto na imagem — é a legenda para a descrição da rede social):\n${stripHtml(demand.description)}` : "",
             demand.instructions ? `INSTRUÇÕES DE PRODUÇÃO VISUAL (siga estas diretrizes para o design):\n${stripHtml(demand.instructions)}` : "",
             "",
             `REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO:`,
+            `- O "TÍTULO INTERNO DO CARD" é identificador interno da tarefa. NUNCA renderize esse texto na imagem, nem parcialmente, nem parafraseado.`,
             `- O campo "CONTEXTO TEMÁTICO" contém a LEGENDA que será publicada na DESCRIÇÃO do post. Este texto NÃO deve aparecer na imagem.`,
-            `- Apenas o TÍTULO e textos curtos de gancho/CTA devem aparecer como tipografia na imagem.`,
+            `- Apenas o "Texto principal" do slide (gancho curto/CTA definido acima) deve aparecer como tipografia na imagem.`,
+
           ].filter(Boolean).join("\n");
 
       const imagePrompt = buildStaticPostPrompt({
