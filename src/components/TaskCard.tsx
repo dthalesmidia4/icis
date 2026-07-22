@@ -1515,13 +1515,10 @@ export default function TaskCard({
                     </Select>
                   </div>
 
-                  {/* Datas — Produção (Início + Entrega) — mesmo popover da Visão Geral */}
+                  {/* Datas — Produção (Início + Entrega) — mesmo visual da Visão Geral */}
                   {!card.is_daily_card && (() => {
                     const startStr = card.due_date ? `${formatShortDate(card.due_date)}${card.due_time ? ' ' + card.due_time : ''}` : null;
                     const endStr = card.delivery_date ? `${formatShortDate(card.delivery_date)}${card.delivery_time ? ' ' + card.delivery_time : ''}` : null;
-                    const summary = (startStr || endStr)
-                      ? `Início ${startStr ?? '—'} · Entrega ${endStr ?? '—'}`
-                      : 'Produção';
                     return (
                       <StartEndDatePopover
                         dueDate={card.due_date}
@@ -1546,20 +1543,33 @@ export default function TaskCard({
                         trigger={
                           <button
                             type="button"
-                            className={cn(
-                              "inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded hover:bg-background/60 transition-colors max-w-[560px] min-w-0",
-                              (startStr || endStr) ? "text-foreground" : "text-muted-foreground"
-                            )}
+                            className="inline-flex items-center gap-3 rounded-md bg-muted/60 hover:bg-muted transition-colors px-2 py-1 text-[11px] font-medium leading-tight"
                             aria-label="Datas de produção"
                           >
-                            <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="truncate capitalize">{summary}</span>
-                            <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span className="flex items-center gap-1">
+                              <CalendarIcon className="h-3 w-3 shrink-0 text-amber-500" />
+                              <span className="text-muted-foreground">Ini:</span>
+                              {startStr ? (
+                                <span className="font-semibold capitalize">{startStr}</span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <CalendarIcon className="h-3 w-3 shrink-0 text-emerald-500" />
+                              <span className="text-muted-foreground">Fim:</span>
+                              {endStr ? (
+                                <span className="font-semibold capitalize">{endStr}</span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </span>
                           </button>
                         }
                       />
                     );
                   })()}
+
 
                   {/* Datas — Publicação — mesmo padrão + sub-lista de datas adicionais */}
                   {!card.is_daily_card && (() => {
