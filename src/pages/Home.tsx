@@ -161,11 +161,11 @@ const Home = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
           {actionCards.map((card, index) => (
             <Card 
               key={index} 
-              className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98]" 
+              className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 sm:hover:-translate-y-2 border-2 hover:border-primary/50 active:scale-[0.98] w-full sm:w-[240px]" 
               onClick={() => handleCardClick(card)}
             >
               <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
@@ -191,55 +191,8 @@ const Home = () => {
             <p>Nenhum módulo disponível. Entre em contato com o administrador.</p>
           </div>
         )}
-
-        {/* Seção Colaboradores */}
-        <div className="mt-10 sm:mt-14">
-          <div className="flex items-center gap-2 mb-4 sm:mb-6">
-            <Users className="w-5 h-5 text-primary" />
-            <h2 className="text-lg sm:text-xl font-bold text-foreground">Ver Tarefas dos Colaboradores</h2>
-            {!collaboratorsLoading && (
-              <Badge variant="secondary" className="text-xs">{collaborators.length}</Badge>
-            )}
-          </div>
-
-          {collaboratorsLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : collaborators.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              <p>Nenhum colaborador encontrado neste tenant.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              {collaborators.map((collab) => (
-                <Card
-                  key={collab.userId}
-                  className="group relative overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl hover:-translate-y-1 border-2 hover:border-primary/50 active:scale-[0.98]"
-                  onClick={() => navigate(`/colaboradores/${collab.userId}`)}
-                >
-                  <div className="absolute inset-0 bg-primary opacity-5 group-hover:opacity-10 transition-opacity" />
-                  <div className="relative p-5 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                      {collab.avatarUrl ? (
-                        <img src={collab.avatarUrl} alt="" className="w-12 h-12 rounded-2xl object-cover" />
-                      ) : (
-                        <User className="w-6 h-6 text-primary-foreground" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-bold text-primary truncate">{collab.fullName}</h3>
-                      <p className="text-sm font-bold text-primary/70 mt-1">
-                        {collab.demandCount} {collab.demandCount === 1 ? "demanda" : "demandas"}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
+
 
       <ClientSelectionModal
         open={clientModalOpen}
