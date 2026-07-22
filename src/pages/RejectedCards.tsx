@@ -492,7 +492,7 @@ const RejectedCards = () => {
             const channel = pick(c.canal, c.channel);
             const date = pick(c.data_sugerida, c.suggested_date, c.date);
             const isUltra = item._originalSource === "ultra";
-            const busy = approvingIndex === idx || restoringIndex === idx;
+            const busy = approvingIndex === idx || restoringIndex === idx || reevaluatingIndex === idx;
             return (
               <Card
                 key={idx}
