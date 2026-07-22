@@ -448,19 +448,56 @@ const RejectedCards = () => {
       if (insertedData?.id) {
         triggerAutoGenerate(title, tipo, insertedData.id);
       }
-
-
-      toast.success(`"${title}" aprovado e enviado ao Kanban!`);
-
-      // Trigger auto image generation (fire-and-forget)
-      if (insertedData?.id) {
-        triggerAutoGenerate(title, tipo, insertedData.id);
-      }
     } catch (error) {
       console.error('Error approving card:', error);
       toast.error("Erro ao aprovar card");
     } finally {
       setApprovingIndex(null);
+    }
+  };
+
+  const [discardingIndex, setDiscardingIndex] = useState<number | null>(null);
+  const [discardConfirmIndex, setDiscardConfirmIndex] = useState<number | null>(null);
+
+  const handleDiscardCard = async (index: number) => {
+    const card = cards[index];
+    if (!card) return;
+    const period = periods.find(p => p.id === card._periodId);
+    if (!period) return;
+    setDiscardingIndex(index);
+    try {
+      const updatedRejected = [...(period.rejected_plan || [])];
+      updatedRejected.splice(card._rejectedIndex, 1);
+      const { error } = await supabase
+        .from('period_plans')
+        .update({ rejected_plan: updatedRejected as unknown as null })
+        .eq('id', period.id);
+      if (error) throw error;
+      const newPeriods = periods.map(p => p.id === period.id ? { ...p, rejected_plan: updatedRejected } : p);
+      setPeriods(newPeriods);
+      const newCards: RejectedCardItem[] = [];
+      let g = 0;
+      for (const p of newPeriods) {
+        p.rejected_plan.forEach((item: any, i: number) => {
+          newCards.push({
+            ...item,
+            _index: g++,
+            _originalSource: item._originalSource || 'default',
+            _rejectedAt: item._rejectedAt,
+            _periodId: p.id,
+            _periodTitle: p.period_title,
+            _rejectedIndex: i,
+          });
+        });
+      }
+      setCards(newCards);
+      toast.success("Card descartado definitivamente");
+    } catch (e: any) {
+      console.error('Error discarding card:', e);
+      toast.error(e?.message || "Erro ao descartar card");
+    } finally {
+      setDiscardingIndex(null);
+      setDiscardConfirmIndex(null);
     }
   };
 
