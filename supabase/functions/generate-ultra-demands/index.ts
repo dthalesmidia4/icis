@@ -150,15 +150,19 @@ ${antiRepetitionBlock}`;
     const systemPrompt = promptSections.join("\n\n---\n\n");
 
     const jsonInstruction = `\n\nResponda APENAS JSON válido, sem markdown. Canal OBRIGATÓRIO em toda demanda: "${periodPlan.priority_channel}".
-Gere EXATAMENTE ${customQuantity} demandas ULTRA. Cada uma DEVE atender à Definição de Demanda Ultra acima e DEVE contrastar com o Plano Normal.
+Gere EXATAMENTE ${customQuantity} demandas ULTRA. Cada uma DEVE atender à Definição de Demanda Ultra acima, passar pelo FILTRO ANTI-GENERICIDADE e contrastar com o Plano Normal. Antes de escrever cada item, execute mentalmente as 4 etapas do PROCESSO CRIATIVO INTERNO.
 
-REGRA CRÍTICA DE EVIDÊNCIA: em "evidencias_usadas", cite quais partes da Estratégia, Anamnese ou Diretrizes justificam a ideia (ex.: "estratégia: posicionamento premium", "anamnese: Q12 dor de tempo", "diretrizes: pilar 'bastidores'"). Ideias sem evidência devem ser descartadas.
+REGRAS DE PREENCHIMENTO DOS CAMPOS EXTRAS (rejeite genericidade):
+- "conceito_ultra": explique a IDEIA criativa central de forma específica para ESTE cliente. PROIBIDO frases vagas ("campanha emocional de Dia dos Pais", "post institucional forte"). Deve descrever o ângulo, a promessa e o porquê é específico.
+- "por_que_e_ultra": explique por que essa ideia SUPERA uma demanda normal, citando qual critério da Definição de Demanda Ultra ela atende (ex.: "ângulo incomum + bastidor estratégico").
+- "evidencias_usadas": array com evidências CONCRETAS e nomeadas. PROIBIDO valores genéricos como ["estratégia", "anamnese"]. Use itens como: "Planejamento: período focado em relacionamento", "Anamnese Q12: dor de tempo do público", "Diretriz: pilar 'bastidores'", "Estratégia: posicionamento acolhedor".
+- "anti_repeticao": compare EXPLICITAMENTE com o Plano Normal listado abaixo. Diga em 1-2 frases o que esta Ultra faz que nenhum item normal faz (tema, gancho, estrutura, narrativa ou promessa).
 
 Cada item DEVE ter EXATAMENTE este formato:
 {
   "tipo": "Post Estático | Vídeos Curtos | Carrossel",
   "type_key": "criativo_estatico|carrossel|video_captado|video_gerado|null",
-  "titulo": "<título criativo curto, SEM nome da marca>",
+  "titulo": "<título criativo curto, SEM nome da marca, SEM frase pronta>",
   "objetivo": "...",
   "conteudo": "conteúdo em markdown",
   "instrucoes_de_producao": "...",
@@ -166,10 +170,10 @@ Cada item DEVE ter EXATAMENTE este formato:
   "cta_recomendado": "...",
   "canal": "${periodPlan.priority_channel}",
   "data_sugerida": "YYYY-MM-DD",
-  "conceito_ultra": "qual é a ideia central criativa",
-  "por_que_e_ultra": "por que essa ideia é mais forte que uma demanda normal (cite o critério da Definição de Demanda Ultra atendido)",
-  "evidencias_usadas": ["estratégia: ...", "anamnese: ...", "diretrizes: ..."],
-  "anti_repeticao": "explique como esta ideia difere de todos os itens do Plano Normal listados"
+  "conceito_ultra": "descrição específica do ângulo criativo — nada de frase genérica",
+  "por_que_e_ultra": "critério da Definição de Ultra atendido + comparação com uma normal equivalente",
+  "evidencias_usadas": ["Planejamento: ...", "Anamnese Q?: ...", "Diretriz: ...", "Estratégia: ..."],
+  "anti_repeticao": "o que esta Ultra faz que nenhum item do Plano Normal faz — cite qual item e qual diferença"
 }
 
 REGRA de type_key: "criativo_estatico" (post/story estático), "carrossel" (múltiplos slides), "video_captado" (exige gravação real), "video_gerado" (100% IA/motion/stock), null se incerto. NUNCA use tipos compostos.
