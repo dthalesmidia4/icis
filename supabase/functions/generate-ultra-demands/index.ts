@@ -394,6 +394,7 @@ Formato final: {"plan":[...${customQuantity} itens...],"summary":"resumo do raci
     console.log("=== GENERATE-ULTRA-DEMANDS OK ===", ultraDemands.length);
     return new Response(JSON.stringify({
       success: true, planType: "ultra", plan: ultraDemands, summary,
+      research: { mode: research.research_mode, trend_count: research.relevant_trends.length },
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("=== GENERATE-ULTRA-DEMANDS ERROR ===", error);
