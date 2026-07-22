@@ -33,7 +33,7 @@ const Home = () => {
   const [clientModalOpen, setClientModalOpen] = useState(false);
   const [clientOptionsModalOpen, setClientOptionsModalOpen] = useState(false);
   const [extrasModalOpen, setExtrasModalOpen] = useState(false);
-  const { collaborators, loading: collaboratorsLoading } = useCollaborators(tenantId);
+
 
   // Rejected by client flow state
   const [rejectedByClientStep, setRejectedByClientStep] = useState<0 | 1 | 2>(0);
