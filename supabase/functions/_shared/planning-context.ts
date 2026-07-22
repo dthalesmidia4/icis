@@ -130,9 +130,77 @@ export async function buildPlanningContext(
   const succ = Array.isArray(adaptive.successful_patterns) ? adaptive.successful_patterns : [];
   const fail = Array.isArray(adaptive.failed_patterns) ? adaptive.failed_patterns : [];
   const recent = Array.isArray(adaptive.recent_fingerprints) ? adaptive.recent_fingerprints : [];
-  const calendarStr = cal.length
-    ? cal.slice(0, 12).map((e: any) => `${e.date}: ${e.name}${e.priority ? ` [${e.priority}]` : ""}`).join("; ")
+
+  // === RANQUEAMENTO ESTRATÉGICO DE DATAS ===
+  // Considera relevância comercial (priority do banco), aderência ao segmento do
+  // cliente, canal, público, e estratégia. Datas fracas viram bloco "IGNORADAS"
+  // com justificativa — a IA NÃO deve gerar demanda só porque a data existe.
+  const sectorBlob = [
+    company.sector, company.segment, company.niche, company.products_services, company.fantasy_name, company.name,
+  ].filter(Boolean).join(" ").toLowerCase();
+
+  const SEGMENT_BOOSTS: Array<{ match: RegExp; dates: RegExp; boost: number; reason: string }> = [
+    { match: /(pai|família|famil|B2C|varej|saúde|saude|educa|veterin|pet|servi[çc]o local|psicolog|estét|est[eé]tica|ve[ií]cul|moda|beleza|academia|restaur|padaria)/i,
+      dates: /dia dos pais/i, boost: 15, reason: "público B2C/familiar com forte apelo à data" },
+    { match: /(mãe|mae|família|B2C|varej|saúde|educa|veterin|pet|psicolog|estét|moda|beleza|joalh|floricultura|restaur)/i,
+      dates: /dia das mães/i, boost: 15, reason: "público B2C/familiar com forte apelo à data" },
+    { match: /(namor|casal|romance|joalh|floricultura|restaur|hotel|viagem|moda|beleza|estét|presente)/i,
+      dates: /dia dos namorados/i, boost: 15, reason: "segmento romance/presente" },
+    { match: /(crian[çc]a|infantil|pediatr|escola|educa|brinquedo|pet|família)/i,
+      dates: /dia das crian[çc]as/i, boost: 15, reason: "público infantil/familiar" },
+    { match: /(varej|e-?commerce|loja|moda|eletr[oô]nic|beleza|casa|decora|marketplac|servi[çc]o)/i,
+      dates: /(black friday|natal|ano novo|cyber monday)/i, boost: 20, reason: "data comercial forte para o segmento" },
+    { match: /(mulher|feminin|beleza|estét|moda|academia|saúde)/i,
+      dates: /dia internacional da mulher/i, boost: 10, reason: "público predominantemente feminino" },
+  ];
+
+  const rankDate = (e: any) => {
+    const base = Number(e.priority) || 0;
+    let bonus = 0;
+    const reasons: string[] = [];
+    for (const rule of SEGMENT_BOOSTS) {
+      if (rule.dates.test(e.name || "") && rule.match.test(sectorBlob)) {
+        bonus += rule.boost;
+        reasons.push(rule.reason);
+      }
+    }
+    // event_type marketing tem peso adicional (data comercial)
+    if ((e.type || "").toLowerCase() === "marketing") bonus += 5;
+    const score = base + bonus;
+    let tier: "alta" | "media" | "baixa";
+    if (score >= 80) tier = "alta";
+    else if (score >= 50) tier = "media";
+    else tier = "baixa";
+    return { ...e, score, tier, matchReasons: reasons };
+  };
+
+  const rankedCal = cal.map(rankDate).sort((a: any, b: any) => b.score - a.score);
+  const highDates = rankedCal.filter((e: any) => e.tier === "alta");
+  const medDates = rankedCal.filter((e: any) => e.tier === "media");
+  const lowDates = rankedCal.filter((e: any) => e.tier === "baixa");
+
+  const fmtDate = (e: any) => {
+    const parts: string[] = [];
+    parts.push(`- ${e.date} — ${e.name}${e.priority ? ` (prioridade base ${e.priority}${e.score !== e.priority ? `, ajustada ${e.score}` : ""})` : ""}`);
+    const reason = e.matchReasons?.length
+      ? e.matchReasons.join("; ")
+      : (e.type === "marketing" ? "data comercial nacional relevante" : "data cultural/institucional relevante");
+    parts.push(`  • Motivo de relevância: ${reason}`);
+    if (e.tips) parts.push(`  • Possível uso estratégico: ${truncate(e.tips, 260)}`);
+    return parts.join("\n");
+  };
+
+  const highBlock = highDates.length
+    ? highDates.map(fmtDate).join("\n")
+    : "(nenhuma data de alta prioridade no período — não invente comemoração)";
+  const medBlock = medDates.length
+    ? medDates.map(fmtDate).join("\n")
     : "(nenhuma)";
+  const lowBlock = lowDates.length
+    ? lowDates.slice(0, 8).map((e: any) =>
+        `- ${e.date} — ${e.name}: baixa relevância para este cliente/segmento; só usar se houver ângulo muito claro`).join("\n")
+    : "(nenhuma)";
+
   const successStr = succ.length
     ? succ.filter((p: any) => p.type !== "fingerprint").slice(0, 10)
         .map((p: any) => `${p.type}:${p.value}(${p.success_rate}%)`).join(", ")
