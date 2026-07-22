@@ -531,17 +531,18 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
           </>
         )}
 
-        {mode === "confirm-reject" && (
+        {mode === "reject" && (
           <>
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Isso remove o card do plano atual e o guarda em <strong>Cards Reprovados</strong> com o motivo informado.
-                Nada é regenerado automaticamente — o sistema apenas aprende com o motivo.
-                Para pedir uma nova versão, use a tela <strong>Cards Reprovados</strong> depois; para descartar
-                de vez, basta deixar o card lá sem pedir reavaliação.
+                Descreva o motivo. Depois escolha se você quer{" "}
+                <strong>gerar uma nova versão do card com IA</strong> (o card revisado volta
+                para avaliação no lugar do original) ou <strong>descartar</strong> (o card vai
+                para <em>Reprovados</em> como arquivo para eventual resgate). Em ambos os casos
+                o sistema aprende com o motivo para melhorar as próximas gerações.
               </p>
               <div className="space-y-1.5">
-                <Label>Motivo (opcional)</Label>
+                <Label>Motivo da reprovação</Label>
                 <Textarea
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
@@ -550,24 +551,41 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
                 />
               </div>
             </div>
-            <DialogFooter className="gap-2">
+            <DialogFooter className="gap-2 flex-wrap sm:justify-between">
               <Button variant="ghost" onClick={() => setMode("view")} disabled={!!busy}>
                 <X className="h-4 w-4" />
                 Cancelar
               </Button>
-              <Button
-                variant="outline"
-                onClick={handleConfirmReject}
-                disabled={!!busy}
-                className="text-destructive hover:text-destructive"
-              >
-                {busy === "reject" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ThumbsDown className="h-4 w-4" />}
-                Confirmar reprovação
-              </Button>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  onClick={handleDiscard}
+                  disabled={!!busy || !rejectReason.trim()}
+                  className="text-destructive hover:text-destructive"
+                >
+                  {busy === "discard" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  Descartar
+                </Button>
+                <Button onClick={handleReevaluate} disabled={!!busy || !rejectReason.trim()}>
+                  {busy === "reevaluate" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  Reavaliar com IA
+                </Button>
+              </div>
             </DialogFooter>
           </>
         )}
       </DialogContent>
+
+      <ContentRequirementsDiffModal
+        open={diffOpen}
+        onOpenChange={(o) => { if (!o && !diffSaving) { setDiffOpen(false); setPendingAction(null); } }}
+        current={diffCurrent}
+        proposed={diffProposed}
+        mode={diffMode}
+        reasoning={diffReasoning}
+        loading={diffSaving}
+        onConfirm={handleDiffConfirm}
+      />
     </Dialog>
   );
 }
