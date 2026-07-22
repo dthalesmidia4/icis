@@ -542,11 +542,21 @@ const RejectedCards = () => {
         ) : (
           <div className="mt-6 space-y-4">
             <p className="text-sm text-muted-foreground">
-              {cards.length} card(s) reprovado(s) — Clique em "Reavaliar Conteúdo" para melhorar com IA ou "Aprovar" para enviar ao Kanban.
+              {cards.length} card(s) reprovado(s) — <strong>Reavaliar</strong> pede uma nova versão à IA; <strong>Aprovar</strong> envia ao Kanban; <strong>Descartar</strong> apaga o card definitivamente (o motivo da reprovação já foi aprendido).
             </p>
             {cards.map((card, idx) => (
               <div key={idx} className="relative">
                 <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => { e.stopPropagation(); setDiscardConfirmIndex(idx); }}
+                    className="gap-1 text-destructive hover:text-destructive"
+                    disabled={discardingIndex === idx}
+                  >
+                    {discardingIndex === idx ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ThumbsDown className="w-3.5 h-3.5" />}
+                    Descartar
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -574,6 +584,30 @@ const RejectedCards = () => {
             ))}
           </div>
         )}
+
+        <Dialog open={discardConfirmIndex !== null} onOpenChange={(o) => { if (!o) setDiscardConfirmIndex(null); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Descartar card definitivamente?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              O card será removido permanentemente da lista de reprovados. Nada será regenerado. O motivo da reprovação já foi salvo para aprendizado. Esta ação não pode ser desfeita.
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDiscardConfirmIndex(null)} disabled={discardingIndex !== null}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => discardConfirmIndex !== null && handleDiscardCard(discardConfirmIndex)}
+                disabled={discardingIndex !== null}
+              >
+                {discardingIndex !== null ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ThumbsDown className="w-4 h-4 mr-2" />}
+                Descartar definitivamente
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Reevaluate Modal */}
         <Dialog open={reevalModalOpen} onOpenChange={setReevalModalOpen}>
