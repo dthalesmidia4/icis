@@ -224,6 +224,12 @@ REGRAS DE PREENCHIMENTO DOS CAMPOS EXTRAS (rejeite genericidade):
 - "por_que_e_ultra": explique por que essa ideia SUPERA uma demanda normal, citando qual critério da Definição de Demanda Ultra ela atende (ex.: "ângulo incomum + bastidor estratégico").
 - "evidencias_usadas": array com evidências CONCRETAS e nomeadas. PROIBIDO valores genéricos como ["estratégia", "anamnese"]. Use itens como: "Planejamento: período focado em relacionamento", "Anamnese Q12: dor de tempo do público", "Diretriz: pilar 'bastidores'", "Estratégia: posicionamento acolhedor".
 - "anti_repeticao": compare EXPLICITAMENTE com o Plano Normal listado abaixo. Diga em 1-2 frases o que esta Ultra faz que nenhum item normal faz (tema, gancho, estrutura, narrativa ou promessa).
+- "tendencia_usada": nome curto da tendência da seção "TENDÊNCIAS E OPORTUNIDADES DO NICHO" que inspirou esta Ultra. Use "" se nenhuma tendência do bloco foi realmente usada — não invente.
+- "insight_de_pesquisa": em 1 frase, o insight ESPECÍFICO que virou ideia (não repita o texto da tendência). PROIBIDO frase genérica como "vídeos curtos performam bem".
+- "fonte_ou_contexto": tipo de fonte/contexto observado na pesquisa (ex.: "discussões recentes no nicho", "reportagens do setor 2026"). Vazio se não aplicável.
+- "por_que_e_relevante_para_o_cliente": amarre a tendência a uma dor/objeção/posicionamento REAIS deste cliente. Se não conseguir amarrar, não use a tendência.
+
+REGRA DURA sobre tendência: PROIBIDO Ultra do tipo "vídeo curto porque vídeo curto está em alta". A tendência é matéria-prima estratégica, nunca conteúdo final. Se não conseguir transformar em ideia própria do cliente ancorada em evidência real, deixe "tendencia_usada" vazio e justifique a Ultra pelo raciocínio interno.
 
 Cada item DEVE ter EXATAMENTE este formato:
 {
@@ -240,7 +246,11 @@ Cada item DEVE ter EXATAMENTE este formato:
   "conceito_ultra": "descrição específica do ângulo criativo — nada de frase genérica",
   "por_que_e_ultra": "critério da Definição de Ultra atendido + comparação com uma normal equivalente",
   "evidencias_usadas": ["Planejamento: ...", "Anamnese Q?: ...", "Diretriz: ...", "Estratégia: ..."],
-  "anti_repeticao": "o que esta Ultra faz que nenhum item do Plano Normal faz — cite qual item e qual diferença"
+  "anti_repeticao": "o que esta Ultra faz que nenhum item do Plano Normal faz — cite qual item e qual diferença",
+  "tendencia_usada": "",
+  "insight_de_pesquisa": "",
+  "fonte_ou_contexto": "",
+  "por_que_e_relevante_para_o_cliente": ""
 }
 
 REGRA de type_key: "criativo_estatico" (post/story estático), "carrossel" (múltiplos slides), "video_captado" (exige gravação real), "video_gerado" (100% IA/motion/stock), null se incerto. NUNCA use tipos compostos.
@@ -248,10 +258,6 @@ REGRA de TÍTULO: PROIBIDO incluir o nome da empresa/marca ("${brand}"), abrevia
 
 Formato final: {"plan":[...${customQuantity} itens...],"summary":"resumo do racional Ultra"}`;
 
-    // OpenAI key
-    const { data: apiKeyRes, error: apiKeyErr } = await supabase.from("api_keys").select("key_value").eq("key_name", "OPENAI_API_KEY").single();
-    if (apiKeyErr || !apiKeyRes) throw new Error("OPENAI_API_KEY não configurada");
-    const apiKey = (apiKeyRes as any).key_value;
 
     const timeoutMs = 130000;
     const maxTokens = 14000;
