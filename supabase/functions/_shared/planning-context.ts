@@ -250,8 +250,23 @@ ${truncate(periodPlan.observations, 3500) || "(nenhuma)"}
 === EXIGÊNCIAS DE CONTEÚDO DO CLIENTE (PRIORIDADE MÁXIMA) ===
 ${contentReqs}
 
+=== DATAS E OPORTUNIDADES DO PERÍODO (JÁ RANQUEADAS — NÃO USE COMO LISTA CRUA) ===
+Regra: uma data só pode virar demanda se tiver relação clara com o cliente, ajudar
+o objetivo do período, combinar com a estratégia e gerar uma ideia MELHOR do que
+uma demanda sem data. Se a data for irrelevante, ignore. Não gere conteúdo apenas
+porque a data está no calendário. Datas de alta prioridade devem ser CONSIDERADAS
+e, se não usadas, você deve saber justificar internamente por quê.
+
+Datas de ALTA prioridade (considere seriamente):
+${highBlock}
+
+Datas de MÉDIA prioridade (usar só se fizer sentido claro para o cliente):
+${medBlock}
+
+Datas IGNORADAS / baixa prioridade (NÃO usar sem ângulo próprio muito forte):
+${lowBlock}
+
 === CONTEXTO ADAPTATIVO (últimos ciclos) ===
-Datas comemorativas do período: ${calendarStr}
 Padrões de sucesso: ${successStr}
 Evitar (padrões problemáticos): ${failStr}
 Títulos recentes (NÃO repetir): ${recentStr}`;
