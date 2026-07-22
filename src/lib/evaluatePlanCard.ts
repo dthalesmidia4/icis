@@ -230,6 +230,9 @@ export async function restoreRejectedCard(params: {
     .eq("id", params.periodId);
 
   if (error) throw error;
+}
+
+
 
 /**
  * Aplica um patch parcial em um item do plano (default_plan/ultra_plan),
