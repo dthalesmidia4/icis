@@ -7,11 +7,15 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Undo2, RefreshCw, Check, Loader2, ThumbsDown, ArrowUpRight } from "lucide-react";
+import { Undo2, RefreshCw, Check, Loader2, ThumbsDown, ArrowUpRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
 import { restoreRejectedCard } from "@/lib/evaluatePlanCard";
+import ContentRequirementsDiffModal from "@/components/ContentRequirementsDiffModal";
 import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 
 interface PeriodData {
@@ -72,6 +76,23 @@ const RejectedCards = () => {
   const [initialStatusId, setInitialStatusId] = useState<string | null>(null);
   const [approvingIndex, setApprovingIndex] = useState<number | null>(null);
   const [restoringIndex, setRestoringIndex] = useState<number | null>(null);
+  const [reevaluatingIndex, setReevaluatingIndex] = useState<number | null>(null);
+
+  // Prompt for missing reason
+  const [reasonPromptIndex, setReasonPromptIndex] = useState<number | null>(null);
+  const [reasonDraft, setReasonDraft] = useState("");
+
+  // Diff modal state
+  const [diffOpen, setDiffOpen] = useState(false);
+  const [diffSaving, setDiffSaving] = useState(false);
+  const [diffCurrent, setDiffCurrent] = useState("");
+  const [diffProposed, setDiffProposed] = useState("");
+  const [diffMode, setDiffMode] = useState<"meaningful" | "ambiguous">("meaningful");
+  const [diffReasoning, setDiffReasoning] = useState("");
+  const [pendingReeval, setPendingReeval] = useState<
+    | { rejectedIndex: number; periodId: string; source: "default" | "ultra"; updatedCard: any }
+    | null
+  >(null);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -200,6 +221,152 @@ const RejectedCards = () => {
     }
   };
 
+  // Move a rejected card back into the active plan, but with a revised body from AI.
+  const applyReevaluatedToActivePlan = async (
+    periodId: string,
+    rejectedIndex: number,
+    updatedCard: any,
+  ) => {
+    const { data: period, error } = await supabase
+      .from("period_plans")
+      .select("default_plan, ultra_plan, rejected_plan")
+      .eq("id", periodId)
+      .single();
+    if (error || !period) throw error ?? new Error("Período não encontrado");
+    const rejected = Array.isArray((period as any).rejected_plan) ? [...(period as any).rejected_plan] : [];
+    if (rejectedIndex < 0 || rejectedIndex >= rejected.length) {
+      throw new Error("Card reprovado não encontrado");
+    }
+    const [removed] = rejected.splice(rejectedIndex, 1);
+    const source: "default" | "ultra" = removed?._originalSource === "ultra" ? "ultra" : "default";
+    const targetPlan =
+      source === "ultra"
+        ? [...(Array.isArray(period.ultra_plan) ? period.ultra_plan : [])]
+        : [...(Array.isArray(period.default_plan) ? period.default_plan : [])];
+    const { _rejectedAt, _rejectReason, _originalSource, _reevaluatedAt, ...prevClean } = removed || {};
+    targetPlan.push({
+      ...prevClean,
+      ...updatedCard,
+      _reevaluatedAt: new Date().toISOString(),
+      _reevaluatedFromReject: true,
+    });
+    const planKey = source === "ultra" ? "ultra_plan" : "default_plan";
+    const { error: upErr } = await supabase
+      .from("period_plans")
+      .update({
+        [planKey]: targetPlan as unknown as null,
+        rejected_plan: rejected as unknown as null,
+      } as any)
+      .eq("id", periodId);
+    if (upErr) throw upErr;
+  };
+
+  const persistRequirements = async (finalRequirements: string) => {
+    if (!selectedClient) return;
+    const { error } = await supabase
+      .from("tenant_companies")
+      .update({ content_requirements: finalRequirements } as any)
+      .eq("id", selectedClient.id);
+    if (error) throw error;
+  };
+
+  const runReevaluate = async (index: number, reason: string) => {
+    const item = cards[index];
+    if (!item || !tenantId || !selectedClient) return;
+    setReevaluatingIndex(index);
+    try {
+      const { data, error } = await supabase.functions.invoke("reevaluate-card", {
+        body: {
+          card: item.raw,
+          reason: reason.trim(),
+          clientId: selectedClient.id,
+          tenantId,
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const payload = data as {
+        updatedCard: any;
+        learningStatus: "meaningful" | "none" | "ambiguous";
+        learningReasoning?: string;
+        requirementsProposal?: { current: string; proposed: string; additions: string };
+      };
+      if (!payload.updatedCard) throw new Error("A IA não retornou uma nova versão do card.");
+
+      const source: "default" | "ultra" = item._originalSource === "ultra" ? "ultra" : "default";
+      const proposal = payload.requirementsProposal || { current: "", proposed: "", additions: "" };
+      const status = payload.learningStatus;
+
+      if (status === "meaningful" || status === "ambiguous") {
+        setPendingReeval({
+          rejectedIndex: item._rejectedIndex,
+          periodId: item._periodId,
+          source,
+          updatedCard: payload.updatedCard,
+        });
+        setDiffReasoning(payload.learningReasoning || "");
+        setDiffCurrent(proposal.current || "");
+        setDiffProposed(status === "meaningful" ? proposal.proposed || proposal.current || "" : proposal.current || "");
+        setDiffMode(status);
+        setDiffOpen(true);
+      } else {
+        // no learning — finalize immediately
+        await applyReevaluatedToActivePlan(item._periodId, item._rejectedIndex, payload.updatedCard);
+        toast.success("Nova versão gerada e enviada para avaliação");
+        await fetchData();
+      }
+    } catch (err: any) {
+      console.error("[RejectedCards] reevaluate error:", err);
+      const raw = err?.context?.responseText || err?.message || "";
+      const msg = /OPENAI_API_KEY|api key/i.test(raw)
+        ? "Chave OpenAI ausente. Configure OPENAI_API_KEY em Dev → APIs."
+        : err?.message || "Erro ao reavaliar";
+      toast.error(msg);
+    } finally {
+      setReevaluatingIndex(null);
+    }
+  };
+
+  const handleReevaluateClick = (index: number) => {
+    const item = cards[index];
+    if (!item) return;
+    const existing = (item._rejectReason || "").trim();
+    if (existing) {
+      runReevaluate(index, existing);
+    } else {
+      setReasonDraft("");
+      setReasonPromptIndex(index);
+    }
+  };
+
+  const handleDiffConfirm = async (action: "apply" | "skip", finalRequirements?: string) => {
+    if (!pendingReeval) return;
+    setDiffSaving(true);
+    try {
+      if (action === "apply") {
+        await persistRequirements((finalRequirements ?? "").trim());
+      }
+      await applyReevaluatedToActivePlan(
+        pendingReeval.periodId,
+        pendingReeval.rejectedIndex,
+        pendingReeval.updatedCard,
+      );
+      toast.success(
+        action === "apply"
+          ? "Nova versão gerada e exigências atualizadas"
+          : "Nova versão gerada e enviada para avaliação",
+      );
+      setDiffOpen(false);
+      setPendingReeval(null);
+      await fetchData();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || "Erro ao finalizar reavaliação");
+    } finally {
+      setDiffSaving(false);
+    }
+  };
+
   const triggerAutoGenerate = (demandTitle: string, demandType: string | null, demandId: string) => {
     const tipo = (demandType || "").toLowerCase();
     const isStaticPost = tipo.includes("post");
@@ -325,7 +492,7 @@ const RejectedCards = () => {
             const channel = pick(c.canal, c.channel);
             const date = pick(c.data_sugerida, c.suggested_date, c.date);
             const isUltra = item._originalSource === "ultra";
-            const busy = approvingIndex === idx || restoringIndex === idx;
+            const busy = approvingIndex === idx || restoringIndex === idx || reevaluatingIndex === idx;
             return (
               <Card
                 key={idx}
@@ -377,6 +544,20 @@ const RejectedCards = () => {
                   <div className="flex flex-wrap gap-2 pt-1 border-t border-border/40">
                     <Button
                       size="sm"
+                      onClick={() => handleReevaluateClick(idx)}
+                      disabled={busy}
+                      className="gap-1.5"
+                    >
+                      {reevaluatingIndex === idx ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-3.5 h-3.5" />
+                      )}
+                      Reavaliar com IA
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() => handleRestoreCard(idx)}
                       disabled={busy}
                       className="gap-1.5"
@@ -418,6 +599,81 @@ const RejectedCards = () => {
           })}
         </div>
       )}
+
+      {/* Prompt to collect a reason when the archived card doesn't have one */}
+      <Dialog
+        open={reasonPromptIndex !== null}
+        onOpenChange={(o) => {
+          if (!o && reevaluatingIndex === null) setReasonPromptIndex(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              Reavaliar com IA
+            </DialogTitle>
+            <DialogDescription>
+              Este card não tem um motivo de reprovação registrado. Descreva o que você quer
+              que a IA corrija — o sistema também aprende com essa observação para as próximas
+              gerações.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label>Motivo / feedback</Label>
+            <Textarea
+              value={reasonDraft}
+              onChange={(e) => setReasonDraft(e.target.value)}
+              rows={4}
+              placeholder="Ex: fugiu do tom da marca, ideia repetida, prazo inviável…"
+              disabled={reevaluatingIndex !== null}
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setReasonPromptIndex(null)}
+              disabled={reevaluatingIndex !== null}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!reasonDraft.trim() || reasonPromptIndex === null) return;
+                const idx = reasonPromptIndex;
+                const reason = reasonDraft.trim();
+                setReasonPromptIndex(null);
+                await runReevaluate(idx, reason);
+              }}
+              disabled={!reasonDraft.trim() || reevaluatingIndex !== null}
+              className="gap-1.5"
+            >
+              {reevaluatingIndex !== null ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              Gerar nova versão
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ContentRequirementsDiffModal
+        open={diffOpen}
+        onOpenChange={(o) => {
+          if (!o && !diffSaving) {
+            setDiffOpen(false);
+            setPendingReeval(null);
+          }
+        }}
+        current={diffCurrent}
+        proposed={diffProposed}
+        mode={diffMode}
+        reasoning={diffReasoning}
+        loading={diffSaving}
+        onConfirm={handleDiffConfirm}
+      />
     </div>
   );
 };
