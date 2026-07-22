@@ -7,14 +7,15 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Undo2, RefreshCw, Check, Loader2, ThumbsDown, ArrowUpRight, Sparkles } from "lucide-react";
+import { RefreshCw, Check, Loader2, ThumbsDown, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
-import { restoreRejectedCard } from "@/lib/evaluatePlanCard";
+import { bulkRestoreNonDiscarded } from "@/lib/evaluatePlanCard";
+
 import ContentRequirementsDiffModal from "@/components/ContentRequirementsDiffModal";
 import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 
