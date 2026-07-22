@@ -122,11 +122,18 @@ Deno.serve(async (req) => {
           const idx = slideNumber - 1;
           if (idx >= 0 && idx < allSlides.length) return [allSlides[idx]];
           if (replaceSlide) {
-            const fallbackTitle = demand.title?.trim() || `Slide ${slideNumber}`;
-            const fallbackBody = [stripHtml(demand.description), stripHtml(demand.objective),
-              stripHtml(demand.instructions), stripHtml(demand.observations)].find(Boolean) || "";
+            const descText = stripHtml(demand.description);
+            const objText = demand.objective || "";
+            const instrText = stripHtml(demand.instructions);
+            const fallbackTitle =
+              (descText && descText.split(/[\n\.\!\?]/)[0]?.trim().substring(0, 80)) ||
+              (objText && objText.substring(0, 80)) ||
+              (instrText && instrText.substring(0, 80)) ||
+              `Slide ${slideNumber}`;
+            const fallbackBody = [descText, objText, instrText, stripHtml(demand.observations)].find(Boolean) || "";
             return [{ slideNumber, title: fallbackTitle, body: fallbackBody }];
           }
+
           return [];
         })()
       : allSlides;
