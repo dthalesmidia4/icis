@@ -12,6 +12,13 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildPlanningContext, summarizeDefaultPlanForUltra } from "../_shared/planning-context.ts";
 import { requireTenantAndPlanAccess } from "../_shared/require-tenant-auth.ts";
+import {
+  researchUltraTrends,
+  formatResearchForPrompt,
+  type UltraResearchResult,
+} from "../_shared/ultra-trend-research.ts";
+
+const RESEARCH_TTL_MS = 24 * 60 * 60 * 1000;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
