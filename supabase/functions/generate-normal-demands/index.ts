@@ -109,7 +109,15 @@ Deno.serve(async (req) => {
 
     const normalDefinition = `# DEFINIÇÃO DE DEMANDA NORMAL
 Demanda Normal é uma demanda estratégica, consistente, executável e alinhada ao planejamento do período. Serve para manter presença, educação, autoridade, relacionamento, posicionamento ou conversão quando permitido. Deve ser bem feita, mas NÃO precisa ser uma campanha especial ou uma ideia de alto impacto.
-Regras: obedecer linha de produção; obedecer canal prioritário; obedecer restrições; evitar repetição; ser clara para a equipe produzir; preservar tom de voz e estratégia definidos nas Diretrizes; não exagerar criatividade se isso fugir do planejamento.`;
+Regras: obedecer linha de produção; obedecer canal prioritário; obedecer restrições; evitar repetição; ser clara para a equipe produzir; preservar tom de voz e estratégia definidos nas Diretrizes; não exagerar criatividade se isso fugir do planejamento.
+
+# REGRAS DE USO DO CALENDÁRIO (OBRIGATÓRIAS)
+- A seção "DATAS E OPORTUNIDADES DO PERÍODO" já vem ranqueada em ALTA / MÉDIA / IGNORADAS.
+- Datas de ALTA prioridade devem ser CONSIDERADAS. Se houver uma data forte dentro do período (ex.: Dia dos Pais, Mães, Natal, Black Friday), ela deve virar pelo menos 1 demanda quando fizer sentido para o cliente — pode ser institucional, relacionamento, educativa ou comercial, respeitando a estratégia (não force venda se o período for educativo).
+- Datas de MÉDIA prioridade só entram se houver conexão real com o cliente/segmento/pilar.
+- Datas IGNORADAS estão PROIBIDAS de virar demanda comemorativa.
+- Nunca use data só porque existe. Se a data não somar ao objetivo do período, prefira uma demanda sem data.
+- Não transforme o plano inteiro em datas: mantenha equilíbrio com conteúdo de estratégia, educação, relacionamento, autoridade e posicionamento.`;
 
     const PROMPT_LIMIT = 8000;
     const safeTruncate = (label: string, content: string, limit = PROMPT_LIMIT) => {
