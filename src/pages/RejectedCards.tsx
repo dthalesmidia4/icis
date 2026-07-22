@@ -42,6 +42,18 @@ interface RejectedCardItem {
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
+const stripClientPrefix = (title: string, clientName?: string) => {
+  if (!title || !clientName) return title;
+  const patterns = [
+    new RegExp(`^\\s*${clientName.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}\\s*[–-—:]\\s*`, "i"),
+  ];
+  for (const re of patterns) {
+    if (re.test(title)) return title.replace(re, "").trim();
+  }
+  return title;
+};
+
+
 const pick = (...vals: any[]): string => {
   for (const v of vals) {
     if (v === null || v === undefined) continue;
