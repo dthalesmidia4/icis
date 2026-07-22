@@ -1,89 +1,77 @@
-# Redesenho do cabeçalho do card — barra integrada e leve
+# Refinamento do cabeçalho do TaskCard
 
-## Diagnóstico dos prints
+## 1. Badge do cliente sem preenchimento
 
-Print 1 (estado normal): a barra tem 4 caixas com borda pesada (Responsável, Tipo, Datas e Horários, Objetivo) que competem visualmente com o título e não trazem informação — só rótulos. Datas não mostram nada até o usuário clicar.
+Hoje o nome da empresa vem em `Badge variant="secondary"` (fundo cinza-azulado). Compete com o título. Trocar por um chip "ghost":
 
-Print 2 (após clicar em Datas e Horários): expande um bloco enorme com 3 "cards" de calendário (Início de Produção, Data de Entrega, Data de Publicação), cada um com seu próprio card, título repetido, botão de fechar, campo de data + campo de hora separados, e uma sub-seção "DATAS ADICIONAIS". Isso quebra o fluxo, joga o conteúdo (editor) para baixo da dobra, e não é integração — é uma segunda tela dentro do card.
+- Remover background: `border-transparent bg-transparent px-0`.
+- Cor do texto: `text-primary` (usa nosso azul semântico) — no dark mode, `dark:text-foreground` (branco/quase branco).
+- Manter truncate/max-width para não empurrar o título.
+- Sem borda, sem sombra. Só o nome, com peso semibold.
 
-Problemas concretos identificados:
-- Rótulos redundantes em caixa (Responsável / Tipo / Datas / Objetivo) desperdiçam largura sem mostrar o valor quando fechado.
-- Expandir Datas empurra Conteúdo/Observações/Descrição/Anexos para fora da tela.
-- Data e hora em campos separados — dois cliques para o que deveria ser um.
-- Cada data ocupa um cartão inteiro só para exibir uma linha de informação.
-- Nenhum atalho de teclado (Enter para salvar/fechar).
-- "Datas adicionais" fica escondido dentro de outro bloco pesado.
-- Objetivo também expande em faixa full-width, deslocando tudo abaixo.
+## 2. Título um pouco menor
 
-## Solução proposta
+Título atual: `text-3xl md:text-4xl`. Diminuir para `text-2xl md:text-3xl` (mantém hierarquia mas devolve espaço para os controles à direita).
 
-Substituir a barra de 4 caixas + painéis full-width por **uma única barra fina, sem bordas em caixa, com valores sempre visíveis e edição em popover local**.
+## 3. Barra de controles reorganizada — tudo à esquerda, sem espaço vazio no meio
 
-### 1. Barra de controles enxuta
+Situação atual: Responsável e Tipo à esquerda, `flex-1` empurrando Datas + Objetivo para a direita — sobra um vão no meio.
 
-Layout: uma linha só (com wrap em telas estreitas), fundo `bg-muted/30`, sem bordas por campo. Cada controle é um "chip" clicável que já mostra o valor atual.
+Nova ordem, tudo alinhado à esquerda com separadores discretos:
 
-```text
-[👤 Lúcia Cotrim ▾]  [🏷 Criativo estático ▾]   •   [📅 23/02 09:00 → 23/02 09:00 ▾]  [🎯 Objetivo ▾]
+```
+[👤 Lúcia Cotrim ▾]  ·  [🏷 Criativo estático ▾]   |   [📅 Início 23/02 09:00 ▾]  [📤 Pub 23/02 09:00 ▾]   |   [🎯]
 ```
 
-- **Responsável / Tipo**: viram chips ghost com o valor inline (sem o rótulo "RESPONSÁVEL" em uppercase). Ícone + valor + chevron. Placeholder discreto quando vazio ("Sem responsável", "Definir tipo").
-- **Datas**: um único chip que mostra um resumo compacto — `Início 23/02 09:00 · Pub 23/02 09:00` (só as datas preenchidas, formato curto). Sem data preenchida vira `+ Datas`.
-- **Objetivo**: chip com preview truncado (~40 chars) do texto atual, ou `+ Objetivo` se vazio.
+Mudanças concretas:
 
-Nenhum controle abre painel full-width. Todos abrem em popover ancorado ao próprio chip.
+- **Remover** o `<div className="flex-1" />` que criava o vão.
+- **Separar Datas em dois chips independentes** (afetam mecanismos diferentes):
+  - Chip "Início/Entrega" (ícone `Calendar`, âmbar) — abre popover com Início de Produção + Data de Entrega + Datas adicionais.
+  - Chip "Publicação" (ícone `Send` ou `CalendarClock`, azul primário) — abre popover só com Data de Publicação + hora.
+  - Cada chip mostra o valor resumido inline, ou `+ Início` / `+ Publicação` quando vazio.
+  - Enter em qualquer input continua salvando e fechando (comportamento já implementado no popover atual, será replicado nos dois novos).
+- **Objetivo (Estratégia da empresa)**: reduzir a só o ícone `Target` como chip clicável. `aria-label="Estratégia da empresa"` + `title="Estratégia da empresa"` mostra o texto no hover. Quando o campo tem conteúdo, o ícone ganha um dot indicador (`bg-primary`) no canto para sinalizar "há conteúdo". Abre o mesmo popover atual com o `BlockEditor`.
+- Separadores: bullet `·` fino entre Responsável e Tipo; barra vertical `|` (`h-4 w-px bg-border`) entre grupos lógicos (identidade | datas | estratégia).
 
-### 2. Popover de Datas — integrado e denso
+## 4. Etapa integrada aos botões Voltar / Prosseguir
 
-Um único Popover (largura ~380px) com as três datas empilhadas em linhas compactas, no estilo do editor rápido da visão geral:
+Situação atual: uma linha inteira só para mostrar o chip "Etapa: Planejar" + chip "Período". E os botões `Voltar demanda` / `Prosseguir` no topo direito só mostram o rótulo genérico.
 
-```text
-Início de Produção     [23/02/2026]  [09:00]   ×
-Data de Entrega        [+ adicionar]
-Data de Publicação     [23/02/2026]  [09:00]   ×
-                       + data adicional
+Nova composição na linha superior direita (substitui os dois botões atuais + o chip "Etapa" da linha 2):
 
-Datas adicionais (2)
-  · 25/02 09:00  ×
-  · 27/02 09:00  ×
+```
+[ ← Revisar ]  [ Planejar ▾ ]  [ Criar arte → ]
 ```
 
-- Data + hora na **mesma linha**, em campos inline pequenos (não cards com título e botão fechar próprio).
-- "×" só remove aquela data; sem cartão-envelope.
-- "Datas adicionais" mora dentro do mesmo popover, como sub-lista, não como bloco à parte.
-- **Enter em qualquer campo salva e fecha o popover.** Esc fecha sem salvar mudanças pendentes.
-- Salvamento por campo continua acontecendo no blur (mantém o comportamento atual), mas Enter força o salvamento imediato + fechamento.
-- Ao fechar, o chip da barra atualiza o resumo automaticamente.
+- **Botão Voltar**: mostra a seta e o **nome da etapa anterior** do fluxo (ex.: `← Revisar`). Se não houver anterior, o botão fica oculto (como hoje).
+- **Chip central "Etapa atual"**: mostra o nome da etapa atual (ex.: `Planejar`) com um chevron `▾`. Clicar abre um popover com a lista de todas as etapas do pipeline daquele `demand_type_key`, destacando a atual e permitindo pular para qualquer outra. Selecionar uma etapa dispara o mesmo mecanismo de `handleProceed`/`handleRegress` estendido — ou uma variante que aceita "ir para função X" (chama a lógica existente de `pickAssigneeForFunction` + update em `current_function_key`, reaproveitando o padrão de `proceedDemand.ts`).
+- **Botão Prosseguir**: mostra a seta e o **nome da próxima etapa** (ex.: `Criar arte →`). Mantém as variantes especiais atuais:
+  - Última função → `Entregar ✓`
+  - `publicar` → `Agendar Publicação`
+  - `enviar_cliente` → `Enviar ao cliente →`
+- Peso visual: os três botões ficam `variant="ghost"` com padding leve; o central usa `bg-muted/40` para indicar que é o "estado atual"; setas usam `text-muted-foreground` e ganham `text-primary` no hover.
+- Fechar (`X`) permanece à direita, separado por um `flex-1` para empurrar apenas ele.
 
-### 3. Popover de Objetivo
+Para descobrir prev/next names sem duplicar lógica: adicionar um helper leve em `src/lib/flowFunctions.ts` (`getPipelineSequence(demandTypeKey)`) que carrega `flow_functions` uma vez e devolve o array — o TaskCard usa isso para renderizar os nomes; o clique continua chamando `proceedDemand` / `regressDemand` já existentes.
 
-Objetivo também deixa de expandir full-width. Vira Popover (largura ~520px) contendo o `BlockEditor` existente. Fechar o popover dispara o mesmo `handleFieldSave('objective', …)` do blur atual. Nenhum efeito no layout do card enquanto fechado.
+## 5. Linha "Etapa + Período" enxugada
 
-### 4. Ajustes visuais gerais da barra
+Como Etapa migrou para os botões, a segunda linha do header fica só com o chip **Período** (quando aplicável) e o select de cliente (no modo draft). Isso reduz o header em uma linha inteira.
 
-- Remover as bordas individuais por campo; a barra inteira ganha um único `rounded-lg bg-muted/30` sem borda, com padding menor (`px-3 py-1.5`).
-- Substituir separadores verticais por espaço + um único bullet `·` entre grupos lógicos (identidade | datas | objetivo).
-- Ícones em `text-muted-foreground` (não primário) para reduzir peso; ficam primários só em hover/aberto.
-- Chevron menor (`h-3 w-3`).
-- Em mobile: os chips quebram naturalmente com `flex-wrap`, sem separadores.
-
-### 5. Interações de teclado
-
-- Enter em qualquer input dentro dos popovers de Datas → salva o campo em foco + fecha popover.
-- Esc → fecha popover (mantém última versão salva).
-- Tab navega naturalmente entre os campos do popover de Datas.
-
-## Escopo e arquivos afetados
+## Arquivos afetados
 
 - `src/components/TaskCard.tsx`:
-  - Linhas ~1435–1519: reescrever a barra de controles como chips com valor inline.
-  - Linhas ~1581–1900 (aprox.): remover o painel expandido de Datas (Início, Entrega, Publicação + Datas adicionais) e reagrupá-lo dentro de um novo `<Popover>` disparado pelo chip de datas. Reutilizar os handlers de save existentes.
-  - Linhas ~1525–1538: mover o painel expandido de Objetivo para dentro de um `<Popover>` idem.
-  - Adicionar handler `onKeyDown` (Enter) nos inputs de data/hora do novo popover para forçar blur+save+close.
-- Sem mudanças em edge functions, banco, ou lógica de negócio. Nenhum handler de save é alterado — só a embalagem visual e o gatilho de fechamento.
+  - Linhas ~1074–1077: refazer badge do cliente (ghost, azul/branco).
+  - Linhas ~1087–1096: reduzir tamanho do título.
+  - Linhas ~1148–1210: substituir botões Voltar/Prosseguir pela composição `[← prev] [etapa atual ▾] [next →]`.
+  - Linhas ~1328–1356: remover chip Etapa da linha 2 (movido para os botões).
+  - Linhas ~1437–1900: reordenar barra de controles — remover `flex-1` do meio, separar chip de Datas em dois (Início/Entrega e Publicação), reduzir Objetivo a ícone com tooltip + dot indicador.
+- `src/lib/flowFunctions.ts`: adicionar `getPipelineSequence(demandTypeKey)` helper (ou expor a partir do que `proceedDemand.ts` já usa internamente).
+- `src/lib/proceedDemand.ts`: opcionalmente exportar/expor uma função `jumpToFunction(demandId, functionKey)` para o novo dropdown de etapa (reaproveitando `pickAssigneeForFunction` + update). Se preferir menor risco: primeiro passo pode ser dropdown read-only mostrando as etapas, sem permitir pular — decidir na implementação.
 
 ## Fora do escopo
 
-- Não mexer nas abas Conteúdo/Observações/Descrição/Anexos.
-- Não alterar `DailyCardSection` (que já é um bloco à parte quando Card Diário está ativo).
-- Não mexer no cabeçalho superior (título, badge do cliente, breadcrumbs, botões Voltar/Prosseguir/×).
+- Nada de lógica de negócio nova nem mudança em edge functions, RLS, ou schema.
+- Comportamento de save (blur, Enter) dos popovers permanece.
+- Nenhuma mudança no body do card (abas Conteúdo/Anexos/etc).
