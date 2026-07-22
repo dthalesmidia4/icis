@@ -102,10 +102,18 @@ Deno.serve(async (req) => {
       if (fromInstructions.length > allSlides.length) allSlides = fromInstructions;
     }
     if (allSlides.length === 0) {
-      const fallbackText = demand.title || "Post";
-      const fallbackBody = stripHtml(demand.description) || stripHtml(demand.instructions) || demand.objective || "";
+      const descText = stripHtml(demand.description);
+      const objText = demand.objective || "";
+      const instrText = stripHtml(demand.instructions);
+      const fallbackText =
+        (descText && descText.split(/[\n\.\!\?]/)[0]?.trim().substring(0, 80)) ||
+        (objText && objText.substring(0, 80)) ||
+        (instrText && instrText.substring(0, 80)) ||
+        "";
+      const fallbackBody = descText || instrText || objText || "";
       allSlides = [{ slideNumber: 1, title: fallbackText, body: fallbackBody }];
     }
+
 
     const slidesToGenerate = slideNumber
       ? (() => {
@@ -114,11 +122,18 @@ Deno.serve(async (req) => {
           const idx = slideNumber - 1;
           if (idx >= 0 && idx < allSlides.length) return [allSlides[idx]];
           if (replaceSlide) {
-            const fallbackTitle = demand.title?.trim() || `Slide ${slideNumber}`;
-            const fallbackBody = [stripHtml(demand.description), stripHtml(demand.objective),
-              stripHtml(demand.instructions), stripHtml(demand.observations)].find(Boolean) || "";
+            const descText = stripHtml(demand.description);
+            const objText = demand.objective || "";
+            const instrText = stripHtml(demand.instructions);
+            const fallbackTitle =
+              (descText && descText.split(/[\n\.\!\?]/)[0]?.trim().substring(0, 80)) ||
+              (objText && objText.substring(0, 80)) ||
+              (instrText && instrText.substring(0, 80)) ||
+              `Slide ${slideNumber}`;
+            const fallbackBody = [descText, objText, instrText, stripHtml(demand.observations)].find(Boolean) || "";
             return [{ slideNumber, title: fallbackTitle, body: fallbackBody }];
           }
+
           return [];
         })()
       : allSlides;
@@ -148,14 +163,16 @@ Deno.serve(async (req) => {
             `Texto principal: "${slide.title}"`,
             slide.body ? `Texto complementar: "${slide.body}"` : "",
             "",
-            demand.title ? `TÍTULO DO POST (pode aparecer como texto na imagem):\n"${demand.title}"` : "",
-            demand.objective ? `OBJETIVO DO POST (contexto temático para o design):\n${demand.objective}` : "",
+            demand.title ? `TÍTULO INTERNO DO CARD (apenas nomenclatura interna do sistema — PROIBIDO renderizar este texto na imagem, nem parcial nem parafraseado):\n"${demand.title}"` : "",
+            demand.objective ? `OBJETIVO DO POST (contexto temático para o design — NÃO renderizar como texto na imagem):\n${demand.objective}` : "",
             demand.description ? `CONTEXTO TEMÁTICO (NÃO inclua este texto na imagem — é a legenda para a descrição da rede social):\n${stripHtml(demand.description)}` : "",
             demand.instructions ? `INSTRUÇÕES DE PRODUÇÃO VISUAL (siga estas diretrizes para o design):\n${stripHtml(demand.instructions)}` : "",
             "",
             `REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO:`,
+            `- O "TÍTULO INTERNO DO CARD" é identificador interno da tarefa. NUNCA renderize esse texto na imagem, nem parcialmente, nem parafraseado.`,
             `- O campo "CONTEXTO TEMÁTICO" contém a LEGENDA que será publicada na DESCRIÇÃO do post. Este texto NÃO deve aparecer na imagem.`,
-            `- Apenas o TÍTULO e textos curtos de gancho/CTA devem aparecer como tipografia na imagem.`,
+            `- Apenas o "Texto principal" do slide (gancho curto/CTA definido acima) deve aparecer como tipografia na imagem.`,
+
           ].filter(Boolean).join("\n");
 
       const imagePrompt = buildStaticPostPrompt({

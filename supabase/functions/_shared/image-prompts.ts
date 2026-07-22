@@ -19,7 +19,7 @@ const STATIC_POST_STYLE_BLOCK = `ESTILO VISUAL OBRIGATÓRIO:
 - Contraste alto entre texto e fundo para legibilidade perfeita
 - Elementos gráficos decorativos sutis que enriquecem o layout
 - Cores vibrantes e paleta coerente com a identidade visual da marca
-- Apenas o TÍTULO do post deve aparecer legível e bem posicionado na imagem
+- Apenas o gancho/CTA curto definido no bloco de CONTEÚDO deve aparecer legível na imagem — nada mais (não renderize títulos internos, legendas ou textos auxiliares).
 
 CENÁRIO E AMBIENTAÇÃO (OBRIGATÓRIO):
 - PROIBIDO fundo chapado, gradiente puro ou apenas shapes geométricos abstratos como cenário.
