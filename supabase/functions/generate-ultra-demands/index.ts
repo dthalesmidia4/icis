@@ -12,6 +12,13 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { buildPlanningContext, summarizeDefaultPlanForUltra } from "../_shared/planning-context.ts";
 import { requireTenantAndPlanAccess } from "../_shared/require-tenant-auth.ts";
+import {
+  researchUltraTrends,
+  formatResearchForPrompt,
+  type UltraResearchResult,
+} from "../_shared/ultra-trend-research.ts";
+
+const RESEARCH_TTL_MS = 24 * 60 * 60 * 1000;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -147,6 +154,66 @@ ${antiRepetitionBlock}`;
     promptSections.push(`# REGRAS TÁTICAS DE GERAÇÃO (aplicam-se também à Ultra)\n${safeTruncate("generate_demandas_prompt", demandasPrompt)}`);
     promptSections.push(antiRepetitionSection);
 
+    // === OpenAI key (needed for research + generation) ===
+    const { data: apiKeyRes, error: apiKeyErr } = await supabase.from("api_keys").select("key_value").eq("key_name", "OPENAI_API_KEY").single();
+    if (apiKeyErr || !apiKeyRes) throw new Error("OPENAI_API_KEY não configurada");
+    const apiKey = (apiKeyRes as any).key_value as string;
+
+    // === Ultra trend research (with 24h cache in form_draft.ultra_research) ===
+    const formDraft: Record<string, any> = (periodPlan.form_draft && typeof periodPlan.form_draft === "object")
+      ? { ...(periodPlan.form_draft as Record<string, any>) }
+      : {};
+    const cached = formDraft.ultra_research as UltraResearchResult | undefined;
+    const cachedFresh = cached?.generated_at
+      && (Date.now() - new Date(cached.generated_at).getTime()) < RESEARCH_TTL_MS;
+    const refreshResearch = body.refreshResearch === true;
+
+    let research: UltraResearchResult;
+    if (cached && cachedFresh && !refreshResearch) {
+      console.log(`[ultra] reusing cached research (mode=${cached.research_mode}, trends=${cached.relevant_trends?.length || 0})`);
+      research = cached;
+    } else {
+      // Top calendar events (rank kept high by adaptive layer)
+      const highDates = Array.isArray(ctx.adaptive?.calendar_events)
+        ? (ctx.adaptive.calendar_events as any[])
+            .filter((e: any) => (Number(e.priority) || 0) >= 70)
+            .slice(0, 4)
+            .map((e: any) => ({ date: String(e.date), name: String(e.name || "") }))
+        : [];
+      // Anamnese snippets from question_session answers
+      const anamneseSnippets: string[] = [];
+      if (ctx.questionSession) {
+        const answers = ((ctx.questionSession as any).answers || {}) as Record<string, any>;
+        for (const [k, v] of Object.entries(answers)) {
+          const s = String(v || "").trim();
+          if (s && s.length > 40) anamneseSnippets.push(s);
+          if (anamneseSnippets.length >= 4) break;
+        }
+      }
+      research = await researchUltraTrends({
+        openaiApiKey: apiKey,
+        company,
+        periodPlan,
+        strategySnippet: ctx.strategyText?.slice(0, 800) || "",
+        topAnamneseSnippets: anamneseSnippets,
+        highPriorityDates: highDates,
+      });
+      console.log(`[ultra] research mode=${research.research_mode} trends=${research.relevant_trends.length}${research.error ? ` err=${research.error}` : ""}`);
+
+      // MERGE-safe cache write — never clobber existing form_draft keys
+      formDraft.ultra_research = research;
+      try {
+        await (supabase as any).from("period_plans")
+          .update({ form_draft: formDraft })
+          .eq("id", periodPlanId);
+      } catch (e) {
+        console.warn("[ultra] failed to persist research cache:", e);
+      }
+    }
+
+    // Inject research section into system prompt (before anti-repetition already pushed)
+    promptSections.push(formatResearchForPrompt(research));
+
     const systemPrompt = promptSections.join("\n\n---\n\n");
 
     const jsonInstruction = `\n\nResponda APENAS JSON válido, sem markdown. Canal OBRIGATÓRIO em toda demanda: "${periodPlan.priority_channel}".
@@ -157,6 +224,12 @@ REGRAS DE PREENCHIMENTO DOS CAMPOS EXTRAS (rejeite genericidade):
 - "por_que_e_ultra": explique por que essa ideia SUPERA uma demanda normal, citando qual critério da Definição de Demanda Ultra ela atende (ex.: "ângulo incomum + bastidor estratégico").
 - "evidencias_usadas": array com evidências CONCRETAS e nomeadas. PROIBIDO valores genéricos como ["estratégia", "anamnese"]. Use itens como: "Planejamento: período focado em relacionamento", "Anamnese Q12: dor de tempo do público", "Diretriz: pilar 'bastidores'", "Estratégia: posicionamento acolhedor".
 - "anti_repeticao": compare EXPLICITAMENTE com o Plano Normal listado abaixo. Diga em 1-2 frases o que esta Ultra faz que nenhum item normal faz (tema, gancho, estrutura, narrativa ou promessa).
+- "tendencia_usada": nome curto da tendência da seção "TENDÊNCIAS E OPORTUNIDADES DO NICHO" que inspirou esta Ultra. Use "" se nenhuma tendência do bloco foi realmente usada — não invente.
+- "insight_de_pesquisa": em 1 frase, o insight ESPECÍFICO que virou ideia (não repita o texto da tendência). PROIBIDO frase genérica como "vídeos curtos performam bem".
+- "fonte_ou_contexto": tipo de fonte/contexto observado na pesquisa (ex.: "discussões recentes no nicho", "reportagens do setor 2026"). Vazio se não aplicável.
+- "por_que_e_relevante_para_o_cliente": amarre a tendência a uma dor/objeção/posicionamento REAIS deste cliente. Se não conseguir amarrar, não use a tendência.
+
+REGRA DURA sobre tendência: PROIBIDO Ultra do tipo "vídeo curto porque vídeo curto está em alta". A tendência é matéria-prima estratégica, nunca conteúdo final. Se não conseguir transformar em ideia própria do cliente ancorada em evidência real, deixe "tendencia_usada" vazio e justifique a Ultra pelo raciocínio interno.
 
 Cada item DEVE ter EXATAMENTE este formato:
 {
@@ -173,7 +246,11 @@ Cada item DEVE ter EXATAMENTE este formato:
   "conceito_ultra": "descrição específica do ângulo criativo — nada de frase genérica",
   "por_que_e_ultra": "critério da Definição de Ultra atendido + comparação com uma normal equivalente",
   "evidencias_usadas": ["Planejamento: ...", "Anamnese Q?: ...", "Diretriz: ...", "Estratégia: ..."],
-  "anti_repeticao": "o que esta Ultra faz que nenhum item do Plano Normal faz — cite qual item e qual diferença"
+  "anti_repeticao": "o que esta Ultra faz que nenhum item do Plano Normal faz — cite qual item e qual diferença",
+  "tendencia_usada": "",
+  "insight_de_pesquisa": "",
+  "fonte_ou_contexto": "",
+  "por_que_e_relevante_para_o_cliente": ""
 }
 
 REGRA de type_key: "criativo_estatico" (post/story estático), "carrossel" (múltiplos slides), "video_captado" (exige gravação real), "video_gerado" (100% IA/motion/stock), null se incerto. NUNCA use tipos compostos.
@@ -181,10 +258,6 @@ REGRA de TÍTULO: PROIBIDO incluir o nome da empresa/marca ("${brand}"), abrevia
 
 Formato final: {"plan":[...${customQuantity} itens...],"summary":"resumo do racional Ultra"}`;
 
-    // OpenAI key
-    const { data: apiKeyRes, error: apiKeyErr } = await supabase.from("api_keys").select("key_value").eq("key_name", "OPENAI_API_KEY").single();
-    if (apiKeyErr || !apiKeyRes) throw new Error("OPENAI_API_KEY não configurada");
-    const apiKey = (apiKeyRes as any).key_value;
 
     const timeoutMs = 130000;
     const maxTokens = 14000;
@@ -289,6 +362,10 @@ Formato final: {"plan":[...${customQuantity} itens...],"summary":"resumo do raci
         por_que_e_ultra: d.por_que_e_ultra ?? "",
         evidencias_usadas: Array.isArray(d.evidencias_usadas) ? d.evidencias_usadas : [],
         anti_repeticao: d.anti_repeticao ?? "",
+        tendencia_usada: d.tendencia_usada ?? "",
+        insight_de_pesquisa: d.insight_de_pesquisa ?? "",
+        fonte_ou_contexto: d.fonte_ou_contexto ?? "",
+        por_que_e_relevante_para_o_cliente: d.por_que_e_relevante_para_o_cliente ?? "",
       };
     });
     const summary = parsed.summary || "";
@@ -317,6 +394,7 @@ Formato final: {"plan":[...${customQuantity} itens...],"summary":"resumo do raci
     console.log("=== GENERATE-ULTRA-DEMANDS OK ===", ultraDemands.length);
     return new Response(JSON.stringify({
       success: true, planType: "ultra", plan: ultraDemands, summary,
+      research: { mode: research.research_mode, trend_count: research.relevant_trends.length },
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("=== GENERATE-ULTRA-DEMANDS ERROR ===", error);
