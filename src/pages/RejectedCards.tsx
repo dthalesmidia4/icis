@@ -599,6 +599,81 @@ const RejectedCards = () => {
           })}
         </div>
       )}
+
+      {/* Prompt to collect a reason when the archived card doesn't have one */}
+      <Dialog
+        open={reasonPromptIndex !== null}
+        onOpenChange={(o) => {
+          if (!o && reevaluatingIndex === null) setReasonPromptIndex(null);
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              Reavaliar com IA
+            </DialogTitle>
+            <DialogDescription>
+              Este card não tem um motivo de reprovação registrado. Descreva o que você quer
+              que a IA corrija — o sistema também aprende com essa observação para as próximas
+              gerações.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label>Motivo / feedback</Label>
+            <Textarea
+              value={reasonDraft}
+              onChange={(e) => setReasonDraft(e.target.value)}
+              rows={4}
+              placeholder="Ex: fugiu do tom da marca, ideia repetida, prazo inviável…"
+              disabled={reevaluatingIndex !== null}
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setReasonPromptIndex(null)}
+              disabled={reevaluatingIndex !== null}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!reasonDraft.trim() || reasonPromptIndex === null) return;
+                const idx = reasonPromptIndex;
+                const reason = reasonDraft.trim();
+                setReasonPromptIndex(null);
+                await runReevaluate(idx, reason);
+              }}
+              disabled={!reasonDraft.trim() || reevaluatingIndex !== null}
+              className="gap-1.5"
+            >
+              {reevaluatingIndex !== null ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              Gerar nova versão
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ContentRequirementsDiffModal
+        open={diffOpen}
+        onOpenChange={(o) => {
+          if (!o && !diffSaving) {
+            setDiffOpen(false);
+            setPendingReeval(null);
+          }
+        }}
+        current={diffCurrent}
+        proposed={diffProposed}
+        mode={diffMode}
+        reasoning={diffReasoning}
+        loading={diffSaving}
+        onConfirm={handleDiffConfirm}
+      />
     </div>
   );
 };
