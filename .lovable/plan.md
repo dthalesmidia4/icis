@@ -1,50 +1,29 @@
-## Diagnóstico
+## Objetivo
+Limpar a Home, remover popups de demandas em atraso e redesenhar a barra superior de controles dentro do card aberto.
 
-Após varrer todas as edge functions de geração de imagem (`auto-generate-post`, `auto-generate-carousel`, `generate-post-image`, `generate-standalone-post`, `generate-carousel-images`, `_shared/image-prompts.ts`, `_shared/carousel-image-runner.ts`), a correção anterior só cobriu `auto-generate-post` e `auto-generate-carousel`. O título do card ainda vaza para a arte em três pontos:
+## 1. Remover popups "Demanda em atraso"
+- Remover `<LateDemandPopup />` de `src/components/Layout.tsx` e a importação relacionada.
+- Deletar os arquivos `src/components/LateDemandPopup.tsx` e `src/hooks/useLateDemandAlerts.tsx` (não são usados em outro lugar).
+- Manter a tabela `user_late_notification_settings` intacta (sem migração) — apenas a UI de alerta é removida.
 
-### 1. `_shared/image-prompts.ts` — `STATIC_POST_STYLE_BLOCK` (compartilhado por TODOS os fluxos estáticos e carrossel)
-Contém a linha:
-> "Apenas o TÍTULO do post deve aparecer legível e bem posicionado na imagem"
+## 2. Home — hub principal enxuto e centralizado
+Em `src/pages/Home.tsx`:
+- Remover o item **"Ver Conteúdos Agendados"** dos cards de ação primários (filtrar `actionCards` para excluir `id === 'schedule'`, sem alterar `NAVIGATION_ITEMS` para não impactar a sidebar).
+- Remover completamente a seção **"Ver Tarefas dos Colaboradores"** (bloco `mt-10 sm:mt-14` inteiro), pois o Modo Foco na Visão Geral cumpre esse papel. Remover imports/hooks não usados (`useCollaborators`, `Users`, `Badge`, `User` se não usado em outras partes — validar antes de tirar).
+- Centralizar os cards restantes (Cliente, Visão Geral das Tarefas, Demandas Completas, Cronograma Global): trocar o grid para um layout centralizado (`flex flex-wrap justify-center gap-*` com largura fixa por card, ou manter grid com `place-items-center` e `justify-center`), garantindo que os 4 fiquem centralizados horizontalmente em telas grandes e ainda respondam bem em mobile.
 
-Isso instrui o modelo a renderizar um "título" — e em `generate-post-image` esse título é literalmente `demand.title`.
+## 3. Card aberto — barra superior (Responsável / Tipo / Datas / Objetivo)
+Em `src/components/TaskCard.tsx` (linhas ~1437–1515):
+- Substituir os 4 "botões pesados" por uma barra única, leve e integrada:
+  - Container horizontal com `flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 rounded-lg bg-muted/40 border border-border/60` (fundo suave, sem "cartão duplo" dentro do card).
+  - **Responsável**: ícone + label pequeno "Responsável" + select inline com estilo ghost (sem borda visível), largura mínima.
+  - **Tipo**: ícone + label "Tipo" + select ghost.
+  - Separador visual sutil (`h-4 w-px bg-border`) entre grupos para dar sequência lógica: identificação (Responsável, Tipo) → tempo (Datas) → intenção (Objetivo).
+  - **Datas e Horários** e **Objetivo**: viram triggers de texto com chevron (não mais retângulos preenchidos), no mesmo padrão inline (`inline-flex items-center gap-1.5 text-sm font-medium hover:text-primary`).
+- Ordem final da esquerda para a direita: Responsável · Tipo | Datas e Horários | Objetivo — conduzindo o usuário do "quem/o que" para o "quando" e "para quê".
+- Painéis expandidos (Objetivo, Datas) permanecem funcionalmente iguais, apenas ficam abaixo dessa barra unificada.
+- Mobile: `flex-wrap` garante quebra natural; nada de grid rígido de 4 colunas.
 
-### 2. `generate-post-image/index.ts` (usado pelo botão **"Gerar Estático com IA"** e **"Gerar novamente"** dentro do card)
-- Linha 151: injeta `TÍTULO DO POST (pode aparecer como texto na imagem):\n"${demand.title}"` no prompt. Este é o caminho exato que o usuário reproduziu.
-- Linhas 105/117: quando `parseSlides(description|instructions)` não encontra slides estruturados, usa `demand.title` como `slide.title` — que depois vira `Texto principal: "${slide.title}"` (linhas 143/148) e é renderizado como tipografia principal.
-
-### 3. `auto-generate-post` já foi corrigido, mas a mesma proibição explícita não existe em `generate-post-image` nem em `generate-standalone-post`.
-
-### Pontos verificados e OK (não precisam mudar)
-- `auto-generate-post/index.ts` (linhas 92/98): já rotula título como "interno — proibido renderizar".
-- `auto-generate-carousel/index.ts` (linha 147): já rotula título como referência interna.
-- `generate-carousel-images/index.ts` + `_shared/carousel-image-runner.ts`: nunca recebem `demand.title`, só o `slideText` do plano.
-- `generate-standalone-post/index.ts`: usa `idea`/`exactText` do usuário, nunca `demand.title` (não tem demand).
-- `generate-post-caption/index.ts`: gera legenda de texto (não imagem), pode continuar usando `demand.title` como contexto.
-
-## Correções propostas
-
-### A. `supabase/functions/_shared/image-prompts.ts`
-No `STATIC_POST_STYLE_BLOCK`, substituir a linha "Apenas o TÍTULO do post deve aparecer legível..." por uma redação genérica que se refira ao **texto do slide/gancho fornecido no bloco de conteúdo**, sem citar "título":
-> "Apenas o gancho/CTA curto definido no bloco de CONTEÚDO deve aparecer legível na imagem — nada mais."
-
-Assim tanto estáticos quanto slides de carrossel deixam de pedir "título".
-
-### B. `supabase/functions/generate-post-image/index.ts`
-1. **Remover a injeção do título como texto renderizável** (linha ~151). Trocar por rótulo de referência interna, no mesmo padrão de `auto-generate-post`:
-   ```
-   TÍTULO INTERNO DO CARD (apenas nomenclatura da tarefa — PROIBIDO renderizar,
-   parcial ou parafraseado, na imagem): "${demand.title}"
-   ```
-2. **Adicionar bloco de regras** logo abaixo do CONTEÚDO reforçando: "NUNCA renderize o título interno do card na imagem".
-3. **Corrigir o fallback** quando `parseSlides` não encontra slides (linhas 105-107 e 117-120):
-   - Não usar `demand.title` como `slide.title`.
-   - Derivar o texto principal na ordem: primeiro do `stripHtml(demand.description)` (primeira linha curta / primeiros ~60 chars), depois `demand.objective`, depois `demand.instructions`. Se tudo falhar, deixar `slide.title = ""` e usar apenas `slide.body`, sem cair no título do card.
-4. **Modo single-slide regen** (`replaceSlide`, linhas 117-120): idêntico ajuste — não usar `demand.title` como fallback de `slide.title`.
-
-### C. Sanity check final
-Após as mudanças, rodar `rg "demand\.title|demandTitle" supabase/functions` e confirmar que toda referência remanescente está claramente marcada como "interno / não renderizar" (auto-generate-post/carousel) ou é usada só para texto de legenda (`generate-post-caption`).
-
-## Escopo intencionalmente fora
-- Não alterar `auto-generate-post`, `auto-generate-carousel` (já corretos).
-- Não alterar `generate-post-caption` (gera legenda textual, uso legítimo do título).
-- Sem migração de dados: correção só afeta gerações futuras.
+## Fora de escopo
+- Não alterar lógica de dados nem edge functions.
+- Não mexer em outras telas nem na sidebar.

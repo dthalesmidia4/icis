@@ -1434,12 +1434,12 @@ export default function TaskCard({
                         <>
               {/* === PUBLICAÇÃO + CONTROLES (full-width, acima dos anexos) === */}
               <div className="space-y-4">
-                {/* Linha de triggers (Responsável, Datas, Objetivo) */}
-                <div className="grid gap-3 md:grid-cols-4 items-stretch">
-                  {/* Responsável (sempre visível) */}
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card">
+                {/* Barra de controles: Responsável · Tipo | Datas | Objetivo */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 rounded-lg bg-muted/40 border border-border/60">
+                  {/* Responsável */}
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <User className="h-4 w-4 text-primary shrink-0" />
-                    <span className="font-semibold text-sm shrink-0">Responsável</span>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide shrink-0">Responsável</span>
                     <Select
                       value={card.assigned_to || "__none__"}
                       onValueChange={async (val) => {
@@ -1449,7 +1449,7 @@ export default function TaskCard({
                       }}
                       disabled={readOnly}
                     >
-                      <SelectTrigger className="h-8 text-sm border-0 shadow-none px-2 flex-1" aria-label="Responsável">
+                      <SelectTrigger className="h-7 text-sm border-0 shadow-none bg-transparent px-1.5 gap-1 hover:bg-background/60 focus:ring-0 w-auto min-w-[110px]" aria-label="Responsável">
                         <SelectValue placeholder="Sem responsável" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1461,16 +1461,18 @@ export default function TaskCard({
                     </Select>
                   </div>
 
-                  {/* Tipo da demanda */}
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card">
+                  <div className="hidden sm:block h-4 w-px bg-border" />
+
+                  {/* Tipo */}
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <Tag className="h-4 w-4 text-primary shrink-0" />
-                    <span className="font-semibold text-sm shrink-0">Tipo</span>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide shrink-0">Tipo</span>
                     <Select
                       value={card.demand_type_key || ""}
                       onValueChange={(val) => handleSetDemandType(val as DemandTypeKey)}
                       disabled={readOnly || settingType}
                     >
-                      <SelectTrigger className="h-8 text-sm border-0 shadow-none px-2 flex-1" aria-label="Tipo">
+                      <SelectTrigger className="h-7 text-sm border-0 shadow-none bg-transparent px-1.5 gap-1 hover:bg-background/60 focus:ring-0 w-auto min-w-[110px]" aria-label="Tipo">
                         <SelectValue placeholder="Definir tipo" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1481,38 +1483,41 @@ export default function TaskCard({
                     </Select>
                   </div>
 
+                  <div className="flex-1" />
 
-                  {/* Toggle Datas e Horários — oculto para Card Diário (usa apenas campos diários) */}
+                  {/* Datas e Horários */}
                   {!card.is_daily_card && (
-                    <button
-                      type="button"
-                      onClick={() => setDatesOpen(v => !v)}
-                      className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
-                      aria-expanded={datesOpen}
-                    >
-                      <span className="flex items-center gap-2 font-semibold text-sm">
+                    <>
+                      <div className="hidden sm:block h-4 w-px bg-border" />
+                      <button
+                        type="button"
+                        onClick={() => setDatesOpen(v => !v)}
+                        className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary transition-colors px-1.5 py-1 rounded"
+                        aria-expanded={datesOpen}
+                      >
                         <CalendarIcon className="h-4 w-4 text-primary" />
-                        Datas e Horários
-                      </span>
-                      <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-300", datesOpen && "rotate-180")} />
-                    </button>
+                        <span>Datas e Horários</span>
+                        <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-300", datesOpen && "rotate-180")} />
+                      </button>
+                    </>
                   )}
 
-                  {/* Toggle Objetivo */}
+                  <div className="hidden sm:block h-4 w-px bg-border" />
+
+                  {/* Objetivo */}
                   <button
                     type="button"
                     onClick={() => setObjectiveOpen(v => !v)}
-                    className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-primary transition-colors px-1.5 py-1 rounded"
                     aria-expanded={objectiveOpen}
                   >
-                    <span className="flex items-center gap-2 font-semibold text-sm">
-                      <Target className="h-4 w-4 text-primary" />
-                      <span className="uppercase tracking-wide">Objetivo</span>
-                      {saving && savingField === 'objective' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-                    </span>
-                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-300", objectiveOpen && "rotate-180")} />
+                    <Target className="h-4 w-4 text-primary" />
+                    <span>Objetivo</span>
+                    {saving && savingField === 'objective' && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                    <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-300", objectiveOpen && "rotate-180")} />
                   </button>
                 </div>
+
 
                 {/* Vínculo com período movido para o header, ao lado da Etapa. */}
 
