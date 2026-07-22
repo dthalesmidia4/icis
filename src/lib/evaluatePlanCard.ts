@@ -112,7 +112,7 @@ export async function approvePlanCard(ctx: PlanCardContext): Promise<string> {
   if (isStatic || isCarousel) {
     const fn = isCarousel ? "auto-generate-carousel" : "auto-generate-post";
     supabase.functions
-      .invoke(fn, { body: { demandId, source: "planned", minimalText: true } })
+      .invoke(fn, { body: { demandId, source: "planned", minimalText: true, aiModel: "gpt2" } })
       .catch((err) => console.warn(`[approvePlanCard] auto-gen (${fn}) failed`, err));
   }
 
