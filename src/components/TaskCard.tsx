@@ -1070,25 +1070,32 @@ export default function TaskCard({
             {/* Linha 1: Título + Close */}
             <div className="flex items-center justify-between gap-4">
               <div className="flex-1 min-w-0">
-                {!readOnly && (isDraft || editingField === 'title' || !card.title) ? (
-                  <Input
-                    autoFocus={editingField === 'title' || isDraft}
-                    value={card.title || ""}
-                    onChange={e => onCardChange({ ...card, title: e.target.value })}
-                    onBlur={() => { if (editingField === 'title') handleFieldSave('title', card.title || ''); }}
-                    onKeyDown={e => { if (e.key === 'Enter') handleFieldSave('title', card.title || ''); }}
-                    placeholder="Nome da demanda"
-                    className="text-3xl font-bold h-14 border-primary"
-                  />
-                ) : (
-                  <h1
-                    id="task-card-title"
-                    onClick={() => !readOnly && setEditingField('title')}
-                    className={cn("font-bold text-3xl md:text-4xl truncate", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
-                  >
-                    {card.title}
-                  </h1>
-                )}
+                <div className="flex min-w-0 items-center gap-3">
+                  {!isDraft && card.clientName && (
+                    <Badge variant="secondary" className="max-w-[220px] shrink-0 truncate px-2.5 py-1 text-xs font-semibold">
+                      {card.clientName}
+                    </Badge>
+                  )}
+                  {!readOnly && (isDraft || editingField === 'title' || !card.title) ? (
+                    <Input
+                      autoFocus={editingField === 'title' || isDraft}
+                      value={card.title || ""}
+                      onChange={e => onCardChange({ ...card, title: e.target.value })}
+                      onBlur={() => { if (editingField === 'title') handleFieldSave('title', card.title || ''); }}
+                      onKeyDown={e => { if (e.key === 'Enter') handleFieldSave('title', card.title || ''); }}
+                      placeholder="Nome da demanda"
+                      className="h-14 min-w-0 text-3xl font-bold border-primary"
+                    />
+                  ) : (
+                    <h1
+                      id="task-card-title"
+                      onClick={() => !readOnly && setEditingField('title')}
+                      className={cn("min-w-0 truncate font-bold text-3xl md:text-4xl", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
+                    >
+                      {card.title}
+                    </h1>
+                  )}
+                </div>
               </div>
               {!readOnly && (
                 isDraft ? (
@@ -1236,10 +1243,8 @@ export default function TaskCard({
                     ))}
                   </SelectContent>
                 </Select>
-              ) : card.clientName && (
-                <span className="text-sm text-muted-foreground">{card.clientName}</span>
-              )}
-              {(isDraft || card.clientName) && <div className="h-4 w-px bg-border" />}
+              ) : null}
+              {isDraft && <div className="h-4 w-px bg-border" />}
 
               {/* Status oculto visualmente (mantido no DOM para preservar comportamento) */}
               <div className="hidden">
