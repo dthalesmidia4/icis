@@ -134,7 +134,7 @@ Cada item DEVE ter EXATAMENTE este formato:
 {
   "tipo": "Post Estático | Vídeos Curtos | Carrossel",
   "type_key": "criativo_estatico|carrossel|video_captado|video_gerado|null",
-  "titulo": "${brand} – <título criativo>",
+  "titulo": "<título criativo curto, SEM nome da marca>",
   "objetivo": "...",
   "conteudo": "conteúdo em markdown",
   "instrucoes_de_producao": "...",
@@ -149,7 +149,7 @@ Cada item DEVE ter EXATAMENTE este formato:
 }
 
 REGRA de type_key: "criativo_estatico" (post/story estático), "carrossel" (múltiplos slides), "video_captado" (exige gravação real), "video_gerado" (100% IA/motion/stock), null se incerto. NUNCA use tipos compostos.
-REGRA de TÍTULO: SEMPRE começar com "${brand} – " (nome, espaço, en-dash "–", espaço).
+REGRA de TÍTULO: PROIBIDO incluir o nome da empresa/marca ("${brand}"), abreviações ou variações no título. O nome do cliente já aparece em um badge acima do título no card — repeti-lo cria duplicidade visual. O "titulo" deve ser APENAS o gancho criativo do conteúdo, sem prefixos como "${brand} –", "${brand} -" ou "${brand}:".
 
 Formato final: {"plan":[...${customQuantity} itens...],"summary":"resumo do racional Ultra"}`;
 
