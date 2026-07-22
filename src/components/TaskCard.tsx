@@ -1694,6 +1694,33 @@ export default function TaskCard({
                               </Popover>
                             )}
                           </div>
+                        </PopoverContent>
+                      </Popover>
+                    );
+                  })()}
+
+                  {/* Datas — Publicação (data + adicionais) */}
+                  {!card.is_daily_card && (() => {
+                    const pubStr = card.publish_date ? `${formatShortDate(card.publish_date)}${card.publish_time ? ' ' + card.publish_time : ''}` : null;
+                    const extras = additionalDates.length;
+                    const summary = pubStr ? `Pub ${pubStr}${extras ? ` +${extras}` : ''}` : 'Publicação';
+                    return (
+                      <Popover open={publishOpen} onOpenChange={setPublishOpen}>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className={cn(
+                              "inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded hover:bg-background/60 transition-colors max-w-[240px] min-w-0",
+                              pubStr ? "text-foreground" : "text-muted-foreground"
+                            )}
+                            aria-label="Data de publicação"
+                          >
+                            <Megaphone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="truncate capitalize">{summary}</span>
+                            <ChevronDown className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform", publishOpen && "rotate-180")} />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-[380px] p-3 space-y-2.5">
 
                           {/* Linha: Data de Publicação */}
                           <div className="flex items-center gap-2 text-sm">
