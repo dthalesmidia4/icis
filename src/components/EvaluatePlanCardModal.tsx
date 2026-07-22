@@ -193,36 +193,207 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
     }
   };
 
-  const handleConfirmReject = async () => {
-    if (!tenantId) return;
-    setBusy("reject");
-    try {
-      const { data: period, error } = await supabase
-        .from("period_plans")
-        .select("default_plan, ultra_plan, rejected_plan")
-        .eq("id", card.periodId)
-        .single();
-      if (error || !period) throw error;
-      await rejectPlanCard({
-        periodId: card.periodId,
+  // Chama reevaluate-card e retorna a proposta de exigências + card revisado (se houver).
+  const callReevaluate = async () => {
+    if (!tenantId) throw new Error("Tenant inválido");
+    const { data, error } = await supabase.functions.invoke("reevaluate-card", {
+      body: {
         card: localCard ?? card.card,
-        source: card.source,
-        indexInPlan: card.indexInPlan,
-        currentDefault: Array.isArray(period.default_plan) ? period.default_plan : [],
-        currentUltra: Array.isArray(period.ultra_plan) ? period.ultra_plan : [],
-        currentRejected: Array.isArray((period as any).rejected_plan) ? (period as any).rejected_plan : [],
-        reason: rejectReason,
-      });
-      toast.success("Card reprovado e enviado para reavaliação");
-      onDone?.();
-      onOpenChange(false);
-    } catch (err) {
+        reason: rejectReason.trim(),
+        clientId: card.clientId,
+        tenantId,
+      },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data as {
+      updatedCard: any;
+      learningStatus: "meaningful" | "none" | "ambiguous";
+      learningReasoning?: string;
+      requirementsProposal?: { current: string; proposed: string; additions: string };
+    };
+  };
+
+  const openDiffOrFinalize = (
+    data: { learningStatus: string; learningReasoning?: string; requirementsProposal?: any },
+    action: { kind: "reevaluate"; updatedCard: any } | { kind: "discard" },
+    finalizeIfNoLearning: () => Promise<void>,
+  ) => {
+    const proposal = data.requirementsProposal || { current: "", proposed: "", additions: "" };
+    const learningStatus =
+      data.learningStatus === "meaningful" || data.learningStatus === "none" || data.learningStatus === "ambiguous"
+        ? (data.learningStatus as "meaningful" | "none" | "ambiguous")
+        : "ambiguous";
+    setDiffReasoning(data.learningReasoning || "");
+    if (learningStatus === "meaningful") {
+      setPendingAction(action);
+      setDiffCurrent(proposal.current || "");
+      setDiffProposed(proposal.proposed || proposal.current || "");
+      setDiffMode("meaningful");
+      setDiffOpen(true);
+    } else if (learningStatus === "none") {
+      // no rule to learn — finalize action immediately
+      finalizeIfNoLearning();
+    } else {
+      setPendingAction(action);
+      setDiffCurrent(proposal.current || "");
+      setDiffProposed(proposal.current || "");
+      setDiffMode("ambiguous");
+      setDiffOpen(true);
+    }
+  };
+
+  const persistRequirements = async (finalRequirements: string) => {
+    const { error } = await supabase
+      .from("tenant_companies")
+      .update({ content_requirements: finalRequirements } as any)
+      .eq("id", card.clientId);
+    if (error) throw error;
+  };
+
+  const finalizeReevaluate = async (updatedCard: any) => {
+    const { data: period, error } = await supabase
+      .from("period_plans")
+      .select("default_plan, ultra_plan")
+      .eq("id", card.periodId)
+      .single();
+    if (error || !period) throw error;
+    await replacePlanCard({
+      periodId: card.periodId,
+      source: card.source,
+      indexInPlan: card.indexInPlan,
+      currentDefault: Array.isArray(period.default_plan) ? period.default_plan : [],
+      currentUltra: Array.isArray(period.ultra_plan) ? period.ultra_plan : [],
+      updatedCard,
+    });
+  };
+
+  const finalizeDiscard = async () => {
+    const { data: period, error } = await supabase
+      .from("period_plans")
+      .select("default_plan, ultra_plan, rejected_plan")
+      .eq("id", card.periodId)
+      .single();
+    if (error || !period) throw error;
+    await rejectPlanCard({
+      periodId: card.periodId,
+      card: localCard ?? card.card,
+      source: card.source,
+      indexInPlan: card.indexInPlan,
+      currentDefault: Array.isArray(period.default_plan) ? period.default_plan : [],
+      currentUltra: Array.isArray(period.ultra_plan) ? period.ultra_plan : [],
+      currentRejected: Array.isArray((period as any).rejected_plan) ? (period as any).rejected_plan : [],
+      reason: rejectReason,
+    });
+  };
+
+  const handleReevaluate = async () => {
+    if (!tenantId) return;
+    if (!rejectReason.trim()) {
+      toast.error("Descreva o motivo da reprovação");
+      return;
+    }
+    setBusy("reevaluate");
+    try {
+      const data = await callReevaluate();
+      if (!data.updatedCard) throw new Error("A IA não retornou uma nova versão do card.");
+      openDiffOrFinalize(
+        data,
+        { kind: "reevaluate", updatedCard: data.updatedCard },
+        async () => {
+          await finalizeReevaluate(data.updatedCard);
+          toast.success("Nova versão gerada e enviada para avaliação");
+          onDone?.();
+          onOpenChange(false);
+        },
+      );
+    } catch (err: any) {
       console.error(err);
-      toast.error("Erro ao reprovar card");
+      const raw = err?.context?.responseText || err?.message || "";
+      const msg = /OPENAI_API_KEY|api key/i.test(raw)
+        ? "Chave OpenAI ausente. Configure OPENAI_API_KEY em Dev → APIs."
+        : (err?.message || "Erro ao reavaliar card");
+      toast.error(msg);
     } finally {
       setBusy(null);
     }
   };
+
+  const handleDiscard = async () => {
+    if (!tenantId) return;
+    if (!rejectReason.trim()) {
+      toast.error("Descreva o motivo da reprovação");
+      return;
+    }
+    setBusy("discard");
+    try {
+      // Ainda chamamos reevaluate-card para aproveitar o aprendizado de exigências,
+      // mas ignoramos updatedCard — o card vai para Reprovados como arquivo.
+      let data: any = null;
+      try {
+        data = await callReevaluate();
+      } catch (learnErr) {
+        console.warn("[EvaluatePlanCardModal] learning skipped:", learnErr);
+      }
+      if (data) {
+        openDiffOrFinalize(
+          data,
+          { kind: "discard" },
+          async () => {
+            await finalizeDiscard();
+            toast.success("Card descartado (arquivado em Reprovados)");
+            onDone?.();
+            onOpenChange(false);
+          },
+        );
+      } else {
+        await finalizeDiscard();
+        toast.success("Card descartado (arquivado em Reprovados)");
+        onDone?.();
+        onOpenChange(false);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || "Erro ao descartar card");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleDiffConfirm = async (action: "apply" | "skip", finalRequirements?: string) => {
+    if (!pendingAction) return;
+    setDiffSaving(true);
+    try {
+      if (action === "apply") {
+        await persistRequirements((finalRequirements ?? "").trim());
+      }
+      if (pendingAction.kind === "reevaluate") {
+        await finalizeReevaluate(pendingAction.updatedCard);
+        toast.success(
+          action === "apply"
+            ? "Nova versão gerada e exigências atualizadas"
+            : "Nova versão gerada e enviada para avaliação",
+        );
+      } else {
+        await finalizeDiscard();
+        toast.success(
+          action === "apply"
+            ? "Card descartado e exigências atualizadas"
+            : "Card descartado (arquivado em Reprovados)",
+        );
+      }
+      setDiffOpen(false);
+      setPendingAction(null);
+      onDone?.();
+      onOpenChange(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || "Erro ao finalizar");
+    } finally {
+      setDiffSaving(false);
+    }
+  };
+
 
   const handleOpenFullScreen = async () => {
     setBusy("open");
