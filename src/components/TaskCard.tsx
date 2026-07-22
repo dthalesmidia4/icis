@@ -1446,66 +1446,8 @@ export default function TaskCard({
               {/* Etapa foi integrada na navegação superior (prev / current / next). */}
 
 
-              {/* Período (ao lado da Etapa) */}
-              <div className="h-8 px-3 flex items-center gap-2 rounded-md border border-border bg-card text-xs">
-                <Link className="h-3.5 w-3.5 text-primary shrink-0" />
-                <span className="text-[10px] uppercase tracking-wide opacity-70 font-medium">Período</span>
-                {card.period_plan_id ? (
-                  <>
-                    <span className="text-foreground font-medium truncate max-w-[200px]">
-                      {periodTitle || "Carregando..."}
-                    </span>
-                    {!readOnly && (
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-destructive transition-colors"
-                        onClick={async () => {
-                          if (!card) return;
-                          try {
-                            const { error } = await supabase
-                              .from("demands")
-                              .update({ period_plan_id: null })
-                              .eq("id", card.id);
-                            if (error) throw error;
-                            onCardChange({ ...card, period_plan_id: null });
-                            setPeriodTitle(null);
-                            const { toast } = await import("sonner");
-                            toast.success("Vínculo com o período removido");
-                          } catch (err) {
-                            console.error("Error unlinking period:", err);
-                            const { toast } = await import("sonner");
-                            toast.error("Erro ao remover vínculo");
-                          }
-                        }}
-                        title="Desvincular do período"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                  </>
-                ) : readOnly ? (
-                  <span className="text-muted-foreground">—</span>
-                ) : periodPlans.length > 0 ? (
-                  <Select onValueChange={handleLinkPeriod}>
-                    <SelectTrigger className="h-6 border-0 shadow-none px-1 text-xs w-auto min-w-[130px]" aria-label="Vincular a período">
-                      <SelectValue placeholder="Vincular" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background z-50">
-                      {periodPlans.map(pp => (
-                        <SelectItem key={pp.id} value={pp.id}>
-                          <span className="text-xs">
-                            {pp.period_title} ({format(new Date(pp.period_start + 'T00:00:00'), "dd/MM", { locale: ptBR })} - {format(new Date(pp.period_end + 'T00:00:00'), "dd/MM", { locale: ptBR })})
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <span className="text-muted-foreground">
-                    {loadingPeriodPlans ? "Carregando..." : "Nenhum"}
-                  </span>
-                )}
-              </div>
+              {/* Período foi movido para a barra inline abaixo. */}
+
             </div>
 
             {/* Amber banner de Definir tipo removido — Tipo passou para a linha de triggers */}
