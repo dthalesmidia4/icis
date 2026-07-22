@@ -76,6 +76,23 @@ const RejectedCards = () => {
   const [initialStatusId, setInitialStatusId] = useState<string | null>(null);
   const [approvingIndex, setApprovingIndex] = useState<number | null>(null);
   const [restoringIndex, setRestoringIndex] = useState<number | null>(null);
+  const [reevaluatingIndex, setReevaluatingIndex] = useState<number | null>(null);
+
+  // Prompt for missing reason
+  const [reasonPromptIndex, setReasonPromptIndex] = useState<number | null>(null);
+  const [reasonDraft, setReasonDraft] = useState("");
+
+  // Diff modal state
+  const [diffOpen, setDiffOpen] = useState(false);
+  const [diffSaving, setDiffSaving] = useState(false);
+  const [diffCurrent, setDiffCurrent] = useState("");
+  const [diffProposed, setDiffProposed] = useState("");
+  const [diffMode, setDiffMode] = useState<"meaningful" | "ambiguous">("meaningful");
+  const [diffReasoning, setDiffReasoning] = useState("");
+  const [pendingReeval, setPendingReeval] = useState<
+    | { rejectedIndex: number; periodId: string; source: "default" | "ultra"; updatedCard: any }
+    | null
+  >(null);
 
   useEffect(() => {
     if (!isInitialized) return;
