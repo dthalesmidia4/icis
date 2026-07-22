@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Tag } from "lucide-react";
-import { proceedDemand, regressDemand, deliverDemand, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, type DemandTypeKey } from "@/lib/proceedDemand";
+import { proceedDemand, regressDemand, deliverDemand, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, getPipelineSequence, jumpToFunction, type DemandTypeKey } from "@/lib/proceedDemand";
 import { completeDailyOccurrence, formatBR as formatBRDate } from "@/lib/dailyCards";
 import { DailyCardSection } from "@/components/DailyCardSection";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
@@ -393,22 +393,29 @@ export default function TaskCard({
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
   const [activeSection, setActiveSection] = useState<'description' | 'observations' | 'caption' | 'anexos'>('description');
   const [datesOpen, setDatesOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
   const [objectiveOpen, setObjectiveOpen] = useState(false);
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
   const [proceeding, setProceeding] = useState(false);
   const [regressing, setRegressing] = useState(false);
   const [isLastFn, setIsLastFn] = useState(false);
+  const [pipelineSequence, setPipelineSequence] = useState<{ function_key: string; name: string }[]>([]);
+  const [stepPickerOpen, setStepPickerOpen] = useState(false);
+  const [jumpingStep, setJumpingStep] = useState(false);
   const [delivering, setDelivering] = useState(false);
   const [inlineScheduleOpen, setInlineScheduleOpen] = useState(false);
   const [inlineScheduling, setInlineScheduling] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    if (!card?.tenant_id) { setIsLastFn(false); return; }
+    if (!card?.tenant_id) { setIsLastFn(false); setPipelineSequence([]); return; }
     isAtLastFlowFunction(card.tenant_id, card.demand_type_key, card.current_function_key)
       .then((v) => { if (!cancelled) setIsLastFn(v); })
       .catch(() => { if (!cancelled) setIsLastFn(false); });
+    getPipelineSequence(card.tenant_id, card.demand_type_key)
+      .then((seq) => { if (!cancelled) setPipelineSequence(seq); })
+      .catch(() => { if (!cancelled) setPipelineSequence([]); });
     return () => { cancelled = true; };
   }, [card?.tenant_id, card?.demand_type_key, card?.current_function_key]);
 
@@ -1072,9 +1079,9 @@ export default function TaskCard({
               <div className="flex-1 min-w-0">
                 <div className="flex min-w-0 items-center gap-3">
                   {!isDraft && card.clientName && (
-                    <Badge variant="secondary" className="max-w-[220px] shrink-0 px-2.5 py-1 text-xs font-semibold">
-                      <span className="truncate">{card.clientName}</span>
-                    </Badge>
+                    <span className="max-w-[220px] shrink-0 truncate text-xl md:text-2xl font-bold text-primary dark:text-foreground" title={card.clientName}>
+                      {card.clientName}
+                    </span>
                   )}
                   {!readOnly && (isDraft || editingField === 'title' || !card.title) ? (
                     <Input
@@ -1084,13 +1091,13 @@ export default function TaskCard({
                       onBlur={() => { if (editingField === 'title') handleFieldSave('title', card.title || ''); }}
                       onKeyDown={e => { if (e.key === 'Enter') handleFieldSave('title', card.title || ''); }}
                       placeholder="Nome da demanda"
-                      className="h-14 min-w-0 text-3xl font-bold border-primary"
+                      className="h-12 min-w-0 text-2xl font-bold border-primary"
                     />
                   ) : (
                     <h1
                       id="task-card-title"
                       onClick={() => !readOnly && setEditingField('title')}
-                      className={cn("min-w-0 truncate font-bold text-3xl md:text-4xl", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
+                      className={cn("min-w-0 truncate font-bold text-2xl md:text-3xl", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
                     >
                       {card.title}
                     </h1>
@@ -1146,67 +1153,141 @@ export default function TaskCard({
                     <span>Entregar ocorrência</span>
                   </Button>
                 ) : (
-                  <>
-                    {card.current_function_key && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-11 gap-2 shrink-0 text-muted-foreground hover:text-foreground"
-                        onClick={handleRegress}
-                        disabled={regressing || !card.demand_type_key}
-                        aria-label="Voltar demanda"
-                        title="Devolver a demanda para a etapa anterior do fluxo"
-                      >
-                        {regressing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowLeft className="h-4 w-4" />}
-                        <span>Voltar demanda</span>
-                      </Button>
-                    )}
-                    {isLastFn ? (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="h-11 gap-2 shrink-0"
-                        onClick={handleDeliver}
-                        disabled={delivering}
-                        aria-label="Entregar"
-                        title="Entregar demanda e mover para Demandas Completas"
-                      >
-                        {delivering ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                        <span>Entregar</span>
-                      </Button>
-                    ) : card.current_function_key === 'publicar' ? (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="h-11 gap-2 shrink-0"
-                        onClick={() => setInlineScheduleOpen(true)}
-                        aria-label="Agendar Publicação"
-                        title="Agendar a publicação nas redes sociais conectadas"
-                      >
-                        <CalendarClock className="h-4 w-4" />
-                        <span>Agendar Publicação</span>
-                      </Button>
-                    ) : (
-                      (() => {
-                        const isEnviarCliente = card.current_function_key === 'enviar_cliente';
-                        const btnLabel = isEnviarCliente ? 'Marcar como enviado ao cliente' : 'Prosseguir';
-                        return (
+                  (() => {
+                    const seq = pipelineSequence;
+                    const curKey = card.current_function_key;
+                    const curIdx = curKey ? seq.findIndex((s) => s.function_key === curKey) : -1;
+                    const prev = curIdx > 0 ? seq[curIdx - 1] : null;
+                    const next = curIdx >= 0 && curIdx < seq.length - 1 ? seq[curIdx + 1] : null;
+                    const curName = curIdx >= 0 ? seq[curIdx].name : (curKey || "Sem etapa");
+
+                    const nextIsPublicar = curKey === "publicar";
+                    const isEnviarCliente = curKey === "enviar_cliente";
+                    const nextLabel = nextIsPublicar
+                      ? "Agendar Publicação"
+                      : isLastFn
+                        ? "Entregar"
+                        : isEnviarCliente
+                          ? "Enviado ao cliente"
+                          : (next?.name || "Prosseguir");
+
+                    const doJump = async (key: string) => {
+                      if (!card.tenant_id || !card.demand_type_key || jumpingStep) return;
+                      setJumpingStep(true);
+                      try {
+                        const r = await jumpToFunction({
+                          demandId: card.id,
+                          tenantId: card.tenant_id,
+                          demandTypeKey: card.demand_type_key,
+                          targetFunctionKey: key,
+                          currentFunctionKey: curKey,
+                        });
+                        if (r.success) {
+                          toast.success(r.message);
+                          onCardChange({ ...card, assigned_to: r.assignedTo || null, current_function_key: r.functionKey || null });
+                          setStepPickerOpen(false);
+                        } else {
+                          toast.error(r.message);
+                        }
+                      } finally {
+                        setJumpingStep(false);
+                      }
+                    };
+
+                    return (
+                      <div className="flex items-center gap-0.5 shrink-0 rounded-lg bg-muted/40 p-0.5">
+                        {prev && (
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            className="h-11 gap-2 shrink-0"
+                            className="h-9 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={handleRegress}
+                            disabled={regressing || !card.demand_type_key}
+                            title={`Voltar para ${prev.name}`}
+                          >
+                            {regressing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowLeft className="h-3.5 w-3.5" />}
+                            <span className="max-w-[110px] truncate">{prev.name}</span>
+                          </Button>
+                        )}
+                        {curKey && (
+                          <Popover open={stepPickerOpen} onOpenChange={setStepPickerOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="h-9 gap-1.5 text-xs font-semibold"
+                                disabled={seq.length === 0}
+                                title="Selecionar etapa manualmente"
+                              >
+                                <span className="max-w-[160px] truncate">{curName}</span>
+                                <ChevronDown className="h-3 w-3 opacity-70" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent align="center" className="w-56 p-1">
+                              <div className="max-h-72 overflow-y-auto">
+                                {seq.map((s, i) => {
+                                  const active = s.function_key === curKey;
+                                  return (
+                                    <button
+                                      key={s.function_key}
+                                      type="button"
+                                      disabled={active || jumpingStep}
+                                      onClick={() => doJump(s.function_key)}
+                                      className={cn(
+                                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-left transition-colors",
+                                        active ? "bg-primary/10 text-primary font-semibold" : "hover:bg-muted",
+                                        jumpingStep && "opacity-60 cursor-wait",
+                                      )}
+                                    >
+                                      <span className="w-4 shrink-0 text-muted-foreground">{i + 1}.</span>
+                                      <span className="truncate flex-1">{s.name}</span>
+                                      {active && <Check className="h-3.5 w-3.5" />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        )}
+                        {isLastFn ? (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-9 gap-1.5 text-xs"
+                            onClick={handleDeliver}
+                            disabled={delivering}
+                            title="Entregar demanda e mover para Demandas Completas"
+                          >
+                            {delivering ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                            <span>{nextLabel}</span>
+                          </Button>
+                        ) : nextIsPublicar ? (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-9 gap-1.5 text-xs"
+                            onClick={() => setInlineScheduleOpen(true)}
+                            title="Agendar a publicação nas redes sociais conectadas"
+                          >
+                            <CalendarClock className="h-3.5 w-3.5" />
+                            <span>{nextLabel}</span>
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-9 gap-1.5 text-xs"
                             onClick={handleProceed}
                             disabled={proceeding || !card.demand_type_key}
-                            aria-label={btnLabel}
-                            title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : (isEnviarCliente ? "Marcar como enviado ao cliente e mover para Aguardando cliente" : "Enviar para o próximo colaborador do fluxo")}
+                            title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : (isEnviarCliente ? "Marcar como enviado ao cliente" : `Enviar para ${nextLabel}`)}
                           >
-                            {proceeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                            <span>{btnLabel}</span>
+                            <span className="max-w-[140px] truncate">{nextLabel}</span>
+                            {proceeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
                           </Button>
-                        );
-                      })()
-                    )}
-                  </>
+                        )}
+                      </div>
+                    );
+                  })()
                 )
               )}
 
@@ -1325,35 +1406,8 @@ export default function TaskCard({
                 )}
               </div>
 
-              {/* Etapa — oculta durante a criação (draft). Só aparece após o card existir no kanban. */}
-              {!isDraft && (() => {
-                const FUNCTION_LABELS: Record<string, string> = {
-                  planejar: "Planejar",
-                  criar_roteiro: "Criar roteiro",
-                  criar_arte: "Criar arte",
-                  captar: "Captar",
-                  gerar_video: "Gerar vídeo",
-                  editar_video: "Editar vídeo",
-                  revisar: "Revisar",
-                  enviar_cliente: "Enviar cliente",
-                  aguardando_cliente: "Aguardando cliente",
+              {/* Etapa foi integrada na navegação superior (prev / current / next). */}
 
-                  publicar: "Publicar",
-                  revisar_publicacao: "Revisar publicação",
-                };
-                const label = card.current_function_key
-                  ? (FUNCTION_LABELS[card.current_function_key] || card.current_function_key)
-                  : "Sem etapa";
-                return (
-                  <div
-                    className="h-8 px-3 flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 text-primary font-medium text-xs"
-                    title="Etapa atual do fluxo"
-                  >
-                    <span className="text-[10px] uppercase tracking-wide opacity-70">Etapa</span>
-                    <span>{label}</span>
-                  </div>
-                );
-              })()}
 
               {/* Período (ao lado da Etapa) */}
               <div className="h-8 px-3 flex items-center gap-2 rounded-md border border-border bg-card text-xs">
@@ -1481,14 +1535,17 @@ export default function TaskCard({
                     </Select>
                   </div>
 
-                  <div className="flex-1" />
-
-                  {/* Datas — chip com Popover integrado */}
+                  {/* Datas — Produção (Início + Entrega) */}
                   {!card.is_daily_card && (() => {
                     const startStr = card.due_date ? `${formatShortDate(card.due_date)}${card.due_time ? ' ' + card.due_time : ''}` : null;
-                    const pubStr = card.publish_date ? `${formatShortDate(card.publish_date)}${card.publish_time ? ' ' + card.publish_time : ''}` : null;
-                    const parts = [startStr && `Início ${startStr}`, pubStr && `Pub ${pubStr}`].filter(Boolean) as string[];
-                    const summary = parts.length ? parts.join(' · ') : 'Adicionar datas';
+                    const endStr = card.delivery_date ? `${formatShortDate(card.delivery_date)}${card.delivery_time ? ' ' + card.delivery_time : ''}` : null;
+                    const summary = startStr && endStr
+                      ? `${startStr} → ${endStr}`
+                      : startStr
+                        ? `Início ${startStr}`
+                        : endStr
+                          ? `Entrega ${endStr}`
+                          : 'Produção';
                     const handleEnterBlur = (e: React.KeyboardEvent) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -1503,17 +1560,18 @@ export default function TaskCard({
                           <button
                             type="button"
                             className={cn(
-                              "inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded hover:bg-background/60 transition-colors max-w-[340px] min-w-0",
-                              parts.length ? "text-foreground" : "text-muted-foreground"
+                              "inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded hover:bg-background/60 transition-colors max-w-[300px] min-w-0",
+                              (startStr || endStr) ? "text-foreground" : "text-muted-foreground"
                             )}
-                            aria-label="Datas e horários"
+                            aria-label="Datas de produção"
                           >
                             <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                             <span className="truncate capitalize">{summary}</span>
                             <ChevronDown className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform", datesOpen && "rotate-180")} />
                           </button>
                         </PopoverTrigger>
-                        <PopoverContent align="end" className="w-[400px] p-3 space-y-2.5" onKeyDown={handleEnterBlur}>
+                        <PopoverContent align="start" className="w-[400px] p-3 space-y-2.5" onKeyDown={handleEnterBlur}>
+
                           {/* Linha: Início de Produção */}
                           <div className="flex items-center gap-2 text-sm">
                             <div className="flex items-center gap-1.5 w-[92px] shrink-0 text-muted-foreground">
@@ -1636,6 +1694,33 @@ export default function TaskCard({
                               </Popover>
                             )}
                           </div>
+                        </PopoverContent>
+                      </Popover>
+                    );
+                  })()}
+
+                  {/* Datas — Publicação (data + adicionais) */}
+                  {!card.is_daily_card && (() => {
+                    const pubStr = card.publish_date ? `${formatShortDate(card.publish_date)}${card.publish_time ? ' ' + card.publish_time : ''}` : null;
+                    const extras = additionalDates.length;
+                    const summary = pubStr ? `Pub ${pubStr}${extras ? ` +${extras}` : ''}` : 'Publicação';
+                    return (
+                      <Popover open={publishOpen} onOpenChange={setPublishOpen}>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className={cn(
+                              "inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded hover:bg-background/60 transition-colors max-w-[240px] min-w-0",
+                              pubStr ? "text-foreground" : "text-muted-foreground"
+                            )}
+                            aria-label="Data de publicação"
+                          >
+                            <Megaphone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="truncate capitalize">{summary}</span>
+                            <ChevronDown className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform", publishOpen && "rotate-180")} />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-[380px] p-3 space-y-2.5">
 
                           {/* Linha: Data de Publicação */}
                           <div className="flex items-center gap-2 text-sm">
@@ -1720,28 +1805,30 @@ export default function TaskCard({
                     );
                   })()}
 
-                  {/* Objetivo — chip com Popover */}
+                  {/* Objetivo — apenas ícone (Popover com BlockEditor) */}
                   {(() => {
                     const preview = (card.objective || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-                    const truncated = preview.length > 40 ? preview.slice(0, 40) + '…' : preview;
+                    const hasContent = preview.length > 0;
                     return (
                       <Popover open={objectiveOpen} onOpenChange={(open) => { setObjectiveOpen(open); if (!open) handleFieldSave('objective', card.objective || ''); }}>
                         <PopoverTrigger asChild>
                           <button
                             type="button"
                             className={cn(
-                              "inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded hover:bg-background/60 transition-colors max-w-[280px] min-w-0",
-                              preview ? "text-foreground" : "text-muted-foreground"
+                              "relative inline-flex items-center justify-center h-7 w-7 rounded hover:bg-background/60 transition-colors",
+                              hasContent ? "text-primary" : "text-muted-foreground"
                             )}
-                            aria-label="Objetivo"
+                            aria-label={hasContent ? `Objetivo: ${preview}` : "Adicionar objetivo"}
+                            title={hasContent ? preview.slice(0, 200) + (preview.length > 200 ? '…' : '') : "Objetivo estratégico"}
                           >
-                            <Target className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="truncate">{preview ? truncated : 'Adicionar objetivo'}</span>
-                            {saving && savingField === 'objective' && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />}
-                            <ChevronDown className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform", objectiveOpen && "rotate-180")} />
+                            <Target className="h-4 w-4" />
+                            {hasContent && (
+                              <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
+                            )}
+                            {saving && savingField === 'objective' && <Loader2 className="absolute -bottom-1 -right-1 h-3 w-3 animate-spin text-muted-foreground" />}
                           </button>
                         </PopoverTrigger>
-                        <PopoverContent align="end" className="w-[520px] p-3">
+                        <PopoverContent align="start" className="w-[520px] p-3">
                           {readOnly ? (
                             <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: convertToHtml(card.objective || "") }} />
                           ) : (
