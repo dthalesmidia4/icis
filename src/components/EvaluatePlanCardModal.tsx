@@ -22,12 +22,12 @@ interface Props {
   onDone?: () => void;
 }
 
-type Mode = "view" | "edit" | "confirm-reject";
+type Mode = "view" | "edit" | "reject";
 
 export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDone }: Props) {
   const navigate = useNavigate();
   const { setSelectedClient } = useSelectedClient();
-  const [busy, setBusy] = useState<null | "approve" | "reject" | "save" | "open">(null);
+  const [busy, setBusy] = useState<null | "approve" | "reevaluate" | "discard" | "save" | "open">(null);
   const [ctx, setCtx] = useState<{ pipelineId: string; initialStatusId: string } | null>(null);
   const [mode, setMode] = useState<Mode>("view");
 
@@ -45,11 +45,26 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
   // Reject form
   const [rejectReason, setRejectReason] = useState("");
 
+  // Content requirements diff modal (learning proposal after reject/reevaluate)
+  const [diffOpen, setDiffOpen] = useState(false);
+  const [diffSaving, setDiffSaving] = useState(false);
+  const [diffCurrent, setDiffCurrent] = useState("");
+  const [diffProposed, setDiffProposed] = useState("");
+  const [diffMode, setDiffMode] = useState<"meaningful" | "ambiguous">("meaningful");
+  const [diffReasoning, setDiffReasoning] = useState("");
+  // What to do after user resolves the diff modal
+  const [pendingAction, setPendingAction] = useState<
+    | { kind: "reevaluate"; updatedCard: any }
+    | { kind: "discard" }
+    | null
+  >(null);
+
   useEffect(() => {
     if (!open) return;
     setMode("view");
     setRejectReason("");
     setLocalCard(card?.card ?? null);
+    setPendingAction(null);
   }, [open, card]);
 
   useEffect(() => {
