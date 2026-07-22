@@ -10,7 +10,7 @@ import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { getFilteredNavigationItems } from "@/lib/constants/navigation";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { ClientSelectionModal } from "@/components/ClientSelectionModal";
-import { useCollaborators } from "@/hooks/useCollaborators";
+
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
