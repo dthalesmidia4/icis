@@ -180,6 +180,47 @@ const KanbanCentralPage = () => {
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const boardScrollRef = useRef<HTMLDivElement | null>(null);
   const columnScrollRootsRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const savedScrollRef = useRef<{ columnId: string; cardId: string; top: number; boardLeft: number } | null>(null);
+
+  const setColumnScrollRoot = useCallback((columnId: string, el: HTMLDivElement | null) => {
+    if (el) columnScrollRootsRef.current.set(columnId, el);
+    else columnScrollRootsRef.current.delete(columnId);
+  }, []);
+
+  const getColumnScrollViewport = useCallback((columnId: string) => {
+    const root = columnScrollRootsRef.current.get(columnId);
+    return root?.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]') || null;
+  }, []);
+
+  const captureColumnScroll = useCallback((columnId: string, cardId: string) => {
+    const viewport = getColumnScrollViewport(columnId);
+    savedScrollRef.current = {
+      columnId,
+      cardId,
+      top: viewport?.scrollTop || 0,
+      boardLeft: boardScrollRef.current?.scrollLeft || 0,
+    };
+  }, [getColumnScrollViewport]);
+
+  const restoreSavedScroll = useCallback(() => {
+    const saved = savedScrollRef.current;
+    if (!saved) return;
+    savedScrollRef.current = null;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (boardScrollRef.current) boardScrollRef.current.scrollLeft = saved.boardLeft;
+
+        const viewport = getColumnScrollViewport(saved.columnId);
+        if (viewport) {
+          viewport.scrollTop = saved.top;
+          return;
+        }
+
+        cardRefs.current.get(saved.cardId)?.scrollIntoView({ block: "center" });
+      });
+    });
+  }, [getColumnScrollViewport]);
   
   // Estado para colunas dinâmicas e modal
   const [columns, setColumns] = useState<PipelineStatus[]>([]);
@@ -475,7 +516,7 @@ const KanbanCentralPage = () => {
         setSearchParams(searchParams, { replace: true });
       }
     }
-  }, [cards, searchParams]);
+  }, [cards, captureColumnScroll, searchParams, setSearchParams]);
 
   const fetchColumns = async () => {
     if (!tenantId) return;
@@ -798,48 +839,6 @@ const KanbanCentralPage = () => {
       ));
     }
   };
-
-  const savedScrollRef = useRef<{ columnId: string; cardId: string; top: number; boardLeft: number } | null>(null);
-
-  const setColumnScrollRoot = useCallback((columnId: string, el: HTMLDivElement | null) => {
-    if (el) columnScrollRootsRef.current.set(columnId, el);
-    else columnScrollRootsRef.current.delete(columnId);
-  }, []);
-
-  const getColumnScrollViewport = useCallback((columnId: string) => {
-    const root = columnScrollRootsRef.current.get(columnId);
-    return root?.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]') || null;
-  }, []);
-
-  const captureColumnScroll = useCallback((columnId: string, cardId: string) => {
-    const viewport = getColumnScrollViewport(columnId);
-    savedScrollRef.current = {
-      columnId,
-      cardId,
-      top: viewport?.scrollTop || 0,
-      boardLeft: boardScrollRef.current?.scrollLeft || 0,
-    };
-  }, [getColumnScrollViewport]);
-
-  const restoreSavedScroll = useCallback(() => {
-    const saved = savedScrollRef.current;
-    if (!saved) return;
-    savedScrollRef.current = null;
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (boardScrollRef.current) boardScrollRef.current.scrollLeft = saved.boardLeft;
-
-        const viewport = getColumnScrollViewport(saved.columnId);
-        if (viewport) {
-          viewport.scrollTop = saved.top;
-          return;
-        }
-
-        cardRefs.current.get(saved.cardId)?.scrollIntoView({ block: "center" });
-      });
-    });
-  }, [getColumnScrollViewport]);
 
   useEffect(() => {
     if (!isTaskCardOpen) restoreSavedScroll();
