@@ -1547,7 +1547,7 @@ export default function TaskCard({
                           <button
                             type="button"
                             className={cn(
-                              "inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded hover:bg-background/60 transition-colors max-w-[420px] min-w-0",
+                              "inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded hover:bg-background/60 transition-colors max-w-[560px] min-w-0",
                               (startStr || endStr) ? "text-foreground" : "text-muted-foreground"
                             )}
                             aria-label="Datas de produção"
