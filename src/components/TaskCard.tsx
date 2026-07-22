@@ -832,7 +832,7 @@ export default function TaskCard({
       
       const functionName = isCarousel ? "auto-generate-carousel" : "generate-post-image";
       const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { demandId: card.id, aiModel: "gpt2" },
+        body: { demandId: card.id, aiModel: selectedAiModel },
       });
       if (error) throw error;
       if (data?.error) {
