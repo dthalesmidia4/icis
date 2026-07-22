@@ -102,10 +102,18 @@ Deno.serve(async (req) => {
       if (fromInstructions.length > allSlides.length) allSlides = fromInstructions;
     }
     if (allSlides.length === 0) {
-      const fallbackText = demand.title || "Post";
-      const fallbackBody = stripHtml(demand.description) || stripHtml(demand.instructions) || demand.objective || "";
+      const descText = stripHtml(demand.description);
+      const objText = demand.objective || "";
+      const instrText = stripHtml(demand.instructions);
+      const fallbackText =
+        (descText && descText.split(/[\n\.\!\?]/)[0]?.trim().substring(0, 80)) ||
+        (objText && objText.substring(0, 80)) ||
+        (instrText && instrText.substring(0, 80)) ||
+        "";
+      const fallbackBody = descText || instrText || objText || "";
       allSlides = [{ slideNumber: 1, title: fallbackText, body: fallbackBody }];
     }
+
 
     const slidesToGenerate = slideNumber
       ? (() => {
