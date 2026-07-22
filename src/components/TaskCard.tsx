@@ -1535,14 +1535,17 @@ export default function TaskCard({
                     </Select>
                   </div>
 
-                  <div className="flex-1" />
-
-                  {/* Datas — chip com Popover integrado */}
+                  {/* Datas — Produção (Início + Entrega) */}
                   {!card.is_daily_card && (() => {
                     const startStr = card.due_date ? `${formatShortDate(card.due_date)}${card.due_time ? ' ' + card.due_time : ''}` : null;
-                    const pubStr = card.publish_date ? `${formatShortDate(card.publish_date)}${card.publish_time ? ' ' + card.publish_time : ''}` : null;
-                    const parts = [startStr && `Início ${startStr}`, pubStr && `Pub ${pubStr}`].filter(Boolean) as string[];
-                    const summary = parts.length ? parts.join(' · ') : 'Adicionar datas';
+                    const endStr = card.delivery_date ? `${formatShortDate(card.delivery_date)}${card.delivery_time ? ' ' + card.delivery_time : ''}` : null;
+                    const summary = startStr && endStr
+                      ? `${startStr} → ${endStr}`
+                      : startStr
+                        ? `Início ${startStr}`
+                        : endStr
+                          ? `Entrega ${endStr}`
+                          : 'Produção';
                     const handleEnterBlur = (e: React.KeyboardEvent) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -1557,17 +1560,18 @@ export default function TaskCard({
                           <button
                             type="button"
                             className={cn(
-                              "inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded hover:bg-background/60 transition-colors max-w-[340px] min-w-0",
-                              parts.length ? "text-foreground" : "text-muted-foreground"
+                              "inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded hover:bg-background/60 transition-colors max-w-[300px] min-w-0",
+                              (startStr || endStr) ? "text-foreground" : "text-muted-foreground"
                             )}
-                            aria-label="Datas e horários"
+                            aria-label="Datas de produção"
                           >
                             <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                             <span className="truncate capitalize">{summary}</span>
                             <ChevronDown className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform", datesOpen && "rotate-180")} />
                           </button>
                         </PopoverTrigger>
-                        <PopoverContent align="end" className="w-[400px] p-3 space-y-2.5" onKeyDown={handleEnterBlur}>
+                        <PopoverContent align="start" className="w-[400px] p-3 space-y-2.5" onKeyDown={handleEnterBlur}>
+
                           {/* Linha: Início de Produção */}
                           <div className="flex items-center gap-2 text-sm">
                             <div className="flex items-center gap-1.5 w-[92px] shrink-0 text-muted-foreground">
