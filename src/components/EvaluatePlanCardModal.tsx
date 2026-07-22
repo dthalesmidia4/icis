@@ -472,7 +472,7 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => setMode("confirm-reject")}
+                  onClick={() => setMode("reject")}
                   disabled={!!busy}
                   className="text-destructive hover:text-destructive"
                 >
