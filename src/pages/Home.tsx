@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useHubPermissions } from "@/hooks/useHubPermissions";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+
 import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { getFilteredNavigationItems } from "@/lib/constants/navigation";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
