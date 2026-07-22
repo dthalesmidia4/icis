@@ -532,12 +532,27 @@ const RejectedCards = () => {
         <div className="mt-5 space-y-3">
           {cards.map((item, idx) => {
             const c = item.raw;
-            const title = pick(c.titulo, c.title) || "Sem título";
+            const rawTitle = pick(c.titulo, c.title) || "Sem título";
+            const title = stripClientPrefix(rawTitle, displayName);
             const tipo = pick(c.tipo, c.tipo_conteudo, c.type);
             const channel = pick(c.canal, c.channel);
             const date = pick(c.data_sugerida, c.suggested_date, c.date);
+            const objetivo = pick(c.objetivo, c.objective);
+            const conteudo = pick(c.conteudo, c.descricao, c.description);
+            const instrucoes = pick(c.instrucoes_de_producao);
+            const cta = pick(c.cta_recomendado);
             const isUltra = item._originalSource === "ultra";
-            const busy = approvingIndex === idx || restoringIndex === idx || reevaluatingIndex === idx;
+            const busy = approvingIndex === idx || reevaluatingIndex === idx;
+            const isExpanded = expandedIdx.has(idx);
+            const hasBody = !!(objetivo || conteudo || instrucoes || cta);
+            const toggleExpand = () => {
+              setExpandedIdx((prev) => {
+                const next = new Set(prev);
+                if (next.has(idx)) next.delete(idx);
+                else next.add(idx);
+                return next;
+              });
+            };
             return (
               <Card
                 key={idx}
@@ -565,12 +580,12 @@ const RejectedCards = () => {
                     )}
                     {item._rejectedAt && (
                       <span className="text-muted-foreground ml-auto">
-                        Reprovado {formatRejectedAt(item._rejectedAt)}
+                        Descartado {formatRejectedAt(item._rejectedAt)}
                       </span>
                     )}
                   </div>
 
-                  {/* Título */}
+                  {/* Título (sem prefixo repetido do cliente) */}
                   <h3 className="text-base sm:text-lg font-semibold leading-snug">
                     {title}
                   </h3>
@@ -582,6 +597,52 @@ const RejectedCards = () => {
                         Motivo da reprovação
                       </div>
                       <p className="text-sm whitespace-pre-wrap">{item._rejectReason}</p>
+                    </div>
+                  )}
+
+                  {/* Conteúdo planejado (colapsável) */}
+                  {hasBody && (
+                    <div className="rounded-md border border-border/60">
+                      <button
+                        type="button"
+                        onClick={toggleExpand}
+                        className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium hover:bg-muted/40 transition-colors"
+                      >
+                        <span>Ver conteúdo planejado</span>
+                        {isExpanded ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                      </button>
+                      {isExpanded && (
+                        <div className="px-3 py-3 border-t border-border/60 space-y-3 text-sm">
+                          {objetivo && (
+                            <div>
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">Objetivo</div>
+                              <p className="whitespace-pre-wrap">{objetivo}</p>
+                            </div>
+                          )}
+                          {conteudo && (
+                            <div>
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">Conteúdo</div>
+                              <p className="whitespace-pre-wrap">{conteudo}</p>
+                            </div>
+                          )}
+                          {instrucoes && (
+                            <div>
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">Instruções de produção</div>
+                              <p className="whitespace-pre-wrap">{instrucoes}</p>
+                            </div>
+                          )}
+                          {cta && (
+                            <div>
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">CTA</div>
+                              <p className="whitespace-pre-wrap">{cta}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -603,23 +664,10 @@ const RejectedCards = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleRestoreCard(idx)}
-                      disabled={busy}
-                      className="gap-1.5"
-                    >
-                      {restoringIndex === idx ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Undo2 className="w-3.5 h-3.5" />
-                      )}
-                      Resgatar para avaliação
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
                       onClick={() => handleApproveCard(idx)}
-                      disabled={busy || !pipelineId || !initialStatusId}
+                      disabled={busy || !pipelineId || !initialStatusId || (hasBody && !isExpanded)}
                       className="gap-1.5"
+                      title={hasBody && !isExpanded ? "Abra 'Ver conteúdo planejado' para revisar antes de aprovar" : undefined}
                     >
                       {approvingIndex === idx ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -628,21 +676,13 @@ const RejectedCards = () => {
                       )}
                       Aprovar e enviar ao Kanban
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => navigate("/approve-cards")}
-                      className="gap-1.5 ml-auto text-muted-foreground"
-                    >
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                      Abrir Avaliação
-                    </Button>
                   </div>
                 </div>
               </Card>
             );
           })}
         </div>
+
       )}
 
       {/* Prompt to collect a reason when the archived card doesn't have one */}
