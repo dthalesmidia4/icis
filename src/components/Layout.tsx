@@ -40,8 +40,8 @@ export const Layout = ({ children }: LayoutProps) => {
           </main>
         </div>
         
-        {/* Late Demand Alerts */}
-        <LateDemandPopup />
+
+
       </div>
     </SidebarProvider>
     </BreadcrumbOverrideProvider>
