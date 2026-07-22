@@ -178,6 +178,49 @@ const KanbanCentralPage = () => {
   }>>([]);
   const [highlightedCardId, setHighlightedCardId] = useState<string | null>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const boardScrollRef = useRef<HTMLDivElement | null>(null);
+  const columnScrollRootsRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const savedScrollRef = useRef<{ columnId: string; cardId: string; top: number; boardLeft: number } | null>(null);
+
+  const setColumnScrollRoot = useCallback((columnId: string, el: HTMLDivElement | null) => {
+    if (el) columnScrollRootsRef.current.set(columnId, el);
+    else columnScrollRootsRef.current.delete(columnId);
+  }, []);
+
+  const getColumnScrollViewport = useCallback((columnId: string) => {
+    const root = columnScrollRootsRef.current.get(columnId);
+    return root?.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]') || null;
+  }, []);
+
+  const captureColumnScroll = useCallback((columnId: string, cardId: string) => {
+    const viewport = getColumnScrollViewport(columnId);
+    savedScrollRef.current = {
+      columnId,
+      cardId,
+      top: viewport?.scrollTop || 0,
+      boardLeft: boardScrollRef.current?.scrollLeft || 0,
+    };
+  }, [getColumnScrollViewport]);
+
+  const restoreSavedScroll = useCallback(() => {
+    const saved = savedScrollRef.current;
+    if (!saved) return;
+    savedScrollRef.current = null;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (boardScrollRef.current) boardScrollRef.current.scrollLeft = saved.boardLeft;
+
+        const viewport = getColumnScrollViewport(saved.columnId);
+        if (viewport) {
+          viewport.scrollTop = saved.top;
+          return;
+        }
+
+        cardRefs.current.get(saved.cardId)?.scrollIntoView({ block: "center" });
+      });
+    });
+  }, [getColumnScrollViewport]);
   
   // Estado para colunas dinâmicas e modal
   const [columns, setColumns] = useState<PipelineStatus[]>([]);
@@ -464,8 +507,7 @@ const KanbanCentralPage = () => {
     if (highlightId && shouldOpenCard && cards.length > 0) {
       const card = cards.find(c => c.id === highlightId);
       if (card) {
-        const el = document.querySelector('main') as HTMLElement | null;
-        if (el) savedScrollRef.current = { el, top: el.scrollTop };
+        captureColumnScroll(card.assigned_to || "__unassigned__", card.id);
         setSelectedCard(card);
         setIsTaskCardOpen(true);
         // Clean up URL params
@@ -474,7 +516,7 @@ const KanbanCentralPage = () => {
         setSearchParams(searchParams, { replace: true });
       }
     }
-  }, [cards, searchParams]);
+  }, [cards, captureColumnScroll, searchParams, setSearchParams]);
 
   const fetchColumns = async () => {
     if (!tenantId) return;
@@ -798,23 +840,12 @@ const KanbanCentralPage = () => {
     }
   };
 
-  const savedScrollRef = useRef<{ el: HTMLElement; top: number } | null>(null);
-
-  const captureMainScroll = () => {
-    const el = document.querySelector('main') as HTMLElement | null;
-    if (el) savedScrollRef.current = { el, top: el.scrollTop };
-  };
-
   useEffect(() => {
-    if (!isTaskCardOpen && savedScrollRef.current) {
-      const { el, top } = savedScrollRef.current;
-      savedScrollRef.current = null;
-      requestAnimationFrame(() => { el.scrollTop = top; });
-    }
-  }, [isTaskCardOpen]);
+    if (!isTaskCardOpen) restoreSavedScroll();
+  }, [isTaskCardOpen, restoreSavedScroll]);
 
-  const handleCardClick = (card: CentralKanbanCard) => {
-    captureMainScroll();
+  const handleCardClick = (card: CentralKanbanCard, columnId?: string) => {
+    captureColumnScroll(columnId || card.assigned_to || "__unassigned__", card.id);
     setSelectedCard(card);
     setIsTaskCardOpen(true);
   };
@@ -1713,7 +1744,7 @@ const KanbanCentralPage = () => {
       )}
 
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div ref={boardScrollRef} className="flex gap-4 overflow-x-auto pb-4">
           {[
             ...collaborators.map((c) => ({
               id: c.userId,
@@ -1823,7 +1854,10 @@ const KanbanCentralPage = () => {
                     </div>
 
                     {/* Column Content */}
-                    <ScrollArea className="flex-1 p-2 min-h-[200px] max-h-[calc(100vh-280px)]">
+                    <ScrollArea
+                      ref={(el) => setColumnScrollRoot(column.id, el)}
+                      className="flex-1 p-2 min-h-[200px] max-h-[calc(100vh-280px)]"
+                    >
                       <div className="space-y-2">
                         {(() => {
                           // Group cards by chosen date
@@ -1955,7 +1989,7 @@ const KanbanCentralPage = () => {
                                             dailyCompleted={(card as any).daily_completed_occurrences}
                                             dailyTotal={(card as any).daily_total_occurrences}
                                             dailyNextDate={(card as any).daily_next_date}
-                                            onClick={() => handleCardClick(card)}
+                                            onClick={() => handleCardClick(card, column.id)}
                                             onDatesChange={isHistory ? undefined : (changes) => handleInlineDatesChange(card.id, changes)}
                                           />
                                         </div>
@@ -2086,7 +2120,7 @@ const KanbanCentralPage = () => {
                                       dailyCompleted={(card as any).daily_completed_occurrences}
                                       dailyTotal={(card as any).daily_total_occurrences}
                                       dailyNextDate={(card as any).daily_next_date}
-                                      onClick={() => handleCardClick(card)}
+                                      onClick={() => handleCardClick(card, column.id)}
                                       onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
                                     />
                                   </div>
@@ -2147,7 +2181,7 @@ const KanbanCentralPage = () => {
                                       dailyCompleted={(card as any).daily_completed_occurrences}
                                       dailyTotal={(card as any).daily_total_occurrences}
                                       dailyNextDate={(card as any).daily_next_date}
-                                      onClick={() => handleCardClick(card)}
+                                      onClick={() => handleCardClick(card, column.id)}
                                       onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
                                     />
                                   </div>
@@ -2185,7 +2219,6 @@ const KanbanCentralPage = () => {
           setIsTaskCardOpen(open);
           if (!open) {
             setSelectedCard(null);
-            fetchAllCards();
           }
         }}
         isDraft={isDraftMode}
