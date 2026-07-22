@@ -1078,9 +1078,9 @@ export default function TaskCard({
               <div className="flex-1 min-w-0">
                 <div className="flex min-w-0 items-center gap-3">
                   {!isDraft && card.clientName && (
-                    <Badge variant="secondary" className="max-w-[220px] shrink-0 px-2.5 py-1 text-xs font-semibold">
-                      <span className="truncate">{card.clientName}</span>
-                    </Badge>
+                    <span className="max-w-[220px] shrink-0 truncate text-xl md:text-2xl font-bold text-primary dark:text-foreground" title={card.clientName}>
+                      {card.clientName}
+                    </span>
                   )}
                   {!readOnly && (isDraft || editingField === 'title' || !card.title) ? (
                     <Input
@@ -1090,13 +1090,13 @@ export default function TaskCard({
                       onBlur={() => { if (editingField === 'title') handleFieldSave('title', card.title || ''); }}
                       onKeyDown={e => { if (e.key === 'Enter') handleFieldSave('title', card.title || ''); }}
                       placeholder="Nome da demanda"
-                      className="h-14 min-w-0 text-3xl font-bold border-primary"
+                      className="h-12 min-w-0 text-2xl font-bold border-primary"
                     />
                   ) : (
                     <h1
                       id="task-card-title"
                       onClick={() => !readOnly && setEditingField('title')}
-                      className={cn("min-w-0 truncate font-bold text-3xl md:text-4xl", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
+                      className={cn("min-w-0 truncate font-bold text-2xl md:text-3xl", !readOnly && "cursor-pointer hover:text-primary transition-colors")}
                     >
                       {card.title}
                     </h1>
