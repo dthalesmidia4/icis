@@ -164,6 +164,80 @@ export async function pickAssigneeForFunction(
   };
 }
 
+/**
+ * Devolve a sequência ordenada de funções obrigatórias para um `demand_type_key`.
+ */
+export async function getPipelineSequence(
+  tenantId: string,
+  demandTypeKey?: string | null,
+): Promise<{ function_key: string; name: string }[]> {
+  const typeKey = coerceDemandTypeKey(demandTypeKey);
+  if (!typeKey || !tenantId) return [];
+  const [{ data: fns }, { data: rules }] = await Promise.all([
+    supabase
+      .from("flow_functions")
+      .select("function_key, name, position, active")
+      .eq("tenant_id", tenantId)
+      .eq("active", true)
+      .order("position"),
+    supabase
+      .from("demand_type_flow_rules")
+      .select("function_key, requirement")
+      .eq("tenant_id", tenantId)
+      .eq("demand_type_key", typeKey),
+  ]);
+  if (!fns) return [];
+  const req = new Map<string, string>();
+  (rules || []).forEach((r: any) => req.set(r.function_key, r.requirement));
+  return (fns as any[])
+    .filter((f) => req.get(f.function_key) === "required")
+    .map((f) => ({ function_key: f.function_key, name: f.name }));
+}
+
+/**
+ * Pula diretamente a demanda para uma função específica do pipeline configurado.
+ */
+export async function jumpToFunction({
+  demandId,
+  tenantId,
+  demandTypeKey,
+  targetFunctionKey,
+  currentFunctionKey,
+}: {
+  demandId: string;
+  tenantId: string;
+  demandTypeKey?: string | null;
+  targetFunctionKey: string;
+  currentFunctionKey?: string | null;
+}): Promise<ProceedResult> {
+  const seq = await getPipelineSequence(tenantId, demandTypeKey);
+  const target = seq.find((f) => f.function_key === targetFunctionKey);
+  if (!target) return { success: false, message: "Etapa não encontrada no fluxo." };
+
+  if (currentFunctionKey === "enviar_cliente" && target.function_key === "aguardando_cliente") {
+    const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
+    const keep = (cur as any)?.assigned_to || null;
+    const { error } = await supabase.from("demands").update({ current_function_key: target.function_key } as any).eq("id", demandId);
+    if (error) return { success: false, message: "Erro ao atualizar etapa." };
+    await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: keep, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
+    return { success: true, assignedTo: keep || undefined, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name}.` };
+  }
+
+  const picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name);
+  if (!picked.success || !picked.userId) return { success: false, message: picked.message || "Nenhum responsável para a etapa." };
+
+  const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
+  const prevUser = (cur as any)?.assigned_to || null;
+
+  const { error } = await supabase
+    .from("demands")
+    .update({ assigned_to: picked.userId, current_function_key: target.function_key } as any)
+    .eq("id", demandId);
+  if (error) return { success: false, message: "Erro ao atualizar etapa." };
+  await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
+  return { success: true, assignedTo: picked.userId, assignedName: picked.name, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name} com ${picked.name}.` };
+}
+
 export async function proceedDemand({
   demandId,
   tenantId,
