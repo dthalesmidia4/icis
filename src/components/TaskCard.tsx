@@ -2366,9 +2366,25 @@ export default function TaskCard({
                 : "A IA irá analisar a atividade e gerar a imagem do post estático. Isso pode levar alguns minutos."}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
-            <Wand2 className="h-3.5 w-3.5 shrink-0" />
-            <span>Tecnologia atual: <strong className="text-foreground">Google Gemini (gemini-2.0-flash-exp-image-generation) via Google AI Studio</strong></span>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+              <Wand2 className="h-3.5 w-3.5" /> Modelo de IA
+            </label>
+            <Select value={selectedAiModel} onValueChange={(v) => setSelectedAiModel(v as any)}>
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="gpt2">GPT Image 2 (recomendado)</SelectItem>
+                <SelectItem value="nanobanana3">Nanobanana 3 (Gemini 3 Pro)</SelectItem>
+                <SelectItem value="nanobanana25">Nanobanana 2.5 (Gemini Flash)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              {selectedAiModel === "gpt2" && "openai · gpt-image-2"}
+              {selectedAiModel === "nanobanana3" && "google · gemini-3-pro-image-preview"}
+              {selectedAiModel === "nanobanana25" && "google · gemini-2.5-flash-image-preview"}
+            </p>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
