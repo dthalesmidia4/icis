@@ -236,6 +236,57 @@ export async function restoreRejectedCard(params: {
   if (error) throw error;
 }
 
+/**
+ * Backfill: move todos os itens de `rejected_plan` que NÃO possuem `_discarded`
+ * de volta para default_plan/ultra_plan, mantendo `_rejectReason` como contexto.
+ * Retorna quantos foram movidos.
+ */
+export async function bulkRestoreNonDiscarded(params: {
+  periodId: string;
+  currentDefault: any[];
+  currentUltra: any[];
+  currentRejected: any[];
+}): Promise<number> {
+  const rejected = Array.isArray(params.currentRejected) ? [...params.currentRejected] : [];
+  if (rejected.length === 0) return 0;
+
+  const keep: any[] = [];
+  const defaultPlan = Array.isArray(params.currentDefault) ? [...params.currentDefault] : [];
+  const ultraPlan = Array.isArray(params.currentUltra) ? [...params.currentUltra] : [];
+  let moved = 0;
+
+  for (const item of rejected) {
+    if (item?._discarded) {
+      keep.push(item);
+      continue;
+    }
+    const source: "default" | "ultra" =
+      item?._originalSource === "ultra" ? "ultra" : "default";
+    const { _rejectedAt, _reevaluatedAt, _originalSource, ...clean } = item || {};
+    const restored = { ...clean, _restoredAt: new Date().toISOString() };
+    if (source === "ultra") ultraPlan.push(restored);
+    else defaultPlan.push(restored);
+    moved++;
+  }
+
+  if (moved === 0) return 0;
+
+  const { error } = await supabase
+    .from("period_plans")
+    .update({
+      default_plan: defaultPlan as unknown as null,
+      ultra_plan: ultraPlan as unknown as null,
+      rejected_plan: keep as unknown as null,
+    } as any)
+    .eq("id", params.periodId);
+
+  if (error) throw error;
+  return moved;
+}
+
+
+
+
 
 
 /**
