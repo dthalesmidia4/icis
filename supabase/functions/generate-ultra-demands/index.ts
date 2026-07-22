@@ -134,7 +134,7 @@ Cada item DEVE ter EXATAMENTE este formato:
 {
   "tipo": "Post Estático | Vídeos Curtos | Carrossel",
   "type_key": "criativo_estatico|carrossel|video_captado|video_gerado|null",
-  "titulo": "${brand} – <título criativo>",
+  "titulo": "<título criativo curto, SEM nome da marca>",
   "objetivo": "...",
   "conteudo": "conteúdo em markdown",
   "instrucoes_de_producao": "...",
@@ -149,7 +149,7 @@ Cada item DEVE ter EXATAMENTE este formato:
 }
 
 REGRA de type_key: "criativo_estatico" (post/story estático), "carrossel" (múltiplos slides), "video_captado" (exige gravação real), "video_gerado" (100% IA/motion/stock), null se incerto. NUNCA use tipos compostos.
-REGRA de TÍTULO: SEMPRE começar com "${brand} – " (nome, espaço, en-dash "–", espaço).
+REGRA de TÍTULO: PROIBIDO incluir o nome da empresa/marca ("${brand}"), abreviações ou variações no título. O nome do cliente já aparece em um badge acima do título no card — repeti-lo cria duplicidade visual. O "titulo" deve ser APENAS o gancho criativo do conteúdo, sem prefixos como "${brand} –", "${brand} -" ou "${brand}:".
 
 Formato final: {"plan":[...${customQuantity} itens...],"summary":"resumo do racional Ultra"}`;
 
@@ -237,12 +237,23 @@ Formato final: {"plan":[...${customQuantity} itens...],"summary":"resumo do raci
       return null;
     };
 
+    const stripBrandPrefix = (t: string): string => {
+      if (!t) return t;
+      const brandRaw = (company.fantasy_name || company.name || "").trim();
+      if (!brandRaw) return t.trim();
+      const esc = brandRaw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(`^\\s*${esc}\\s*[\\-\\u2013\\u2014:|]\\s*`, "i");
+      return t.replace(re, "").trim();
+    };
+
     const ultraDemands = (parsed.plan || []).map((d: any) => {
       const tipo = d.tipo || d.demand_type || "";
       const type_key = coerceKey(d.type_key) ?? normalizeKey(tipo);
+      const titulo = stripBrandPrefix(String(d.titulo || d.title || ""));
       // preserve extended fields verbatim
       return {
         ...d,
+        titulo,
         canal: priorityChannel,
         tipo,
         type_key,

@@ -130,11 +130,11 @@ IMPORTANTE: Gere exatamente ${demandLimit} demandas.${volumeInstruction}
 
 REGRA CRÍTICA DE DIVERSIDADE: cada demanda com tema/ângulo ÚNICO; nunca repita tema, conceito, gancho ou abordagem. Varie: educativo, storytelling, bastidores, depoimento, tendência, humor, dados, antes/depois, tutorial.
 
-Cada demanda: {"tipo":"...","type_key":"criativo_estatico|carrossel|video_captado|video_gerado|null","titulo":"${brand} – <título>","objetivo":"...","conteudo":"...","instrucoes_de_producao":"...","cta_recomendado":"...","canal":"${periodPlan.priority_channel}","data_sugerida":"YYYY-MM-DD"}
+Cada demanda: {"tipo":"...","type_key":"criativo_estatico|carrossel|video_captado|video_gerado|null","titulo":"<título criativo curto>","objetivo":"...","conteudo":"...","instrucoes_de_producao":"...","cta_recomendado":"...","canal":"${periodPlan.priority_channel}","data_sugerida":"YYYY-MM-DD"}
 
 type_key: "criativo_estatico" post/imagem/story estático; "carrossel" carrossel; "video_captado" exige gravação real; "video_gerado" 100% IA/motion/stock; null se incerto. NUNCA compor tipos ("Post + Stories" → null).
 
-TÍTULO: DEVE começar com "${brand} – " (nome, espaço, en-dash "–", espaço) seguido do título criativo. Nunca omita a marca. Nunca use "-" simples.
+TÍTULO: PROIBIDO incluir o nome da empresa/marca ("${brand}"), abreviações ou variações no título. O nome do cliente já é exibido separadamente em um badge acima do título no card — repeti-lo gera redundância. O "titulo" deve ser APENAS o gancho/tema criativo do conteúdo (ex.: "Como ler seu Demonstrativo em 5 minutos"), sem prefixos, sem "–", sem "-", sem ":" com a marca.
 
 Formato: {"plan":[...],"summary":"resumo curto do racional"}`;
 
@@ -232,11 +232,22 @@ Formato: {"plan":[...],"summary":"resumo curto do racional"}`;
       return null;
     };
 
+    const stripBrandPrefix = (t: string): string => {
+      if (!t) return t;
+      const brandRaw = (company.fantasy_name || company.name || "").trim();
+      if (!brandRaw) return t.trim();
+      const esc = brandRaw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      // remove "Brand – ", "Brand - ", "Brand — ", "Brand: ", "Brand | " (case/space insensitive) at start
+      const re = new RegExp(`^\\s*${esc}\\s*[\\-\\u2013\\u2014:|]\\s*`, "i");
+      return t.replace(re, "").trim();
+    };
+
     const planDemands = (parsed.plan || []).map((d: any) => {
       const tipo = batchType ? batchType : (d.tipo || d.demand_type || "");
       const forcedKey = batchType && Object.prototype.hasOwnProperty.call(BATCH_TO_KEY, batchType) ? BATCH_TO_KEY[batchType] : null;
       const type_key = forcedKey ?? coerceKey(d.type_key) ?? normalizeKey(tipo);
-      return { ...d, canal: priorityChannel, tipo, type_key };
+      const titulo = stripBrandPrefix(String(d.titulo || d.title || ""));
+      return { ...d, titulo, canal: priorityChannel, tipo, type_key };
     });
     const summary = parsed.summary || "";
 
