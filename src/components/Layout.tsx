@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar, MobileHeader } from "@/components/AppSidebar";
 import { NavigationBreadcrumb, MobileBreadcrumb } from "@/components/NavigationBreadcrumb";
-import LateDemandPopup from "@/components/LateDemandPopup";
+
 import { BreadcrumbOverrideProvider } from "@/contexts/BreadcrumbOverrideContext";
 
 interface LayoutProps {
