@@ -132,6 +132,7 @@ export async function rejectPlanCard(params: {
   currentUltra: any[];
   currentRejected: any[];
   reason?: string | null;
+  discarded?: boolean;
 }) {
   const isDefault = params.source === "default";
   const plan = isDefault ? [...params.currentDefault] : [...params.currentUltra];
@@ -140,11 +141,13 @@ export async function rejectPlanCard(params: {
   const [removed] = plan.splice(params.indexInPlan, 1);
   const rejected = [...(params.currentRejected || [])];
   const reason = (params.reason ?? "").trim();
+  const nowIso = new Date().toISOString();
   rejected.push({
     ...removed,
     _originalSource: params.source,
-    _rejectedAt: new Date().toISOString(),
+    _rejectedAt: nowIso,
     ...(reason ? { _rejectReason: reason } : {}),
+    ...(params.discarded ? { _discarded: true, _discardedAt: nowIso } : {}),
   });
 
   const key = isDefault ? "default_plan" : "ultra_plan";
@@ -158,6 +161,7 @@ export async function rejectPlanCard(params: {
 
   if (error) throw error;
 }
+
 
 /**
  * Substitui in-place um card no default_plan/ultra_plan com uma nova versão
