@@ -46,6 +46,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import { BlockEditor } from "@/components/BlockEditor";
+import { StartEndDatePopover, SingleDateTimePopover } from "@/components/kanban/StartEndDatePopover";
 import {
   AlertDialog,
   AlertDialogAction,
