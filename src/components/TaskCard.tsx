@@ -393,6 +393,7 @@ export default function TaskCard({
   const [loadingPeriodPlans, setLoadingPeriodPlans] = useState(false);
   const [activeSection, setActiveSection] = useState<'description' | 'observations' | 'caption' | 'anexos'>('description');
   const [datesOpen, setDatesOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
   const [objectiveOpen, setObjectiveOpen] = useState(false);
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<{ current: number; total: number } | null>(null);
