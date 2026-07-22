@@ -464,6 +464,8 @@ const KanbanCentralPage = () => {
     if (highlightId && shouldOpenCard && cards.length > 0) {
       const card = cards.find(c => c.id === highlightId);
       if (card) {
+        const el = document.querySelector('main') as HTMLElement | null;
+        if (el) savedScrollRef.current = { el, top: el.scrollTop };
         setSelectedCard(card);
         setIsTaskCardOpen(true);
         // Clean up URL params
@@ -796,7 +798,23 @@ const KanbanCentralPage = () => {
     }
   };
 
+  const savedScrollRef = useRef<{ el: HTMLElement; top: number } | null>(null);
+
+  const captureMainScroll = () => {
+    const el = document.querySelector('main') as HTMLElement | null;
+    if (el) savedScrollRef.current = { el, top: el.scrollTop };
+  };
+
+  useEffect(() => {
+    if (!isTaskCardOpen && savedScrollRef.current) {
+      const { el, top } = savedScrollRef.current;
+      savedScrollRef.current = null;
+      requestAnimationFrame(() => { el.scrollTop = top; });
+    }
+  }, [isTaskCardOpen]);
+
   const handleCardClick = (card: CentralKanbanCard) => {
+    captureMainScroll();
     setSelectedCard(card);
     setIsTaskCardOpen(true);
   };

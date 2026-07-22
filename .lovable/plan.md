@@ -1,37 +1,31 @@
-## Problema
+## Diagnóstico
 
-1. Em demandas planejadas, o **título do card** (ex.: "Statera – Quando indicar uma Avaliação Neuropsicológica? (3 sinais práticos)") está aparecendo renderizado na arte gerada. O título é nomenclatura interna do card — nunca deveria virar tipografia da imagem.
-2. O fluxo **Carrossel Manual** (`ClientHub` → Carrossel → Manual) chama `generate-carousel-images` com `aiModel: 'gpt2'` hardcoded, sem picker. Não segue a mesma UX do carrossel/estático via IA, que já tem seletor com default GPT Image 2.
+- O container real com scroll é `<main className="flex-1 overflow-auto ...">` em `src/components/Layout.tsx`. As colunas do Kanban Central herdam essa rolagem (não há `overflow-y` próprio nas colunas).
+- Ao abrir um card, `TaskCard` renderiza um overlay `fixed inset-0` e, no `useEffect`, aplica `document.body.style.overflow = 'hidden'`. Isso não trava/preserva o scroll do `<main>` — em alguns browsers/rerenders o scrollTop do `<main>` acaba indo a 0 quando o overlay fecha (o layout do main é reavaliado e o valor não é restaurado).
+- Resultado: ao fechar (X, Esc ou clique fora), o usuário volta ao topo da coluna e perde a posição.
 
-## Escopo da mudança
+## Solução (simples, sem overhead)
 
-### 1. Tirar o título da imagem (estático planejado + avulso)
+Guardar o `scrollTop` do container `<main>` no momento em que o TaskCard abre e restaurar quando fecha. Sem observadores, sem listeners contínuos — apenas 1 leitura ao abrir e 1 escrita ao fechar.
 
-**`supabase/functions/auto-generate-post/index.ts`** (usado por "Gerar estático com IA" no card e pelo fluxo automático pós-aprovação):
-- Trocar o bloco `TÍTULO DO POST (pode aparecer como texto na imagem)` por `TÍTULO INTERNO DO CARD (apenas contexto — PROIBIDO renderizar este texto na imagem)`.
-- Ajustar a "REGRA CRÍTICA DE SEPARAÇÃO DE CONTEÚDO" para explicitar:
-  - O título é identificador interno, NUNCA deve virar tipografia.
-  - A tipografia visual deve ser derivada do **Objetivo/Instruções/Descrição** (gancho curto), criando um título visual novo e conciso.
-  - Se nenhum gancho estiver disponível, o modelo gera um título visual curto a partir do tema — sem copiar o título do card.
+### Alterações
 
-**`supabase/functions/generate-standalone-post/index.ts`**: manter o modo Manual (texto exato) intacto; no modo automático (`isManual=false`) já não passa título de card, então nada a alterar.
+**`src/pages/KanbanCentralPage.tsx`**
+1. Adicionar `const savedScrollRef = useRef<{ el: HTMLElement | null; top: number } | null>(null);`
+2. Criar helper `captureMainScroll()`: sobe pelo DOM a partir de `document.activeElement` ou de um ref no root da página até achar `main` (ou o elemento com `overflow-auto`); salva `{ el, top: el.scrollTop }`.
+3. No `handleTaskClick` (linha ~800), antes de `setSelectedCard`/`setIsTaskCardOpen(true)`, chamar `captureMainScroll()`.
+4. Idem no efeito de auto-open por URL (linha ~460) para o caso `openCard=true`.
+5. Adicionar `useEffect` que observa `isTaskCardOpen`: quando muda de `true → false` e `savedScrollRef.current` existe, usar `requestAnimationFrame(() => { el.scrollTop = top; savedScrollRef.current = null; })` para restaurar após o re-render.
 
-**`supabase/functions/auto-generate-carousel/index.ts`**: o `demand.title` só alimenta a geração de textos dos slides (etapa OpenAI), não vai para o prompt de imagem. Renomear rótulo para `Título interno (apenas referência)` para reforçar que o modelo de texto não deve reproduzi-lo literalmente nos slides.
-
-### 2. Picker de modelo no Carrossel Manual
-
-**`src/pages/ClientHub.tsx`**:
-- No `Dialog manualCarouselOpen` (linha ~1955), adicionar um `Select` de modelo idêntico ao do modal de carrossel IA (Nanobanana 3 / Nanobanana 2.5 / GPT Image 2), reutilizando o state `carouselAiModel` já existente (default `'gpt2'`).
-- Substituir o `aiModel: 'gpt2'` hardcoded na chamada `generate-carousel-images` (linha 2065) por `carouselAiModel`.
-- Resetar `carouselAiModel` no `onOpenChange` do modal manual, mantendo consistência com o modal IA.
+Alternativa mais robusta (se preferir): pegar o `<main>` uma única vez via `document.querySelector('main')` dentro do `captureMainScroll` — evita ref-passing pelo Layout.
 
 ## Fora de escopo
 
-- Não alterar o fluxo `Manual → Texto exato` do post estático (usuário quer o texto literal).
-- Não mexer em prompts de vídeo, storyboard, ou publicação.
-- Não alterar `models.ts` (`DEFAULT_IMAGE_MODEL = 'gpt2'` já é a fonte única).
+- Não vamos remover o `document.body.style.overflow = 'hidden'` do TaskCard (protege modais aninhados).
+- Não vamos aplicar rolagem interna por coluna (mudaria layout e UX de toda a Visão Geral e Modo Foco).
+- Não vamos usar `sessionStorage` — a memória é apenas em runtime, curta e barata.
 
 ## Verificação
 
-- Reprocessar a demanda "Statera – Quando indicar..." via "Gerar estático com IA" e confirmar que o título do card não aparece na arte.
-- Abrir Carrossel Manual e conferir o seletor de modelo com GPT Image 2 pré-selecionado.
+- Abrir Visão Geral, rolar a coluna da Lúcia até um card no meio, abrir card, clicar em fechar/Esc → a posição da coluna deve permanecer exatamente onde estava.
+- Repetir em Modo Foco (`CollaboratorDemands`) — aplicar a mesma técnica lá se o problema também ocorrer (aguardo confirmação; escopo inicial é apenas `KanbanCentralPage`).
