@@ -88,8 +88,10 @@ const RejectedCards = () => {
   const [pipelineId, setPipelineId] = useState<string | null>(null);
   const [initialStatusId, setInitialStatusId] = useState<string | null>(null);
   const [approvingIndex, setApprovingIndex] = useState<number | null>(null);
-  const [restoringIndex, setRestoringIndex] = useState<number | null>(null);
   const [reevaluatingIndex, setReevaluatingIndex] = useState<number | null>(null);
+  const [expandedIdx, setExpandedIdx] = useState<Set<number>>(new Set());
+  const [backfilledPeriods, setBackfilledPeriods] = useState<Set<string>>(new Set());
+
 
   // Prompt for missing reason
   const [reasonPromptIndex, setReasonPromptIndex] = useState<number | null>(null);
