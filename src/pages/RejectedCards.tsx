@@ -221,6 +221,152 @@ const RejectedCards = () => {
     }
   };
 
+  // Move a rejected card back into the active plan, but with a revised body from AI.
+  const applyReevaluatedToActivePlan = async (
+    periodId: string,
+    rejectedIndex: number,
+    updatedCard: any,
+  ) => {
+    const { data: period, error } = await supabase
+      .from("period_plans")
+      .select("default_plan, ultra_plan, rejected_plan")
+      .eq("id", periodId)
+      .single();
+    if (error || !period) throw error ?? new Error("Período não encontrado");
+    const rejected = Array.isArray((period as any).rejected_plan) ? [...(period as any).rejected_plan] : [];
+    if (rejectedIndex < 0 || rejectedIndex >= rejected.length) {
+      throw new Error("Card reprovado não encontrado");
+    }
+    const [removed] = rejected.splice(rejectedIndex, 1);
+    const source: "default" | "ultra" = removed?._originalSource === "ultra" ? "ultra" : "default";
+    const targetPlan =
+      source === "ultra"
+        ? [...(Array.isArray(period.ultra_plan) ? period.ultra_plan : [])]
+        : [...(Array.isArray(period.default_plan) ? period.default_plan : [])];
+    const { _rejectedAt, _rejectReason, _originalSource, _reevaluatedAt, ...prevClean } = removed || {};
+    targetPlan.push({
+      ...prevClean,
+      ...updatedCard,
+      _reevaluatedAt: new Date().toISOString(),
+      _reevaluatedFromReject: true,
+    });
+    const planKey = source === "ultra" ? "ultra_plan" : "default_plan";
+    const { error: upErr } = await supabase
+      .from("period_plans")
+      .update({
+        [planKey]: targetPlan as unknown as null,
+        rejected_plan: rejected as unknown as null,
+      } as any)
+      .eq("id", periodId);
+    if (upErr) throw upErr;
+  };
+
+  const persistRequirements = async (finalRequirements: string) => {
+    if (!selectedClient) return;
+    const { error } = await supabase
+      .from("tenant_companies")
+      .update({ content_requirements: finalRequirements } as any)
+      .eq("id", selectedClient.id);
+    if (error) throw error;
+  };
+
+  const runReevaluate = async (index: number, reason: string) => {
+    const item = cards[index];
+    if (!item || !tenantId || !selectedClient) return;
+    setReevaluatingIndex(index);
+    try {
+      const { data, error } = await supabase.functions.invoke("reevaluate-card", {
+        body: {
+          card: item.raw,
+          reason: reason.trim(),
+          clientId: selectedClient.id,
+          tenantId,
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const payload = data as {
+        updatedCard: any;
+        learningStatus: "meaningful" | "none" | "ambiguous";
+        learningReasoning?: string;
+        requirementsProposal?: { current: string; proposed: string; additions: string };
+      };
+      if (!payload.updatedCard) throw new Error("A IA não retornou uma nova versão do card.");
+
+      const source: "default" | "ultra" = item._originalSource === "ultra" ? "ultra" : "default";
+      const proposal = payload.requirementsProposal || { current: "", proposed: "", additions: "" };
+      const status = payload.learningStatus;
+
+      if (status === "meaningful" || status === "ambiguous") {
+        setPendingReeval({
+          rejectedIndex: item._rejectedIndex,
+          periodId: item._periodId,
+          source,
+          updatedCard: payload.updatedCard,
+        });
+        setDiffReasoning(payload.learningReasoning || "");
+        setDiffCurrent(proposal.current || "");
+        setDiffProposed(status === "meaningful" ? proposal.proposed || proposal.current || "" : proposal.current || "");
+        setDiffMode(status);
+        setDiffOpen(true);
+      } else {
+        // no learning — finalize immediately
+        await applyReevaluatedToActivePlan(item._periodId, item._rejectedIndex, payload.updatedCard);
+        toast.success("Nova versão gerada e enviada para avaliação");
+        await fetchData();
+      }
+    } catch (err: any) {
+      console.error("[RejectedCards] reevaluate error:", err);
+      const raw = err?.context?.responseText || err?.message || "";
+      const msg = /OPENAI_API_KEY|api key/i.test(raw)
+        ? "Chave OpenAI ausente. Configure OPENAI_API_KEY em Dev → APIs."
+        : err?.message || "Erro ao reavaliar";
+      toast.error(msg);
+    } finally {
+      setReevaluatingIndex(null);
+    }
+  };
+
+  const handleReevaluateClick = (index: number) => {
+    const item = cards[index];
+    if (!item) return;
+    const existing = (item._rejectReason || "").trim();
+    if (existing) {
+      runReevaluate(index, existing);
+    } else {
+      setReasonDraft("");
+      setReasonPromptIndex(index);
+    }
+  };
+
+  const handleDiffConfirm = async (action: "apply" | "skip", finalRequirements?: string) => {
+    if (!pendingReeval) return;
+    setDiffSaving(true);
+    try {
+      if (action === "apply") {
+        await persistRequirements((finalRequirements ?? "").trim());
+      }
+      await applyReevaluatedToActivePlan(
+        pendingReeval.periodId,
+        pendingReeval.rejectedIndex,
+        pendingReeval.updatedCard,
+      );
+      toast.success(
+        action === "apply"
+          ? "Nova versão gerada e exigências atualizadas"
+          : "Nova versão gerada e enviada para avaliação",
+      );
+      setDiffOpen(false);
+      setPendingReeval(null);
+      await fetchData();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || "Erro ao finalizar reavaliação");
+    } finally {
+      setDiffSaving(false);
+    }
+  };
+
   const triggerAutoGenerate = (demandTitle: string, demandType: string | null, demandId: string) => {
     const tipo = (demandType || "").toLowerCase();
     const isStaticPost = tipo.includes("post");
