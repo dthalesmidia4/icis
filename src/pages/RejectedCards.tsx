@@ -177,12 +177,65 @@ const RejectedCards = () => {
 
       setPeriods(normalized);
 
-      // Filtro de 30 dias: cards sem _rejectedAt (legado) aparecem também.
+      // Backfill one-shot: cards reprovados sem `_discarded` são legados de um
+      // fluxo anterior sem opção de descarte — devolvê-los para avaliação.
+      const toBackfill = normalized.filter(
+        (p) =>
+          !backfilledPeriods.has(p.id) &&
+          p.rejected_plan.some((it: any) => !it?._discarded),
+      );
+      if (toBackfill.length > 0) {
+        let totalMoved = 0;
+        for (const p of toBackfill) {
+          try {
+            const moved = await bulkRestoreNonDiscarded({
+              periodId: p.id,
+              currentDefault: p.default_plan,
+              currentUltra: p.ultra_plan,
+              currentRejected: p.rejected_plan,
+            });
+            totalMoved += moved;
+          } catch (e) {
+            console.warn("[RejectedCards] backfill failed for period", p.id, e);
+          }
+        }
+        setBackfilledPeriods((prev) => {
+          const next = new Set(prev);
+          toBackfill.forEach((p) => next.add(p.id));
+          return next;
+        });
+        if (totalMoved > 0) {
+          toast.success(
+            `${totalMoved} card(s) devolvido(s) para avaliação — só descartes explícitos permanecem aqui.`,
+          );
+          // Refetch limpo após o backfill.
+          const { data: refreshed } = await supabase
+            .from("period_plans")
+            .select("id, period_title, period_start, period_end, default_plan, ultra_plan, rejected_plan")
+            .eq("company_id", selectedClient.id)
+            .eq("tenant_id", tenantId)
+            .order("created_at", { ascending: false });
+          if (refreshed) {
+            const renorm: PeriodData[] = refreshed.map((p: any) => ({
+              ...p,
+              default_plan: Array.isArray(p.default_plan) ? p.default_plan : [],
+              ultra_plan: Array.isArray(p.ultra_plan) ? p.ultra_plan : [],
+              rejected_plan: Array.isArray(p.rejected_plan) ? p.rejected_plan : [],
+            }));
+            setPeriods(renorm);
+            normalized.length = 0;
+            renorm.forEach((r) => normalized.push(r));
+          }
+        }
+      }
+
+      // Mostra apenas descartes intencionais + respeita janela de 30 dias.
       const now = Date.now();
       const collected: RejectedCardItem[] = [];
       let globalIdx = 0;
       for (const p of normalized) {
         p.rejected_plan.forEach((item: any, i: number) => {
+          if (!item?._discarded) return;
           const rejectedAt = item?._rejectedAt ? new Date(item._rejectedAt).getTime() : null;
           if (rejectedAt && now - rejectedAt > THIRTY_DAYS_MS) return;
           collected.push({
@@ -197,7 +250,6 @@ const RejectedCards = () => {
           });
         });
       }
-      // ordena por mais recente
       collected.sort((a, b) => {
         const ta = a._rejectedAt ? new Date(a._rejectedAt).getTime() : 0;
         const tb = b._rejectedAt ? new Date(b._rejectedAt).getTime() : 0;
@@ -212,29 +264,7 @@ const RejectedCards = () => {
     }
   };
 
-  const handleRestoreCard = async (index: number) => {
-    const item = cards[index];
-    if (!item) return;
-    const period = periods.find((p) => p.id === item._periodId);
-    if (!period) return;
-    setRestoringIndex(index);
-    try {
-      await restoreRejectedCard({
-        periodId: period.id,
-        rejectedIndex: item._rejectedIndex,
-        currentDefault: period.default_plan,
-        currentUltra: period.ultra_plan,
-        currentRejected: period.rejected_plan,
-      });
-      toast.success("Card devolvido para avaliação");
-      await fetchData();
-    } catch (e: any) {
-      console.error("Error restoring card:", e);
-      toast.error(e?.message || "Erro ao resgatar card");
-    } finally {
-      setRestoringIndex(null);
-    }
-  };
+
 
   // Move a rejected card back into the active plan, but with a revised body from AI.
   const applyReevaluatedToActivePlan = async (
