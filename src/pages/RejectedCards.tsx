@@ -1,21 +1,17 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/PageHeader";
-import { DemandaCard, DemandaItem } from "@/components/DemandaCard";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, RefreshCw, Check, Loader2, ThumbsDown } from "lucide-react";
+import { Undo2, RefreshCw, Check, Loader2, ThumbsDown, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import ContentRequirementsDiffModal from "@/components/ContentRequirementsDiffModal";
 import { cn } from "@/lib/utils";
 import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
+import { restoreRejectedCard } from "@/lib/evaluatePlanCard";
 import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
 
 interface PeriodData {
@@ -28,15 +24,42 @@ interface PeriodData {
   rejected_plan: any[];
 }
 
-interface RejectedCardItem extends DemandaItem {
+interface RejectedCardItem {
   _index: number;
   _originalSource: string;
   _rejectedAt?: string;
+  _rejectReason?: string;
   _periodId: string;
   _periodTitle?: string;
   _rejectedIndex: number;
+  raw: any;
 }
 
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+const pick = (...vals: any[]): string => {
+  for (const v of vals) {
+    if (v === null || v === undefined) continue;
+    const s = typeof v === "string" ? v.trim() : v;
+    if (s) return String(s);
+  }
+  return "";
+};
+
+const formatRejectedAt = (iso?: string) => {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    const diff = Date.now() - d.getTime();
+    const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+    if (days <= 0) return "Hoje";
+    if (days === 1) return "Ontem";
+    if (days < 30) return `${days} dias atrás`;
+    return d.toLocaleDateString("pt-BR");
+  } catch {
+    return "";
+  }
+};
 
 const RejectedCards = () => {
   const navigate = useNavigate();
@@ -48,29 +71,13 @@ const RejectedCards = () => {
   const [pipelineId, setPipelineId] = useState<string | null>(null);
   const [initialStatusId, setInitialStatusId] = useState<string | null>(null);
   const [approvingIndex, setApprovingIndex] = useState<number | null>(null);
-  const [approvedIndexes, setApprovedIndexes] = useState<Set<number>>(new Set());
-
-
-  // Reevaluate modal
-  const [reevalModalOpen, setReevalModalOpen] = useState(false);
-  const [reevalReason, setReevalReason] = useState('');
-  const [reevalCardIndex, setReevalCardIndex] = useState<number | null>(null);
-  const [reevalLoading, setReevalLoading] = useState(false);
-
-  // Content requirements diff modal
-  const [diffOpen, setDiffOpen] = useState(false);
-  const [diffSaving, setDiffSaving] = useState(false);
-  const [diffCurrent, setDiffCurrent] = useState('');
-  const [diffProposed, setDiffProposed] = useState('');
-  const [diffMode, setDiffMode] = useState<'meaningful' | 'ambiguous'>('meaningful');
-  const [diffReasoning, setDiffReasoning] = useState('');
-  const [pendingReeval, setPendingReeval] = useState<{ updatedCard: any; cardIndex: number } | null>(null);
+  const [restoringIndex, setRestoringIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isInitialized) return;
     if (!selectedClient) {
       toast.error("Nenhum cliente selecionado");
-      navigate('/home');
+      navigate("/home");
       return;
     }
     fetchData();
@@ -98,406 +105,175 @@ const RejectedCards = () => {
     if (!selectedClient || !tenantId) return;
     setLoading(true);
     try {
-      // Fetch pipeline + initial status
       const { data: pipeline } = await supabase
-        .from('pipelines')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .eq('is_default', true)
+        .from("pipelines")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("is_default", true)
         .single();
 
       if (pipeline) {
         setPipelineId(pipeline.id);
         const { data: status } = await supabase
-          .from('pipeline_statuses')
-          .select('id')
-          .eq('pipeline_id', pipeline.id)
-          .eq('is_initial', true)
+          .from("pipeline_statuses")
+          .select("id")
+          .eq("pipeline_id", pipeline.id)
+          .eq("is_initial", true)
           .single();
         if (status) setInitialStatusId(status.id);
       }
 
       const { data: periodsData, error } = await supabase
-        .from('period_plans')
-        .select('id, period_title, period_start, period_end, default_plan, ultra_plan, rejected_plan, operational_status')
-        .eq('company_id', selectedClient.id)
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false });
+        .from("period_plans")
+        .select("id, period_title, period_start, period_end, default_plan, ultra_plan, rejected_plan")
+        .eq("company_id", selectedClient.id)
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      const normalizedAll: (PeriodData & { operational_status?: string })[] = (periodsData || []).map((p: any) => ({
+      const normalized: PeriodData[] = (periodsData || []).map((p: any) => ({
         ...p,
         default_plan: Array.isArray(p.default_plan) ? p.default_plan : [],
         ultra_plan: Array.isArray(p.ultra_plan) ? p.ultra_plan : [],
         rejected_plan: Array.isArray(p.rejected_plan) ? p.rejected_plan : [],
       }));
 
-      // Escopo estrito: somente o período atual (em_andamento) do cliente.
-      const currentPeriod = normalizedAll.find((p) => p.operational_status === 'em_andamento') || null;
-      const normalized: PeriodData[] = currentPeriod ? [currentPeriod] : [];
-
       setPeriods(normalized);
 
-      const allRejected: RejectedCardItem[] = [];
+      // Filtro de 30 dias: cards sem _rejectedAt (legado) aparecem também.
+      const now = Date.now();
+      const collected: RejectedCardItem[] = [];
       let globalIdx = 0;
       for (const p of normalized) {
         p.rejected_plan.forEach((item: any, i: number) => {
-          allRejected.push({
-            ...item,
+          const rejectedAt = item?._rejectedAt ? new Date(item._rejectedAt).getTime() : null;
+          if (rejectedAt && now - rejectedAt > THIRTY_DAYS_MS) return;
+          collected.push({
             _index: globalIdx++,
-            _originalSource: item._originalSource || 'default',
-            _rejectedAt: item._rejectedAt,
+            _originalSource: item?._originalSource || "default",
+            _rejectedAt: item?._rejectedAt,
+            _rejectReason: item?._rejectReason,
             _periodId: p.id,
             _periodTitle: p.period_title,
             _rejectedIndex: i,
+            raw: item,
           });
         });
       }
-      setCards(allRejected);
-
+      // ordena por mais recente
+      collected.sort((a, b) => {
+        const ta = a._rejectedAt ? new Date(a._rejectedAt).getTime() : 0;
+        const tb = b._rejectedAt ? new Date(b._rejectedAt).getTime() : 0;
+        return tb - ta;
+      });
+      setCards(collected);
     } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error("Erro ao carregar dados");
+      console.error("Error fetching data:", error);
+      toast.error("Erro ao carregar reprovados");
     } finally {
       setLoading(false);
     }
   };
 
-
-  const handleOpenReevaluate = (index: number) => {
-    setReevalCardIndex(index);
-    setReevalReason('');
-    setReevalModalOpen(true);
-  };
-
-  const persistReevaluation = async (
-    cardIndex: number,
-    updatedCard: any,
-    requirementsToApply: string | null,
-  ) => {
-    if (!selectedClient || !tenantId) return;
-    const card = cards[cardIndex];
-    if (!card) return;
-    const period = periods.find(p => p.id === card._periodId);
+  const handleRestoreCard = async (index: number) => {
+    const item = cards[index];
+    if (!item) return;
+    const period = periods.find((p) => p.id === item._periodId);
     if (!period) return;
-
-    const updatedRejected = [...(period.rejected_plan || [])];
-    updatedRejected[card._rejectedIndex] = {
-      ...updatedRejected[card._rejectedIndex],
-      ...updatedCard,
-      _originalSource: card._originalSource,
-      _rejectedAt: card._rejectedAt,
-      _reevaluatedAt: new Date().toISOString(),
-    };
-
-    const { error: updateError } = await supabase
-      .from('period_plans')
-      .update({ rejected_plan: updatedRejected as unknown as null })
-      .eq('id', period.id);
-    if (updateError) throw updateError;
-
-    if (requirementsToApply !== null) {
-      console.log('[Reeval] Persisting content_requirements update', {
-        clientId: selectedClient.id,
-        previousLen: (selectedClient as any)?.content_requirements?.length ?? 'unknown',
-        newLen: requirementsToApply.length,
-        preview: requirementsToApply.slice(0, 200),
-      });
-      const { error: reqError } = await supabase
-        .from('tenant_companies')
-        .update({ content_requirements: requirementsToApply } as any)
-        .eq('id', selectedClient.id);
-      if (reqError) {
-        console.error('[Reeval] content_requirements update FAILED:', reqError);
-        throw reqError;
-      }
-      console.log('[Reeval] content_requirements update OK');
-    }
-
-    const newPeriods = periods.map(p => p.id === period.id ? { ...p, rejected_plan: updatedRejected } : p);
-    setPeriods(newPeriods);
-    const newCards: RejectedCardItem[] = [];
-    let g = 0;
-    for (const p of newPeriods) {
-      p.rejected_plan.forEach((item: any, i: number) => {
-        newCards.push({
-          ...item,
-          _index: g++,
-          _originalSource: item._originalSource || 'default',
-          _rejectedAt: item._rejectedAt,
-          _periodId: p.id,
-          _periodTitle: p.period_title,
-          _rejectedIndex: i,
-        });
-      });
-    }
-    setCards(newCards);
-  };
-
-  const handleReevaluate = async () => {
-    if (reevalCardIndex === null || !selectedClient || !tenantId) return;
-
-    if (!reevalReason.trim()) {
-      toast.error("Descreva o motivo da reavaliação");
-      return;
-    }
-
-    setReevalLoading(true);
+    setRestoringIndex(index);
     try {
-      const card = cards[reevalCardIndex];
-
-      const { data, error } = await supabase.functions.invoke('reevaluate-card', {
-        body: {
-          card,
-          reason: reevalReason.trim(),
-          clientId: selectedClient.id,
-          tenantId,
-        },
+      await restoreRejectedCard({
+        periodId: period.id,
+        rejectedIndex: item._rejectedIndex,
+        currentDefault: period.default_plan,
+        currentUltra: period.ultra_plan,
+        currentRejected: period.rejected_plan,
       });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      if (data?.updatedCard) {
-        const proposal = data.requirementsProposal || { current: '', proposed: '', additions: '' };
-        const learningStatus: 'meaningful' | 'none' | 'ambiguous' =
-          data.learningStatus === 'meaningful' || data.learningStatus === 'none' || data.learningStatus === 'ambiguous'
-            ? data.learningStatus
-            : 'ambiguous';
-        const cardIndex = reevalCardIndex;
-
-        console.log('[Reeval] response:', {
-          learningStatus,
-          reasoning: data.learningReasoning,
-          additionsLen: (proposal.additions || '').length,
-          currentLen: (proposal.current || '').length,
-          proposedLen: (proposal.proposed || '').length,
-        });
-
-        setDiffReasoning(data.learningReasoning || '');
-
-        if (learningStatus === 'meaningful') {
-          setPendingReeval({ updatedCard: data.updatedCard, cardIndex });
-          setDiffCurrent(proposal.current || '');
-          setDiffProposed(proposal.proposed || proposal.current || '');
-          setDiffMode('meaningful');
-          setReevalModalOpen(false);
-          setDiffOpen(true);
-        } else if (learningStatus === 'none') {
-          await persistReevaluation(cardIndex, data.updatedCard, null);
-          setReevalModalOpen(false);
-          toast.success("Card reavaliado com sucesso!");
-        } else {
-          setPendingReeval({ updatedCard: data.updatedCard, cardIndex });
-          setDiffCurrent(proposal.current || '');
-          setDiffProposed(proposal.current || '');
-          setDiffMode('ambiguous');
-          setReevalModalOpen(false);
-          setDiffOpen(true);
-          toast.info("A IA não identificou regra nova clara. Edite manualmente se quiser registrar.");
-        }
-      }
-    } catch (error: any) {
-      console.error('[Reeval] Error reevaluating:', error);
-      const raw = error?.context?.responseText || error?.message || '';
-      const msg = /OPENAI_API_KEY|api key/i.test(raw)
-        ? "Chave OpenAI ausente. Configure OPENAI_API_KEY em Dev → APIs."
-        : (error?.message || "Erro ao reavaliar card");
-      toast.error(msg, { duration: 8000, description: raw && raw !== error?.message ? raw.slice(0, 240) : undefined });
-    } finally {
-      setReevalLoading(false);
-    }
-  };
-
-  const handleDiffConfirm = async (action: 'apply' | 'skip', finalRequirements?: string) => {
-    if (!pendingReeval) return;
-    setDiffSaving(true);
-    try {
-      await persistReevaluation(
-        pendingReeval.cardIndex,
-        pendingReeval.updatedCard,
-        action === 'apply' ? (finalRequirements ?? '').trim() : null,
-      );
-      setDiffOpen(false);
-      setPendingReeval(null);
-      toast.success(
-        action === 'apply'
-          ? 'Card reavaliado e exigências de conteúdo atualizadas!'
-          : 'Card reavaliado com sucesso!',
-      );
+      toast.success("Card devolvido para avaliação");
+      await fetchData();
     } catch (e: any) {
-      console.error(e);
-      toast.error(e.message || 'Erro ao salvar reavaliação');
+      console.error("Error restoring card:", e);
+      toast.error(e?.message || "Erro ao resgatar card");
     } finally {
-      setDiffSaving(false);
+      setRestoringIndex(null);
     }
   };
 
-  // Fire-and-forget auto image generation for static posts and carousels
   const triggerAutoGenerate = (demandTitle: string, demandType: string | null, demandId: string) => {
-    const tipo = (demandType || '').toLowerCase();
-    const isStaticPost = tipo.includes('post');
-    const isCarousel = tipo.includes('carrossel') || tipo.includes('carousel');
+    const tipo = (demandType || "").toLowerCase();
+    const isStaticPost = tipo.includes("post");
+    const isCarousel = tipo.includes("carrossel") || tipo.includes("carousel");
     if (!isStaticPost && !isCarousel) return;
-
-    const functionName = isCarousel ? 'auto-generate-carousel' : 'auto-generate-post';
-    const label = isCarousel ? 'carrossel' : 'imagem';
-
-    console.log(`[AutoGen] Triggering ${functionName} for "${demandTitle}" (type: ${demandType})`);
-    toast.info(`Gerando ${label} automaticamente para "${demandTitle}"...`, { duration: 5000 });
-
-    supabase.functions.invoke(functionName, {
-      body: { demandId },
-    }).then(({ data, error }) => {
-      if (error) {
-        console.error('[AutoGen] Error:', error);
-        toast.error(`Erro na geração automática de "${demandTitle}"`);
-        return;
-      }
-      if (data?.skipped) {
-        console.log('[AutoGen] Skipped:', data.reason);
-        return;
-      }
-      if (data?.success) {
-        const msg = isCarousel
-          ? `${data.totalGenerated} slides gerados e anexados a "${demandTitle}"!`
-          : `Imagem gerada e anexada a "${demandTitle}"!`;
-        toast.success(msg);
-      }
-    }).catch(err => {
-      console.error('[AutoGen] Exception:', err);
-    });
+    const functionName = isCarousel ? "auto-generate-carousel" : "auto-generate-post";
+    supabase.functions
+      .invoke(functionName, { body: { demandId, source: "planned", minimalText: true, aiModel: "gpt2" } })
+      .catch((err) => console.warn(`[RejectedCards] autoGen (${functionName}) failed`, err));
   };
 
   const handleApproveCard = async (index: number) => {
     if (!selectedClient || !tenantId || !pipelineId || !initialStatusId) return;
-    const card = cards[index];
-    if (!card) return;
-    const period = periods.find(p => p.id === card._periodId);
+    const item = cards[index];
+    if (!item) return;
+    const period = periods.find((p) => p.id === item._periodId);
     if (!period) return;
 
     setApprovingIndex(index);
     try {
-      const title = card.titulo || card.title || 'Sem título';
-      const tipo = card.tipo || card.tipo_conteudo || card.type || null;
-      const channel = card.canal || card.channel || null;
-      const objetivo = card.objetivo || card.objective || null;
-      const conteudo = card.conteudo || card.descricao || card.description || null;
-      const instrucoes = card.instrucoes_de_producao || null;
-      const cta = card.cta_recomendado || null;
-      const dateStr = card.data_sugerida || card.suggested_date || card.date || null;
+      const c = item.raw;
+      const title = pick(c.titulo, c.title) || "Sem título";
+      const tipo = pick(c.tipo, c.tipo_conteudo, c.type) || null;
+      const channel = pick(c.canal, c.channel) || null;
+      const objetivo = pick(c.objetivo, c.objective) || null;
+      const conteudo = pick(c.conteudo, c.descricao, c.description) || null;
+      const instrucoes = pick(c.instrucoes_de_producao) || null;
+      const cta = pick(c.cta_recomendado) || null;
+      const dateStr = pick(c.data_sugerida, c.suggested_date, c.date) || null;
 
-      const instructionParts = [instrucoes, cta ? `CTA: ${cta}` : ''].filter(Boolean);
-      const explicitKey = coerceDemandTypeKey((card as any).demand_type_key || (card as any).type_key);
+      const instructionParts = [instrucoes, cta ? `CTA: ${cta}` : ""].filter(Boolean);
+      const explicitKey = coerceDemandTypeKey((c as any).demand_type_key || (c as any).type_key);
       const demandTypeKey = explicitKey ?? normalizeDemandTypeKey(tipo);
 
-      const { data: insertedData, error: insertError } = await supabase.from('demands').insert({
-        tenant_id: tenantId,
-        client_id: selectedClient.id,
-        pipeline_id: pipelineId,
-        status_id: initialStatusId,
-        period_plan_id: period.id,
-        title,
-        objective: objetivo,
-        description: conteudo || null,
-        instructions: instructionParts.join('\n\n') || null,
-        publish_date: dateStr || null,
-        channel,
-        demand_type: tipo,
-        demand_type_key: demandTypeKey,
-        source: 'card',
-        observations: null,
-      } as any).select('id').single();
+      const { data: insertedData, error: insertError } = await supabase
+        .from("demands")
+        .insert({
+          tenant_id: tenantId,
+          client_id: selectedClient.id,
+          pipeline_id: pipelineId,
+          status_id: initialStatusId,
+          period_plan_id: period.id,
+          title,
+          objective: objetivo,
+          description: conteudo || null,
+          instructions: instructionParts.join("\n\n") || null,
+          publish_date: dateStr || null,
+          channel,
+          demand_type: tipo,
+          demand_type_key: demandTypeKey,
+          source: "card",
+          observations: null,
+        } as any)
+        .select("id")
+        .single();
 
       if (insertError) throw insertError;
 
-      // Remove from rejected_plan
       const updatedRejected = [...(period.rejected_plan || [])];
-      updatedRejected.splice(card._rejectedIndex, 1);
-
+      updatedRejected.splice(item._rejectedIndex, 1);
       const { error: updateError } = await supabase
-        .from('period_plans')
+        .from("period_plans")
         .update({ rejected_plan: updatedRejected as unknown as null })
-        .eq('id', period.id);
-
+        .eq("id", period.id);
       if (updateError) throw updateError;
 
-      const newPeriods = periods.map(p => p.id === period.id ? { ...p, rejected_plan: updatedRejected } : p);
-      setPeriods(newPeriods);
-      const newCards: RejectedCardItem[] = [];
-      let g = 0;
-      for (const p of newPeriods) {
-        p.rejected_plan.forEach((item: any, i: number) => {
-          newCards.push({
-            ...item,
-            _index: g++,
-            _originalSource: item._originalSource || 'default',
-            _rejectedAt: item._rejectedAt,
-            _periodId: p.id,
-            _periodTitle: p.period_title,
-            _rejectedIndex: i,
-          });
-        });
-      }
-      setCards(newCards);
-
       toast.success(`"${title}" aprovado e enviado ao Kanban!`);
-
-      // Trigger auto image generation (fire-and-forget)
-      if (insertedData?.id) {
-        triggerAutoGenerate(title, tipo, insertedData.id);
-      }
+      if (insertedData?.id) triggerAutoGenerate(title, tipo, insertedData.id);
+      await fetchData();
     } catch (error) {
-      console.error('Error approving card:', error);
+      console.error("Error approving card:", error);
       toast.error("Erro ao aprovar card");
     } finally {
       setApprovingIndex(null);
-    }
-  };
-
-  const [discardingIndex, setDiscardingIndex] = useState<number | null>(null);
-  const [discardConfirmIndex, setDiscardConfirmIndex] = useState<number | null>(null);
-
-  const handleDiscardCard = async (index: number) => {
-    const card = cards[index];
-    if (!card) return;
-    const period = periods.find(p => p.id === card._periodId);
-    if (!period) return;
-    setDiscardingIndex(index);
-    try {
-      const updatedRejected = [...(period.rejected_plan || [])];
-      updatedRejected.splice(card._rejectedIndex, 1);
-      const { error } = await supabase
-        .from('period_plans')
-        .update({ rejected_plan: updatedRejected as unknown as null })
-        .eq('id', period.id);
-      if (error) throw error;
-      const newPeriods = periods.map(p => p.id === period.id ? { ...p, rejected_plan: updatedRejected } : p);
-      setPeriods(newPeriods);
-      const newCards: RejectedCardItem[] = [];
-      let g = 0;
-      for (const p of newPeriods) {
-        p.rejected_plan.forEach((item: any, i: number) => {
-          newCards.push({
-            ...item,
-            _index: g++,
-            _originalSource: item._originalSource || 'default',
-            _rejectedAt: item._rejectedAt,
-            _periodId: p.id,
-            _periodTitle: p.period_title,
-            _rejectedIndex: i,
-          });
-        });
-      }
-      setCards(newCards);
-      toast.success("Card descartado definitivamente");
-    } catch (e: any) {
-      console.error('Error discarding card:', e);
-      toast.error(e?.message || "Erro ao descartar card");
-    } finally {
-      setDiscardingIndex(null);
-      setDiscardConfirmIndex(null);
     }
   };
 
@@ -506,159 +282,142 @@ const RejectedCards = () => {
   const displayName = selectedClient.fantasy_name || selectedClient.name;
 
   return (
-    <div className="pb-8">
-      <div className="container max-w-4xl mx-auto px-4 sm:px-6 py-6">
-        <PageHeader
-          title="Demandas Reprovadas"
-          subtitle={`Cards reprovados de ${displayName}`}
-          backTo="/client-hub"
-          actions={[
-            {
-              label: "Atualizar",
-              onClick: fetchData,
-              icon: <RefreshCw className="w-4 h-4" />,
-              variant: "outline" as const,
-            },
-          ]}
-        />
-
-        {loading ? (
-          <div className="space-y-4 mt-6">
-            {[1, 2, 3].map(i => (
-              <Skeleton key={i} className="h-32 w-full rounded-lg" />
-            ))}
-          </div>
-        ) : cards.length === 0 ? (
-          <Card className="p-8 text-center mt-6">
-            <ThumbsDown className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nenhum card reprovado</h3>
-            <p className="text-muted-foreground mb-4">
-              Cards reprovados na página de aprovação aparecerão aqui para reavaliação.
-            </p>
-            <Button onClick={() => navigate('/approve-cards')}>
-              Ir para Aprovação
-            </Button>
-          </Card>
-        ) : (
-          <div className="mt-6 space-y-4">
-            <p className="text-sm text-muted-foreground">
-              {cards.length} card(s) reprovado(s) — <strong>Reavaliar</strong> pede uma nova versão à IA; <strong>Aprovar</strong> envia ao Kanban; <strong>Descartar</strong> apaga o card definitivamente (o motivo da reprovação já foi aprendido).
-            </p>
-            {cards.map((card, idx) => (
-              <div key={idx} className="relative">
-                <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={(e) => { e.stopPropagation(); setDiscardConfirmIndex(idx); }}
-                    className="gap-1 text-destructive hover:text-destructive"
-                    disabled={discardingIndex === idx}
-                  >
-                    {discardingIndex === idx ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ThumbsDown className="w-3.5 h-3.5" />}
-                    Descartar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => { e.stopPropagation(); handleApproveCard(idx); }}
-                    className="gap-1"
-                    disabled={approvingIndex === idx}
-                  >
-                    {approvingIndex === idx ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                    Aprovar
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={(e) => { e.stopPropagation(); handleOpenReevaluate(idx); }}
-                    className="gap-1"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    Reavaliar Conteúdo
-                  </Button>
-                </div>
-                <DemandaCard
-                  demanda={card}
-                  variant={card._originalSource === 'ultra' ? 'ultra' : 'normal'}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-
-        <Dialog open={discardConfirmIndex !== null} onOpenChange={(o) => { if (!o) setDiscardConfirmIndex(null); }}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Descartar card definitivamente?</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm text-muted-foreground">
-              O card será removido permanentemente da lista de reprovados. Nada será regenerado. O motivo da reprovação já foi salvo para aprendizado. Esta ação não pode ser desfeita.
-            </p>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDiscardConfirmIndex(null)} disabled={discardingIndex !== null}>
-                Cancelar
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => discardConfirmIndex !== null && handleDiscardCard(discardConfirmIndex)}
-                disabled={discardingIndex !== null}
-              >
-                {discardingIndex !== null ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ThumbsDown className="w-4 h-4 mr-2" />}
-                Descartar definitivamente
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Reevaluate Modal */}
-        <Dialog open={reevalModalOpen} onOpenChange={setReevalModalOpen}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Reavaliar Conteúdo com IA</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <p className="text-sm text-muted-foreground">
-                Descreva o motivo da reavaliação. A IA usará este motivo junto com a estratégia e anamnese do cliente para melhorar o card.
-              </p>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Motivo da reavaliação</label>
-                <Textarea
-                  placeholder="Ex: O conteúdo está muito genérico, precisa ser mais específico para o público-alvo do cliente..."
-                  value={reevalReason}
-                  onChange={e => setReevalReason(e.target.value)}
-                  className="min-h-[120px]"
-                  disabled={reevalLoading}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setReevalModalOpen(false)} disabled={reevalLoading}>
-                Cancelar
-              </Button>
-              <Button onClick={handleReevaluate} disabled={reevalLoading || !reevalReason.trim()}>
-                {reevalLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Reavaliando...
-                  </>
-                ) : (
-                  "Reavaliar com IA"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <ContentRequirementsDiffModal
-          open={diffOpen}
-          onOpenChange={(o) => { if (!o && !diffSaving) { setDiffOpen(false); setPendingReeval(null); } }}
-          current={diffCurrent}
-          proposed={diffProposed}
-          mode={diffMode}
-          reasoning={diffReasoning}
-          loading={diffSaving}
-          onConfirm={handleDiffConfirm}
-        />
+    <div className="container max-w-5xl mx-auto px-4 sm:px-6 py-6 pb-12">
+      {/* Título alinhado ao padrão Visão Geral (header/breadcrumb vêm do Layout) */}
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Reprovados</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Arquivo de {displayName} — últimos 30 dias. Cards descartados na avaliação ficam
+            aqui caso você queira resgatar.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={fetchData} className="gap-2">
+          <RefreshCw className="w-4 h-4" />
+          Atualizar
+        </Button>
       </div>
+
+      {loading ? (
+        <div className="space-y-3 mt-6">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-28 w-full rounded-lg" />
+          ))}
+        </div>
+      ) : cards.length === 0 ? (
+        <Card className="p-10 text-center mt-6">
+          <ThumbsDown className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
+          <h3 className="text-lg font-semibold mb-1">Nenhum card reprovado</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Quando você reprovar um card e escolher <strong>Descartar</strong>, ele aparece
+            aqui para eventual resgate.
+          </p>
+          <Button variant="outline" onClick={() => navigate("/client-hub")}>
+            Voltar ao hub do cliente
+          </Button>
+        </Card>
+      ) : (
+        <div className="mt-5 space-y-3">
+          {cards.map((item, idx) => {
+            const c = item.raw;
+            const title = pick(c.titulo, c.title) || "Sem título";
+            const tipo = pick(c.tipo, c.tipo_conteudo, c.type);
+            const channel = pick(c.canal, c.channel);
+            const date = pick(c.data_sugerida, c.suggested_date, c.date);
+            const isUltra = item._originalSource === "ultra";
+            const busy = approvingIndex === idx || restoringIndex === idx;
+            return (
+              <Card
+                key={idx}
+                className={cn(
+                  "p-4 sm:p-5 border-l-4 transition-colors",
+                  isUltra ? "border-l-amber-500/70" : "border-l-muted-foreground/30",
+                )}
+              >
+                <div className="flex flex-col gap-3">
+                  {/* Cabeçalho: cliente + metadados */}
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <Badge variant="secondary" className="font-medium">
+                      {displayName}
+                    </Badge>
+                    {isUltra && (
+                      <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40">
+                        Ultra
+                      </Badge>
+                    )}
+                    {tipo && <Badge variant="outline">{tipo}</Badge>}
+                    {channel && <Badge variant="outline">{channel}</Badge>}
+                    {date && <Badge variant="outline">Data: {date}</Badge>}
+                    {item._periodTitle && (
+                      <span className="text-muted-foreground">· {item._periodTitle}</span>
+                    )}
+                    {item._rejectedAt && (
+                      <span className="text-muted-foreground ml-auto">
+                        Reprovado {formatRejectedAt(item._rejectedAt)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Título */}
+                  <h3 className="text-base sm:text-lg font-semibold leading-snug">
+                    {title}
+                  </h3>
+
+                  {/* Motivo da reprovação */}
+                  {item._rejectReason && (
+                    <div className="rounded-md bg-muted/60 border border-border/60 px-3 py-2">
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+                        Motivo da reprovação
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap">{item._rejectReason}</p>
+                    </div>
+                  )}
+
+                  {/* Ações */}
+                  <div className="flex flex-wrap gap-2 pt-1 border-t border-border/40">
+                    <Button
+                      size="sm"
+                      onClick={() => handleRestoreCard(idx)}
+                      disabled={busy}
+                      className="gap-1.5"
+                    >
+                      {restoringIndex === idx ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Undo2 className="w-3.5 h-3.5" />
+                      )}
+                      Resgatar para avaliação
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleApproveCard(idx)}
+                      disabled={busy || !pipelineId || !initialStatusId}
+                      className="gap-1.5"
+                    >
+                      {approvingIndex === idx ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Check className="w-3.5 h-3.5" />
+                      )}
+                      Aprovar e enviar ao Kanban
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => navigate("/approve-cards")}
+                      className="gap-1.5 ml-auto text-muted-foreground"
+                    >
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                      Abrir Avaliação
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

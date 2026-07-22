@@ -160,6 +160,81 @@ export async function rejectPlanCard(params: {
 }
 
 /**
+ * Substitui in-place um card no default_plan/ultra_plan com uma nova versão
+ * (usado depois de "Reavaliar com IA": o card revisado volta ao mesmo plano
+ * para ser avaliado novamente, no lugar do original — sem passar por Reprovados).
+ */
+export async function replacePlanCard(params: {
+  periodId: string;
+  source: "default" | "ultra";
+  indexInPlan: number;
+  currentDefault: any[];
+  currentUltra: any[];
+  updatedCard: any;
+}) {
+  const isDefault = params.source === "default";
+  const plan = isDefault ? [...params.currentDefault] : [...params.currentUltra];
+  if (params.indexInPlan < 0 || params.indexInPlan >= plan.length) return;
+
+  const previous = plan[params.indexInPlan] || {};
+  plan[params.indexInPlan] = {
+    ...previous,
+    ...params.updatedCard,
+    _reevaluatedAt: new Date().toISOString(),
+  };
+
+  const key = isDefault ? "default_plan" : "ultra_plan";
+  const { error } = await supabase
+    .from("period_plans")
+    .update({ [key]: plan as unknown as null } as any)
+    .eq("id", params.periodId);
+
+  if (error) throw error;
+}
+
+/**
+ * Move um card de rejected_plan de volta para default_plan/ultra_plan
+ * (usado no botão "Resgatar para avaliação" na tela de Reprovados).
+ */
+export async function restoreRejectedCard(params: {
+  periodId: string;
+  rejectedIndex: number;
+  currentDefault: any[];
+  currentUltra: any[];
+  currentRejected: any[];
+}) {
+  const rejected = [...(params.currentRejected || [])];
+  if (params.rejectedIndex < 0 || params.rejectedIndex >= rejected.length) return;
+  const [removed] = rejected.splice(params.rejectedIndex, 1);
+  const source: "default" | "ultra" =
+    removed?._originalSource === "ultra" ? "ultra" : "default";
+
+  const targetPlan =
+    source === "ultra" ? [...params.currentUltra] : [...params.currentDefault];
+
+  // Strip rejection metadata before returning to the active plan.
+  const { _rejectedAt, _rejectReason, _reevaluatedAt, _originalSource, ...clean } =
+    removed || {};
+  targetPlan.push({
+    ...clean,
+    _restoredAt: new Date().toISOString(),
+  });
+
+  const planKey = source === "ultra" ? "ultra_plan" : "default_plan";
+  const { error } = await supabase
+    .from("period_plans")
+    .update({
+      [planKey]: targetPlan as unknown as null,
+      rejected_plan: rejected as unknown as null,
+    } as any)
+    .eq("id", params.periodId);
+
+  if (error) throw error;
+}
+
+
+
+/**
  * Aplica um patch parcial em um item do plano (default_plan/ultra_plan),
  * preservando as demais chaves. Usa nomes canônicos em pt-BR.
  */

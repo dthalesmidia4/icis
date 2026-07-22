@@ -84,6 +84,15 @@ const routeConfig: Record<string, BreadcrumbConfig> = {
       { label: 'Agendamentos', icon: CalendarDays }
     ]
   },
+  '/rejected-cards': {
+    items: [
+      { label: 'Home', href: '/home', icon: Home },
+      { label: 'Clientes', href: '/clientes', icon: Users },
+      { label: '{clientName}', href: '/client-hub' },
+      { label: 'Reprovados', icon: FileText }
+    ],
+    requiresClient: true
+  },
   '/dev-hub': {
     items: [
       { label: 'Home', href: '/home', icon: Home },

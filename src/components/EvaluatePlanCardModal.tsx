@@ -6,11 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, ThumbsUp, ThumbsDown, Pencil, ExternalLink, Save, X } from "lucide-react";
+import { Loader2, ThumbsUp, ThumbsDown, Pencil, ExternalLink, Save, X, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { approvePlanCard, rejectPlanCard, updatePlanCard } from "@/lib/evaluatePlanCard";
+import { approvePlanCard, rejectPlanCard, replacePlanCard, updatePlanCard } from "@/lib/evaluatePlanCard";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
+import ContentRequirementsDiffModal from "@/components/ContentRequirementsDiffModal";
 import type { PendingEvaluationCard } from "@/hooks/usePendingEvaluationCards";
 
 interface Props {
@@ -21,12 +22,12 @@ interface Props {
   onDone?: () => void;
 }
 
-type Mode = "view" | "edit" | "confirm-reject";
+type Mode = "view" | "edit" | "reject";
 
 export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDone }: Props) {
   const navigate = useNavigate();
   const { setSelectedClient } = useSelectedClient();
-  const [busy, setBusy] = useState<null | "approve" | "reject" | "save" | "open">(null);
+  const [busy, setBusy] = useState<null | "approve" | "reevaluate" | "discard" | "save" | "open">(null);
   const [ctx, setCtx] = useState<{ pipelineId: string; initialStatusId: string } | null>(null);
   const [mode, setMode] = useState<Mode>("view");
 
@@ -44,11 +45,26 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
   // Reject form
   const [rejectReason, setRejectReason] = useState("");
 
+  // Content requirements diff modal (learning proposal after reject/reevaluate)
+  const [diffOpen, setDiffOpen] = useState(false);
+  const [diffSaving, setDiffSaving] = useState(false);
+  const [diffCurrent, setDiffCurrent] = useState("");
+  const [diffProposed, setDiffProposed] = useState("");
+  const [diffMode, setDiffMode] = useState<"meaningful" | "ambiguous">("meaningful");
+  const [diffReasoning, setDiffReasoning] = useState("");
+  // What to do after user resolves the diff modal
+  const [pendingAction, setPendingAction] = useState<
+    | { kind: "reevaluate"; updatedCard: any }
+    | { kind: "discard" }
+    | null
+  >(null);
+
   useEffect(() => {
     if (!open) return;
     setMode("view");
     setRejectReason("");
     setLocalCard(card?.card ?? null);
+    setPendingAction(null);
   }, [open, card]);
 
   useEffect(() => {
@@ -177,36 +193,207 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
     }
   };
 
-  const handleConfirmReject = async () => {
-    if (!tenantId) return;
-    setBusy("reject");
-    try {
-      const { data: period, error } = await supabase
-        .from("period_plans")
-        .select("default_plan, ultra_plan, rejected_plan")
-        .eq("id", card.periodId)
-        .single();
-      if (error || !period) throw error;
-      await rejectPlanCard({
-        periodId: card.periodId,
+  // Chama reevaluate-card e retorna a proposta de exigências + card revisado (se houver).
+  const callReevaluate = async () => {
+    if (!tenantId) throw new Error("Tenant inválido");
+    const { data, error } = await supabase.functions.invoke("reevaluate-card", {
+      body: {
         card: localCard ?? card.card,
-        source: card.source,
-        indexInPlan: card.indexInPlan,
-        currentDefault: Array.isArray(period.default_plan) ? period.default_plan : [],
-        currentUltra: Array.isArray(period.ultra_plan) ? period.ultra_plan : [],
-        currentRejected: Array.isArray((period as any).rejected_plan) ? (period as any).rejected_plan : [],
-        reason: rejectReason,
-      });
-      toast.success("Card reprovado e enviado para reavaliação");
-      onDone?.();
-      onOpenChange(false);
-    } catch (err) {
+        reason: rejectReason.trim(),
+        clientId: card.clientId,
+        tenantId,
+      },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data as {
+      updatedCard: any;
+      learningStatus: "meaningful" | "none" | "ambiguous";
+      learningReasoning?: string;
+      requirementsProposal?: { current: string; proposed: string; additions: string };
+    };
+  };
+
+  const openDiffOrFinalize = (
+    data: { learningStatus: string; learningReasoning?: string; requirementsProposal?: any },
+    action: { kind: "reevaluate"; updatedCard: any } | { kind: "discard" },
+    finalizeIfNoLearning: () => Promise<void>,
+  ) => {
+    const proposal = data.requirementsProposal || { current: "", proposed: "", additions: "" };
+    const learningStatus =
+      data.learningStatus === "meaningful" || data.learningStatus === "none" || data.learningStatus === "ambiguous"
+        ? (data.learningStatus as "meaningful" | "none" | "ambiguous")
+        : "ambiguous";
+    setDiffReasoning(data.learningReasoning || "");
+    if (learningStatus === "meaningful") {
+      setPendingAction(action);
+      setDiffCurrent(proposal.current || "");
+      setDiffProposed(proposal.proposed || proposal.current || "");
+      setDiffMode("meaningful");
+      setDiffOpen(true);
+    } else if (learningStatus === "none") {
+      // no rule to learn — finalize action immediately
+      finalizeIfNoLearning();
+    } else {
+      setPendingAction(action);
+      setDiffCurrent(proposal.current || "");
+      setDiffProposed(proposal.current || "");
+      setDiffMode("ambiguous");
+      setDiffOpen(true);
+    }
+  };
+
+  const persistRequirements = async (finalRequirements: string) => {
+    const { error } = await supabase
+      .from("tenant_companies")
+      .update({ content_requirements: finalRequirements } as any)
+      .eq("id", card.clientId);
+    if (error) throw error;
+  };
+
+  const finalizeReevaluate = async (updatedCard: any) => {
+    const { data: period, error } = await supabase
+      .from("period_plans")
+      .select("default_plan, ultra_plan")
+      .eq("id", card.periodId)
+      .single();
+    if (error || !period) throw error;
+    await replacePlanCard({
+      periodId: card.periodId,
+      source: card.source,
+      indexInPlan: card.indexInPlan,
+      currentDefault: Array.isArray(period.default_plan) ? period.default_plan : [],
+      currentUltra: Array.isArray(period.ultra_plan) ? period.ultra_plan : [],
+      updatedCard,
+    });
+  };
+
+  const finalizeDiscard = async () => {
+    const { data: period, error } = await supabase
+      .from("period_plans")
+      .select("default_plan, ultra_plan, rejected_plan")
+      .eq("id", card.periodId)
+      .single();
+    if (error || !period) throw error;
+    await rejectPlanCard({
+      periodId: card.periodId,
+      card: localCard ?? card.card,
+      source: card.source,
+      indexInPlan: card.indexInPlan,
+      currentDefault: Array.isArray(period.default_plan) ? period.default_plan : [],
+      currentUltra: Array.isArray(period.ultra_plan) ? period.ultra_plan : [],
+      currentRejected: Array.isArray((period as any).rejected_plan) ? (period as any).rejected_plan : [],
+      reason: rejectReason,
+    });
+  };
+
+  const handleReevaluate = async () => {
+    if (!tenantId) return;
+    if (!rejectReason.trim()) {
+      toast.error("Descreva o motivo da reprovação");
+      return;
+    }
+    setBusy("reevaluate");
+    try {
+      const data = await callReevaluate();
+      if (!data.updatedCard) throw new Error("A IA não retornou uma nova versão do card.");
+      openDiffOrFinalize(
+        data,
+        { kind: "reevaluate", updatedCard: data.updatedCard },
+        async () => {
+          await finalizeReevaluate(data.updatedCard);
+          toast.success("Nova versão gerada e enviada para avaliação");
+          onDone?.();
+          onOpenChange(false);
+        },
+      );
+    } catch (err: any) {
       console.error(err);
-      toast.error("Erro ao reprovar card");
+      const raw = err?.context?.responseText || err?.message || "";
+      const msg = /OPENAI_API_KEY|api key/i.test(raw)
+        ? "Chave OpenAI ausente. Configure OPENAI_API_KEY em Dev → APIs."
+        : (err?.message || "Erro ao reavaliar card");
+      toast.error(msg);
     } finally {
       setBusy(null);
     }
   };
+
+  const handleDiscard = async () => {
+    if (!tenantId) return;
+    if (!rejectReason.trim()) {
+      toast.error("Descreva o motivo da reprovação");
+      return;
+    }
+    setBusy("discard");
+    try {
+      // Ainda chamamos reevaluate-card para aproveitar o aprendizado de exigências,
+      // mas ignoramos updatedCard — o card vai para Reprovados como arquivo.
+      let data: any = null;
+      try {
+        data = await callReevaluate();
+      } catch (learnErr) {
+        console.warn("[EvaluatePlanCardModal] learning skipped:", learnErr);
+      }
+      if (data) {
+        openDiffOrFinalize(
+          data,
+          { kind: "discard" },
+          async () => {
+            await finalizeDiscard();
+            toast.success("Card descartado (arquivado em Reprovados)");
+            onDone?.();
+            onOpenChange(false);
+          },
+        );
+      } else {
+        await finalizeDiscard();
+        toast.success("Card descartado (arquivado em Reprovados)");
+        onDone?.();
+        onOpenChange(false);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || "Erro ao descartar card");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleDiffConfirm = async (action: "apply" | "skip", finalRequirements?: string) => {
+    if (!pendingAction) return;
+    setDiffSaving(true);
+    try {
+      if (action === "apply") {
+        await persistRequirements((finalRequirements ?? "").trim());
+      }
+      if (pendingAction.kind === "reevaluate") {
+        await finalizeReevaluate(pendingAction.updatedCard);
+        toast.success(
+          action === "apply"
+            ? "Nova versão gerada e exigências atualizadas"
+            : "Nova versão gerada e enviada para avaliação",
+        );
+      } else {
+        await finalizeDiscard();
+        toast.success(
+          action === "apply"
+            ? "Card descartado e exigências atualizadas"
+            : "Card descartado (arquivado em Reprovados)",
+        );
+      }
+      setDiffOpen(false);
+      setPendingAction(null);
+      onDone?.();
+      onOpenChange(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || "Erro ao finalizar");
+    } finally {
+      setDiffSaving(false);
+    }
+  };
+
 
   const handleOpenFullScreen = async () => {
     setBusy("open");
@@ -285,7 +472,7 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => setMode("confirm-reject")}
+                  onClick={() => setMode("reject")}
                   disabled={!!busy}
                   className="text-destructive hover:text-destructive"
                 >
@@ -344,17 +531,18 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
           </>
         )}
 
-        {mode === "confirm-reject" && (
+        {mode === "reject" && (
           <>
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Isso remove o card do plano atual e o guarda em <strong>Cards Reprovados</strong> com o motivo informado.
-                Nada é regenerado automaticamente — o sistema apenas aprende com o motivo.
-                Para pedir uma nova versão, use a tela <strong>Cards Reprovados</strong> depois; para descartar
-                de vez, basta deixar o card lá sem pedir reavaliação.
+                Descreva o motivo. Depois escolha se você quer{" "}
+                <strong>gerar uma nova versão do card com IA</strong> (o card revisado volta
+                para avaliação no lugar do original) ou <strong>descartar</strong> (o card vai
+                para <em>Reprovados</em> como arquivo para eventual resgate). Em ambos os casos
+                o sistema aprende com o motivo para melhorar as próximas gerações.
               </p>
               <div className="space-y-1.5">
-                <Label>Motivo (opcional)</Label>
+                <Label>Motivo da reprovação</Label>
                 <Textarea
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
@@ -363,24 +551,41 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
                 />
               </div>
             </div>
-            <DialogFooter className="gap-2">
+            <DialogFooter className="gap-2 flex-wrap sm:justify-between">
               <Button variant="ghost" onClick={() => setMode("view")} disabled={!!busy}>
                 <X className="h-4 w-4" />
                 Cancelar
               </Button>
-              <Button
-                variant="outline"
-                onClick={handleConfirmReject}
-                disabled={!!busy}
-                className="text-destructive hover:text-destructive"
-              >
-                {busy === "reject" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ThumbsDown className="h-4 w-4" />}
-                Confirmar reprovação
-              </Button>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  onClick={handleDiscard}
+                  disabled={!!busy || !rejectReason.trim()}
+                  className="text-destructive hover:text-destructive"
+                >
+                  {busy === "discard" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  Descartar
+                </Button>
+                <Button onClick={handleReevaluate} disabled={!!busy || !rejectReason.trim()}>
+                  {busy === "reevaluate" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  Reavaliar com IA
+                </Button>
+              </div>
             </DialogFooter>
           </>
         )}
       </DialogContent>
+
+      <ContentRequirementsDiffModal
+        open={diffOpen}
+        onOpenChange={(o) => { if (!o && !diffSaving) { setDiffOpen(false); setPendingAction(null); } }}
+        current={diffCurrent}
+        proposed={diffProposed}
+        mode={diffMode}
+        reasoning={diffReasoning}
+        loading={diffSaving}
+        onConfirm={handleDiffConfirm}
+      />
     </Dialog>
   );
 }

@@ -1,68 +1,66 @@
 ## Objetivo
-Corrigir três problemas independentes: preview servindo versão antiga (SW/PWA), fonte de verdade da IA de imagem no card (texto e seletor) e fluxo travado em "Reavaliar Conteúdo" em Demandas Reprovadas, incluindo o botão "Descartar" definido anteriormente.
+
+Corrigir o fluxo de reprovação/reavaliação e o visual da tela **Demandas Reprovadas**, seguindo sua análise: o motivo já é coletado na hora de reprovar → então a "Reavaliação" deve acontecer imediatamente, com escolha entre **Reavaliar com IA** ou **Descartar**. A tela de Reprovadas vira apenas um **arquivo temporário de resgate**, não um passo obrigatório.
 
 ---
 
-### 1) Preview mostrando versão antiga (Kanban Central / gemini-2.0)
-**Causa provável:** um Service Worker do `vite-plugin-pwa` anterior ficou registrado no navegador (do build antigo, quando o plugin rodava em modo dev também). Como agora o plugin só roda em produção, nada substitui o SW instalado — o browser continua servindo `index.html` e chunks antigos do cache Workbox.
+## 1. Novo fluxo de reprovação (dentro do "Avaliar")
 
-**Correção (segue o skill/pwa "Existing Broken PWA"):**
-- Adicionar `public/sw.js` como **kill-switch worker**: no `activate`, apaga apenas os caches Workbox desta origem, faz `clients.claim()`, força `navigate(client.url)` em todas as abas, e chama `self.registration.unregister()` dentro de `finally`.
-- Manter `public/service-worker.js` (mesmo conteúdo) caso algum browser tenha registrado nesse path.
-- Não alterar `vite.config.ts` (o VitePWA já está `mode === "production"`); o kill-switch destrona o registro antigo na próxima visita ao preview/publicado.
+No `EvaluatePlanCardModal` (usado em Visão Geral, Modo Foco e Avaliar Produção):
 
-Efeito: na próxima abertura do preview, o SW antigo é substituído, caches Workbox são limpos, todas as abas fazem reload — e passam a ver a versão nova (com "Visão Geral" no header, gpt-image-2, etc.).
+- Renomear a etapa `confirm-reject` para **"Reprovar card"** com dois botões finais após o motivo ser preenchido:
+  1. **Reavaliar com IA** — chama `reevaluate-card` na hora, roda o aprendizado de exigências (diff modal já existente) e substitui o card no `default_plan`/`ultra_plan` (volta para avaliação com nova versão, agrupado no colaborador responsável).
+  2. **Descartar** — move para `rejected_plan` com o `_rejectReason` (comportamento atual de reprovação), mas dispara o aprendizado de exigências antes (mesma chamada de learning que o `reevaluate-card` faz, sem regenerar o card).
+- O motivo passa a ser **obrigatório** para ambas as opções (hoje só é obrigatório em Reavaliar).
+- Toast final deixa claro o destino ("Nova versão enviada para avaliação" vs "Card descartado — motivo aprendido").
 
----
-
-### 2) TaskCard → "Gerar estático com IA" continua mostrando Gemini
-**Estado atual (verificado):**
-- `handleGenerateImages` **já envia** `aiModel: "gpt2"` para `auto-generate-post`/`generate-post-image`/`auto-generate-carousel` (as edges usam `IMAGE_MODELS[aiModel]` corretamente).
-- O que está desatualizado é **apenas o texto** do AlertDialog (`src/components/TaskCard.tsx` linha ~2370): `"Google Gemini (gemini-2.0-flash-exp-image-generation) via Google AI Studio"`.
-- O fluxo "avulso" tem seletor de modelo, o do card não tem.
-
-**Correção em `src/components/TaskCard.tsx`:**
-- Remover o texto hardcoded de "Google Gemini …".
-- Adicionar dentro do AlertDialog um **seletor de modelo** (`<Select>`) com as 3 opções de `IMAGE_MODELS` (rótulos: "GPT Image 2 (recomendado)", "Nanobanana 3 (Gemini Pro)", "Nanobanana 2.5 (Gemini Flash)"), default `"gpt2"`, salvo em estado local `selectedAiModel`.
-- Passar `aiModel: selectedAiModel` (em vez do literal `"gpt2"`) em `handleGenerateImages` e `handleRegenerateAll`.
-- Mostrar abaixo do select uma linha discreta com o `id` do modelo escolhido (para transparência), usando `IMAGE_MODELS[selectedAiModel].id`.
-
-Nenhuma mudança de backend — as edges já respeitam `aiModel`.
+Isso elimina o passo intermediário onde o usuário reprovava, precisava lembrar de entrar em `/rejected-cards` e reavaliar de novo.
 
 ---
 
-### 3) "Reavaliar Conteúdo" em Demandas Reprovadas não avança
-**O que o fluxo faz hoje** (`src/pages/RejectedCards.tsx` + `reevaluate-card` edge):
-1. Usuário clica em Reavaliar → abre modal → digita motivo → clica "Reavaliar com IA".
-2. Chama a edge `reevaluate-card` (2 chamadas OpenAI: reescrever o card e classificar aprendizado).
-3. Se `learningStatus === 'meaningful'` ou `'ambiguous'`, abre o `ContentRequirementsDiffModal`. Se `'none'`, persiste direto.
+## 2. Tela `/rejected-cards` — redesenho como "Arquivo de Reprovados"
 
-**Prováveis causas de "não sai daí":**
-- A edge falha (chave OpenAI ausente, timeout, parse) e o toast some rapidamente; ou
-- A edge responde mas `handleDiffConfirm` fica travado no `diffSaving`; ou
-- Persistência via `.update({ rejected_plan: … })` está falhando por RLS/coluna e o erro está sendo engolido.
+Alinhar com a estrutura de Visão Geral / Conteúdos Agendados:
 
-**Correção em `src/pages/RejectedCards.tsx`:**
-- Instrumentar melhor os erros: log completo do `error` da edge, toast persistente (`duration: 8000`) com a mensagem real, e reset garantido de `reevalLoading`/`diffSaving` em `finally`.
-- Se a edge retornar 500, mostrar mensagem específica ("Verifique OPENAI_API_KEY em Dev → APIs") em vez do genérico.
-- Consertar o bug do double-toast em `handleApproveCard` (linhas 441–454 disparam `toast.success` e `triggerAutoGenerate` duas vezes) — sintoma paralelo.
-- Adicionar botão **"Descartar"** por card (definido no histórico como parte do fluxo de reprovação): remove o item de `rejected_plan` sem regerar nada, com `AlertDialog` de confirmação, atualiza estado localmente.
+**Header**
+- Usar o header padrão da aplicação (breadcrumb `Home > Visão Geral > Reprovados` via `BreadcrumbOverrideContext`, igual `Scheduled.tsx`), removendo o `PageHeader` interno e o botão "Voltar" avulso do corpo.
+- Título "Reprovados de {cliente}" + botão **Atualizar** no header (não no corpo).
 
-**Fluxo de reprovação consolidado (como ficou definido no histórico):**
-- **Reprovar** (na tela de avaliação) → move para `rejected_plan` com motivo (aprendizado pode ser aplicado às exigências do cliente). Nada regenera automaticamente.
-- Em **Demandas Reprovadas** o usuário decide:
-  - **Reavaliar Conteúdo** → IA reescreve o card usando o motivo/estratégia; card volta reescrito, ainda em `rejected_plan`.
-  - **Aprovar** → materializa como demand no Kanban.
-  - **Descartar** (novo botão) → apaga o card definitivamente do `rejected_plan`. Sistema já aprendeu o motivo na hora da reprovação; não regenera.
+**Corpo**
+- Subtítulo explicativo curto: "Arquivo dos últimos 30 dias. Cards descartados na avaliação ficam aqui caso você queira resgatar."
+- Lista de cards com layout limpo (mesmo padrão visual dos cards de Visão Geral, com badge da empresa acima do título — reaproveita `DemandaCard`).
+- **Ações por card** (barra inferior do card, não sobreposta):
+  - **Resgatar para avaliação** — devolve o card ao `default_plan`/`ultra_plan` de origem, para reaparecer no bloco "Avaliar" do responsável.
+  - **Aprovar e enviar ao Kanban** — mantém o comportamento atual (`handleApproveCard`).
+- **Remover** o botão "Reavaliar Conteúdo" desta tela (a reavaliação agora acontece no modal de Avaliação, no passo 1). Remover também o botão "Descartar" solto — descarte definitivo vira automático após 30 dias.
+
+**Layout / hierarquia**
+- Corrigir o problema de "Descartar por cima do texto": botões saem do `absolute top-3 right-3` e vão para uma barra própria abaixo do card, com separação visual.
+- Espaçamento e tipografia alinhados com Visão Geral.
 
 ---
 
-### Detalhes técnicos
-- Arquivos alterados: `public/sw.js` (novo), `public/service-worker.js` (novo), `src/components/TaskCard.tsx`, `src/pages/RejectedCards.tsx`.
-- Sem migração de banco. Sem alteração em edge functions.
-- `vite.config.ts` intocado — o kill-switch é servido como arquivo estático em `/sw.js` e o VitePWA em produção sobrescreve com o SW real do build atual, então em prod a substituição ocorre naturalmente após uma visita.
+## 3. Auto-expiração de 30 dias
 
-### Fora do escopo
-- Refatorar `reevaluate-card` para trocar de modelo LLM.
-- Mudar a lógica de "aprendizado" das exigências de conteúdo.
-- Qualquer alteração no fluxo de aprovação em `ApproveCards.tsx` (já refatorado antes).
+- Filtrar em `fetchData()` apenas cards com `_rejectedAt` nos últimos 30 dias.
+- Cards mais antigos são ignorados na UI. (Limpeza física do array pode ser feita numa migração leve mais adiante; agora só ocultar.)
+
+---
+
+## 4. Fora do escopo
+
+- Não vamos mexer no `reevaluate-card` edge function (já faz o que precisamos).
+- Não vamos criar tabela nova; continuamos usando `period_plans.rejected_plan` (JSONB) como registro temporário.
+- Sem mudanças em Kanban, Modo Foco ou outras telas — apenas o modal de Avaliação e a página de Reprovados.
+
+---
+
+## Detalhes técnicos
+
+Arquivos afetados:
+- `src/components/EvaluatePlanCardModal.tsx` — refactor do modo `confirm-reject`: motivo → dois botões (Reavaliar com IA / Descartar). Reaproveita a chamada `supabase.functions.invoke('reevaluate-card', ...)` e o `ContentRequirementsDiffModal` já usado em `RejectedCards.tsx`. No caminho "Descartar", chamamos `reevaluate-card` apenas para extrair `learningStatus`/`requirementsProposal` (sem aplicar `updatedCard`) e então executamos `rejectPlanCard` como hoje.
+- `src/lib/evaluatePlanCard.ts` — adicionar helper `restoreRejectedCard(...)` (move do `rejected_plan` de volta ao `default_plan` ou `ultra_plan` conforme `_originalSource`).
+- `src/pages/RejectedCards.tsx` — trocar `PageHeader` por header padrão + `BreadcrumbOverrideContext`; nova barra de ações por card (Resgatar / Aprovar); remover Reavaliar e Descartar; filtro de 30 dias.
+- Reaproveitar `ContentRequirementsDiffModal` existente para o passo de aprendizado no novo fluxo de reprovação.
+
+Sem migrações de DB.
