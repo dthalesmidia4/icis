@@ -1520,7 +1520,7 @@ export default function TaskCard({
                     const startStr = card.due_date ? `${formatShortDate(card.due_date)}${card.due_time ? ' ' + card.due_time : ''}` : null;
                     const endStr = card.delivery_date ? `${formatShortDate(card.delivery_date)}${card.delivery_time ? ' ' + card.delivery_time : ''}` : null;
                     const summary = (startStr || endStr)
-                      ? `Início ${startStr ?? '—'} · Fim ${endStr ?? '—'}`
+                      ? `Início ${startStr ?? '—'} · Entrega ${endStr ?? '—'}`
                       : 'Produção';
                     return (
                       <StartEndDatePopover
