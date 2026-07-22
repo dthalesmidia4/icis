@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
 
     // 6. Card content
     const cardContent = [
-      demand.title ? `Título: ${demand.title}` : "",
+      demand.title ? `Título interno do card (apenas referência — NÃO reproduza literalmente nos textos dos slides): ${demand.title}` : "",
       demand.objective ? `Objetivo: ${demand.objective}` : "",
       demand.instructions ? `Instruções: ${demand.instructions.replace(/<[^>]*>/g, " ").trim()}` : "",
     ].filter(Boolean).join("\n");
