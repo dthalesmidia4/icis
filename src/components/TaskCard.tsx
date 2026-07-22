@@ -587,6 +587,7 @@ export default function TaskCard({
     }
   };
   const [showGenerateConfirm, setShowGenerateConfirm] = useState(false);
+  const [selectedAiModel, setSelectedAiModel] = useState<"gpt2" | "nanobanana3" | "nanobanana25">("gpt2");
   const [generatingCaption, setGeneratingCaption] = useState(false);
   const [regeneratingAll, setRegeneratingAll] = useState(false);
   const [regeneratingSlide, setRegeneratingSlide] = useState<number | null>(null);
