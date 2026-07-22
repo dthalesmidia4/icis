@@ -1,87 +1,44 @@
 
-## Objetivo
+## 1. Preview mostrando versões antigas (PWA/Service Worker)
 
-1. Fazer a tela **Aprovar Produção** (hub do cliente, `/approve-cards`) listar cards pendentes de **todos** os períodos do cliente, como já faz a **Visão Geral**.
-2. Retirar do fluxo de avaliação todos os cards com `period_start ≤ 2026-05-31`, marcando-os como reprovados/arquivados sem regeneração — para "entrar na linha" a partir de hoje.
-3. Auditar o fluxo de reprovação existente e responder se já é possível "reprovar e deletar" vs "reprovar e reenviar para correção".
+**Causa raiz confirmada:** `vite.config.ts` registra o `VitePWA` com `registerType: "autoUpdate"` sem restringir ao modo `production`. Isso instala um Service Worker também no preview do editor (`id-preview--*.lovable.app`) e no dev; o SW passa a servir a versão em cache mesmo após deploys/edits, exatamente o sintoma relatado.
 
----
+**Correção:**
+- Em `vite.config.ts`, habilitar o `VitePWA` somente quando `mode === "production"` (o plugin sai do array via `.filter(Boolean)`, mesmo padrão já usado para `componentTagger`).
+- Adicionar `devOptions: { enabled: false }` para garantir que nada seja registrado no dev.
+- Manter `registerType: "autoUpdate"` para produção (`icis.lovable.app`).
 
-## 1. Corrigir escopo em `src/pages/ApproveCards.tsx`
+Isso encerra a instalação do SW no preview a partir do próximo build. Para navegadores que já pegaram o SW antigo, um hard-reload uma única vez (ou "Unregister" em DevTools → Application) resolve — não há como forçar unregister remoto sem manter um SW ativo, então essa é a via padrão.
 
-Hoje `fetchData()` filtra `operational_status === 'em_andamento'` e escolhe **um único** período (`bestPeriod`). Isso esconde períodos anteriores com pendências assim que um novo é gerado.
+## 2. Modelo de imagem: unificar em GPT Image 2 (fonte única de verdade)
 
-Mudanças:
-- Trocar o modelo de "1 período" por "N períodos com pendências", igual à `usePendingEvaluationCards`:
-  - Buscar todos `period_plans` do cliente com `operational_status = 'em_andamento'` (mesmo critério da Visão Geral).
-  - Consolidar `default_plan` + `ultra_plan` de todos os períodos em uma única lista, excluindo os cards já materializados como `demands` (match por `period_plan_id` + `title`).
-  - Renderizar agrupado por período (título + datas), preservando a UI atual dos cartões.
-- Ajustar `handleApprove`, `handleReject`, `handleOpenEditCard`/`handleSaveEditCard` e "Aprovar todos" para operarem por `(periodId, source, indexInPlan)` em vez de assumir um único `period`.
-- Manter os modais de edição de período e config apontando para o período do card selecionado.
-- Preservar o realtime existente (`useRealtimePeriodPlans` + `useRealtimeDemands`).
+**Diagnóstico das fontes de verdade hoje:**
 
-Resultado: hub e Visão Geral passam a ver exatamente o mesmo conjunto de cards pendentes.
+| Fluxo | Onde | Modelo efetivo |
+|---|---|---|
+| Conteúdo avulso (ClientHub → Gerar estático/carrossel com IA) | `src/pages/ClientHub.tsx` | ✅ `gpt2` (default do estado) |
+| Aprovação de plano dispara auto-geração | `src/lib/evaluatePlanCard.ts` invoca `auto-generate-post` **sem `aiModel`** | ❌ cai no `DEFAULT_IMAGE_MODEL = "nanobanana3"` de `supabase/functions/_shared/models.ts` |
+| TaskCard → "Gerar estático com IA" / "Regerar tudo" / "Regerar slide" | `src/components/TaskCard.tsx` invoca `generate-post-image` / `auto-generate-carousel` **sem `aiModel`** | ❌ mesmo default `nanobanana3` |
+| Backend default | `supabase/functions/_shared/models.ts` → `DEFAULT_IMAGE_MODEL` | ❌ `nanobanana3` |
 
-## 2. Zerar backlog ≤ 31/05/2026
+**Correção (mesma fonte de verdade, alinhada ao que ClientHub já usa):**
 
-Rodar uma migração de dados (script SQL executado via `supabase--insert`) que, para cada `period_plans` com `period_start <= '2026-05-31'` da tenant afetada:
+1. `supabase/functions/_shared/models.ts`: trocar `DEFAULT_IMAGE_MODEL` de `"nanobanana3"` para `"gpt2"`. Isso já resolve os fluxos que não passam `aiModel` (evaluate/aprovação e TaskCard), sem precisar alterar cada call site.
+2. `src/lib/evaluatePlanCard.ts`: passar `aiModel: "gpt2"` explicitamente no `invoke("auto-generate-post" | "auto-generate-carousel")`, para deixar a intenção clara no client e não depender só do default do server.
+3. `src/components/TaskCard.tsx`: nos três `invoke` (`handleGenerateImages`, `handleRegenerateAll`, `handleRegenerateSlide`) enviar `aiModel: "gpt2"` no body — mesma razão.
+4. Não alterar os `<Select>` do ClientHub — o usuário continua podendo trocar de modelo quando quiser.
 
-- Move todos os itens de `default_plan` e `ultra_plan` para `rejected_plan`, anotando em cada card:
-  - `_originalSource: 'default' | 'ultra'`
-  - `_rejectedAt: now()`
-  - `_rejectReason: 'Arquivamento em lote — backlog anterior a 31/05/2026'`
-  - `_archivedBatch: true` (flag para diferenciar de reprovações comuns e evitar reavaliação automática)
-- Esvazia `default_plan` e `ultra_plan` desses períodos (`'[]'::jsonb`).
-- **Não** cria demands, **não** dispara reavaliação.
+## 3. Card "Yön Contadores – Como ler seu Demonstrativo Financeiro em 5 minutos" sem anexo
 
-O fluxo atual de reavaliação (`supabase/functions/reevaluate-card`) já lê `rejected_plan`; para garantir que estes não voltem, a flag `_archivedBatch` será ignorada por ele (ajuste pontual no filtro do edge, se necessário — a confirmar durante a implementação lendo o edge). Se o edge já exigir trigger manual do usuário, nada mais precisa ser feito.
+**Estado atual (consulta ao banco):** `id=8636b9a7-5054-45cf-bc85-d264001a445d`, `demand_type_key=criativo_estatico`, `source=ultra_card`, `attachments=[]`. O card foi criado por aprovação (auto-geração de estático), mas a geração inicial não produziu imagem — provavelmente falhou silenciosamente (o card fica no fluxo mesmo sem anexo).
 
-Como a Visão Geral só lê `default_plan`/`ultra_plan`, esvaziar essas colunas já remove os 117 cards da fila de avaliação imediatamente.
+**Correção:** não precisa migração — basta o usuário clicar em **"Gerar estático com IA"** no card **depois** dos ajustes do item 2. Com o default em `gpt2` e o TaskCard enviando `aiModel: "gpt2"`, a geração vai usar GPT Image 2 e preencher o anexo.
 
-## 3. Fluxo de reprovação — aferição
-
-Auditar o que já existe:
-- `EvaluatePlanCardModal` → `rejectPlanCard`: move o card para `rejected_plan` com `_rejectReason` opcional. **Não deleta permanentemente**, **não regera** — fica aguardando reavaliação manual.
-- `ApproveCards` → `handleReject`: idêntico, sem motivo.
-- Reavaliação: existe fluxo separado (`reevaluate-card` edge + tela `RejectedCards`) que **o usuário dispara manualmente** para regerar.
-
-Portanto, hoje "reprovar" **nunca** regera automaticamente. A distinção que o usuário pediu ("reprovar e deletar" vs "reprovar e reenviar para correção") **já existe implicitamente**: reprovar apenas guarda o card + motivo; a regeneração é uma ação explícita posterior em `RejectedCards`. Vamos deixar isso claro no modal de reprovação com um texto curto ("O card fica salvo em Reavaliação; a regeneração é opcional e feita depois na tela de Cards Reprovados") — sem criar novo fluxo.
-
-Se após esta explicação o usuário quiser um botão explícito "Reprovar e descartar (não reavaliar)", tratamos como escopo separado.
-
----
+Se preferir, posso disparar manualmente a função `auto-generate-post` para esse `demandId` uma única vez em modo build, para não depender do clique.
 
 ## Detalhes técnicos
 
-Arquivos a editar:
-- `src/pages/ApproveCards.tsx` — refactor do fetch + handlers para múltiplos períodos.
-- `src/components/EvaluatePlanCardModal.tsx` — adicionar nota explicativa no passo de confirmação de reprovação (1 parágrafo).
-
-Migração de dados (via `supabase--insert`, não `migration` — é apenas UPDATE em linhas):
-```sql
-UPDATE public.period_plans
-SET
-  rejected_plan = COALESCE(rejected_plan, '[]'::jsonb)
-    || (
-      SELECT COALESCE(jsonb_agg(
-        elem || jsonb_build_object(
-          '_originalSource', src,
-          '_rejectedAt', now(),
-          '_rejectReason', 'Arquivamento em lote — backlog anterior a 31/05/2026',
-          '_archivedBatch', true
-        )
-      ), '[]'::jsonb)
-      FROM (
-        SELECT jsonb_array_elements(COALESCE(default_plan, '[]'::jsonb)) AS elem, 'default' AS src
-        UNION ALL
-        SELECT jsonb_array_elements(COALESCE(ultra_plan, '[]'::jsonb)) AS elem, 'ultra' AS src
-      ) s
-    ),
-  default_plan = '[]'::jsonb,
-  ultra_plan = '[]'::jsonb
-WHERE period_start <= DATE '2026-05-31'
-  AND (jsonb_array_length(COALESCE(default_plan,'[]'::jsonb)) > 0
-       OR jsonb_array_length(COALESCE(ultra_plan,'[]'::jsonb)) > 0);
-```
-
-Sem mudanças de schema, RLS ou edge functions (a menos que a auditoria do `reevaluate-card` mostre que a flag `_archivedBatch` precisa ser respeitada — verifico ao implementar).
+- Arquivos alterados: `vite.config.ts`, `supabase/functions/_shared/models.ts`, `src/lib/evaluatePlanCard.ts`, `src/components/TaskCard.tsx`.
+- Sem migração de banco.
+- Sem mudança nos prompts, tamanhos de imagem, ou lógica de anexos.
+- Sem mexer nos seletores de modelo do ClientHub (usuário continua podendo escolher Nanobanana 3/2.5).

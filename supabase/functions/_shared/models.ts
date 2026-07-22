@@ -12,7 +12,7 @@ export const IMAGE_MODELS: Record<
   gpt2:         { provider: "openai", id: "gpt-image-2",                    label: "GPT Image 2" },
 };
 
-export const DEFAULT_IMAGE_MODEL: ImageAiModel = "nanobanana3";
+export const DEFAULT_IMAGE_MODEL: ImageAiModel = "gpt2";
 
 export const MODELS = {
   // Default image model (kept for backward compatibility with callers using MODELS.IMAGE)
