@@ -154,6 +154,66 @@ ${antiRepetitionBlock}`;
     promptSections.push(`# REGRAS TÁTICAS DE GERAÇÃO (aplicam-se também à Ultra)\n${safeTruncate("generate_demandas_prompt", demandasPrompt)}`);
     promptSections.push(antiRepetitionSection);
 
+    // === OpenAI key (needed for research + generation) ===
+    const { data: apiKeyRes, error: apiKeyErr } = await supabase.from("api_keys").select("key_value").eq("key_name", "OPENAI_API_KEY").single();
+    if (apiKeyErr || !apiKeyRes) throw new Error("OPENAI_API_KEY não configurada");
+    const apiKey = (apiKeyRes as any).key_value as string;
+
+    // === Ultra trend research (with 24h cache in form_draft.ultra_research) ===
+    const formDraft: Record<string, any> = (periodPlan.form_draft && typeof periodPlan.form_draft === "object")
+      ? { ...(periodPlan.form_draft as Record<string, any>) }
+      : {};
+    const cached = formDraft.ultra_research as UltraResearchResult | undefined;
+    const cachedFresh = cached?.generated_at
+      && (Date.now() - new Date(cached.generated_at).getTime()) < RESEARCH_TTL_MS;
+    const refreshResearch = body.refreshResearch === true;
+
+    let research: UltraResearchResult;
+    if (cached && cachedFresh && !refreshResearch) {
+      console.log(`[ultra] reusing cached research (mode=${cached.research_mode}, trends=${cached.relevant_trends?.length || 0})`);
+      research = cached;
+    } else {
+      // Top calendar events (rank kept high by adaptive layer)
+      const highDates = Array.isArray(ctx.adaptive?.calendar_events)
+        ? (ctx.adaptive.calendar_events as any[])
+            .filter((e: any) => (Number(e.priority) || 0) >= 70)
+            .slice(0, 4)
+            .map((e: any) => ({ date: String(e.date), name: String(e.name || "") }))
+        : [];
+      // Anamnese snippets from question_session answers
+      const anamneseSnippets: string[] = [];
+      if (ctx.questionSession) {
+        const answers = ((ctx.questionSession as any).answers || {}) as Record<string, any>;
+        for (const [k, v] of Object.entries(answers)) {
+          const s = String(v || "").trim();
+          if (s && s.length > 40) anamneseSnippets.push(s);
+          if (anamneseSnippets.length >= 4) break;
+        }
+      }
+      research = await researchUltraTrends({
+        openaiApiKey: apiKey,
+        company,
+        periodPlan,
+        strategySnippet: ctx.strategyText?.slice(0, 800) || "",
+        topAnamneseSnippets: anamneseSnippets,
+        highPriorityDates: highDates,
+      });
+      console.log(`[ultra] research mode=${research.research_mode} trends=${research.relevant_trends.length}${research.error ? ` err=${research.error}` : ""}`);
+
+      // MERGE-safe cache write — never clobber existing form_draft keys
+      formDraft.ultra_research = research;
+      try {
+        await (supabase as any).from("period_plans")
+          .update({ form_draft: formDraft })
+          .eq("id", periodPlanId);
+      } catch (e) {
+        console.warn("[ultra] failed to persist research cache:", e);
+      }
+    }
+
+    // Inject research section into system prompt (before anti-repetition already pushed)
+    promptSections.push(formatResearchForPrompt(research));
+
     const systemPrompt = promptSections.join("\n\n---\n\n");
 
     const jsonInstruction = `\n\nResponda APENAS JSON válido, sem markdown. Canal OBRIGATÓRIO em toda demanda: "${periodPlan.priority_channel}".
