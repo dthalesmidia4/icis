@@ -831,7 +831,7 @@ export default function TaskCard({
       
       const functionName = isCarousel ? "auto-generate-carousel" : "generate-post-image";
       const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { demandId: card.id },
+        body: { demandId: card.id, aiModel: "gpt2" },
       });
       if (error) throw error;
       if (data?.error) {
@@ -882,7 +882,7 @@ export default function TaskCard({
       // Regenerate based on type — preserve existing attachments (new ones are appended)
       if (isCarousel) {
         const { data, error } = await supabase.functions.invoke("auto-generate-carousel", {
-          body: { demandId: card.id },
+          body: { demandId: card.id, aiModel: "gpt2" },
         });
         if (error) throw error;
         if (data?.error) {
@@ -892,7 +892,7 @@ export default function TaskCard({
         toast.success("Carrossel regenerado com sucesso!");
       } else {
         const { data, error } = await supabase.functions.invoke("generate-post-image", {
-          body: { demandId: card.id },
+          body: { demandId: card.id, aiModel: "gpt2" },
         });
         if (error) throw error;
         if (data?.error) {
@@ -924,7 +924,7 @@ export default function TaskCard({
     setRegeneratingSlide(slideNumber);
     try {
       const { data, error } = await supabase.functions.invoke("generate-post-image", {
-        body: { demandId: card.id, slideNumber, replaceSlide: false },
+        body: { demandId: card.id, slideNumber, replaceSlide: false, aiModel: "gpt2" },
       });
       if (error) throw error;
       if (data?.error) {
