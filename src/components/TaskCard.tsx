@@ -1152,67 +1152,141 @@ export default function TaskCard({
                     <span>Entregar ocorrência</span>
                   </Button>
                 ) : (
-                  <>
-                    {card.current_function_key && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-11 gap-2 shrink-0 text-muted-foreground hover:text-foreground"
-                        onClick={handleRegress}
-                        disabled={regressing || !card.demand_type_key}
-                        aria-label="Voltar demanda"
-                        title="Devolver a demanda para a etapa anterior do fluxo"
-                      >
-                        {regressing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowLeft className="h-4 w-4" />}
-                        <span>Voltar demanda</span>
-                      </Button>
-                    )}
-                    {isLastFn ? (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="h-11 gap-2 shrink-0"
-                        onClick={handleDeliver}
-                        disabled={delivering}
-                        aria-label="Entregar"
-                        title="Entregar demanda e mover para Demandas Completas"
-                      >
-                        {delivering ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                        <span>Entregar</span>
-                      </Button>
-                    ) : card.current_function_key === 'publicar' ? (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="h-11 gap-2 shrink-0"
-                        onClick={() => setInlineScheduleOpen(true)}
-                        aria-label="Agendar Publicação"
-                        title="Agendar a publicação nas redes sociais conectadas"
-                      >
-                        <CalendarClock className="h-4 w-4" />
-                        <span>Agendar Publicação</span>
-                      </Button>
-                    ) : (
-                      (() => {
-                        const isEnviarCliente = card.current_function_key === 'enviar_cliente';
-                        const btnLabel = isEnviarCliente ? 'Marcar como enviado ao cliente' : 'Prosseguir';
-                        return (
+                  (() => {
+                    const seq = pipelineSequence;
+                    const curKey = card.current_function_key;
+                    const curIdx = curKey ? seq.findIndex((s) => s.function_key === curKey) : -1;
+                    const prev = curIdx > 0 ? seq[curIdx - 1] : null;
+                    const next = curIdx >= 0 && curIdx < seq.length - 1 ? seq[curIdx + 1] : null;
+                    const curName = curIdx >= 0 ? seq[curIdx].name : (curKey || "Sem etapa");
+
+                    const nextIsPublicar = curKey === "publicar";
+                    const isEnviarCliente = curKey === "enviar_cliente";
+                    const nextLabel = nextIsPublicar
+                      ? "Agendar Publicação"
+                      : isLastFn
+                        ? "Entregar"
+                        : isEnviarCliente
+                          ? "Enviado ao cliente"
+                          : (next?.name || "Prosseguir");
+
+                    const doJump = async (key: string) => {
+                      if (!card.tenant_id || !card.demand_type_key || jumpingStep) return;
+                      setJumpingStep(true);
+                      try {
+                        const r = await jumpToFunction({
+                          demandId: card.id,
+                          tenantId: card.tenant_id,
+                          demandTypeKey: card.demand_type_key,
+                          targetFunctionKey: key,
+                          currentFunctionKey: curKey,
+                        });
+                        if (r.success) {
+                          toast.success(r.message);
+                          onCardChange({ ...card, assigned_to: r.assignedTo || null, current_function_key: r.functionKey || null });
+                          setStepPickerOpen(false);
+                        } else {
+                          toast.error(r.message);
+                        }
+                      } finally {
+                        setJumpingStep(false);
+                      }
+                    };
+
+                    return (
+                      <div className="flex items-center gap-0.5 shrink-0 rounded-lg bg-muted/40 p-0.5">
+                        {prev && (
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            className="h-11 gap-2 shrink-0"
+                            className="h-9 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={handleRegress}
+                            disabled={regressing || !card.demand_type_key}
+                            title={`Voltar para ${prev.name}`}
+                          >
+                            {regressing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowLeft className="h-3.5 w-3.5" />}
+                            <span className="max-w-[110px] truncate">{prev.name}</span>
+                          </Button>
+                        )}
+                        {curKey && (
+                          <Popover open={stepPickerOpen} onOpenChange={setStepPickerOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                className="h-9 gap-1.5 text-xs font-semibold"
+                                disabled={seq.length === 0}
+                                title="Selecionar etapa manualmente"
+                              >
+                                <span className="max-w-[160px] truncate">{curName}</span>
+                                <ChevronDown className="h-3 w-3 opacity-70" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent align="center" className="w-56 p-1">
+                              <div className="max-h-72 overflow-y-auto">
+                                {seq.map((s, i) => {
+                                  const active = s.function_key === curKey;
+                                  return (
+                                    <button
+                                      key={s.function_key}
+                                      type="button"
+                                      disabled={active || jumpingStep}
+                                      onClick={() => doJump(s.function_key)}
+                                      className={cn(
+                                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-left transition-colors",
+                                        active ? "bg-primary/10 text-primary font-semibold" : "hover:bg-muted",
+                                        jumpingStep && "opacity-60 cursor-wait",
+                                      )}
+                                    >
+                                      <span className="w-4 shrink-0 text-muted-foreground">{i + 1}.</span>
+                                      <span className="truncate flex-1">{s.name}</span>
+                                      {active && <Check className="h-3.5 w-3.5" />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        )}
+                        {isLastFn ? (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-9 gap-1.5 text-xs"
+                            onClick={handleDeliver}
+                            disabled={delivering}
+                            title="Entregar demanda e mover para Demandas Completas"
+                          >
+                            {delivering ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                            <span>{nextLabel}</span>
+                          </Button>
+                        ) : nextIsPublicar ? (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-9 gap-1.5 text-xs"
+                            onClick={() => setInlineScheduleOpen(true)}
+                            title="Agendar a publicação nas redes sociais conectadas"
+                          >
+                            <CalendarClock className="h-3.5 w-3.5" />
+                            <span>{nextLabel}</span>
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="h-9 gap-1.5 text-xs"
                             onClick={handleProceed}
                             disabled={proceeding || !card.demand_type_key}
-                            aria-label={btnLabel}
-                            title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : (isEnviarCliente ? "Marcar como enviado ao cliente e mover para Aguardando cliente" : "Enviar para o próximo colaborador do fluxo")}
+                            title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : (isEnviarCliente ? "Marcar como enviado ao cliente" : `Enviar para ${nextLabel}`)}
                           >
-                            {proceeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                            <span>{btnLabel}</span>
+                            <span className="max-w-[140px] truncate">{nextLabel}</span>
+                            {proceeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
                           </Button>
-                        );
-                      })()
-                    )}
-                  </>
+                        )}
+                      </div>
+                    );
+                  })()
                 )
               )}
 
