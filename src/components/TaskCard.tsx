@@ -1072,8 +1072,8 @@ export default function TaskCard({
               <div className="flex-1 min-w-0">
                 <div className="flex min-w-0 items-center gap-3">
                   {!isDraft && card.clientName && (
-                    <Badge variant="secondary" className="max-w-[220px] shrink-0 truncate px-2.5 py-1 text-xs font-semibold">
-                      {card.clientName}
+                    <Badge variant="secondary" className="max-w-[220px] shrink-0 px-2.5 py-1 text-xs font-semibold">
+                      <span className="truncate">{card.clientName}</span>
                     </Badge>
                   )}
                   {!readOnly && (isDraft || editingField === 'title' || !card.title) ? (
