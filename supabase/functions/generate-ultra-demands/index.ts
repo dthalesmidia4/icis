@@ -237,12 +237,23 @@ Formato final: {"plan":[...${customQuantity} itens...],"summary":"resumo do raci
       return null;
     };
 
+    const stripBrandPrefix = (t: string): string => {
+      if (!t) return t;
+      const brandRaw = (company.fantasy_name || company.name || "").trim();
+      if (!brandRaw) return t.trim();
+      const esc = brandRaw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(`^\\s*${esc}\\s*[\\-\\u2013\\u2014:|]\\s*`, "i");
+      return t.replace(re, "").trim();
+    };
+
     const ultraDemands = (parsed.plan || []).map((d: any) => {
       const tipo = d.tipo || d.demand_type || "";
       const type_key = coerceKey(d.type_key) ?? normalizeKey(tipo);
+      const titulo = stripBrandPrefix(String(d.titulo || d.title || ""));
       // preserve extended fields verbatim
       return {
         ...d,
+        titulo,
         canal: priorityChannel,
         tipo,
         type_key,
