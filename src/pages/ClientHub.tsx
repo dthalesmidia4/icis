@@ -1953,7 +1953,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         </Dialog>
 
         {/* Modal Carrossel Manual */}
-        <Dialog open={manualCarouselOpen} onOpenChange={(open) => { setManualCarouselOpen(open); if (!open) { setSelectedPresetId(null); setSelectedMascotIds([]); } }}>
+        <Dialog open={manualCarouselOpen} onOpenChange={(open) => { setManualCarouselOpen(open); if (!open) { setSelectedPresetId(null); setSelectedMascotIds([]); setCarouselAiModel('gpt2'); } }}>
           <DialogContent className="sm:max-w-2xl !flex !flex-col overflow-hidden max-h-[90vh]">
             <DialogHeader>
               <div className="flex items-center gap-2">
@@ -2032,6 +2032,18 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   )}
                 </div>
               </div>
+
+              <div className="space-y-1.5 pt-1">
+                <Label className="text-sm font-medium">Modelo de IA</Label>
+                <Select value={carouselAiModel} onValueChange={(v) => setCarouselAiModel(v as 'nanobanana3' | 'nanobanana25' | 'gpt2')} disabled={generatingCarouselImages}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nanobanana3">Nanobanana 3 (Pro)</SelectItem>
+                    <SelectItem value="nanobanana25">Nanobanana 2.5 (Flash)</SelectItem>
+                    <SelectItem value="gpt2">GPT Image 2</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" disabled={manualSlides.every(s => !s.text.trim()) || generatingCarouselImages}
@@ -2062,7 +2074,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                         allSlides: validSlides,
                         batchOffset: batchStart,
                         aspectRatio: '1:1',
-                        aiModel: 'gpt2',
+                        aiModel: carouselAiModel,
                         presetId: selectedPresetId,
                         mascotImageUrls: selectedMascotUrls,
                         clientId: selectedClient.id,
