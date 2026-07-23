@@ -18,6 +18,7 @@ import { getPeriodDemandReviewCounts } from "@/lib/periodCounts";
 import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback, useRealtimeVisualIdentity, useRealtimeStrategies } from "@/hooks/realtime";
 import VisualIdentityModal from "@/components/VisualIdentityModal";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -120,8 +121,12 @@ const ClientHub = () => {
     use_brand_identity?: boolean;
     logo_ref_url?: string;
     logo_strategy?: 'none' | 'contextual' | 'end_card';
+    pronunciation_hints?: string;
     optimizing_script?: boolean;
   }>>([]);
+  // Logo do cliente (tenant_companies.logo_url) — usada como default de logo_ref_url
+  // ao criar cenas Seedance, para que o preset visual do cliente seja respeitado.
+  const [clientLogoUrl, setClientLogoUrl] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<{ sceneIndex: number; slot: 'main_character' | 'scene_ref' | 'logo' } | null>(null);
   const [uploadingRef, setUploadingRef] = useState<string | null>(null); // key = `${sceneIdx}:${kind}`
@@ -226,7 +231,7 @@ const ClientHub = () => {
 
   // ------- Autosave rascunho de vídeo (avulso_drafts) -------
   // schema_version bumped whenever the stored shape changes; older drafts are ignored on hydrate.
-  const VIDEO_DRAFT_SCHEMA_VERSION = 4;
+  const VIDEO_DRAFT_SCHEMA_VERSION = 5;
   const videoDraftSnapshot = videoModalOpen && selectedClient
     ? { schema_version: VIDEO_DRAFT_SCHEMA_VERSION, videoIdea, sceneCount, videoAspectRatio, videoStep, videoScenes, selectedPresetId, selectedMascotIds, videoEngineChoice }
     : null;
@@ -1108,10 +1113,13 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     const fetchRequirements = async () => {
       const { data } = await supabase
         .from('tenant_companies')
-        .select('content_requirements')
+        .select('content_requirements, logo_url')
         .eq('id', selectedClient.id)
         .single();
-      if (data) setContentRequirements((data as any).content_requirements || '');
+      if (data) {
+        setContentRequirements((data as any).content_requirements || '');
+        setClientLogoUrl(((data as any).logo_url as string | null) || null);
+      }
     };
     fetchRequirements();
   }, [selectedClient?.id, tenantId]);
@@ -1501,10 +1509,14 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       seedance_model: 'v2' as const,
       seedance_duration: clampDur(c.target_duration_seconds),
       seedance_resolution: '1080p' as const,
-      seedance_generate_audio: false,
+      // Áudio v2 é ativado automaticamente quando a IA gerou uma fala para a cena.
+      // Sem áudio, o Seedance devolve vídeo mudo mesmo com voiceover escrito.
+      seedance_generate_audio: !!(c.mascot_speech_pt && c.mascot_speech_pt.trim()),
       seedance_options_open: false,
       use_brand_identity: hasIdentity,
-      logo_strategy: 'none' as const,
+      // Se o cliente tem logo cadastrada, deixamos pronta como contextual por padrão.
+      logo_ref_url: clientLogoUrl || undefined,
+      logo_strategy: (clientLogoUrl ? 'contextual' : 'none') as 'none' | 'contextual' | 'end_card',
     }));
     setVideoScenes(mapped);
     setVideoStep(2);
@@ -1601,6 +1613,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           model: scene.seedance_model ?? 'pro',
           ratio: videoAspectRatio,
           mascotSpeech: scene.mascot_speech || null,
+          pronunciationHints: scene.pronunciation_hints || null,
           hasLogo: !!scene.logo_ref_url,
           logoStrategy: scene.logo_strategy ?? 'none',
           refsLegend,
@@ -1663,6 +1676,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
             model: scene.seedance_model ?? 'pro',
             prompt: scene.scene_description,
             mascotSpeech: scene.mascot_speech || null,
+            pronunciationHints: scene.pronunciation_hints || null,
             ratio: videoAspectRatio,
             duration: scene.seedance_duration ?? 5,
             resolution: scene.seedance_resolution ?? '1080p',
@@ -2894,7 +2908,9 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                           <Label className="text-xs font-medium text-muted-foreground">Descrição da Cena (EN)</Label>
                           <Textarea placeholder="Scene description in English..." value={scene.scene_description}
                             onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, scene_description: e.target.value } : s))}
-                            className="min-h-[70px] resize-none text-sm" disabled={scene.generating || scene.optimizing_script} />
+                            onInput={(e) => { const el = e.currentTarget; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 520) + 'px'; }}
+                            ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 520) + 'px'; } }}
+                            className="min-h-[180px] max-h-[520px] resize-none text-sm leading-relaxed font-mono" disabled={scene.generating || scene.optimizing_script} />
                           {scene.engine === 'seedance' && (
                             <button
                               type="button"
@@ -2911,14 +2927,28 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                             </button>
                           )}
                         </div>
-                        {scene.mascot_speech && (
+                        {(scene.mascot_speech || scene.engine === 'seedance') && (
                           <div className="space-y-1.5">
-                            <Label className="text-xs font-medium text-muted-foreground">Fala do Mascote (PT-BR)</Label>
-                            <Textarea placeholder="O mascote diz: ..." value={scene.mascot_speech}
+                            <Label className="text-xs font-medium text-muted-foreground">Fala do Apresentador / Mascote (PT-BR)</Label>
+                            <Textarea placeholder="Ex.: Com o SmartVéti, sua clínica..." value={scene.mascot_speech}
                               onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, mascot_speech: e.target.value } : s))}
-                              className="min-h-[50px] resize-none text-sm" disabled={scene.generating} />
+                              onInput={(e) => { const el = e.currentTarget; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 240) + 'px'; }}
+                              ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 240) + 'px'; } }}
+                              className="min-h-[70px] max-h-[240px] resize-none text-sm leading-relaxed" disabled={scene.generating} />
+                            <div className="space-y-1">
+                              <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Dicas de pronúncia (opcional)</Label>
+                              <Input
+                                placeholder='Ex.: pronuncie "SmartVety" como "SmartVéti"'
+                                value={scene.pronunciation_hints ?? ''}
+                                onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, pronunciation_hints: e.target.value } : s))}
+                                className="h-8 text-xs"
+                                disabled={scene.generating}
+                              />
+                              <p className="text-[10px] text-muted-foreground/80">A IA vai usar estas dicas para escrever a fala com a grafia fonética correta, sem alterar a marca original.</p>
+                            </div>
                           </div>
                         )}
+
 
                         {/* Engine toggle: Veo (default) vs Seedance */}
                         <div className="space-y-1.5 pt-1 border-t border-border/50">
@@ -3016,15 +3046,23 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                             </div>
 
                             {scene.seedance_model === 'v2' && (
-                              <label className="flex items-center gap-2 text-xs">
-                                <Checkbox
-                                  checked={!!scene.seedance_generate_audio}
-                                  onCheckedChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_generate_audio: !!v } : s))}
-                                  disabled={scene.generating}
-                                />
-                                Gerar áudio sincronizado
-                              </label>
+                              <div className="rounded-md border border-primary/15 bg-muted/40 p-2 space-y-1">
+                                <label className="flex items-center gap-2 text-xs font-medium">
+                                  <Checkbox
+                                    checked={!!scene.seedance_generate_audio}
+                                    onCheckedChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_generate_audio: !!v } : s))}
+                                    disabled={scene.generating}
+                                  />
+                                  Gerar áudio sincronizado (voz + trilha ambiente)
+                                </label>
+                                <p className="text-[10px] text-muted-foreground/90">
+                                  {scene.mascot_speech?.trim()
+                                    ? 'Necessário para o Seedance falar a fala do apresentador. Se desmarcar, o vídeo sai sem som.'
+                                    : 'Ative para o Seedance criar trilha ambiente/efeitos. Sem áudio na cena, o vídeo sai mudo.'}
+                                </p>
+                              </div>
                             )}
+
 
                             {scene.seedance_options_open && (
                               <div className="space-y-2.5 pt-1.5 border-t border-primary/15">
@@ -3111,44 +3149,72 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                   </button>
                                 </div>
 
-                                {/* Logo da marca — presença e estratégia */}
+                                {/* Uso da logo no vídeo — o campo é uma ESTRATÉGIA (não é o arquivo).
+                                    O arquivo da logo vem automaticamente do cadastro do cliente
+                                    (tenant_companies.logo_url); só é preciso escolher outra manualmente
+                                    se quiser sobrescrever para esta cena. */}
                                 <div className="space-y-1">
-                                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Logo da marca</Label>
+                                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Uso da logo no vídeo</Label>
                                   <Select
                                     value={scene.logo_strategy ?? 'none'}
-                                    onValueChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, logo_strategy: v as 'none' | 'contextual' | 'end_card' } : s))}
+                                    onValueChange={(v) => setVideoScenes(prev => prev.map((s, i) => {
+                                      if (i !== idx) return s;
+                                      const strategy = v as 'none' | 'contextual' | 'end_card';
+                                      // Ao ativar estratégia, se ainda não há arquivo escolhido, usar a logo do cliente.
+                                      const nextLogo = strategy !== 'none' && !s.logo_ref_url && clientLogoUrl ? clientLogoUrl : s.logo_ref_url;
+                                      return { ...s, logo_strategy: strategy, logo_ref_url: nextLogo };
+                                    }))}
                                     disabled={scene.generating}
                                   >
                                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="none">Sem logo</SelectItem>
-                                      <SelectItem value="contextual">Contextual (ambiente, produto, cenário)</SelectItem>
+                                      <SelectItem value="none">Não incluir a logo</SelectItem>
+                                      <SelectItem value="contextual">Inserir naturalmente (em produto, cenário ou peça)</SelectItem>
                                       <SelectItem value="end_card">Cartela final (encerramento)</SelectItem>
                                     </SelectContent>
                                   </Select>
                                   {scene.logo_strategy && scene.logo_strategy !== 'none' && (
-                                    scene.logo_ref_url ? (
+                                    (scene.logo_ref_url || clientLogoUrl) ? (
                                       <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-muted/30 px-2 py-1.5">
-                                        <img src={scene.logo_ref_url} alt="Logo" className="h-8 w-8 object-contain rounded bg-white" />
+                                        <img src={scene.logo_ref_url || clientLogoUrl || ''} alt="Logo" className="h-8 w-8 object-contain rounded bg-white" />
+                                        <span className="text-[10px] text-muted-foreground flex-1">
+                                          {scene.logo_ref_url ? 'Logo desta cena' : 'Usando a logo do cliente'}
+                                        </span>
                                         <button
                                           type="button"
-                                          className="text-destructive hover:opacity-80 ml-auto"
-                                          onClick={() => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, logo_ref_url: undefined } : s))}
+                                          className="text-[10px] text-primary hover:underline"
+                                          onClick={() => { setPickerTarget({ sceneIndex: idx, slot: 'logo' }); setPickerOpen(true); }}
                                         >
-                                          <Trash2 className="w-3.5 h-3.5" />
+                                          Trocar
                                         </button>
+                                        {scene.logo_ref_url && (
+                                          <button
+                                            type="button"
+                                            className="text-destructive hover:opacity-80"
+                                            title="Voltar para a logo do cliente"
+                                            onClick={() => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, logo_ref_url: undefined } : s))}
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
                                       </div>
                                     ) : (
-                                      <button
-                                        type="button"
-                                        className="text-[10px] text-primary hover:underline"
-                                        onClick={() => { setPickerTarget({ sceneIndex: idx, slot: 'logo' }); setPickerOpen(true); }}
-                                      >
-                                        Escolher logo da biblioteca
-                                      </button>
+                                      <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 px-2 py-1.5">
+                                        <span className="text-[10px] text-muted-foreground flex-1">
+                                          Nenhuma logo cadastrada no cliente.
+                                        </span>
+                                        <button
+                                          type="button"
+                                          className="text-[10px] text-primary hover:underline"
+                                          onClick={() => { setPickerTarget({ sceneIndex: idx, slot: 'logo' }); setPickerOpen(true); }}
+                                        >
+                                          Escolher da biblioteca
+                                        </button>
+                                      </div>
                                     )
                                   )}
                                 </div>
+
 
 
                                 {/* Voz de referência (só v2) */}

@@ -21,6 +21,7 @@ export interface SeedanceRef {
 export interface BuildPromptInput {
   sceneDescription: string;
   mascotSpeech?: string | null;
+  pronunciationHints?: string | null;
   brandColors?: string[];
   brandTypography?: string | null;
   logoStrategy?: "none" | "contextual" | "end_card";
@@ -66,6 +67,11 @@ export function buildSeedancePrompt(input: BuildPromptInput): string {
     parts.push(
       `The character speaks the following dialogue in Brazilian Portuguese: "${sanitize(input.mascotSpeech)}"`,
     );
+    if (input.pronunciationHints && input.pronunciationHints.trim()) {
+      parts.push(
+        `Pronunciation guide for the spoken line (do not change written brand names anywhere else, only how they are pronounced aloud): ${sanitize(input.pronunciationHints)}.`,
+      );
+    }
   }
 
   if (input.refs.length > 0) {
