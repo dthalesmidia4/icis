@@ -1687,8 +1687,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           body: {
             model: scene.seedance_model ?? 'pro',
             prompt: scene.scene_description,
-            mascotSpeech: scene.mascot_speech || null,
-            pronunciationHints: scene.pronunciation_hints || null,
+            // Fala PT-BR já vive dentro do CUE da Descrição da Cena; a IA usa grafia fonética
+            // para nomes de marca (ex.: SmartVety escrito como SmartVéti dentro das aspas da fala).
             ratio: videoAspectRatio,
             duration: scene.seedance_duration ?? 5,
             resolution: scene.seedance_resolution ?? '1080p',
