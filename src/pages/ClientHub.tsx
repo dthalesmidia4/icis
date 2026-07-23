@@ -1056,12 +1056,19 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
 
   const refetchPresets = async () => {
-    if (!selectedClient?.id || !tenantId) return;
+    if (!selectedClient?.id) return;
+    // Aguarda tenantId propagar do contexto (evita fetch vazio na primeira montagem).
+    let tid = tenantId;
+    for (let i = 0; i < 5 && !tid; i++) {
+      await new Promise((r) => setTimeout(r, 200));
+      tid = tenantId;
+    }
+    if (!tid) return;
     const { data } = await supabase
       .from('visual_identity_presets')
       .select('id, name, primary_color, secondary_color')
       .eq('company_id', selectedClient.id)
-      .eq('tenant_id', tenantId)
+      .eq('tenant_id', tid)
       .order('created_at', { ascending: true });
     if (data) {
       setPresets(data);
@@ -1072,8 +1079,11 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   };
 
   useEffect(() => {
-    if (!selectedClient?.id || !tenantId) return;
+    if (!selectedClient?.id) return;
     refetchPresets();
+    const onFocus = () => refetchPresets();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient?.id, tenantId]);
 
@@ -1555,7 +1565,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
   const handleUploadSceneAsset = async (
     sceneIndex: number,
-    kind: 'last_frame' | 'main_character' | 'scene_ref' | 'voice_sample',
+    kind: 'last_frame' | 'main_character' | 'scene_ref' | 'voice_sample' | 'logo',
     file: File,
   ) => {
     const key = `${sceneIndex}:${kind}`;
@@ -1565,6 +1575,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       const folder =
         kind === 'voice_sample' ? 'voice-refs'
         : kind === 'scene_ref' ? 'scene-refs'
+        : kind === 'logo' ? 'scene-logos'
         : 'video-frames';
       const filePath = `${folder}/${selectedClient.id}/${crypto.randomUUID()}.${ext}`;
       const { error: upErr } = await supabase.storage.from('card-attachments').upload(filePath, file, { contentType: file.type, upsert: true });
@@ -1576,6 +1587,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         if (kind === 'last_frame') return { ...s, last_frame_url: url };
         if (kind === 'main_character') return { ...s, main_character_url: url };
         if (kind === 'voice_sample') return { ...s, voice_sample_url: url };
+        if (kind === 'logo') return { ...s, logo_ref_url: url };
         // scene_ref: append (max 3)
         const list = [...(s.scene_ref_urls ?? []), url].slice(0, 3);
         return { ...s, scene_ref_urls: list };
