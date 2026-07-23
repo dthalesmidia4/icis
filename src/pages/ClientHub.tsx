@@ -1112,10 +1112,13 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     const fetchRequirements = async () => {
       const { data } = await supabase
         .from('tenant_companies')
-        .select('content_requirements')
+        .select('content_requirements, logo_url')
         .eq('id', selectedClient.id)
         .single();
-      if (data) setContentRequirements((data as any).content_requirements || '');
+      if (data) {
+        setContentRequirements((data as any).content_requirements || '');
+        setClientLogoUrl(((data as any).logo_url as string | null) || null);
+      }
     };
     fetchRequirements();
   }, [selectedClient?.id, tenantId]);
