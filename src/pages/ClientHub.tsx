@@ -1492,6 +1492,19 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   // Applies a Seedance plan (clip list) to the scene editor and advances to step 2.
   // Technical settings (model/resolution/audio/logo) start with sensible defaults —
   // the user tunes them per clip inside the scene editor.
+  // Client-side mirror of supabase/functions/_shared/format-seedance-script.ts —
+  // keeps old drafts readable and fixes any AI response that slipped through unformatted.
+  const formatSeedanceScript = (raw: string): string => {
+    if (!raw) return '';
+    let out = raw.replace(/\r\n/g, '\n');
+    out = out.replace(/([^\n])\s*(\bCUE\s+\d)/g, '$1\n\n$2');
+    out = out.replace(/([^\n])\s*(\[cut to\])/gi, '$1\n$2');
+    out = out.replace(/([^\n])\s*(Portuguese spoken dialogue:\s*["“][^"”\n]+["”])/g, '$1\n$2');
+    out = out.replace(/([.!?…])\s+(["“][A-ZÀ-ÿ][^"”\n]{2,}["”])/g, '$1\n$2');
+    out = out.replace(/\n{3,}/g, '\n\n');
+    return out.trim();
+  };
+
   const applySeedanceClipsToEditor = (
     clips: Array<{ description_en: string; target_duration_seconds: number; title_pt?: string; mascot_speech_pt?: string }>,
   ) => {
@@ -1500,7 +1513,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     const hasIdentity = !!(preset?.primary_color || preset?.secondary_color);
     const clampDur = (d: number) => Math.max(4, Math.min(15, Math.round(d || 8)));
     const mapped = clips.map((c) => ({
-      scene_description: c.description_en,
+      scene_description: formatSeedanceScript(c.description_en),
       // Fala vive dentro dos CUEs da descrição — mantemos o campo vazio.
       mascot_speech: '',
       generating: false,
