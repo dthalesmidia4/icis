@@ -62,6 +62,12 @@ const DevHub = () => {
       color: "from-pink-500 to-rose-600",
       route: "/dev/social-tokens",
     },
+    {
+      title: "Biblioteca Visual",
+      icon: Library,
+      color: "from-amber-500 to-orange-600",
+      route: "/referencias-visuais",
+    },
   ];
 
 
