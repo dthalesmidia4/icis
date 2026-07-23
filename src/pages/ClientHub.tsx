@@ -1473,12 +1473,12 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     }
   };
 
-  // Applies the AI-suggested Seedance plan to the scene editor (step 2).
-  const handleApplySeedancePlan = () => {
-    if (!seedancePlan?.clips?.length) return;
+  // Applies a Seedance plan (clip list) to the scene editor and advances to step 2.
+  const applySeedanceClipsToEditor = (clips: Array<{ description_en: string; target_duration_seconds: number; title_pt?: string }>) => {
+    if (!clips?.length) return;
     const preset = presets.find(p => p.id === selectedPresetId);
     const hasIdentity = !!(preset?.primary_color || preset?.secondary_color);
-    const mapped = seedancePlan.clips.map((c) => ({
+    const mapped = clips.map((c) => ({
       scene_description: c.description_en,
       mascot_speech: '',
       generating: false,
@@ -1496,6 +1496,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     setSeedancePlan(null);
     toast.success(`Storyboard pronto: ${mapped.length} clipe${mapped.length > 1 ? 's' : ''}.`);
     saveGeneratedContent('video_storyboard', 'Storyboard Seedance', videoIdea, []).catch(() => {});
+  };
+
+  const handleApplySeedancePlan = () => {
+    if (seedancePlan?.clips?.length) applySeedanceClipsToEditor(seedancePlan.clips);
   };
 
   const handleFrameUpload = async (sceneIndex: number, file: File) => {
