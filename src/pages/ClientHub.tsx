@@ -2934,21 +2934,42 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                             onInput={(e) => { const el = e.currentTarget; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 520) + 'px'; }}
                             ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 520) + 'px'; } }}
                             className="min-h-[180px] max-h-[520px] resize-none text-sm leading-relaxed font-mono" disabled={scene.generating || scene.optimizing_script} />
-                          {scene.engine === 'seedance' && (
-                            <button
-                              type="button"
-                              disabled={!scene.scene_description.trim() || scene.generating || scene.optimizing_script}
-                              onClick={() => handleOptimizeSeedanceScript(idx)}
-                              className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                              title="Reescreve a descrição como um prompt multi-shot único (CUEs + direção de câmera) otimizado para Seedance."
-                            >
-                              {scene.optimizing_script ? (
-                                <><Loader2 className="w-3 h-3 animate-spin" />Gerando roteiro…</>
-                              ) : (
-                                <><Sparkles className="w-3 h-3" />Roteiro multi-shot IA</>
-                              )}
-                            </button>
-                          )}
+                          {scene.engine === 'seedance' && (() => {
+                            const dur = scene.seedance_duration ?? 8;
+                            const budget = Math.max(1, Math.round(dur * 2.3));
+                            const normalized = (scene.scene_description || '').replace(/[“”]/g, '"');
+                            const matches = normalized.match(/"([^"\n]{2,})"/g) ?? [];
+                            const spoken = matches
+                              .map((m) => m.slice(1, -1).trim())
+                              .filter(Boolean)
+                              .reduce((acc, line) => acc + line.split(/\s+/).filter(Boolean).length, 0);
+                            const over = spoken > budget;
+                            return (
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <button
+                                  type="button"
+                                  disabled={!scene.scene_description.trim() || scene.generating || scene.optimizing_script}
+                                  onClick={() => handleOptimizeSeedanceScript(idx)}
+                                  className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  title="Reescreve a descrição como um prompt multi-shot único (CUEs + direção de câmera) otimizado para Seedance."
+                                >
+                                  {scene.optimizing_script ? (
+                                    <><Loader2 className="w-3 h-3 animate-spin" />Gerando roteiro…</>
+                                  ) : (
+                                    <><Sparkles className="w-3 h-3" />Roteiro multi-shot IA</>
+                                  )}
+                                </button>
+                                {spoken > 0 && (
+                                  <span
+                                    className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold border ${over ? 'bg-amber-500/10 text-amber-600 border-amber-500/30 dark:text-amber-400' : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30 dark:text-emerald-400'}`}
+                                    title={`Ritmo natural PT-BR ≈ 2,3 palavras/segundo. Orçamento para ${dur}s ≈ ${budget} palavras.`}
+                                  >
+                                    Fala: {spoken}/{budget} palavras{over ? ` — pode acelerar` : ''}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                         {/*
                           Nota: os campos "Fala do Apresentador" e "Dicas de pronúncia" foram removidos.
