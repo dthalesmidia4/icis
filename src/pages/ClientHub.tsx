@@ -2849,8 +2849,11 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                             {isSeedance ? `Clipe ${idx + 1}` : `Cena ${idx + 1}`}
                           </span>
                           {isSeedance ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono font-semibold">
-                              {scene.seedance_duration ?? 8}s · {shotCount} tomada{shotCount > 1 ? 's' : ''}
+                            <span
+                              className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono font-semibold"
+                              title="Cortes internos (CUEs) detectados na descrição. A IA decide quantos cabem na duração escolhida — edite os blocos CUE no roteiro para adicionar ou remover cortes."
+                            >
+                              {scene.seedance_duration ?? 8}s · {shotCount} corte{shotCount > 1 ? 's' : ''} interno{shotCount > 1 ? 's' : ''}
                             </span>
                           ) : (
                             <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
