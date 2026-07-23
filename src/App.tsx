@@ -56,6 +56,7 @@ import RejectedCards from "./pages/RejectedCards";
 import ContentHistory from "./pages/ContentHistory";
 import CollaboratorDemands from "./pages/CollaboratorDemands";
 import Settings from "./pages/Settings";
+import VideoReferencesLibrary from "./pages/VideoReferencesLibrary";
 
 const queryClient = new QueryClient({
   defaultOptions: {
