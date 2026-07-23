@@ -1056,12 +1056,19 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
 
   const refetchPresets = async () => {
-    if (!selectedClient?.id || !tenantId) return;
+    if (!selectedClient?.id) return;
+    // Aguarda tenantId propagar do contexto (evita fetch vazio na primeira montagem).
+    let tid = tenantId;
+    for (let i = 0; i < 5 && !tid; i++) {
+      await new Promise((r) => setTimeout(r, 200));
+      tid = tenantId;
+    }
+    if (!tid) return;
     const { data } = await supabase
       .from('visual_identity_presets')
       .select('id, name, primary_color, secondary_color')
       .eq('company_id', selectedClient.id)
-      .eq('tenant_id', tenantId)
+      .eq('tenant_id', tid)
       .order('created_at', { ascending: true });
     if (data) {
       setPresets(data);
@@ -1072,8 +1079,11 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   };
 
   useEffect(() => {
-    if (!selectedClient?.id || !tenantId) return;
+    if (!selectedClient?.id) return;
     refetchPresets();
+    const onFocus = () => refetchPresets();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient?.id, tenantId]);
 
@@ -1555,7 +1565,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
   const handleUploadSceneAsset = async (
     sceneIndex: number,
-    kind: 'last_frame' | 'main_character' | 'scene_ref' | 'voice_sample',
+    kind: 'last_frame' | 'main_character' | 'scene_ref' | 'voice_sample' | 'logo',
     file: File,
   ) => {
     const key = `${sceneIndex}:${kind}`;
@@ -1565,6 +1575,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       const folder =
         kind === 'voice_sample' ? 'voice-refs'
         : kind === 'scene_ref' ? 'scene-refs'
+        : kind === 'logo' ? 'scene-logos'
         : 'video-frames';
       const filePath = `${folder}/${selectedClient.id}/${crypto.randomUUID()}.${ext}`;
       const { error: upErr } = await supabase.storage.from('card-attachments').upload(filePath, file, { contentType: file.type, upsert: true });
@@ -1576,6 +1587,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         if (kind === 'last_frame') return { ...s, last_frame_url: url };
         if (kind === 'main_character') return { ...s, main_character_url: url };
         if (kind === 'voice_sample') return { ...s, voice_sample_url: url };
+        if (kind === 'logo') return { ...s, logo_ref_url: url };
         // scene_ref: append (max 3)
         const list = [...(s.scene_ref_urls ?? []), url].slice(0, 3);
         return { ...s, scene_ref_urls: list };
@@ -2922,21 +2934,42 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                             onInput={(e) => { const el = e.currentTarget; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 520) + 'px'; }}
                             ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 520) + 'px'; } }}
                             className="min-h-[180px] max-h-[520px] resize-none text-sm leading-relaxed font-mono" disabled={scene.generating || scene.optimizing_script} />
-                          {scene.engine === 'seedance' && (
-                            <button
-                              type="button"
-                              disabled={!scene.scene_description.trim() || scene.generating || scene.optimizing_script}
-                              onClick={() => handleOptimizeSeedanceScript(idx)}
-                              className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                              title="Reescreve a descrição como um prompt multi-shot único (CUEs + direção de câmera) otimizado para Seedance."
-                            >
-                              {scene.optimizing_script ? (
-                                <><Loader2 className="w-3 h-3 animate-spin" />Gerando roteiro…</>
-                              ) : (
-                                <><Sparkles className="w-3 h-3" />Roteiro multi-shot IA</>
-                              )}
-                            </button>
-                          )}
+                          {scene.engine === 'seedance' && (() => {
+                            const dur = scene.seedance_duration ?? 8;
+                            const budget = Math.max(1, Math.round(dur * 2.3));
+                            const normalized = (scene.scene_description || '').replace(/[“”]/g, '"');
+                            const matches = normalized.match(/"([^"\n]{2,})"/g) ?? [];
+                            const spoken = matches
+                              .map((m) => m.slice(1, -1).trim())
+                              .filter(Boolean)
+                              .reduce((acc, line) => acc + line.split(/\s+/).filter(Boolean).length, 0);
+                            const over = spoken > budget;
+                            return (
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <button
+                                  type="button"
+                                  disabled={!scene.scene_description.trim() || scene.generating || scene.optimizing_script}
+                                  onClick={() => handleOptimizeSeedanceScript(idx)}
+                                  className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  title="Reescreve a descrição como um prompt multi-shot único (CUEs + direção de câmera) otimizado para Seedance."
+                                >
+                                  {scene.optimizing_script ? (
+                                    <><Loader2 className="w-3 h-3 animate-spin" />Gerando roteiro…</>
+                                  ) : (
+                                    <><Sparkles className="w-3 h-3" />Roteiro multi-shot IA</>
+                                  )}
+                                </button>
+                                {spoken > 0 && (
+                                  <span
+                                    className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold border ${over ? 'bg-amber-500/10 text-amber-600 border-amber-500/30 dark:text-amber-400' : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30 dark:text-emerald-400'}`}
+                                    title={`Ritmo natural PT-BR ≈ 2,3 palavras/segundo. Orçamento para ${dur}s ≈ ${budget} palavras.`}
+                                  >
+                                    Fala: {spoken}/{budget} palavras{over ? ` — pode acelerar` : ''}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                         {/*
                           Nota: os campos "Fala do Apresentador" e "Dicas de pronúncia" foram removidos.
@@ -3174,12 +3207,17 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                         <span className="text-[10px] text-muted-foreground flex-1">
                                           {scene.logo_ref_url ? 'Logo desta cena' : 'Usando a logo do cliente'}
                                         </span>
+                                        <label className={`text-[10px] text-primary hover:underline cursor-pointer ${uploadingRef === `${idx}:logo` ? 'opacity-50 pointer-events-none' : ''}`}>
+                                          {uploadingRef === `${idx}:logo` ? 'Enviando…' : 'Enviar arquivo'}
+                                          <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadSceneAsset(idx, 'logo', f); e.target.value = ''; }} />
+                                        </label>
+                                        <span className="text-[10px] text-muted-foreground">·</span>
                                         <button
                                           type="button"
                                           className="text-[10px] text-primary hover:underline"
                                           onClick={() => { setPickerTarget({ sceneIndex: idx, slot: 'logo' }); setPickerOpen(true); }}
                                         >
-                                          Trocar
+                                          Biblioteca
                                         </button>
                                         {scene.logo_ref_url && (
                                           <button
@@ -3197,12 +3235,17 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                         <span className="text-[10px] text-muted-foreground flex-1">
                                           Nenhuma logo cadastrada no cliente.
                                         </span>
+                                        <label className={`text-[10px] text-primary hover:underline cursor-pointer ${uploadingRef === `${idx}:logo` ? 'opacity-50 pointer-events-none' : ''}`}>
+                                          {uploadingRef === `${idx}:logo` ? 'Enviando…' : 'Enviar arquivo'}
+                                          <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadSceneAsset(idx, 'logo', f); e.target.value = ''; }} />
+                                        </label>
+                                        <span className="text-[10px] text-muted-foreground">·</span>
                                         <button
                                           type="button"
                                           className="text-[10px] text-primary hover:underline"
                                           onClick={() => { setPickerTarget({ sceneIndex: idx, slot: 'logo' }); setPickerOpen(true); }}
                                         >
-                                          Escolher da biblioteca
+                                          Biblioteca
                                         </button>
                                       </div>
                                     )
@@ -3235,15 +3278,22 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                   </div>
                                 )}
 
-                                {/* Identidade visual */}
-                                <label className="flex items-center gap-2 text-xs">
-                                  <Checkbox
-                                    checked={!!scene.use_brand_identity}
-                                    onCheckedChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, use_brand_identity: !!v } : s))}
-                                    disabled={scene.generating || !selectedPresetId}
-                                  />
-                                  Usar cores da identidade visual{!selectedPresetId && <span className="text-muted-foreground"> (selecione um preset)</span>}
-                                </label>
+                                {/* Identidade visual — usa preset ativo OU, na falta dele, as cores cadastradas em tenant_companies.brand_* */}
+                                {(() => {
+                                  const hasFallbackColors = !!((selectedClient as any)?.brand_primary_color || (selectedClient as any)?.brand_secondary_color);
+                                  const canUseIdentity = presets.length > 0 || hasFallbackColors;
+                                  return (
+                                    <label className="flex items-center gap-2 text-xs">
+                                      <Checkbox
+                                        checked={!!scene.use_brand_identity}
+                                        onCheckedChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, use_brand_identity: !!v } : s))}
+                                        disabled={scene.generating || !canUseIdentity}
+                                      />
+                                      Usar cores da identidade visual
+                                      {!canUseIdentity && <span className="text-muted-foreground"> (cadastre a identidade visual)</span>}
+                                    </label>
+                                  );
+                                })()}
                               </div>
                             )}
                           </div>

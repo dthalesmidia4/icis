@@ -57,10 +57,23 @@ function labelFor(kind: SeedanceRefKind): string {
   }
 }
 
+// Seedance best-practices block appended to every generated prompt. These are the
+// production heuristics that reliably produce readable, temporally consistent shots.
+const SEEDANCE_BEST_PRACTICES = [
+  "Direction guidelines (apply to every CUE):",
+  "- Structure: SUBJECT → ACTION → SCENE → CAMERA. Concrete, observable verbs only.",
+  "- Declare a shot type ([Wide]/[Medium]/[Close-up]/[Over-the-shoulder]/[POV]) and camera cue ([static]/[slow push-in]/[pan]/[tilt]/[handheld]/[dolly in]).",
+  "- One primary action per CUE. Consistent character, wardrobe, environment and lighting across CUEs unless explicitly changed.",
+  "- Avoid abstract adjectives (beautiful, amazing, stunning). Prefer observable details.",
+  "Negative prompt: warped faces, extra fingers, text glitches, logo distortion, oversaturated skin.",
+].join("\n");
+
 export function buildSeedancePrompt(input: BuildPromptInput): string {
   const parts: string[] = [];
   parts.push(sanitize(input.sceneDescription));
   // Fala e grafia fonética PT-BR já vivem dentro dos CUEs da própria descrição.
+
+  parts.push(SEEDANCE_BEST_PRACTICES);
 
   if (input.refs.length > 0) {
     const legend = input.refs
