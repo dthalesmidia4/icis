@@ -15,6 +15,7 @@ import BackButton from "@/components/BackButton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { getPeriodDemandReviewCounts } from "@/lib/periodCounts";
+import { SEEDANCE_MODEL_OPTIONS, seedanceCaps, type SeedanceModelKey } from "@/lib/seedanceModel";
 import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback, useRealtimeVisualIdentity, useRealtimeStrategies } from "@/hooks/realtime";
 import VisualIdentityModal from "@/components/VisualIdentityModal";
 import { Textarea } from "@/components/ui/textarea";
@@ -1615,7 +1616,6 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
     setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, optimizing_script: true } : s));
     try {
-      const { seedanceCaps } = await import('@/lib/seedanceModel');
       const caps = seedanceCaps(scene.seedance_model);
       const [minDur, maxDur] = [caps.minDur, caps.maxDur];
       const targetDuration = Math.max(minDur, Math.min(maxDur, scene.seedance_duration ?? caps.defaultDur));
@@ -1633,7 +1633,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           clientId: selectedClient.id,
           idea,
           durationSeconds: targetDuration,
-          model: scene.seedance_model ?? 'pro',
+          model: scene.seedance_model ?? 'v15_pro',
           ratio: videoAspectRatio,
           hasLogo: !!scene.logo_ref_url,
           logoStrategy: scene.logo_strategy ?? 'none',
@@ -1694,7 +1694,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
         const res = await supabase.functions.invoke('generate-video-scene-seedance', {
           body: {
-            model: scene.seedance_model ?? 'pro',
+            model: scene.seedance_model ?? 'v15_pro',
             prompt: scene.scene_description,
             // Fala PT-BR já vive dentro do CUE da Descrição da Cena; a IA usa grafia fonética
             // para nomes de marca (ex.: SmartVety escrito como SmartVéti dentro das aspas da fala).
