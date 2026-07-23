@@ -1,70 +1,79 @@
-## Problema
+## Problemas identificados
 
-Hoje o fluxo "Criar Storyboard de Vídeo" acontece dentro de um `Dialog` (`sm:max-w-2xl` no passo 1, `sm:max-w-4xl` no passo 2) em `src/pages/ClientHub.tsx` (linhas ~2627-2820). Quando o Seedance sugere o plano, os clipes aparecem embutidos no mesmo modal, com `line-clamp-2` na descrição — daí o texto truncado no print. Além disso, o modal já contradiz o pedido anterior de ter um espaço de trabalho inline, leve e organizado.
+**1. Ordem invertida — o storyboard é gerado sem saber a duração.**
+Hoje o Passo 1 pede apenas ideia + motor. Só no Passo 2 (editor de cenas) o usuário escolhe modelo/resolução/duração do Seedance. Como o AI planner (`suggest-seedance-storyboard`) recebe apenas `model` mas nenhuma duração-alvo, ele escolhe um `target_duration_seconds` aleatório entre 5–15s e monta CUE blocks proporcionalmente. Resultado: script imprevisível — pode gerar 3 tomadas para 5s (apertado) ou 5 tomadas para 15s.
 
-## Objetivo
+**2. Recursos nativos do Seedance subutilizados no briefing.**
+A edge function `generate-video-scene-seedance` já aceita `mascotImageUrls`, `logoUrl`, `productImageUrls`, `realCharacterImageUrl`, `voiceSampleUrl`, `brandColors`, `logoStrategy`. Mas no fluxo Seedance do Passo 1 hoje o usuário só define: ideia, formato, preset visual e mascotes selecionados. Falta:
+- Personagens de referência (a "biblioteca de referências" `VideoReferencesLibrary` — kind `character`/`product`/`scene` — só está sendo puxada no fluxo Veo, não no Seedance).
+- Amostra de voz (v2 aceita `audio_url`).
+- Estratégia da logo (contextual / end card / nenhuma).
+- Fala do apresentador/mascote (usada como `mascotSpeech` no prompt).
 
-1. Tirar o storyboard do `Dialog` e transformá-lo em um workspace inline dentro do Client Hub.
-2. Após o Seedance sugerir o plano, avançar automaticamente para uma tela dedicada de edição, onde:
-   - os clipes aparecem por inteiro (sem truncar),
-   - dá para editar cada clipe, adicionar/remover cenas,
-   - as configurações finais por clipe (modelo Seedance, resolução, duração) vivem nessa tela.
-3. Preservar o comportamento do Veo 3 (que já usa o editor de cenas no passo 2) — ele também passa a rodar inline.
+Além disso o planner (`suggest-seedance-storyboard`) não recebe essas informações, então o script gerado não incorpora fala, logo strategy nem referências.
 
-## Estrutura proposta
+**3. Tabela `seedance_pricing` desalinhada com o site oficial.**
+Valores atuais estão em escala errada (0.15 créditos/s → 2.3 créditos em 15s). O site https://seedance2.ai/pt/pricing publica em créditos internos de plataforma (USD $0.016–$0.019 por crédito). Valores corretos (sem entrada de vídeo):
 
-```text
-ClientHub (workspace principal)
-├─ videoWorkspaceOpen === false → grid normal do hub
-└─ videoWorkspaceOpen === true  → renderiza <VideoStoryboardWorkspace/>
-      ├─ Passo 1: Briefing (inline, largura total do hub)
-      │    Ideia + Motor + Formato + Preset + Mascote + botão principal
-      │    (SEM preview de plano embutido)
-      │
-      └─ Passo 2: Editor de Cenas (inline, tela cheia do hub)
-           Cabeçalho: título, botão "Voltar ao briefing", "Descartar rascunho"
-           Corpo (Seedance):
-             • Lista de clipes em cards largos, descrição SEM line-clamp
-             • Por clipe: título editável, prompt/CUEs editáveis,
-               selects de Modelo (2.0 / 2.0 Fast / 2.0 Mini / 1.0 Pro / 1.0 Lite),
-               Resolução, Duração, CostBadge
-             • Botões "Adicionar clipe", "Remover clipe", "Regerar plano"
-           Corpo (Veo):
-             • Mantém o editor atual (cena a cena) já existente
-           Rodapé: "Gerar vídeos" (dispara pipeline atual)
-```
+| Modelo             | 480p | 720p | 1080p | 4K  |
+| ------------------ | ---- | ---- | ----- | --- |
+| Seedance 2.0       | 6    | 12   | 30    | 70  |
+| Seedance 2.0 Fast  | 5    | 10   | —     | —   |
+| Seedance 2.0 Mini  | 3    | 6    | —     | —   |
+| Seedance 1.5 Pro   | 2    | 5    | 10    | —   |
+| Seedance 1.0 Pro   | 2    | 5    | 10    | —   |
+| Seedance 1.0 Lite  | 1    | 3    | 8     | —   |
 
-## Passos técnicos
+Preço BRL/crédito: $0.016 (plano Padrão) × ~5.4 BRL/USD ≈ **R$ 0,087/crédito**.
 
-1. **Extrair o conteúdo do modal para um componente inline**
-   - Criar `src/components/client-hub/VideoStoryboardWorkspace.tsx`.
-   - Mover a JSX dos passos 1 e 2 que hoje vive dentro do `<Dialog>` de `ClientHub.tsx` (~2627-2820 e o editor de cenas que vem depois) para esse componente.
-   - Receber por props todos os estados/handlers já existentes (`videoIdea`, `videoStep`, `videoScenes`, `seedancePlan`, `handleGenerateStoryboard`, `handleSuggestSeedancePlan`, `handleApplySeedancePlan`, presets, mascotes, etc.). Não recriar lógica — só reempacotar.
+---
 
-2. **Substituir o `Dialog` por render inline**
-   - Trocar `videoModalOpen` por `videoWorkspaceOpen` (mesma flag, novo nome).
-   - Em `ClientHub`, quando `videoWorkspaceOpen === true`, esconder o grid de botões do hub e renderizar `<VideoStoryboardWorkspace/>` ocupando a área principal (mesmo padrão já usado para outros fluxos inline do hub).
-   - Manter breadcrumb/back button do hub para sair do workspace (equivale ao "X" atual).
+## Plano de correção
 
-3. **Auto-avançar para o editor após o plano**
-   - Em `handleSuggestSeedancePlan`, após o sucesso, chamar `handleApplySeedancePlan()` diretamente (ou setar `videoStep = 2`) em vez de mostrar o preview embutido no passo 1.
-   - Remover o bloco de "Plano sugerido pela IA" do passo 1 (linhas ~2775-2805) — ele reaparece, sem truncamento, dentro do passo 2.
-   - Manter botão "Refazer plano" agora no passo 2 (volta ao passo 1 preservando a ideia).
+### A. Passo 1 do Storyboard Seedance passa a coletar os parâmetros técnicos e criativos ANTES do script
+Em `src/pages/ClientHub.tsx`, quando `videoEngineChoice === 'seedance'` no Passo 1, expandir o formulário com:
+- **Modelo Seedance** (Seedance 2.0 / 2.0 Fast / 2.0 Mini / 1.5 Pro / 1.0 Pro / 1.0 Lite) — hoje só existe `lite|pro|v2`.
+- **Resolução** (por modelo).
+- **Duração alvo** (slider dentro do range do modelo).
+- **Áudio sincronizado** (só v2/2.0).
+- **Referências criativas**: seletor da biblioteca `video_references` filtrado por `kind` (personagem, produto, cenário) + mascotes já existentes.
+- **Fala do apresentador/mascote** (textarea PT-BR).
+- **Estratégia de logo** (nenhuma / contextual / end card) quando há logo no preset.
+- **Amostra de voz** (upload, apenas v2/2.0).
+- `CostBadge` exibindo custo previsto reagindo em tempo real ao modelo/resolução/duração.
 
-4. **Passo 2 legível e editável (Seedance)**
-   - Cards de clipe em largura total do workspace, `whitespace-pre-wrap`, sem `line-clamp`.
-   - Campos editáveis: título (`title_pt`), descrição/CUEs (`description_en` / `scene_description`).
-   - Controles por clipe: `Modelo Seedance` (Seedance 2.0, 2.0 Fast, 2.0 Mini, 1.0 Pro, 1.0 Lite), `Resolução` (480p→4K conforme modelo), `Duração` com clamp já existente, `<CostBadge/>` recalculando.
-   - Ações: "Adicionar clipe" (respeitando o máximo de 5), "Duplicar", "Remover", "Regerar plano com IA".
+O Passo 2 (editor de cenas) deixa de expor "Opções Seedance" na primeira geração — vira só ajuste fino por clipe.
 
-5. **Persistência**
-   - Manter `avulso_drafts` e `VIDEO_DRAFT_SCHEMA_VERSION = 3` — nenhum campo novo obrigatório. Só passa a serializar `videoWorkspaceOpen` no lugar de `videoModalOpen` (opcional; pode ficar apenas em memória).
+### B. Planner recebe a duração e todos os inputs criativos
+`supabase/functions/suggest-seedance-storyboard/index.ts`:
+- Aceitar `targetDurationSeconds`, `mascotSpeech`, `hasLogo`, `logoStrategy`, `brandColors`, `refs` (com kinds).
+- Alterar o system prompt para: "**A duração TOTAL de cada clipe já foi definida pelo usuário — use exatamente esse valor**. Distribua as CUE blocks para caber. Se o usuário pediu 5s, planeje 2 CUEs curtas; se 15s, planeje 4–5 CUEs bem paceadas."
+- Injetar a `mascotSpeech` como diálogo obrigatório em pelo menos uma CUE.
+- Incluir marcadores das referências ("Reference [Image N] = product/character/mascot") no script para o modelo saber onde inserir cada elemento.
+- Manter cache de 24h por `period_plan_id` como já existe.
 
-6. **Limpeza**
-   - Remover o `<Dialog>` do storyboard (linhas 2627-2820 e continuação do passo 2).
-   - Remover o botão "X" do header do dialog; o "Descartar rascunho" e "Voltar" migram para o header do workspace inline.
+### C. Editor de cenas (Passo 2) reforça o mesmo prompt builder
+Confirmar que `generate-video-scene-seedance` continua recebendo todos os campos coletados no Passo 1 sem regressão (mascote, voz, personagem, produtos, logo strategy).
 
-## Fora do escopo
+### D. Corrigir pricing seed (migration)
+Nova migration `update_seedance_pricing_official`:
+- Truncate `seedance_pricing`.
+- Reinserir as 15 linhas oficiais da tabela acima com `price_credits_per_second` e `price_brl_per_credit = 0.087`.
+- Adicionar coluna `model_label` (Seedance 2.0 Fast, Seedance 1.5 Pro, etc.) para o UI mostrar o nome oficial.
+- Estender enum de modelo no frontend/backend de `lite|pro|v2` para chaves oficiais: `s2`, `s2_fast`, `s2_mini`, `s15_pro`, `s10_pro`, `s10_lite`. Mapear cada uma para o `modelId` da Ark API (`MODEL_ID` em `generate-video-scene-seedance`).
 
-- Nenhuma mudança na edge function `suggest-seedance-storyboard`, no `generate-video-scene-seedance`, no pricing, ou no fluxo do Veo 3 além de renderizá-lo inline.
-- Nenhuma mudança no motor de vídeo padrão nem no schema de rascunho.
+### E. Validação
+Após implementar, rodar 1 sugestão real com duração fixada em 10s e verificar que:
+- `target_duration_seconds` = 10 em todos os clipes retornados.
+- CUE blocks somam 10.
+- `mascotSpeech` aparece em pelo menos uma CUE.
+- `CostBadge` recalcula ao mudar modelo/resolução (ex: Seedance 2.0 720p 10s → 120 créditos ≈ R$ 10,44).
+
+### Arquivos afetados
+- `src/pages/ClientHub.tsx` (Passo 1 Seedance expandido, novo enum de modelos)
+- `supabase/functions/suggest-seedance-storyboard/index.ts` (payload + prompt)
+- `supabase/functions/generate-video-scene-seedance/index.ts` (mapeamento novo dos 6 modelos)
+- `supabase/functions/_shared/seedance-prompt.ts` (aceitar `targetDurationSeconds` para reforçar no prompt)
+- `src/hooks/useSeedancePricing.ts` + `src/components/avulso/CostBadge.tsx` (nova key de modelo)
+- `src/components/dev/SeedancePricingManager.tsx` (coluna `model_label`)
+- Migration nova em `supabase/migrations/`
