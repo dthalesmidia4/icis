@@ -1499,38 +1499,21 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     const preset = presets.find(p => p.id === selectedPresetId);
     const hasIdentity = !!(preset?.primary_color || preset?.secondary_color);
     const clampDur = (d: number) => Math.max(4, Math.min(15, Math.round(d || 8)));
-    // Extract Portuguese spoken lines from a Seedance multi-shot description as a safety net,
-    // so "Fala do Apresentador" is never empty when the script clearly has dialogue.
-    const extractSpeechFromDescription = (desc: string): string => {
-      if (!desc) return '';
-      const re = /(?:Portuguese\s+(?:spoken\s+dialogue|voiceover)|PT-?BR|Fala\s+PT-?BR)\s*:?\s*[""'']([^""'']+)[""'']/gi;
-      const lines: string[] = [];
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(desc)) !== null) {
-        const line = m[1]?.trim();
-        if (line) lines.push(line);
-      }
-      return lines.join('\n');
-    };
-    const mapped = clips.map((c) => {
-      const aiSpeech = (c.mascot_speech_pt ?? '').trim();
-      const speech = aiSpeech || extractSpeechFromDescription(c.description_en || '');
-      return {
-        scene_description: c.description_en,
-        mascot_speech: speech,
-        generating: false,
-        engine: 'seedance' as const,
-        seedance_model: 'v2' as const,
-        seedance_duration: clampDur(c.target_duration_seconds),
-        seedance_resolution: '1080p' as const,
-        // Áudio v2 ligado por padrão — o usuário desmarca se quiser vídeo mudo.
-        seedance_generate_audio: true,
-        seedance_options_open: false,
-        use_brand_identity: hasIdentity,
-        logo_ref_url: clientLogoUrl || undefined,
-        logo_strategy: (clientLogoUrl ? 'contextual' : 'none') as 'none' | 'contextual' | 'end_card',
-      };
-    });
+    const mapped = clips.map((c) => ({
+      scene_description: c.description_en,
+      // Fala vive dentro dos CUEs da descrição — mantemos o campo vazio.
+      mascot_speech: '',
+      generating: false,
+      engine: 'seedance' as const,
+      seedance_model: 'v2' as const,
+      seedance_duration: clampDur(c.target_duration_seconds),
+      seedance_resolution: '1080p' as const,
+      seedance_generate_audio: true,
+      seedance_options_open: false,
+      use_brand_identity: hasIdentity,
+      logo_ref_url: clientLogoUrl || undefined,
+      logo_strategy: (clientLogoUrl ? 'contextual' : 'none') as 'none' | 'contextual' | 'end_card',
+    }));
 
     setVideoScenes(mapped);
     setVideoStep(2);
