@@ -47,7 +47,7 @@ Hard rules:
 - Formatting (CRITICAL for readability): separate the header and every CUE block with a REAL blank line ("\\n\\n"). Never merge multiple CUEs into a single paragraph. When a CUE contains a spoken Portuguese line, put it on its OWN line inside that CUE, prefixed by 'Portuguese spoken dialogue: "…"' and followed by a line break before continuing.
 - Length: 3 to 5 CUE blocks depending on duration. 4–6s → 2–3 CUEs. 7–10s → 3–4 CUEs. 11–15s → 4–5 CUEs.
 - If image references are provided, refer to them as "[Image 1]", "[Image 2]" etc. using their given labels naturally inside the CUE actions.
-- If mascot speech is provided, place the Portuguese line between double quotes on its own line inside the CUE where the character speaks; keep quotes verbatim.
+- Presenter/mascot dialogue in Portuguese: whenever a CUE has a spoken line, write it between double quotes on its own line inside that CUE. If the line contains brand or proper names whose written spelling would make a TTS engine mispronounce them, rewrite ONLY the word inside the quoted spoken line using its Brazilian-Portuguese phonetic spelling (examples: SmartVety → "SmartVéti", Nike → "Náiki", Google → "Gugou"). Never change the brand's written spelling in the visual/on-screen parts of the prompt — only inside the quoted spoken line.
 - Brand colors apply ONLY to graphic overlays, logos, and typography — never tint real objects, skin, or environments.
 - No text overlays unless the idea explicitly requests them.
 - No forbidden wording: never write "real person", "real human", "real face", "actual person", "pessoa real". Refer to any person as "the character" or "the presenter".
