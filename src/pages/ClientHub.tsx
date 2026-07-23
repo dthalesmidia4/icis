@@ -3046,15 +3046,23 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                             </div>
 
                             {scene.seedance_model === 'v2' && (
-                              <label className="flex items-center gap-2 text-xs">
-                                <Checkbox
-                                  checked={!!scene.seedance_generate_audio}
-                                  onCheckedChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_generate_audio: !!v } : s))}
-                                  disabled={scene.generating}
-                                />
-                                Gerar áudio sincronizado
-                              </label>
+                              <div className="rounded-md border border-primary/15 bg-muted/40 p-2 space-y-1">
+                                <label className="flex items-center gap-2 text-xs font-medium">
+                                  <Checkbox
+                                    checked={!!scene.seedance_generate_audio}
+                                    onCheckedChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_generate_audio: !!v } : s))}
+                                    disabled={scene.generating}
+                                  />
+                                  Gerar áudio sincronizado (voz + trilha ambiente)
+                                </label>
+                                <p className="text-[10px] text-muted-foreground/90">
+                                  {scene.mascot_speech?.trim()
+                                    ? 'Necessário para o Seedance falar a fala do apresentador. Se desmarcar, o vídeo sai sem som.'
+                                    : 'Ative para o Seedance criar trilha ambiente/efeitos. Sem áudio na cena, o vídeo sai mudo.'}
+                                </p>
+                              </div>
                             )}
+
 
                             {scene.seedance_options_open && (
                               <div className="space-y-2.5 pt-1.5 border-t border-primary/15">
