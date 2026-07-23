@@ -1,66 +1,52 @@
-# Reorganização do fluxo de Storyboard de Vídeo
+## Problema
 
-Você tem razão nos três pontos. O fluxo atual mistura decisões que pertencem a etapas diferentes e usa rótulos (`lite`/`pro`/`v2`) que não batem com o que a BytePlus mostra no site. A ideia é enxugar o passo 1 para uma única decisão (motor) e empurrar toda a configuração técnica do Seedance para o passo 2, onde ela faz sentido por cena.
+No modal "Criar Storyboard de Vídeo" o seletor **Motor de Vídeo (Veo 3 / Seedance)** sumiu da tela — o print mostra direto `Cenas / Formato / Predefinição / Mascote`, sem o bloco de escolha do motor. Além disso, o storyboard hoje está usando a MESMA estrutura para os dois motores, quando na verdade cada motor precisa da sua:
 
-## Mudanças
+- **Veo 3**: 1 geração = 1 cena curta (~8s). O storyboard precisa quebrar a ideia em N cenas separadas (o botão `Cenas 1..5` que já existe).
+- **Seedance**: 1 geração = 1 clipe contínuo que entende multi-shot via CUE / `[cut to]` / shot types. Uma única geração já pode conter várias tomadas — então o "storyboard" dele não é cena-por-cena, é um roteiro multi-shot dentro do mesmo clipe.
 
-### 1. Passo 1 — só motor e ideia
-- Padrão do motor passa a ser **Veo 3** (mais barato / previsível). Seedance vira opção secundária.
-- Remove do passo 1: seletor "Modelo Seedance" (lite/pro/v2) e qualquer resolução implícita.
-- Mantém no passo 1: ideia do vídeo, motor, formato (9:16/16:9/1:1/4:5), predefinição visual, mascote.
-- Botão principal:
-  - Veo 3 → "Criar cenas" (fluxo atual de N cenas de 8s).
-  - Seedance → "Planejar Storyboard Seedance" (chama o planner de IA como hoje, mas sem forçar modelo — o planner devolve só a quantidade de clipes e as descrições multi-shot).
+## O que já existe no código
 
-### 2. Passo 2 — configuração técnica por cena (Seedance)
-Cada card de cena passa a expor, quando o motor é Seedance:
-- **Modelo Seedance** com rótulos alinhados ao site oficial da BytePlus:
-  - `Seedance 2.0` (padrão) — duração 4–15s, resoluções `480p` / `720p` / `1080p` / `4K`.
-  - `Seedance 2.0 Fast` — duração 4–15s, resoluções `480p` / `720p`.
-  - `Seedance 2.0 Mini` — duração 4–15s, resoluções `480p` / `720p`.
-  - (Mantém internamente `lite`/`pro` do Seedance 1.x apenas se ainda tivermos acesso pela chave — mas escondidos por trás de um "Avançado" para não confundir. Se preferir remover totalmente, é só dizer.)
-- **Resolução** — chips filtrados dinamicamente pelo modelo escolhido (só mostra o que aquele modelo aceita).
-- **Duração** — slider 4–15s (limite do 2.0). Some o clamp 5–10s do 1.x.
-- **Custo estimado** via `CostBadge` recalcula em tempo real conforme modelo × resolução × duração.
+- `src/pages/ClientHub.tsx` — bloco `Motor de Vídeo` (linhas ~2663-2686) está no JSX mas não aparece no preview do usuário (provável regressão de render / draft com step avançado).
+- `suggest-seedance-storyboard` edge function — já retorna 1 a 3 clipes com CUE blocks; hoje o UI trata como storyboard genérico.
+- `generate-seedance-script` — já gera prompt multi-shot com CUEs.
 
-### 3. Ajustes de backend
-- `generate-video-scene-seedance/index.ts`:
-  - Novo mapa `MODEL_ID` cobrindo `seedance-2-0`, `seedance-2-0-fast`, `seedance-2-0-mini` (IDs oficiais confirmados na chamada de create). Legados `lite`/`pro` ficam como aliases se mantivermos o "Avançado".
-  - Ranges de duração unificados em 4–15s para 2.0 e submodelos.
-  - Validação de resolução por modelo (Fast/Mini rejeitam 1080p/4K).
-- `suggest-seedance-storyboard/index.ts`:
-  - Deixa de decidir modelo. Devolve só `clips[]` com `target_duration_seconds` já dentro de 4–15s.
-  - O `handleApplySeedancePlan` no `ClientHub.tsx` cria as cenas já com `model = seedance-2-0` e `resolution = 1080p` como defaults, editáveis por cena.
-- `seedance_pricing` (Dev › Preços): reseed com as linhas exatas do print (Seedance 2.0 × 480/720/1080/4K, Fast × 480/720, Mini × 480/720). Remove linhas `lite`/`pro` antigas se decidirmos aposentá-las.
+## Plano
 
-### 4. Draft / persistência
-- `VIDEO_DRAFT_SCHEMA_VERSION` sobe para `3` (novo shape do passo 1 sem `seedanceDefaultModel`, motor default = `veo`). Drafts antigos são descartados automaticamente pelo guard existente.
-- `videoScenes[i]` ganha `model`, `resolution`, `durationSeconds` como campos por cena (hoje já existem no editor de cena; passam a ser autoritativos e não dependem mais do "modelo padrão" do passo 1).
+### 1. Restaurar e reforçar o seletor de Motor de Vídeo no Passo 1
+- Garantir que o bloco `Motor de Vídeo` renderize sempre no `videoStep === 1`, no topo do modal (logo abaixo do campo "Ideia do Vídeo"), independentemente do draft carregado.
+- Confirmar via inspeção que nenhuma condição / `hidden` / draft antigo está suprimindo esse bloco. Se o draft trouxer um `videoStep` já avançado sem engine escolhido, forçar volta ao passo 1 com engine padrão `veo`.
+- Manter Veo 3 como padrão (mais barato).
 
-## Detalhes técnicos
+### 2. Bifurcar visualmente o Passo 1 conforme o motor escolhido
 
-Arquivos tocados:
-- `src/pages/ClientHub.tsx` — remove `seedanceDefaultModel` do passo 1, muda default de `videoEngineChoice` para `'veo'`, migra seletor de modelo/resolução para dentro do editor de cena, sobe `VIDEO_DRAFT_SCHEMA_VERSION`.
-- `supabase/functions/generate-video-scene-seedance/index.ts` — atualiza `MODEL_ID`, limites de duração e validação de resolução.
-- `supabase/functions/suggest-seedance-storyboard/index.ts` — remove `model` do payload/prompt, ajusta range de duração para 4–15s independentemente do modelo.
-- `src/hooks/useSeedancePricing.ts` + `src/components/avulso/CostBadge.tsx` — passam a aceitar as novas chaves de modelo (`seedance-2-0`, `seedance-2-0-fast`, `seedance-2-0-mini`).
-- Migração SQL: `UPDATE`/`INSERT` em `seedance_pricing` para refletir a tabela oficial do print.
+**Se Veo 3 selecionado** (mantém o comportamento atual):
+- Mostrar `Cenas: 1 2 3 4 5` + `Formato` + `Predefinição` + `Mascote`.
+- Botão principal: `Gerar Storyboard` → chama `generate-video-storyboard` (fluxo atual do Veo).
 
-Ponto a confirmar antes de eu implementar:
-- **Você quer remover totalmente os modelos Seedance 1.x (`lite`/`pro`) ou mantê-los escondidos num "Avançado"?** Eles ainda funcionam pela chave BytePlus e são mais baratos, mas se você prefere só o 2.0 no site, eu limpo tudo.
+**Se Seedance selecionado** (nova estrutura própria):
+- Ocultar o seletor `Cenas 1..5` (não faz sentido para Seedance — a IA decide).
+- Mostrar somente: `Formato` + `Predefinição` + `Mascote` + botão `Planejar Storyboard (IA)`.
+- O botão chama `suggest-seedance-storyboard`, que retorna de 1 a N clipes, cada clipe já com um roteiro multi-shot em CUE blocks.
+- Aumentar o teto do planner de **3 → 5 clipes** e deixar explícito no system prompt que cada clipe pode conter **até 5 CUE blocks** (várias tomadas dentro da mesma geração). Assim uma única geração Seedance entrega várias "cenas" visuais, ao contrário do Veo.
+- Renderizar o preview do plano sugerido (título PT + duração por clipe + resumo dos shots) antes de aplicar às cenas do passo 2.
 
-Diagrama do novo fluxo:
+### 3. Passo 2 (edição de cenas) — deixar claro o que cada card representa
 
-```text
-Passo 1 (modal)
-  Ideia + Motor (Veo padrão | Seedance) + Formato + Identidade + Mascote
-        │
-        ├── Veo 3 ─────► "Criar cenas" (N cenas fixas de 8s)
-        │
-        └── Seedance ──► "Planejar Storyboard Seedance" (IA sugere 1–3 clipes)
-                                │
-                                ▼
-Passo 2 (editor de cenas)
-  Por cena: prompt + [Modelo 2.0 / Fast / Mini] + [Resolução compatível]
-            + [Duração 4–15s] + CostBadge ao vivo
-```
+- Card de cena Veo: 1 vídeo curto de ~8s, prompt único.
+- Card de cena Seedance: 1 clipe (4–15s) contendo múltiplos shots CUE. Mostrar no cabeçalho do card algo como `Clipe 1 · 10s · 3 shots` para o usuário entender que dentro daquele bloco já existem várias tomadas.
+- Nenhuma mudança nos edge functions de geração final (`generate-video-scene` para Veo, `generate-video-scene-seedance` para Seedance) — só ajustes no `suggest-seedance-storyboard` (teto de clipes + instruções de CUEs).
+
+### 4. Validação
+
+- Abrir o modal com draft limpo → confirmar que o bloco `Motor de Vídeo` aparece.
+- Alternar Veo ↔ Seedance → confirmar que o layout do passo 1 muda (Cenas some no Seedance, aparece no Veo).
+- Rodar `suggest-seedance-storyboard` com uma ideia curta → confirmar que retorna 1 clipe com múltiplos CUEs; com ideia longa → até 5 clipes.
+- Rodar geração final Seedance em uma cena → confirmar que o prompt final inclui os CUEs.
+
+## Arquivos afetados
+
+- `src/pages/ClientHub.tsx` — garantir render do seletor, bifurcar layout do passo 1, ajustar cabeçalho do card de cena Seedance no passo 2.
+- `supabase/functions/suggest-seedance-storyboard/index.ts` — aumentar teto para 5 clipes, reforçar instrução de "até 5 CUEs por clipe".
+
+Sem mudanças em schema de banco, em pricing ou nos edge functions de geração final.
