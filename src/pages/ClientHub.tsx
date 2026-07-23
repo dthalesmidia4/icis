@@ -1483,7 +1483,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       mascot_speech: '',
       generating: false,
       engine: 'seedance' as const,
-      seedance_model: 'v2',
+      seedance_model: 'v2' as 'lite' | 'pro' | 'v2',
       seedance_duration: c.target_duration_seconds,
       seedance_resolution: '720p' as '480p' | '720p' | '1080p',
       seedance_generate_audio: false,
