@@ -5,6 +5,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getSystemPrompt } from "../_shared/system-prompts.ts";
+import { formatSeedanceScript } from "../_shared/format-seedance-script.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
