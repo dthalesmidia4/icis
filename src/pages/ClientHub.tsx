@@ -2702,19 +2702,30 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                               </div>
 
                               <div className="space-y-1 col-span-2">
-                                <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                                  Duração: {scene.seedance_duration ?? 5}s
-                                </Label>
-                                <input
-                                  type="range"
-                                  min={2}
-                                  max={12}
-                                  step={1}
-                                  value={scene.seedance_duration ?? 5}
-                                  disabled={scene.generating}
-                                  onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_duration: Number(e.target.value) } : s))}
-                                  className="w-full accent-primary"
-                                />
+                                {(() => {
+                                  const isV2 = (scene.seedance_model ?? 'pro') === 'v2';
+                                  const minDur = isV2 ? 4 : 5;
+                                  const maxDur = isV2 ? 15 : 10;
+                                  const defaultDur = isV2 ? 8 : 6;
+                                  const current = Math.max(minDur, Math.min(maxDur, scene.seedance_duration ?? defaultDur));
+                                  return (
+                                    <>
+                                      <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                                        Duração: {current}s <span className="text-muted-foreground/70 normal-case">({minDur}–{maxDur}s)</span>
+                                      </Label>
+                                      <input
+                                        type="range"
+                                        min={minDur}
+                                        max={maxDur}
+                                        step={1}
+                                        value={current}
+                                        disabled={scene.generating}
+                                        onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_duration: Number(e.target.value) } : s))}
+                                        className="w-full accent-primary"
+                                      />
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
 
