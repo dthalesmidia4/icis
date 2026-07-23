@@ -129,6 +129,16 @@ const ClientHub = () => {
   const [uploadingFrame, setUploadingFrame] = useState<number | null>(null);
   const [videoPreviewIndex, setVideoPreviewIndex] = useState(0);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  // Motor de vídeo escolhido no passo 1. Default = Seedance (mais eficiente por multi-shot em 1 prompt).
+  const [videoEngineChoice, setVideoEngineChoice] = useState<'veo' | 'seedance'>('seedance');
+  const [seedanceDefaultModel, setSeedanceDefaultModel] = useState<'lite' | 'pro' | 'v2'>('pro');
+  const [planningSeedance, setPlanningSeedance] = useState(false);
+  const [seedancePlan, setSeedancePlan] = useState<null | {
+    suggested_clip_count: number;
+    reasoning: string;
+    clips: Array<{ title_pt: string; description_en: string; target_duration_seconds: number }>;
+    fallback?: boolean;
+  }>(null);
   const [presets, setPresets] = useState<Array<{ id: string; name: string; primary_color: string | null; secondary_color: string | null }>>([]);
   const [aiPostModalOpen, setAiPostModalOpen] = useState(false);
   const [postIdea, setPostIdea] = useState('');
@@ -209,10 +219,12 @@ const ClientHub = () => {
   const [demandaHistoricoExpandedId, setDemandaHistoricoExpandedId] = useState<string | null>(null);
 
   // ------- Autosave rascunho de vídeo (avulso_drafts) -------
+  // schema_version bumped whenever the stored shape changes; older drafts are ignored on hydrate.
+  const VIDEO_DRAFT_SCHEMA_VERSION = 2;
   const videoDraftSnapshot = videoModalOpen && selectedClient
-    ? { videoIdea, sceneCount, videoAspectRatio, videoStep, videoScenes, selectedPresetId, selectedMascotIds }
+    ? { schema_version: VIDEO_DRAFT_SCHEMA_VERSION, videoIdea, sceneCount, videoAspectRatio, videoStep, videoScenes, selectedPresetId, selectedMascotIds, videoEngineChoice, seedanceDefaultModel }
     : null;
-  const { hydrated: videoDraftHydrated } = useAvulsoDraft<typeof videoDraftSnapshot>({
+  const { hydrated: videoDraftHydrated, clearDraft: clearVideoDraft } = useAvulsoDraft<typeof videoDraftSnapshot>({
     tenantId,
     clientId: selectedClient?.id ?? null,
     contentType: 'video',
@@ -224,9 +236,15 @@ const ClientHub = () => {
   useEffect(() => {
     if (!videoModalOpen) { videoDraftAppliedRef.current = false; return; }
     if (videoDraftAppliedRef.current || !videoDraftHydrated) return;
+    const d: any = videoDraftHydrated;
+    // Descarta rascunhos antigos (schema anterior) automaticamente.
+    if (d?.schema_version !== VIDEO_DRAFT_SCHEMA_VERSION) {
+      videoDraftAppliedRef.current = true;
+      clearVideoDraft().catch(() => {});
+      return;
+    }
     // Only restore if the modal was opened fresh (nothing typed/generated yet).
     if (!videoIdea.trim() && videoScenes.length === 0) {
-      const d = videoDraftHydrated;
       if (d?.videoIdea) setVideoIdea(d.videoIdea);
       if (d?.sceneCount) setSceneCount(d.sceneCount);
       if (d?.videoAspectRatio) setVideoAspectRatio(d.videoAspectRatio);
@@ -237,6 +255,8 @@ const ClientHub = () => {
       }
       if (d?.selectedPresetId != null) setSelectedPresetId(d.selectedPresetId);
       if (Array.isArray(d?.selectedMascotIds)) setSelectedMascotIds(d.selectedMascotIds);
+      if (d?.videoEngineChoice) setVideoEngineChoice(d.videoEngineChoice);
+      if (d?.seedanceDefaultModel) setSeedanceDefaultModel(d.seedanceDefaultModel);
     }
     videoDraftAppliedRef.current = true;
   }, [videoModalOpen, videoDraftHydrated]);
@@ -1398,6 +1418,86 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     finally { setGeneratingStoryboard(false); }
   };
 
+  // Reset ALL state related to the video modal (close/back/discard entry points share this).
+  const resetVideoModalState = () => {
+    setVideoIdea('');
+    setSceneCount(3);
+    setSelectedPresetId(null);
+    setVideoAspectRatio('9:16');
+    setSelectedMascotIds([]);
+    setVideoStep(1);
+    setVideoScenes([]);
+    setVideoPreviewIndex(0);
+    setSeedancePlan(null);
+    setPlanningSeedance(false);
+    setVideoEngineChoice('seedance');
+    setSeedanceDefaultModel('pro');
+    videoDraftAppliedRef.current = false;
+  };
+
+  // Seedance produces multi-shot in a single prompt. Ask the AI how many CLIPS the idea
+  // really needs (usually 1) and preload the storyboard with those clips.
+  const handleSuggestSeedancePlan = async () => {
+    if (!videoIdea.trim() || !selectedClient || !tenantId) return;
+    setPlanningSeedance(true);
+    setSeedancePlan(null);
+    try {
+      const preset = presets.find(p => p.id === selectedPresetId);
+      const brandColors = [preset?.primary_color, preset?.secondary_color].filter(Boolean) as string[];
+      const { data, error } = await supabase.functions.invoke('suggest-seedance-storyboard', {
+        body: {
+          tenantId,
+          clientId: selectedClient.id,
+          idea: videoIdea,
+          ratio: videoAspectRatio,
+          model: seedanceDefaultModel,
+          clientNiche: (selectedClient as any)?.niche ?? (selectedClient as any)?.segment ?? null,
+          brandColors,
+        },
+      });
+      if (error) { console.error('suggest-seedance-storyboard error:', error); toast.error('Erro ao planejar storyboard.'); return; }
+      if (data?.error) { toast.error(data.error); return; }
+      if (!data?.clips?.length) { toast.error('Nenhuma sugestão retornada.'); return; }
+      setSeedancePlan({
+        suggested_clip_count: data.suggested_clip_count ?? data.clips.length,
+        reasoning: data.reasoning ?? '',
+        clips: data.clips,
+        fallback: !!data.fallback,
+      });
+      if (data.fallback) toast.info('Sugerindo 1 clipe único (fallback seguro).');
+    } catch (err) {
+      console.error('handleSuggestSeedancePlan error:', err);
+      toast.error('Erro inesperado ao planejar storyboard.');
+    } finally {
+      setPlanningSeedance(false);
+    }
+  };
+
+  // Applies the AI-suggested Seedance plan to the scene editor (step 2).
+  const handleApplySeedancePlan = () => {
+    if (!seedancePlan?.clips?.length) return;
+    const preset = presets.find(p => p.id === selectedPresetId);
+    const hasIdentity = !!(preset?.primary_color || preset?.secondary_color);
+    const mapped = seedancePlan.clips.map((c) => ({
+      scene_description: c.description_en,
+      mascot_speech: '',
+      generating: false,
+      engine: 'seedance' as const,
+      seedance_model: seedanceDefaultModel,
+      seedance_duration: c.target_duration_seconds,
+      seedance_resolution: (seedanceDefaultModel === 'v2' ? '720p' : '1080p') as '480p' | '720p' | '1080p',
+      seedance_generate_audio: false,
+      seedance_options_open: false,
+      use_brand_identity: hasIdentity,
+      logo_strategy: 'none' as const,
+    }));
+    setVideoScenes(mapped);
+    setVideoStep(2);
+    setSeedancePlan(null);
+    toast.success(`Storyboard pronto: ${mapped.length} clipe${mapped.length > 1 ? 's' : ''}.`);
+    saveGeneratedContent('video_storyboard', 'Storyboard Seedance', videoIdea, []).catch(() => {});
+  };
+
   const handleFrameUpload = async (sceneIndex: number, file: File) => {
     setUploadingFrame(sceneIndex);
     try {
@@ -2525,15 +2625,30 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         <VisualIdentityModal open={visualIdentityModalOpen} onOpenChange={(open) => { setVisualIdentityModalOpen(open); if (!open) refetchPresets(); }} companyId={selectedClient?.id || ''} companyName={selectedClient?.fantasy_name || selectedClient?.name || ''} tenantId={tenantId || ''} />
 
         {/* Modal Vídeo - Storyboard */}
-        <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) { setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); setVideoAspectRatio('9:16'); setSelectedMascotIds([]); setVideoStep(1); setVideoScenes([]); setVideoPreviewIndex(0); } }}>
+        <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) resetVideoModalState(); }}>
           <DialogContent className={`!flex !flex-col overflow-hidden ${videoStep === 2 ? 'sm:max-w-4xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[85vh]'}`}>
             <DialogHeader>
-              <div className="flex items-center gap-2">
-                <button onClick={() => { setVideoModalOpen(false); setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); setVideoAspectRatio('9:16'); setSelectedMascotIds([]); setVideoStep(1); setVideoScenes([]); setVideoPreviewIndex(0); setContentModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
-                <DialogTitle className="text-lg flex items-center gap-2">
-                  <Clapperboard className="w-5 h-5 text-primary" />
-                  {videoStep === 1 ? 'Criar Storyboard de Vídeo' : 'Editar Cenas do Storyboard'}
-                </DialogTitle>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <button onClick={() => { setVideoModalOpen(false); resetVideoModalState(); setContentModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                  <DialogTitle className="text-lg flex items-center gap-2 truncate">
+                    <Clapperboard className="w-5 h-5 text-primary shrink-0" />
+                    {videoStep === 1 ? 'Criar Storyboard de Vídeo' : 'Editar Cenas do Storyboard'}
+                  </DialogTitle>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={async () => {
+                    await clearVideoDraft();
+                    resetVideoModalState();
+                    toast.success('Rascunho descartado.');
+                  }}
+                  title="Descartar rascunho salvo e recomeçar"
+                >
+                  Descartar rascunho
+                </Button>
               </div>
             </DialogHeader>
 
@@ -2542,26 +2657,65 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 <div className="flex-1 overflow-y-auto min-h-0 space-y-4 py-1">
                   <div className="space-y-1.5">
                     <Label className="text-sm font-medium">Ideia do Vídeo</Label>
-                    <Textarea placeholder="Ex: Um comercial cinematográfico de um café robótico cyberpunk..." value={videoIdea} onChange={(e) => setVideoIdea(e.target.value)} className="min-h-[90px] resize-none" disabled={generatingStoryboard} />
+                    <Textarea placeholder="Ex: Um comercial cinematográfico de um café robótico cyberpunk..." value={videoIdea} onChange={(e) => { setVideoIdea(e.target.value); if (seedancePlan) setSeedancePlan(null); }} className="min-h-[90px] resize-none" disabled={generatingStoryboard || planningSeedance} />
+                  </div>
+
+                  {/* Motor de vídeo: bifurca o fluxo entre Veo (multi-cena fixo) e Seedance (multi-shot em 1 clipe). */}
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Motor de Vídeo</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setVideoEngineChoice('seedance'); setSeedancePlan(null); }}
+                        disabled={generatingStoryboard || planningSeedance}
+                        className={`text-left p-3 rounded-lg border-2 transition-all ${videoEngineChoice === 'seedance' ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-primary/40'}`}
+                      >
+                        <div className="text-sm font-semibold">Seedance</div>
+                        <div className="text-[11px] text-muted-foreground leading-snug">IA decide quantos clipes. Um clipe suporta várias tomadas.</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setVideoEngineChoice('veo'); setSeedancePlan(null); }}
+                        disabled={generatingStoryboard || planningSeedance}
+                        className={`text-left p-3 rounded-lg border-2 transition-all ${videoEngineChoice === 'veo' ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-primary/40'}`}
+                      >
+                        <div className="text-sm font-semibold">Veo 3</div>
+                        <div className="text-[11px] text-muted-foreground leading-snug">Cenas isoladas de 8s. Você define quantas.</div>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-sm font-medium">Cenas</Label>
-                      <div className="flex gap-1.5">
-                        {[1, 2, 3, 4, 5].map((n) => (
-                          <button key={n} onClick={() => setSceneCount(n)} disabled={generatingStoryboard}
-                            className={`w-9 h-9 rounded-lg font-bold text-sm transition-all ${sceneCount === n ? 'bg-primary text-primary-foreground shadow-lg scale-110' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
-                            {n}
-                          </button>
-                        ))}
+                    {videoEngineChoice === 'veo' ? (
+                      <div className="space-y-1.5">
+                        <Label className="text-sm font-medium">Cenas</Label>
+                        <div className="flex gap-1.5">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <button key={n} onClick={() => setSceneCount(n)} disabled={generatingStoryboard}
+                              className={`w-9 h-9 rounded-lg font-bold text-sm transition-all ${sceneCount === n ? 'bg-primary text-primary-foreground shadow-lg scale-110' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                              {n}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <Label className="text-sm font-medium">Modelo Seedance</Label>
+                        <div className="flex gap-1.5">
+                          {(['lite', 'pro', 'v2'] as const).map((m) => (
+                            <button key={m} onClick={() => { setSeedanceDefaultModel(m); setSeedancePlan(null); }} disabled={planningSeedance}
+                              className={`px-3 py-1.5 rounded-lg font-medium text-xs uppercase tracking-wide transition-all ${seedanceDefaultModel === m ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                              {m}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="space-y-1.5">
                       <Label className="text-sm font-medium">Formato</Label>
                       <div className="flex gap-1.5">
                         {['9:16', '16:9', '1:1', '4:5'].map((ratio) => (
-                          <button key={ratio} onClick={() => setVideoAspectRatio(ratio)} disabled={generatingStoryboard}
+                          <button key={ratio} onClick={() => setVideoAspectRatio(ratio)} disabled={generatingStoryboard || planningSeedance}
                             className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-all ${videoAspectRatio === ratio ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
                             {ratio}
                           </button>
@@ -2578,7 +2732,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                       ) : (
                         <div className="flex flex-wrap gap-1.5">
                           {presets.map((preset) => (
-                            <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)} disabled={generatingStoryboard}
+                            <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)} disabled={generatingStoryboard || planningSeedance}
                               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
                               <div className="flex gap-0.5">
                                 {preset.primary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
@@ -2600,7 +2754,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                           {mascotImages.map((mascot) => {
                             const isSelected = selectedMascotIds.includes(mascot.id);
                             return (
-                              <button key={mascot.id} disabled={generatingStoryboard}
+                              <button key={mascot.id} disabled={generatingStoryboard || planningSeedance}
                                 onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
                                 className={`relative w-14 h-14 rounded-lg border-2 overflow-hidden transition-all ${isSelected ? 'border-primary ring-1 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
                                 <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
@@ -2612,11 +2766,53 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                       )}
                     </div>
                   </div>
+
+                  {/* Preview do plano Seedance sugerido pela IA. */}
+                  {videoEngineChoice === 'seedance' && seedancePlan && (
+                    <div className="rounded-lg border-2 border-primary/40 bg-primary/5 p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-sm font-semibold text-primary">
+                          Plano sugerido pela IA: {seedancePlan.suggested_clip_count} clipe{seedancePlan.suggested_clip_count > 1 ? 's' : ''}
+                        </div>
+                        <button
+                          type="button"
+                          className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+                          onClick={() => setSeedancePlan(null)}
+                        >
+                          Refazer
+                        </button>
+                      </div>
+                      {seedancePlan.reasoning && (
+                        <p className="text-xs text-muted-foreground italic leading-snug">{seedancePlan.reasoning}</p>
+                      )}
+                      <div className="space-y-1.5">
+                        {seedancePlan.clips.map((c, i) => (
+                          <div key={i} className="rounded-md bg-background/60 border border-border p-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-xs font-semibold">Clipe {i + 1} · {c.title_pt}</div>
+                              <div className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{c.target_duration_seconds}s</div>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{c.description_en}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" disabled={!videoIdea.trim() || generatingStoryboard} onClick={handleGenerateStoryboard}>
-                  {generatingStoryboard ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando storyboard...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />Gerar Storyboard</>)}
-                </Button>
+                {videoEngineChoice === 'veo' ? (
+                  <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" disabled={!videoIdea.trim() || generatingStoryboard} onClick={handleGenerateStoryboard}>
+                    {generatingStoryboard ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando storyboard...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />Gerar Storyboard</>)}
+                  </Button>
+                ) : seedancePlan ? (
+                  <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" onClick={handleApplySeedancePlan}>
+                    <Clapperboard className="w-4 h-4 mr-2" />Usar plano ({seedancePlan.suggested_clip_count} clipe{seedancePlan.suggested_clip_count > 1 ? 's' : ''})
+                  </Button>
+                ) : (
+                  <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" disabled={!videoIdea.trim() || planningSeedance} onClick={handleSuggestSeedancePlan}>
+                    {planningSeedance ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Planejando com IA...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />Planejar Storyboard Seedance</>)}
+                  </Button>
+                )}
               </>
             ) : (
               <>
