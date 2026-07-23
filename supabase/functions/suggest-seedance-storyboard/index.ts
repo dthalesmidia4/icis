@@ -197,7 +197,6 @@ Deno.serve(async (req) => {
 
     // Fallback: return one clip that just carries the raw idea. Never crash the UI.
     if (!parsed) {
-      const fallbackDur = clampDuration(model, model === "v2" ? 10 : 8);
       return new Response(
         JSON.stringify({
           success: true,
@@ -207,19 +206,19 @@ Deno.serve(async (req) => {
           clips: [{
             title_pt: "Clipe único",
             description_en: body.idea.trim(),
-            target_duration_seconds: fallbackDur,
+            target_duration_seconds: fixedDuration,
           }],
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Enforce hard limits.
+    // Enforce hard limits AND the user-fixed duration (server has final word on duration).
     const cappedCount = Math.max(1, Math.min(5, Math.floor(parsed.suggested_clip_count)));
     const clips: Clip[] = parsed.clips.slice(0, cappedCount).map((c, i) => ({
       title_pt: (c?.title_pt || `Clipe ${i + 1}`).toString().slice(0, 80),
       description_en: (c?.description_en || body.idea.trim()).toString(),
-      target_duration_seconds: clampDuration(model, Number(c?.target_duration_seconds) || (model === "v2" ? 10 : 8)),
+      target_duration_seconds: fixedDuration,
     }));
 
     return new Response(
