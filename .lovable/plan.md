@@ -1,66 +1,56 @@
-# Ajustes no editor de cenas do Seedance
+## 1. Checkbox "Gerar áudio sincronizado" marcado por padrão
 
-Quatro pontos independentes na tela **Editar Cenas do Storyboard** (`src/pages/ClientHub.tsx`) + refinamentos nos edge functions de planejamento e otimização de roteiro.
+Hoje o default só liga o áudio quando a IA já sugeriu fala. Vou mudar para **sempre ligado** em qualquer clipe Seedance v2 (o usuário pode desmarcar se quiser um vídeo mudo).
 
----
+- `applySeedanceClipsToEditor` → `seedance_generate_audio: true` para todo clipe recém-criado.
+- Se o modelo escolhido não for v2, o checkbox continua oculto (irrelevante).
 
-## 1. Textarea da "Descrição da Cena (EN)" cresce mais
+## 2. Prompt com quebras de linha (principalmente nas falas)
 
-Hoje a textarea tem `min-h-[70px] resize-none` — corta o roteiro multi-shot em 3 linhas.
+Hoje o roteiro multi-shot vem como parágrafo único, difícil de ler. Vou alinhar isso em duas frentes:
 
-- Trocar por um textarea auto-resize (crescimento por `scrollHeight`), com `min-h ≈ 160px` e teto de `max-h ≈ 520px` (depois disso vira scroll interno).
-- Mesmo tratamento para o campo "Fala do apresentador / mascote" (`mascot_speech`), que também tende a ficar longo.
+**Edge functions — reforçar formatação no output**
+- `suggest-seedance-storyboard/index.ts` e `generate-seedance-script/index.ts`: acrescentar regra explícita no system prompt para que cada CUE fique em bloco separado por linha em branco, e que qualquer diálogo em português apareça em linha própria com o rótulo (ex.: `Fala PT-BR: "…"`).
+- Pós-processamento seguro no servidor: normalizar o `description_en` retornado pela IA colocando `\n\n` antes de cada `CUE X–Ys` e antes de `[cut to]`, e uma quebra simples antes de `Portuguese spoken dialogue:` / `On-screen text:` / `End card:` para garantir a leitura mesmo se o modelo esquecer.
 
-## 2. Preservar a grafia fonética que o usuário editar
+**UI já preparada**
+- O `<Textarea>` da descrição já auto-cresce até 520px e usa `whitespace-pre-wrap` implícito, então as quebras que vierem do backend serão respeitadas sem mais mudanças de layout.
 
-Contexto: prompt original diz "SmartVety"; o usuário edita a fala para "SmartVéti" para corrigir pronúncia. Hoje:
-- `handleOptimizeSeedanceScript` (botão "Roteiro multi-shot IA") reescreve tudo em inglês e pode reverter a grafia PT-BR da fala.
-- `suggest-seedance-storyboard` gera `mascot_speech_pt` do zero, sem nenhuma pista de pronúncia.
+## 3. Fala do apresentador ficou vazia mesmo com diálogo no roteiro
 
-Correções:
-- **Campo novo (opcional) por cena**: "Dicas de pronúncia" (`pronunciation_hints`), livre, ex.: `SmartVety → SmartVéti`. Persistido no draft (`VIDEO_DRAFT_SCHEMA_VERSION` bump para 5).
-- **`generate-seedance-script`** (otimizador): receber `pronunciationHints` e instruir o modelo a: (a) manter a grafia visual em inglês (`SmartVety`) na descrição da cena e nos overlays, (b) usar a grafia fonética exatamente como o usuário escreveu dentro dos trechos `Portuguese voiceover: "…"`.
-- **`suggest-seedance-storyboard`** (planner): receber `pronunciationHints` opcional e aplicar a mesma regra em `mascot_speech_pt` e no trecho de voiceover embutido dentro de `description_en`.
-- **`_shared/seedance-prompt.ts` (`buildSeedancePrompt`)**: quando `pronunciationHints` estiver presente, injetar uma frase no prompt final para o Seedance: "Pronunciation guide: when speaking Portuguese, pronounce brand terms as follows — …". Assim o modelo v2 (que fala) respeita a fonética sem contaminar a grafia visual.
+O planner escreveu `Portuguese spoken dialogue: "…"` dentro da `description_en` mas deixou `mascot_speech_pt = ""`. Isso quebra a hierarquia: a fala precisa estar **também** no campo próprio para o TTS do Seedance e para o campo "Dicas de pronúncia" fazer efeito.
 
-## 3. Personagens com imagem + voz (Seedance v2 nativo)
+Duas correções combinadas:
 
-Hoje só existe "Usar Mascote como Frame 0" e um uploader avulso de "Amostra de voz". Seedance 2.0 aceita nativamente até 9 imagens de referência + 3 áudios de referência ligados por `@Image1 / @Audio1` — o modelo já os usa como personagem e amostra de voz.
+**Backend (fonte da verdade)**
+- `suggest-seedance-storyboard/index.ts`: reforçar no system prompt que **sempre que houver fala em qualquer CUE, o campo `mascot_speech_pt` do MESMO clipe deve receber a concatenação exata daquelas falas (linha a linha, na ordem em que aparecem)**. A regra atual só cobre o caso "a ideia menciona um apresentador falando" — vou torná-la incondicional: se o próprio roteiro criou uma fala, o campo tem que refletir isso.
+- Fallback determinístico no servidor: antes de devolver os clipes, se `mascot_speech_pt` estiver vazio, extrair via regex os trechos entre aspas que aparecem após `Portuguese spoken dialogue:` / `Portuguese voiceover:` / `PT-BR:` na `description_en` e preencher `mascot_speech_pt` com essas linhas unidas por `\n`.
 
-- Adicionar bloco **"Personagens"** dentro do card de cada clipe (acima de "Motor de vídeo"), com CTA "Adicionar personagem".
-- Cada personagem: 1 imagem (obrigatória) + 1 amostra de voz opcional (2–5s). Origem: biblioteca visual existente (`VideoReferencesLibrary` / `ReferencePickerModal`) — reaproveitar o picker com um novo `slot: 'character'`. Suporte a até 3 personagens por cena.
-- No submit para `generate-video-scene-seedance`, mapear para: `mascotImageUrls` (imagens dos personagens) + `voiceSampleUrl` (primeira voz, já suportado pelo edge). Se houver mais de uma voz, mandar todas em um novo array `voiceSampleUrls` (o edge function passa a empurrar cada uma como `audio_url` no `content`, respeitando o limite de 3 do Seedance v2).
-- O `buildSeedancePrompt` passa a rotular esses refs como `[Image N] = personagem principal / secundário` e adicionar um bloco `Voice references: [Audio 1] = voice of the main character…` quando houver.
-- Ao adicionar um personagem, se o campo de fala estiver vazio, o Seedance v2 continua sem falar — a voz de referência só é usada quando existe voiceover no prompt.
+**Frontend (segurança)**
+- Em `applySeedanceClipsToEditor` (ClientHub), aplicar o mesmo regex-fallback ao hidratar o clipe, para cobrir drafts antigos ou casos em que o backend ainda não regenerou.
 
-## 4. Checkbox "Gerar áudio sincronizado" — clareza + logo com auto-fill
+Isso garante que o campo "Fala do Apresentador / Mascote (PT-BR)" nunca fique vazio quando a descrição da cena tem diálogo, e que "Dicas de pronúncia" tenha algo para atuar.
 
-**"Gerar áudio sincronizado"**: hoje é o único gatilho que liga `generate_audio: true` no request do Seedance v2. Se desmarcado, o Seedance devolve vídeo mudo — inclusive quando há fala escrita. Correções:
-- Renomear para **"Ativar áudio (voz + trilha) no vídeo"** e adicionar tooltip explicando: "Sem isso, o Seedance devolve o vídeo em mudo — mesmo que exista fala escrita."
-- Quando o usuário digita `mascot_speech` ou adiciona personagem com voz, marcar automaticamente o checkbox (com aviso discreto: "Áudio ativado automaticamente porque a cena tem fala.").
-- Se o modelo não for v2, esconder o checkbox (áudio nativo só existe no v2 hoje) em vez de mostrar desabilitado.
+## 4. Cálculo de créditos → BRL incorreto (300 créditos = R$ 26,10)
 
-**"Logo da marca"** (seletor com "Sem logo / Contextual / Cartela final"):
-- Renomear o label para **"Uso da logo no vídeo"** — o campo é estratégia de uso, não seleção de arquivo.
-- Ao carregar uma cena, se o preset visual ativo (`presets.find(p => p.id === selectedPresetId)?.logo_url`) tiver logo, pré-preencher `scene.logo_ref_url` automaticamente e default para `logo_strategy: 'contextual'`. Hoje o auto-fill não acontece — daí o "Sem logo" mesmo com logo cadastrada.
-- Exibir a miniatura da logo em cima do seletor (mesmo quando `logo_strategy === 'none'`, como informação) para deixar claro que a logo do cliente está carregada.
+Investigado o problema. A tabela `seedance_pricing` está com `price_brl_per_credit ≈ 0.087` (~R$ 0,087/crédito). Esse valor é o preço "por vídeo" antigo (créditos internos do painel Seedance), não o preço BytePlus/Ark cobrado por segundo de geração.
 
-## Detalhes técnicos
+**Preço real (BytePlus Ark, cobrança oficial):**
+- Custo em USD ≈ **$0,040 por crédito** (conforme o usuário confirmou).
+- 300 créditos × $0,040 = **$12 USD ≈ R$ 62–66** dependendo do câmbio.
+- Portanto `price_brl_per_credit` correto ≈ **0,22** (assumindo USD/BRL ~ 5,50).
 
-**Arquivos alterados:**
-- `src/pages/ClientHub.tsx` — auto-resize das textareas, campo `pronunciation_hints`, bloco Personagens, renomeações, auto-fill de logo, auto-check de áudio. Bump de `VIDEO_DRAFT_SCHEMA_VERSION` para 5 com migração transparente (draft antigo continua abrindo sem os novos campos).
-- `src/components/avulso/ReferencePickerModal.tsx` — novo `slot: 'character'` (imagem + voz opcional).
-- `supabase/functions/generate-seedance-script/index.ts` — aceitar `pronunciationHints`.
-- `supabase/functions/suggest-seedance-storyboard/index.ts` — aceitar `pronunciationHints` e injetar no system prompt.
-- `supabase/functions/_shared/seedance-prompt.ts` — novos parâmetros `pronunciationHints`, `voiceRefs[]`; rotular imagens como personagens quando aplicável.
-- `supabase/functions/generate-video-scene-seedance/index.ts` — aceitar `voiceSampleUrls[]` (até 3) além do `voiceSampleUrl` legado; empurrar cada uma como `audio_url` no `content`.
+**Correção:**
+- Migração para atualizar `price_brl_per_credit` de todas as linhas da `seedance_pricing` para **0,22** (mesmo valor para todas — o preço em BRL varia apenas por câmbio, não por modelo/resolução; o que muda por resolução são os `price_credits_per_second`, que já estão corretos).
+- Adicionar comentário na tabela indicando que o valor é derivado de $0,040/crédito × câmbio USD/BRL usado (5,50), para facilitar recalibrar quando o câmbio mudar.
 
-**Não altera:** fluxo Veo 3.1, biblioteca de mascotes existente, tabela `seedance_pricing`.
+Confirme se quer travar o câmbio em **5,50** (→ R$ 0,22/crédito → 300 créditos = R$ 66) ou em outro valor.
 
-**Referência da API usada como base:** Seedance 2.0 multi-reference (até 9 imagens, 3 vídeos, 3 áudios, ligação por `@Image1/@Audio1`) — confirmado em docs Replicate/BytePlus e PixelDojo.
+## Arquivos afetados
 
-## Fora do escopo (perguntas do usuário respondidas aqui)
+- `src/pages/ClientHub.tsx` — default do áudio + regex-fallback da fala em `applySeedanceClipsToEditor`.
+- `supabase/functions/suggest-seedance-storyboard/index.ts` — regra de fala obrigatória + extração fallback + quebras de linha no output.
+- `supabase/functions/generate-seedance-script/index.ts` — quebras de linha explícitas no system prompt + normalização do prompt final.
+- Migração SQL — `UPDATE public.seedance_pricing SET price_brl_per_credit = 0.22`.
 
-- **"Para que serve o checkbox?"** → Ele é o único gatilho que liga áudio no Seedance v2. Vamos renomear + auto-marcar quando houver fala, para deixar isso óbvio.
-- **"Onde cadastra personagem com voz?"** → Não existia. Passa a existir no bloco Personagens dentro da cena (imagem + voz), com picker reaproveitando a biblioteca visual.
-- **"Frame 0 pretendia pular"** → Continua opcional; o bloco Personagens fica separado do Frame 0 e não obriga upload.
+Sem mexer em UI de logo/personagens/estrutura do Passo 2 — só nos 4 pontos que você levantou.
