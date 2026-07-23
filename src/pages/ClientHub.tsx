@@ -3304,7 +3304,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                         {scene.engine === 'seedance' && (
                           <div className="mb-2">
                             <CostBadge
-                              model={scene.seedance_model ?? 'pro'}
+                              model={scene.seedance_model ?? 'v15_pro'}
                               resolution={scene.seedance_resolution ?? '1080p'}
                               durationSeconds={scene.seedance_duration ?? 5}
                             />
