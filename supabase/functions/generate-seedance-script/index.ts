@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
     }
 
     const gatewayData = await gatewayResp.json();
-    const prompt: string = gatewayData?.choices?.[0]?.message?.content?.trim() ?? "";
+    const prompt: string = formatSeedanceScript(gatewayData?.choices?.[0]?.message?.content?.trim() ?? "");
 
     if (!prompt) {
       return new Response(
