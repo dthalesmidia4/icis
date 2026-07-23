@@ -2804,7 +2804,54 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                       </label>
                                     )}
                                   </div>
+                                  <button
+                                    type="button"
+                                    className="text-[10px] text-primary hover:underline"
+                                    onClick={() => { setPickerTarget({ sceneIndex: idx, slot: 'scene_ref' }); setPickerOpen(true); }}
+                                  >
+                                    Escolher da biblioteca visual
+                                  </button>
                                 </div>
+
+                                {/* Logo da marca — presença e estratégia */}
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Logo da marca</Label>
+                                  <Select
+                                    value={scene.logo_strategy ?? 'none'}
+                                    onValueChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, logo_strategy: v as 'none' | 'contextual' | 'end_card' } : s))}
+                                    disabled={scene.generating}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">Sem logo</SelectItem>
+                                      <SelectItem value="contextual">Contextual (ambiente, produto, cenário)</SelectItem>
+                                      <SelectItem value="end_card">Cartela final (encerramento)</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  {scene.logo_strategy && scene.logo_strategy !== 'none' && (
+                                    scene.logo_ref_url ? (
+                                      <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-muted/30 px-2 py-1.5">
+                                        <img src={scene.logo_ref_url} alt="Logo" className="h-8 w-8 object-contain rounded bg-white" />
+                                        <button
+                                          type="button"
+                                          className="text-destructive hover:opacity-80 ml-auto"
+                                          onClick={() => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, logo_ref_url: undefined } : s))}
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        className="text-[10px] text-primary hover:underline"
+                                        onClick={() => { setPickerTarget({ sceneIndex: idx, slot: 'logo' }); setPickerOpen(true); }}
+                                      >
+                                        Escolher logo da biblioteca
+                                      </button>
+                                    )
+                                  )}
+                                </div>
+
 
                                 {/* Voz de referência (só v2) */}
                                 {scene.seedance_model === 'v2' && (
