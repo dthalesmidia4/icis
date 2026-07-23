@@ -3355,8 +3355,9 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 </div>
               </>
             )}
-          </DialogContent>
-        </Dialog>
+          </div>
+        </div>
+        )}
 
         {/* Picker de referências da biblioteca visual (personagens, cenários, produtos, logos) */}
         {selectedClient && tenantId && (
