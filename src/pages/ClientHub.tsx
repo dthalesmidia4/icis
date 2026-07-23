@@ -1508,10 +1508,14 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       seedance_model: 'v2' as const,
       seedance_duration: clampDur(c.target_duration_seconds),
       seedance_resolution: '1080p' as const,
-      seedance_generate_audio: false,
+      // Áudio v2 é ativado automaticamente quando a IA gerou uma fala para a cena.
+      // Sem áudio, o Seedance devolve vídeo mudo mesmo com voiceover escrito.
+      seedance_generate_audio: !!(c.mascot_speech_pt && c.mascot_speech_pt.trim()),
       seedance_options_open: false,
       use_brand_identity: hasIdentity,
-      logo_strategy: 'none' as const,
+      // Se o cliente tem logo cadastrada, deixamos pronta como contextual por padrão.
+      logo_ref_url: clientLogoUrl || undefined,
+      logo_strategy: (clientLogoUrl ? 'contextual' : 'none') as 'none' | 'contextual' | 'end_card',
     }));
     setVideoScenes(mapped);
     setVideoStep(2);
