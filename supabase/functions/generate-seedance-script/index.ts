@@ -23,6 +23,7 @@ type Payload = {
   model: "lite" | "pro" | "v2";
   ratio?: string;                  // 9:16, 16:9, 1:1, 4:5, 21:9, adaptive
   mascotSpeech?: string | null;
+  pronunciationHints?: string | null;
   brandColors?: string[];
   brandTypography?: string | null;
   hasLogo?: boolean;
