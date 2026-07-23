@@ -105,6 +105,11 @@ Deno.serve(async (req) => {
     if (body.mascotSpeech?.trim()) {
       contextLines.push(`Mascot/character speaks in Brazilian Portuguese: "${body.mascotSpeech.trim()}"`);
     }
+    if (body.pronunciationHints?.trim()) {
+      contextLines.push(
+        `Pronunciation hints (apply to the spoken line only — DO NOT change written brand names elsewhere in the prompt): ${body.pronunciationHints.trim()}. When writing the spoken PT-BR line inside a CUE, use the phonetic spelling for the flagged words so the model pronounces them correctly.`,
+      );
+    }
     if (body.refsLegend?.length) {
       const legend = body.refsLegend.map((l, i) => `[Image ${i + 1}] = ${l}`).join("; ");
       contextLines.push(`Image references available: ${legend}. Reference them by their [Image N] tag.`);
