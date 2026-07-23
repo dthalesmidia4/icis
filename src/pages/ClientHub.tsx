@@ -2741,107 +2741,17 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   ) : (
                     <div className="space-y-3">
                       <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
-                        Defina abaixo <strong className="text-primary">duração, modelo e resolução</strong> ANTES de gerar. A IA vai distribuir as tomadas (CUEs) para caber exatamente no tempo escolhido.
+                        A IA vai analisar sua ideia e propor <strong className="text-primary">quantos clipes</strong> e a <strong className="text-primary">duração ideal</strong> de cada um. Modelo, resolução, áudio e logo você ajusta clipe a clipe no próximo passo.
                       </div>
-
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Modelo</Label>
-                          <select
-                            value={seedanceTargetModel}
-                            onChange={(e) => {
-                              const m = e.target.value as 'lite' | 'pro' | 'v2';
-                              setSeedanceTargetModel(m);
-                              const [mn, mx] = m === 'v2' ? [4, 15] : [5, 10];
-                              setSeedanceTargetDuration((d) => Math.max(mn, Math.min(mx, d)));
-                            }}
-                            disabled={planningSeedance}
-                            className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
-                          >
-                            <option value="v2">Seedance 2.0 (multi-ref + áudio)</option>
-                            <option value="pro">Seedance 1.0 Pro</option>
-                            <option value="lite">Seedance 1.0 Lite</option>
-                          </select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Resolução</Label>
-                          <select
-                            value={seedanceTargetResolution}
-                            onChange={(e) => setSeedanceTargetResolution(e.target.value as '480p' | '720p' | '1080p')}
-                            disabled={planningSeedance}
-                            className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
-                          >
-                            <option value="480p">480p</option>
-                            <option value="720p">720p</option>
-                            <option value="1080p">1080p</option>
-                          </select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Duração: {seedanceTargetDuration}s{' '}
-                            <span className="text-muted-foreground/70 normal-case">
-                              ({seedanceTargetModel === 'v2' ? '4–15s' : '5–10s'})
-                            </span>
-                          </Label>
-                          <input
-                            type="range"
-                            min={seedanceTargetModel === 'v2' ? 4 : 5}
-                            max={seedanceTargetModel === 'v2' ? 15 : 10}
-                            step={1}
-                            value={seedanceTargetDuration}
-                            onChange={(e) => setSeedanceTargetDuration(Number(e.target.value))}
-                            disabled={planningSeedance}
-                            className="w-full accent-primary"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-3">
-                        <CostBadge model={seedanceTargetModel} resolution={seedanceTargetResolution} durationSeconds={seedanceTargetDuration} />
-                        {seedanceTargetModel === 'v2' && (
-                          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                            <input type="checkbox" checked={seedanceGenerateAudio} onChange={(e) => setSeedanceGenerateAudio(e.target.checked)} disabled={planningSeedance} className="accent-primary" />
-                            Gerar áudio sincronizado
-                          </label>
-                        )}
-                      </div>
-
                       <div className="space-y-1.5">
-                        <Label className="text-sm font-medium">Fala do apresentador / mascote <span className="text-muted-foreground text-xs">(opcional)</span></Label>
-                        <Textarea
-                          placeholder='Ex.: "Com o SmartVety, a consulta já vira prontuário."'
-                          value={seedanceMascotSpeech}
-                          onChange={(e) => setSeedanceMascotSpeech(e.target.value)}
-                          disabled={planningSeedance}
-                          className="min-h-[60px] resize-none text-sm"
-                        />
-                        <p className="text-[10px] text-muted-foreground">A IA vai encaixar essa fala em pelo menos uma CUE, respeitando o tempo do clipe.</p>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-sm font-medium">Formato</Label>
-                          <div className="flex gap-1.5 flex-wrap">
-                            {['9:16', '16:9', '1:1', '4:5'].map((ratio) => (
-                              <button key={ratio} onClick={() => setVideoAspectRatio(ratio)} disabled={planningSeedance}
-                                className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-all ${videoAspectRatio === ratio ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
-                                {ratio}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-sm font-medium">Estratégia da logo</Label>
-                          <select
-                            value={seedanceLogoStrategy}
-                            onChange={(e) => setSeedanceLogoStrategy(e.target.value as 'none' | 'contextual' | 'end_card')}
-                            disabled={planningSeedance}
-                            className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
-                          >
-                            <option value="none">Sem logo no vídeo</option>
-                            <option value="contextual">Logo no contexto (embutida na cena)</option>
-                            <option value="end_card">End card com a marca (último ~0,8s)</option>
-                          </select>
+                        <Label className="text-sm font-medium">Formato</Label>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {['9:16', '16:9', '1:1', '4:5'].map((ratio) => (
+                            <button key={ratio} onClick={() => setVideoAspectRatio(ratio)} disabled={planningSeedance}
+                              className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-all ${videoAspectRatio === ratio ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                              {ratio}
+                            </button>
+                          ))}
                         </div>
                       </div>
                     </div>
