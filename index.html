@@ -3,6 +3,42 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <script>
+      // Kill-switch inline: força atualização/desregistro de qualquer Service Worker
+      // legado que ainda esteja servindo bundles antigos. Roda antes de qualquer módulo.
+      (function () {
+        try {
+          if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+          var RELOAD_KEY = "icis-sw-killswitch-reloaded";
+          var hadController = !!navigator.serviceWorker.controller;
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            if (!regs || regs.length === 0) return;
+            return Promise.all(
+              regs.map(function (r) {
+                return Promise.resolve()
+                  .then(function () { return r.update().catch(function () {}); })
+                  .then(function () { return r.unregister().catch(function () { return false; }); });
+              })
+            );
+          }).then(function () {
+            if ("caches" in window) {
+              return caches.keys().then(function (names) {
+                return Promise.all(names.map(function (n) { return caches.delete(n).catch(function () { return false; }); }));
+              });
+            }
+          }).then(function () {
+            if (hadController && sessionStorage.getItem(RELOAD_KEY) !== "1") {
+              sessionStorage.setItem(RELOAD_KEY, "1");
+              window.location.reload();
+            }
+          }).catch(function () {});
+        } catch (e) { /* noop */ }
+      })();
+    </script>
+
     <title>ICIS - Gestão Inteligente de Marketing</title>
     <meta name="description" content="Plataforma completa de automação e gestão de marketing com IA. Crie planos personalizados, organize tarefas em Kanban e impulsione seu negócio." />
     <meta name="author" content="ICIS" />
