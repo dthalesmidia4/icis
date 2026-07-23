@@ -1,56 +1,53 @@
-## 1. Checkbox "Gerar áudio sincronizado" marcado por padrão
 
-Hoje o default só liga o áudio quando a IA já sugeriu fala. Vou mudar para **sempre ligado** em qualquer clipe Seedance v2 (o usuário pode desmarcar se quiser um vídeo mudo).
+## Objetivo
 
-- `applySeedanceClipsToEditor` → `seedance_generate_audio: true` para todo clipe recém-criado.
-- Se o modelo escolhido não for v2, o checkbox continua oculto (irrelevante).
+Simplificar o editor de cena do Seedance: eliminar dois campos que não fazem sentido no fluxo atual e fazer a IA cuidar da pronúncia sozinha ao escrever a descrição.
 
-## 2. Prompt com quebras de linha (principalmente nas falas)
+## O que muda na tela (Passo 2 do vídeo Seedance)
 
-Hoje o roteiro multi-shot vem como parágrafo único, difícil de ler. Vou alinhar isso em duas frentes:
+Em cada card de cena, hoje temos:
 
-**Edge functions — reforçar formatação no output**
-- `suggest-seedance-storyboard/index.ts` e `generate-seedance-script/index.ts`: acrescentar regra explícita no system prompt para que cada CUE fique em bloco separado por linha em branco, e que qualquer diálogo em português apareça em linha própria com o rótulo (ex.: `Fala PT-BR: "…"`).
-- Pós-processamento seguro no servidor: normalizar o `description_en` retornado pela IA colocando `\n\n` antes de cada `CUE X–Ys` e antes de `[cut to]`, e uma quebra simples antes de `Portuguese spoken dialogue:` / `On-screen text:` / `End card:` para garantir a leitura mesmo se o modelo esquecer.
+1. **Descrição da Cena (EN)** — o multi-shot completo com CUEs, incluindo as falas PT-BR entre aspas.
+2. **Fala do Apresentador / Mascote (PT-BR)** — remover. As falas já vivem dentro da Descrição, dentro dos CUEs, então esse campo duplica informação e polui a interface.
+3. **Dicas de pronúncia (opcional)** — remover. Ninguém preenche, e faz mais sentido a IA já escrever a fala com a grafia fonética correta na hora de gerar a Descrição.
 
-**UI já preparada**
-- O `<Textarea>` da descrição já auto-cresce até 520px e usa `whitespace-pre-wrap` implícito, então as quebras que vierem do backend serão respeitadas sem mais mudanças de layout.
+O card fica: **Frame 0 → Descrição da Cena → Motor de vídeo → Opções Seedance**. Fim.
 
-## 3. Fala do apresentador ficou vazia mesmo com diálogo no roteiro
+## O que muda na IA
 
-O planner escreveu `Portuguese spoken dialogue: "…"` dentro da `description_en` mas deixou `mascot_speech_pt = ""`. Isso quebra a hierarquia: a fala precisa estar **também** no campo próprio para o TTS do Seedance e para o campo "Dicas de pronúncia" fazer efeito.
+A pronúncia passa a ser inferida automaticamente, sem depender de o usuário digitar nada:
 
-Duas correções combinadas:
+- **`suggest-seedance-storyboard`** e **`generate-seedance-script`** ganham uma regra nova no system prompt: antes de escrever qualquer fala PT-BR dentro de um CUE, a IA identifica marcas, produtos, nomes próprios ou estrangeirismos presentes na ideia que provavelmente seriam mal pronunciados por um TTS/modelo de voz, e escreve **apenas a versão falada** com grafia fonética PT-BR (ex.: “SmartVety” escrito como “SmartVéti” dentro das aspas da fala). O nome original continua aparecendo normalmente no restante da descrição (visual, texto em tela, logo).
+- A IA não precisa mais receber `pronunciationHints` — o campo some do payload das duas edge functions e some da chamada de `generate-video-scene-seedance`.
+- O `mascot_speech_pt` que a IA já devolve continua sendo usado internamente só como fallback do extrator regex que popula a fala se algum dia precisarmos — mas nada disso aparece na UI.
 
-**Backend (fonte da verdade)**
-- `suggest-seedance-storyboard/index.ts`: reforçar no system prompt que **sempre que houver fala em qualquer CUE, o campo `mascot_speech_pt` do MESMO clipe deve receber a concatenação exata daquelas falas (linha a linha, na ordem em que aparecem)**. A regra atual só cobre o caso "a ideia menciona um apresentador falando" — vou torná-la incondicional: se o próprio roteiro criou uma fala, o campo tem que refletir isso.
-- Fallback determinístico no servidor: antes de devolver os clipes, se `mascot_speech_pt` estiver vazio, extrair via regex os trechos entre aspas que aparecem após `Portuguese spoken dialogue:` / `Portuguese voiceover:` / `PT-BR:` na `description_en` e preencher `mascot_speech_pt` com essas linhas unidas por `\n`.
+## O que muda no envio para o Seedance
 
-**Frontend (segurança)**
-- Em `applySeedanceClipsToEditor` (ClientHub), aplicar o mesmo regex-fallback ao hidratar o clipe, para cobrir drafts antigos ou casos em que o backend ainda não regenerou.
+Hoje o prompt final concatena a Descrição com “Mascote fala: …” e “Dicas de pronúncia: …”. Com a mudança:
 
-Isso garante que o campo "Fala do Apresentador / Mascote (PT-BR)" nunca fique vazio quando a descrição da cena tem diálogo, e que "Dicas de pronúncia" tenha algo para atuar.
+- O prompt enviado ao Seedance passa a ser **apenas a Descrição da Cena** (que já contém as falas com grafia fonética embutida nos CUEs).
+- Removemos as concatenações de `mascotSpeech` e `pronunciationHints` em `generate-video-scene-seedance` e no builder compartilhado.
 
-## 4. Cálculo de créditos → BRL incorreto (300 créditos = R$ 26,10)
+## Rascunhos existentes
 
-Investigado o problema. A tabela `seedance_pricing` está com `price_brl_per_credit ≈ 0.087` (~R$ 0,087/crédito). Esse valor é o preço "por vídeo" antigo (créditos internos do painel Seedance), não o preço BytePlus/Ark cobrado por segundo de geração.
+Bump do `VIDEO_DRAFT_SCHEMA_VERSION` para 6 em `ClientHub.tsx`. Rascunhos antigos com os campos removidos são migrados na leitura descartando `mascot_speech` e `pronunciation_hints` — a Descrição já contém tudo o que importa.
 
-**Preço real (BytePlus Ark, cobrança oficial):**
-- Custo em USD ≈ **$0,040 por crédito** (conforme o usuário confirmou).
-- 300 créditos × $0,040 = **$12 USD ≈ R$ 62–66** dependendo do câmbio.
-- Portanto `price_brl_per_credit` correto ≈ **0,22** (assumindo USD/BRL ~ 5,50).
+## Detalhes técnicos
 
-**Correção:**
-- Migração para atualizar `price_brl_per_credit` de todas as linhas da `seedance_pricing` para **0,22** (mesmo valor para todas — o preço em BRL varia apenas por câmbio, não por modelo/resolução; o que muda por resolução são os `price_credits_per_second`, que já estão corretos).
-- Adicionar comentário na tabela indicando que o valor é derivado de $0,040/crédito × câmbio USD/BRL usado (5,50), para facilitar recalibrar quando o câmbio mudar.
+**Frontend (`src/pages/ClientHub.tsx`)**
+- Tipo da cena: remover `mascot_speech` e `pronunciation_hints`.
+- Remover os dois blocos de JSX (textarea da fala + input de pronúncia) do editor de cena.
+- Em `applySeedanceClipsToEditor`, remover a extração por regex e o preenchimento de `mascot_speech`.
+- Chamada de `generate-video-scene-seedance`: parar de enviar `mascotSpeech` e `pronunciationHints`.
+- Chamada de `generate-seedance-script` (Roteiro multi-shot IA): parar de enviar `mascotSpeech`/`pronunciationHints`.
+- `VIDEO_DRAFT_SCHEMA_VERSION` → 6; loader ignora chaves antigas.
 
-Confirme se quer travar o câmbio em **5,50** (→ R$ 0,22/crédito → 300 créditos = R$ 66) ou em outro valor.
+**Edge Functions**
+- `supabase/functions/suggest-seedance-storyboard/index.ts`: adicionar no system prompt a regra “detectar marcas/nomes provavelmente mal pronunciados e escrever a fala com grafia fonética PT-BR direto dentro do CUE, mantendo o nome original no restante do texto”. Nenhum campo novo no JSON de saída.
+- `supabase/functions/generate-seedance-script/index.ts`: mesma regra; remover parâmetros `mascotSpeech` e `pronunciationHints` do `Payload` e da montagem de contexto.
+- `supabase/functions/generate-video-scene-seedance/index.ts` (e helper `buildSeedancePrompt` em `_shared`, se existir): remover uso de `mascotSpeech`/`pronunciationHints` — o prompt final é a Descrição pura.
 
-## Arquivos afetados
+## Fora do escopo
 
-- `src/pages/ClientHub.tsx` — default do áudio + regex-fallback da fala em `applySeedanceClipsToEditor`.
-- `supabase/functions/suggest-seedance-storyboard/index.ts` — regra de fala obrigatória + extração fallback + quebras de linha no output.
-- `supabase/functions/generate-seedance-script/index.ts` — quebras de linha explícitas no system prompt + normalização do prompt final.
-- Migração SQL — `UPDATE public.seedance_pricing SET price_brl_per_credit = 0.22`.
-
-Sem mexer em UI de logo/personagens/estrutura do Passo 2 — só nos 4 pontos que você levantou.
+- Nenhuma mudança em preços, motor Veo 3, storyboard de Veo, uploads de referência, logo ou identidade visual.
+- Nenhuma migração de banco.
