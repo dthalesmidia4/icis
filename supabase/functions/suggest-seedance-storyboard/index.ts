@@ -128,14 +128,22 @@ Deno.serve(async (req) => {
 
     const model = body.model ?? "pro";
     const [minDur, maxDur] = model === "v2" ? [4, 15] : [5, 10];
+    // User-fixed duration is the contract with the planner. Clamp to model range as a safety net.
+    const fixedDuration = clampDuration(
+      model,
+      Number(body.targetDurationSeconds) || (model === "v2" ? 8 : 6),
+    );
 
     const ctx: string[] = [];
     ctx.push(`Idea (Portuguese OK, translate to English in each clip's description_en):\n${body.idea.trim()}`);
     ctx.push(`Aspect ratio: ${body.ratio ?? "9:16"}.`);
-    ctx.push(`Seedance model: ${model}. Allowed clip duration: ${minDur}–${maxDur} seconds.`);
+    ctx.push(`Seedance model: ${model}. Model range: ${minDur}–${maxDur} seconds.`);
+    ctx.push(`USER-FIXED DURATION PER CLIP: ${fixedDuration} seconds. Every clip you return MUST set target_duration_seconds to exactly ${fixedDuration}. Distribute CUE blocks so their internal time ranges sum to exactly ${fixedDuration}s.`);
     if (body.clientNiche) ctx.push(`Client niche: ${body.clientNiche}.`);
     if (body.brandColors?.length) ctx.push(`Brand colors (graphic overlays only): ${body.brandColors.join(", ")}.`);
-    if (body.mascotSpeech?.trim()) ctx.push(`Mascot speaks in Brazilian Portuguese: "${body.mascotSpeech.trim()}"`);
+    if (body.mascotSpeech?.trim()) {
+      ctx.push(`Presenter/mascot speech to embed in Brazilian Portuguese inside at least one CUE (fit it into that CUE's own seconds): "${body.mascotSpeech.trim()}"`);
+    }
     if (body.hasLogo && body.logoStrategy && body.logoStrategy !== "none") {
       ctx.push(
         body.logoStrategy === "end_card"
@@ -143,7 +151,7 @@ Deno.serve(async (req) => {
           : "Logo strategy: place the brand logo naturally inside the scene as a subtle contextual element.",
       );
     }
-    ctx.push(`Return the JSON object. Remember: prefer 1 clip; only split when truly necessary.`);
+    ctx.push(`Return the JSON object. Remember: prefer 1 clip; only split when truly necessary; every clip's duration is EXACTLY ${fixedDuration}s.`);
 
     const gatewayResp = await fetch(GATEWAY_URL, {
       method: "POST",
