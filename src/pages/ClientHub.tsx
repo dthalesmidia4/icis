@@ -1612,6 +1612,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           model: scene.seedance_model ?? 'pro',
           ratio: videoAspectRatio,
           mascotSpeech: scene.mascot_speech || null,
+          pronunciationHints: scene.pronunciation_hints || null,
           hasLogo: !!scene.logo_ref_url,
           logoStrategy: scene.logo_strategy ?? 'none',
           refsLegend,
