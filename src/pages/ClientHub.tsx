@@ -2685,7 +2685,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className={videoEngineChoice === 'veo' ? 'grid grid-cols-2 gap-4' : 'grid grid-cols-1 gap-4'}>
                     {videoEngineChoice === 'veo' ? (
                       <div className="space-y-1.5">
                         <Label className="text-sm font-medium">Cenas</Label>
@@ -2699,16 +2699,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                         </div>
                       </div>
                     ) : (
-                      <div className="space-y-1.5">
-                        <Label className="text-sm font-medium">Modelo Seedance</Label>
-                        <div className="flex gap-1.5">
-                          {(['lite', 'pro', 'v2'] as const).map((m) => (
-                            <button key={m} onClick={() => { setSeedanceDefaultModel(m); setSeedancePlan(null); }} disabled={planningSeedance}
-                              className={`px-3 py-1.5 rounded-lg font-medium text-xs uppercase tracking-wide transition-all ${seedanceDefaultModel === m ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
-                              {m}
-                            </button>
-                          ))}
-                        </div>
+                      <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                        A IA vai sugerir quantos clipes o vídeo precisa. O <strong className="text-primary">modelo</strong> (Seedance 2.0 / Fast / Mini), a <strong className="text-primary">resolução</strong> e a <strong className="text-primary">duração</strong> são escolhidos por cena no próximo passo.
                       </div>
                     )}
                     <div className="space-y-1.5">
