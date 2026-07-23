@@ -1437,12 +1437,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     setSeedancePlan(null);
     setPlanningSeedance(false);
     setVideoEngineChoice('veo');
-    setSeedanceTargetModel('v2');
-    setSeedanceTargetResolution('720p');
-    setSeedanceTargetDuration(8);
-    setSeedanceMascotSpeech('');
-    setSeedanceLogoStrategy('none');
-    setSeedanceGenerateAudio(false);
+    // (Step 2 owns Seedance technical settings — no state to reset here.)
     videoDraftAppliedRef.current = false;
   };
 
