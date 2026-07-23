@@ -21,6 +21,7 @@ type Payload = {
   idea: string;
   ratio?: string;
   model?: "lite" | "pro" | "v2";
+  targetDurationSeconds?: number;
   clientNiche?: string | null;
   mascotSpeech?: string | null;
   hasLogo?: boolean;
@@ -42,28 +43,35 @@ type PlannerResult = {
 
 const DEFAULT_SYSTEM = `You are a Seedance production planner.
 
-Seedance generates ONE continuous clip per prompt but natively understands multi-shot direction: numbered CUE blocks, [cut to] markers, and [Medium shot]/[Wide]/[Close-up]/[dolly in]/[pan]/etc. cues embedded inside a single prompt. Because a single clip already carries multiple shots (up to ~5 CUEs), MOST ideas — hooks, tutorials, short ads, product beats — fit into ONE single clip with several shots inside.
+Seedance generates ONE continuous clip per prompt but natively understands multi-shot direction: numbered CUE blocks, [cut to] markers, and [Medium shot]/[Wide]/[Close-up]/[dolly in]/[pan]/etc. cues embedded inside a single prompt. A single clip already carries multiple shots (up to ~5 CUEs), so MOST ideas fit into ONE clip with several shots inside.
 
-Seedance is expensive. Bias hard toward FEWER clips. Prefer packing more CUEs into fewer clips over splitting the story into multiple clips. Only split into 2+ clips when the narrative genuinely cannot fit inside the model's max duration (5–10s for lite/pro, 4–15s for v2). Never produce more than 5 clips.
+Seedance is expensive. Bias hard toward FEWER clips. Only split into 2+ clips when the narrative genuinely cannot fit inside the model's max duration. Never produce more than 5 clips.
+
+CRITICAL — Duration is FIXED by the user, not chosen by you:
+- The user has already committed to a target duration PER CLIP (see the user message).
+- Every clip you return MUST have "target_duration_seconds" EQUAL to that user-fixed value.
+- Distribute CUE blocks so their internal ranges sum to EXACTLY that duration. Do not exceed it, do not undershoot it.
+- Rough pacing guide: 5s → 2 CUEs, 6–8s → 3 CUEs, 9–12s → 3–4 CUEs, 13–15s → 4–5 CUEs.
 
 Rules:
 - Return ONLY a valid JSON object with this exact shape (no code fences, no prose, no trailing commas):
 {
   "suggested_clip_count": integer 1 to 5,
-  "reasoning": "one sentence in Brazilian Portuguese explaining why this many clips and how many shots each carries.",
+  "reasoning": "one sentence in Brazilian Portuguese explaining why this many clips.",
   "clips": [
     {
       "title_pt": "short Portuguese label, 3–6 words",
       "description_en": "the full multi-shot prompt in English with CUE 0–Xs blocks + [shot type] + [cut to] markers, ready to send to Seedance verbatim",
-      "target_duration_seconds": integer within the model's allowed range
+      "target_duration_seconds": integer EQUAL to the user-fixed duration
     }
   ]
 }
 - "clips" length MUST equal "suggested_clip_count".
-- Each clip's target_duration_seconds MUST fit the given model.
-- description_en MUST contain between 2 and 5 CUE blocks whose durations sum to target_duration_seconds. Aim for 3–5 CUEs when the clip is 8s or longer. Example: "CUE 0–3s — Hook. [Medium shot, dolly in] The character enters the room. [cut to] CUE 3–7s — Development. [Low-angle] …".
-- No forbidden wording anywhere: never write "real person", "real human", "real face", "actual person", "pessoa real". Use "the character" / "the presenter".
-- Brand colors apply ONLY to graphic overlays, logos, and typography — never tint real objects, skin, or environments.`;
+- If a mascot/presenter speech is provided by the user, it MUST appear verbatim inside at least one CUE as dialogue in Brazilian Portuguese, phrased so it fits the CUE's own time budget.
+- If the user asked for an end_card logo strategy, the LAST CUE of the FINAL clip must reserve the closing ~0.8s for a clean brand end card.
+- If logo strategy is "contextual", integrate the brand naturally into a shot (product package, sign, screen, apparel) — never as a floating watermark.
+- Brand colors apply ONLY to graphic overlays, logos, and typography — never tint real objects, skin, or environments.
+- No forbidden wording anywhere: never write "real person", "real human", "real face", "actual person", "pessoa real". Use "the character" / "the presenter".`;
 
 function extractJson(text: string): PlannerResult | null {
   const cleaned = text
@@ -120,14 +128,22 @@ Deno.serve(async (req) => {
 
     const model = body.model ?? "pro";
     const [minDur, maxDur] = model === "v2" ? [4, 15] : [5, 10];
+    // User-fixed duration is the contract with the planner. Clamp to model range as a safety net.
+    const fixedDuration = clampDuration(
+      model,
+      Number(body.targetDurationSeconds) || (model === "v2" ? 8 : 6),
+    );
 
     const ctx: string[] = [];
     ctx.push(`Idea (Portuguese OK, translate to English in each clip's description_en):\n${body.idea.trim()}`);
     ctx.push(`Aspect ratio: ${body.ratio ?? "9:16"}.`);
-    ctx.push(`Seedance model: ${model}. Allowed clip duration: ${minDur}–${maxDur} seconds.`);
+    ctx.push(`Seedance model: ${model}. Model range: ${minDur}–${maxDur} seconds.`);
+    ctx.push(`USER-FIXED DURATION PER CLIP: ${fixedDuration} seconds. Every clip you return MUST set target_duration_seconds to exactly ${fixedDuration}. Distribute CUE blocks so their internal time ranges sum to exactly ${fixedDuration}s.`);
     if (body.clientNiche) ctx.push(`Client niche: ${body.clientNiche}.`);
     if (body.brandColors?.length) ctx.push(`Brand colors (graphic overlays only): ${body.brandColors.join(", ")}.`);
-    if (body.mascotSpeech?.trim()) ctx.push(`Mascot speaks in Brazilian Portuguese: "${body.mascotSpeech.trim()}"`);
+    if (body.mascotSpeech?.trim()) {
+      ctx.push(`Presenter/mascot speech to embed in Brazilian Portuguese inside at least one CUE (fit it into that CUE's own seconds): "${body.mascotSpeech.trim()}"`);
+    }
     if (body.hasLogo && body.logoStrategy && body.logoStrategy !== "none") {
       ctx.push(
         body.logoStrategy === "end_card"
@@ -135,7 +151,7 @@ Deno.serve(async (req) => {
           : "Logo strategy: place the brand logo naturally inside the scene as a subtle contextual element.",
       );
     }
-    ctx.push(`Return the JSON object. Remember: prefer 1 clip; only split when truly necessary.`);
+    ctx.push(`Return the JSON object. Remember: prefer 1 clip; only split when truly necessary; every clip's duration is EXACTLY ${fixedDuration}s.`);
 
     const gatewayResp = await fetch(GATEWAY_URL, {
       method: "POST",
@@ -181,7 +197,6 @@ Deno.serve(async (req) => {
 
     // Fallback: return one clip that just carries the raw idea. Never crash the UI.
     if (!parsed) {
-      const fallbackDur = clampDuration(model, model === "v2" ? 10 : 8);
       return new Response(
         JSON.stringify({
           success: true,
@@ -191,19 +206,19 @@ Deno.serve(async (req) => {
           clips: [{
             title_pt: "Clipe único",
             description_en: body.idea.trim(),
-            target_duration_seconds: fallbackDur,
+            target_duration_seconds: fixedDuration,
           }],
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Enforce hard limits.
+    // Enforce hard limits AND the user-fixed duration (server has final word on duration).
     const cappedCount = Math.max(1, Math.min(5, Math.floor(parsed.suggested_clip_count)));
     const clips: Clip[] = parsed.clips.slice(0, cappedCount).map((c, i) => ({
       title_pt: (c?.title_pt || `Clipe ${i + 1}`).toString().slice(0, 80),
       description_en: (c?.description_en || body.idea.trim()).toString(),
-      target_duration_seconds: clampDuration(model, Number(c?.target_duration_seconds) || (model === "v2" ? 10 : 8)),
+      target_duration_seconds: fixedDuration,
     }));
 
     return new Response(
