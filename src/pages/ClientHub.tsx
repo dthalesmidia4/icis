@@ -2688,7 +2688,22 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                           <Label className="text-xs font-medium text-muted-foreground">Descrição da Cena (EN)</Label>
                           <Textarea placeholder="Scene description in English..." value={scene.scene_description}
                             onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, scene_description: e.target.value } : s))}
-                            className="min-h-[70px] resize-none text-sm" disabled={scene.generating} />
+                            className="min-h-[70px] resize-none text-sm" disabled={scene.generating || scene.optimizing_script} />
+                          {scene.engine === 'seedance' && (
+                            <button
+                              type="button"
+                              disabled={!scene.scene_description.trim() || scene.generating || scene.optimizing_script}
+                              onClick={() => handleOptimizeSeedanceScript(idx)}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              title="Reescreve a descrição como um prompt multi-shot único (CUEs + direção de câmera) otimizado para Seedance."
+                            >
+                              {scene.optimizing_script ? (
+                                <><Loader2 className="w-3 h-3 animate-spin" />Gerando roteiro…</>
+                              ) : (
+                                <><Sparkles className="w-3 h-3" />Roteiro multi-shot IA</>
+                              )}
+                            </button>
+                          )}
                         </div>
                         {scene.mascot_speech && (
                           <div className="space-y-1.5">
