@@ -21,6 +21,7 @@ type Payload = {
   idea: string;
   ratio?: string;
   model?: "lite" | "pro" | "v2";
+  targetDurationSeconds?: number;
   clientNiche?: string | null;
   mascotSpeech?: string | null;
   hasLogo?: boolean;
