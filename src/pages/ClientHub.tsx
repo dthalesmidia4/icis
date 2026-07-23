@@ -1465,6 +1465,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         fallback: !!data.fallback,
       });
       if (data.fallback) toast.info('Sugerindo 1 clipe único (fallback seguro).');
+      // Auto-advance to the dedicated scene editor so clips render in full.
+      applySeedanceClipsToEditor(data.clips);
     } catch (err) {
       console.error('handleSuggestSeedancePlan error:', err);
       toast.error('Erro inesperado ao planejar storyboard.');
