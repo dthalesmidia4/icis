@@ -2824,13 +2824,26 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 <div className="flex gap-4 flex-1 overflow-hidden min-h-0">
                   {/* Left side - scene inputs */}
                   <div className={`flex-shrink-0 overflow-y-auto space-y-4 py-2 ${videoScenes.some(s => s.video_url) ? 'w-[45%]' : 'w-full'}`}>
-                    {videoScenes.map((scene, idx) => (
+                    {videoScenes.map((scene, idx) => {
+                      const isSeedance = scene.engine === 'seedance';
+                      const shotCount = isSeedance ? Math.max(1, (scene.scene_description.match(/\bCUE\s+\d/gi) || []).length) : 0;
+                      return (
                       <div key={idx} className="rounded-lg border border-border p-4 space-y-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-primary">Cena {idx + 1}</span>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
-                            {idx === 0 ? 'Abertura' : idx === videoScenes.length - 1 ? 'Encerramento (CTA)' : 'Desenvolvimento'}
+                          <span className="text-sm font-bold text-primary">
+                            {isSeedance ? `Clipe ${idx + 1}` : `Cena ${idx + 1}`}
                           </span>
+                          {isSeedance ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono font-semibold">
+                              {scene.seedance_duration ?? 8}s · {shotCount} tomada{shotCount > 1 ? 's' : ''}
+                            </span>
+                          ) : (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
+                              {idx === 0 ? 'Abertura' : idx === videoScenes.length - 1 ? 'Encerramento (CTA)' : 'Desenvolvimento'}
+                            </span>
+                          )}
+                          {scene.generating && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary ml-auto" />}
+                        </div>
                           {scene.generating && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary ml-auto" />}
                         </div>
 
