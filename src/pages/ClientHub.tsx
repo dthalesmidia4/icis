@@ -3037,6 +3037,33 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           </DialogContent>
         </Dialog>
 
+        {/* Picker de referências da biblioteca visual (personagens, cenários, produtos, logos) */}
+        {selectedClient && tenantId && (
+          <ReferencePickerModal
+            open={pickerOpen}
+            onOpenChange={(o) => { setPickerOpen(o); if (!o) setPickerTarget(null); }}
+            tenantId={tenantId}
+            clientId={selectedClient.id}
+            initialKind={
+              pickerTarget?.slot === 'main_character' ? 'character'
+                : pickerTarget?.slot === 'logo' ? 'logo'
+                : 'all'
+            }
+            onSelect={(ref) => {
+              if (!pickerTarget || !ref.primary_image_url) return;
+              const url = ref.primary_image_url;
+              setVideoScenes(prev => prev.map((s, i) => {
+                if (i !== pickerTarget.sceneIndex) return s;
+                if (pickerTarget.slot === 'main_character') return { ...s, main_character_url: url };
+                if (pickerTarget.slot === 'logo') return { ...s, logo_ref_url: url };
+                const list = [...(s.scene_ref_urls ?? []), url].slice(0, 3);
+                return { ...s, scene_ref_urls: list };
+              }));
+            }}
+          />
+        )}
+
+
         {/* Modal Planejar Período - Hub com 2 opções */}
         <Dialog open={planPeriodModalOpen} onOpenChange={setPlanPeriodModalOpen}>
           <DialogContent className="sm:max-w-2xl">
