@@ -2661,32 +2661,32 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   </div>
 
                   {/* Motor de vídeo: bifurca o fluxo entre Veo (multi-cena fixo) e Seedance (multi-shot em 1 clipe). */}
-                  <div className="space-y-1.5">
-                    <Label className="text-sm font-medium">Motor de Vídeo</Label>
+                  <div className="space-y-1.5 rounded-lg border-2 border-primary/30 bg-primary/5 p-3">
+                    <Label className="text-sm font-semibold text-primary">Motor de Vídeo</Label>
                     <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => { setVideoEngineChoice('seedance'); setSeedancePlan(null); }}
-                        disabled={generatingStoryboard || planningSeedance}
-                        className={`text-left p-3 rounded-lg border-2 transition-all ${videoEngineChoice === 'seedance' ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-primary/40'}`}
-                      >
-                        <div className="text-sm font-semibold">Seedance</div>
-                        <div className="text-[11px] text-muted-foreground leading-snug">IA decide quantos clipes. Um clipe suporta várias tomadas.</div>
-                      </button>
                       <button
                         type="button"
                         onClick={() => { setVideoEngineChoice('veo'); setSeedancePlan(null); }}
                         disabled={generatingStoryboard || planningSeedance}
-                        className={`text-left p-3 rounded-lg border-2 transition-all ${videoEngineChoice === 'veo' ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-primary/40'}`}
+                        className={`text-left p-3 rounded-lg border-2 transition-all bg-background ${videoEngineChoice === 'veo' ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:border-primary/40'}`}
                       >
                         <div className="text-sm font-semibold">Veo 3</div>
-                        <div className="text-[11px] text-muted-foreground leading-snug">Cenas isoladas de 8s. Você define quantas.</div>
+                        <div className="text-[11px] text-muted-foreground leading-snug">Cenas isoladas de ~8s. Você define quantas.</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setVideoEngineChoice('seedance'); setSeedancePlan(null); }}
+                        disabled={generatingStoryboard || planningSeedance}
+                        className={`text-left p-3 rounded-lg border-2 transition-all bg-background ${videoEngineChoice === 'seedance' ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:border-primary/40'}`}
+                      >
+                        <div className="text-sm font-semibold">Seedance</div>
+                        <div className="text-[11px] text-muted-foreground leading-snug">1 clipe com várias tomadas (CUEs) na mesma geração. IA decide quantos clipes.</div>
                       </button>
                     </div>
                   </div>
 
-                  <div className={videoEngineChoice === 'veo' ? 'grid grid-cols-2 gap-4' : 'grid grid-cols-1 gap-4'}>
-                    {videoEngineChoice === 'veo' ? (
+                  {videoEngineChoice === 'veo' ? (
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label className="text-sm font-medium">Cenas</Label>
                         <div className="flex gap-1.5">
@@ -2698,23 +2698,36 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                           ))}
                         </div>
                       </div>
-                    ) : (
-                      <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
-                        A IA vai sugerir quantos clipes o vídeo precisa. O <strong className="text-primary">modelo</strong> (Seedance 2.0 / Fast / Mini), a <strong className="text-primary">resolução</strong> e a <strong className="text-primary">duração</strong> são escolhidos por cena no próximo passo.
-                      </div>
-                    )}
-                    <div className="space-y-1.5">
-                      <Label className="text-sm font-medium">Formato</Label>
-                      <div className="flex gap-1.5">
-                        {['9:16', '16:9', '1:1', '4:5'].map((ratio) => (
-                          <button key={ratio} onClick={() => setVideoAspectRatio(ratio)} disabled={generatingStoryboard || planningSeedance}
-                            className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-all ${videoAspectRatio === ratio ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
-                            {ratio}
-                          </button>
-                        ))}
+                      <div className="space-y-1.5">
+                        <Label className="text-sm font-medium">Formato</Label>
+                        <div className="flex gap-1.5">
+                          {['9:16', '16:9', '1:1', '4:5'].map((ratio) => (
+                            <button key={ratio} onClick={() => setVideoAspectRatio(ratio)} disabled={generatingStoryboard}
+                              className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-all ${videoAspectRatio === ratio ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                              {ratio}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                        A IA analisa a ideia e sugere de <strong className="text-primary">1 a 5 clipes</strong>. Cada clipe pode conter até <strong className="text-primary">5 tomadas (CUEs)</strong> dentro da mesma geração — modelo, resolução e duração são escolhidos por clipe no próximo passo.
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-sm font-medium">Formato</Label>
+                        <div className="flex gap-1.5">
+                          {['9:16', '16:9', '1:1', '4:5'].map((ratio) => (
+                            <button key={ratio} onClick={() => setVideoAspectRatio(ratio)} disabled={planningSeedance}
+                              className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-all ${videoAspectRatio === ratio ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                              {ratio}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
