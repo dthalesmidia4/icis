@@ -117,7 +117,11 @@ const ClientHub = () => {
     main_character_url?: string;
     voice_sample_url?: string;
     use_brand_identity?: boolean;
+    logo_ref_url?: string;
+    logo_strategy?: 'none' | 'contextual' | 'end_card';
   }>>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<{ sceneIndex: number; slot: 'main_character' | 'scene_ref' | 'logo' } | null>(null);
   const [uploadingRef, setUploadingRef] = useState<string | null>(null); // key = `${sceneIdx}:${kind}`
   const [generatingStoryboard, setGeneratingStoryboard] = useState(false);
   const [uploadingFrame, setUploadingFrame] = useState<number | null>(null);
