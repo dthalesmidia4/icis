@@ -23,6 +23,8 @@ export interface BuildPromptInput {
   mascotSpeech?: string | null;
   brandColors?: string[];
   brandTypography?: string | null;
+  logoStrategy?: "none" | "contextual" | "end_card";
+  hasLogo?: boolean;
   refs: SeedanceRef[]; // in the order that maps to [Image 1], [Image 2]…
 }
 
@@ -84,6 +86,18 @@ export function buildSeedancePrompt(input: BuildPromptInput): string {
 
   if (input.brandTypography && input.brandTypography.trim()) {
     parts.push(`Any on-screen typography should feel like: ${input.brandTypography}.`);
+  }
+
+  if (input.hasLogo && input.logoStrategy && input.logoStrategy !== "none") {
+    if (input.logoStrategy === "end_card") {
+      parts.push(
+        `Reserve the final ~0.8s of the clip for a clean end card that centers the brand logo on a solid background using the brand colors. The logo must appear only in this closing frame, never earlier.`,
+      );
+    } else {
+      parts.push(
+        `Place the brand logo naturally inside the scene as a subtle contextual element (e.g. on a product package, a sign, a screen, or an apparel print). Keep the logo legible but never dominant, and never overlay it as a floating watermark.`,
+      );
+    }
   }
 
   return parts.join("\n\n");

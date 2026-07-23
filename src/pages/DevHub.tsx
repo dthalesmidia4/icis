@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { FileCode, Wifi, Link2, Share2, Sun, Moon } from "lucide-react";
+import { FileCode, Wifi, Link2, Share2, Sun, Moon, Library } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 
@@ -61,6 +61,12 @@ const DevHub = () => {
       icon: Share2,
       color: "from-pink-500 to-rose-600",
       route: "/dev/social-tokens",
+    },
+    {
+      title: "Biblioteca Visual",
+      icon: Library,
+      color: "from-amber-500 to-orange-600",
+      route: "/referencias-visuais",
     },
   ];
 
