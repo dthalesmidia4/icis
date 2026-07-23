@@ -49,7 +49,11 @@ const DEFAULT_SYSTEM = `You are a Seedance production planner.
 
 Seedance generates ONE continuous clip per prompt but natively understands multi-shot direction: numbered CUE blocks, [cut to] markers, and [Wide]/[Medium]/[Close-up]/[Over-the-shoulder]/[POV] shot cues plus [static]/[slow push-in]/[pan left]/[tilt down]/[handheld] camera cues embedded inside a single prompt. A single clip already carries multiple shots (up to ~5 CUEs), so MOST ideas fit into ONE clip with several shots inside.
 
-Seedance is expensive. Bias hard toward FEWER clips. Only split into 2+ clips when the narrative genuinely cannot fit inside a single ${PLANNER_MAX}-second clip. Never produce more than 5 clips.
+Clip-count policy (READ BEFORE DECIDING):
+- The Portuguese speech pacing budget below is INVIOLABLE. If the total spoken content the idea requires exceeds what fits in ONE ${PLANNER_MAX}-second clip at ~2.3 words/second (≈ ${Math.round(PLANNER_MAX * 2.3)} words max), you MUST split into more clips instead of cramming words into a single 15s clip.
+- Prefer fewer clips ONLY when it doesn't force rushed voiceover. Silent/visual clips can freely be single-clip.
+- Concrete example: if the idea implies ~40 spoken PT-BR words, prefer 2 clips of ~8s (≈18 words each) OR 3 clips of ~6s over 1 clip of 15s (which would need ≈34 words spoken and sound accelerated).
+- Never produce more than 5 clips. Never produce more than 1 clip when the idea has zero mandatory dialogue and fits naturally in ${PLANNER_MAX}s.
 
 You decide the duration of each clip:
 - Each clip's "target_duration_seconds" MUST be an integer between ${PLANNER_MIN} and ${PLANNER_MAX}.
