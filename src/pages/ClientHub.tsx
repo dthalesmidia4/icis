@@ -1639,7 +1639,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       const returnedDur: number | undefined = (data as any)?.durationSeconds;
       setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? {
         ...s,
-        scene_description: prompt,
+        scene_description: formatSeedanceScript(prompt),
         seedance_duration: returnedDur ?? targetDuration,
       } : s));
       toast.success('Roteiro multi-shot gerado. Revise antes de gerar o vídeo.');
