@@ -39,6 +39,9 @@ verify_jwt = false
 [functions.generate-video-scene]
 verify_jwt = false
 
+[functions.generate-video-scene-seedance]
+verify_jwt = false
+
 [functions.auto-generate-post]
 verify_jwt = false
 
