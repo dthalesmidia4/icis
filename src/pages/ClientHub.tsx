@@ -132,7 +132,14 @@ const ClientHub = () => {
   // Motor de vídeo escolhido no passo 1. Default = Veo (mais barato / previsível).
   // O modelo/resolução/duração do Seedance são configurados por cena no passo 2.
   const [videoEngineChoice, setVideoEngineChoice] = useState<'veo' | 'seedance'>('veo');
-  const [seedanceDefaultModel] = useState<'lite' | 'pro' | 'v2'>('v2');
+  // Seedance briefing (Passo 1): duração + modelo definidos ANTES da geração do script,
+  // para que o planner produza CUEs proporcionais ao tempo exato.
+  const [seedanceTargetModel, setSeedanceTargetModel] = useState<'lite' | 'pro' | 'v2'>('v2');
+  const [seedanceTargetResolution, setSeedanceTargetResolution] = useState<'480p' | '720p' | '1080p'>('720p');
+  const [seedanceTargetDuration, setSeedanceTargetDuration] = useState<number>(8);
+  const [seedanceMascotSpeech, setSeedanceMascotSpeech] = useState<string>('');
+  const [seedanceLogoStrategy, setSeedanceLogoStrategy] = useState<'none' | 'contextual' | 'end_card'>('none');
+  const [seedanceGenerateAudio, setSeedanceGenerateAudio] = useState<boolean>(false);
   const [planningSeedance, setPlanningSeedance] = useState(false);
   const [seedancePlan, setSeedancePlan] = useState<null | {
     suggested_clip_count: number;
