@@ -1451,20 +1451,13 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       const preset = presets.find(p => p.id === selectedPresetId);
       const brandColors = [preset?.primary_color, preset?.secondary_color].filter(Boolean) as string[];
       const hasLogo = !!(preset as any)?.logo_url;
-      // Clamp target duration into the range accepted by the selected model.
-      const [minDur, maxDur] = seedanceTargetModel === 'v2' ? [4, 15] : [5, 10];
-      const targetDurationSeconds = Math.max(minDur, Math.min(maxDur, seedanceTargetDuration));
       const { data, error } = await supabase.functions.invoke('suggest-seedance-storyboard', {
         body: {
           tenantId,
           clientId: selectedClient.id,
           idea: videoIdea,
           ratio: videoAspectRatio,
-          model: seedanceTargetModel,
-          targetDurationSeconds,
-          mascotSpeech: seedanceMascotSpeech.trim() || null,
           hasLogo,
-          logoStrategy: seedanceLogoStrategy,
           clientNiche: (selectedClient as any)?.niche ?? (selectedClient as any)?.segment ?? null,
           brandColors,
         },
@@ -1490,23 +1483,28 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   };
 
   // Applies a Seedance plan (clip list) to the scene editor and advances to step 2.
-  const applySeedanceClipsToEditor = (clips: Array<{ description_en: string; target_duration_seconds: number; title_pt?: string }>) => {
+  // Technical settings (model/resolution/audio/logo) start with sensible defaults —
+  // the user tunes them per clip inside the scene editor.
+  const applySeedanceClipsToEditor = (
+    clips: Array<{ description_en: string; target_duration_seconds: number; title_pt?: string; mascot_speech_pt?: string }>,
+  ) => {
     if (!clips?.length) return;
     const preset = presets.find(p => p.id === selectedPresetId);
     const hasIdentity = !!(preset?.primary_color || preset?.secondary_color);
+    const clampDur = (d: number) => Math.max(4, Math.min(15, Math.round(d || 8)));
     const mapped = clips.map((c) => ({
       scene_description: c.description_en,
-      mascot_speech: seedanceMascotSpeech,
+      mascot_speech: (c.mascot_speech_pt ?? '').trim(),
       generating: false,
       engine: 'seedance' as const,
-      seedance_model: seedanceTargetModel,
-      // Trust the user-fixed target duration over whatever the AI echoed back.
-      seedance_duration: seedanceTargetDuration,
-      seedance_resolution: seedanceTargetResolution,
-      seedance_generate_audio: seedanceGenerateAudio,
+      // Default model is v2 (widest 4–15s range accommodates any AI-suggested duration).
+      seedance_model: 'v2' as const,
+      seedance_duration: clampDur(c.target_duration_seconds),
+      seedance_resolution: '1080p' as const,
+      seedance_generate_audio: false,
       seedance_options_open: false,
       use_brand_identity: hasIdentity,
-      logo_strategy: seedanceLogoStrategy,
+      logo_strategy: 'none' as const,
     }));
     setVideoScenes(mapped);
     setVideoStep(2);
