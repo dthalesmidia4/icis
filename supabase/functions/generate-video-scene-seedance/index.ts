@@ -27,6 +27,7 @@ type Payload = {
   lastFrameUrl?: string | null;
   mascotImageUrls?: string[];
   logoUrl?: string | null;
+  logoStrategy?: "none" | "contextual" | "end_card";
   brandColors?: string[];
   brandTypography?: string | null;
   productImageUrls?: string[];
@@ -110,6 +111,8 @@ Deno.serve(async (req) => {
       mascotSpeech: body.mascotSpeech ?? null,
       brandColors: body.brandColors ?? [],
       brandTypography: body.brandTypography ?? null,
+      logoStrategy: body.logoStrategy ?? "none",
+      hasLogo: !!body.logoUrl,
       refs: trimmedRefs,
     });
 
