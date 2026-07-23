@@ -6,7 +6,9 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useHubPermissions, type ClientHubButtonId } from "@/hooks/useHubPermissions";
 import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { useTenant } from "@/contexts/TenantContext";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAvulsoDraft } from "@/hooks/useAvulsoDraft";
+import CostBadge from "@/components/avulso/CostBadge";
 import { toast } from "sonner";
 import BackButton from "@/components/BackButton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -2796,6 +2798,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                         )}
 
 
+                        {scene.engine === 'seedance' && (
+                          <div className="mb-2">
+                            <CostBadge
+                              model={scene.seedance_model ?? 'pro'}
+                              resolution={scene.seedance_resolution ?? '1080p'}
+                              durationSeconds={scene.seedance_duration ?? 5}
+                            />
+                          </div>
+                        )}
                         <Button
                           className="w-full h-9 text-xs font-semibold bg-gradient-to-r from-primary to-primary/70"
                           disabled={!scene.scene_description.trim() || scene.generating}
