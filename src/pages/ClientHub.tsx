@@ -2631,21 +2631,26 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         <VisualIdentityModal open={visualIdentityModalOpen} onOpenChange={(open) => { setVisualIdentityModalOpen(open); if (!open) refetchPresets(); }} companyId={selectedClient?.id || ''} companyName={selectedClient?.fantasy_name || selectedClient?.name || ''} tenantId={tenantId || ''} />
 
         {/* Modal Vídeo - Storyboard */}
-        <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) resetVideoModalState(); }}>
-          <DialogContent className={`!flex !flex-col overflow-hidden ${videoStep === 2 ? 'sm:max-w-4xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[85vh]'}`}>
-            <DialogHeader>
-              <div className="flex items-center justify-between gap-2">
+        {videoModalOpen && (
+        <div className="fixed inset-0 z-40 bg-background overflow-y-auto">
+          <div className={`mx-auto w-full ${videoStep === 2 ? 'max-w-6xl' : 'max-w-3xl'} px-4 sm:px-6 py-6 flex flex-col min-h-full`}>
+            <div className="flex items-center justify-between gap-2 pb-4 border-b border-border mb-4">
+              <div className="flex items-center gap-2 min-w-0">
+                <button onClick={() => { if (videoStep === 2) { setVideoStep(1); } else { setVideoModalOpen(false); resetVideoModalState(); setContentModalOpen(true); } }} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title={videoStep === 2 ? 'Voltar ao briefing' : 'Voltar'}>
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
                 <div className="flex items-center gap-2 min-w-0">
-                  <button onClick={() => { setVideoModalOpen(false); resetVideoModalState(); setContentModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
-                  <DialogTitle className="text-lg flex items-center gap-2 truncate">
-                    <Clapperboard className="w-5 h-5 text-primary shrink-0" />
+                  <Clapperboard className="w-5 h-5 text-primary shrink-0" />
+                  <h2 className="text-lg font-semibold truncate">
                     {videoStep === 1 ? 'Criar Storyboard de Vídeo' : 'Editar Cenas do Storyboard'}
-                  </DialogTitle>
+                  </h2>
                 </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-xs text-muted-foreground hover:text-destructive shrink-0"
+                  className="text-xs text-muted-foreground hover:text-destructive"
                   onClick={async () => {
                     await clearVideoDraft();
                     resetVideoModalState();
@@ -2655,8 +2660,12 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 >
                   Descartar rascunho
                 </Button>
+                <button onClick={() => { setVideoModalOpen(false); resetVideoModalState(); }} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Fechar">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            </DialogHeader>
+            </div>
+
 
             {videoStep === 1 ? (
               <>
