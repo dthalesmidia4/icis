@@ -23,6 +23,8 @@ export interface BuildPromptInput {
   mascotSpeech?: string | null;
   brandColors?: string[];
   brandTypography?: string | null;
+  logoStrategy?: "none" | "contextual" | "end_card";
+  hasLogo?: boolean;
   refs: SeedanceRef[]; // in the order that maps to [Image 1], [Image 2]…
 }
 
