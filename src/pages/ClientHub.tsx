@@ -2814,8 +2814,6 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                   </Button>
                 )}
               </>
-
-              </>
             ) : (
               <>
                 <div className="flex gap-4 flex-1 overflow-hidden min-h-0">
