@@ -3075,7 +3075,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                               </div>
                             </div>
 
-                            {scene.seedance_model === 'v2' && (
+                            {seedanceCaps(scene.seedance_model).supportsAudio && (
                               <div className="rounded-md border border-primary/15 bg-muted/40 p-2 space-y-1">
                                 <label className="flex items-center gap-2 text-xs font-medium">
                                   <Checkbox
@@ -3256,7 +3256,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
 
                                 {/* Voz de referência (só v2) */}
-                                {scene.seedance_model === 'v2' && (
+                                {seedanceCaps(scene.seedance_model).supportsAudio && (
                                   <div className="space-y-1">
                                     <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Amostra de voz (2–5s)</Label>
                                     {scene.voice_sample_url ? (
