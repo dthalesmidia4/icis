@@ -219,10 +219,12 @@ const ClientHub = () => {
   const [demandaHistoricoExpandedId, setDemandaHistoricoExpandedId] = useState<string | null>(null);
 
   // ------- Autosave rascunho de vídeo (avulso_drafts) -------
+  // schema_version bumped whenever the stored shape changes; older drafts are ignored on hydrate.
+  const VIDEO_DRAFT_SCHEMA_VERSION = 2;
   const videoDraftSnapshot = videoModalOpen && selectedClient
-    ? { videoIdea, sceneCount, videoAspectRatio, videoStep, videoScenes, selectedPresetId, selectedMascotIds }
+    ? { schema_version: VIDEO_DRAFT_SCHEMA_VERSION, videoIdea, sceneCount, videoAspectRatio, videoStep, videoScenes, selectedPresetId, selectedMascotIds, videoEngineChoice, seedanceDefaultModel }
     : null;
-  const { hydrated: videoDraftHydrated } = useAvulsoDraft<typeof videoDraftSnapshot>({
+  const { hydrated: videoDraftHydrated, clearDraft: clearVideoDraft } = useAvulsoDraft<typeof videoDraftSnapshot>({
     tenantId,
     clientId: selectedClient?.id ?? null,
     contentType: 'video',
@@ -234,9 +236,15 @@ const ClientHub = () => {
   useEffect(() => {
     if (!videoModalOpen) { videoDraftAppliedRef.current = false; return; }
     if (videoDraftAppliedRef.current || !videoDraftHydrated) return;
+    const d: any = videoDraftHydrated;
+    // Descarta rascunhos antigos (schema anterior) automaticamente.
+    if (d?.schema_version !== VIDEO_DRAFT_SCHEMA_VERSION) {
+      videoDraftAppliedRef.current = true;
+      clearVideoDraft().catch(() => {});
+      return;
+    }
     // Only restore if the modal was opened fresh (nothing typed/generated yet).
     if (!videoIdea.trim() && videoScenes.length === 0) {
-      const d = videoDraftHydrated;
       if (d?.videoIdea) setVideoIdea(d.videoIdea);
       if (d?.sceneCount) setSceneCount(d.sceneCount);
       if (d?.videoAspectRatio) setVideoAspectRatio(d.videoAspectRatio);
@@ -247,6 +255,8 @@ const ClientHub = () => {
       }
       if (d?.selectedPresetId != null) setSelectedPresetId(d.selectedPresetId);
       if (Array.isArray(d?.selectedMascotIds)) setSelectedMascotIds(d.selectedMascotIds);
+      if (d?.videoEngineChoice) setVideoEngineChoice(d.videoEngineChoice);
+      if (d?.seedanceDefaultModel) setSeedanceDefaultModel(d.seedanceDefaultModel);
     }
     videoDraftAppliedRef.current = true;
   }, [videoModalOpen, videoDraftHydrated]);
