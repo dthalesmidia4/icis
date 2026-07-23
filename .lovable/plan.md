@@ -1,36 +1,29 @@
-## Diagnóstico
+## Contexto
 
-O preview antigo vem de um **Service Worker legado** ainda ativo no navegador. Quando o SW controla a página, ele serve o `index.html` e os bundles do cache — o novo `main.tsx` (que desregistra SW e limpa caches) nunca chega a rodar, então o kill-switch atual não se aplica sozinho.
+O código do Seedance já chama a **BytePlus Model Ark** diretamente (`https://ark.ap-southeast.bytepluses.com/api/v3`) — o intermediário `seedance2ai` nunca esteve no código, ele apenas revendia a mesma chave Ark. Ou seja, **a única coisa que precisa mudar é o valor do secret `SEEDANCE_ARK_API_KEY`**. Endpoints, modelos (`seedance-1.0-lite`, `seedance-1-0-pro-250528`, `dreamina-seedance-2-0-260128`), payload e polling continuam idênticos.
 
-Já existem stubs kill-switch em `public/sw.js` e `public/service-worker.js`, mas eles só são executados se o navegador for buscar aquele arquivo. Sem "gatilho", o navegador só reavalia o SW após ~24h.
+Sobre o problema "1 clipe de 15s falando demais": o storyboard já tem regra de orçamento de palavras (~2,3 palavras/s em PT-BR), mas o prompt do `suggest-seedance-storyboard` diz "**Bias HARD toward FEWER clips**", o que sobrepõe a regra e faz a IA empilhar fala num único clipe de 15s. Vou reequilibrar.
 
-## Plano
+Sobre preço: BytePlus vende por **plano** (Plano de Luz $30.10 / 7M tokens; Produção $43 / 10M tokens; Premium $55.90 / 13M tokens) — não tem preço fixo por segundo. Vou manter a tabela `seedance_pricing` como está por enquanto (é o custo interno estimado que exibimos ao usuário); ela não afeta a geração. Se quiser recalibrar depois de rodar alguns vídeos, faço numa iteração separada.
 
-1. **Forçar a atualização do SW pelo servidor**
-   - No `index.html`, adicionar um `<script>` inline no `<head>` (roda antes de qualquer JS bundle) que:
-     - Chama `navigator.serviceWorker.getRegistrations()` e, para cada registro, executa `registration.update()` — isso faz o browser refazer download do arquivo do SW, ignorando cache HTTP, e assim o kill-switch entra em `install`/`activate` mesmo com bundle antigo carregado.
-     - Após `update()`, chama `unregister()` em cada registro.
-     - Limpa `caches.keys()` → `caches.delete()`.
-     - Se `navigator.serviceWorker.controller` existia, faz um único `location.reload()` guardado em `sessionStorage` para servir o HTML fresco.
-   - Como esse script está **inline no HTML** (não em um bundle), ele executa sempre que o `index.html` for entregue — inclusive quando o SW antigo servir o HTML cacheado, pois o HTML antigo já foi publicado com esse script depois do fix anterior (usuário viu versões novas antes; agora regrediu, indicando novo SW parasita ou cache HTML). Reforçamos para garantir.
+## Mudanças
 
-2. **Headers anti-cache no HTML e nos SW files**
-   - Adicionar `<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">` e `Pragma: no-cache` no `<head>` do `index.html` para reduzir cache do próprio HTML pelo browser/CDN.
-   - Manter `public/sw.js` e `public/service-worker.js` como kill-switch (já estão).
+### 1. Trocar a chave do secret
+- Rotacionar `SEEDANCE_ARK_API_KEY` para a nova chave gerada no console BytePlus Model Ark (via `update_secret`, abre formulário seguro).
+- Nada mais no código precisa mudar para isso funcionar.
 
-3. **Remover o link do manifest se não usado como PWA**
-   - Verificar `manifest.webmanifest`; manter porque afeta instalação PWA (não é a causa aqui). Sem mudança.
+### 2. Rebalancear `suggest-seedance-storyboard/index.ts`
+- Trocar "Bias hard toward FEWER clips" por regra explícita: **o orçamento de palavras por clipe é inviolável — se a narrativa exige mais fala do que `duração × 2,3` palavras cabem, dividir em mais clipes ao invés de espremer tudo num só de 15s**.
+- Manter o teto de 5 clipes e a preferência por narrativa enxuta quando NÃO há fala.
+- Adicionar exemplo no prompt: "se a ideia tem 40 palavras faladas naturais, prefira 2 clipes de 8s (≈18 palavras cada) a 1 clipe de 15s (≈34 palavras, acelerado)."
 
-4. **Instrução ao usuário como fallback imediato**
-   - Se após deploy o preview ainda vier antigo em 1 sessão: DevTools → Application → Service Workers → "Unregister" + Storage → "Clear site data", ou abrir o preview em aba anônima uma vez. Isso destrava manualmente enquanto o SW antigo persistir.
+### 3. Corrigir bug secundário em `generate-video-scene-seedance/index.ts`
+- Existe uma chave duplicada `sceneDescription: body.prompt,` nas linhas 110–111 do `buildSeedancePrompt(...)`. Não quebra em runtime (a segunda sobrescreve a primeira com o mesmo valor), mas é ruído. Removo a duplicata.
 
-## Arquivos alterados
+### 4. Verificação após deploy
+- Depois que a nova chave for salva, testo a geração de 1 vídeo (Seedance 2.0, 8s, 720p) para confirmar que a Ark aceita a chave nova e que o vídeo baixa/uploada para o storage sem erro. Se falhar com 401/403, aviso e paro — a chave estaria errada.
 
-- `index.html` — script inline de limpeza no `<head>` + metas anti-cache.
-- (Sem novas dependências, sem mudanças em `main.tsx` — o cleanup do `main.tsx` fica como segunda camada.)
+## Fora de escopo
 
-## Validação
-
-- Após deploy, abrir o preview em aba nova. Console deve mostrar 0 service workers ativos em `chrome://serviceworker-internals` para o domínio.
-- Recarregar 2x — a versão deve corresponder ao último deploy.
-- Se ainda persistir em uma sessão específica, aplicar o fallback manual acima uma vez.
+- Ajustar `seedance_pricing` para o novo modelo de planos por token — os planos BytePlus não mapeiam 1:1 para "créditos por segundo". Posso revisar depois que você usar um pouco e comparar consumo real de tokens x segundos gerados.
+- Alterar modelos, resoluções ou limites de duração — a API direta Ark aceita exatamente os mesmos valores.
