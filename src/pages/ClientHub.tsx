@@ -134,12 +134,10 @@ const ClientHub = () => {
   const [videoEngineChoice, setVideoEngineChoice] = useState<'veo' | 'seedance'>('veo');
   // Seedance briefing (Passo 1): duração + modelo definidos ANTES da geração do script,
   // para que o planner produza CUEs proporcionais ao tempo exato.
-  const [seedanceTargetModel, setSeedanceTargetModel] = useState<'lite' | 'pro' | 'v2'>('v2');
-  const [seedanceTargetResolution, setSeedanceTargetResolution] = useState<'480p' | '720p' | '1080p'>('720p');
-  const [seedanceTargetDuration, setSeedanceTargetDuration] = useState<number>(8);
-  const [seedanceMascotSpeech, setSeedanceMascotSpeech] = useState<string>('');
-  const [seedanceLogoStrategy, setSeedanceLogoStrategy] = useState<'none' | 'contextual' | 'end_card'>('none');
-  const [seedanceGenerateAudio, setSeedanceGenerateAudio] = useState<boolean>(false);
+  // Seedance-specific technical settings live INSIDE each clip card at Step 2
+  // (model/resolution/duration/audio/logo). Step 1 is intentionally minimal:
+  // just the idea, format, preset and mascot. The planner receives no forced
+  // duration — the AI suggests one per clip based on the idea's complexity.
   const [planningSeedance, setPlanningSeedance] = useState(false);
   const [seedancePlan, setSeedancePlan] = useState<null | {
     suggested_clip_count: number;
