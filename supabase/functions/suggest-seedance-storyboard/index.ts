@@ -20,12 +20,8 @@ type Payload = {
   clientId: string;
   idea: string;
   ratio?: string;
-  model?: "lite" | "pro" | "v2";
-  targetDurationSeconds?: number;
   clientNiche?: string | null;
-  mascotSpeech?: string | null;
   hasLogo?: boolean;
-  logoStrategy?: "none" | "contextual" | "end_card";
   brandColors?: string[];
 };
 
@@ -33,6 +29,7 @@ type Clip = {
   title_pt: string;
   description_en: string;
   target_duration_seconds: number;
+  mascot_speech_pt?: string;
 };
 
 type PlannerResult = {
@@ -41,35 +38,44 @@ type PlannerResult = {
   clips: Clip[];
 };
 
+// The planner runs before the user picks a Seedance model, so we plan against the
+// WIDEST supported range (Seedance 2.0 = 4–15s). The scene editor lets the user
+// pick a narrower model afterward and re-clamp per clip if needed.
+const PLANNER_MIN = 4;
+const PLANNER_MAX = 15;
+
 const DEFAULT_SYSTEM = `You are a Seedance production planner.
 
 Seedance generates ONE continuous clip per prompt but natively understands multi-shot direction: numbered CUE blocks, [cut to] markers, and [Medium shot]/[Wide]/[Close-up]/[dolly in]/[pan]/etc. cues embedded inside a single prompt. A single clip already carries multiple shots (up to ~5 CUEs), so MOST ideas fit into ONE clip with several shots inside.
 
-Seedance is expensive. Bias hard toward FEWER clips. Only split into 2+ clips when the narrative genuinely cannot fit inside the model's max duration. Never produce more than 5 clips.
+Seedance is expensive. Bias hard toward FEWER clips. Only split into 2+ clips when the narrative genuinely cannot fit inside a single ${PLANNER_MAX}-second clip. Never produce more than 5 clips.
 
-CRITICAL — Duration is FIXED by the user, not chosen by you:
-- The user has already committed to a target duration PER CLIP (see the user message).
-- Every clip you return MUST have "target_duration_seconds" EQUAL to that user-fixed value.
-- Distribute CUE blocks so their internal ranges sum to EXACTLY that duration. Do not exceed it, do not undershoot it.
-- Rough pacing guide: 5s → 2 CUEs, 6–8s → 3 CUEs, 9–12s → 3–4 CUEs, 13–15s → 4–5 CUEs.
+You decide the duration of each clip:
+- Each clip's "target_duration_seconds" MUST be an integer between ${PLANNER_MIN} and ${PLANNER_MAX}.
+- Pick the duration based on how much action the clip actually needs — do NOT default to the same number for every clip.
+- Rough pacing guide: 4–5s → 2 CUEs, 6–8s → 2–3 CUEs, 9–12s → 3–4 CUEs, 13–15s → 4–5 CUEs.
+- Distribute the clip's CUE blocks so their internal time ranges sum to EXACTLY the target_duration_seconds you chose.
+
+You also decide whether the clip needs spoken dialogue:
+- Set "mascot_speech_pt" to a Brazilian Portuguese sentence ONLY when the idea explicitly implies a presenter/mascot/character SPEAKING, NARRATING, or delivering a message on-camera.
+- If the idea is purely visual (a product shot, an ambient scene, a montage, a transformation, an abstract concept with no character speaking), leave "mascot_speech_pt" as an empty string "".
+- When present, the speech MUST be short enough to fit inside ONE CUE of the clip at natural pace (~2.5 Portuguese words per second) and MUST also appear verbatim inside that CUE's description_en as dialogue.
 
 Rules:
 - Return ONLY a valid JSON object with this exact shape (no code fences, no prose, no trailing commas):
 {
   "suggested_clip_count": integer 1 to 5,
-  "reasoning": "one sentence in Brazilian Portuguese explaining why this many clips.",
+  "reasoning": "one sentence in Brazilian Portuguese explaining why this many clips and this pacing.",
   "clips": [
     {
       "title_pt": "short Portuguese label, 3–6 words",
       "description_en": "the full multi-shot prompt in English with CUE 0–Xs blocks + [shot type] + [cut to] markers, ready to send to Seedance verbatim",
-      "target_duration_seconds": integer EQUAL to the user-fixed duration
+      "target_duration_seconds": integer between ${PLANNER_MIN} and ${PLANNER_MAX},
+      "mascot_speech_pt": "PT-BR line spoken on-camera, or empty string if the clip is purely visual"
     }
   ]
 }
 - "clips" length MUST equal "suggested_clip_count".
-- If a mascot/presenter speech is provided by the user, it MUST appear verbatim inside at least one CUE as dialogue in Brazilian Portuguese, phrased so it fits the CUE's own time budget.
-- If the user asked for an end_card logo strategy, the LAST CUE of the FINAL clip must reserve the closing ~0.8s for a clean brand end card.
-- If logo strategy is "contextual", integrate the brand naturally into a shot (product package, sign, screen, apparel) — never as a floating watermark.
 - Brand colors apply ONLY to graphic overlays, logos, and typography — never tint real objects, skin, or environments.
 - No forbidden wording anywhere: never write "real person", "real human", "real face", "actual person", "pessoa real". Use "the character" / "the presenter".`;
 
