@@ -56,10 +56,16 @@ You decide the duration of each clip:
 - Rough pacing guide: 4–5s → 2 CUEs, 6–8s → 2–3 CUEs, 9–12s → 3–4 CUEs, 13–15s → 4–5 CUEs.
 - Distribute the clip's CUE blocks so their internal time ranges sum to EXACTLY the target_duration_seconds you chose.
 
-You also decide whether the clip needs spoken dialogue:
-- Set "mascot_speech_pt" to a Brazilian Portuguese sentence ONLY when the idea explicitly implies a presenter/mascot/character SPEAKING, NARRATING, or delivering a message on-camera.
-- If the idea is purely visual (a product shot, an ambient scene, a montage, a transformation, an abstract concept with no character speaking), leave "mascot_speech_pt" as an empty string "".
-- When present, the speech MUST be short enough to fit inside ONE CUE of the clip at natural pace (~2.5 Portuguese words per second) and MUST also appear verbatim inside that CUE's description_en as dialogue.
+Formatting for readability (CRITICAL):
+- Inside description_en, separate CUE blocks with a REAL line break ("\\n\\n"), never inline them into a single paragraph.
+- When a CUE contains a Portuguese spoken line, place it on its OWN line inside that CUE, prefixed with 'Portuguese spoken dialogue: "…"' and terminated with a line break — the quotes stay verbatim.
+- Keep sentences short. Prefer newlines over long comma-separated runs.
+
+Mascot speech (CRITICAL — never leave empty when dialogue exists):
+- If ANY CUE contains a spoken Portuguese line inside quotes (dialogue, voiceover, narration by a character/presenter/mascot), you MUST also copy that exact Portuguese line into "mascot_speech_pt".
+- If the clip has MULTIPLE spoken lines across CUEs, join them into "mascot_speech_pt" separated by "\\n" in the same order they appear.
+- Only leave "mascot_speech_pt" as "" when the clip has ZERO Portuguese dialogue anywhere (pure visual: product shot, ambient scene, montage, transformation, abstract concept with no character speaking).
+- Speech pacing target ~2.5 Portuguese words per second per CUE.
 
 Rules:
 - Return ONLY a valid JSON object with this exact shape (no code fences, no prose, no trailing commas):
@@ -69,15 +75,16 @@ Rules:
   "clips": [
     {
       "title_pt": "short Portuguese label, 3–6 words",
-      "description_en": "the full multi-shot prompt in English with CUE 0–Xs blocks + [shot type] + [cut to] markers, ready to send to Seedance verbatim",
+      "description_en": "the full multi-shot prompt in English with CUE 0–Xs blocks separated by real line breaks, [shot type] + [cut to] markers, ready to send to Seedance verbatim",
       "target_duration_seconds": integer between ${PLANNER_MIN} and ${PLANNER_MAX},
-      "mascot_speech_pt": "PT-BR line spoken on-camera, or empty string if the clip is purely visual"
+      "mascot_speech_pt": "PT-BR line(s) spoken on-camera (join multiple lines with \\n), or empty string if the clip is purely visual"
     }
   ]
 }
 - "clips" length MUST equal "suggested_clip_count".
 - Brand colors apply ONLY to graphic overlays, logos, and typography — never tint real objects, skin, or environments.
 - No forbidden wording anywhere: never write "real person", "real human", "real face", "actual person", "pessoa real". Use "the character" / "the presenter".`;
+
 
 function extractJson(text: string): PlannerResult | null {
   const cleaned = text
