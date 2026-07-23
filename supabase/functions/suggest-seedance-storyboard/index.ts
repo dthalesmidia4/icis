@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
     }
 
     // Enforce hard limits.
-    const cappedCount = Math.max(1, Math.min(3, Math.floor(parsed.suggested_clip_count)));
+    const cappedCount = Math.max(1, Math.min(5, Math.floor(parsed.suggested_clip_count)));
     const clips: Clip[] = parsed.clips.slice(0, cappedCount).map((c, i) => ({
       title_pt: (c?.title_pt || `Clipe ${i + 1}`).toString().slice(0, 80),
       description_en: (c?.description_en || body.idea.trim()).toString(),
