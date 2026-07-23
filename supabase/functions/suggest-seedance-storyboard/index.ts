@@ -100,9 +100,10 @@ function extractJson(text: string): PlannerResult | null {
   return null;
 }
 
-function clampDuration(model: "lite" | "pro" | "v2", target: number): number {
-  const [min, max] = model === "v2" ? [4, 15] : [5, 10];
-  return Math.max(min, Math.min(max, Math.round(target)));
+function clampDuration(target: number): number {
+  const n = Math.round(Number(target));
+  if (!Number.isFinite(n)) return 8;
+  return Math.max(PLANNER_MIN, Math.min(PLANNER_MAX, n));
 }
 
 Deno.serve(async (req) => {
@@ -132,32 +133,13 @@ Deno.serve(async (req) => {
     const customSystem = await getSystemPrompt(supabase, body.tenantId, "seedance_storyboard_planner");
     const systemPrompt = customSystem?.trim() ? customSystem : DEFAULT_SYSTEM;
 
-    const model = body.model ?? "pro";
-    const [minDur, maxDur] = model === "v2" ? [4, 15] : [5, 10];
-    // User-fixed duration is the contract with the planner. Clamp to model range as a safety net.
-    const fixedDuration = clampDuration(
-      model,
-      Number(body.targetDurationSeconds) || (model === "v2" ? 8 : 6),
-    );
-
     const ctx: string[] = [];
     ctx.push(`Idea (Portuguese OK, translate to English in each clip's description_en):\n${body.idea.trim()}`);
     ctx.push(`Aspect ratio: ${body.ratio ?? "9:16"}.`);
-    ctx.push(`Seedance model: ${model}. Model range: ${minDur}–${maxDur} seconds.`);
-    ctx.push(`USER-FIXED DURATION PER CLIP: ${fixedDuration} seconds. Every clip you return MUST set target_duration_seconds to exactly ${fixedDuration}. Distribute CUE blocks so their internal time ranges sum to exactly ${fixedDuration}s.`);
+    ctx.push(`Allowed clip duration range: ${PLANNER_MIN}–${PLANNER_MAX} seconds. YOU pick the right duration per clip based on the idea.`);
     if (body.clientNiche) ctx.push(`Client niche: ${body.clientNiche}.`);
     if (body.brandColors?.length) ctx.push(`Brand colors (graphic overlays only): ${body.brandColors.join(", ")}.`);
-    if (body.mascotSpeech?.trim()) {
-      ctx.push(`Presenter/mascot speech to embed in Brazilian Portuguese inside at least one CUE (fit it into that CUE's own seconds): "${body.mascotSpeech.trim()}"`);
-    }
-    if (body.hasLogo && body.logoStrategy && body.logoStrategy !== "none") {
-      ctx.push(
-        body.logoStrategy === "end_card"
-          ? "Logo strategy: reserve the final ~0.8s of the LAST clip for a clean end card centering the brand logo."
-          : "Logo strategy: place the brand logo naturally inside the scene as a subtle contextual element.",
-      );
-    }
-    ctx.push(`Return the JSON object. Remember: prefer 1 clip; only split when truly necessary; every clip's duration is EXACTLY ${fixedDuration}s.`);
+    ctx.push(`Return the JSON object. Remember: prefer 1 clip; only split when truly necessary; write mascot_speech_pt ONLY when the idea calls for a character speaking on-camera.`);
 
     const gatewayResp = await fetch(GATEWAY_URL, {
       method: "POST",
@@ -212,19 +194,21 @@ Deno.serve(async (req) => {
           clips: [{
             title_pt: "Clipe único",
             description_en: body.idea.trim(),
-            target_duration_seconds: fixedDuration,
+            target_duration_seconds: 8,
+            mascot_speech_pt: "",
           }],
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Enforce hard limits AND the user-fixed duration (server has final word on duration).
+    // Server clamps duration to the planner range; leaves AI's per-clip choice intact otherwise.
     const cappedCount = Math.max(1, Math.min(5, Math.floor(parsed.suggested_clip_count)));
     const clips: Clip[] = parsed.clips.slice(0, cappedCount).map((c, i) => ({
       title_pt: (c?.title_pt || `Clipe ${i + 1}`).toString().slice(0, 80),
       description_en: (c?.description_en || body.idea.trim()).toString(),
-      target_duration_seconds: fixedDuration,
+      target_duration_seconds: clampDuration(Number(c?.target_duration_seconds)),
+      mascot_speech_pt: typeof c?.mascot_speech_pt === "string" ? c.mascot_speech_pt.trim() : "",
     }));
 
     return new Response(
