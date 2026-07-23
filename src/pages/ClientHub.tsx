@@ -121,7 +121,7 @@ const ClientHub = () => {
     use_brand_identity?: boolean;
     logo_ref_url?: string;
     logo_strategy?: 'none' | 'contextual' | 'end_card';
-    pronunciation_hints?: string;
+    optimizing_script?: boolean;
     optimizing_script?: boolean;
   }>>([]);
   // Logo do cliente (tenant_companies.logo_url) — usada como default de logo_ref_url
