@@ -116,9 +116,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    const modelKey = body.model ?? "pro";
-    const modelId = MODEL_ID[modelKey] ?? MODEL_ID.pro;
-    const isV2 = modelKey === "v2";
+    const modelKey: SeedanceModelKey = (body.model as SeedanceModelKey) ?? "v15_pro";
+    const modelId = MODEL_ID[modelKey] ?? MODEL_ID.v15_pro;
+    const caps = modelCapabilities(modelKey);
 
     // Build ordered image references — order MUST match [Image N] labels in prompt.
     const refs: SeedanceRef[] = [];
@@ -129,9 +129,7 @@ Deno.serve(async (req) => {
     for (const u of (body.productImageUrls ?? []).slice(0, 3)) refs.push({ kind: "product", url: u });
     if (body.realCharacterImageUrl) refs.push({ kind: "character", url: body.realCharacterImageUrl });
 
-    // Seedance 1.x pro/lite: hard-limit 2 images (first + last). v2 accepts up to 9.
-    const maxRefs = isV2 ? 9 : 4;
-    const trimmedRefs = refs.slice(0, maxRefs);
+    const trimmedRefs = refs.slice(0, caps.maxRefs);
 
     const prompt = buildSeedancePrompt({
       sceneDescription: body.prompt,
@@ -146,30 +144,34 @@ Deno.serve(async (req) => {
     for (const r of trimmedRefs) {
       content.push({ type: "image_url", image_url: { url: r.url } });
     }
-    if (isV2 && body.voiceSampleUrl) {
+    if (caps.supportsAudio && body.voiceSampleUrl) {
       content.push({ type: "audio_url", audio_url: { url: body.voiceSampleUrl } });
     }
 
-    // Real API limits: Seedance 1.x lite/pro = 5-10s, Dreamina 2.0 (v2) = 4-15s.
-    const [minDur, maxDur] = isV2 ? [4, 15] : [5, 10];
-    const clampedDuration = Math.max(minDur, Math.min(maxDur, body.duration ?? (isV2 ? 8 : 5)));
+    const clampedDuration = Math.max(caps.minDur, Math.min(caps.maxDur, body.duration ?? caps.defaultDur));
+
+    // v2_fast / v2_mini do not support 1080p — force 720p to avoid provider 400s.
+    let resolution: "480p" | "720p" | "1080p" = body.resolution ?? "1080p";
+    if (!caps.supports1080p && resolution === "1080p") resolution = "720p";
 
     const requestBody: Record<string, any> = {
       model: modelId,
       content,
       ratio: normalizeRatio(body.ratio),
       duration: clampedDuration,
-      resolution: body.resolution ?? "1080p",
+      resolution,
       watermark: false,
     };
-    if (isV2) requestBody.generate_audio = !!body.generateAudio;
+    if (caps.supportsAudio) requestBody.generate_audio = !!body.generateAudio;
 
     console.log("Seedance create task", {
+      modelKey,
       modelId,
       refs: trimmedRefs.length,
       ratio: requestBody.ratio,
       duration: requestBody.duration,
       resolution: requestBody.resolution,
+      audio: requestBody.generate_audio ?? false,
     });
 
     const createResp = await fetch(`${ARK_BASE}/contents/generations/tasks`, {
