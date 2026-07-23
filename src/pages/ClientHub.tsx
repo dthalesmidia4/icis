@@ -9,6 +9,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useEffect, useRef, useState } from "react";
 import { useAvulsoDraft } from "@/hooks/useAvulsoDraft";
 import CostBadge from "@/components/avulso/CostBadge";
+import ReferencePickerModal from "@/components/avulso/ReferencePickerModal";
 import { toast } from "sonner";
 import BackButton from "@/components/BackButton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
