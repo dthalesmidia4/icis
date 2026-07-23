@@ -1370,29 +1370,122 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     finally { setUploadingFrame(null); }
   };
 
+  const handleUploadSceneAsset = async (
+    sceneIndex: number,
+    kind: 'last_frame' | 'main_character' | 'scene_ref' | 'voice_sample',
+    file: File,
+  ) => {
+    const key = `${sceneIndex}:${kind}`;
+    setUploadingRef(key);
+    try {
+      const ext = file.name.split('.').pop() || 'bin';
+      const folder =
+        kind === 'voice_sample' ? 'voice-refs'
+        : kind === 'scene_ref' ? 'scene-refs'
+        : 'video-frames';
+      const filePath = `${folder}/${selectedClient.id}/${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('card-attachments').upload(filePath, file, { contentType: file.type, upsert: true });
+      if (upErr) { toast.error('Erro ao fazer upload.'); return; }
+      const { data: pub } = supabase.storage.from('card-attachments').getPublicUrl(filePath);
+      const url = pub.publicUrl;
+      setVideoScenes(prev => prev.map((s, i) => {
+        if (i !== sceneIndex) return s;
+        if (kind === 'last_frame') return { ...s, last_frame_url: url };
+        if (kind === 'main_character') return { ...s, main_character_url: url };
+        if (kind === 'voice_sample') return { ...s, voice_sample_url: url };
+        // scene_ref: append (max 3)
+        const list = [...(s.scene_ref_urls ?? []), url].slice(0, 3);
+        return { ...s, scene_ref_urls: list };
+      }));
+    } catch (err) {
+      console.error('Upload scene asset error:', err);
+      toast.error('Erro ao fazer upload.');
+    } finally {
+      setUploadingRef(null);
+    }
+  };
+
   const handleGenerateScene = async (sceneIndex: number) => {
     const scene = videoScenes[sceneIndex];
     if (!scene.scene_description.trim()) { toast.error('Descrição da cena é obrigatória.'); return; }
-    
+
     setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, generating: true } : s));
     try {
-      const { data, error } = await supabase.functions.invoke('generate-video-scene', {
-        body: {
-          sceneDescription: scene.scene_description,
-          mascotSpeech: scene.mascot_speech || null,
-          frameUrl: scene.frame0_url || null,
-          clientId: selectedClient.id,
-          tenantId,
-          sceneIndex,
-          aspectRatio: videoAspectRatio,
-        },
-      });
+      const engine = scene.engine ?? 'veo';
+      let data: any = null;
+      let error: any = null;
+
+      if (engine === 'seedance') {
+        const selectedMascotUrls = mascotImages
+          .filter(m => selectedMascotIds.includes(m.id))
+          .map(m => m.image_url)
+          .slice(0, 4);
+
+        // Optional brand identity injection
+        let logoUrl: string | null = null;
+        let brandColors: string[] = [];
+        if (scene.use_brand_identity && selectedPresetId) {
+          const preset = presets.find(p => p.id === selectedPresetId);
+          if (preset) {
+            if (preset.primary_color) brandColors.push(preset.primary_color);
+            if (preset.secondary_color) brandColors.push(preset.secondary_color);
+          }
+          // logo lookup — visual_identity_presets may store a logo_url; fetch lazily
+          try {
+            const { data: presetRow } = await supabase
+              .from('visual_identity_presets')
+              .select('logo_url')
+              .eq('id', selectedPresetId)
+              .maybeSingle();
+            if (presetRow?.logo_url) logoUrl = presetRow.logo_url as string;
+          } catch {}
+        }
+
+        const res = await supabase.functions.invoke('generate-video-scene-seedance', {
+          body: {
+            model: scene.seedance_model ?? 'pro',
+            prompt: scene.scene_description,
+            mascotSpeech: scene.mascot_speech || null,
+            ratio: videoAspectRatio,
+            duration: scene.seedance_duration ?? 5,
+            resolution: scene.seedance_resolution ?? '1080p',
+            generateAudio: !!scene.seedance_generate_audio,
+            firstFrameUrl: scene.frame0_url || null,
+            lastFrameUrl: scene.last_frame_url || null,
+            mascotImageUrls: selectedMascotUrls,
+            logoUrl,
+            brandColors,
+            productImageUrls: scene.scene_ref_urls ?? [],
+            realCharacterImageUrl: scene.main_character_url || null,
+            voiceSampleUrl: scene.voice_sample_url || null,
+            clientId: selectedClient.id,
+            tenantId,
+            sceneIndex,
+          },
+        });
+        data = res.data;
+        error = res.error;
+      } else {
+        const res = await supabase.functions.invoke('generate-video-scene', {
+          body: {
+            sceneDescription: scene.scene_description,
+            mascotSpeech: scene.mascot_speech || null,
+            frameUrl: scene.frame0_url || null,
+            clientId: selectedClient.id,
+            tenantId,
+            sceneIndex,
+            aspectRatio: videoAspectRatio,
+          },
+        });
+        data = res.data;
+        error = res.error;
+      }
+
       if (error) { console.error('Edge function error:', error); toast.error(`Erro ao gerar Cena ${sceneIndex + 1}.`); return; }
       if (data?.error) { toast.error(data.error); return; }
       if (data?.videoUrl) {
         setVideoScenes(prev => {
           const updated = prev.map((s, i) => i === sceneIndex ? { ...s, video_url: data.videoUrl } : s);
-          // Auto-navigate to the newly generated scene in the preview carousel
           const generatedScenes = updated.filter(s => s.video_url || s.generating);
           const newIndex = generatedScenes.findIndex((_, gi) => {
             let count = -1;
