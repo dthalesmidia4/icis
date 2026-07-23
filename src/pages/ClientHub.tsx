@@ -2844,8 +2844,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                           )}
                           {scene.generating && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary ml-auto" />}
                         </div>
-                          {scene.generating && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary ml-auto" />}
-                        </div>
+
 
                         {/* Mascot images as Frame 0 options */}
                         {mascotImages.length > 0 && (
