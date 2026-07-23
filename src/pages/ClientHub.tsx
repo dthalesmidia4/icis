@@ -97,7 +97,26 @@ const ClientHub = () => {
   const [sceneCount, setSceneCount] = useState(3);
   const [videoAspectRatio, setVideoAspectRatio] = useState('9:16');
   const [videoStep, setVideoStep] = useState<1 | 2>(1);
-  const [videoScenes, setVideoScenes] = useState<Array<{ scene_description: string; mascot_speech: string; frame0_url?: string; video_url?: string; generating?: boolean }>>([]);
+  const [videoScenes, setVideoScenes] = useState<Array<{
+    scene_description: string;
+    mascot_speech: string;
+    frame0_url?: string;
+    video_url?: string;
+    generating?: boolean;
+    // Seedance engine options (per scene)
+    engine?: 'veo' | 'seedance';
+    seedance_model?: 'lite' | 'pro' | 'v2';
+    seedance_duration?: number;
+    seedance_resolution?: '480p' | '720p' | '1080p';
+    seedance_generate_audio?: boolean;
+    seedance_options_open?: boolean;
+    last_frame_url?: string;
+    scene_ref_urls?: string[];
+    main_character_url?: string;
+    voice_sample_url?: string;
+    use_brand_identity?: boolean;
+  }>>([]);
+  const [uploadingRef, setUploadingRef] = useState<string | null>(null); // key = `${sceneIdx}:${kind}`
   const [generatingStoryboard, setGeneratingStoryboard] = useState(false);
   const [uploadingFrame, setUploadingFrame] = useState<number | null>(null);
   const [videoPreviewIndex, setVideoPreviewIndex] = useState(0);
