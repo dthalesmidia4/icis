@@ -2625,15 +2625,30 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         <VisualIdentityModal open={visualIdentityModalOpen} onOpenChange={(open) => { setVisualIdentityModalOpen(open); if (!open) refetchPresets(); }} companyId={selectedClient?.id || ''} companyName={selectedClient?.fantasy_name || selectedClient?.name || ''} tenantId={tenantId || ''} />
 
         {/* Modal Vídeo - Storyboard */}
-        <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) { setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); setVideoAspectRatio('9:16'); setSelectedMascotIds([]); setVideoStep(1); setVideoScenes([]); setVideoPreviewIndex(0); } }}>
+        <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) resetVideoModalState(); }}>
           <DialogContent className={`!flex !flex-col overflow-hidden ${videoStep === 2 ? 'sm:max-w-4xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[85vh]'}`}>
             <DialogHeader>
-              <div className="flex items-center gap-2">
-                <button onClick={() => { setVideoModalOpen(false); setVideoIdea(''); setSceneCount(3); setSelectedPresetId(null); setVideoAspectRatio('9:16'); setSelectedMascotIds([]); setVideoStep(1); setVideoScenes([]); setVideoPreviewIndex(0); setContentModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
-                <DialogTitle className="text-lg flex items-center gap-2">
-                  <Clapperboard className="w-5 h-5 text-primary" />
-                  {videoStep === 1 ? 'Criar Storyboard de Vídeo' : 'Editar Cenas do Storyboard'}
-                </DialogTitle>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <button onClick={() => { setVideoModalOpen(false); resetVideoModalState(); setContentModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                  <DialogTitle className="text-lg flex items-center gap-2 truncate">
+                    <Clapperboard className="w-5 h-5 text-primary shrink-0" />
+                    {videoStep === 1 ? 'Criar Storyboard de Vídeo' : 'Editar Cenas do Storyboard'}
+                  </DialogTitle>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={async () => {
+                    await clearVideoDraft();
+                    resetVideoModalState();
+                    toast.success('Rascunho descartado.');
+                  }}
+                  title="Descartar rascunho salvo e recomeçar"
+                >
+                  Descartar rascunho
+                </Button>
               </div>
             </DialogHeader>
 
@@ -2642,26 +2657,65 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 <div className="flex-1 overflow-y-auto min-h-0 space-y-4 py-1">
                   <div className="space-y-1.5">
                     <Label className="text-sm font-medium">Ideia do Vídeo</Label>
-                    <Textarea placeholder="Ex: Um comercial cinematográfico de um café robótico cyberpunk..." value={videoIdea} onChange={(e) => setVideoIdea(e.target.value)} className="min-h-[90px] resize-none" disabled={generatingStoryboard} />
+                    <Textarea placeholder="Ex: Um comercial cinematográfico de um café robótico cyberpunk..." value={videoIdea} onChange={(e) => { setVideoIdea(e.target.value); if (seedancePlan) setSeedancePlan(null); }} className="min-h-[90px] resize-none" disabled={generatingStoryboard || planningSeedance} />
+                  </div>
+
+                  {/* Motor de vídeo: bifurca o fluxo entre Veo (multi-cena fixo) e Seedance (multi-shot em 1 clipe). */}
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium">Motor de Vídeo</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setVideoEngineChoice('seedance'); setSeedancePlan(null); }}
+                        disabled={generatingStoryboard || planningSeedance}
+                        className={`text-left p-3 rounded-lg border-2 transition-all ${videoEngineChoice === 'seedance' ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-primary/40'}`}
+                      >
+                        <div className="text-sm font-semibold">Seedance</div>
+                        <div className="text-[11px] text-muted-foreground leading-snug">IA decide quantos clipes. Um clipe suporta várias tomadas.</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setVideoEngineChoice('veo'); setSeedancePlan(null); }}
+                        disabled={generatingStoryboard || planningSeedance}
+                        className={`text-left p-3 rounded-lg border-2 transition-all ${videoEngineChoice === 'veo' ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-primary/40'}`}
+                      >
+                        <div className="text-sm font-semibold">Veo 3</div>
+                        <div className="text-[11px] text-muted-foreground leading-snug">Cenas isoladas de 8s. Você define quantas.</div>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-sm font-medium">Cenas</Label>
-                      <div className="flex gap-1.5">
-                        {[1, 2, 3, 4, 5].map((n) => (
-                          <button key={n} onClick={() => setSceneCount(n)} disabled={generatingStoryboard}
-                            className={`w-9 h-9 rounded-lg font-bold text-sm transition-all ${sceneCount === n ? 'bg-primary text-primary-foreground shadow-lg scale-110' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
-                            {n}
-                          </button>
-                        ))}
+                    {videoEngineChoice === 'veo' ? (
+                      <div className="space-y-1.5">
+                        <Label className="text-sm font-medium">Cenas</Label>
+                        <div className="flex gap-1.5">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <button key={n} onClick={() => setSceneCount(n)} disabled={generatingStoryboard}
+                              className={`w-9 h-9 rounded-lg font-bold text-sm transition-all ${sceneCount === n ? 'bg-primary text-primary-foreground shadow-lg scale-110' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                              {n}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <Label className="text-sm font-medium">Modelo Seedance</Label>
+                        <div className="flex gap-1.5">
+                          {(['lite', 'pro', 'v2'] as const).map((m) => (
+                            <button key={m} onClick={() => { setSeedanceDefaultModel(m); setSeedancePlan(null); }} disabled={planningSeedance}
+                              className={`px-3 py-1.5 rounded-lg font-medium text-xs uppercase tracking-wide transition-all ${seedanceDefaultModel === m ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
+                              {m}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="space-y-1.5">
                       <Label className="text-sm font-medium">Formato</Label>
                       <div className="flex gap-1.5">
                         {['9:16', '16:9', '1:1', '4:5'].map((ratio) => (
-                          <button key={ratio} onClick={() => setVideoAspectRatio(ratio)} disabled={generatingStoryboard}
+                          <button key={ratio} onClick={() => setVideoAspectRatio(ratio)} disabled={generatingStoryboard || planningSeedance}
                             className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-all ${videoAspectRatio === ratio ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
                             {ratio}
                           </button>
@@ -2678,7 +2732,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                       ) : (
                         <div className="flex flex-wrap gap-1.5">
                           {presets.map((preset) => (
-                            <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)} disabled={generatingStoryboard}
+                            <button key={preset.id} onClick={() => setSelectedPresetId(selectedPresetId === preset.id ? null : preset.id)} disabled={generatingStoryboard || planningSeedance}
                               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${selectedPresetId === preset.id ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30' : 'border-border bg-card hover:border-primary/40 text-foreground'}`}>
                               <div className="flex gap-0.5">
                                 {preset.primary_color && <div className="w-3 h-3 rounded-full border border-border" style={{ backgroundColor: preset.primary_color }} />}
@@ -2700,7 +2754,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                           {mascotImages.map((mascot) => {
                             const isSelected = selectedMascotIds.includes(mascot.id);
                             return (
-                              <button key={mascot.id} disabled={generatingStoryboard}
+                              <button key={mascot.id} disabled={generatingStoryboard || planningSeedance}
                                 onClick={() => setSelectedMascotIds(prev => isSelected ? prev.filter(id => id !== mascot.id) : [...prev, mascot.id])}
                                 className={`relative w-14 h-14 rounded-lg border-2 overflow-hidden transition-all ${isSelected ? 'border-primary ring-1 ring-primary/30 scale-105' : 'border-border hover:border-primary/40'}`}>
                                 <img src={mascot.image_url} alt={mascot.file_name || 'Mascote'} className="w-full h-full object-cover" />
@@ -2712,11 +2766,55 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                       )}
                     </div>
                   </div>
+
+                  {/* Preview do plano Seedance sugerido pela IA. */}
+                  {videoEngineChoice === 'seedance' && seedancePlan && (
+                    <div className="rounded-lg border-2 border-primary/40 bg-primary/5 p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-sm font-semibold text-primary">
+                          Plano sugerido pela IA: {seedancePlan.suggested_clip_count} clipe{seedancePlan.suggested_clip_count > 1 ? 's' : ''}
+                        </div>
+                        <button
+                          type="button"
+                          className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+                          onClick={() => setSeedancePlan(null)}
+                        >
+                          Refazer
+                        </button>
+                      </div>
+                      {seedancePlan.reasoning && (
+                        <p className="text-xs text-muted-foreground italic leading-snug">{seedancePlan.reasoning}</p>
+                      )}
+                      <div className="space-y-1.5">
+                        {seedancePlan.clips.map((c, i) => (
+                          <div key={i} className="rounded-md bg-background/60 border border-border p-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-xs font-semibold">Clipe {i + 1} · {c.title_pt}</div>
+                              <div className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{c.target_duration_seconds}s</div>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{c.description_en}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" disabled={!videoIdea.trim() || generatingStoryboard} onClick={handleGenerateStoryboard}>
-                  {generatingStoryboard ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando storyboard...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />Gerar Storyboard</>)}
-                </Button>
+                {videoEngineChoice === 'veo' ? (
+                  <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" disabled={!videoIdea.trim() || generatingStoryboard} onClick={handleGenerateStoryboard}>
+                    {generatingStoryboard ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando storyboard...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />Gerar Storyboard</>)}
+                  </Button>
+                ) : seedancePlan ? (
+                  <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" onClick={handleApplySeedancePlan}>
+                    <Clapperboard className="w-4 h-4 mr-2" />Usar plano ({seedancePlan.suggested_clip_count} clipe{seedancePlan.suggested_clip_count > 1 ? 's' : ''})
+                  </Button>
+                ) : (
+                  <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" disabled={!videoIdea.trim() || planningSeedance} onClick={handleSuggestSeedancePlan}>
+                    {planningSeedance ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Planejando com IA...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />Planejar Storyboard Seedance</>)}
+                  </Button>
+                )}
+              </>
+
               </>
             ) : (
               <>
