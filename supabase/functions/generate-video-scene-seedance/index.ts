@@ -9,18 +9,45 @@ const corsHeaders = {
 
 const ARK_BASE = "https://ark.ap-southeast.bytepluses.com/api/v3";
 
+// Official BytePlus Model Ark IDs (region ap-southeast-1). Keep legacy `lite` alias for
+// backwards-compat with old records; it now maps to `pro_fast` since Ark no longer offers
+// a standalone 1.0 lite endpoint.
 const MODEL_ID: Record<string, string> = {
-  lite: "seedance-1.0-lite",
+  lite: "seedance-1-0-pro-fast-251015",
   pro: "seedance-1-0-pro-250528",
+  pro_fast: "seedance-1-0-pro-fast-251015",
+  v15_pro: "seedance-1-5-pro-251215",
   v2: "dreamina-seedance-2-0-260128",
+  v2_fast: "dreamina-seedance-2-0-fast-260128",
+  v2_mini: "dreamina-seedance-2-0-mini-260615",
 };
 
+export type SeedanceModelKey =
+  | "lite"
+  | "pro"
+  | "pro_fast"
+  | "v15_pro"
+  | "v2"
+  | "v2_fast"
+  | "v2_mini";
+
+function modelCapabilities(model: SeedanceModelKey) {
+  if (model === "v2" || model === "v2_fast" || model === "v2_mini") {
+    return { minDur: 4, maxDur: 15, defaultDur: 8, supportsAudio: true, supports1080p: model === "v2", maxRefs: 9 };
+  }
+  if (model === "v15_pro") {
+    return { minDur: 3, maxDur: 12, defaultDur: 6, supportsAudio: true, supports1080p: true, maxRefs: 4 };
+  }
+  // pro / pro_fast / lite
+  return { minDur: 5, maxDur: 10, defaultDur: 5, supportsAudio: false, supports1080p: true, maxRefs: 4 };
+}
+
 type Payload = {
-  model?: "lite" | "pro" | "v2";
+  model?: SeedanceModelKey;
   prompt: string; // scene description
   // (fala PT-BR + grafia fonética já vivem dentro dos CUEs do prompt)
   ratio?: string; // 9:16 | 16:9 | 1:1 | 4:5 | adaptive
-  duration?: number; // 2-12
+  duration?: number;
   resolution?: "480p" | "720p" | "1080p";
   generateAudio?: boolean;
   firstFrameUrl?: string | null;
