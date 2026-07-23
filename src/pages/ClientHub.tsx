@@ -122,7 +122,6 @@ const ClientHub = () => {
     logo_ref_url?: string;
     logo_strategy?: 'none' | 'contextual' | 'end_card';
     optimizing_script?: boolean;
-    optimizing_script?: boolean;
   }>>([]);
   // Logo do cliente (tenant_companies.logo_url) — usada como default de logo_ref_url
   // ao criar cenas Seedance, para que o preset visual do cliente seja respeitado.
