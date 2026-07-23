@@ -1421,7 +1421,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           .map(m => m.image_url)
           .slice(0, 4);
 
-        // Optional brand identity injection
+        // Optional brand identity injection (colors from active preset; logo lookup skipped — schema has no logo_url).
         let logoUrl: string | null = null;
         let brandColors: string[] = [];
         if (scene.use_brand_identity && selectedPresetId) {
@@ -1430,15 +1430,6 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
             if (preset.primary_color) brandColors.push(preset.primary_color);
             if (preset.secondary_color) brandColors.push(preset.secondary_color);
           }
-          // logo lookup — visual_identity_presets may store a logo_url; fetch lazily
-          try {
-            const { data: presetRow } = await supabase
-              .from('visual_identity_presets')
-              .select('logo_url')
-              .eq('id', selectedPresetId)
-              .maybeSingle();
-            if (presetRow?.logo_url) logoUrl = presetRow.logo_url as string;
-          } catch {}
         }
 
         const res = await supabase.functions.invoke('generate-video-scene-seedance', {
