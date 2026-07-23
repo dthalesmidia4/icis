@@ -120,6 +120,7 @@ const ClientHub = () => {
     use_brand_identity?: boolean;
     logo_ref_url?: string;
     logo_strategy?: 'none' | 'contextual' | 'end_card';
+    optimizing_script?: boolean;
   }>>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<{ sceneIndex: number; slot: 'main_character' | 'scene_ref' | 'logo' } | null>(null);
