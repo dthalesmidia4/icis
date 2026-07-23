@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import JSZip from "jszip";
 import { Card } from "@/components/ui/card";
-import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play, ChevronLeft, ChevronRight, ScrollText, Maximize2, Minimize2, RotateCcw, ArchiveRestore, RefreshCw } from "lucide-react";
+import { FileText, Lightbulb, CalendarDays, ClipboardList, History, Clock, Zap, CheckSquare, Image, LayoutGrid, Video, PenTool, Bot, PenLine, Palette, Clapperboard, Sparkles, User, Plus, Trash2, Loader2, Download, ThumbsDown, ChevronDown, Upload, Play, ChevronLeft, ChevronRight, ScrollText, Maximize2, Minimize2, RotateCcw, ArchiveRestore, RefreshCw, X } from "lucide-react";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useHubPermissions, type ClientHubButtonId } from "@/hooks/useHubPermissions";
 import { useAgencyRole } from "@/hooks/useAgencyRole";
@@ -1465,6 +1465,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         fallback: !!data.fallback,
       });
       if (data.fallback) toast.info('Sugerindo 1 clipe único (fallback seguro).');
+      // Auto-advance to the dedicated scene editor so clips render in full.
+      applySeedanceClipsToEditor(data.clips);
     } catch (err) {
       console.error('handleSuggestSeedancePlan error:', err);
       toast.error('Erro inesperado ao planejar storyboard.');
@@ -1473,12 +1475,12 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     }
   };
 
-  // Applies the AI-suggested Seedance plan to the scene editor (step 2).
-  const handleApplySeedancePlan = () => {
-    if (!seedancePlan?.clips?.length) return;
+  // Applies a Seedance plan (clip list) to the scene editor and advances to step 2.
+  const applySeedanceClipsToEditor = (clips: Array<{ description_en: string; target_duration_seconds: number; title_pt?: string }>) => {
+    if (!clips?.length) return;
     const preset = presets.find(p => p.id === selectedPresetId);
     const hasIdentity = !!(preset?.primary_color || preset?.secondary_color);
-    const mapped = seedancePlan.clips.map((c) => ({
+    const mapped = clips.map((c) => ({
       scene_description: c.description_en,
       mascot_speech: '',
       generating: false,
@@ -1496,6 +1498,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     setSeedancePlan(null);
     toast.success(`Storyboard pronto: ${mapped.length} clipe${mapped.length > 1 ? 's' : ''}.`);
     saveGeneratedContent('video_storyboard', 'Storyboard Seedance', videoIdea, []).catch(() => {});
+  };
+
+  const handleApplySeedancePlan = () => {
+    if (seedancePlan?.clips?.length) applySeedanceClipsToEditor(seedancePlan.clips);
   };
 
   const handleFrameUpload = async (sceneIndex: number, file: File) => {
@@ -2625,21 +2631,26 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         <VisualIdentityModal open={visualIdentityModalOpen} onOpenChange={(open) => { setVisualIdentityModalOpen(open); if (!open) refetchPresets(); }} companyId={selectedClient?.id || ''} companyName={selectedClient?.fantasy_name || selectedClient?.name || ''} tenantId={tenantId || ''} />
 
         {/* Modal Vídeo - Storyboard */}
-        <Dialog open={videoModalOpen} onOpenChange={(open) => { setVideoModalOpen(open); if (!open) resetVideoModalState(); }}>
-          <DialogContent className={`!flex !flex-col overflow-hidden ${videoStep === 2 ? 'sm:max-w-4xl max-h-[95vh]' : 'sm:max-w-2xl max-h-[85vh]'}`}>
-            <DialogHeader>
-              <div className="flex items-center justify-between gap-2">
+        {videoModalOpen && (
+        <div className="fixed inset-0 z-40 bg-background overflow-y-auto">
+          <div className={`mx-auto w-full ${videoStep === 2 ? 'max-w-6xl' : 'max-w-3xl'} px-4 sm:px-6 py-6 flex flex-col min-h-full`}>
+            <div className="flex items-center justify-between gap-2 pb-4 border-b border-border mb-4">
+              <div className="flex items-center gap-2 min-w-0">
+                <button onClick={() => { if (videoStep === 2) { setVideoStep(1); } else { setVideoModalOpen(false); resetVideoModalState(); setContentModalOpen(true); } }} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title={videoStep === 2 ? 'Voltar ao briefing' : 'Voltar'}>
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
                 <div className="flex items-center gap-2 min-w-0">
-                  <button onClick={() => { setVideoModalOpen(false); resetVideoModalState(); setContentModalOpen(true); }} className="p-1 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
-                  <DialogTitle className="text-lg flex items-center gap-2 truncate">
-                    <Clapperboard className="w-5 h-5 text-primary shrink-0" />
+                  <Clapperboard className="w-5 h-5 text-primary shrink-0" />
+                  <h2 className="text-lg font-semibold truncate">
                     {videoStep === 1 ? 'Criar Storyboard de Vídeo' : 'Editar Cenas do Storyboard'}
-                  </DialogTitle>
+                  </h2>
                 </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-xs text-muted-foreground hover:text-destructive shrink-0"
+                  className="text-xs text-muted-foreground hover:text-destructive"
                   onClick={async () => {
                     await clearVideoDraft();
                     resetVideoModalState();
@@ -2649,8 +2660,12 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 >
                   Descartar rascunho
                 </Button>
+                <button onClick={() => { setVideoModalOpen(false); resetVideoModalState(); }} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Fechar">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            </DialogHeader>
+            </div>
+
 
             {videoStep === 1 ? (
               <>
@@ -2772,46 +2787,11 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                     </div>
                   </div>
 
-                  {/* Preview do plano Seedance sugerido pela IA. */}
-                  {videoEngineChoice === 'seedance' && seedancePlan && (
-                    <div className="rounded-lg border-2 border-primary/40 bg-primary/5 p-3 space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-sm font-semibold text-primary">
-                          Plano sugerido pela IA: {seedancePlan.suggested_clip_count} clipe{seedancePlan.suggested_clip_count > 1 ? 's' : ''}
-                        </div>
-                        <button
-                          type="button"
-                          className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
-                          onClick={() => setSeedancePlan(null)}
-                        >
-                          Refazer
-                        </button>
-                      </div>
-                      {seedancePlan.reasoning && (
-                        <p className="text-xs text-muted-foreground italic leading-snug">{seedancePlan.reasoning}</p>
-                      )}
-                      <div className="space-y-1.5">
-                        {seedancePlan.clips.map((c, i) => (
-                          <div key={i} className="rounded-md bg-background/60 border border-border p-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="text-xs font-semibold">Clipe {i + 1} · {c.title_pt}</div>
-                              <div className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{c.target_duration_seconds}s</div>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{c.description_en}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {videoEngineChoice === 'veo' ? (
                   <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" disabled={!videoIdea.trim() || generatingStoryboard} onClick={handleGenerateStoryboard}>
                     {generatingStoryboard ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando storyboard...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />Gerar Storyboard</>)}
-                  </Button>
-                ) : seedancePlan ? (
-                  <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" onClick={handleApplySeedancePlan}>
-                    <Clapperboard className="w-4 h-4 mr-2" />Usar plano ({seedancePlan.suggested_clip_count} clipe{seedancePlan.suggested_clip_count > 1 ? 's' : ''})
                   </Button>
                 ) : (
                   <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" disabled={!videoIdea.trim() || planningSeedance} onClick={handleSuggestSeedancePlan}>
@@ -3340,8 +3320,9 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                 </div>
               </>
             )}
-          </DialogContent>
-        </Dialog>
+          </div>
+        </div>
+        )}
 
         {/* Picker de referências da biblioteca visual (personagens, cenários, produtos, logos) */}
         {selectedClient && tenantId && (
