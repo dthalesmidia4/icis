@@ -3221,7 +3221,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                           )}
                         </Button>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Right side - generated videos carousel */}
