@@ -2939,27 +2939,12 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                             </button>
                           )}
                         </div>
-                        {(scene.mascot_speech || scene.engine === 'seedance') && (
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium text-muted-foreground">Fala do Apresentador / Mascote (PT-BR)</Label>
-                            <Textarea placeholder="Ex.: Com o SmartVéti, sua clínica..." value={scene.mascot_speech}
-                              onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, mascot_speech: e.target.value } : s))}
-                              onInput={(e) => { const el = e.currentTarget; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 240) + 'px'; }}
-                              ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 240) + 'px'; } }}
-                              className="min-h-[70px] max-h-[240px] resize-none text-sm leading-relaxed" disabled={scene.generating} />
-                            <div className="space-y-1">
-                              <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Dicas de pronúncia (opcional)</Label>
-                              <Input
-                                placeholder='Ex.: pronuncie "SmartVety" como "SmartVéti"'
-                                value={scene.pronunciation_hints ?? ''}
-                                onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, pronunciation_hints: e.target.value } : s))}
-                                className="h-8 text-xs"
-                                disabled={scene.generating}
-                              />
-                              <p className="text-[10px] text-muted-foreground/80">A IA vai usar estas dicas para escrever a fala com a grafia fonética correta, sem alterar a marca original.</p>
-                            </div>
-                          </div>
-                        )}
+                        {/*
+                          Nota: os campos "Fala do Apresentador" e "Dicas de pronúncia" foram removidos.
+                          A fala PT-BR já vive dentro dos blocos CUE da "Descrição da Cena" acima, e a IA
+                          escreve nomes de marca com grafia fonética (ex.: SmartVety → SmartVéti) dentro
+                          das aspas da fala automaticamente, sem alterar o nome nas partes visuais.
+                        */}
 
 
                         {/* Engine toggle: Veo (default) vs Seedance */}
