@@ -18,8 +18,7 @@ const MODEL_ID: Record<string, string> = {
 type Payload = {
   model?: "lite" | "pro" | "v2";
   prompt: string; // scene description
-  mascotSpeech?: string | null;
-  pronunciationHints?: string | null;
+  // (fala PT-BR + grafia fonética já vivem dentro dos CUEs do prompt)
   ratio?: string; // 9:16 | 16:9 | 1:1 | 4:5 | adaptive
   duration?: number; // 2-12
   resolution?: "480p" | "720p" | "1080p";
