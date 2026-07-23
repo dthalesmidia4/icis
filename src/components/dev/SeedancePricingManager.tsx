@@ -32,9 +32,13 @@ type Row = {
 };
 
 const MODELS = [
-  { value: "lite", label: "Lite" },
-  { value: "pro", label: "Pro" },
-  { value: "v2", label: "V2 (Dreamina)" },
+  { value: "v15_pro", label: "Seedance 1.5 Pro" },
+  { value: "v2", label: "Dreamina 2.0" },
+  { value: "v2_fast", label: "Dreamina 2.0 Fast" },
+  { value: "v2_mini", label: "Dreamina 2.0 Mini" },
+  { value: "pro", label: "Seedance 1.0 Pro" },
+  { value: "pro_fast", label: "Seedance 1.0 Pro Fast" },
+  { value: "lite", label: "Legacy (lite)" },
 ];
 const RESOLUTIONS = ["480p", "720p", "1080p"];
 

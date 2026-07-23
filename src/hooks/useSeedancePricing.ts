@@ -35,7 +35,7 @@ export function useSeedancePricing() {
 
   /** Returns `null` when no matching price row is configured. */
   const estimate = (opts: {
-    model: "lite" | "pro" | "v2";
+    model: string;
     resolution: "480p" | "720p" | "1080p";
     durationSeconds: number;
   }) => {

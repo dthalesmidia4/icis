@@ -15,6 +15,7 @@ import BackButton from "@/components/BackButton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { getPeriodDemandReviewCounts } from "@/lib/periodCounts";
+import { SEEDANCE_MODEL_OPTIONS, seedanceCaps, type SeedanceModelKey } from "@/lib/seedanceModel";
 import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback, useRealtimeVisualIdentity, useRealtimeStrategies } from "@/hooks/realtime";
 import VisualIdentityModal from "@/components/VisualIdentityModal";
 import { Textarea } from "@/components/ui/textarea";
@@ -109,7 +110,7 @@ const ClientHub = () => {
     generating?: boolean;
     // Seedance engine options (per scene)
     engine?: 'veo' | 'seedance';
-    seedance_model?: 'lite' | 'pro' | 'v2';
+    seedance_model?: import('@/lib/seedanceModel').SeedanceModelKey;
     seedance_duration?: number;
     seedance_resolution?: '480p' | '720p' | '1080p';
     seedance_generate_audio?: boolean;
@@ -1528,7 +1529,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       mascot_speech: '',
       generating: false,
       engine: 'seedance' as const,
-      seedance_model: 'v2' as const,
+      seedance_model: 'v15_pro' as const,
       seedance_duration: clampDur(c.target_duration_seconds),
       seedance_resolution: '1080p' as const,
       seedance_generate_audio: true,
@@ -1615,9 +1616,9 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
     setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, optimizing_script: true } : s));
     try {
-      const isV2 = (scene.seedance_model ?? 'pro') === 'v2';
-      const [minDur, maxDur] = isV2 ? [4, 15] : [5, 10];
-      const targetDuration = Math.max(minDur, Math.min(maxDur, scene.seedance_duration ?? (isV2 ? 8 : 6)));
+      const caps = seedanceCaps(scene.seedance_model);
+      const [minDur, maxDur] = [caps.minDur, caps.maxDur];
+      const targetDuration = Math.max(minDur, Math.min(maxDur, scene.seedance_duration ?? caps.defaultDur));
 
       const refsLegend: string[] = [];
       if (scene.frame0_url) refsLegend.push('opening frame');
@@ -1632,7 +1633,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           clientId: selectedClient.id,
           idea,
           durationSeconds: targetDuration,
-          model: scene.seedance_model ?? 'pro',
+          model: scene.seedance_model ?? 'v15_pro',
           ratio: videoAspectRatio,
           hasLogo: !!scene.logo_ref_url,
           logoStrategy: scene.logo_strategy ?? 'none',
@@ -1693,7 +1694,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
         const res = await supabase.functions.invoke('generate-video-scene-seedance', {
           body: {
-            model: scene.seedance_model ?? 'pro',
+            model: scene.seedance_model ?? 'v15_pro',
             prompt: scene.scene_description,
             // Fala PT-BR já vive dentro do CUE da Descrição da Cena; a IA usa grafia fonética
             // para nomes de marca (ex.: SmartVety escrito como SmartVéti dentro das aspas da fala).
@@ -3017,15 +3018,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                               <div className="space-y-1">
                                 <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Modelo</Label>
                                 <Select
-                                  value={scene.seedance_model ?? 'pro'}
-                                  onValueChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_model: v as 'lite' | 'pro' | 'v2' } : s))}
+                                  value={scene.seedance_model ?? 'v15_pro'}
+                                  onValueChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_model: v as SeedanceModelKey } : s))}
                                   disabled={scene.generating}
                                 >
                                   <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="v2">Seedance 2.0 (multi-ref + áudio)</SelectItem>
-                                    <SelectItem value="pro">Seedance 1.0 Pro (first+last frame)</SelectItem>
-                                    <SelectItem value="lite">Seedance 1.0 Lite (rápido / econômico)</SelectItem>
+                                    {SEEDANCE_MODEL_OPTIONS.map(opt => (
+                                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                    ))}
                                   </SelectContent>
                                 </Select>
                               </div>
@@ -3048,10 +3049,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
                               <div className="space-y-1 col-span-2">
                                 {(() => {
-                                  const isV2 = (scene.seedance_model ?? 'pro') === 'v2';
-                                  const minDur = isV2 ? 4 : 5;
-                                  const maxDur = isV2 ? 15 : 10;
-                                  const defaultDur = isV2 ? 8 : 6;
+                                  const caps = seedanceCaps(scene.seedance_model);
+                                  const minDur = caps.minDur;
+                                  const maxDur = caps.maxDur;
+                                  const defaultDur = caps.defaultDur;
                                   const current = Math.max(minDur, Math.min(maxDur, scene.seedance_duration ?? defaultDur));
                                   return (
                                     <>
@@ -3074,7 +3075,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                               </div>
                             </div>
 
-                            {scene.seedance_model === 'v2' && (
+                            {seedanceCaps(scene.seedance_model).supportsAudio && (
                               <div className="rounded-md border border-primary/15 bg-muted/40 p-2 space-y-1">
                                 <label className="flex items-center gap-2 text-xs font-medium">
                                   <Checkbox
@@ -3255,7 +3256,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
 
                                 {/* Voz de referência (só v2) */}
-                                {scene.seedance_model === 'v2' && (
+                                {seedanceCaps(scene.seedance_model).supportsAudio && (
                                   <div className="space-y-1">
                                     <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Amostra de voz (2–5s)</Label>
                                     {scene.voice_sample_url ? (
@@ -3303,7 +3304,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                         {scene.engine === 'seedance' && (
                           <div className="mb-2">
                             <CostBadge
-                              model={scene.seedance_model ?? 'pro'}
+                              model={scene.seedance_model ?? 'v15_pro'}
                               resolution={scene.seedance_resolution ?? '1080p'}
                               durationSeconds={scene.seedance_duration ?? 5}
                             />
