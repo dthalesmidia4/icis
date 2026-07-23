@@ -2907,7 +2907,9 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                           <Label className="text-xs font-medium text-muted-foreground">Descrição da Cena (EN)</Label>
                           <Textarea placeholder="Scene description in English..." value={scene.scene_description}
                             onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, scene_description: e.target.value } : s))}
-                            className="min-h-[70px] resize-none text-sm" disabled={scene.generating || scene.optimizing_script} />
+                            onInput={(e) => { const el = e.currentTarget; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 520) + 'px'; }}
+                            ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 520) + 'px'; } }}
+                            className="min-h-[180px] max-h-[520px] resize-none text-sm leading-relaxed font-mono" disabled={scene.generating || scene.optimizing_script} />
                           {scene.engine === 'seedance' && (
                             <button
                               type="button"
@@ -2924,14 +2926,28 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                             </button>
                           )}
                         </div>
-                        {scene.mascot_speech && (
+                        {(scene.mascot_speech || scene.engine === 'seedance') && (
                           <div className="space-y-1.5">
-                            <Label className="text-xs font-medium text-muted-foreground">Fala do Mascote (PT-BR)</Label>
-                            <Textarea placeholder="O mascote diz: ..." value={scene.mascot_speech}
+                            <Label className="text-xs font-medium text-muted-foreground">Fala do Apresentador / Mascote (PT-BR)</Label>
+                            <Textarea placeholder="Ex.: Com o SmartVéti, sua clínica..." value={scene.mascot_speech}
                               onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, mascot_speech: e.target.value } : s))}
-                              className="min-h-[50px] resize-none text-sm" disabled={scene.generating} />
+                              onInput={(e) => { const el = e.currentTarget; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 240) + 'px'; }}
+                              ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 240) + 'px'; } }}
+                              className="min-h-[70px] max-h-[240px] resize-none text-sm leading-relaxed" disabled={scene.generating} />
+                            <div className="space-y-1">
+                              <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Dicas de pronúncia (opcional)</Label>
+                              <Input
+                                placeholder='Ex.: pronuncie "SmartVety" como "SmartVéti"'
+                                value={scene.pronunciation_hints ?? ''}
+                                onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, pronunciation_hints: e.target.value } : s))}
+                                className="h-8 text-xs"
+                                disabled={scene.generating}
+                              />
+                              <p className="text-[10px] text-muted-foreground/80">A IA vai usar estas dicas para escrever a fala com a grafia fonética correta, sem alterar a marca original.</p>
+                            </div>
                           </div>
                         )}
+
 
                         {/* Engine toggle: Veo (default) vs Seedance */}
                         <div className="space-y-1.5 pt-1 border-t border-border/50">
