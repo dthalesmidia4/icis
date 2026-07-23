@@ -124,11 +124,15 @@ Deno.serve(async (req) => {
       content.push({ type: "audio_url", audio_url: { url: body.voiceSampleUrl } });
     }
 
+    // Real API limits: Seedance 1.x lite/pro = 5-10s, Dreamina 2.0 (v2) = 4-15s.
+    const [minDur, maxDur] = isV2 ? [4, 15] : [5, 10];
+    const clampedDuration = Math.max(minDur, Math.min(maxDur, body.duration ?? (isV2 ? 8 : 5)));
+
     const requestBody: Record<string, any> = {
       model: modelId,
       content,
       ratio: normalizeRatio(body.ratio),
-      duration: Math.max(2, Math.min(12, body.duration ?? 5)),
+      duration: clampedDuration,
       resolution: body.resolution ?? "1080p",
       watermark: false,
     };
