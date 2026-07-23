@@ -271,6 +271,15 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      <Route path="/referencias-visuais" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <VideoReferencesLibrary />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
       <Route path="/dev/webhooks" element={
         <ProtectedRoute>
           <RequireTenant>
