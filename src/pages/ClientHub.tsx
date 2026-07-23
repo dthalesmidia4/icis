@@ -2772,6 +2772,13 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                       <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadSceneAsset(idx, 'main_character', f); e.target.value = ''; }} />
                                     </label>
                                   )}
+                                  <button
+                                    type="button"
+                                    className="text-[10px] text-primary hover:underline mt-1"
+                                    onClick={() => { setPickerTarget({ sceneIndex: idx, slot: 'main_character' }); setPickerOpen(true); }}
+                                  >
+                                    Escolher da biblioteca visual
+                                  </button>
                                 </div>
 
                                 {/* Referências ad-hoc */}
