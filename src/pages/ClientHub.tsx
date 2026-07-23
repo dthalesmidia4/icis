@@ -3036,9 +3036,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                   Gerar áudio sincronizado (voz + trilha ambiente)
                                 </label>
                                 <p className="text-[10px] text-muted-foreground/90">
-                                  {scene.mascot_speech?.trim()
-                                    ? 'Necessário para o Seedance falar a fala do apresentador. Se desmarcar, o vídeo sai sem som.'
-                                    : 'Ative para o Seedance criar trilha ambiente/efeitos. Sem áudio na cena, o vídeo sai mudo.'}
+                                  Ative para o Seedance gerar voz do apresentador (as falas estão dentro dos CUEs da descrição) e trilha/efeitos. Sem áudio, o vídeo sai mudo.
                                 </p>
                               </div>
                             )}
