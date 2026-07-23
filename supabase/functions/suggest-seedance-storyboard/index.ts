@@ -61,10 +61,11 @@ Formatting for readability (CRITICAL):
 - When a CUE contains a Portuguese spoken line, place it on its OWN line inside that CUE, prefixed with 'Portuguese spoken dialogue: "…"' and terminated with a line break — the quotes stay verbatim.
 - Keep sentences short. Prefer newlines over long comma-separated runs.
 
-Mascot speech (CRITICAL — never leave empty when dialogue exists):
-- If ANY CUE contains a spoken Portuguese line inside quotes (dialogue, voiceover, narration by a character/presenter/mascot), you MUST also copy that exact Portuguese line into "mascot_speech_pt".
-- If the clip has MULTIPLE spoken lines across CUEs, join them into "mascot_speech_pt" separated by "\\n" in the same order they appear.
-- Only leave "mascot_speech_pt" as "" when the clip has ZERO Portuguese dialogue anywhere (pure visual: product shot, ambient scene, montage, transformation, abstract concept with no character speaking).
+Portuguese speech + phonetic spelling (CRITICAL for correct pronunciation):
+- Decide autonomously whether each clip has a spoken line. Purely visual clips (product shot, ambient scene, transformation, abstract concept) can have ZERO dialogue.
+- When a clip DOES have a spoken PT-BR line, write it inside quotes on its own line inside the CUE where it occurs. Inside those quotes ONLY, rewrite brand or proper names using their Brazilian-Portuguese phonetic spelling so a TTS engine pronounces them correctly (examples: SmartVety → "SmartVéti", Nike → "Náiki", Google → "Gugou", Google Ads → "Gugou Édis").
+- NEVER change the brand's written spelling anywhere else in the description — visual/on-screen text, product labels, logos and CUE directions keep the original spelling. The phonetic rewrite lives ONLY inside the quoted spoken line.
+- Always ALSO copy the exact quoted spoken line(s) verbatim (already phonetic) into "mascot_speech_pt", joining multiple lines with "\\n" in the order they appear. Leave "mascot_speech_pt" as "" only when the clip is fully silent/visual.
 - Speech pacing target ~2.5 Portuguese words per second per CUE.
 
 Rules:

@@ -20,8 +20,6 @@ export interface SeedanceRef {
 
 export interface BuildPromptInput {
   sceneDescription: string;
-  mascotSpeech?: string | null;
-  pronunciationHints?: string | null;
   brandColors?: string[];
   brandTypography?: string | null;
   logoStrategy?: "none" | "contextual" | "end_card";
@@ -62,17 +60,7 @@ function labelFor(kind: SeedanceRefKind): string {
 export function buildSeedancePrompt(input: BuildPromptInput): string {
   const parts: string[] = [];
   parts.push(sanitize(input.sceneDescription));
-
-  if (input.mascotSpeech && input.mascotSpeech.trim()) {
-    parts.push(
-      `The character speaks the following dialogue in Brazilian Portuguese: "${sanitize(input.mascotSpeech)}"`,
-    );
-    if (input.pronunciationHints && input.pronunciationHints.trim()) {
-      parts.push(
-        `Pronunciation guide for the spoken line (do not change written brand names anywhere else, only how they are pronounced aloud): ${sanitize(input.pronunciationHints)}.`,
-      );
-    }
-  }
+  // Fala e grafia fonética PT-BR já vivem dentro dos CUEs da própria descrição.
 
   if (input.refs.length > 0) {
     const legend = input.refs

@@ -121,7 +121,6 @@ const ClientHub = () => {
     use_brand_identity?: boolean;
     logo_ref_url?: string;
     logo_strategy?: 'none' | 'contextual' | 'end_card';
-    pronunciation_hints?: string;
     optimizing_script?: boolean;
   }>>([]);
   // Logo do cliente (tenant_companies.logo_url) — usada como default de logo_ref_url
@@ -231,7 +230,7 @@ const ClientHub = () => {
 
   // ------- Autosave rascunho de vídeo (avulso_drafts) -------
   // schema_version bumped whenever the stored shape changes; older drafts are ignored on hydrate.
-  const VIDEO_DRAFT_SCHEMA_VERSION = 5;
+  const VIDEO_DRAFT_SCHEMA_VERSION = 6;
   const videoDraftSnapshot = videoModalOpen && selectedClient
     ? { schema_version: VIDEO_DRAFT_SCHEMA_VERSION, videoIdea, sceneCount, videoAspectRatio, videoStep, videoScenes, selectedPresetId, selectedMascotIds, videoEngineChoice }
     : null;
@@ -1500,38 +1499,21 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     const preset = presets.find(p => p.id === selectedPresetId);
     const hasIdentity = !!(preset?.primary_color || preset?.secondary_color);
     const clampDur = (d: number) => Math.max(4, Math.min(15, Math.round(d || 8)));
-    // Extract Portuguese spoken lines from a Seedance multi-shot description as a safety net,
-    // so "Fala do Apresentador" is never empty when the script clearly has dialogue.
-    const extractSpeechFromDescription = (desc: string): string => {
-      if (!desc) return '';
-      const re = /(?:Portuguese\s+(?:spoken\s+dialogue|voiceover)|PT-?BR|Fala\s+PT-?BR)\s*:?\s*[""'']([^""'']+)[""'']/gi;
-      const lines: string[] = [];
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(desc)) !== null) {
-        const line = m[1]?.trim();
-        if (line) lines.push(line);
-      }
-      return lines.join('\n');
-    };
-    const mapped = clips.map((c) => {
-      const aiSpeech = (c.mascot_speech_pt ?? '').trim();
-      const speech = aiSpeech || extractSpeechFromDescription(c.description_en || '');
-      return {
-        scene_description: c.description_en,
-        mascot_speech: speech,
-        generating: false,
-        engine: 'seedance' as const,
-        seedance_model: 'v2' as const,
-        seedance_duration: clampDur(c.target_duration_seconds),
-        seedance_resolution: '1080p' as const,
-        // Áudio v2 ligado por padrão — o usuário desmarca se quiser vídeo mudo.
-        seedance_generate_audio: true,
-        seedance_options_open: false,
-        use_brand_identity: hasIdentity,
-        logo_ref_url: clientLogoUrl || undefined,
-        logo_strategy: (clientLogoUrl ? 'contextual' : 'none') as 'none' | 'contextual' | 'end_card',
-      };
-    });
+    const mapped = clips.map((c) => ({
+      scene_description: c.description_en,
+      // Fala vive dentro dos CUEs da descrição — mantemos o campo vazio.
+      mascot_speech: '',
+      generating: false,
+      engine: 'seedance' as const,
+      seedance_model: 'v2' as const,
+      seedance_duration: clampDur(c.target_duration_seconds),
+      seedance_resolution: '1080p' as const,
+      seedance_generate_audio: true,
+      seedance_options_open: false,
+      use_brand_identity: hasIdentity,
+      logo_ref_url: clientLogoUrl || undefined,
+      logo_strategy: (clientLogoUrl ? 'contextual' : 'none') as 'none' | 'contextual' | 'end_card',
+    }));
 
     setVideoScenes(mapped);
     setVideoStep(2);
@@ -1627,8 +1609,6 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           durationSeconds: targetDuration,
           model: scene.seedance_model ?? 'pro',
           ratio: videoAspectRatio,
-          mascotSpeech: scene.mascot_speech || null,
-          pronunciationHints: scene.pronunciation_hints || null,
           hasLogo: !!scene.logo_ref_url,
           logoStrategy: scene.logo_strategy ?? 'none',
           refsLegend,
@@ -1690,8 +1670,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
           body: {
             model: scene.seedance_model ?? 'pro',
             prompt: scene.scene_description,
-            mascotSpeech: scene.mascot_speech || null,
-            pronunciationHints: scene.pronunciation_hints || null,
+            // Fala PT-BR já vive dentro do CUE da Descrição da Cena; a IA usa grafia fonética
+            // para nomes de marca (ex.: SmartVety escrito como SmartVéti dentro das aspas da fala).
             ratio: videoAspectRatio,
             duration: scene.seedance_duration ?? 5,
             resolution: scene.seedance_resolution ?? '1080p',
@@ -2942,27 +2922,12 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                             </button>
                           )}
                         </div>
-                        {(scene.mascot_speech || scene.engine === 'seedance') && (
-                          <div className="space-y-1.5">
-                            <Label className="text-xs font-medium text-muted-foreground">Fala do Apresentador / Mascote (PT-BR)</Label>
-                            <Textarea placeholder="Ex.: Com o SmartVéti, sua clínica..." value={scene.mascot_speech}
-                              onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, mascot_speech: e.target.value } : s))}
-                              onInput={(e) => { const el = e.currentTarget; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 240) + 'px'; }}
-                              ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 240) + 'px'; } }}
-                              className="min-h-[70px] max-h-[240px] resize-none text-sm leading-relaxed" disabled={scene.generating} />
-                            <div className="space-y-1">
-                              <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Dicas de pronúncia (opcional)</Label>
-                              <Input
-                                placeholder='Ex.: pronuncie "SmartVety" como "SmartVéti"'
-                                value={scene.pronunciation_hints ?? ''}
-                                onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, pronunciation_hints: e.target.value } : s))}
-                                className="h-8 text-xs"
-                                disabled={scene.generating}
-                              />
-                              <p className="text-[10px] text-muted-foreground/80">A IA vai usar estas dicas para escrever a fala com a grafia fonética correta, sem alterar a marca original.</p>
-                            </div>
-                          </div>
-                        )}
+                        {/*
+                          Nota: os campos "Fala do Apresentador" e "Dicas de pronúncia" foram removidos.
+                          A fala PT-BR já vive dentro dos blocos CUE da "Descrição da Cena" acima, e a IA
+                          escreve nomes de marca com grafia fonética (ex.: SmartVety → SmartVéti) dentro
+                          das aspas da fala automaticamente, sem alterar o nome nas partes visuais.
+                        */}
 
 
                         {/* Engine toggle: Veo (default) vs Seedance */}
@@ -3071,9 +3036,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                   Gerar áudio sincronizado (voz + trilha ambiente)
                                 </label>
                                 <p className="text-[10px] text-muted-foreground/90">
-                                  {scene.mascot_speech?.trim()
-                                    ? 'Necessário para o Seedance falar a fala do apresentador. Se desmarcar, o vídeo sai sem som.'
-                                    : 'Ative para o Seedance criar trilha ambiente/efeitos. Sem áudio na cena, o vídeo sai mudo.'}
+                                  Ative para o Seedance gerar voz do apresentador (as falas estão dentro dos CUEs da descrição) e trilha/efeitos. Sem áudio, o vídeo sai mudo.
                                 </p>
                               </div>
                             )}

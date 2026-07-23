@@ -22,8 +22,6 @@ type Payload = {
   durationSeconds: number;         // target clip duration
   model: "lite" | "pro" | "v2";
   ratio?: string;                  // 9:16, 16:9, 1:1, 4:5, 21:9, adaptive
-  mascotSpeech?: string | null;
-  pronunciationHints?: string | null;
   brandColors?: string[];
   brandTypography?: string | null;
   hasLogo?: boolean;
@@ -49,7 +47,7 @@ Hard rules:
 - Formatting (CRITICAL for readability): separate the header and every CUE block with a REAL blank line ("\\n\\n"). Never merge multiple CUEs into a single paragraph. When a CUE contains a spoken Portuguese line, put it on its OWN line inside that CUE, prefixed by 'Portuguese spoken dialogue: "…"' and followed by a line break before continuing.
 - Length: 3 to 5 CUE blocks depending on duration. 4–6s → 2–3 CUEs. 7–10s → 3–4 CUEs. 11–15s → 4–5 CUEs.
 - If image references are provided, refer to them as "[Image 1]", "[Image 2]" etc. using their given labels naturally inside the CUE actions.
-- If mascot speech is provided, place the Portuguese line between double quotes on its own line inside the CUE where the character speaks; keep quotes verbatim.
+- Presenter/mascot dialogue in Portuguese: whenever a CUE has a spoken line, write it between double quotes on its own line inside that CUE. If the line contains brand or proper names whose written spelling would make a TTS engine mispronounce them, rewrite ONLY the word inside the quoted spoken line using its Brazilian-Portuguese phonetic spelling (examples: SmartVety → "SmartVéti", Nike → "Náiki", Google → "Gugou"). Never change the brand's written spelling in the visual/on-screen parts of the prompt — only inside the quoted spoken line.
 - Brand colors apply ONLY to graphic overlays, logos, and typography — never tint real objects, skin, or environments.
 - No text overlays unless the idea explicitly requests them.
 - No forbidden wording: never write "real person", "real human", "real face", "actual person", "pessoa real". Refer to any person as "the character" or "the presenter".
@@ -103,14 +101,9 @@ Deno.serve(async (req) => {
           : "Logo strategy: place the brand logo naturally inside the scene as a subtle contextual element — never as a floating watermark.",
       );
     }
-    if (body.mascotSpeech?.trim()) {
-      contextLines.push(`Mascot/character speaks in Brazilian Portuguese: "${body.mascotSpeech.trim()}"`);
-    }
-    if (body.pronunciationHints?.trim()) {
-      contextLines.push(
-        `Pronunciation hints (apply to the spoken line only — DO NOT change written brand names elsewhere in the prompt): ${body.pronunciationHints.trim()}. When writing the spoken PT-BR line inside a CUE, use the phonetic spelling for the flagged words so the model pronounces them correctly.`,
-      );
-    }
+    // Falas e dicas de pronúncia agora são responsabilidade exclusiva da IA:
+    // ela decide se a cena tem fala, e aplica grafia fonética PT-BR nos nomes de marca
+    // dentro das aspas da fala automaticamente.
     if (body.refsLegend?.length) {
       const legend = body.refsLegend.map((l, i) => `[Image ${i + 1}] = ${l}`).join("; ");
       contextLines.push(`Image references available: ${legend}. Reference them by their [Image N] tag.`);
