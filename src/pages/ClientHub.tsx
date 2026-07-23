@@ -1431,8 +1431,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     setVideoPreviewIndex(0);
     setSeedancePlan(null);
     setPlanningSeedance(false);
-    setVideoEngineChoice('seedance');
-    setSeedanceDefaultModel('pro');
+    setVideoEngineChoice('veo');
     videoDraftAppliedRef.current = false;
   };
 
