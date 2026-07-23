@@ -146,7 +146,7 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
       fetchMascotImages();
       fetchPresets();
     }
-  }, [open, companyId]);
+  }, [open, companyId, tenantId]);
 
   useRealtimeVisualIdentity({
     tenantId,
@@ -156,11 +156,13 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
   });
 
   const fetchPresets = async () => {
-    const { data } = await supabase
+    if (!companyId) return;
+    let query = supabase
       .from('visual_identity_presets')
       .select('*')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false });
+      .eq('company_id', companyId);
+    if (tenantId) query = query.eq('tenant_id', tenantId);
+    const { data } = await query.order('created_at', { ascending: false });
     if (data) setPresets(data as Preset[]);
   };
 
@@ -193,10 +195,20 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
         } as any)
         .eq('id', companyId);
 
-      await supabase.from('visual_identity_presets').insert({
+      // Dedupe por (company_id, tenant_id, name): se já existe preset com o mesmo nome, atualiza em vez de inserir duplicata.
+      const trimmedName = presetName.trim();
+      const { data: existing } = await supabase
+        .from('visual_identity_presets')
+        .select('id')
+        .eq('company_id', companyId)
+        .eq('tenant_id', tenantId)
+        .eq('name', trimmedName)
+        .maybeSingle();
+
+      const payload = {
         company_id: companyId,
         tenant_id: tenantId,
-        name: presetName.trim(),
+        name: trimmedName,
         primary_color: primaryColor,
         secondary_color: secondaryColor,
         highlight_color: highlightColor,
@@ -205,7 +217,13 @@ const VisualIdentityModal = ({ open, onOpenChange, companyId, companyName, tenan
         font_name: fontName,
         secondary_font: secondaryFont || null,
         is_active: false,
-      } as any);
+      } as any;
+
+      if (existing?.id) {
+        await supabase.from('visual_identity_presets').update(payload).eq('id', existing.id);
+      } else {
+        await supabase.from('visual_identity_presets').insert(payload);
+      }
 
       setPresetName("");
       toast.success("Predefinição salva!");
