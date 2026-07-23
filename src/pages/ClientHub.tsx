@@ -1447,6 +1447,71 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     }
   };
 
+  /**
+   * Uses GPT-5.6 (Terra) via the Lovable AI Gateway to rewrite the scene description as a
+   * production-grade multi-shot Seedance prompt with CUE blocks + shot directions. Seedance
+   * generates one continuous clip from a single prompt, so this is how we unlock its full
+   * expressiveness inside our per-scene UI.
+   */
+  const handleOptimizeSeedanceScript = async (sceneIndex: number) => {
+    const scene = videoScenes[sceneIndex];
+    if (!scene) return;
+    const idea = scene.scene_description.trim();
+    if (!idea) { toast.error('Descreva a ideia da cena antes de otimizar.'); return; }
+    if (!selectedClient?.id || !tenantId) { toast.error('Selecione um cliente.'); return; }
+
+    setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, optimizing_script: true } : s));
+    try {
+      const isV2 = (scene.seedance_model ?? 'pro') === 'v2';
+      const [minDur, maxDur] = isV2 ? [4, 15] : [5, 10];
+      const targetDuration = Math.max(minDur, Math.min(maxDur, scene.seedance_duration ?? (isV2 ? 8 : 6)));
+
+      const refsLegend: string[] = [];
+      if (scene.frame0_url) refsLegend.push('opening frame');
+      if (scene.last_frame_url) refsLegend.push('closing frame');
+      if (scene.main_character_url) refsLegend.push('main character');
+      if (scene.logo_ref_url) refsLegend.push('brand logo');
+      for (const _ of (scene.scene_ref_urls ?? [])) refsLegend.push('scene / product reference');
+
+      const { data, error } = await supabase.functions.invoke('generate-seedance-script', {
+        body: {
+          tenantId,
+          clientId: selectedClient.id,
+          idea,
+          durationSeconds: targetDuration,
+          model: scene.seedance_model ?? 'pro',
+          ratio: videoAspectRatio,
+          mascotSpeech: scene.mascot_speech || null,
+          hasLogo: !!scene.logo_ref_url,
+          logoStrategy: scene.logo_strategy ?? 'none',
+          refsLegend,
+        },
+      });
+
+      if (error) {
+        console.error('generate-seedance-script error:', error);
+        toast.error('Erro ao gerar roteiro multi-shot. Tente novamente.');
+        return;
+      }
+      const prompt: string | undefined = (data as any)?.prompt;
+      if (!prompt) { toast.error('Roteiro vazio. Tente novamente.'); return; }
+
+      const returnedDur: number | undefined = (data as any)?.durationSeconds;
+      setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? {
+        ...s,
+        scene_description: prompt,
+        seedance_duration: returnedDur ?? targetDuration,
+      } : s));
+      toast.success('Roteiro multi-shot gerado. Revise antes de gerar o vídeo.');
+    } catch (err) {
+      console.error('handleOptimizeSeedanceScript error:', err);
+      toast.error('Erro inesperado ao gerar o roteiro.');
+    } finally {
+      setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, optimizing_script: false } : s));
+    }
+  };
+
+
   const handleGenerateScene = async (sceneIndex: number) => {
     const scene = videoScenes[sceneIndex];
     if (!scene.scene_description.trim()) { toast.error('Descrição da cena é obrigatória.'); return; }
