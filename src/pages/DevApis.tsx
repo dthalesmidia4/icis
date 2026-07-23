@@ -210,6 +210,8 @@ const DevApis = () => {
             </CardContent>
           </Card>
         ))}
+
+        <SeedancePricingManager />
       </div>
     </div>
   );
