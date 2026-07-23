@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import BackButton from "@/components/BackButton";
+import SeedancePricingManager from "@/components/dev/SeedancePricingManager";
 
 interface ApiKeyEntry {
   id?: string;
@@ -209,6 +210,8 @@ const DevApis = () => {
             </CardContent>
           </Card>
         ))}
+
+        <SeedancePricingManager />
       </div>
     </div>
   );

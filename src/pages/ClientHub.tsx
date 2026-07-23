@@ -6,7 +6,9 @@ import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useHubPermissions, type ClientHubButtonId } from "@/hooks/useHubPermissions";
 import { useAgencyRole } from "@/hooks/useAgencyRole";
 import { useTenant } from "@/contexts/TenantContext";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAvulsoDraft } from "@/hooks/useAvulsoDraft";
+import CostBadge from "@/components/avulso/CostBadge";
 import { toast } from "sonner";
 import BackButton from "@/components/BackButton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -199,6 +201,40 @@ const ClientHub = () => {
   const [demandaHistorico, setDemandaHistorico] = useState<DemandaHistoricoItem[]>([]);
   const [demandaHistoricoModalOpen, setDemandaHistoricoModalOpen] = useState(false);
   const [demandaHistoricoExpandedId, setDemandaHistoricoExpandedId] = useState<string | null>(null);
+
+  // ------- Autosave rascunho de vídeo (avulso_drafts) -------
+  const videoDraftSnapshot = videoModalOpen && selectedClient
+    ? { videoIdea, sceneCount, videoAspectRatio, videoStep, videoScenes, selectedPresetId, selectedMascotIds }
+    : null;
+  const { hydrated: videoDraftHydrated } = useAvulsoDraft<typeof videoDraftSnapshot>({
+    tenantId,
+    clientId: selectedClient?.id ?? null,
+    contentType: 'video',
+    state: videoDraftSnapshot,
+    enabled: videoModalOpen,
+    title: videoIdea ? videoIdea.slice(0, 80) : null,
+  });
+  const videoDraftAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!videoModalOpen) { videoDraftAppliedRef.current = false; return; }
+    if (videoDraftAppliedRef.current || !videoDraftHydrated) return;
+    // Only restore if the modal was opened fresh (nothing typed/generated yet).
+    if (!videoIdea.trim() && videoScenes.length === 0) {
+      const d = videoDraftHydrated;
+      if (d?.videoIdea) setVideoIdea(d.videoIdea);
+      if (d?.sceneCount) setSceneCount(d.sceneCount);
+      if (d?.videoAspectRatio) setVideoAspectRatio(d.videoAspectRatio);
+      if (d?.videoStep) setVideoStep(d.videoStep);
+      if (Array.isArray(d?.videoScenes) && d.videoScenes.length > 0) {
+        setVideoScenes(d.videoScenes);
+        toast.success('Rascunho de vídeo restaurado.');
+      }
+      if (d?.selectedPresetId != null) setSelectedPresetId(d.selectedPresetId);
+      if (Array.isArray(d?.selectedMascotIds)) setSelectedMascotIds(d.selectedMascotIds);
+    }
+    videoDraftAppliedRef.current = true;
+  }, [videoModalOpen, videoDraftHydrated]);
+
 
   const loadDemandaHistorico = async () => {
     if (!selectedClient?.id || !tenantId) { setDemandaHistorico([]); return; }
@@ -2796,6 +2832,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                         )}
 
 
+                        {scene.engine === 'seedance' && (
+                          <div className="mb-2">
+                            <CostBadge
+                              model={scene.seedance_model ?? 'pro'}
+                              resolution={scene.seedance_resolution ?? '1080p'}
+                              durationSeconds={scene.seedance_duration ?? 5}
+                            />
+                          </div>
+                        )}
                         <Button
                           className="w-full h-9 text-xs font-semibold bg-gradient-to-r from-primary to-primary/70"
                           disabled={!scene.scene_description.trim() || scene.generating}
