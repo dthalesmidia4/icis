@@ -3018,15 +3018,15 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                               <div className="space-y-1">
                                 <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Modelo</Label>
                                 <Select
-                                  value={scene.seedance_model ?? 'pro'}
-                                  onValueChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_model: v as 'lite' | 'pro' | 'v2' } : s))}
+                                  value={scene.seedance_model ?? 'v15_pro'}
+                                  onValueChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_model: v as SeedanceModelKey } : s))}
                                   disabled={scene.generating}
                                 >
                                   <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="v2">Seedance 2.0 (multi-ref + áudio)</SelectItem>
-                                    <SelectItem value="pro">Seedance 1.0 Pro (first+last frame)</SelectItem>
-                                    <SelectItem value="lite">Seedance 1.0 Lite (rápido / econômico)</SelectItem>
+                                    {SEEDANCE_MODEL_OPTIONS.map(opt => (
+                                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                    ))}
                                   </SelectContent>
                                 </Select>
                               </div>
@@ -3049,10 +3049,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
                               <div className="space-y-1 col-span-2">
                                 {(() => {
-                                  const isV2 = (scene.seedance_model ?? 'pro') === 'v2';
-                                  const minDur = isV2 ? 4 : 5;
-                                  const maxDur = isV2 ? 15 : 10;
-                                  const defaultDur = isV2 ? 8 : 6;
+                                  const caps = seedanceCaps(scene.seedance_model);
+                                  const minDur = caps.minDur;
+                                  const maxDur = caps.maxDur;
+                                  const defaultDur = caps.defaultDur;
                                   const current = Math.max(minDur, Math.min(maxDur, scene.seedance_duration ?? defaultDur));
                                   return (
                                     <>
