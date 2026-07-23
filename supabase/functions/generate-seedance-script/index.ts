@@ -46,9 +46,10 @@ Hard rules:
   2. A sequence of CUE blocks that sum to the exact target duration. Example: "CUE 0–3s — Hook. [Medium shot, dolly in] …" then "CUE 3–7s — Development. [cut to] [Low-angle shot] …" then "CUE 7–10s — Payoff. [cut to] [Wide shot, slow pan right] …".
   3. Each CUE must name a shot type in [brackets] (Medium shot / Close-up / Low-angle / Wide / Over-the-shoulder), a camera move ([dolly in], [pan right], [tilt up], [static]), and a clear on-screen action.
   4. Use [cut to] between shots. Never fade or dissolve unless the idea explicitly calls for it.
+- Formatting (CRITICAL for readability): separate the header and every CUE block with a REAL blank line ("\\n\\n"). Never merge multiple CUEs into a single paragraph. When a CUE contains a spoken Portuguese line, put it on its OWN line inside that CUE, prefixed by 'Portuguese spoken dialogue: "…"' and followed by a line break before continuing.
 - Length: 3 to 5 CUE blocks depending on duration. 4–6s → 2–3 CUEs. 7–10s → 3–4 CUEs. 11–15s → 4–5 CUEs.
 - If image references are provided, refer to them as "[Image 1]", "[Image 2]" etc. using their given labels naturally inside the CUE actions.
-- If mascot speech is provided, place the Portuguese line between double quotes inside the CUE where the character speaks; keep quotes verbatim.
+- If mascot speech is provided, place the Portuguese line between double quotes on its own line inside the CUE where the character speaks; keep quotes verbatim.
 - Brand colors apply ONLY to graphic overlays, logos, and typography — never tint real objects, skin, or environments.
 - No text overlays unless the idea explicitly requests them.
 - No forbidden wording: never write "real person", "real human", "real face", "actual person", "pessoa real". Refer to any person as "the character" or "the presenter".
