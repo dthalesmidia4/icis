@@ -221,9 +221,9 @@ const ClientHub = () => {
 
   // ------- Autosave rascunho de vídeo (avulso_drafts) -------
   // schema_version bumped whenever the stored shape changes; older drafts are ignored on hydrate.
-  const VIDEO_DRAFT_SCHEMA_VERSION = 2;
+  const VIDEO_DRAFT_SCHEMA_VERSION = 3;
   const videoDraftSnapshot = videoModalOpen && selectedClient
-    ? { schema_version: VIDEO_DRAFT_SCHEMA_VERSION, videoIdea, sceneCount, videoAspectRatio, videoStep, videoScenes, selectedPresetId, selectedMascotIds, videoEngineChoice, seedanceDefaultModel }
+    ? { schema_version: VIDEO_DRAFT_SCHEMA_VERSION, videoIdea, sceneCount, videoAspectRatio, videoStep, videoScenes, selectedPresetId, selectedMascotIds, videoEngineChoice }
     : null;
   const { hydrated: videoDraftHydrated, clearDraft: clearVideoDraft } = useAvulsoDraft<typeof videoDraftSnapshot>({
     tenantId,
