@@ -2591,6 +2591,211 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                           </div>
                         )}
 
+                        {/* Engine toggle: Veo (default) vs Seedance */}
+                        <div className="space-y-1.5 pt-1 border-t border-border/50">
+                          <Label className="text-xs font-medium text-muted-foreground">Motor de vídeo</Label>
+                          <div className="flex gap-1.5">
+                            {(['veo', 'seedance'] as const).map((eng) => {
+                              const active = (scene.engine ?? 'veo') === eng;
+                              return (
+                                <button
+                                  key={eng}
+                                  type="button"
+                                  disabled={scene.generating}
+                                  onClick={() => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, engine: eng } : s))}
+                                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${active ? 'bg-primary text-primary-foreground shadow' : 'bg-muted text-muted-foreground hover:bg-accent'}`}
+                                >
+                                  {eng === 'veo' ? 'Veo 3.1' : 'Seedance'}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {(scene.engine === 'seedance') && (
+                          <div className="space-y-2.5 rounded-md border border-primary/20 bg-primary/5 p-2.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-primary">Opções Seedance</span>
+                              <button
+                                type="button"
+                                onClick={() => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_options_open: !s.seedance_options_open } : s))}
+                                className="text-xs text-primary hover:underline"
+                              >
+                                {scene.seedance_options_open ? 'Recolher' : 'Recursos avançados'}
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Modelo</Label>
+                                <Select
+                                  value={scene.seedance_model ?? 'pro'}
+                                  onValueChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_model: v as 'lite' | 'pro' | 'v2' } : s))}
+                                  disabled={scene.generating}
+                                >
+                                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="pro">Pro (1080p, first+last)</SelectItem>
+                                    <SelectItem value="lite">Lite (rápido/barato)</SelectItem>
+                                    <SelectItem value="v2">v2 (multi-ref + áudio)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="space-y-1">
+                                <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Resolução</Label>
+                                <Select
+                                  value={scene.seedance_resolution ?? '1080p'}
+                                  onValueChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_resolution: v as '480p' | '720p' | '1080p' } : s))}
+                                  disabled={scene.generating}
+                                >
+                                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="1080p">1080p</SelectItem>
+                                    <SelectItem value="720p">720p</SelectItem>
+                                    <SelectItem value="480p">480p</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="space-y-1 col-span-2">
+                                <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                                  Duração: {scene.seedance_duration ?? 5}s
+                                </Label>
+                                <input
+                                  type="range"
+                                  min={2}
+                                  max={12}
+                                  step={1}
+                                  value={scene.seedance_duration ?? 5}
+                                  disabled={scene.generating}
+                                  onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_duration: Number(e.target.value) } : s))}
+                                  className="w-full accent-primary"
+                                />
+                              </div>
+                            </div>
+
+                            {scene.seedance_model === 'v2' && (
+                              <label className="flex items-center gap-2 text-xs">
+                                <Checkbox
+                                  checked={!!scene.seedance_generate_audio}
+                                  onCheckedChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_generate_audio: !!v } : s))}
+                                  disabled={scene.generating}
+                                />
+                                Gerar áudio sincronizado
+                              </label>
+                            )}
+
+                            {scene.seedance_options_open && (
+                              <div className="space-y-2.5 pt-1.5 border-t border-primary/15">
+                                {/* Frame final */}
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Frame final (opcional)</Label>
+                                  {scene.last_frame_url ? (
+                                    <div className="relative rounded-md overflow-hidden border border-primary/30">
+                                      <img src={scene.last_frame_url} alt="Frame final" className="w-full h-20 object-cover" />
+                                      <button
+                                        type="button"
+                                        className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 hover:scale-110 transition-transform"
+                                        onClick={() => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, last_frame_url: undefined } : s))}
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <label className={`flex items-center justify-center w-full h-16 rounded-md border border-dashed border-border hover:border-primary/50 cursor-pointer bg-muted/30 text-[11px] text-muted-foreground ${uploadingRef === `${idx}:last_frame` ? 'opacity-50 pointer-events-none' : ''}`}>
+                                      {uploadingRef === `${idx}:last_frame` ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Upload className="w-3.5 h-3.5 mr-1" />Inserir frame final</>}
+                                      <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadSceneAsset(idx, 'last_frame', f); e.target.value = ''; }} />
+                                    </label>
+                                  )}
+                                </div>
+
+                                {/* Personagem principal */}
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Personagem principal (imagem)</Label>
+                                  {scene.main_character_url ? (
+                                    <div className="relative rounded-md overflow-hidden border border-primary/30">
+                                      <img src={scene.main_character_url} alt="Personagem" className="w-full h-20 object-cover" />
+                                      <button
+                                        type="button"
+                                        className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                                        onClick={() => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, main_character_url: undefined } : s))}
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <label className={`flex items-center justify-center w-full h-16 rounded-md border border-dashed border-border hover:border-primary/50 cursor-pointer bg-muted/30 text-[11px] text-muted-foreground ${uploadingRef === `${idx}:main_character` ? 'opacity-50 pointer-events-none' : ''}`}>
+                                      {uploadingRef === `${idx}:main_character` ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Upload className="w-3.5 h-3.5 mr-1" />Inserir imagem do personagem</>}
+                                      <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadSceneAsset(idx, 'main_character', f); e.target.value = ''; }} />
+                                    </label>
+                                  )}
+                                </div>
+
+                                {/* Referências ad-hoc */}
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Cenário / Produto (até 3)</Label>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {(scene.scene_ref_urls ?? []).map((url, ri) => (
+                                      <div key={ri} className="relative w-14 h-14 rounded-md overflow-hidden border border-border">
+                                        <img src={url} alt={`Ref ${ri + 1}`} className="w-full h-full object-cover" />
+                                        <button
+                                          type="button"
+                                          className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                                          onClick={() => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, scene_ref_urls: (s.scene_ref_urls ?? []).filter((_, r2) => r2 !== ri) } : s))}
+                                        >
+                                          <Trash2 className="w-2.5 h-2.5" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                    {(scene.scene_ref_urls?.length ?? 0) < 3 && (
+                                      <label className={`flex items-center justify-center w-14 h-14 rounded-md border border-dashed border-border hover:border-primary/50 cursor-pointer bg-muted/30 text-muted-foreground ${uploadingRef === `${idx}:scene_ref` ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        {uploadingRef === `${idx}:scene_ref` ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                        <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadSceneAsset(idx, 'scene_ref', f); e.target.value = ''; }} />
+                                      </label>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Voz de referência (só v2) */}
+                                {scene.seedance_model === 'v2' && (
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Amostra de voz (2–5s)</Label>
+                                    {scene.voice_sample_url ? (
+                                      <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-muted/30 px-2 py-1.5">
+                                        <audio src={scene.voice_sample_url} controls className="h-8 flex-1" />
+                                        <button
+                                          type="button"
+                                          className="text-destructive hover:opacity-80"
+                                          onClick={() => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, voice_sample_url: undefined } : s))}
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <label className={`flex items-center justify-center w-full h-10 rounded-md border border-dashed border-border hover:border-primary/50 cursor-pointer bg-muted/30 text-[11px] text-muted-foreground ${uploadingRef === `${idx}:voice_sample` ? 'opacity-50 pointer-events-none' : ''}`}>
+                                        {uploadingRef === `${idx}:voice_sample` ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Upload className="w-3.5 h-3.5 mr-1" />Enviar áudio</>}
+                                        <input type="file" accept="audio/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadSceneAsset(idx, 'voice_sample', f); e.target.value = ''; }} />
+                                      </label>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Identidade visual */}
+                                <label className="flex items-center gap-2 text-xs">
+                                  <Checkbox
+                                    checked={!!scene.use_brand_identity}
+                                    onCheckedChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, use_brand_identity: !!v } : s))}
+                                    disabled={scene.generating || !selectedPresetId}
+                                  />
+                                  Usar cores da identidade visual{!selectedPresetId && <span className="text-muted-foreground"> (selecione um preset)</span>}
+                                </label>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+
                         <Button
                           className="w-full h-9 text-xs font-semibold bg-gradient-to-r from-primary to-primary/70"
                           disabled={!scene.scene_description.trim() || scene.generating}
