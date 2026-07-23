@@ -180,6 +180,14 @@ const isAiGeneratedAttachment = (attachment: Attachment) => {
 };
 
 const inferDemandType = (card: KanbanCardData | null) => {
+  // Fonte primária: demand_type_key (chave técnica normalizada).
+  const key = (card?.demand_type_key || "").toString().trim();
+  if (key === "carrossel") return "Carrossel";
+  if (key === "criativo_estatico") return "Post Estático";
+  if (key === "video_captado") return "Vídeo captado";
+  if (key === "video_gerado") return "Vídeo gerado";
+
+  // Fallback: texto livre de demand_type + heurísticas.
   const explicitType = card?.demand_type?.trim();
   if (explicitType) return explicitType;
 
@@ -880,7 +888,9 @@ export default function TaskCard({
   };
 
   const resolvedDemandType = inferDemandType(card);
-  const isCarousel = !!resolvedDemandType?.toLowerCase().includes('carrossel') || !!resolvedDemandType?.toLowerCase().includes('carousel');
+  const cardKey = (card?.demand_type_key || "").toString().trim();
+  const isCarousel = cardKey === "carrossel"
+    || (!cardKey && (!!resolvedDemandType?.toLowerCase().includes('carrossel') || !!resolvedDemandType?.toLowerCase().includes('carousel')));
   const aiAttachments = card?.attachments?.filter(isAiGeneratedAttachment) || [];
   const hasAiAttachments = aiAttachments.length > 0;
 
