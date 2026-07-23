@@ -2946,9 +2946,9 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                 >
                                   <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="pro">Pro (1080p, first+last)</SelectItem>
-                                    <SelectItem value="lite">Lite (rápido/barato)</SelectItem>
-                                    <SelectItem value="v2">v2 (multi-ref + áudio)</SelectItem>
+                                    <SelectItem value="v2">Seedance 2.0 (multi-ref + áudio)</SelectItem>
+                                    <SelectItem value="pro">Seedance 1.0 Pro (first+last frame)</SelectItem>
+                                    <SelectItem value="lite">Seedance 1.0 Lite (rápido / econômico)</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
