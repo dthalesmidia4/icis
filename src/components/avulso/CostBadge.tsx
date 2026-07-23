@@ -2,8 +2,10 @@ import { Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSeedancePricing } from "@/hooks/useSeedancePricing";
 
+import type { SeedanceModelKey } from "@/lib/seedanceModel";
+
 type Props = {
-  model: "lite" | "pro" | "v2";
+  model: SeedanceModelKey;
   resolution: "480p" | "720p" | "1080p";
   durationSeconds: number;
   className?: string;
