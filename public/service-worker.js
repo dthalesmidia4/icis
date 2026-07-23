@@ -1,9 +1,8 @@
 // Kill-switch service worker. Replaces any previously registered app SW at this
-// path, evicts only its own Workbox caches, reloads open tabs, and then
-// unregisters itself so the browser stops using a service worker for this app.
-function isWorkboxCacheForThisRegistration(name) {
-  const hasWorkboxBucket = /(^|-)precache-v\d+-|(^|-)runtime-|(^|-)googleAnalytics-/.test(name);
-  return hasWorkboxBucket && name.endsWith(self.registration.scope);
+// path, evicts app-shell caches, and then unregisters itself so the browser
+// stops using a service worker for this app. It does not navigate clients.
+function isAppShellCache(name) {
+  return /workbox|precache|runtime|google-fonts-cache|gstatic-fonts-cache/.test(name);
 }
 
 self.addEventListener("install", () => self.skipWaiting());
@@ -13,11 +12,9 @@ self.addEventListener("activate", (event) =>
     (async () => {
       try {
         const cacheNames = await caches.keys();
-        const workboxCacheNames = cacheNames.filter(isWorkboxCacheForThisRegistration);
-        await Promise.allSettled(workboxCacheNames.map((name) => caches.delete(name)));
+        const appShellCacheNames = cacheNames.filter(isAppShellCache);
+        await Promise.allSettled(appShellCacheNames.map((name) => caches.delete(name)));
         await self.clients.claim();
-        const windowClients = await self.clients.matchAll({ type: "window" });
-        await Promise.allSettled(windowClients.map((client) => client.navigate(client.url)));
       } finally {
         await self.registration.unregister();
       }
