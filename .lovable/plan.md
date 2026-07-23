@@ -1,234 +1,88 @@
+## Contexto verificado
 
-# Reformulação da criação de demanda avulsa + Seedance
+Pesquisa nas docs oficiais (BytePlus/ByteDance/Dreamina, Runware, Segmind, Apiframe, useapi):
 
-## 1. Diagnóstico da estrutura atual
+- **Seedance 1.0 pro / lite**: clipes de **5 a 10s** (não 12s). Multi-shot é **nativo em UM único prompt**, usando sintaxe como `[Shot 1] ... [cut to] ... [Low-angle shot] ...`. O modelo entende transições, cortes e movimentos de câmera dentro do mesmo prompt. Não existe "cena isolada" na API — quem gera múltiplas cenas é o próprio modelo.
+- **Dreamina Seedance 2.0** (`dreamina-seedance-2-0-260128`): **4 a 15s**, 720p/1080p/4k, omni-reference (imagens + vídeos + áudio), first/last frame.
+- **Veo 3.1**: continua no modelo cena-a-cena de ~8s — o storyboard atual faz sentido para ele.
 
-**Fluxo hoje (tudo em `src/pages/ClientHub.tsx`, ~3.3k linhas):**
-- Botão "Conteúdo Avulso" → `contentHubModalOpen` (Dialog A: Criar / Histórico)
-- Escolher Criar → `contentModalOpen` (Dialog B: escolher formato — Estático / Carrossel / Vídeo)
-- Escolher Vídeo → `videoModalOpen` (Dialog C) com dois passos internos (`videoStep` 1 = idéia+cenas+formato; 2 = editar cenas)
-- Vídeo: `videoScenes` (array local) contém por cena: descrição, fala do mascote, frame0, engine (`veo`/`seedance`), model, duration, resolution, generate_audio, video_url
-- Persistência: apenas via `saveGeneratedContent` (tabela `generated_contents`) ao gerar cada cena. Se o modal fechar (Esc, clique fora, refresh), **todo o estado local `videoScenes` é perdido** — só sobra o que já foi salvo por cena.
-- Reabrir: pelo Histórico (`generated_contents`) — `handleOpenGenerator` (linha ~1139) reidrata `videoIdea`, `videoScenes`, `videoStep = 2`.
+Confirmado no código atual (`generate-video-scene-seedance/index.ts` linha 131): estamos clampando duração a `Math.max(2, Math.min(12, ...))` — **está errado** para os dois motores (1.x = 10 máx, v2 = 15 máx, mín 4).
 
-**Seedance atual:**
-- `supabase/functions/generate-video-scene-seedance/index.ts` — task async no Ark (`ark.ap-southeast.bytepluses.com/api/v3`), poll a cada 10s, upload final para bucket `card-attachments`.
-- Refs por cena (ordem fixa): first_frame, last_frame, mascote (até 4), logo, produto (até 3), personagem real. Limite 4 refs (1.x pro/lite) ou 9 (v2).
-- `_shared/seedance-prompt.ts` sanitiza qualquer menção a "pessoa real" e monta legendas `[Image N]`.
-- Sem cálculo/exibição de custo. Sem biblioteca reutilizável — logo/mascote vêm de `tenant_companies` + `visual_identity_presets`, personagens ad-hoc são upload direto no card.
+Conclusão: a estrutura atual (storyboard → N cenas → gerar cada cena em Seedance) força o Seedance a operar como Veo, desperdiçando sua principal força (multi-shot coeso) e ainda erra os limites de duração.
 
-**Limitações principais:**
-1. Modal 3 níveis → perda de progresso silenciosa; sem draft persistente; sem "abandonar → recuperar".
-2. Sem custo visível: usuário só descobre gasto no faturamento BytePlus.
-3. Refs de vídeo são efêmeras — impossível reaproveitar o mesmo personagem/cenário entre vídeos ou entre cenas de forma controlada.
-4. Cada cena tem controles Seedance duplicados (não há "configuração global do vídeo" que caia como default por cena).
-5. Logo hoje é apenas overlay/prompt genérico. Não há como declarar "aplicar contextualmente na caneca" vs "só na pós".
+## O que muda
 
-## 2. Referência oficial confirmada
+### 1. Bifurcar o fluxo por motor logo no início
 
-BytePlus Ark Seedance (`/api/v3/contents/generations/tasks`):
-- **Preço não vem na resposta da API.** O painel BytePlus publica preços por segundo de vídeo por modelo/resolução. Nenhum endpoint público de pricing.
-- Multi-referência: v2 aceita até 9 imagens; 1.x pro/lite aceita 4 (com first+last frame). Ordem das imagens define o significado quando descrita no prompt com `[Image N]`.
-- Formatos aceitos por imagem de referência: JPEG/PNG/WebP até ~10MB, URL pública.
-- Áudio de voz (v2): sample 2–5s, `audio_url`.
-- Duração 2–12s; resolução 480p/720p/1080p; aspect 9:16, 16:9, 1:1, 4:5, 21:9, adaptive.
-- Não há flag oficial para "logo contextual" — a única alavanca é o prompt + imagem de referência com legenda.
+Ao clicar **Criar → Vídeo** no Client Hub, primeira pergunta passa a ser **Motor de vídeo** (Veo 3.1 vs Seedance) — antes de qualquer coisa. A partir daí:
 
-**Conclusão sobre custo:** precisa vir de **tabela de preços configurável no banco** (fonte de verdade administrada). Não inventar. API não fornece.
+- **Veo 3.1** → mantém exatamente o fluxo atual (Ideia → Storyboard por cenas → Editar cenas → Gerar cada cena de ~8s). Nenhuma mudança de UX aqui.
+- **Seedance** → novo fluxo de **prompt único multi-shot** (abaixo).
 
-## 3. Proposta
+### 2. Novo fluxo Seedance (substitui o storyboard por cenas)
 
-### 3.1 Experiência inline (substituir modais)
+Três passos inline (não modal com sub-cenas):
 
-Criar rota nova `/avulso/nova?clientId=…&type=video|estatico|carrossel[&draftId=…]` como página completa, mesmo padrão de `Scheduled.tsx` (header + BackButton, container `max-w-*`, sem overlay).
+**Passo A — Ideia + parâmetros globais**
+- Textarea "Ideia do vídeo" (livre, PT-BR).
+- Modelo: Lite (720p) / Pro 1.0 (1080p, first+last) / Dreamina 2.0 (v2, até 4k, áudio, omni-ref).
+- Formato: 9:16 / 16:9 / 1:1 / 4:5 / 21:9 (v2) / adaptive.
+- Resolução conforme modelo (Lite 480–720p; Pro 480–1080p; v2 720p/1080p/4k).
+- **Duração** com limites reais:
+  - Lite/Pro 1.x → slider **5–10s**.
+  - Dreamina 2.0 → slider **4–15s**.
+- Áudio sincronizado (v2 apenas).
+- Referências globais (uma única lista, não por cena): personagem principal (biblioteca), mascote, cenário, produtos, logo + estratégia (nenhum / contextual / end card), first frame, last frame (Pro 1.x e v2), voice sample (v2).
+- `CostBadge` já reflete duração×resolução×modelo.
 
-- Botão "Conteúdo Avulso" no ClientHub → navega para `/avulso` (hub inline com "Criar novo" e "Histórico" lado a lado — substitui `contentHubModalOpen`).
-- "Criar novo" → seleção de formato inline (chips) → navega para `/avulso/nova?type=video&…`.
-- Fechar/voltar = `BackButton`. Se houver alterações não salvas → `beforeunload` + `AlertDialog` "Sair sem salvar? Um rascunho será mantido".
-- **Autosave**: debounce 800ms → upsert em `avulso_drafts` (ver §3.4). Reabrir retoma exatamente o ponto (inclui `videoScenes` completo, refs escolhidas, engine settings).
-- Migração dos modais: manter `Dialog` internos apenas para picker de referências (biblioteca) — nada que bloqueie o fluxo principal.
+**Passo B — Roteiro multi-shot gerado por IA**
+- Botão **"Gerar roteiro multi-shot"** chama uma nova edge function `generate-seedance-script` que:
+  - Modelo: **`openai/gpt-5.6-terra`** via AI Gateway (`reasoning_effort: "none"`, chat completions).
+  - Recebe: ideia, identidade visual, mascote, duração alvo, formato, contexto do cliente (nicho, tom).
+  - Devolve **um único prompt em inglês** estruturado no formato nativo Seedance:
+    - Bloco de audiência/estilo/aspecto.
+    - Sequência de shots numerados com timestamps (`CUE 0–3s`, `CUE 3–7s`…) somando a duração escolhida.
+    - Diretrizes de câmera entre colchetes (`[Medium shot]`, `[Low-angle shot]`, `[cut to]`, `[dolly in]`).
+    - Fala do mascote/personagem entre aspas em PT-BR quando aplicável.
+    - Referências numeradas `[Image 1]…` alinhadas às imagens enviadas (reaproveita `buildSeedancePrompt`).
+- Editor de texto rico e simples (textarea grande) para o usuário revisar/ajustar o roteiro antes de gerar.
+- Persistido em `avulso_drafts` (`content_type: 'seedance_video'`) — autosave do hook existente.
 
-### 3.2 Estimativa de custo Seedance
+**Passo C — Geração única**
+- Um único botão **"Gerar vídeo"** dispara `generate-video-scene-seedance` **uma vez**, com o prompt final + todas as refs globais. Sem loop de cenas.
+- Resultado: 1 arquivo MP4. Player + botão **Finalizar** (cria card), padrão dos outros conteúdos.
 
-- Nova tabela `seedance_pricing` (admin edita em `/dev/apis` — página já existe):
-  ```
-  id, model_key (lite|pro|v2), resolution (480p|720p|1080p),
-  price_credits_per_second numeric,
-  price_brl_per_credit numeric (nullable),
-  updated_at, updated_by
-  ```
-- Edge function `estimate-seedance-cost` (ou selector client-side) recebe `{model, duration, resolution, sceneCount}` → retorna `{credits, brl?, source: 'config', updated_at}`.
-- UI: badge fixo no topo do editor de cenas — "Custo estimado: X créditos (~R$ Y) — baseado em preços configurados em DD/MM". Se linha faltando → "Preço não configurado para este modelo/resolução" com link para admin.
-- Nunca hardcode. Sem linha na tabela → não mostra R$, mostra apenas "custo indisponível".
-- Recalcula ao vivo por cena e total.
+### 3. Ajustes na edge function `generate-video-scene-seedance`
+- Clamp de duração passa a depender do modelo: `lite/pro` → 5–10, `v2` → 4–15.
+- Sem outras mudanças estruturais (o prompt builder e refs continuam válidos).
 
-### 3.3 Biblioteca reutilizável de referências
+### 4. Nova edge function `generate-seedance-script`
+- Input: `{ tenantId, clientId, idea, durationSeconds, model, ratio, visualIdentity, mascot, refs[] }`.
+- Chama Gateway `openai/gpt-5.6-terra` com system prompt salvo em `system_prompts` (nova chave `seedance_multishot_script`) para permitir edição em `/dev/prompts`.
+- Retorna `{ prompt, shotsSummary[] }` (o `shotsSummary` é só metadata para exibir uma timeline visual leve no passo B — não outra chamada de vídeo).
 
-Escopo: **por tenant + por cliente (opcionalmente global do tenant)**. Uma tabela unificada:
+### 5. Pricing e limites
+- `SeedancePricingManager` continua igual; só reforço no seed default (Pro 1080p, Lite 720p, v2 1080p) — sem migração obrigatória.
 
-```sql
-CREATE TABLE public.video_references (
-  id uuid pk,
-  tenant_id uuid not null,
-  client_id uuid null,               -- null = disponível para todos os clientes do tenant
-  kind text not null check (kind in ('character','scenery','prop','brand_asset')),
-  name text not null,
-  description text,
-  attributes jsonb,                  -- físico/roupas/iluminação/regras conforme kind
-  primary_image_url text,
-  extra_image_urls text[],           -- refs adicionais
-  logo_variant text,                 -- só brand_asset: 'primary'|'light'|'dark'
-  restrictions text,
-  created_at, updated_at, created_by
-);
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.video_references TO authenticated;
-GRANT ALL ON public.video_references TO service_role;
-ALTER TABLE public.video_references ENABLE ROW LEVEL SECURITY;
--- policies: tenant isolation via has_tenant_access(auth.uid(), tenant_id)
-```
+## Arquivos afetados
 
-- `kind = 'character'` usa `attributes` para: características físicas, roupas, função, observações de consistência.
-- `kind = 'scenery'` usa `attributes` para: iluminação, ambientação, obrigatórios, proibidos.
-- `kind = 'prop'` para objetos (notebook, caneca, uniforme, produto, prontuário).
-- `kind = 'brand_asset'` para logo primária/clara/escura + cores + tipografia (também pode continuar puxando de `tenant_companies` + `visual_identity_presets` como fallback — evitar duplicação).
+- `src/pages/ClientHub.tsx` — bifurcar fluxo, novo passo Seedance (Ideia → Roteiro → Gerar), remover editor de cenas quando motor = Seedance.
+- `src/hooks/useAvulsoDraft.ts` — sem mudança de assinatura, só novo `content_type`.
+- `supabase/functions/generate-video-scene-seedance/index.ts` — clamp de duração por modelo.
+- `supabase/functions/generate-seedance-script/index.ts` — **nova**.
+- `supabase/functions/_shared/system-prompts.ts` — nova chave `seedance_multishot_script`.
+- `supabase/functions/_shared/seedance-prompt.ts` — sem mudança (já lida com refs numeradas).
+- `src/pages/DevPrompts.tsx` — expõe a nova chave automaticamente (CRUD já é dinâmico).
 
-CRUD em nova página `/referencias-visuais` (ou aba dentro de "Identidade Visual"). Selecionável via picker no editor de cenas.
+## Fora de escopo
 
-**Regras de uso na geração:**
-- Mapear cada referência escolhida → `SeedanceRef` (kind já compatível).
-- Ordem no prompt: refs globais do vídeo primeiro, depois refs específicas da cena — mantém consistência entre cenas.
-- Aviso em UI quando total de refs > limite do modelo (v2=9, 1.x=4) — bloquear geração ou pedir para desmarcar.
+- Nenhuma mudança no fluxo Veo 3.1.
+- Sem migração de dados de storyboards antigos.
+- Sem alteração no CostBadge (fórmula continua válida).
 
-### 3.4 Persistência de rascunho
+## Validação após implementação
 
-```sql
-CREATE TABLE public.avulso_drafts (
-  id uuid pk,
-  tenant_id uuid not null,
-  user_id uuid not null,
-  client_id uuid not null,
-  content_type text not null,         -- 'video'|'estatico'|'carrossel'
-  state jsonb not null,               -- videoIdea, sceneCount, aspect, scenes[], global_refs, engine_defaults
-  updated_at timestamptz default now()
-);
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.avulso_drafts TO authenticated;
-GRANT ALL ON public.avulso_drafts TO service_role;
-ALTER TABLE public.avulso_drafts ENABLE ROW LEVEL SECURITY;
--- policy: user_id = auth.uid() AND has_tenant_access(auth.uid(), tenant_id)
-```
-
-Autosave a cada mudança relevante; ao gerar cena/salvar em `generated_contents`, mantém draft até o usuário clicar "Concluir" (aí deleta).
-
-### 3.5 Nova tela de edição de cenas
-
-Layout inline `/avulso/nova?type=video`:
-
-```
-[← Voltar]   Storyboard: [título editável]         [Custo: X cred ~R$Y]  [Salvo há 3s]
-┌─ Configuração global ───────────────────────────────────────────────────┐
-│ Ideia │ Formato (9:16…) │ Motor padrão [Veo|Seedance] │ Modelo │ …      │
-│ Referências globais: [+ Personagem] [+ Cenário] [+ Objeto] [+ Marca]    │
-│ Logo: (○ não usar  ○ contextual  ○ só pós-produção)  Variante: clara/escura│
-└─────────────────────────────────────────────────────────────────────────┘
-┌─ Cenas ────────────────────────────────────┐  ┌─ Editor da cena X ─────┐
-│ ▤ Cena 1 · Abertura · 4s · pronto        │  │ Título interno         │
-│ ▤ Cena 2 · Desenvolvimento · 5s · rascunho│  │ Duração                │
-│ ▤ Cena 3 · CTA · 4s · gerando…            │  │ Descrição visual (EN)  │
-│ [+ Adicionar cena]                         │  │ Ação / Fala (PT)       │
-│                                            │  │ Quem aparece: chips    │
-│                                            │  │ Cenário: chip          │
-│                                            │  │ Objetos: chips         │
-│                                            │  │ Overrides: engine/ratio│
-│                                            │  │ Logo nesta cena: …     │
-│                                            │  │ [Gerar cena] [Duplicar]│
-└────────────────────────────────────────────┘  └────────────────────────┘
-```
-
-- Lista drag-and-drop reordenável, duplicar, excluir.
-- Editor foca em 1 cena por vez (URL `?scene=2`).
-- Chips mostram claramente refs globais (herdadas) vs específicas da cena (com "×" para remover só da cena).
-- Estados por cena: rascunho / pronto para gerar / gerando / concluído / erro (mesmo enum visual).
-- Custo total sempre no topo, recalcula em real time.
-- Auto-save badge.
-
-### 3.6 Logo estratégica
-
-Novo campo por cena: `logo_mode ∈ {none, contextual, postproduction, required_on:<propId>}` + `logo_variant ∈ {primary, light, dark}` + `logo_notes`.
-
-- `contextual` → adiciona logo aos refs do Seedance com legenda `[Image N] = the brand logo, placed naturally on <objeto> in the scene`.
-- `required_on:propId` → força a legenda a citar o objeto específico ("on the mug", "on the notebook lid").
-- `postproduction` → **não** envia ao Seedance; marca a cena para overlay via ffmpeg em etapa futura (fora deste escopo, apenas persiste a intenção).
-- `none` → omite.
-- Aviso permanente: "A IA pode não reproduzir a logo com fidelidade. Para logo garantida, use pós-produção."
-
-## 4. Arquivos que serão alterados
-
-**Novos:**
-- `src/pages/AvulsoHub.tsx` (lista Criar/Histórico inline)
-- `src/pages/AvulsoNova.tsx` (workspace do vídeo/estático/carrossel; começa pelo caso vídeo)
-- `src/pages/VisualReferences.tsx` (CRUD biblioteca)
-- `src/components/avulso/SceneList.tsx`, `SceneEditor.tsx`, `GlobalRefsBar.tsx`, `CostBadge.tsx`, `ReferencePicker.tsx`, `LogoModeSelector.tsx`
-- `src/hooks/useAvulsoDraft.ts` (autosave + hydrate)
-- `src/hooks/useSeedanceCost.ts`
-- `supabase/functions/estimate-seedance-cost/index.ts` (opcional; pode ser puro cliente lendo a tabela via RLS)
-- Migrations: `video_references`, `avulso_drafts`, `seedance_pricing` (com GRANTs + RLS).
-
-**Editados:**
-- `src/App.tsx` — adicionar rotas `/avulso`, `/avulso/nova`, `/referencias-visuais`.
-- `src/pages/ClientHub.tsx` — botão passa a `navigate('/avulso?clientId=…')`; remover `contentHubModalOpen`, `contentModalOpen`, `videoModalOpen` e toda a lógica de vídeo (mover para os novos componentes). Manter apenas o resumo/entrada.
-- `supabase/functions/generate-video-scene-seedance/index.ts` — receber `sceneReferences: SeedanceRef[]` já ordenadas (globais + cena) em vez dos slots avulsos; manter compat.
-- `supabase/functions/_shared/seedance-prompt.ts` — legenda estendida para `logo_mode = required_on`.
-- `src/pages/DevApis.tsx` — seção "Preços Seedance" (CRUD `seedance_pricing`).
-
-## 5. Banco de dados — resumo
-
-Três tabelas novas (com GRANT + RLS). Nenhuma coluna nova em `demands`. `generated_contents` continua sendo o repositório final; `avulso_drafts` é apenas rascunho.
-
-## 6. Riscos e dependências
-
-- **Perda de rascunhos legados**: usuários que já tenham modal aberto na hora do deploy — mitigação: dump do `videoScenes` para `avulso_drafts` no unmount durante uma janela de transição.
-- **Preço configurado errado** exibiria valor enganoso — badge sempre marcado como "estimativa · atualizado em <data>" com link para admin editar.
-- **Limite de refs**: v2=9. Se global+cena passar do limite, bloquear geração com mensagem clara antes do submit.
-- **Fidelidade da logo**: registrar aviso permanente e oferecer caminho "só pós-produção".
-- Rota `/scheduled` já usa `BackButton` + layout inline — reaproveitar padrão.
-
-## 7. Critérios de aceite
-
-1. Criar nova demanda avulsa de vídeo abre em página inteira, não modal.
-2. Fechar aba/recarregar/voltar preserva o rascunho; reabrir retoma no mesmo ponto.
-3. AlertDialog aparece ao sair com alterações não salvas há mais de X segundos sem salvamento.
-4. Custo estimado aparece no topo antes de qualquer geração, com data da tabela de preços e aviso "estimativa".
-5. Personagem/cenário/objeto/logo cadastrados uma vez podem ser reusados em qualquer vídeo do mesmo cliente/tenant.
-6. Refs globais visíveis em todas as cenas; refs específicas de cena não vazam para outras cenas.
-7. Limite de refs por modelo é respeitado com aviso preventivo.
-8. Modo da logo (none/contextual/postproduction) persiste por cena e altera o prompt enviado ao Seedance.
-9. Reordenar/duplicar/excluir cena não corrompe refs nem custo.
-10. Nenhuma regressão no fluxo de conteúdo estático/carrossel avulso (fase 1 pode manter os modais antigos para esses tipos até fase 3).
-
-## 8. Plano de implementação em etapas
-
-**Fase 1 — Infra e migração leve (sem mudar UX)**
-- Migrations: `avulso_drafts`, `seedance_pricing`, `video_references` (+ GRANT/RLS).
-- Hook `useAvulsoDraft` plugado no modal atual (autosave transparente).
-- CRUD de preços em `/dev/apis` + `CostBadge` embutido no modal atual.
-- Entregável: rascunhos deixam de se perder; custo visível.
-
-**Fase 2 — Inline workspace (vídeo)**
-- Rotas `/avulso`, `/avulso/nova`.
-- Extrair `videoScenes` do `ClientHub.tsx` para `AvulsoNova.tsx` + componentes.
-- Botão "Conteúdo Avulso" passa a navegar; remove `contentHubModalOpen` para vídeo.
-- Entregável: criação de vídeo em página inteira, rascunho persistente.
-
-**Fase 3 — Biblioteca de referências**
-- `/referencias-visuais` (CRUD).
-- `ReferencePicker` + `GlobalRefsBar` no editor de cenas.
-- Edge `generate-video-scene-seedance` aceita `sceneReferences` já resolvidas.
-- Entregável: reutilização entre cenas/vídeos, ordem determinística de refs.
-
-**Fase 4 — Logo estratégica + refino**
-- `LogoModeSelector` (none/contextual/postproduction/required_on).
-- Prompt builder estendido; marcador de "pós-produção pendente" no card gerado.
-- Estados visuais (rascunho/pronto/gerando/erro), drag-and-drop de cenas, aviso de limite de refs.
-
-**Fase 5 — Migrar estático/carrossel para o mesmo shell** (fora do escopo mínimo; opcional).
-
+1. Motor Veo continua com storyboard por cenas idêntico ao atual.
+2. Motor Seedance mostra apenas Ideia → Roteiro (gerado por gpt-5.6-terra) → Gerar vídeo único.
+3. Slider de duração respeita 5–10 (1.x) ou 4–15 (v2).
+4. Uma geração real de teste devolve MP4 e cria card via **Finalizar**.

@@ -120,6 +120,7 @@ const ClientHub = () => {
     use_brand_identity?: boolean;
     logo_ref_url?: string;
     logo_strategy?: 'none' | 'contextual' | 'end_card';
+    optimizing_script?: boolean;
   }>>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<{ sceneIndex: number; slot: 'main_character' | 'scene_ref' | 'logo' } | null>(null);
@@ -1446,6 +1447,71 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     }
   };
 
+  /**
+   * Uses GPT-5.6 (Terra) via the Lovable AI Gateway to rewrite the scene description as a
+   * production-grade multi-shot Seedance prompt with CUE blocks + shot directions. Seedance
+   * generates one continuous clip from a single prompt, so this is how we unlock its full
+   * expressiveness inside our per-scene UI.
+   */
+  const handleOptimizeSeedanceScript = async (sceneIndex: number) => {
+    const scene = videoScenes[sceneIndex];
+    if (!scene) return;
+    const idea = scene.scene_description.trim();
+    if (!idea) { toast.error('Descreva a ideia da cena antes de otimizar.'); return; }
+    if (!selectedClient?.id || !tenantId) { toast.error('Selecione um cliente.'); return; }
+
+    setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, optimizing_script: true } : s));
+    try {
+      const isV2 = (scene.seedance_model ?? 'pro') === 'v2';
+      const [minDur, maxDur] = isV2 ? [4, 15] : [5, 10];
+      const targetDuration = Math.max(minDur, Math.min(maxDur, scene.seedance_duration ?? (isV2 ? 8 : 6)));
+
+      const refsLegend: string[] = [];
+      if (scene.frame0_url) refsLegend.push('opening frame');
+      if (scene.last_frame_url) refsLegend.push('closing frame');
+      if (scene.main_character_url) refsLegend.push('main character');
+      if (scene.logo_ref_url) refsLegend.push('brand logo');
+      for (const _ of (scene.scene_ref_urls ?? [])) refsLegend.push('scene / product reference');
+
+      const { data, error } = await supabase.functions.invoke('generate-seedance-script', {
+        body: {
+          tenantId,
+          clientId: selectedClient.id,
+          idea,
+          durationSeconds: targetDuration,
+          model: scene.seedance_model ?? 'pro',
+          ratio: videoAspectRatio,
+          mascotSpeech: scene.mascot_speech || null,
+          hasLogo: !!scene.logo_ref_url,
+          logoStrategy: scene.logo_strategy ?? 'none',
+          refsLegend,
+        },
+      });
+
+      if (error) {
+        console.error('generate-seedance-script error:', error);
+        toast.error('Erro ao gerar roteiro multi-shot. Tente novamente.');
+        return;
+      }
+      const prompt: string | undefined = (data as any)?.prompt;
+      if (!prompt) { toast.error('Roteiro vazio. Tente novamente.'); return; }
+
+      const returnedDur: number | undefined = (data as any)?.durationSeconds;
+      setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? {
+        ...s,
+        scene_description: prompt,
+        seedance_duration: returnedDur ?? targetDuration,
+      } : s));
+      toast.success('Roteiro multi-shot gerado. Revise antes de gerar o vídeo.');
+    } catch (err) {
+      console.error('handleOptimizeSeedanceScript error:', err);
+      toast.error('Erro inesperado ao gerar o roteiro.');
+    } finally {
+      setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, optimizing_script: false } : s));
+    }
+  };
+
+
   const handleGenerateScene = async (sceneIndex: number) => {
     const scene = videoScenes[sceneIndex];
     if (!scene.scene_description.trim()) { toast.error('Descrição da cena é obrigatória.'); return; }
@@ -2622,7 +2688,22 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                           <Label className="text-xs font-medium text-muted-foreground">Descrição da Cena (EN)</Label>
                           <Textarea placeholder="Scene description in English..." value={scene.scene_description}
                             onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, scene_description: e.target.value } : s))}
-                            className="min-h-[70px] resize-none text-sm" disabled={scene.generating} />
+                            className="min-h-[70px] resize-none text-sm" disabled={scene.generating || scene.optimizing_script} />
+                          {scene.engine === 'seedance' && (
+                            <button
+                              type="button"
+                              disabled={!scene.scene_description.trim() || scene.generating || scene.optimizing_script}
+                              onClick={() => handleOptimizeSeedanceScript(idx)}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              title="Reescreve a descrição como um prompt multi-shot único (CUEs + direção de câmera) otimizado para Seedance."
+                            >
+                              {scene.optimizing_script ? (
+                                <><Loader2 className="w-3 h-3 animate-spin" />Gerando roteiro…</>
+                              ) : (
+                                <><Sparkles className="w-3 h-3" />Roteiro multi-shot IA</>
+                              )}
+                            </button>
+                          )}
                         </div>
                         {scene.mascot_speech && (
                           <div className="space-y-1.5">
@@ -2701,19 +2782,30 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                               </div>
 
                               <div className="space-y-1 col-span-2">
-                                <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                                  Duração: {scene.seedance_duration ?? 5}s
-                                </Label>
-                                <input
-                                  type="range"
-                                  min={2}
-                                  max={12}
-                                  step={1}
-                                  value={scene.seedance_duration ?? 5}
-                                  disabled={scene.generating}
-                                  onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_duration: Number(e.target.value) } : s))}
-                                  className="w-full accent-primary"
-                                />
+                                {(() => {
+                                  const isV2 = (scene.seedance_model ?? 'pro') === 'v2';
+                                  const minDur = isV2 ? 4 : 5;
+                                  const maxDur = isV2 ? 15 : 10;
+                                  const defaultDur = isV2 ? 8 : 6;
+                                  const current = Math.max(minDur, Math.min(maxDur, scene.seedance_duration ?? defaultDur));
+                                  return (
+                                    <>
+                                      <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                                        Duração: {current}s <span className="text-muted-foreground/70 normal-case">({minDur}–{maxDur}s)</span>
+                                      </Label>
+                                      <input
+                                        type="range"
+                                        min={minDur}
+                                        max={maxDur}
+                                        step={1}
+                                        value={current}
+                                        disabled={scene.generating}
+                                        onChange={(e) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, seedance_duration: Number(e.target.value) } : s))}
+                                        className="w-full accent-primary"
+                                      />
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
 
