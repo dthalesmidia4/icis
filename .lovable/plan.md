@@ -1,50 +1,72 @@
-# Quebras de linha no roteiro Seedance + clareza do badge de tomadas
+# Plano — Ritmo de fala, boas práticas Seedance e correções de logo/ID visual
 
-## Contexto (respostas rápidas)
+## 1. Ritmo da fala em clipes de 10–15s
 
-- **Limite de 15s**: é limite real da API BytePlus. Seedance 1.x lite/pro aceita 5–10s por clipe, Dreamina 2.0 (v2) aceita 4–15s. O clamp já está correto em `generate-video-scene-seedance/index.ts:128`.
-- **"10s · 4 tomadas"**: não é ruído nem input — é derivado. `10s` = duração escolhida no slider; `4 tomadas` = número de blocos `CUE` encontrados na descrição via regex (`ClientHub.tsx:2831`). Serve para o usuário saber quantos cortes internos o clipe terá. Vou apenas melhorar o rótulo para não parecer configurável.
-- **Quebras de linha faltando**: o prompt do `suggest-seedance-storyboard` já pede `\n\n` entre CUEs (linha 60) e o de `generate-seedance-script` também. Mas modelos frequentemente ignoram e emitem tudo inline. A solução robusta é **normalizar no servidor** antes de devolver o texto, garantindo o formato independentemente do que o modelo produzir.
+**Problema**: em um clipe de 15s com 5 CUEs, a IA está gerando muito texto por CUE. O locutor teria que falar em ~2× a velocidade natural, resultando em fala acelerada/inaudível.
 
-## Mudanças
+**Correção no `suggest-seedance-storyboard`**:
+- Adicionar ao system prompt um **orçamento de palavras** rígido: PT-BR ≈ **2,3 palavras/segundo** de fala natural. Cada CUE tem `duration_s`; o texto entre aspas do `Portuguese spoken dialogue:` daquele CUE **não pode ultrapassar `round(duration_s × 2.3)` palavras**.
+- Permitir **CUEs sem fala** (só ação/visual) — a IA hoje força fala em todos, o que empurra texto excedente. Regra: use fala apenas onde agrega; caso contrário deixe o CUE puramente visual com legenda gráfica curta.
+- Validação pós-modelo (determinística) em `_shared/format-seedance-script.ts`:
+  - Extrair cada `Portuguese spoken dialogue:` por CUE, contar palavras, e se exceder o orçamento marcar `dialogue_over_budget: true` no clipe e cortar após o limite com reticências mantendo a última frase completa.
+  - Retornar aviso na UI (`ClientHub.tsx`) por clipe: chip amarelo "Fala longa para X s — pode acelerar".
 
-### 1. Normalização determinística do roteiro (servidor)
+## 2. Boas práticas Seedance no prompt
 
-Criar helper compartilhado `supabase/functions/_shared/format-seedance-script.ts` com uma função `formatSeedanceScript(raw: string): string` que:
+Aplicar no system prompt do `suggest-seedance-storyboard` e no builder `_shared/seedance-prompt.ts`:
+- Estrutura **Sujeito → Ação → Cenário → Câmera/Shot** por CUE (padrão recomendado pela BytePlus/Dreamina).
+- Especificar **tipo de plano** ([Wide], [Medium], [Close-up], [Over-the-shoulder], [POV]) e **movimento de câmera** ([static], [slow push-in], [pan left], [tilt down], [handheld]) em cada CUE.
+- Um `[cut to]` por CUE, exceto o primeiro. Descrever apenas UMA ação principal por CUE.
+- Proibir adjetivos abstratos ("bonito", "incrível"); exigir verbos observáveis.
+- Reforçar consistência entre CUEs: mesmo personagem/cenário/iluminação salvo mudança explícita.
+- Bloco de "Negative prompt" opcional: `no warped faces, no text glitches, no extra fingers, no logo distortion`.
 
-- Insere `\n\n` antes de cada ocorrência de `CUE <número>` (case-insensitive), exceto se já estiver precedido por quebra dupla.
-- Insere `\n` antes de `[cut to]` quando estiver no meio de um parágrafo.
-- Coloca falas em linha própria: qualquer `Portuguese spoken dialogue: "…"` ou linha que comece por aspas curvas/retas dentro de um CUE ganha `\n` antes e depois.
-- Colapsa 3+ quebras seguidas em exatamente 2.
-- Faz `trim()` no resultado.
+## 3. Botão "Trocar" logo — não trocava
 
-Aplicar essa função em **dois pontos** para que o texto salvo já venha formatado:
+**Problema**: hoje "Trocar" só abre o `ReferencePickerModal` filtrado em `logo`, mas o cliente não tem logos cadastradas na Biblioteca Visual (imagem 468), então o modal fica vazio e sem ação.
 
-- `supabase/functions/suggest-seedance-storyboard/index.ts`: rodar em cada `clips[i].description_en` antes de responder.
-- `supabase/functions/generate-seedance-script/index.ts`: rodar no `prompt` retornado antes de responder.
+**Correção em `src/pages/ClientHub.tsx` (painel da cena Seedance)**:
+- Transformar o botão "Trocar" em um menu com 3 opções:
+  1. **Enviar arquivo** — input `<input type="file" accept="image/*">` que sobe pro bucket `card-attachments` (já usamos `handleUploadSceneAsset`) e seta `scene.logo_ref_url`. Cena-específico, sem cadastrar na biblioteca.
+  2. **Escolher da biblioteca** — abre o `ReferencePickerModal` filtrado em `logo` (comportamento atual).
+  3. **Salvar na biblioteca** — atalho para abrir `/referencias-visuais` já com `kind=logo` e cliente atual pré-selecionados (via query string).
+- Manter a logo padrão do `tenant_companies.logo_url` como fallback quando `logo_ref_url` é vazio (já funciona).
 
-Não mexer no prompt do sistema — a instrução `\n\n` continua lá como reforço, mas a normalização garante o resultado mesmo quando o modelo falha.
+## 4. Cadastrar múltiplas versões de logo (na Biblioteca Visual)
 
-### 2. Retro-formatação ao aplicar clipes existentes
+A tabela `video_references` já suporta `primary_image_url` + `extra_image_urls[]`. O que falta:
+- Em `VideoReferencesLibrary.tsx`, quando `kind=logo`: renomear labels para "Versão principal" e "Variações (cores/negativa/monocromática)" e destacar o suporte a múltiplas imagens.
+- Ao usar no scene picker, se a entrada tiver `extra_image_urls`, mostrar thumbnails para o usuário escolher **qual versão** aplicar naquela cena.
 
-Em `src/pages/ClientHub.tsx`, na função `applySeedanceClipsToEditor` (por volta da linha 1500), aplicar uma versão client-side leve da mesma normalização em `scene_description` antes de gravar no estado, para consertar rascunhos antigos que já estejam salvos sem quebras.
+## 5. Checkbox "Usar cores da identidade visual" travado
 
-Fazer o mesmo dentro do handler de "Roteiro multi-shot IA" (`optimizeSceneWithSeedanceScript`, ~linha 1600) ao receber o `prompt` do endpoint.
+**Diagnóstico**: o checkbox está `disabled={!selectedPresetId}`. Como o preset não estava carregado (item 6), o checkbox ficou preso mesmo com identidade cadastrada em `tenant_companies.brand_*`.
 
-### 3. Rótulo do badge de tomadas
+**Correção**:
+- Desacoplar o checkbox do preset: se `presets.length === 0` mas o cliente tem `brand_primary_color/secondary/highlight` em `tenant_companies`, permitir marcar o checkbox usando essas cores diretamente. O `handleGenerateScene` já resolve o preset; adicionar fallback para pegar as cores da company quando não há preset selecionado.
+- Auto-selecionar o primeiro preset assim que `presets` carrega e nenhum está escolhido (já existe em `refetchPresets`, mas não dispara ao voltar de outra tela — garantir que o `useEffect` roda no montagem do painel de vídeo).
 
-Em `ClientHub.tsx:2840`, trocar o texto do badge de `{duration}s · {shotCount} tomada(s)` para algo mais explícito, deixando claro que é derivado:
+## 6. Presets duplicados / sumindo na primeira abertura
 
-- Exemplo: `10s · 4 cortes internos (CUEs)` com `title` (tooltip nativo) explicando "Cortes gerados automaticamente pela IA dentro do mesmo clipe. Ajuste editando os blocos CUE na descrição."
+**Diagnóstico** (verificado por query em `visual_identity_presets`): o SmartVety tinha **duas linhas "Principal"** — a antiga (`e133e6ae…`, 15:17) e a que o usuário salvou de novo (`bd283704…`, 19:14). Ambas com o mesmo `company_id` e `tenant_id`. O primeiro fetch retornou vazio para o usuário → ele salvou de novo → o realtime disparou o refetch e aí ambas apareceram. Não é bug de RLS; é **race**: o `refetchPresets` do `ClientHub.tsx` roda em `useEffect` com `[selectedClient?.id, tenantId]`, mas em alguns fluxos o `tenantId` chega depois do `selectedClient`, e o primeiro fetch é abortado por `if (!tenantId) return`. O `VisualIdentityModal.fetchPresets` só roda ao abrir o modal — se o modal foi aberto antes do `tenantId` propagar via contexto, o SELECT filtra corretamente mas o auth JWT sem `tenant_id` retorna 0 linhas pela RLS.
+
+**Correção**:
+- Em `ClientHub.tsx`, transformar `refetchPresets` numa função que **aguarda `tenantId` via poll curto** (200ms × 5 tentativas) antes de desistir; e re-executar no `focus`/`visibilitychange` da aba.
+- Em `VisualIdentityModal.tsx`, chamar `fetchPresets` também quando `tenantId` muda de nulo → definido enquanto o modal está aberto.
+- Adicionar **deduplicação por (company_id, name)** no `handleSaveVisual`: se já existir preset com mesmo nome, fazer `UPDATE` em vez de `INSERT` para evitar duplicatas.
+- Migração de limpeza (opcional, sob confirmação do usuário): consolidar duplicatas do SmartVety mantendo a mais recente. Fica fora deste plano até você aprovar.
 
 ## Detalhes técnicos
 
-- A normalização é puramente textual, roda em <1ms, não altera semântica.
-- Regex principal: `/(?<!\n\n)\bCUE\s+\d+/gi` → prefixa `\n\n`. Para `[cut to]`: `/(?<!\n)\s*\[cut to\]/gi` → prefixa `\n`.
-- Textareas já usam `whitespace-pre-wrap` implícito (comportamento nativo), então basta o texto ter os `\n` reais.
-- Nenhum schema de DB muda. Nenhum bump de `VIDEO_DRAFT_SCHEMA_VERSION` necessário — é só formatação de string.
+- **Arquivos alterados**:
+  - `supabase/functions/suggest-seedance-storyboard/index.ts` — novo system prompt (boas práticas + orçamento de palavras).
+  - `supabase/functions/_shared/format-seedance-script.ts` — validador de orçamento por CUE + truncamento seguro.
+  - `supabase/functions/_shared/seedance-prompt.ts` — bloco de boas práticas anexado ao prompt final enviado ao ARK.
+  - `src/pages/ClientHub.tsx` — menu "Trocar" com 3 ações; desacoplar checkbox de identidade; chip de aviso de fala longa; poll de `tenantId` em `refetchPresets`.
+  - `src/pages/VideoReferencesLibrary.tsx` — labels específicos para `kind=logo` + preview de `extra_image_urls`.
+  - `src/components/avulso/ReferencePickerModal.tsx` — mostrar variações quando existirem.
+  - `src/components/VisualIdentityModal.tsx` — refetch em mudança de `tenantId`; upsert por nome no save.
 
-## Fora de escopo
+- **Sem migração de schema**. Toda a estrutura de `video_references` e `visual_identity_presets` já suporta o que precisamos.
 
-- Não tornar número de tomadas configurável manualmente — usuário pode editar os CUEs direto no textarea se quiser mais/menos cortes.
-- Não mexer no limite de 15s (já correto).
+- **Fora de escopo**: consolidar as duplicatas existentes de presets no banco (peço sua confirmação depois).
