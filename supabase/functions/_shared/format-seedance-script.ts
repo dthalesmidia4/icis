@@ -46,3 +46,31 @@ export function formatSeedanceScript(raw: string): string {
 
   return out.trim();
 }
+
+/**
+ * Estimates whether the Portuguese dialogue in a Seedance script fits the clip duration.
+ * PT-BR natural narration averages ~2.3 words/second — we use that as the budget.
+ *
+ * Returns a report the UI can surface as a warning chip. No mutation is applied to the script.
+ */
+export function checkSeedanceDialogueBudget(
+  script: string,
+  durationSeconds: number,
+): { spokenWords: number; budgetWords: number; over: boolean; overBy: number } {
+  if (!script || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    return { spokenWords: 0, budgetWords: 0, over: false, overBy: 0 };
+  }
+  const WORDS_PER_SECOND = 2.3;
+  const budgetWords = Math.max(1, Math.round(durationSeconds * WORDS_PER_SECOND));
+
+  // Collect every quoted PT-BR line (labelled or bare) — normalize curly quotes first.
+  const normalized = script.replace(/[“”]/g, '"');
+  const matches = normalized.match(/"([^"\n]{2,})"/g) ?? [];
+  const spokenWords = matches
+    .map((m) => m.slice(1, -1).trim())
+    .filter(Boolean)
+    .reduce((acc, line) => acc + line.split(/\s+/).filter(Boolean).length, 0);
+
+  const over = spokenWords > budgetWords;
+  return { spokenWords, budgetWords, over, overBy: over ? spokenWords - budgetWords : 0 };
+}
