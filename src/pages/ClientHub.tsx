@@ -2787,46 +2787,11 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                     </div>
                   </div>
 
-                  {/* Preview do plano Seedance sugerido pela IA. */}
-                  {videoEngineChoice === 'seedance' && seedancePlan && (
-                    <div className="rounded-lg border-2 border-primary/40 bg-primary/5 p-3 space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-sm font-semibold text-primary">
-                          Plano sugerido pela IA: {seedancePlan.suggested_clip_count} clipe{seedancePlan.suggested_clip_count > 1 ? 's' : ''}
-                        </div>
-                        <button
-                          type="button"
-                          className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
-                          onClick={() => setSeedancePlan(null)}
-                        >
-                          Refazer
-                        </button>
-                      </div>
-                      {seedancePlan.reasoning && (
-                        <p className="text-xs text-muted-foreground italic leading-snug">{seedancePlan.reasoning}</p>
-                      )}
-                      <div className="space-y-1.5">
-                        {seedancePlan.clips.map((c, i) => (
-                          <div key={i} className="rounded-md bg-background/60 border border-border p-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="text-xs font-semibold">Clipe {i + 1} · {c.title_pt}</div>
-                              <div className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{c.target_duration_seconds}s</div>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{c.description_en}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {videoEngineChoice === 'veo' ? (
                   <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" disabled={!videoIdea.trim() || generatingStoryboard} onClick={handleGenerateStoryboard}>
                     {generatingStoryboard ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando storyboard...</>) : (<><Clapperboard className="w-4 h-4 mr-2" />Gerar Storyboard</>)}
-                  </Button>
-                ) : seedancePlan ? (
-                  <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" onClick={handleApplySeedancePlan}>
-                    <Clapperboard className="w-4 h-4 mr-2" />Usar plano ({seedancePlan.suggested_clip_count} clipe{seedancePlan.suggested_clip_count > 1 ? 's' : ''})
                   </Button>
                 ) : (
                   <Button className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary/70 mt-1" disabled={!videoIdea.trim() || planningSeedance} onClick={handleSuggestSeedancePlan}>
