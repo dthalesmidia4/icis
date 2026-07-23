@@ -105,10 +105,16 @@ export async function approvePlanCard(ctx: PlanCardContext): Promise<string> {
     metadataSource: ctx.source === "ultra" ? "ultra_card" : "card",
   });
 
-  // Fire-and-forget: auto-geração de arte pra post estático / carrossel
+  // Fire-and-forget: auto-geração de arte pra post estático / carrossel.
+  // Decide pela chave técnica (demand_type_key) já normalizada. Fallback por
+  // substring apenas quando a key ficou ausente.
   const t = (tipo || "").toLowerCase();
-  const isStatic = t.includes("post");
-  const isCarousel = t.includes("carrossel") || t.includes("carousel");
+  const isStatic =
+    demandTypeKey === "criativo_estatico" ||
+    (!demandTypeKey && t.includes("post"));
+  const isCarousel =
+    demandTypeKey === "carrossel" ||
+    (!demandTypeKey && (t.includes("carrossel") || t.includes("carousel")));
   if (isStatic || isCarousel) {
     const fn = isCarousel ? "auto-generate-carousel" : "auto-generate-post";
     supabase.functions

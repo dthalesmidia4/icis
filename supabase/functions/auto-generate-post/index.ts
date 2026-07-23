@@ -57,13 +57,23 @@ Deno.serve(async (req) => {
     }
 
     const demandType = (demand.demand_type || "").toLowerCase();
+    const key = (demand.demand_type_key || "").toString().trim();
     const isPostEstatico = demandType.includes("post") && demandType.includes("est");
-    const isStaticPost = isPostEstatico || demandType === "post estático" || demandType === "post estatico" || demandType === "post";
+    const isStaticPost =
+      key === "criativo_estatico" ||
+      (!key && (
+        isPostEstatico ||
+        demandType === "post estático" ||
+        demandType === "post estatico" ||
+        demandType === "post"
+      ));
 
     if (!isStaticPost) {
-      console.log(`Skipping auto-generation: demand_type="${demand.demand_type}" is not a static post`);
+      console.log(
+        `[auto-generate-post] Skipped demandId=${demandId} demand_type="${demand.demand_type}" demand_type_key="${demand.demand_type_key}" reason="tipo não é Post Estático"`
+      );
       return new Response(
-        JSON.stringify({ success: true, skipped: true, reason: `Tipo "${demand.demand_type}" não é Post Estático` }),
+        JSON.stringify({ success: true, skipped: true, reason: `Tipo "${demand.demand_type}" (key="${demand.demand_type_key}") não é Post Estático` }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

@@ -109,12 +109,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Carousel guard
+    // 2. Carousel guard — prefere demand_type_key; fallback por substring
     const demandType = (demand.demand_type || "").toLowerCase();
-    const isCarousel = demandType.includes("carrossel") || demandType.includes("carousel");
+    const key = (demand.demand_type_key || "").toString().trim();
+    const isCarousel =
+      key === "carrossel" ||
+      (!key && (demandType.includes("carrossel") || demandType.includes("carousel")));
     if (!isCarousel) {
+      console.log(
+        `[auto-generate-carousel] Skipped demandId=${demandId} demand_type="${demand.demand_type}" demand_type_key="${demand.demand_type_key}" reason="tipo não é Carrossel"`
+      );
       return new Response(
-        JSON.stringify({ success: true, skipped: true, reason: `Tipo "${demand.demand_type}" não é Carrossel` }),
+        JSON.stringify({ success: true, skipped: true, reason: `Tipo "${demand.demand_type}" (key="${demand.demand_type_key}") não é Carrossel` }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
