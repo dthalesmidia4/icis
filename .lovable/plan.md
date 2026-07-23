@@ -1,88 +1,101 @@
-## Contexto verificado
 
-Pesquisa nas docs oficiais (BytePlus/ByteDance/Dreamina, Runware, Segmind, Apiframe, useapi):
+## Contexto
 
-- **Seedance 1.0 pro / lite**: clipes de **5 a 10s** (não 12s). Multi-shot é **nativo em UM único prompt**, usando sintaxe como `[Shot 1] ... [cut to] ... [Low-angle shot] ...`. O modelo entende transições, cortes e movimentos de câmera dentro do mesmo prompt. Não existe "cena isolada" na API — quem gera múltiplas cenas é o próprio modelo.
-- **Dreamina Seedance 2.0** (`dreamina-seedance-2-0-260128`): **4 a 15s**, 720p/1080p/4k, omni-reference (imagens + vídeos + áudio), first/last frame.
-- **Veo 3.1**: continua no modelo cena-a-cena de ~8s — o storyboard atual faz sentido para ele.
+Três ajustes independentes no fluxo de vídeo do Client Hub:
 
-Confirmado no código atual (`generate-video-scene-seedance/index.ts` linha 131): estamos clampando duração a `Math.max(2, Math.min(12, ...))` — **está errado** para os dois motores (1.x = 10 máx, v2 = 15 máx, mín 4).
+1. **Fluxo Seedance por ideia (não por contagem manual)** — Seedance é caro; hoje o usuário escolhe 1–5 cenas antes mesmo de a IA analisar a ideia. Vamos pedir a IA para decidir quantos clipes o storyboard precisa (na maioria dos casos: **1 clipe com multi-shot dentro dos 15s**; só divide em 2+ quando a narrativa não cabe).
+2. **Preencher a tabela `seedance_pricing`** com os preços oficiais BytePlus/ByteDance (fonte: docs.byteplus.com/docs/ModelArk/1099320) — hoje `CostBadge` renderiza "Custo não configurado".
+3. **Bug: rascunho antigo não descarta** — `useAvulsoDraft` hidrata o modal e não é limpo quando o usuário fecha, então o storyboard antigo (estrutura legada) volta toda vez. Já visível no print (toast "Rascunho de vídeo restaurado").
 
-Conclusão: a estrutura atual (storyboard → N cenas → gerar cada cena em Seedance) força o Seedance a operar como Veo, desperdiçando sua principal força (multi-shot coeso) e ainda erra os limites de duração.
+---
 
-## O que muda
+## 1) Ideação Seedance dirigida por IA
 
-### 1. Bifurcar o fluxo por motor logo no início
+### UX
 
-Ao clicar **Criar → Vídeo** no Client Hub, primeira pergunta passa a ser **Motor de vídeo** (Veo 3.1 vs Seedance) — antes de qualquer coisa. A partir daí:
+Em `ClientHub.tsx`, no **passo 1 do modal de vídeo**, adicionar um seletor de motor **no topo** (Veo 3.1 / Seedance) — default **Seedance**.
 
-- **Veo 3.1** → mantém exatamente o fluxo atual (Ideia → Storyboard por cenas → Editar cenas → Gerar cada cena de ~8s). Nenhuma mudança de UX aqui.
-- **Seedance** → novo fluxo de **prompt único multi-shot** (abaixo).
+- **Veo 3.1 selecionado** → mantém o fluxo atual (idea + contagem manual de cenas 1–5 + `generate-video-storyboard`).
+- **Seedance selecionado** → esconde o seletor "Quantas cenas?" e a interface passa a ser:
+  - Textarea da ideia + formato (9:16 / 16:9 / etc.) + mascotes/preset como hoje.
+  - Botão único: **"Planejar storyboard Seedance"** (chama a nova edge function abaixo).
+  - Depois de responder, mostra uma prévia inline com **"IA sugere: 1 clipe multi-shot de 15s"** (ou 2 clipes, etc.) + resumo do que cada clipe cobrirá, com botão **"Ajustar (usar N clipes)"** caso o usuário queira forçar outro número.
+  - Ao confirmar, entra no passo 2 com `videoScenes[]` já populado — cada cena com `engine='seedance'`, `seedance_model`, `seedance_duration`, `scene_description` já em formato multi-shot com CUEs.
 
-### 2. Novo fluxo Seedance (substitui o storyboard por cenas)
+### Nova edge function `suggest-seedance-storyboard`
 
-Três passos inline (não modal com sub-cenas):
+Usa `openai/gpt-5.6-terra` via Lovable AI Gateway (mesmo padrão do `generate-seedance-script`). Recebe:
 
-**Passo A — Ideia + parâmetros globais**
-- Textarea "Ideia do vídeo" (livre, PT-BR).
-- Modelo: Lite (720p) / Pro 1.0 (1080p, first+last) / Dreamina 2.0 (v2, até 4k, áudio, omni-ref).
-- Formato: 9:16 / 16:9 / 1:1 / 4:5 / 21:9 (v2) / adaptive.
-- Resolução conforme modelo (Lite 480–720p; Pro 480–1080p; v2 720p/1080p/4k).
-- **Duração** com limites reais:
-  - Lite/Pro 1.x → slider **5–10s**.
-  - Dreamina 2.0 → slider **4–15s**.
-- Áudio sincronizado (v2 apenas).
-- Referências globais (uma única lista, não por cena): personagem principal (biblioteca), mascote, cenário, produtos, logo + estratégia (nenhum / contextual / end card), first frame, last frame (Pro 1.x e v2), voice sample (v2).
-- `CostBadge` já reflete duração×resolução×modelo.
+```ts
+{ tenantId, clientId, idea, ratio, model: 'lite'|'pro'|'v2', clientNiche?, mascotSpeech? }
+```
 
-**Passo B — Roteiro multi-shot gerado por IA**
-- Botão **"Gerar roteiro multi-shot"** chama uma nova edge function `generate-seedance-script` que:
-  - Modelo: **`openai/gpt-5.6-terra`** via AI Gateway (`reasoning_effort: "none"`, chat completions).
-  - Recebe: ideia, identidade visual, mascote, duração alvo, formato, contexto do cliente (nicho, tom).
-  - Devolve **um único prompt em inglês** estruturado no formato nativo Seedance:
-    - Bloco de audiência/estilo/aspecto.
-    - Sequência de shots numerados com timestamps (`CUE 0–3s`, `CUE 3–7s`…) somando a duração escolhida.
-    - Diretrizes de câmera entre colchetes (`[Medium shot]`, `[Low-angle shot]`, `[cut to]`, `[dolly in]`).
-    - Fala do mascote/personagem entre aspas em PT-BR quando aplicável.
-    - Referências numeradas `[Image 1]…` alinhadas às imagens enviadas (reaproveita `buildSeedancePrompt`).
-- Editor de texto rico e simples (textarea grande) para o usuário revisar/ajustar o roteiro antes de gerar.
-- Persistido em `avulso_drafts` (`content_type: 'seedance_video'`) — autosave do hook existente.
+System prompt (resumo — vira uma key `seedance_storyboard_planner` em `system_prompts` com fallback embutido):
 
-**Passo C — Geração única**
-- Um único botão **"Gerar vídeo"** dispara `generate-video-scene-seedance` **uma vez**, com o prompt final + todas as refs globais. Sem loop de cenas.
-- Resultado: 1 arquivo MP4. Player + botão **Finalizar** (cria card), padrão dos outros conteúdos.
+> Você planeja produções em Seedance. Seedance gera **1 clipe contínuo por prompt**, mas entende multi-shot com `[cut to]` e blocos CUE, então quase toda ideia cabe em **1 clipe único** (5–10s no Pro/Lite, 4–15s no v2). Só divida em 2+ clipes quando a narrativa realmente exigir (ex.: comercial completo com abertura + meio + call-to-action distintos, ou +15s de conteúdo). Priorize sempre **menos clipes** — custo é o principal fator. Retorne JSON estrito com `suggested_clip_count` (1–3), `reasoning` (1 frase, PT-BR, explicando o porquê para o usuário), e `clips[]` com `{ title_pt, description_en (prompt multi-shot com CUEs), target_duration_seconds }`.
 
-### 3. Ajustes na edge function `generate-video-scene-seedance`
-- Clamp de duração passa a depender do modelo: `lite/pro` → 5–10, `v2` → 4–15.
-- Sem outras mudanças estruturais (o prompt builder e refs continuam válidos).
+Retorna JSON parseado manualmente (sem `Output.object`) — segue a orientação do knowledge para schemas dinâmicos. Fallback: se o parse falhar, retorna 1 clipe único com `description_en = idea` traduzida.
 
-### 4. Nova edge function `generate-seedance-script`
-- Input: `{ tenantId, clientId, idea, durationSeconds, model, ratio, visualIdentity, mascot, refs[] }`.
-- Chama Gateway `openai/gpt-5.6-terra` com system prompt salvo em `system_prompts` (nova chave `seedance_multishot_script`) para permitir edição em `/dev/prompts`.
-- Retorna `{ prompt, shotsSummary[] }` (o `shotsSummary` é só metadata para exibir uma timeline visual leve no passo B — não outra chamada de vídeo).
+### Migração da estrutura de storyboard existente
 
-### 5. Pricing e limites
-- `SeedancePricingManager` continua igual; só reforço no seed default (Pro 1080p, Lite 720p, v2 1080p) — sem migração obrigatória.
+- Manter `sceneCount` state para o fluxo Veo.
+- Novo state `videoEngineChoice: 'veo' | 'seedance'` no passo 1.
+- Persistido no draft junto do resto.
 
-## Arquivos afetados
+---
 
-- `src/pages/ClientHub.tsx` — bifurcar fluxo, novo passo Seedance (Ideia → Roteiro → Gerar), remover editor de cenas quando motor = Seedance.
-- `src/hooks/useAvulsoDraft.ts` — sem mudança de assinatura, só novo `content_type`.
-- `supabase/functions/generate-video-scene-seedance/index.ts` — clamp de duração por modelo.
-- `supabase/functions/generate-seedance-script/index.ts` — **nova**.
-- `supabase/functions/_shared/system-prompts.ts` — nova chave `seedance_multishot_script`.
-- `supabase/functions/_shared/seedance-prompt.ts` — sem mudança (já lida com refs numeradas).
-- `src/pages/DevPrompts.tsx` — expõe a nova chave automaticamente (CRUD já é dinâmico).
+## 2) Preencher `seedance_pricing` com os preços oficiais BytePlus
 
-## Fora de escopo
+Fonte: `https://docs.byteplus.com/docs/ModelArk/1099320` (tabelas oficiais em USD/segundo).
 
-- Nenhuma mudança no fluxo Veo 3.1.
-- Sem migração de dados de storyboards antigos.
-- Sem alteração no CostBadge (fórmula continua válida).
+Migration `INSERT ... ON CONFLICT (model_key, resolution) DO UPDATE` populando:
 
-## Validação após implementação
+| model_key | resolution | USD/s (BytePlus) | credits/s | BRL/credit |
+|---|---|---|---|---|
+| `lite` (seedance-1-0-pro-fast) | 480p | $0.010 | 0.010 | 5.50 |
+| `lite` | 720p | $0.020 | 0.020 | 5.50 |
+| `lite` | 1080p | $0.048 | 0.048 | 5.50 |
+| `pro` (seedance-1-0-pro-250528) | 480p | $0.024 | 0.024 | 5.50 |
+| `pro` | 720p | $0.052 | 0.052 | 5.50 |
+| `pro` | 1080p | $0.122 | 0.122 | 5.50 |
+| `v2` (dreamina-seedance-2-0-260128) | 480p | $0.070 | 0.070 | 5.50 |
+| `v2` | 720p | $0.150 | 0.150 | 5.50 |
+| `v2` | 1080p | $0.370 | 0.370 | 5.50 |
 
-1. Motor Veo continua com storyboard por cenas idêntico ao atual.
-2. Motor Seedance mostra apenas Ideia → Roteiro (gerado por gpt-5.6-terra) → Gerar vídeo único.
-3. Slider de duração respeita 5–10 (1.x) ou 4–15 (v2).
-4. Uma geração real de teste devolve MP4 e cria card via **Finalizar**.
+- **Unidade de "crédito"** = 1 USD (mantém `credits/s == USD/s`).
+- **`price_brl_per_credit = 5.50`** (câmbio conservador ~R$ 5,50 / USD; qualquer super_admin edita depois em `/dev/apis`).
+- `notes` = link para a doc BytePlus.
+
+Assim `CostBadge` passa a exibir, por ex., `≈ 0.61 créditos · R$ 3,36` para um Pro 1080p @ 5s.
+
+---
+
+## 3) Fix: rascunho de vídeo travado com estrutura antiga
+
+### Diagnóstico
+
+- `useAvulsoDraft` grava `state` em `avulso_drafts` a cada 800ms enquanto o modal está aberto.
+- No `onOpenChange(false)` do `Dialog` só limpamos estado local (`setVideoScenes([])`, etc.), **nunca chamamos `clearDraft`**.
+- No próximo `open`, o hook hidrata a última row → dispara o toast "Rascunho de vídeo restaurado" e cravajar as cenas antigas — inclusive cenas geradas na estrutura pré-Seedance sem `engine`, o que quebra os controles novos.
+
+### Correções
+
+1. Expor `clearDraft` do hook para fora (já retorna, mas não é usado).
+2. **Botão explícito "Descartar rascunho"** no header do modal, visível apenas quando `videoDraftHydrated` existe. Ao clicar: `await clearDraft()` + resetar todos os `useState` do vídeo + toast "Rascunho descartado".
+3. **Auto-descarte em schema legacy**: injetar `schema_version: 2` no `videoDraftSnapshot`. No `useEffect` de hidratação, se `hydrated?.schema_version !== 2` → `clearDraft()` silencioso e não aplicar nenhum estado antigo. Cobre todos os rascunhos legados existentes sem exigir intervenção do usuário.
+4. **Descartar rascunho também no botão "Voltar"** (ChevronLeft já reseta local — adicionar `clearDraft`) e ao concluir com sucesso (opcional — usuário sabe que gerou o card).
+
+---
+
+## Arquivos alterados
+
+- `supabase/functions/suggest-seedance-storyboard/index.ts` (novo).
+- `src/pages/ClientHub.tsx`: seletor de motor no passo 1, chamada da nova função, aplicação das cenas sugeridas, botão "Descartar rascunho", `schema_version` no snapshot, guard de versão na hidratação.
+- `src/hooks/useAvulsoDraft.ts`: nenhuma mudança (`clearDraft` já existe).
+- Migration `seed_seedance_pricing.sql`: `INSERT ... ON CONFLICT` das 9 linhas.
+
+## Fora do escopo
+
+- Não mexer no fluxo Veo (storyboard cena-a-cena continua igual).
+- Não alterar o handler `handleOptimizeSeedanceScript` — continua disponível por cena para refinar depois.
+- Não trocar unidade de "crédito" no `seedance_pricing` (mantém 1 crédito = 1 USD; se o usuário quiser normalizar para créditos Lovable no futuro, é outra rodada).
