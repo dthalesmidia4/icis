@@ -129,9 +129,10 @@ const ClientHub = () => {
   const [uploadingFrame, setUploadingFrame] = useState<number | null>(null);
   const [videoPreviewIndex, setVideoPreviewIndex] = useState(0);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
-  // Motor de vídeo escolhido no passo 1. Default = Seedance (mais eficiente por multi-shot em 1 prompt).
-  const [videoEngineChoice, setVideoEngineChoice] = useState<'veo' | 'seedance'>('seedance');
-  const [seedanceDefaultModel, setSeedanceDefaultModel] = useState<'lite' | 'pro' | 'v2'>('pro');
+  // Motor de vídeo escolhido no passo 1. Default = Veo (mais barato / previsível).
+  // O modelo/resolução/duração do Seedance são configurados por cena no passo 2.
+  const [videoEngineChoice, setVideoEngineChoice] = useState<'veo' | 'seedance'>('veo');
+  const [seedanceDefaultModel] = useState<'lite' | 'pro' | 'v2'>('v2');
   const [planningSeedance, setPlanningSeedance] = useState(false);
   const [seedancePlan, setSeedancePlan] = useState<null | {
     suggested_clip_count: number;
@@ -220,9 +221,9 @@ const ClientHub = () => {
 
   // ------- Autosave rascunho de vídeo (avulso_drafts) -------
   // schema_version bumped whenever the stored shape changes; older drafts are ignored on hydrate.
-  const VIDEO_DRAFT_SCHEMA_VERSION = 2;
+  const VIDEO_DRAFT_SCHEMA_VERSION = 3;
   const videoDraftSnapshot = videoModalOpen && selectedClient
-    ? { schema_version: VIDEO_DRAFT_SCHEMA_VERSION, videoIdea, sceneCount, videoAspectRatio, videoStep, videoScenes, selectedPresetId, selectedMascotIds, videoEngineChoice, seedanceDefaultModel }
+    ? { schema_version: VIDEO_DRAFT_SCHEMA_VERSION, videoIdea, sceneCount, videoAspectRatio, videoStep, videoScenes, selectedPresetId, selectedMascotIds, videoEngineChoice }
     : null;
   const { hydrated: videoDraftHydrated, clearDraft: clearVideoDraft } = useAvulsoDraft<typeof videoDraftSnapshot>({
     tenantId,
@@ -256,7 +257,7 @@ const ClientHub = () => {
       if (d?.selectedPresetId != null) setSelectedPresetId(d.selectedPresetId);
       if (Array.isArray(d?.selectedMascotIds)) setSelectedMascotIds(d.selectedMascotIds);
       if (d?.videoEngineChoice) setVideoEngineChoice(d.videoEngineChoice);
-      if (d?.seedanceDefaultModel) setSeedanceDefaultModel(d.seedanceDefaultModel);
+      // seedanceDefaultModel removido do draft (schema v3) — modelo é escolhido por cena no passo 2.
     }
     videoDraftAppliedRef.current = true;
   }, [videoModalOpen, videoDraftHydrated]);
@@ -1430,8 +1431,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     setVideoPreviewIndex(0);
     setSeedancePlan(null);
     setPlanningSeedance(false);
-    setVideoEngineChoice('seedance');
-    setSeedanceDefaultModel('pro');
+    setVideoEngineChoice('veo');
     videoDraftAppliedRef.current = false;
   };
 
@@ -1483,9 +1483,9 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       mascot_speech: '',
       generating: false,
       engine: 'seedance' as const,
-      seedance_model: seedanceDefaultModel,
+      seedance_model: 'v2' as 'lite' | 'pro' | 'v2',
       seedance_duration: c.target_duration_seconds,
-      seedance_resolution: (seedanceDefaultModel === 'v2' ? '720p' : '1080p') as '480p' | '720p' | '1080p',
+      seedance_resolution: '720p' as '480p' | '720p' | '1080p',
       seedance_generate_audio: false,
       seedance_options_open: false,
       use_brand_identity: hasIdentity,
@@ -2685,7 +2685,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className={videoEngineChoice === 'veo' ? 'grid grid-cols-2 gap-4' : 'grid grid-cols-1 gap-4'}>
                     {videoEngineChoice === 'veo' ? (
                       <div className="space-y-1.5">
                         <Label className="text-sm font-medium">Cenas</Label>
@@ -2699,16 +2699,8 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                         </div>
                       </div>
                     ) : (
-                      <div className="space-y-1.5">
-                        <Label className="text-sm font-medium">Modelo Seedance</Label>
-                        <div className="flex gap-1.5">
-                          {(['lite', 'pro', 'v2'] as const).map((m) => (
-                            <button key={m} onClick={() => { setSeedanceDefaultModel(m); setSeedancePlan(null); }} disabled={planningSeedance}
-                              className={`px-3 py-1.5 rounded-lg font-medium text-xs uppercase tracking-wide transition-all ${seedanceDefaultModel === m ? 'bg-primary text-primary-foreground shadow-lg' : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}>
-                              {m}
-                            </button>
-                          ))}
-                        </div>
+                      <div className="rounded-md border border-dashed border-primary/30 bg-primary/5 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                        A IA vai sugerir quantos clipes o vídeo precisa. O <strong className="text-primary">modelo</strong> (Seedance 2.0 / Fast / Mini), a <strong className="text-primary">resolução</strong> e a <strong className="text-primary">duração</strong> são escolhidos por cena no próximo passo.
                       </div>
                     )}
                     <div className="space-y-1.5">
@@ -2954,9 +2946,9 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                 >
                                   <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="pro">Pro (1080p, first+last)</SelectItem>
-                                    <SelectItem value="lite">Lite (rápido/barato)</SelectItem>
-                                    <SelectItem value="v2">v2 (multi-ref + áudio)</SelectItem>
+                                    <SelectItem value="v2">Seedance 2.0 (multi-ref + áudio)</SelectItem>
+                                    <SelectItem value="pro">Seedance 1.0 Pro (first+last frame)</SelectItem>
+                                    <SelectItem value="lite">Seedance 1.0 Lite (rápido / econômico)</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
