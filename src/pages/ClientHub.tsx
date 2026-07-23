@@ -1418,6 +1418,86 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     finally { setGeneratingStoryboard(false); }
   };
 
+  // Reset ALL state related to the video modal (close/back/discard entry points share this).
+  const resetVideoModalState = () => {
+    setVideoIdea('');
+    setSceneCount(3);
+    setSelectedPresetId(null);
+    setVideoAspectRatio('9:16');
+    setSelectedMascotIds([]);
+    setVideoStep(1);
+    setVideoScenes([]);
+    setVideoPreviewIndex(0);
+    setSeedancePlan(null);
+    setPlanningSeedance(false);
+    setVideoEngineChoice('seedance');
+    setSeedanceDefaultModel('pro');
+    videoDraftAppliedRef.current = false;
+  };
+
+  // Seedance produces multi-shot in a single prompt. Ask the AI how many CLIPS the idea
+  // really needs (usually 1) and preload the storyboard with those clips.
+  const handleSuggestSeedancePlan = async () => {
+    if (!videoIdea.trim() || !selectedClient || !tenantId) return;
+    setPlanningSeedance(true);
+    setSeedancePlan(null);
+    try {
+      const preset = presets.find(p => p.id === selectedPresetId);
+      const brandColors = [preset?.primary_color, preset?.secondary_color].filter(Boolean) as string[];
+      const { data, error } = await supabase.functions.invoke('suggest-seedance-storyboard', {
+        body: {
+          tenantId,
+          clientId: selectedClient.id,
+          idea: videoIdea,
+          ratio: videoAspectRatio,
+          model: seedanceDefaultModel,
+          clientNiche: (selectedClient as any)?.niche ?? (selectedClient as any)?.segment ?? null,
+          brandColors,
+        },
+      });
+      if (error) { console.error('suggest-seedance-storyboard error:', error); toast.error('Erro ao planejar storyboard.'); return; }
+      if (data?.error) { toast.error(data.error); return; }
+      if (!data?.clips?.length) { toast.error('Nenhuma sugestão retornada.'); return; }
+      setSeedancePlan({
+        suggested_clip_count: data.suggested_clip_count ?? data.clips.length,
+        reasoning: data.reasoning ?? '',
+        clips: data.clips,
+        fallback: !!data.fallback,
+      });
+      if (data.fallback) toast.info('Sugerindo 1 clipe único (fallback seguro).');
+    } catch (err) {
+      console.error('handleSuggestSeedancePlan error:', err);
+      toast.error('Erro inesperado ao planejar storyboard.');
+    } finally {
+      setPlanningSeedance(false);
+    }
+  };
+
+  // Applies the AI-suggested Seedance plan to the scene editor (step 2).
+  const handleApplySeedancePlan = () => {
+    if (!seedancePlan?.clips?.length) return;
+    const preset = presets.find(p => p.id === selectedPresetId);
+    const hasIdentity = !!(preset?.primary_color || preset?.secondary_color);
+    const mapped = seedancePlan.clips.map((c) => ({
+      scene_description: c.description_en,
+      mascot_speech: '',
+      generating: false,
+      engine: 'seedance' as const,
+      seedance_model: seedanceDefaultModel,
+      seedance_duration: c.target_duration_seconds,
+      seedance_resolution: (seedanceDefaultModel === 'v2' ? '720p' : '1080p') as '480p' | '720p' | '1080p',
+      seedance_generate_audio: false,
+      seedance_options_open: false,
+      use_brand_identity: hasIdentity,
+      logo_strategy: 'none' as const,
+    }));
+    setVideoScenes(mapped);
+    setVideoStep(2);
+    setSeedancePlan(null);
+    toast.success(`Storyboard pronto: ${mapped.length} clipe${mapped.length > 1 ? 's' : ''}.`);
+    saveGeneratedContent('video_storyboard', 'Storyboard Seedance', videoIdea, []).catch(() => {});
+  };
+
   const handleFrameUpload = async (sceneIndex: number, file: File) => {
     setUploadingFrame(sceneIndex);
     try {
