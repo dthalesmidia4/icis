@@ -2,16 +2,29 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-createRoot(document.getElementById("root")!).render(<App />);
+const rootElement = document.getElementById("root");
+
+if (rootElement) {
+  createRoot(rootElement).render(<App />);
+}
 
 // Desregistra qualquer Service Worker antigo (que servia versões em cache) e
-// limpa caches Workbox residuais. Não registra nenhum SW novo — evita loops de
-// navigate() do kill-switch. No-op quando não há SW.
+// limpa caches residuais. Não registra nenhum SW novo — evita loops e impede
+// que o preview continue preso em builds antigos.
 if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+  const cleanupReloadKey = "icis-sw-cleanup-reload";
+
   navigator.serviceWorker
     .getRegistrations()
-    .then((regs) => Promise.all(regs.map((r) => r.unregister().catch(() => false))))
+    .then((regs) => Promise.all(regs.map((registration) => registration.unregister().catch(() => false))))
+    .then(() => {
+      if (navigator.serviceWorker.controller && sessionStorage.getItem(cleanupReloadKey) !== "done") {
+        sessionStorage.setItem(cleanupReloadKey, "done");
+        window.location.reload();
+      }
+    })
     .catch(() => {});
+
   if ("caches" in window) {
     caches
       .keys()
