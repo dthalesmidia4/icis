@@ -108,8 +108,7 @@ Deno.serve(async (req) => {
 
     const prompt = buildSeedancePrompt({
       sceneDescription: body.prompt,
-      mascotSpeech: body.mascotSpeech ?? null,
-      pronunciationHints: body.pronunciationHints ?? null,
+      sceneDescription: body.prompt,
       brandColors: body.brandColors ?? [],
       brandTypography: body.brandTypography ?? null,
       logoStrategy: body.logoStrategy ?? "none",
