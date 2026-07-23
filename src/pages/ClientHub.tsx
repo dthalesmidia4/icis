@@ -3141,44 +3141,72 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                   </button>
                                 </div>
 
-                                {/* Logo da marca — presença e estratégia */}
+                                {/* Uso da logo no vídeo — o campo é uma ESTRATÉGIA (não é o arquivo).
+                                    O arquivo da logo vem automaticamente do cadastro do cliente
+                                    (tenant_companies.logo_url); só é preciso escolher outra manualmente
+                                    se quiser sobrescrever para esta cena. */}
                                 <div className="space-y-1">
-                                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Logo da marca</Label>
+                                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Uso da logo no vídeo</Label>
                                   <Select
                                     value={scene.logo_strategy ?? 'none'}
-                                    onValueChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, logo_strategy: v as 'none' | 'contextual' | 'end_card' } : s))}
+                                    onValueChange={(v) => setVideoScenes(prev => prev.map((s, i) => {
+                                      if (i !== idx) return s;
+                                      const strategy = v as 'none' | 'contextual' | 'end_card';
+                                      // Ao ativar estratégia, se ainda não há arquivo escolhido, usar a logo do cliente.
+                                      const nextLogo = strategy !== 'none' && !s.logo_ref_url && clientLogoUrl ? clientLogoUrl : s.logo_ref_url;
+                                      return { ...s, logo_strategy: strategy, logo_ref_url: nextLogo };
+                                    }))}
                                     disabled={scene.generating}
                                   >
                                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="none">Sem logo</SelectItem>
-                                      <SelectItem value="contextual">Contextual (ambiente, produto, cenário)</SelectItem>
+                                      <SelectItem value="none">Não incluir a logo</SelectItem>
+                                      <SelectItem value="contextual">Inserir naturalmente (em produto, cenário ou peça)</SelectItem>
                                       <SelectItem value="end_card">Cartela final (encerramento)</SelectItem>
                                     </SelectContent>
                                   </Select>
                                   {scene.logo_strategy && scene.logo_strategy !== 'none' && (
-                                    scene.logo_ref_url ? (
+                                    (scene.logo_ref_url || clientLogoUrl) ? (
                                       <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-muted/30 px-2 py-1.5">
-                                        <img src={scene.logo_ref_url} alt="Logo" className="h-8 w-8 object-contain rounded bg-white" />
+                                        <img src={scene.logo_ref_url || clientLogoUrl || ''} alt="Logo" className="h-8 w-8 object-contain rounded bg-white" />
+                                        <span className="text-[10px] text-muted-foreground flex-1">
+                                          {scene.logo_ref_url ? 'Logo desta cena' : 'Usando a logo do cliente'}
+                                        </span>
                                         <button
                                           type="button"
-                                          className="text-destructive hover:opacity-80 ml-auto"
-                                          onClick={() => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, logo_ref_url: undefined } : s))}
+                                          className="text-[10px] text-primary hover:underline"
+                                          onClick={() => { setPickerTarget({ sceneIndex: idx, slot: 'logo' }); setPickerOpen(true); }}
                                         >
-                                          <Trash2 className="w-3.5 h-3.5" />
+                                          Trocar
                                         </button>
+                                        {scene.logo_ref_url && (
+                                          <button
+                                            type="button"
+                                            className="text-destructive hover:opacity-80"
+                                            title="Voltar para a logo do cliente"
+                                            onClick={() => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, logo_ref_url: undefined } : s))}
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
                                       </div>
                                     ) : (
-                                      <button
-                                        type="button"
-                                        className="text-[10px] text-primary hover:underline"
-                                        onClick={() => { setPickerTarget({ sceneIndex: idx, slot: 'logo' }); setPickerOpen(true); }}
-                                      >
-                                        Escolher logo da biblioteca
-                                      </button>
+                                      <div className="flex items-center gap-2 rounded-md border border-dashed border-border bg-muted/30 px-2 py-1.5">
+                                        <span className="text-[10px] text-muted-foreground flex-1">
+                                          Nenhuma logo cadastrada no cliente.
+                                        </span>
+                                        <button
+                                          type="button"
+                                          className="text-[10px] text-primary hover:underline"
+                                          onClick={() => { setPickerTarget({ sceneIndex: idx, slot: 'logo' }); setPickerOpen(true); }}
+                                        >
+                                          Escolher da biblioteca
+                                        </button>
+                                      </div>
                                     )
                                   )}
                                 </div>
+
 
 
                                 {/* Voz de referência (só v2) */}
