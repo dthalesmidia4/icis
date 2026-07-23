@@ -109,7 +109,7 @@ const ClientHub = () => {
     generating?: boolean;
     // Seedance engine options (per scene)
     engine?: 'veo' | 'seedance';
-    seedance_model?: 'lite' | 'pro' | 'v2';
+    seedance_model?: import('@/lib/seedanceModel').SeedanceModelKey;
     seedance_duration?: number;
     seedance_resolution?: '480p' | '720p' | '1080p';
     seedance_generate_audio?: boolean;
@@ -1528,7 +1528,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       mascot_speech: '',
       generating: false,
       engine: 'seedance' as const,
-      seedance_model: 'v2' as const,
+      seedance_model: 'v15_pro' as const,
       seedance_duration: clampDur(c.target_duration_seconds),
       seedance_resolution: '1080p' as const,
       seedance_generate_audio: true,
@@ -1615,9 +1615,10 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
 
     setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? { ...s, optimizing_script: true } : s));
     try {
-      const isV2 = (scene.seedance_model ?? 'pro') === 'v2';
-      const [minDur, maxDur] = isV2 ? [4, 15] : [5, 10];
-      const targetDuration = Math.max(minDur, Math.min(maxDur, scene.seedance_duration ?? (isV2 ? 8 : 6)));
+      const { seedanceCaps } = await import('@/lib/seedanceModel');
+      const caps = seedanceCaps(scene.seedance_model);
+      const [minDur, maxDur] = [caps.minDur, caps.maxDur];
+      const targetDuration = Math.max(minDur, Math.min(maxDur, scene.seedance_duration ?? caps.defaultDur));
 
       const refsLegend: string[] = [];
       if (scene.frame0_url) refsLegend.push('opening frame');
