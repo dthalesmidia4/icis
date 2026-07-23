@@ -257,7 +257,7 @@ const ClientHub = () => {
       if (d?.selectedPresetId != null) setSelectedPresetId(d.selectedPresetId);
       if (Array.isArray(d?.selectedMascotIds)) setSelectedMascotIds(d.selectedMascotIds);
       if (d?.videoEngineChoice) setVideoEngineChoice(d.videoEngineChoice);
-      if (d?.seedanceDefaultModel) setSeedanceDefaultModel(d.seedanceDefaultModel);
+      // seedanceDefaultModel removido do draft (schema v3) — modelo é escolhido por cena no passo 2.
     }
     videoDraftAppliedRef.current = true;
   }, [videoModalOpen, videoDraftHydrated]);
