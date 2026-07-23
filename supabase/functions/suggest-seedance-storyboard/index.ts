@@ -5,6 +5,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getSystemPrompt } from "../_shared/system-prompts.ts";
+import { formatSeedanceScript } from "../_shared/format-seedance-script.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -214,7 +215,7 @@ Deno.serve(async (req) => {
     const cappedCount = Math.max(1, Math.min(5, Math.floor(parsed.suggested_clip_count)));
     const clips: Clip[] = parsed.clips.slice(0, cappedCount).map((c, i) => ({
       title_pt: (c?.title_pt || `Clipe ${i + 1}`).toString().slice(0, 80),
-      description_en: (c?.description_en || body.idea.trim()).toString(),
+      description_en: formatSeedanceScript((c?.description_en || body.idea.trim()).toString()),
       target_duration_seconds: clampDuration(Number(c?.target_duration_seconds)),
       mascot_speech_pt: typeof c?.mascot_speech_pt === "string" ? c.mascot_speech_pt.trim() : "",
     }));

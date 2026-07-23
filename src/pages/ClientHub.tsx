@@ -1492,6 +1492,19 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
   // Applies a Seedance plan (clip list) to the scene editor and advances to step 2.
   // Technical settings (model/resolution/audio/logo) start with sensible defaults —
   // the user tunes them per clip inside the scene editor.
+  // Client-side mirror of supabase/functions/_shared/format-seedance-script.ts —
+  // keeps old drafts readable and fixes any AI response that slipped through unformatted.
+  const formatSeedanceScript = (raw: string): string => {
+    if (!raw) return '';
+    let out = raw.replace(/\r\n/g, '\n');
+    out = out.replace(/([^\n])\s*(\bCUE\s+\d)/g, '$1\n\n$2');
+    out = out.replace(/([^\n])\s*(\[cut to\])/gi, '$1\n$2');
+    out = out.replace(/([^\n])\s*(Portuguese spoken dialogue:\s*["“][^"”\n]+["”])/g, '$1\n$2');
+    out = out.replace(/([.!?…])\s+(["“][A-ZÀ-ÿ][^"”\n]{2,}["”])/g, '$1\n$2');
+    out = out.replace(/\n{3,}/g, '\n\n');
+    return out.trim();
+  };
+
   const applySeedanceClipsToEditor = (
     clips: Array<{ description_en: string; target_duration_seconds: number; title_pt?: string; mascot_speech_pt?: string }>,
   ) => {
@@ -1500,7 +1513,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
     const hasIdentity = !!(preset?.primary_color || preset?.secondary_color);
     const clampDur = (d: number) => Math.max(4, Math.min(15, Math.round(d || 8)));
     const mapped = clips.map((c) => ({
-      scene_description: c.description_en,
+      scene_description: formatSeedanceScript(c.description_en),
       // Fala vive dentro dos CUEs da descrição — mantemos o campo vazio.
       mascot_speech: '',
       generating: false,
@@ -1626,7 +1639,7 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
       const returnedDur: number | undefined = (data as any)?.durationSeconds;
       setVideoScenes(prev => prev.map((s, i) => i === sceneIndex ? {
         ...s,
-        scene_description: prompt,
+        scene_description: formatSeedanceScript(prompt),
         seedance_duration: returnedDur ?? targetDuration,
       } : s));
       toast.success('Roteiro multi-shot gerado. Revise antes de gerar o vídeo.');
@@ -2836,8 +2849,11 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                             {isSeedance ? `Clipe ${idx + 1}` : `Cena ${idx + 1}`}
                           </span>
                           {isSeedance ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono font-semibold">
-                              {scene.seedance_duration ?? 8}s · {shotCount} tomada{shotCount > 1 ? 's' : ''}
+                            <span
+                              className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono font-semibold"
+                              title="Cortes internos (CUEs) detectados na descrição. A IA decide quantos cabem na duração escolhida — edite os blocos CUE no roteiro para adicionar ou remover cortes."
+                            >
+                              {scene.seedance_duration ?? 8}s · {shotCount} corte{shotCount > 1 ? 's' : ''} interno{shotCount > 1 ? 's' : ''}
                             </span>
                           ) : (
                             <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
