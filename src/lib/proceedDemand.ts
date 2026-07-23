@@ -39,9 +39,14 @@ export function normalizeDemandTypeKey(text?: string | null): DemandTypeKey | nu
   if (!text) return null;
   const raw = String(text).trim();
   if (!raw) return null;
-  if (raw.includes("+")) return null;
 
-  const l = raw.toLowerCase();
+  // Tipos compostos com "+" (ex.: "Carrossel (5 slides) + PDF complementar"):
+  // usar apenas a parte antes do "+" como tipo primário. O complemento vira
+  // anexo e não altera a natureza do card.
+  const primary = raw.includes("+") ? raw.split("+")[0].trim() : raw;
+  if (!primary) return null;
+
+  const l = primary.toLowerCase();
   if (l.includes("carrossel") || l.includes("carousel")) return "carrossel";
   if (l.includes("captad")) return "video_captado";
   if ((l.includes("gerad") || l.includes("gerar")) && (l.includes("vídeo") || l.includes("video"))) {
