@@ -3186,12 +3186,17 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                         <span className="text-[10px] text-muted-foreground flex-1">
                                           {scene.logo_ref_url ? 'Logo desta cena' : 'Usando a logo do cliente'}
                                         </span>
+                                        <label className={`text-[10px] text-primary hover:underline cursor-pointer ${uploadingRef === `${idx}:logo` ? 'opacity-50 pointer-events-none' : ''}`}>
+                                          {uploadingRef === `${idx}:logo` ? 'Enviando…' : 'Enviar arquivo'}
+                                          <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadSceneAsset(idx, 'logo', f); e.target.value = ''; }} />
+                                        </label>
+                                        <span className="text-[10px] text-muted-foreground">·</span>
                                         <button
                                           type="button"
                                           className="text-[10px] text-primary hover:underline"
                                           onClick={() => { setPickerTarget({ sceneIndex: idx, slot: 'logo' }); setPickerOpen(true); }}
                                         >
-                                          Trocar
+                                          Biblioteca
                                         </button>
                                         {scene.logo_ref_url && (
                                           <button
@@ -3209,12 +3214,17 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                         <span className="text-[10px] text-muted-foreground flex-1">
                                           Nenhuma logo cadastrada no cliente.
                                         </span>
+                                        <label className={`text-[10px] text-primary hover:underline cursor-pointer ${uploadingRef === `${idx}:logo` ? 'opacity-50 pointer-events-none' : ''}`}>
+                                          {uploadingRef === `${idx}:logo` ? 'Enviando…' : 'Enviar arquivo'}
+                                          <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadSceneAsset(idx, 'logo', f); e.target.value = ''; }} />
+                                        </label>
+                                        <span className="text-[10px] text-muted-foreground">·</span>
                                         <button
                                           type="button"
                                           className="text-[10px] text-primary hover:underline"
                                           onClick={() => { setPickerTarget({ sceneIndex: idx, slot: 'logo' }); setPickerOpen(true); }}
                                         >
-                                          Escolher da biblioteca
+                                          Biblioteca
                                         </button>
                                       </div>
                                     )
@@ -3247,15 +3257,22 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
                                   </div>
                                 )}
 
-                                {/* Identidade visual */}
-                                <label className="flex items-center gap-2 text-xs">
-                                  <Checkbox
-                                    checked={!!scene.use_brand_identity}
-                                    onCheckedChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, use_brand_identity: !!v } : s))}
-                                    disabled={scene.generating || !selectedPresetId}
-                                  />
-                                  Usar cores da identidade visual{!selectedPresetId && <span className="text-muted-foreground"> (selecione um preset)</span>}
-                                </label>
+                                {/* Identidade visual — usa preset ativo OU, na falta dele, as cores cadastradas em tenant_companies.brand_* */}
+                                {(() => {
+                                  const hasFallbackColors = !!((selectedClient as any)?.brand_primary_color || (selectedClient as any)?.brand_secondary_color);
+                                  const canUseIdentity = presets.length > 0 || hasFallbackColors;
+                                  return (
+                                    <label className="flex items-center gap-2 text-xs">
+                                      <Checkbox
+                                        checked={!!scene.use_brand_identity}
+                                        onCheckedChange={(v) => setVideoScenes(prev => prev.map((s, i) => i === idx ? { ...s, use_brand_identity: !!v } : s))}
+                                        disabled={scene.generating || !canUseIdentity}
+                                      />
+                                      Usar cores da identidade visual
+                                      {!canUseIdentity && <span className="text-muted-foreground"> (cadastre a identidade visual)</span>}
+                                    </label>
+                                  );
+                                })()}
                               </div>
                             )}
                           </div>
