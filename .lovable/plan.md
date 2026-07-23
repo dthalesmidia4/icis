@@ -1,53 +1,50 @@
+# Quebras de linha no roteiro Seedance + clareza do badge de tomadas
 
-## Objetivo
+## Contexto (respostas rápidas)
 
-Simplificar o editor de cena do Seedance: eliminar dois campos que não fazem sentido no fluxo atual e fazer a IA cuidar da pronúncia sozinha ao escrever a descrição.
+- **Limite de 15s**: é limite real da API BytePlus. Seedance 1.x lite/pro aceita 5–10s por clipe, Dreamina 2.0 (v2) aceita 4–15s. O clamp já está correto em `generate-video-scene-seedance/index.ts:128`.
+- **"10s · 4 tomadas"**: não é ruído nem input — é derivado. `10s` = duração escolhida no slider; `4 tomadas` = número de blocos `CUE` encontrados na descrição via regex (`ClientHub.tsx:2831`). Serve para o usuário saber quantos cortes internos o clipe terá. Vou apenas melhorar o rótulo para não parecer configurável.
+- **Quebras de linha faltando**: o prompt do `suggest-seedance-storyboard` já pede `\n\n` entre CUEs (linha 60) e o de `generate-seedance-script` também. Mas modelos frequentemente ignoram e emitem tudo inline. A solução robusta é **normalizar no servidor** antes de devolver o texto, garantindo o formato independentemente do que o modelo produzir.
 
-## O que muda na tela (Passo 2 do vídeo Seedance)
+## Mudanças
 
-Em cada card de cena, hoje temos:
+### 1. Normalização determinística do roteiro (servidor)
 
-1. **Descrição da Cena (EN)** — o multi-shot completo com CUEs, incluindo as falas PT-BR entre aspas.
-2. **Fala do Apresentador / Mascote (PT-BR)** — remover. As falas já vivem dentro da Descrição, dentro dos CUEs, então esse campo duplica informação e polui a interface.
-3. **Dicas de pronúncia (opcional)** — remover. Ninguém preenche, e faz mais sentido a IA já escrever a fala com a grafia fonética correta na hora de gerar a Descrição.
+Criar helper compartilhado `supabase/functions/_shared/format-seedance-script.ts` com uma função `formatSeedanceScript(raw: string): string` que:
 
-O card fica: **Frame 0 → Descrição da Cena → Motor de vídeo → Opções Seedance**. Fim.
+- Insere `\n\n` antes de cada ocorrência de `CUE <número>` (case-insensitive), exceto se já estiver precedido por quebra dupla.
+- Insere `\n` antes de `[cut to]` quando estiver no meio de um parágrafo.
+- Coloca falas em linha própria: qualquer `Portuguese spoken dialogue: "…"` ou linha que comece por aspas curvas/retas dentro de um CUE ganha `\n` antes e depois.
+- Colapsa 3+ quebras seguidas em exatamente 2.
+- Faz `trim()` no resultado.
 
-## O que muda na IA
+Aplicar essa função em **dois pontos** para que o texto salvo já venha formatado:
 
-A pronúncia passa a ser inferida automaticamente, sem depender de o usuário digitar nada:
+- `supabase/functions/suggest-seedance-storyboard/index.ts`: rodar em cada `clips[i].description_en` antes de responder.
+- `supabase/functions/generate-seedance-script/index.ts`: rodar no `prompt` retornado antes de responder.
 
-- **`suggest-seedance-storyboard`** e **`generate-seedance-script`** ganham uma regra nova no system prompt: antes de escrever qualquer fala PT-BR dentro de um CUE, a IA identifica marcas, produtos, nomes próprios ou estrangeirismos presentes na ideia que provavelmente seriam mal pronunciados por um TTS/modelo de voz, e escreve **apenas a versão falada** com grafia fonética PT-BR (ex.: “SmartVety” escrito como “SmartVéti” dentro das aspas da fala). O nome original continua aparecendo normalmente no restante da descrição (visual, texto em tela, logo).
-- A IA não precisa mais receber `pronunciationHints` — o campo some do payload das duas edge functions e some da chamada de `generate-video-scene-seedance`.
-- O `mascot_speech_pt` que a IA já devolve continua sendo usado internamente só como fallback do extrator regex que popula a fala se algum dia precisarmos — mas nada disso aparece na UI.
+Não mexer no prompt do sistema — a instrução `\n\n` continua lá como reforço, mas a normalização garante o resultado mesmo quando o modelo falha.
 
-## O que muda no envio para o Seedance
+### 2. Retro-formatação ao aplicar clipes existentes
 
-Hoje o prompt final concatena a Descrição com “Mascote fala: …” e “Dicas de pronúncia: …”. Com a mudança:
+Em `src/pages/ClientHub.tsx`, na função `applySeedanceClipsToEditor` (por volta da linha 1500), aplicar uma versão client-side leve da mesma normalização em `scene_description` antes de gravar no estado, para consertar rascunhos antigos que já estejam salvos sem quebras.
 
-- O prompt enviado ao Seedance passa a ser **apenas a Descrição da Cena** (que já contém as falas com grafia fonética embutida nos CUEs).
-- Removemos as concatenações de `mascotSpeech` e `pronunciationHints` em `generate-video-scene-seedance` e no builder compartilhado.
+Fazer o mesmo dentro do handler de "Roteiro multi-shot IA" (`optimizeSceneWithSeedanceScript`, ~linha 1600) ao receber o `prompt` do endpoint.
 
-## Rascunhos existentes
+### 3. Rótulo do badge de tomadas
 
-Bump do `VIDEO_DRAFT_SCHEMA_VERSION` para 6 em `ClientHub.tsx`. Rascunhos antigos com os campos removidos são migrados na leitura descartando `mascot_speech` e `pronunciation_hints` — a Descrição já contém tudo o que importa.
+Em `ClientHub.tsx:2840`, trocar o texto do badge de `{duration}s · {shotCount} tomada(s)` para algo mais explícito, deixando claro que é derivado:
+
+- Exemplo: `10s · 4 cortes internos (CUEs)` com `title` (tooltip nativo) explicando "Cortes gerados automaticamente pela IA dentro do mesmo clipe. Ajuste editando os blocos CUE na descrição."
 
 ## Detalhes técnicos
 
-**Frontend (`src/pages/ClientHub.tsx`)**
-- Tipo da cena: remover `mascot_speech` e `pronunciation_hints`.
-- Remover os dois blocos de JSX (textarea da fala + input de pronúncia) do editor de cena.
-- Em `applySeedanceClipsToEditor`, remover a extração por regex e o preenchimento de `mascot_speech`.
-- Chamada de `generate-video-scene-seedance`: parar de enviar `mascotSpeech` e `pronunciationHints`.
-- Chamada de `generate-seedance-script` (Roteiro multi-shot IA): parar de enviar `mascotSpeech`/`pronunciationHints`.
-- `VIDEO_DRAFT_SCHEMA_VERSION` → 6; loader ignora chaves antigas.
+- A normalização é puramente textual, roda em <1ms, não altera semântica.
+- Regex principal: `/(?<!\n\n)\bCUE\s+\d+/gi` → prefixa `\n\n`. Para `[cut to]`: `/(?<!\n)\s*\[cut to\]/gi` → prefixa `\n`.
+- Textareas já usam `whitespace-pre-wrap` implícito (comportamento nativo), então basta o texto ter os `\n` reais.
+- Nenhum schema de DB muda. Nenhum bump de `VIDEO_DRAFT_SCHEMA_VERSION` necessário — é só formatação de string.
 
-**Edge Functions**
-- `supabase/functions/suggest-seedance-storyboard/index.ts`: adicionar no system prompt a regra “detectar marcas/nomes provavelmente mal pronunciados e escrever a fala com grafia fonética PT-BR direto dentro do CUE, mantendo o nome original no restante do texto”. Nenhum campo novo no JSON de saída.
-- `supabase/functions/generate-seedance-script/index.ts`: mesma regra; remover parâmetros `mascotSpeech` e `pronunciationHints` do `Payload` e da montagem de contexto.
-- `supabase/functions/generate-video-scene-seedance/index.ts` (e helper `buildSeedancePrompt` em `_shared`, se existir): remover uso de `mascotSpeech`/`pronunciationHints` — o prompt final é a Descrição pura.
+## Fora de escopo
 
-## Fora do escopo
-
-- Nenhuma mudança em preços, motor Veo 3, storyboard de Veo, uploads de referência, logo ou identidade visual.
-- Nenhuma migração de banco.
+- Não tornar número de tomadas configurável manualmente — usuário pode editar os CUEs direto no textarea se quiser mais/menos cortes.
+- Não mexer no limite de 15s (já correto).
