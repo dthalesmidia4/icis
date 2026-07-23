@@ -38,6 +38,57 @@ export type Database = {
         }
         Relationships: []
       }
+      avulso_drafts: {
+        Row: {
+          client_id: string
+          content_type: string
+          created_at: string
+          id: string
+          state: Json
+          tenant_id: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          content_type: string
+          created_at?: string
+          id?: string
+          state?: Json
+          tenant_id: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          content_type?: string
+          created_at?: string
+          id?: string
+          state?: Json
+          tenant_id?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avulso_drafts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avulso_drafts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bills_payable: {
         Row: {
           amount: number | null
@@ -1451,6 +1502,42 @@ export type Database = {
           },
         ]
       }
+      seedance_pricing: {
+        Row: {
+          created_at: string
+          id: string
+          model_key: string
+          notes: string | null
+          price_brl_per_credit: number | null
+          price_credits_per_second: number
+          resolution: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          model_key: string
+          notes?: string | null
+          price_brl_per_credit?: number | null
+          price_credits_per_second: number
+          resolution: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          model_key?: string
+          notes?: string | null
+          price_brl_per_credit?: number | null
+          price_credits_per_second?: number
+          resolution?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       strategies: {
         Row: {
           company_id: string
@@ -1939,6 +2026,72 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "user_roles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_references: {
+        Row: {
+          attributes: Json
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          extra_image_urls: string[]
+          id: string
+          kind: string
+          logo_variant: string | null
+          name: string
+          primary_image_url: string | null
+          restrictions: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          attributes?: Json
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          extra_image_urls?: string[]
+          id?: string
+          kind: string
+          logo_variant?: string | null
+          name: string
+          primary_image_url?: string | null
+          restrictions?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          attributes?: Json
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          extra_image_urls?: string[]
+          id?: string
+          kind?: string
+          logo_variant?: string | null
+          name?: string
+          primary_image_url?: string | null
+          restrictions?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_references_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_references_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
