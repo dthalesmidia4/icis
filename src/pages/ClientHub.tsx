@@ -129,6 +129,16 @@ const ClientHub = () => {
   const [uploadingFrame, setUploadingFrame] = useState<number | null>(null);
   const [videoPreviewIndex, setVideoPreviewIndex] = useState(0);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  // Motor de vídeo escolhido no passo 1. Default = Seedance (mais eficiente por multi-shot em 1 prompt).
+  const [videoEngineChoice, setVideoEngineChoice] = useState<'veo' | 'seedance'>('seedance');
+  const [seedanceDefaultModel, setSeedanceDefaultModel] = useState<'lite' | 'pro' | 'v2'>('pro');
+  const [planningSeedance, setPlanningSeedance] = useState(false);
+  const [seedancePlan, setSeedancePlan] = useState<null | {
+    suggested_clip_count: number;
+    reasoning: string;
+    clips: Array<{ title_pt: string; description_en: string; target_duration_seconds: number }>;
+    fallback?: boolean;
+  }>(null);
   const [presets, setPresets] = useState<Array<{ id: string; name: string; primary_color: string | null; secondary_color: string | null }>>([]);
   const [aiPostModalOpen, setAiPostModalOpen] = useState(false);
   const [postIdea, setPostIdea] = useState('');
