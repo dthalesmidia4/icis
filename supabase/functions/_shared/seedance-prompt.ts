@@ -20,8 +20,6 @@ export interface SeedanceRef {
 
 export interface BuildPromptInput {
   sceneDescription: string;
-  mascotSpeech?: string | null;
-  pronunciationHints?: string | null;
   brandColors?: string[];
   brandTypography?: string | null;
   logoStrategy?: "none" | "contextual" | "end_card";
