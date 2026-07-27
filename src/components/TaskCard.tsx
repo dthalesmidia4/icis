@@ -21,6 +21,7 @@ import { completeDailyOccurrence, formatBR as formatBRDate } from "@/lib/dailyCa
 import { DailyCardSection } from "@/components/DailyCardSection";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
+import { syncActiveDispatchDate } from "@/lib/syncActiveDispatchDate";
 import { CalendarClock } from "lucide-react";
 
 // Split instructions field into "production instructions" and "CTA" parts.
