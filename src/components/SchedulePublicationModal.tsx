@@ -204,6 +204,11 @@ export function SchedulePublicationModal({
 
           {/* Dynamic Description */}
           <p className="text-sm text-muted-foreground mt-2">{descriptionText}</p>
+          {isPast && (
+            <p className="text-sm text-destructive font-medium">
+              Não é possível agendar uma publicação automática para uma data que já passou. Escolha uma data futura.
+            </p>
+          )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
