@@ -840,6 +840,21 @@ const Scheduled = () => {
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </td>
+                        <td className="px-3 py-3 align-middle whitespace-nowrap text-right">
+                          {dispatchStatus === "published" ? (
+                            <span className="text-[10px] text-muted-foreground">Já publicado</span>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 gap-1.5"
+                              onClick={(e) => { e.stopPropagation(); setRescheduleCard(card); }}
+                            >
+                              <CalendarClock className="h-3.5 w-3.5" />
+                              Reagendar
+                            </Button>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
