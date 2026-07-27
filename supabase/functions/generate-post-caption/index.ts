@@ -107,7 +107,13 @@ REGRAS OBRIGATÓRIAS:
     }
 
     const data = await openaiResp.json();
-    const caption: string = (data?.choices?.[0]?.message?.content || "").trim();
+    let caption: string = (data?.choices?.[0]?.message?.content || "").trim();
+    caption = caption.replace(/^["'`]+|["'`]+$/g, "").replace(/\s+/g, " ").trim();
+    if (caption.length > 240) {
+      const cut = caption.slice(0, 240);
+      const lastPunct = Math.max(cut.lastIndexOf("."), cut.lastIndexOf("!"), cut.lastIndexOf("?"));
+      caption = (lastPunct > 180 ? cut.slice(0, lastPunct + 1) : cut.trimEnd() + "…");
+    }
 
     if (!caption) {
       return new Response(JSON.stringify({ error: "Resposta vazia da IA." }), {
