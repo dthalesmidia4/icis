@@ -166,7 +166,7 @@ const KanbanCentralPage = () => {
   const { collaborators } = useCollaborators(tenantId);
   const navigate = useNavigate();
   const { activeDispatchIds, count: scheduledCount } = useActiveDispatchIds(tenantId);
-  const { byAssignee: evalByAssignee, totalCount: evalTotalCount, refetch: refetchEval } = usePendingEvaluationCards(tenantId);
+  const { cards: pendingEvalCards, refetch: refetchEval } = usePendingEvaluationCards(tenantId);
   const [periods, setPeriods] = useState<Array<{
     id: string;
     period_title: string;
@@ -290,6 +290,26 @@ const KanbanCentralPage = () => {
     }
     return baseCards;
   }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, activeDispatchIds, viewMode]);
+
+  // Aplicar mesmos filtros (cliente/período) nos cards planejados aguardando avaliação.
+  // Status não se aplica pois esses cards ainda não são demandas.
+  const evalByAssignee = useMemo(() => {
+    const filtered = pendingEvalCards.filter((c) => {
+      if (selectedClientFilter !== "all" && c.clientId !== selectedClientFilter) return false;
+      if (selectedPeriodFilter !== "active" && selectedPeriodFilter !== "all" && c.periodId !== selectedPeriodFilter) return false;
+      // Status filter: cards planejados não têm status; se um status específico é exigido, ocultá-los
+      if (selectedStatusFilter !== "all") return false;
+      return true;
+    });
+    const map = new Map<string, PendingEvaluationCard[]>();
+    filtered.forEach((c) => {
+      const key = c.assignedTo || "__unassigned__";
+      const list = map.get(key) || [];
+      list.push(c);
+      map.set(key, list);
+    });
+    return map;
+  }, [pendingEvalCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter]);
 
   // Todos os cards para busca (incluindo arquivados)
   const allSearchableCards = useMemo(() => {
