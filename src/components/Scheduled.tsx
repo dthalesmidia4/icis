@@ -533,6 +533,56 @@ const Scheduled = () => {
     return { type: "Conteúdo", cleanTitle: title };
   };
 
+  const handleReschedule = async (date: string, time: string) => {
+    if (!rescheduleCard) return;
+    setRescheduling(true);
+    try {
+      // Update demand
+      const { error: demandErr } = await supabase
+        .from("demands")
+        .update({ publish_date: date, publish_time: time, updated_at: new Date().toISOString() })
+        .eq("id", rescheduleCard.id);
+      if (demandErr) throw demandErr;
+
+      // Update active dispatch (if any) — skip if already published
+      const { data: existing } = await supabase
+        .from("scheduled_publication_dispatches")
+        .select("id, status")
+        .eq("card_id", rescheduleCard.id)
+        .in("status", ["scheduled", "dispatching", "failed"])
+        .order("scheduled_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        const scheduledIso = `${date}T${time}:00-03:00`;
+        const { error: dispErr } = await supabase
+          .from("scheduled_publication_dispatches")
+          .update({
+            scheduled_at: new Date(scheduledIso).toISOString(),
+            status: "scheduled",
+            error_message: null,
+          })
+          .eq("id", existing.id);
+        if (dispErr) throw dispErr;
+      }
+
+      const updateFn = (c: CentralKanbanCard) =>
+        c.id === rescheduleCard.id ? { ...c, publish_date: date, publish_time: time } : c;
+      setActiveCards(prev => prev.map(updateFn));
+      setAllCards(prev => prev.map(updateFn));
+
+      sonnerToast.success("Data de publicação atualizada");
+      setRescheduleCard(null);
+      fetchScheduledCards();
+    } catch (err: any) {
+      console.error("[Scheduled] reschedule error", err);
+      sonnerToast.error(err?.message || "Erro ao reagendar");
+    } finally {
+      setRescheduling(false);
+    }
+  };
+
   if (tenantLoading || loading) {
     return (
       <div className="flex items-center justify-center py-12 mt-8">
