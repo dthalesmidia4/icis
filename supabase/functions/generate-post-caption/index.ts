@@ -93,8 +93,8 @@ REGRAS OBRIGATÓRIAS:
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },
         ],
-        temperature: 0.8,
-        max_tokens: 800,
+        temperature: 0.4,
+        max_tokens: 160,
       }),
     });
 
