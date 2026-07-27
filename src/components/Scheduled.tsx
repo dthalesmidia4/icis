@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive, Calendar, ChevronLeft } from "lucide-react";
+import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive, Calendar, ChevronLeft, CalendarClock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTenant } from "@/contexts/TenantContext";
@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import SmartSearchBar from "@/components/SmartSearchBar";
 import { cn } from "@/lib/utils";
 import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
+import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 
 interface CentralKanbanCard extends KanbanCardData {
   clientName: string;
@@ -45,6 +46,8 @@ const Scheduled = () => {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [rescheduleCard, setRescheduleCard] = useState<CentralKanbanCard | null>(null);
+  const [rescheduling, setRescheduling] = useState(false);
   
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -530,6 +533,56 @@ const Scheduled = () => {
     return { type: "Conteúdo", cleanTitle: title };
   };
 
+  const handleReschedule = async (date: string, time: string) => {
+    if (!rescheduleCard) return;
+    setRescheduling(true);
+    try {
+      // Update demand
+      const { error: demandErr } = await supabase
+        .from("demands")
+        .update({ publish_date: date, publish_time: time, updated_at: new Date().toISOString() })
+        .eq("id", rescheduleCard.id);
+      if (demandErr) throw demandErr;
+
+      // Update active dispatch (if any) — skip if already published
+      const { data: existing } = await supabase
+        .from("scheduled_publication_dispatches")
+        .select("id, status")
+        .eq("card_id", rescheduleCard.id)
+        .in("status", ["scheduled", "dispatching", "failed"])
+        .order("scheduled_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        const scheduledIso = `${date}T${time}:00-03:00`;
+        const { error: dispErr } = await supabase
+          .from("scheduled_publication_dispatches")
+          .update({
+            scheduled_at: new Date(scheduledIso).toISOString(),
+            status: "scheduled",
+            error_message: null,
+          })
+          .eq("id", existing.id);
+        if (dispErr) throw dispErr;
+      }
+
+      const updateFn = (c: CentralKanbanCard) =>
+        c.id === rescheduleCard.id ? { ...c, publish_date: date, publish_time: time } : c;
+      setActiveCards(prev => prev.map(updateFn));
+      setAllCards(prev => prev.map(updateFn));
+
+      sonnerToast.success("Data de publicação atualizada");
+      setRescheduleCard(null);
+      fetchScheduledCards();
+    } catch (err: any) {
+      console.error("[Scheduled] reschedule error", err);
+      sonnerToast.error(err?.message || "Erro ao reagendar");
+    } finally {
+      setRescheduling(false);
+    }
+  };
+
   if (tenantLoading || loading) {
     return (
       <div className="flex items-center justify-center py-12 mt-8">
@@ -745,6 +798,7 @@ const Scheduled = () => {
                     <th className="text-left font-semibold px-3 py-2">Empresa</th>
                     <th className="text-left font-semibold px-3 py-2">Nome</th>
                     <th className="text-left font-semibold px-3 py-2">Status</th>
+                    <th className="text-right font-semibold px-3 py-2">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -786,6 +840,21 @@ const Scheduled = () => {
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </td>
+                        <td className="px-3 py-3 align-middle whitespace-nowrap text-right">
+                          {dispatchStatus === "published" ? (
+                            <span className="text-[10px] text-muted-foreground">Já publicado</span>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 gap-1.5"
+                              onClick={(e) => { e.stopPropagation(); setRescheduleCard(card); }}
+                            >
+                              <CalendarClock className="h-3.5 w-3.5" />
+                              Reagendar
+                            </Button>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -816,6 +885,16 @@ const Scheduled = () => {
         saving={saving} 
         savingField={savingField} 
         uploading={uploading} 
+      />
+
+      {/* Reschedule Modal */}
+      <SchedulePublicationModal
+        open={!!rescheduleCard}
+        onOpenChange={(o) => { if (!o) setRescheduleCard(null); }}
+        existingDate={rescheduleCard?.publish_date || null}
+        existingTime={rescheduleCard?.publish_time || null}
+        onConfirm={handleReschedule}
+        onCancel={() => setRescheduleCard(null)}
       />
     </div>
   );
