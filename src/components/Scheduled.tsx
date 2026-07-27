@@ -886,6 +886,16 @@ const Scheduled = () => {
         savingField={savingField} 
         uploading={uploading} 
       />
+
+      {/* Reschedule Modal */}
+      <SchedulePublicationModal
+        open={!!rescheduleCard}
+        onOpenChange={(o) => { if (!o) setRescheduleCard(null); }}
+        existingDate={rescheduleCard?.publish_date || null}
+        existingTime={rescheduleCard?.publish_time || null}
+        onConfirm={handleReschedule}
+        onCancel={() => setRescheduleCard(null)}
+      />
     </div>
   );
 };
