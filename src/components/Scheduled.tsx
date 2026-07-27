@@ -46,6 +46,8 @@ const Scheduled = () => {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [rescheduleCard, setRescheduleCard] = useState<CentralKanbanCard | null>(null);
+  const [rescheduling, setRescheduling] = useState(false);
   
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
