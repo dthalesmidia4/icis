@@ -982,7 +982,9 @@ export default function TaskCard({
     setIsDatePickerOpen(false);
     // Sync existing active dispatch (does NOT create a new one)
     const res = await syncActiveDispatchDate({ cardId: card.id, publishDate: dateStr, publishTime: card.publish_time });
-    if (res.skipped && res.publishedExists) {
+    if (res.pastDate && res.cancelled) {
+      toast.warning("A data escolhida já passou. O agendamento automático foi desativado para evitar publicação imediata.");
+    } else if (res.skipped && res.publishedExists) {
       toast.info("Existe uma publicação já publicada para este card; o agendamento não foi alterado.");
     }
   };
@@ -996,7 +998,9 @@ export default function TaskCard({
     });
     await onSave('publish_time', time);
     const res = await syncActiveDispatchDate({ cardId: card.id, publishDate: card.publish_date, publishTime: time });
-    if (res.skipped && res.publishedExists) {
+    if (res.pastDate && res.cancelled) {
+      toast.warning("A data/horário escolhidos já passaram. O agendamento automático foi desativado para evitar publicação imediata.");
+    } else if (res.skipped && res.publishedExists) {
       toast.info("Existe uma publicação já publicada para este card; o agendamento não foi alterado.");
     }
   };
@@ -1612,7 +1616,9 @@ export default function TaskCard({
                             try { await supabase.from("demands").update({ additional_publish_dates: [] }).eq("id", card.id); } catch (e) { console.error(e); }
                           } else {
                             const res = await syncActiveDispatchDate({ cardId: card.id, publishDate: dateStr, publishTime: timeStr });
-                            if (res.skipped && res.publishedExists) {
+                            if (res.pastDate && res.cancelled) {
+                              toast.warning("A data escolhida já passou. O agendamento automático foi desativado para evitar publicação imediata.");
+                            } else if (res.skipped && res.publishedExists) {
                               toast.info("Existe uma publicação já publicada para este card; o agendamento não foi alterado.");
                             }
                           }

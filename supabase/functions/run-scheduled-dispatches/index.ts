@@ -210,16 +210,48 @@ async function publishDispatch(
   return { ok: true, externalIds };
 }
 
+// Safety window: refuse to publish dispatches whose scheduled_at is far in the past.
+// Cron runs every ~1 min; small delays are OK. Anything older than STALE_TOLERANCE_MS
+// is treated as inconsistent (e.g. someone moved the card date to the past) and
+// cancelled instead of being published.
+const STALE_TOLERANCE_MS = 2 * 60 * 60 * 1000; // 2 hours
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+  const nowIso = new Date().toISOString();
+  const staleCutoffIso = new Date(Date.now() - STALE_TOLERANCE_MS).toISOString();
+
+  // Cancel any 'scheduled' dispatches whose scheduled_at is older than the tolerance
+  // window. They should never publish automatically — most likely the card date
+  // was moved backwards manually.
+  const { data: stale, error: staleErr } = await supabase
+    .from("scheduled_publication_dispatches")
+    .update({
+      status: "failed",
+      error_message:
+        "Agendamento ignorado: scheduled_at muito antigo para publicação automática (data movida para o passado ou inconsistente).",
+    })
+    .eq("status", "scheduled")
+    .lt("scheduled_at", staleCutoffIso)
+    .select("id, scheduled_at");
+  if (staleErr) {
+    console.error("[run-scheduled-dispatches] stale-cancel error", staleErr);
+  } else if (stale && stale.length > 0) {
+    console.warn(
+      `[run-scheduled-dispatches] cancelled ${stale.length} stale dispatch(es):`,
+      stale.map((s: any) => ({ id: s.id, scheduled_at: s.scheduled_at })),
+    );
+  }
+
   const { data: due, error: pickErr } = await supabase
     .from("scheduled_publication_dispatches")
     .select("id, card_id, client_id, tenant_id, content_type, scheduled_at, caption, media_files, cover_file, social_accounts, attempt_count")
     .eq("status", "scheduled")
-    .lte("scheduled_at", new Date().toISOString())
+    .lte("scheduled_at", nowIso)
+    .gte("scheduled_at", staleCutoffIso)
     .order("scheduled_at", { ascending: true })
     .limit(20);
 
