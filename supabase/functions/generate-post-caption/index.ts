@@ -77,7 +77,7 @@ REGRAS OBRIGATÓRIAS:
 - Retorne APENAS o texto da descrição.`;
 
     const userContent: any[] = [
-      { type: "text", text: `Escreva a legenda para este post de Instagram com base nas imagens em anexo.${context ? `\n\nContexto auxiliar:\n${context}` : ""}` },
+      { type: "text", text: `Gere a descrição curta (máx. 240 caracteres, uma frase) dos anexos abaixo.${context ? `\n\nContexto auxiliar:\n${context}` : ""}` },
       ...images.map((img: any) => ({ type: "image_url", image_url: { url: img.url } })),
     ];
 
