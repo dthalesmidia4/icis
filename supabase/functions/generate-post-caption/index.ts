@@ -13,6 +13,8 @@ const isImage = (att: any) => {
   return t.startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(n);
 };
 
+const stripHtml = (s: string) => String(s || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -41,7 +43,7 @@ Deno.serve(async (req) => {
 
     const { data: demand, error: demandError } = await supabase
       .from("demands")
-      .select("id, title, objective, description, attachments, client_id")
+      .select("id, title, objective, description, instructions, observations, demand_type, post_caption, attachments, client_id, tenant_id")
       .eq("id", demandId)
       .single();
 
@@ -60,24 +62,65 @@ Deno.serve(async (req) => {
       });
     }
 
+    const isCarousel = images.length > 1;
+
+    let clientContext = "";
+    if (demand.client_id) {
+      const { data: client } = await supabase
+        .from("tenant_companies")
+        .select("name, fantasy_name, segment")
+        .eq("id", demand.client_id)
+        .maybeSingle();
+      if (client) {
+        const parts = [client.fantasy_name || client.name, client.segment].filter(Boolean);
+        if (parts.length) clientContext = `Cliente: ${parts.join(" • ")}`;
+      }
+    }
+
     const contextParts: string[] = [];
+    if (clientContext) contextParts.push(clientContext);
+    if (demand.demand_type) contextParts.push(`Tipo: ${demand.demand_type}`);
     if (demand.title) contextParts.push(`Título: ${demand.title}`);
-    if (demand.objective) contextParts.push(`Objetivo: ${String(demand.objective).replace(/<[^>]*>/g, " ").slice(0, 500)}`);
+    if (demand.objective) contextParts.push(`Objetivo: ${stripHtml(demand.objective).slice(0, 600)}`);
+    if (demand.description) contextParts.push(`Descrição: ${stripHtml(demand.description).slice(0, 600)}`);
+    if (demand.instructions) contextParts.push(`Instruções: ${stripHtml(demand.instructions).slice(0, 400)}`);
+    if (demand.observations) contextParts.push(`Observações: ${stripHtml(demand.observations).slice(0, 300)}`);
+    if (demand.post_caption) contextParts.push(`Legenda atual (reescrever/melhorar): ${stripHtml(demand.post_caption).slice(0, 400)}`);
     const context = contextParts.join("\n");
 
-    const systemPrompt = `Você gera uma descrição CURTA e OBJETIVA dos anexos de um card, para ajudar o usuário a entender rapidamente o que é o anexo e para que serve na demanda.
+    const systemPrompt = `Você é copywriter de Instagram. Gere uma LEGENDA pronta para publicação — nunca uma descrição visual dos anexos.
 
-REGRAS OBRIGATÓRIAS:
-- Máximo 240 caracteres, em UMA única frase (no máximo duas frases curtas).
-- Português do Brasil, tom neutro e funcional.
-- Formato ideal: [Tipo do anexo] + [conteúdo principal] + [uso no card].
-- NÃO descreva cores, posições, elementos visuais em detalhe, nem faça análise criativa.
-- NÃO use markdown, listas, títulos, aspas, emojis, hashtags nem CTA.
-- Se houver múltiplas imagens, gere UMA descrição única e resumida do conjunto.
-- Retorne APENAS o texto da descrição.`;
+REGRAS ABSOLUTAS:
+- NUNCA descreva o que aparece nas imagens. Nada de "a imagem mostra", "no anexo aparece", "este post apresenta", cores, posições, elementos visuais.
+- Use os anexos apenas como pista do TEMA. O contexto do card é a fonte principal.
+- Português do Brasil, linguagem natural de rede social, tom humano e direto.
+- Sem markdown, sem títulos, sem aspas, sem "Legenda:". Sem hashtags automáticas (no máx. 3 hashtags e só se fizer muito sentido — na dúvida, nenhuma).
+- Poucos ou nenhum emoji. Não use listas nem bullets.
+- Parágrafos curtos, separados por uma linha em branco.
+
+${isCarousel ? `MODO: CARROSSEL (${images.length} slides)
+Estrutura em 3 a 5 parágrafos curtos:
+1) Apresente o tema.
+2) Abra curiosidade / traga a dúvida ou problema que o carrossel responde — NÃO entregue a resposta completa.
+3) Convide a pessoa a passar para o lado / ver todos os slides.
+Objetivo: gerar curiosidade, não substituir o conteúdo dos slides.`
+: `MODO: POST ESTÁTICO (1 anexo)
+Estrutura em 2 a 4 parágrafos curtos:
+1) Frase inicial chamativa conectada ao tema.
+2) Desenvolvimento breve com a ideia central.
+3) CTA simples (pergunta, convite, chamada suave).
+Não descreva a imagem; fale do TEMA.`}
+
+Retorne APENAS o texto da legenda, pronto para colar no Instagram.`;
+
+    const userText = `${isCarousel ? `Gere a LEGENDA de CARROSSEL (${images.length} slides).` : "Gere a LEGENDA de POST ESTÁTICO (1 anexo)."}
+Use os anexos apenas para captar o tema — não os descreva.
+
+Contexto do card:
+${context || "(sem contexto adicional — inferir tema pelos anexos)"}`;
 
     const userContent: any[] = [
-      { type: "text", text: `Gere a descrição curta (máx. 240 caracteres, uma frase) dos anexos abaixo.${context ? `\n\nContexto auxiliar:\n${context}` : ""}` },
+      { type: "text", text: userText },
       ...images.map((img: any) => ({ type: "image_url", image_url: { url: img.url } })),
     ];
 
@@ -93,8 +136,8 @@ REGRAS OBRIGATÓRIAS:
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },
         ],
-        temperature: 0.4,
-        max_tokens: 160,
+        temperature: 0.8,
+        max_tokens: 550,
       }),
     });
 
@@ -108,12 +151,13 @@ REGRAS OBRIGATÓRIAS:
 
     const data = await openaiResp.json();
     let caption: string = (data?.choices?.[0]?.message?.content || "").trim();
-    caption = caption.replace(/^["'`]+|["'`]+$/g, "").replace(/\s+/g, " ").trim();
-    if (caption.length > 240) {
-      const cut = caption.slice(0, 240);
-      const lastPunct = Math.max(cut.lastIndexOf("."), cut.lastIndexOf("!"), cut.lastIndexOf("?"));
-      caption = (lastPunct > 180 ? cut.slice(0, lastPunct + 1) : cut.trimEnd() + "…");
-    }
+    // strip surrounding quotes and "Legenda:" prefixes, normalize blank lines
+    caption = caption
+      .replace(/^["'`]+|["'`]+$/g, "")
+      .replace(/^\s*legenda\s*:\s*/i, "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
 
     if (!caption) {
       return new Response(JSON.stringify({ error: "Resposta vazia da IA." }), {
@@ -133,7 +177,7 @@ REGRAS OBRIGATÓRIAS:
       });
     }
 
-    return new Response(JSON.stringify({ success: true, caption }), {
+    return new Response(JSON.stringify({ success: true, caption, mode: isCarousel ? "carousel" : "static" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
