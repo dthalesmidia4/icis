@@ -798,6 +798,7 @@ const Scheduled = () => {
                     <th className="text-left font-semibold px-3 py-2">Empresa</th>
                     <th className="text-left font-semibold px-3 py-2">Nome</th>
                     <th className="text-left font-semibold px-3 py-2">Status</th>
+                    <th className="text-right font-semibold px-3 py-2">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
