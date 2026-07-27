@@ -1610,6 +1610,11 @@ export default function TaskCard({
                           await onSave('publish_time', timeStr);
                           if (!dateStr) {
                             try { await supabase.from("demands").update({ additional_publish_dates: [] }).eq("id", card.id); } catch (e) { console.error(e); }
+                          } else {
+                            const res = await syncActiveDispatchDate({ cardId: card.id, publishDate: dateStr, publishTime: timeStr });
+                            if (res.skipped && res.publishedExists) {
+                              toast.info("Existe uma publicação já publicada para este card; o agendamento não foi alterado.");
+                            }
                           }
                         }}
                         extraContent={card.publish_date ? (
