@@ -65,18 +65,16 @@ Deno.serve(async (req) => {
     if (demand.objective) contextParts.push(`Objetivo: ${String(demand.objective).replace(/<[^>]*>/g, " ").slice(0, 500)}`);
     const context = contextParts.join("\n");
 
-    const systemPrompt = `Você é um redator de Instagram especialista em legendas envolventes e informativas. Sua tarefa é escrever uma descrição (legenda) rica em conteúdo para um post no Instagram baseando-se exclusivamente nas imagens fornecidas.
+    const systemPrompt = `Você gera uma descrição CURTA e OBJETIVA dos anexos de um card, para ajudar o usuário a entender rapidamente o que é o anexo e para que serve na demanda.
 
 REGRAS OBRIGATÓRIAS:
-- Tom natural, humano, envolvente e informativo (português do Brasil).
-- Aprofunde no tema: explique o contexto, traga insights, dicas práticas ou reflexões relevantes sobre o assunto das imagens.
-- Use emojis ao longo do texto para dar vida e quebrar a leitura.
-- Estruture em parágrafos curtos separados por quebras de linha (use \\n\\n entre parágrafos) para facilitar a leitura no Instagram.
-- NÃO inclua CTA (chamada para ação), links, "saiba mais", "agende", "entre em contato", etc.
-- NÃO inclua hashtags.
-- Tamanho: legenda MÉDIA a LONGA, entre 4 e 6 parágrafos bem desenvolvidos (cerca de 120 a 220 palavras no total). Não seja superficial.
-- Comece com uma frase de impacto que prenda a atenção.
-- Retorne APENAS o texto da legenda, sem aspas, sem títulos, sem comentários extras.`;
+- Máximo 240 caracteres, em UMA única frase (no máximo duas frases curtas).
+- Português do Brasil, tom neutro e funcional.
+- Formato ideal: [Tipo do anexo] + [conteúdo principal] + [uso no card].
+- NÃO descreva cores, posições, elementos visuais em detalhe, nem faça análise criativa.
+- NÃO use markdown, listas, títulos, aspas, emojis, hashtags nem CTA.
+- Se houver múltiplas imagens, gere UMA descrição única e resumida do conjunto.
+- Retorne APENAS o texto da descrição.`;
 
     const userContent: any[] = [
       { type: "text", text: `Escreva a legenda para este post de Instagram com base nas imagens em anexo.${context ? `\n\nContexto auxiliar:\n${context}` : ""}` },
