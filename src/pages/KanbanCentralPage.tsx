@@ -166,7 +166,7 @@ const KanbanCentralPage = () => {
   const { collaborators } = useCollaborators(tenantId);
   const navigate = useNavigate();
   const { activeDispatchIds, count: scheduledCount } = useActiveDispatchIds(tenantId);
-  const { byAssignee: evalByAssignee, totalCount: evalTotalCount, refetch: refetchEval } = usePendingEvaluationCards(tenantId);
+  const { cards: pendingEvalCards, refetch: refetchEval } = usePendingEvaluationCards(tenantId);
   const [periods, setPeriods] = useState<Array<{
     id: string;
     period_title: string;
