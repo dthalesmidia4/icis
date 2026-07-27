@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive, Calendar, ChevronLeft } from "lucide-react";
+import { ChevronRight, Loader2, CalendarDays, Filter, Paperclip, Archive, Calendar, ChevronLeft, CalendarClock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTenant } from "@/contexts/TenantContext";
@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import SmartSearchBar from "@/components/SmartSearchBar";
 import { cn } from "@/lib/utils";
 import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
+import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 
 interface CentralKanbanCard extends KanbanCardData {
   clientName: string;
