@@ -110,8 +110,17 @@ export function SchedulePublicationModal({
     return `O conteúdo será agendado para ${dayOfWeek}, ${dateExtenso} às ${selectedTime}.`;
   }, [selectedDate, selectedTime]);
 
+  // Compute whether the chosen date+time is in the past (60s tolerance).
+  const isPast = useMemo(() => {
+    if (!selectedDate || !selectedTime) return false;
+    const [h, m] = selectedTime.split(":").map(Number);
+    const dt = new Date(selectedDate);
+    dt.setHours(h || 0, m || 0, 0, 0);
+    return dt.getTime() < Date.now() - 60_000;
+  }, [selectedDate, selectedTime]);
+
   const handleConfirm = () => {
-    if (!selectedDate || !selectedTime) return;
+    if (!selectedDate || !selectedTime || isPast) return;
 
     const formattedDate = format(selectedDate, "yyyy-MM-dd");
     onConfirm(formattedDate, selectedTime);
@@ -121,7 +130,7 @@ export function SchedulePublicationModal({
     onCancel();
   };
 
-  const isValid = !!selectedDate && !!selectedTime;
+  const isValid = !!selectedDate && !!selectedTime && !isPast;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
