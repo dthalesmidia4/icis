@@ -172,6 +172,11 @@ export function SchedulePublicationModal({
                     setSelectedDate(date);
                     setCalendarOpen(false);
                   }}
+                  disabled={(date) => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    return date < today;
+                  }}
                   initialFocus
                   className="pointer-events-auto"
                   locale={ptBR}
