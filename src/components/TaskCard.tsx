@@ -980,6 +980,11 @@ export default function TaskCard({
     });
     await onSave('publish_date', dateStr);
     setIsDatePickerOpen(false);
+    // Sync existing active dispatch (does NOT create a new one)
+    const res = await syncActiveDispatchDate({ cardId: card.id, publishDate: dateStr, publishTime: card.publish_time });
+    if (res.skipped && res.publishedExists) {
+      toast.info("Existe uma publicação já publicada para este card; o agendamento não foi alterado.");
+    }
   };
 
   const handlePublishTimeChange = async (time: string) => {
@@ -990,6 +995,10 @@ export default function TaskCard({
       publish_time: time
     });
     await onSave('publish_time', time);
+    const res = await syncActiveDispatchDate({ cardId: card.id, publishDate: card.publish_date, publishTime: time });
+    if (res.skipped && res.publishedExists) {
+      toast.info("Existe uma publicação já publicada para este card; o agendamento não foi alterado.");
+    }
   };
 
   // Additional publish dates management
