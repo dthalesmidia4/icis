@@ -2529,8 +2529,35 @@ const KanbanCentralPage = () => {
         onSuccess={handleColumnCreated}
       />
 
-
-
+      {/* Reorder Sequence Modal (Gestor Operacional) */}
+      {reorderModalColumnId && (
+        <ReorderSequenceModal
+          open={!!reorderModalColumnId}
+          onOpenChange={(o) => !o && setReorderModalColumnId(null)}
+          columnName={
+            collaborators.find((c) => c.userId === reorderModalColumnId)?.fullName || "Coluna"
+          }
+          cards={filteredCards
+            .filter((c) => c.assigned_to === reorderModalColumnId)
+            .map((c) => ({
+              id: c.id,
+              title: c.title,
+              demand_type: c.demand_type,
+              is_daily_card: (c as any).is_daily_card,
+              publish_date: c.publish_date,
+              publish_time: c.publish_time,
+              due_date: c.due_date,
+              due_time: c.due_time,
+              delivery_date: c.delivery_date,
+              delivery_time: c.delivery_time,
+              current_function_key: c.current_function_key,
+            }))}
+          onApplied={() => {
+            setReorderModalColumnId(null);
+            fetchCards?.();
+          }}
+        />
+      )}
 
     </div>
   );
