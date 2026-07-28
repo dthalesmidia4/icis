@@ -1,57 +1,51 @@
-## Problema
 
-O card da Letícia está em `planejar`, mas ela não tem a função `planejar` habilitada em `collaborator_function_assignments`. Isso acontece porque:
+# Alinhar etapa × responsável de forma sistêmica
 
-1. **Drag-and-drop na Visão Geral** (`KanbanCentralPage.handleDragEnd`) troca `assigned_to` mas nunca altera `current_function_key`. Se um card em `planejar` sair da Lúcia (que tem planejar) para a Letícia (que não tem), a etapa permanece `planejar`.
-2. **Criação manual** (`handleDraftSave` → `assignInitialResponsible`) preserva o `assigned_to` escolhido no draft e resolve a etapa inicial pela regra de tipo/posição — sem cruzar com as funções permitidas do usuário. Então a Letícia pode receber um card em `planejar` mesmo sem essa função.
-3. **Criação a partir de conteúdo avulso** (`createCardFromContent`) força `current_function_key = "revisar"` — mesmo comportamento se o responsável escolhido não tiver "revisar".
+O sintoma da Letícia (card em `revisar` sem ela ter a função) é a ponta de um problema geral: hoje existem **9 cards ativos** cujo `current_function_key` não está entre as funções permitidas ao `assigned_to` em `collaborator_function_assignments`. A correção precisa (a) remapear todos os cards atuais, (b) fechar as portas restantes por onde novos cards entram desalinhados, e (c) instalar uma trava no banco para nunca mais persistir esse estado.
 
-A conclusão: nenhum caminho valida se o responsável possui a função destino.
+## 1. Migração de saneamento (cards existentes)
 
-## Objetivo
+- Percorrer todo `demands` com `archived_at IS NULL`, `assigned_to NOT NULL`, `current_function_key NOT NULL`.
+- Para cada card, aplicar a mesma lógica do `resolveFunctionForAssignee` no lado do banco (função SQL `security definer` `resolve_function_for_assignee(tenant, user, demand_type_key, current_key)`):
+  1. Considera a sequência do tipo (regras `required` de `demand_type_flow_rules`), com fallback para todas as `flow_functions` ativas.
+  2. Se a etapa atual já é permitida ao usuário → mantém.
+  3. Se a etapa está na sequência mas não é permitida → avança para a próxima permitida.
+  4. Caso contrário → primeira permitida da sequência.
+  5. Se o usuário não tem nenhuma função da sequência → limpa `assigned_to` (card volta a "sem responsável" para redistribuição) e mantém `current_function_key` no primeiro passo do fluxo.
+- Toda alteração da migração gera linha em `demand_flow_history` com `action='system_realign'` e `metadata={"reason":"backfill"}` para auditoria.
 
-Sempre que um responsável for atribuído a um card (criação, drag, ou seleção manual), a etapa (`current_function_key`) precisa cair numa função **permitida para aquele usuário** e coerente com o fluxo do tipo de demanda.
+## 2. Trava de servidor (banco)
 
-## Regra de resolução (nova função `resolveFunctionForAssignee`)
+- Trigger `BEFORE INSERT OR UPDATE` em `demands` (`validate_demand_stage_assignment`) que, sempre que `assigned_to` e `current_function_key` estiverem preenchidos, chama a função acima e **reescreve** `current_function_key` (e, no limite, zera `assigned_to`) para um valor válido. Nenhum código cliente consegue mais gravar um par incoerente.
+- A trigger ignora quando o `assigned_to` é `NULL` (colunas "Sem responsável" continuam existindo) e não bloqueia updates que só mexem em campos alheios (checa se `assigned_to`/`current_function_key`/`demand_type_key` mudou ou se o registro está entrando).
 
-Entrada: `tenantId`, `assigneeUserId`, `demandTypeKey`, `currentFunctionKey` (opcional).
+## 3. Frontes de código já cobertos e o que falta reforçar
 
-Passos:
-1. Buscar `flow_functions` ativas da tenant (ordenadas por `position`).
-2. Buscar `demand_type_flow_rules` do tipo → montar sequência `required` (se houver); caso contrário sequência = todas as funções ativas.
-3. Buscar `collaborator_function_assignments` do `assigneeUserId` com `allowed = true` → conjunto `allowedKeys`.
-4. Intersectar sequência × `allowedKeys`, preservando a ordem do fluxo.
-5. Escolher função destino:
-   - Se `currentFunctionKey` está no resultado, mantém.
-   - Senão, se `currentFunctionKey` existe na sequência (mas não é permitido), avança para a próxima função permitida a partir da posição atual.
-   - Senão, retorna a primeira função permitida da sequência.
-6. Se o usuário não tem nenhuma função permitida na sequência, retorna `null` e o chamador decide: manter etapa atual + aviso (não bloqueia atribuição), ou reverter a operação.
+Já usam `resolveFunctionForAssignee`:
+- `KanbanCentralPage.tsx` (drag entre colunas)
+- `TaskCard.tsx` (popover "Trocar responsável")
+- `createCardFromContent.ts` / `assignInitialResponsible` (criação inicial)
 
-## Aplicação
+Vou revisar e alinhar também:
+- `src/pages/ApproveCards.tsx` — na aprovação, hoje passa direto pelo `pickAssigneeForFunction`; garantir que, se o responsável escolhido não tiver a função inicial do tipo, o `resolveFunctionForAssignee` decide a etapa.
+- `src/lib/evaluatePlanCard.ts` — mesmo tratamento na aprovação virtual.
+- `src/lib/proceedDemand.ts` — ao avançar de etapa, escolher o próximo responsável entre quem tem `next_function_key`; se ninguém tiver, cair na regra atual mas registrar log.
+- `RejectedCards.tsx` "Resgatar" — passar por `resolveFunctionForAssignee` antes de reinserir no plano.
+- Qualquer `.update({ assigned_to })` ou `.update({ current_function_key })` isolado (grep sistemático) é migrado para um helper único `updateDemandStageAndAssignee` que sempre chama o resolver.
 
-1. **`src/lib/initialFlowFunction.ts`**
-   - Adicionar `resolveFunctionForAssignee(...)` (exportada).
-   - `assignInitialResponsible`: quando `existingAssignee` estiver definido, usar `resolveFunctionForAssignee` para escolher a etapa; se não permitido, cair na `pickAssigneeForFunction` da etapa inicial (fluxo atual). Sem responsável pré-definido, comportamento atual permanece.
+## 4. Ajuste do rótulo "próximo passo" no card
 
-2. **`src/pages/KanbanCentralPage.tsx` → `handleDragEnd`**
-   - Após decidir `newAssignedTo` (não nulo), chamar `resolveFunctionForAssignee` com `currentFunctionKey = card.current_function_key`.
-   - Se retornar uma etapa diferente da atual, atualizar `current_function_key` no mesmo `update` e registrar `flow_history` com `action: "proceeded"` (ou nova `"reassigned"`) refletindo a mudança de função além da mudança de responsável.
-   - Se retornar `null`, mostrar toast de aviso ("Colaborador não tem função compatível — etapa mantida") e manter comportamento atual.
-   - Coluna `__unassigned__` continua limpando `current_function_key = null`.
+O botão do topo do card ("Enviar cliente ▸") mostra o próximo `flow_function` da sequência do tipo. Isso é correto (a próxima etapa vai para outro colaborador), mas o texto atualmente sugere que quem age é o responsável atual. Vou trocar para "Próxima etapa: Enviar cliente" quando o próximo passo não pertencer ao usuário logado, deixando claro que a ação apenas transfere o card. Nenhuma mudança de dado — só cópia + tooltip.
 
-3. **`src/components/TaskCard.tsx` — popover "Trocar responsável"** (linha ~1219+)
-   - Onde o card é atribuído via UI (fora do drag), reaproveitar `resolveFunctionForAssignee` para ajustar `current_function_key` no mesmo update, mantendo consistência com o Kanban.
+## 5. Validação
 
-4. **`src/lib/createCardFromContent.ts`**
-   - Manter etapa `"revisar"` como intenção, mas antes de gravar chamar `resolveFunctionForAssignee` (`demandTypeKey`, `assignee`) para cair na função permitida do responsável escolhido; se `null`, seguir com "revisar" como está.
-
-## Correção do card já afetado
-
-O card específico da Letícia (`Programação dos Stories Leal`, hoje em `planejar`) só é corrigido no próximo reassignment. Não faz sense migrar em massa — a regra passa a atuar dali em diante. O usuário pode arrastar o card para outra coluna e voltar, ou reatribuir pelo popover, e a etapa se reajusta.
+- Rodar a migração em transação com `SELECT count(*)` antes/depois para confirmar 0 desalinhados.
+- Escrever uma query de "auditoria contínua" (view `v_demand_stage_misalignment`) para que qualquer regressão apareça no Dev Hub.
+- Testar manualmente: drag para coluna sem permissão, popover trocando responsável para usuário sem a função, aprovação de plano com responsável limitado, resgate de reprovado.
 
 ## Detalhes técnicos
 
-- Sem mudanças de schema; apenas leitura extra em `collaborator_function_assignments`.
-- `flow_history` continua sendo gravado por operação; quando função e responsável mudam juntos, um único registro `proceeded` com `from/to` de ambos.
-- Nenhum ajuste em `proceedDemand` (que já respeita a sequência e escolhe o responsável a partir das funções permitidas).
-- Nada é alterado em geração de conteúdo, publicações agendadas ou permissões — apenas roteamento de etapa.
+- Nova função `public.resolve_function_for_assignee(tenant uuid, user_id uuid, demand_type_key text, current_key text) RETURNS text` `SECURITY DEFINER`, `SET search_path = public`.
+- Trigger `validate_demand_stage_assignment` idempotente; usa `NEW.current_function_key := resolve...` quando o par é inválido.
+- Migração de backfill em um único arquivo SQL, escrevendo em `demand_flow_history` com `to_function_key = novo`, `from_function_key = antigo`.
+- Nenhum GRANT adicional (tabelas já existentes).
