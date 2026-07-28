@@ -192,6 +192,7 @@ const KanbanCentralPage = () => {
   useEffect(() => { peekFocusSessionRef.current = peekFocusSession; }, [peekFocusSession]);
   const hoverEnterTimerRef = useRef<number | null>(null);
   const hoverExitTimerRef = useRef<number | null>(null);
+  const peekPointerPositionRef = useRef<{ x: number; y: number } | null>(null);
   const kanbanColumnRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const focusBoardScrollLeftRef = useRef(0);
   const pendingFocusTransitionRef = useRef<{
@@ -276,8 +277,9 @@ const KanbanCentralPage = () => {
   }, [changeFocusColumn, clearHoverTimers, enterFocus, exitFocus, updatePeekFocusSession]);
 
   // Hover "espiar": ao passar o mouse sobre o header da coluna, mostrar/tirar foco temporariamente.
-  const handleColumnHeaderPointerEnter = useCallback((columnUserId: string, pointerType: string) => {
+  const handleColumnHeaderPointerEnter = useCallback((columnUserId: string, pointerType: string, clientX: number, clientY: number) => {
     if (pointerType && pointerType !== 'mouse') return;
+    peekPointerPositionRef.current = { x: clientX, y: clientY };
     if (hoverExitTimerRef.current) { window.clearTimeout(hoverExitTimerRef.current); hoverExitTimerRef.current = null; }
     if (hoverEnterTimerRef.current) window.clearTimeout(hoverEnterTimerRef.current);
     hoverEnterTimerRef.current = window.setTimeout(() => {
@@ -316,8 +318,8 @@ const KanbanCentralPage = () => {
       return element.closest<HTMLElement>('[data-focus-peek-trigger="true"]');
     };
 
-    const isStillOnValidTrigger = (event: PointerEvent) => {
-      const trigger = getPeekTrigger(event.clientX, event.clientY);
+    const isStillOnValidTriggerAt = (clientX: number, clientY: number) => {
+      const trigger = getPeekTrigger(clientX, clientY);
       const triggerUserId = trigger?.dataset.focusUserId || null;
       if (!triggerUserId) return false;
       if (peekFocusSession.targetColumnId) {
@@ -328,7 +330,15 @@ const KanbanCentralPage = () => {
 
     const restoreIfOutside = (event: PointerEvent) => {
       if (event.pointerType && event.pointerType !== 'mouse') return;
-      if (isStillOnValidTrigger(event)) return;
+      peekPointerPositionRef.current = { x: event.clientX, y: event.clientY };
+      if (isStillOnValidTriggerAt(event.clientX, event.clientY)) return;
+      restorePinnedFocusAfterPeek(peekFocusSession);
+    };
+
+    const restoreIfCurrentPointIsOutside = () => {
+      const position = peekPointerPositionRef.current;
+      if (!position) return;
+      if (isStillOnValidTriggerAt(position.x, position.y)) return;
       restorePinnedFocusAfterPeek(peekFocusSession);
     };
 
@@ -344,8 +354,12 @@ const KanbanCentralPage = () => {
     window.addEventListener('pointerdown', restoreIfOutside, true);
     window.addEventListener('pointerout', restoreOnWindowExit);
     window.addEventListener('blur', restoreOnBlur);
+    const frameId = window.requestAnimationFrame(restoreIfCurrentPointIsOutside);
+    const layoutSettledTimer = window.setTimeout(restoreIfCurrentPointIsOutside, KANBAN_FOCUS_TRANSITION_MS + 40);
 
     return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(layoutSettledTimer);
       window.removeEventListener('pointermove', restoreIfOutside);
       window.removeEventListener('pointerdown', restoreIfOutside, true);
       window.removeEventListener('pointerout', restoreOnWindowExit);
@@ -2400,7 +2414,7 @@ const KanbanCentralPage = () => {
                               <button
                                 type="button"
                                 onClick={() => commitVisibleFocusState(columnUserId, !!focusKind)}
-                                onPointerEnter={(e) => handleColumnHeaderPointerEnter(columnUserId, e.pointerType)}
+                                onPointerEnter={(e) => handleColumnHeaderPointerEnter(columnUserId, e.pointerType, e.clientX, e.clientY)}
                                 onPointerLeave={handleColumnHeaderPointerLeave}
                                 data-focus-peek-trigger="true"
                                 data-focus-user-id={columnUserId}
