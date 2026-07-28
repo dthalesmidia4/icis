@@ -168,6 +168,40 @@ Deno.serve(async (req) => {
 
     if (!videos || videos.length === 0) {
       console.error("No videos in result:", JSON.stringify(result));
+
+      // Detectar bloqueio do filtro de segurança (RAI) do Veo
+      const gvr = result.response?.generateVideoResponse;
+      const raiReasons: string[] = gvr?.raiMediaFilteredReasons || [];
+      const raiCount: number = gvr?.raiMediaFilteredCount || 0;
+
+      if (raiCount > 0 || raiReasons.length > 0) {
+        const reasonText = raiReasons.join(" ").toLowerCase();
+        let friendly =
+          "O Veo bloqueou esta geração pela política de segurança de conteúdo do Google.";
+        if (reasonText.includes("celebrity") || reasonText.includes("likeness")) {
+          friendly =
+            "O Veo bloqueou a imagem de referência (Frame 0) porque a considerou semelhante a uma pessoa real / celebridade. Troque por um mascote ilustrado/estilizado, use outra imagem de referência ou remova o Frame 0 e tente novamente.";
+        } else if (reasonText.includes("child") || reasonText.includes("minor")) {
+          friendly =
+            "O Veo bloqueou a geração porque identificou possível presença de menor de idade na imagem. Remova a referência e tente novamente.";
+        } else if (reasonText.includes("safety") || reasonText.includes("policy")) {
+          friendly =
+            "O Veo bloqueou esta geração por política de segurança. Ajuste a imagem de referência ou a descrição da cena e tente novamente.";
+        }
+
+        return new Response(
+          JSON.stringify({
+            error: friendly,
+            code: "veo_safety_filter",
+            raiReasons,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
       return new Response(JSON.stringify({ error: "Nenhum vídeo gerado" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
