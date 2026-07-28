@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Building2, Mail, Phone, MapPin, Save, Loader2 } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, Save, Loader2, Clock } from 'lucide-react';
 import BackButton from '@/components/BackButton';
 
 const companySchema = z.object({
