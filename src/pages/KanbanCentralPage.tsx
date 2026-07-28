@@ -19,7 +19,8 @@ import {
   X,
   History,
   Focus,
-  Wand2
+  Wand2,
+  Activity
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ReorderSequenceModal from "@/components/kanban/ReorderSequenceModal";
