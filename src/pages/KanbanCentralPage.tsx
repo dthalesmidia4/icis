@@ -1767,6 +1767,10 @@ const KanbanCentralPage = () => {
               ? [{ id: "__unassigned__", name: "Sem responsável", color: "hsl(var(--muted-foreground))" }]
               : []),
           ].map((column) => {
+            const columnHistoryFilter = columnHistory.get(column.id);
+            const isHistoryMode = !!columnHistoryFilter;
+            const isHistoryLoadingCol = columnHistoryLoading.has(column.id);
+
             // Cards ATIVOS deste colaborador (modo normal)
             const activeColumnCards = filteredCards.filter((card) => {
               if (column.id === "__unassigned__") return !card.assigned_to;
@@ -1775,8 +1779,8 @@ const KanbanCentralPage = () => {
 
             // Cards HISTÓRICOS: todos que já passaram por esse colaborador
             let historyColumnCards: Array<CentralKanbanCard & { _historyAt?: string }> = [];
-            if (viewMode === "history") {
-              const rows = historyByUser.get(column.id) || [];
+            if (isHistoryMode) {
+              const rows = columnHistoryRows.get(column.id) || [];
               const cardIndex = new Map<string, CentralKanbanCard>();
               [...cards, ...archivedCards].forEach((c) => cardIndex.set(c.id, c));
               historyColumnCards = rows
@@ -1788,18 +1792,18 @@ const KanbanCentralPage = () => {
                 .filter((x): x is CentralKanbanCard & { _historyAt?: string } => !!x);
             }
 
-            const allColumnCards = viewMode === "history" ? historyColumnCards : activeColumnCards;
+            const allColumnCards = isHistoryMode ? historyColumnCards : activeColumnCards;
 
             // Aguardando Clientes = cards na função operacional aguardando_cliente (apenas modo ativo)
-            const awaitingCards = viewMode === "active"
+            const awaitingCards = !isHistoryMode
               ? allColumnCards.filter((c) => c.current_function_key === 'aguardando_cliente')
               : [];
-            const nonAwaitingCards = viewMode === "active"
+            const nonAwaitingCards = !isHistoryMode
               ? allColumnCards.filter((c) => c.current_function_key !== 'aguardando_cliente')
               : allColumnCards;
 
             // Revisão: agrupar SE houver 3 ou mais cards em função de revisão neste colaborador (só modo ativo)
-            const reviewCandidateCards = viewMode === "active"
+            const reviewCandidateCards = !isHistoryMode
               ? nonAwaitingCards.filter((c) => isReviewFunction(c.current_function_key))
               : [];
             const shouldGroupReview = reviewCandidateCards.length >= 3;
@@ -1812,7 +1816,7 @@ const KanbanCentralPage = () => {
             const isReviewCollapsed = !expandedReview.has(column.id);
 
             // Avaliar: cards planejados aguardando aprovação atribuídos a esse colaborador
-            const evaluateCards = viewMode === "active"
+            const evaluateCards = !isHistoryMode
               ? (evalByAssignee.get(column.id) || [])
               : [];
             const isEvaluateCollapsed = !expandedEvaluate.has(column.id);
