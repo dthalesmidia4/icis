@@ -2299,6 +2299,7 @@ const KanbanCentralPage = () => {
                                             dailyCompleted={(card as any).daily_completed_occurrences}
                                             dailyTotal={(card as any).daily_total_occurrences}
                                             dailyNextDate={(card as any).daily_next_date}
+                                            workArea={(card as any).work_area || null}
                                             onClick={() => handleCardClick(card, column.id)}
                                             onDatesChange={isHistory ? undefined : (changes) => handleInlineDatesChange(card.id, changes)}
                                           />
@@ -2430,6 +2431,7 @@ const KanbanCentralPage = () => {
                                       dailyCompleted={(card as any).daily_completed_occurrences}
                                       dailyTotal={(card as any).daily_total_occurrences}
                                       dailyNextDate={(card as any).daily_next_date}
+                                      workArea={(card as any).work_area || null}
                                       onClick={() => handleCardClick(card, column.id)}
                                       onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
                                     />
@@ -2491,6 +2493,7 @@ const KanbanCentralPage = () => {
                                       dailyCompleted={(card as any).daily_completed_occurrences}
                                       dailyTotal={(card as any).daily_total_occurrences}
                                       dailyNextDate={(card as any).daily_next_date}
+                                      workArea={(card as any).work_area || null}
                                       onClick={() => handleCardClick(card, column.id)}
                                       onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
                                     />

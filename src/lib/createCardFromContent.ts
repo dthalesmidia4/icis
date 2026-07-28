@@ -201,6 +201,18 @@ export async function createCardFromContent(input: CreateCardInput): Promise<Cre
     } catch { /* mantém revisar */ }
   }
 
+  // Área de trabalho — default do perfil do criador (fallback 'midia').
+  let workArea: "midia" | "sistemas" = "midia";
+  try {
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("default_work_area")
+      .eq("id", user.id)
+      .maybeSingle();
+    const v = (prof as any)?.default_work_area;
+    if (v === "sistemas" || v === "midia") workArea = v;
+  } catch { /* mantém midia */ }
+
   // 9. INSERT
   const { data: inserted, error: insErr } = await supabase
     .from("demands")
@@ -219,6 +231,7 @@ export async function createCardFromContent(input: CreateCardInput): Promise<Cre
       assigned_to: picked.userId,
       current_function_key: functionKey,
       created_by: user.id,
+      work_area: workArea,
     } as any)
     .select("id")
     .single();
