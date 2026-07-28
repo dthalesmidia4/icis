@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Activity, CheckCircle2, Clock3, ListChecks, AlertTriangle } from "lucide-react";
+import { Loader2, Activity, CheckCircle2, Clock3, ListChecks, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import BackButton from "@/components/BackButton";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
@@ -36,6 +36,8 @@ interface TypeRule {
 type Filter = "all" | "done" | "in_progress" | "overdue" | "queued";
 type ScopeFilter = "active" | "all";
 type PeriodFilter = "all" | "7d" | "30d" | "this_month" | "last_month";
+type SortKey = "title" | "type" | "assignee" | "area" | "stage" | "progress" | "next" | "publish" | "deadline";
+type SortDir = "asc" | "desc";
 
 const isOverdue = (deliveryDate?: string | null, deliveryTime?: string | null, status?: string) => {
   if (!deliveryDate) return false;
@@ -61,6 +63,39 @@ const relativeDays = (iso?: string | null) => {
   if (days <= 0) return "hoje";
   if (days === 1) return "há 1 dia";
   return `há ${days} dias`;
+};
+
+const sortValue = (
+  row: {
+    card: KanbanCardData;
+    isDone: boolean;
+    hasStage: boolean;
+    stageIndex: number;
+    sequence: { function_key: string; name: string }[];
+    stageName: string | null;
+    nextStageName: string | null;
+    workArea: "midia" | "sistemas" | null;
+  },
+  key: SortKey,
+  assigneeMap: Record<string, string>,
+): string | number | null => {
+  const { card, isDone, stageIndex, sequence, stageName, nextStageName, workArea } = row;
+  switch (key) {
+    case "title": return card.title || null;
+    case "type": return card.demand_type || null;
+    case "assignee": return assigneeMap[card.assigned_to || ""] || null;
+    case "area": return workArea || null;
+    case "stage": return isDone ? "zzzz_concluida" : stageName || null;
+    case "progress": {
+      const total = sequence.length;
+      const done = isDone ? total : Math.max(0, stageIndex);
+      return total > 0 ? done / total : -1;
+    }
+    case "next": return nextStageName || null;
+    case "publish": return card.publish_date || null;
+    case "deadline": return card.delivery_date || null;
+    default: return null;
+  }
 };
 
 function periodRange(period: PeriodFilter): { start: Date; end: Date } | null {
@@ -119,6 +154,15 @@ const ClientEvolution = () => {
   const [filter, setFilter] = useState<Filter>("all");
   const [scope, setScope] = useState<ScopeFilter>("all");
   const [period, setPeriod] = useState<PeriodFilter>("this_month");
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
+
+  const toggleSort = (key: SortKey) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+  };
 
   // Load static data
   useEffect(() => {
@@ -327,15 +371,33 @@ const ClientEvolution = () => {
     else if (filter === "in_progress") list = list.filter((c) => !c.isDone && c.hasStage);
     else if (filter === "overdue") list = list.filter((c) => c.isOverdue);
     else if (filter === "queued") list = list.filter((c) => !c.isDone && !c.hasStage);
+
     const rank = (c: Classified) => (c.isDone ? 2 : c.hasStage ? 0 : 1);
-    return [...list].sort((a, b) => {
+    const sorted = [...list].sort((a, b) => {
+      if (sort) {
+        const dir = sort.dir === "asc" ? 1 : -1;
+        const aVal = sortValue(a, sort.key, assigneeMap);
+        const bVal = sortValue(b, sort.key, assigneeMap);
+        if (aVal !== bVal) {
+          if (aVal === null || aVal === undefined) return 1;
+          if (bVal === null || bVal === undefined) return -1;
+          if (typeof aVal === "string" && typeof bVal === "string") {
+            return aVal.localeCompare(bVal, undefined, { sensitivity: "base" }) * dir;
+          }
+          if (typeof aVal === "number" && typeof bVal === "number") {
+            return (aVal - bVal) * dir;
+          }
+          return String(aVal).localeCompare(String(bVal)) * dir;
+        }
+      }
       const r = rank(a) - rank(b);
       if (r !== 0) return r;
       const at = a.card.updated_at ? new Date(a.card.updated_at).getTime() : 0;
       const bt = b.card.updated_at ? new Date(b.card.updated_at).getTime() : 0;
       return bt - at;
     });
-  }, [classified, filter]);
+    return sorted;
+  }, [classified, filter, sort, assigneeMap]);
 
   const handleSave = async (field: string, value: string) => {
     if (!selectedCard) return;
@@ -473,15 +535,15 @@ const ClientEvolution = () => {
                 <thead className="sticky top-0 bg-muted/70 backdrop-blur-sm text-[11px] uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th aria-hidden className="p-0" />
-                    <th className="text-left font-semibold px-3 py-2">Título</th>
-                    <th className="text-left font-semibold px-2 py-2 hidden md:table-cell whitespace-nowrap">Tipo</th>
-                    <th className="text-left font-semibold px-2 py-2 hidden md:table-cell whitespace-nowrap">Responsável</th>
-                    <th className="text-left font-semibold px-2 py-2 whitespace-nowrap">Área</th>
-                    <th className="text-left font-semibold px-2 py-2 whitespace-nowrap">Etapa</th>
-                    <th className="text-left font-semibold px-2 py-2 hidden lg:table-cell whitespace-nowrap">Progresso</th>
-                    <th className="text-left font-semibold px-2 py-2 hidden xl:table-cell whitespace-nowrap">Próxima</th>
-                    <th className="text-left font-semibold px-2 py-2 whitespace-nowrap">Publicação</th>
-                    <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Prazo</th>
+                    <SortHeader label="Título" sortKey="title" sort={sort} onToggle={toggleSort} />
+                    <SortHeader label="Tipo" sortKey="type" sort={sort} onToggle={toggleSort} className="hidden md:table-cell" />
+                    <SortHeader label="Responsável" sortKey="assignee" sort={sort} onToggle={toggleSort} className="hidden md:table-cell" />
+                    <SortHeader label="Área" sortKey="area" sort={sort} onToggle={toggleSort} />
+                    <SortHeader label="Etapa" sortKey="stage" sort={sort} onToggle={toggleSort} />
+                    <SortHeader label="Progresso" sortKey="progress" sort={sort} onToggle={toggleSort} className="hidden lg:table-cell" />
+                    <SortHeader label="Próxima" sortKey="next" sort={sort} onToggle={toggleSort} className="hidden xl:table-cell" />
+                    <SortHeader label="Publicação" sortKey="publish" sort={sort} onToggle={toggleSort} />
+                    <SortHeader label="Prazo" sortKey="deadline" sort={sort} onToggle={toggleSort} />
                   </tr>
                 </thead>
                 <tbody>
@@ -524,6 +586,33 @@ const ClientEvolution = () => {
 };
 
 // ------- subcomponents -------
+
+function SortHeader({
+  label, sortKey, sort, onToggle, className,
+}: {
+  label: string;
+  sortKey: SortKey;
+  sort: { key: SortKey; dir: SortDir } | null;
+  onToggle: (key: SortKey) => void;
+  className?: string;
+}) {
+  const active = sort?.key === sortKey;
+  const Icon = active ? (sort.dir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+  return (
+    <th
+      className={cn(
+        "text-left font-semibold px-2 py-2 whitespace-nowrap cursor-pointer select-none hover:text-foreground transition-colors",
+        className,
+      )}
+      onClick={() => onToggle(sortKey)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        <Icon className={cn("h-3 w-3", active ? "text-primary" : "text-muted-foreground/50")} />
+      </span>
+    </th>
+  );
+}
 
 const chipTone: Record<string, { active: string; idle: string; icon: string }> = {
   muted:       { active: "border-foreground/40 bg-foreground/5",        idle: "hover:bg-muted/60 border-border/60", icon: "text-muted-foreground" },
