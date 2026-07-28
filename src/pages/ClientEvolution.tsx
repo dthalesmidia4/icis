@@ -3,9 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Activity, CheckCircle2, Clock3, ListChecks, AlertTriangle, Circle, ChevronRight } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, Activity, CheckCircle2, Clock3, ListChecks, AlertTriangle, ChevronRight } from "lucide-react";
 import BackButton from "@/components/BackButton";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
@@ -29,6 +35,9 @@ interface TypeRule {
 }
 
 type Filter = "all" | "done" | "in_progress" | "overdue" | "queued";
+type AreaFilter = "all" | "midia" | "sistemas";
+type ScopeFilter = "active" | "all";
+type PeriodFilter = "all" | "7d" | "30d" | "this_month" | "last_month";
 
 const isOverdue = (deliveryDate?: string | null, deliveryTime?: string | null, status?: string) => {
   if (!deliveryDate) return false;
@@ -56,6 +65,40 @@ const relativeDays = (iso?: string | null) => {
   return `há ${days} dias`;
 };
 
+function periodRange(period: PeriodFilter): { start: Date; end: Date } | null {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (period === "7d") {
+    const s = new Date(today); s.setDate(s.getDate() - 6);
+    return { start: s, end: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59) };
+  }
+  if (period === "30d") {
+    const s = new Date(today); s.setDate(s.getDate() - 29);
+    return { start: s, end: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59) };
+  }
+  if (period === "this_month") {
+    return {
+      start: new Date(now.getFullYear(), now.getMonth(), 1),
+      end: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59),
+    };
+  }
+  if (period === "last_month") {
+    return {
+      start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+      end: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59),
+    };
+  }
+  return null;
+}
+
+const periodLabel: Record<PeriodFilter, string> = {
+  all: "Todas as datas",
+  "7d": "Últimos 7 dias",
+  "30d": "Últimos 30 dias",
+  this_month: "Este mês",
+  last_month: "Mês passado",
+};
+
 const ClientEvolution = () => {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const { selectedClient } = useSelectedClient();
@@ -68,8 +111,11 @@ const ClientEvolution = () => {
   const [selectedCard, setSelectedCard] = useState<KanbanCardData | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
+  const [areaFilter, setAreaFilter] = useState<AreaFilter>("all");
+  const [scope, setScope] = useState<ScopeFilter>("active");
+  const [period, setPeriod] = useState<PeriodFilter>("all");
 
-  // Load static data (flow_functions, rules, pipeline)
+  // Load static data
   useEffect(() => {
     if (tenantLoading || !tenantId) return;
     (async () => {
@@ -154,6 +200,7 @@ const ClientEvolution = () => {
           clientName: d.tenant_companies.fantasy_name || d.tenant_companies.name,
           clientId: d.client_id,
           current_function_key: d.current_function_key ?? null,
+          work_area: d.work_area ?? null,
         } as any));
         setCards(mapped);
 
@@ -187,7 +234,6 @@ const ClientEvolution = () => {
     enabled: !!tenantId && !!selectedClient?.id,
   });
 
-  // Compute sequence expected for a card given its demand_type_key.
   const sequenceForCard = useCallback((demandTypeKey?: string | null): FlowFunction[] => {
     if (!demandTypeKey) return functions;
     const required = new Set(
@@ -200,7 +246,6 @@ const ClientEvolution = () => {
     return functions.filter((f) => required.has(f.function_key));
   }, [functions, typeRules]);
 
-  // Classify each card
   type Classified = {
     card: KanbanCardData;
     isDone: boolean;
@@ -208,13 +253,36 @@ const ClientEvolution = () => {
     hasStage: boolean;
     stageKey: string | null;
     stageName: string | null;
-    stageIndex: number; // -1 if none
+    stageIndex: number;
     sequence: FlowFunction[];
     nextStageName: string | null;
+    workArea: "midia" | "sistemas" | null;
   };
 
+  // Apply scope + period + area at the source
+  const scopedCards = useMemo(() => {
+    const range = periodRange(period);
+    return cards.filter((c) => {
+      const workArea = (c as any).work_area as "midia" | "sistemas" | null;
+      if (areaFilter !== "all" && workArea !== areaFilter) return false;
+
+      const done = FINAL_STATUSES.has((c.status || "").toLowerCase());
+      if (scope === "active" && done) return false;
+
+      if (range) {
+        const ref = c.delivery_date || c.created_at?.slice(0, 10) || null;
+        if (!ref) return false;
+        const [y, m, d] = ref.split("-").map((n) => parseInt(n, 10));
+        if (!y || !m || !d) return false;
+        const dt = new Date(y, m - 1, d);
+        if (dt < range.start || dt > range.end) return false;
+      }
+      return true;
+    });
+  }, [cards, areaFilter, scope, period]);
+
   const classified = useMemo<Classified[]>(() => {
-    return cards.map((c) => {
+    return scopedCards.map((c) => {
       const stageKey = (c as any).current_function_key as string | null;
       const isDone = FINAL_STATUSES.has((c.status || "").toLowerCase());
       const seq = sequenceForCard(c.demand_type_key);
@@ -231,11 +299,11 @@ const ClientEvolution = () => {
         stageIndex: idx,
         sequence: seq,
         nextStageName: nextFn?.name ?? null,
+        workArea: ((c as any).work_area as "midia" | "sistemas" | null) ?? null,
       };
     });
-  }, [cards, sequenceForCard]);
+  }, [scopedCards, sequenceForCard]);
 
-  // Summary counters
   const summary = useMemo(() => {
     const total = classified.length;
     const done = classified.filter((c) => c.isDone).length;
@@ -245,7 +313,6 @@ const ClientEvolution = () => {
     return { total, done, overdue, queued, inProgress };
   }, [classified]);
 
-  // Counts per stage (only active, non-done cards)
   const stageCounts = useMemo(() => {
     const map = new Map<string, number>();
     classified.forEach((c) => {
@@ -256,7 +323,6 @@ const ClientEvolution = () => {
     return map;
   }, [classified]);
 
-  // Filtered timeline
   const timeline = useMemo(() => {
     let list = classified;
     if (filter === "done") list = list.filter((c) => c.isDone);
@@ -264,7 +330,6 @@ const ClientEvolution = () => {
     else if (filter === "overdue") list = list.filter((c) => c.isOverdue);
     else if (filter === "queued") list = list.filter((c) => !c.isDone && !c.hasStage);
     if (selectedStage) list = list.filter((c) => c.stageKey === selectedStage && !c.isDone);
-    // Order: in progress → queued → done
     const rank = (c: Classified) => (c.isDone ? 2 : c.hasStage ? 0 : 1);
     return [...list].sort((a, b) => {
       const r = rank(a) - rank(b);
@@ -309,178 +374,203 @@ const ClientEvolution = () => {
   const progressPct = summary.total > 0 ? Math.round((summary.done / summary.total) * 100) : 0;
 
   return (
-    <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      <BackButton to="/client-hub" />
-
-      <div className="flex flex-col items-center gap-2 mb-6 text-center">
-        <div className="flex items-center gap-2">
-          <Activity className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Evolução das Demandas</h1>
+    <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6 lg:px-8 py-6">
+      {/* Header em uma linha */}
+      <div className="flex flex-wrap items-center gap-3 mb-5">
+        <BackButton to="/client-hub" />
+        <div className="flex items-center gap-2 min-w-0">
+          <Activity className="h-5 w-5 text-primary shrink-0" />
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">
+            Evolução das Demandas
+            <span className="text-muted-foreground font-normal"> · {displayName}</span>
+          </h1>
         </div>
-        <p className="text-sm text-muted-foreground">{displayName}</p>
+        <div className="ml-auto flex items-center gap-2">
+          <div className="flex rounded-md border border-border overflow-hidden text-xs">
+            {(["active", "all"] as ScopeFilter[]).map((s) => (
+              <button
+                key={s}
+                onClick={() => setScope(s)}
+                className={cn(
+                  "px-3 py-1.5 font-medium transition-colors",
+                  scope === s ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted",
+                )}
+              >
+                {s === "active" ? "Ativas" : "Todas"}
+              </button>
+            ))}
+          </div>
+          <Select value={period} onValueChange={(v) => setPeriod(v as PeriodFilter)}>
+            <SelectTrigger className="h-8 w-[170px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(periodLabel) as PeriodFilter[]).map((p) => (
+                <SelectItem key={p} value={p} className="text-xs">{periodLabel[p]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      <p className="text-[11px] text-muted-foreground mb-4">
+        Mostrando: <span className="font-medium">{scope === "active" ? "ativas" : "todas"}</span>
+        {" · "}
+        <span className="font-medium">{periodLabel[period].toLowerCase()}</span>
+        {areaFilter !== "all" && <> {" · "} <span className="font-medium">{areaFilter === "midia" ? "mídia" : "sistemas"}</span></>}
+      </p>
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : summary.total === 0 ? (
+      ) : cards.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <ListChecks className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          <p className="text-lg font-medium">Nenhuma demanda ativa para este cliente.</p>
+          <p className="text-lg font-medium">Nenhuma demanda para este cliente.</p>
         </div>
       ) : (
         <>
-          {/* Resumo */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
-            <SummaryCard
-              label="Total"
-              value={summary.total}
-              icon={ListChecks}
-              tone="muted"
-              active={filter === "all"}
-              onClick={() => { setFilter("all"); setSelectedStage(null); }}
-            />
-            <SummaryCard
-              label="Em andamento"
-              value={summary.inProgress}
-              icon={Activity}
-              tone="primary"
-              active={filter === "in_progress"}
-              onClick={() => { setFilter("in_progress"); setSelectedStage(null); }}
-            />
-            <SummaryCard
-              label="Concluídas"
-              value={summary.done}
-              icon={CheckCircle2}
-              tone="emerald"
-              active={filter === "done"}
-              onClick={() => { setFilter("done"); setSelectedStage(null); }}
-            />
-            <SummaryCard
-              label="Fila"
-              value={summary.queued}
-              icon={Clock3}
-              tone="amber"
-              active={filter === "queued"}
-              onClick={() => { setFilter("queued"); setSelectedStage(null); }}
-            />
-            <SummaryCard
-              label="Atrasadas"
-              value={summary.overdue}
-              icon={AlertTriangle}
-              tone="destructive"
-              active={filter === "overdue"}
-              onClick={() => { setFilter("overdue"); setSelectedStage(null); }}
-            />
-          </div>
-
-          {/* Barra de progresso */}
-          <Card className="p-4 mb-6">
-            <div className="flex items-center justify-between mb-2 text-sm">
-              <span className="font-medium text-foreground">Progresso geral</span>
-              <span className="text-muted-foreground">{summary.done} de {summary.total} concluídas · {progressPct}%</span>
-            </div>
-            <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full bg-emerald-500 transition-all"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-          </Card>
-
-          {/* Pipeline por etapa */}
-          {functions.length > 0 && (
-            <Card className="p-4 mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Pipeline por etapa</h2>
-                {selectedStage && (
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedStage(null)}>
-                    Limpar etapa
-                  </Button>
-                )}
+          {/* Painel de controle integrado */}
+          <div className="rounded-lg border bg-card p-4 mb-5 space-y-3">
+            {/* Contadores + progresso */}
+            <div className="flex flex-wrap items-center gap-2">
+              <CounterChip label="Total" value={summary.total} icon={ListChecks} tone="muted"
+                active={filter === "all"} onClick={() => { setFilter("all"); setSelectedStage(null); }} />
+              <CounterChip label="Em andamento" value={summary.inProgress} icon={Activity} tone="primary"
+                active={filter === "in_progress"} onClick={() => { setFilter("in_progress"); setSelectedStage(null); }} />
+              <CounterChip label="Concluídas" value={summary.done} icon={CheckCircle2} tone="emerald"
+                active={filter === "done"} onClick={() => { setFilter("done"); setSelectedStage(null); }} />
+              <CounterChip label="Fila" value={summary.queued} icon={Clock3} tone="amber"
+                active={filter === "queued"} onClick={() => { setFilter("queued"); setSelectedStage(null); }} />
+              <CounterChip label="Atrasadas" value={summary.overdue} icon={AlertTriangle} tone="destructive"
+                active={filter === "overdue"} onClick={() => { setFilter("overdue"); setSelectedStage(null); }} />
+              <div className="ml-auto flex items-center gap-2 min-w-[220px] flex-1 max-w-md">
+                <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full bg-emerald-500 transition-all" style={{ width: `${progressPct}%` }} />
+                </div>
+                <span className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
+                  {summary.done}/{summary.total} · {progressPct}%
+                </span>
               </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {functions.map((fn, i) => {
-                  const count = stageCounts.get(fn.function_key) || 0;
-                  const active = selectedStage === fn.function_key;
-                  return (
-                    <div key={fn.function_key} className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedStage(active ? null : fn.function_key)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-full border text-xs font-medium transition-colors flex items-center gap-2",
-                          active
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : count > 0
-                              ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/15"
-                              : "bg-muted/40 text-muted-foreground border-border hover:bg-muted",
-                        )}
-                      >
-                        <span>{fn.name}</span>
-                        <Badge
-                          variant="secondary"
+            </div>
+
+            {/* Divisor */}
+            {functions.length > 0 && (
+              <>
+                <div className="border-t border-border/60" />
+                <div className="flex flex-wrap items-center gap-1">
+                  {functions.map((fn, i) => {
+                    const count = stageCounts.get(fn.function_key) || 0;
+                    const active = selectedStage === fn.function_key;
+                    return (
+                      <div key={fn.function_key} className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStage(active ? null : fn.function_key)}
                           className={cn(
-                            "h-5 min-w-5 px-1.5 text-[10px]",
-                            active && "bg-primary-foreground/20 text-primary-foreground",
+                            "px-2.5 py-1 rounded-full border text-[11px] font-medium transition-colors flex items-center gap-1.5",
+                            active
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : count > 0
+                                ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/15"
+                                : "bg-transparent text-muted-foreground border-border/60 hover:bg-muted/60",
                           )}
                         >
-                          {count}
-                        </Badge>
-                      </button>
-                      {i < functions.length - 1 && (
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
-                      )}
-                    </div>
-                  );
-                })}
-                <div className="flex items-center gap-1.5">
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50" />
-                  <div className="px-3 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-medium flex items-center gap-2">
+                          <span>{fn.name}</span>
+                          <span className={cn(
+                            "tabular-nums text-[10px] px-1 rounded",
+                            active ? "bg-primary-foreground/20" : "bg-foreground/5",
+                          )}>{count}</span>
+                        </button>
+                        {i < functions.length - 1 && (
+                          <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
+                        )}
+                      </div>
+                    );
+                  })}
+                  <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
+                  <div className="px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-medium flex items-center gap-1.5">
                     <span>Concluídas</span>
-                    <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[10px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
-                      {summary.done}
-                    </Badge>
+                    <span className="tabular-nums text-[10px] px-1 rounded bg-emerald-500/20">{summary.done}</span>
                   </div>
+                  {selectedStage && (
+                    <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] ml-1" onClick={() => setSelectedStage(null)}>
+                      Limpar etapa
+                    </Button>
+                  )}
                 </div>
-              </div>
-            </Card>
-          )}
+              </>
+            )}
+          </div>
+
+          {/* Filtro por área */}
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Área</span>
+            {(["all", "midia", "sistemas"] as AreaFilter[]).map((a) => (
+              <button
+                key={a}
+                onClick={() => setAreaFilter(a)}
+                className={cn(
+                  "px-2.5 py-0.5 rounded-full border text-[11px] font-medium transition-colors flex items-center gap-1.5",
+                  areaFilter === a
+                    ? "border-foreground/40 bg-foreground/5 text-foreground"
+                    : "border-border/60 text-muted-foreground hover:bg-muted/60",
+                )}
+              >
+                {a !== "all" && (
+                  <span className={cn(
+                    "h-2 w-2 rounded-full",
+                    a === "midia" ? "bg-primary" : "bg-slate-500",
+                  )} />
+                )}
+                {a === "all" ? "Todas" : a === "midia" ? "Mídia" : "Sistemas"}
+              </button>
+            ))}
+          </div>
 
           {/* Tabela densa */}
-          <div className="rounded-lg border bg-card overflow-hidden">
+          <div className="rounded-lg border bg-card">
             {timeline.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground text-sm">
                 Nenhuma demanda para o filtro selecionado.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead className="sticky top-0 bg-muted/70 backdrop-blur-sm text-[11px] uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="text-left font-semibold px-3 py-2 w-[38%]">Título</th>
-                      <th className="text-left font-semibold px-2 py-2 hidden md:table-cell whitespace-nowrap">Tipo</th>
-                      <th className="text-left font-semibold px-2 py-2 hidden md:table-cell whitespace-nowrap">Responsável</th>
-                      <th className="text-left font-semibold px-2 py-2 whitespace-nowrap">Etapa</th>
-                      <th className="text-left font-semibold px-2 py-2 hidden lg:table-cell whitespace-nowrap">Progresso</th>
-                      <th className="text-left font-semibold px-2 py-2 hidden xl:table-cell whitespace-nowrap">Próxima</th>
-                      <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Prazo</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {timeline.map((row, i) => (
-                      <TableRow
-                        key={row.card.id}
-                        row={row}
-                        assigneeName={assigneeMap[row.card.assigned_to || ""] || null}
-                        onOpen={() => setSelectedCard(row.card)}
-                        zebra={i % 2 === 1}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <table className="w-full text-sm table-fixed border-collapse">
+                <colgroup>
+                  <col className="w-[6px]" />
+                  <col />
+                  <col className="hidden md:table-column w-[9%]" />
+                  <col className="hidden md:table-column w-[12%]" />
+                  <col className="w-[16%]" />
+                  <col className="hidden lg:table-column w-[14%]" />
+                  <col className="hidden xl:table-column w-[12%]" />
+                  <col className="w-[9%]" />
+                </colgroup>
+                <thead className="sticky top-0 bg-muted/70 backdrop-blur-sm text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th aria-hidden className="p-0" />
+                    <th className="text-left font-semibold px-3 py-2">Título</th>
+                    <th className="text-left font-semibold px-2 py-2 hidden md:table-cell whitespace-nowrap">Tipo</th>
+                    <th className="text-left font-semibold px-2 py-2 hidden md:table-cell whitespace-nowrap">Responsável</th>
+                    <th className="text-left font-semibold px-2 py-2 whitespace-nowrap">Etapa</th>
+                    <th className="text-left font-semibold px-2 py-2 hidden lg:table-cell whitespace-nowrap">Progresso</th>
+                    <th className="text-left font-semibold px-2 py-2 hidden xl:table-cell whitespace-nowrap">Próxima</th>
+                    <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Prazo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {timeline.map((row, i) => (
+                    <TableRow
+                      key={row.card.id}
+                      row={row}
+                      assigneeName={assigneeMap[row.card.assigned_to || ""] || null}
+                      onOpen={() => setSelectedCard(row.card)}
+                      zebra={i % 2 === 1}
+                    />
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
         </>
@@ -510,39 +600,37 @@ const ClientEvolution = () => {
 
 // ------- subcomponents -------
 
-const toneClasses: Record<string, { active: string; idle: string; icon: string }> = {
-  muted:       { active: "border-foreground/40 bg-muted",        idle: "hover:bg-muted/60", icon: "text-muted-foreground" },
-  primary:     { active: "border-primary bg-primary/10",         idle: "hover:bg-primary/5",     icon: "text-primary" },
-  emerald:     { active: "border-emerald-500 bg-emerald-500/10", idle: "hover:bg-emerald-500/5", icon: "text-emerald-600 dark:text-emerald-400" },
-  amber:       { active: "border-amber-500 bg-amber-500/10",     idle: "hover:bg-amber-500/5",   icon: "text-amber-600 dark:text-amber-400" },
-  destructive: { active: "border-destructive bg-destructive/10", idle: "hover:bg-destructive/5", icon: "text-destructive" },
+const chipTone: Record<string, { active: string; idle: string; icon: string }> = {
+  muted:       { active: "border-foreground/40 bg-foreground/5",        idle: "hover:bg-muted/60 border-border/60", icon: "text-muted-foreground" },
+  primary:     { active: "border-primary bg-primary/15 text-primary",   idle: "hover:bg-primary/5 border-border/60", icon: "text-primary" },
+  emerald:     { active: "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", idle: "hover:bg-emerald-500/5 border-border/60", icon: "text-emerald-600 dark:text-emerald-400" },
+  amber:       { active: "border-amber-500 bg-amber-500/15 text-amber-700 dark:text-amber-300", idle: "hover:bg-amber-500/5 border-border/60", icon: "text-amber-600 dark:text-amber-400" },
+  destructive: { active: "border-destructive bg-destructive/15 text-destructive", idle: "hover:bg-destructive/5 border-border/60", icon: "text-destructive" },
 };
 
-function SummaryCard({
+function CounterChip({
   label, value, icon: Icon, tone, active, onClick,
 }: {
   label: string;
   value: number;
   icon: any;
-  tone: keyof typeof toneClasses;
+  tone: keyof typeof chipTone;
   active: boolean;
   onClick: () => void;
 }) {
-  const t = toneClasses[tone];
+  const t = chipTone[tone];
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "text-left rounded-lg border bg-card p-3 transition-colors",
-        active ? t.active : cn("border-border", t.idle),
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+        active ? t.active : cn("bg-transparent text-foreground", t.idle),
       )}
     >
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
-        <Icon className={cn("h-4 w-4", t.icon)} />
-      </div>
-      <div className="mt-1 text-2xl font-bold text-foreground">{value}</div>
+      <Icon className={cn("h-3.5 w-3.5", t.icon)} />
+      <span className="text-muted-foreground">{label}</span>
+      <span className="tabular-nums font-semibold text-foreground">{value}</span>
     </button>
   );
 }
@@ -560,12 +648,13 @@ function TableRow({
     stageIndex: number;
     sequence: { function_key: string; name: string }[];
     nextStageName: string | null;
+    workArea: "midia" | "sistemas" | null;
   };
   assigneeName: string | null;
   onOpen: () => void;
   zebra: boolean;
 }) {
-  const { card, isDone, isOverdue: overdue, hasStage, stageIndex, sequence, stageName, nextStageName } = row;
+  const { card, isDone, isOverdue: overdue, hasStage, stageIndex, sequence, stageName, nextStageName, workArea } = row;
 
   const stageCell = () => {
     if (isDone) {
@@ -575,10 +664,10 @@ function TableRow({
       return <span className="text-amber-600 dark:text-amber-400 font-medium">Aguardando início</span>;
     }
     return (
-      <span className="inline-flex items-center gap-1.5">
-        <span className="font-medium text-foreground">{stageName}</span>
+      <span className="inline-flex items-center gap-1.5 min-w-0">
+        <span className="font-medium text-foreground truncate">{stageName}</span>
         {card.updated_at && (
-          <span className="text-[11px] text-muted-foreground">· {relativeDays(card.updated_at)}</span>
+          <span className="text-[11px] text-muted-foreground whitespace-nowrap">· {relativeDays(card.updated_at)}</span>
         )}
       </span>
     );
@@ -593,6 +682,13 @@ function TableRow({
       ? "text-muted-foreground"
       : "text-foreground";
 
+  const areaBar = workArea === "midia"
+    ? "bg-primary"
+    : workArea === "sistemas"
+      ? "bg-slate-400 dark:bg-slate-500"
+      : "bg-transparent";
+  const areaTitle = workArea === "midia" ? "Mídia" : workArea === "sistemas" ? "Sistemas" : "Sem área";
+
   return (
     <tr
       onClick={onOpen}
@@ -603,19 +699,22 @@ function TableRow({
         isDone && "opacity-70",
       )}
     >
-      <td className="px-3 py-2">
-        <div className="font-medium text-foreground truncate max-w-[560px]" title={card.title}>
+      <td className="p-0" title={areaTitle}>
+        <div className={cn("h-8 w-[3px] mx-auto rounded-full", areaBar)} />
+      </td>
+      <td className="px-3 py-2 min-w-0">
+        <div className="font-medium text-foreground truncate" title={card.title}>
           {card.title}
         </div>
       </td>
-      <td className="px-2 py-2 hidden md:table-cell text-muted-foreground text-[12px] whitespace-nowrap">
+      <td className="px-2 py-2 hidden md:table-cell text-muted-foreground text-[12px] truncate">
         {card.demand_type || "—"}
       </td>
-      <td className="px-2 py-2 hidden md:table-cell text-foreground text-[12px] whitespace-nowrap">
+      <td className="px-2 py-2 hidden md:table-cell text-foreground text-[12px] truncate">
         {assigneeName || <span className="text-muted-foreground">—</span>}
       </td>
-      <td className="px-2 py-2 text-[12px] whitespace-nowrap">
-        {stageCell()}
+      <td className="px-2 py-2 text-[12px]">
+        <div className="min-w-0 truncate">{stageCell()}</div>
       </td>
       <td className="px-2 py-2 hidden lg:table-cell">
         {total > 0 ? (
@@ -646,7 +745,7 @@ function TableRow({
           <span className="text-muted-foreground text-[11px]">—</span>
         )}
       </td>
-      <td className="px-2 py-2 hidden xl:table-cell text-muted-foreground text-[12px] whitespace-nowrap">
+      <td className="px-2 py-2 hidden xl:table-cell text-muted-foreground text-[12px] truncate">
         {isDone ? "—" : nextStageName || <span className="text-muted-foreground/60">—</span>}
       </td>
       <td className={cn("px-3 py-2 whitespace-nowrap text-[12px] tabular-nums", prazoTone)}>
