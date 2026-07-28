@@ -234,9 +234,15 @@ export async function jumpToFunction({
   const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
   const prevUser = (cur as any)?.assigned_to || null;
 
+  const updatePayload: any = { assigned_to: picked.userId, current_function_key: target.function_key };
+  if (currentFunctionKey === "aguardando_cliente" && target.function_key !== "enviar_cliente") {
+    updatePayload.client_wait_started_at = null;
+    updatePayload.client_resend_count = 0;
+    updatePayload.client_last_resend_at = null;
+  }
   const { error } = await supabase
     .from("demands")
-    .update({ assigned_to: picked.userId, current_function_key: target.function_key } as any)
+    .update(updatePayload)
     .eq("id", demandId);
   if (error) return { success: false, message: "Erro ao atualizar etapa." };
   await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
