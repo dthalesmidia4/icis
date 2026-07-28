@@ -2572,7 +2572,8 @@ const KanbanCentralPage = () => {
                 )}
               </Droppable>
             );
-          })}
+            });
+          })()}
         </div>
       </DragDropContext>
 
