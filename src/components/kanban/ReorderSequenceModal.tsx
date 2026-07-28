@@ -108,8 +108,9 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
         </DialogHeader>
 
         <div className="text-xs text-muted-foreground -mt-2 mb-2">
-          A IA estima duração por tipo (Estático 20min, Carrossel 40min, Vídeo curto 2h, Vídeo longo 3h), respeita
-          janela 09:00–18:00 e pula finais de semana/feriados. Cards com data de publicação vêm primeiro.
+          Duração estimada por tipo × etapa do fluxo (ex.: Carrossel em <b>Criar arte</b> 40min, em <b>Revisar</b> 10min).
+          Janela {workHours.start}–{workHours.end}, almoço {workHours.lunchStart}–{workHours.lunchEnd} ({workHours.tz.replace("America/", "")}).
+          Pula finais de semana/feriados. Cards em <b>Aguardando cliente</b> não são reagendados.
         </div>
 
         <div className="flex flex-wrap items-center gap-2 mb-3">
