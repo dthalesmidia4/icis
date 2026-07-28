@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     const results: any[] = [];
 
     for (const row of (fns as any[]) || []) {
-      const cfg = (row.config || {}) as Partial<AwaitingConfig>;
+      const cfg = ((row.config || {}).client_return || {}) as Partial<AwaitingConfig>;
       const returnTimes = Array.isArray(cfg.return_times) ? cfg.return_times : [];
       if (returnTimes.length === 0) {
         results.push({ tenant_id: row.tenant_id, skipped: "no_return_times" });

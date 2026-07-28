@@ -234,9 +234,15 @@ export async function jumpToFunction({
   const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
   const prevUser = (cur as any)?.assigned_to || null;
 
+  const updatePayload: any = { assigned_to: picked.userId, current_function_key: target.function_key };
+  if (currentFunctionKey === "aguardando_cliente" && target.function_key !== "enviar_cliente") {
+    updatePayload.client_wait_started_at = null;
+    updatePayload.client_resend_count = 0;
+    updatePayload.client_last_resend_at = null;
+  }
   const { error } = await supabase
     .from("demands")
-    .update({ assigned_to: picked.userId, current_function_key: target.function_key } as any)
+    .update(updatePayload)
     .eq("id", demandId);
   if (error) return { success: false, message: "Erro ao atualizar etapa." };
   await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
@@ -334,9 +340,15 @@ export async function proceedDemand({
     return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
   }
 
+  const proceedPayload: any = { assigned_to: picked.userId, current_function_key: nextFn.function_key };
+  if (currentFunctionKey === "aguardando_cliente" && nextFn.function_key !== "enviar_cliente") {
+    proceedPayload.client_wait_started_at = null;
+    proceedPayload.client_resend_count = 0;
+    proceedPayload.client_last_resend_at = null;
+  }
   const { error: upErr } = await supabase
     .from("demands")
-    .update({ assigned_to: picked.userId, current_function_key: nextFn.function_key } as any)
+    .update(proceedPayload)
     .eq("id", demandId);
   if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
 
@@ -450,9 +462,15 @@ export async function regressDemand({
   if (!picked.success || !picked.userId) {
     return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
   }
+  const regressPayload: any = { assigned_to: picked.userId, current_function_key: prevFn.function_key };
+  if (currentFunctionKey === "aguardando_cliente" && prevFn.function_key !== "enviar_cliente") {
+    regressPayload.client_wait_started_at = null;
+    regressPayload.client_resend_count = 0;
+    regressPayload.client_last_resend_at = null;
+  }
   const { error: upErr } = await supabase
     .from("demands")
-    .update({ assigned_to: picked.userId, current_function_key: prevFn.function_key } as any)
+    .update(regressPayload)
     .eq("id", demandId);
   if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
   await recordFlowHistory({
