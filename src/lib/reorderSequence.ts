@@ -456,7 +456,7 @@ export function sortForReorder(
 
 export async function computeReorder(
   cards: ReorderCardInput[],
-  opts?: { startFrom?: Date; workHours?: WorkHoursConfig },
+  opts?: { startFrom?: Date; workHours?: WorkHoursConfig; prioritizePublishDate?: boolean },
 ): Promise<ReorderProposal[]> {
   if (cards.length === 0) return [];
 
@@ -477,7 +477,7 @@ export async function computeReorder(
 
   const awaiting = cards.filter((c) => (c.current_function_key || "").toLowerCase() === "aguardando_cliente");
   const active = cards.filter((c) => (c.current_function_key || "").toLowerCase() !== "aguardando_cliente");
-  const ordered = sortForReorder(active);
+  const ordered = sortForReorder(active, { prioritizePublishDate: opts?.prioritizePublishDate });
 
   // Cursor inicial (arredondado a 5min)
   let cursor = normalizeCursor(new Date(now), ctx);
