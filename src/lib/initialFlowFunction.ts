@@ -144,12 +144,24 @@ export async function assignInitialResponsible(
 
     const existingAssignee = (current as any)?.assigned_to || null;
     let assigneeId: string | null = existingAssignee;
-    if (!assigneeId) {
+    let functionKey: string = initial.functionKey;
+
+    if (existingAssignee) {
+      // Responsável já pré-definido (ex.: draft manual): ajustar etapa para
+      // uma função permitida ao usuário, respeitando o fluxo do tipo.
+      const resolved = await resolveFunctionForAssignee(
+        tenantId,
+        existingAssignee,
+        demandTypeKey,
+        initial.functionKey,
+      );
+      if (resolved) functionKey = resolved;
+    } else {
       const picked = await pickAssigneeForFunction(tenantId, initial.functionKey, initial.functionName);
       if (picked.success && picked.userId) assigneeId = picked.userId;
     }
 
-    const update: Record<string, any> = { current_function_key: initial.functionKey };
+    const update: Record<string, any> = { current_function_key: functionKey };
     if (assigneeId) update.assigned_to = assigneeId;
 
     const { error: upErr } = await supabase.from("demands").update(update).eq("id", demandId);
