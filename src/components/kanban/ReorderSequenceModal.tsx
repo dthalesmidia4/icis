@@ -138,6 +138,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                 const orig = cardById.get(p.id);
                 const origStart = orig?.due_date ? `${fmtDate(orig.due_date)} ${(orig.due_time || "").slice(0, 5)}` : "—";
                 const newStart = `${fmtDate(p.startISO)} ${p.startTime}`;
+                const newEnd = `${fmtDate(p.endISO)} ${p.endTime}`;
                 return (
                   <div
                     key={p.id}
@@ -158,9 +159,21 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                           <span className="text-muted-foreground line-through">{origStart}</span>
                           <ArrowRight className="h-3 w-3 text-muted-foreground" />
                           <span className="font-semibold text-foreground">{newStart}</span>
+                          <span className="text-muted-foreground">→</span>
+                          <span className="font-semibold text-foreground">{newEnd}</span>
                           <Badge variant="outline" className="text-[10px]">
                             {p.durationMin}min
                           </Badge>
+                          {p.spansDays && p.spansDays > 1 && (
+                            <Badge variant="outline" className="text-[10px] border-blue-500/60 text-blue-600 dark:text-blue-400">
+                              {p.spansDays} dias
+                            </Badge>
+                          )}
+                          {p.slackApplied && (
+                            <Badge variant="outline" className="text-[10px] border-orange-500/60 text-orange-600 dark:text-orange-400">
+                              +folga
+                            </Badge>
+                          )}
                           {orig?.publish_date && (
                             <span className="text-muted-foreground">
                               📢 pub {fmtDate(orig.publish_date)}
