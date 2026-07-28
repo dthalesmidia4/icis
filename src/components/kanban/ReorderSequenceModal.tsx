@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { computeReorder, hasPublishDateCandidates, type ReorderCardInput, type ReorderProposal, type StageDurationOverrides } from "@/lib/reorderSequence";
+import { computeReorder, hasPublishDateCandidates, type ReorderCardInput, type ReorderProposal, type StageDurationOverrides, type AreaScheduleMap } from "@/lib/reorderSequence";
 import { loadDurationsForTenant } from "@/lib/flowDurations";
 import { useWorkHoursConfig } from "@/hooks/useWorkHoursConfig";
 import { Switch } from "@/components/ui/switch";
@@ -24,6 +24,7 @@ interface Props {
   columnName: string;
   cards: ReorderCardInput[];
   tenantId?: string | null;
+  assigneeId?: string | null;
   onApplied?: () => void;
 }
 
@@ -32,12 +33,19 @@ function fmtDate(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
-export default function ReorderSequenceModal({ open, onOpenChange, columnName, cards, tenantId, onApplied }: Props) {
+function toMinutes(t: string | null | undefined): number {
+  if (!t) return 0;
+  const [h, m] = t.split(":").map((x) => parseInt(x, 10) || 0);
+  return h * 60 + m;
+}
+
+export default function ReorderSequenceModal({ open, onOpenChange, columnName, cards, tenantId, assigneeId, onApplied }: Props) {
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
   const [proposals, setProposals] = useState<ReorderProposal[]>([]);
   const { config: workHours } = useWorkHoursConfig(tenantId ?? null);
   const [durations, setDurations] = useState<StageDurationOverrides>({});
+  const [areaSchedule, setAreaSchedule] = useState<AreaScheduleMap | undefined>(undefined);
 
   useEffect(() => {
     if (!open || !tenantId) return;
@@ -47,6 +55,45 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     });
     return () => { cancelled = true; };
   }, [open, tenantId]);
+
+  // Carrega alocação por área do colaborador da coluna
+  useEffect(() => {
+    if (!open || !tenantId || !assigneeId) {
+      setAreaSchedule(undefined);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("user_area_schedules")
+        .select("work_area, weekday, start_time, end_time")
+        .eq("tenant_id", tenantId)
+        .eq("user_id", assigneeId);
+      if (cancelled) return;
+      if (error || !data || data.length === 0) {
+        setAreaSchedule(undefined);
+        return;
+      }
+      const map: AreaScheduleMap = { midia: {}, sistemas: {} };
+      for (const row of data as any[]) {
+        const area = row.work_area === "sistemas" ? "sistemas" : "midia";
+        const w = Number(row.weekday);
+        const s = toMinutes(row.start_time);
+        const e = toMinutes(row.end_time);
+        if (!Number.isFinite(w) || e <= s) continue;
+        if (!map[area][w]) map[area][w] = [];
+        map[area][w].push({ s, e });
+      }
+      // Ordena blocos por dia
+      for (const area of ["midia", "sistemas"] as const) {
+        for (const k of Object.keys(map[area])) {
+          map[area][+k].sort((a, b) => a.s - b.s);
+        }
+      }
+      setAreaSchedule(map);
+    })();
+    return () => { cancelled = true; };
+  }, [open, tenantId, assigneeId]);
 
 
   const showPublishToggle = hasPublishDateCandidates(cards);
@@ -66,7 +113,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     if (!open) return;
     let cancelled = false;
     setLoading(true);
-    computeReorder(cards, { workHours, durations, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
+    computeReorder(cards, { workHours, durations, areaSchedule, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
       .then((r) => {
         if (!cancelled) setProposals(r);
       })
@@ -80,7 +127,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     return () => {
       cancelled = true;
     };
-  }, [open, cards, workHours, durations, prioritizeByPublish, showPublishToggle]);
+  }, [open, cards, workHours, durations, areaSchedule, prioritizeByPublish, showPublishToggle]);
 
   const changedCount = proposals.filter((p) => p.changed && !p.skipped).length;
   const warningCount = proposals.filter((p) => p.warning).length;

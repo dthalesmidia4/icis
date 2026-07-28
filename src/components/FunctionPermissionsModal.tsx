@@ -327,7 +327,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue="participacao" className="w-full">
+        <Tabs key="fpm-tabs-v2" defaultValue="participacao" className="w-full">
           <TabsList className="grid w-full max-w-2xl grid-cols-3">
             <TabsTrigger value="participacao">Participação</TabsTrigger>
             <TabsTrigger value="tempo">Tempo estimado</TabsTrigger>
