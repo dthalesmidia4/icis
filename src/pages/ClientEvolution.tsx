@@ -448,20 +448,40 @@ const ClientEvolution = () => {
             </Card>
           )}
 
-          {/* Timeline */}
-          <div className="space-y-2">
+          {/* Tabela densa */}
+          <div className="rounded-lg border bg-card overflow-hidden">
             {timeline.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground text-sm">
                 Nenhuma demanda para o filtro selecionado.
               </div>
-            ) : timeline.map((row) => (
-              <TimelineRow
-                key={row.card.id}
-                row={row}
-                assigneeName={assigneeMap[row.card.assigned_to || ""] || null}
-                onOpen={() => setSelectedCard(row.card)}
-              />
-            ))}
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead className="sticky top-0 bg-muted/70 backdrop-blur-sm text-[11px] uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="text-left font-semibold px-3 py-2 w-[38%]">Título</th>
+                      <th className="text-left font-semibold px-2 py-2 hidden md:table-cell whitespace-nowrap">Tipo</th>
+                      <th className="text-left font-semibold px-2 py-2 hidden md:table-cell whitespace-nowrap">Responsável</th>
+                      <th className="text-left font-semibold px-2 py-2 whitespace-nowrap">Etapa</th>
+                      <th className="text-left font-semibold px-2 py-2 hidden lg:table-cell whitespace-nowrap">Progresso</th>
+                      <th className="text-left font-semibold px-2 py-2 hidden xl:table-cell whitespace-nowrap">Próxima</th>
+                      <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Prazo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {timeline.map((row, i) => (
+                      <TableRow
+                        key={row.card.id}
+                        row={row}
+                        assigneeName={assigneeMap[row.card.assigned_to || ""] || null}
+                        onOpen={() => setSelectedCard(row.card)}
+                        zebra={i % 2 === 1}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </>
       )}
