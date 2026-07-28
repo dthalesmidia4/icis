@@ -1887,6 +1887,27 @@ const KanbanCentralPage = () => {
                 </Select>
               </div>
             )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Área</label>
+              <div className="inline-flex rounded-md border border-border overflow-hidden">
+                {(["all", "midia", "sistemas"] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setSelectedAreaFilter(opt)}
+                    className={cn(
+                      "px-3 py-1.5 text-sm font-medium transition-colors",
+                      selectedAreaFilter === opt
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-transparent text-foreground hover:bg-accent/40"
+                    )}
+                  >
+                    {opt === "all" ? "Todas" : opt === "midia" ? "Mídia" : "Sistemas"}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-2">
@@ -1896,6 +1917,7 @@ const KanbanCentralPage = () => {
                 setSelectedClientFilter("all");
                 setSelectedPeriodFilter("active");
                 setSelectedStatusFilter("all");
+                setSelectedAreaFilter("all");
                 setDateGroupBy("start");
               }}
             >
