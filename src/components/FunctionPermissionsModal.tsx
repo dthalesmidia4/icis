@@ -335,6 +335,31 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     return rm === 0 ? `${h}h` : `${h}h${String(rm).padStart(2, "0")}`;
   };
 
+  const saveAwaitingConfig = async (patch: Partial<typeof awaitingConfig>) => {
+    if (!agencyId) return;
+    const next = { ...awaitingConfig, ...patch };
+    setAwaitingConfig(next);
+    setSavingAwaiting(true);
+    const { data: current } = await supabase
+      .from("flow_functions")
+      .select("config")
+      .eq("tenant_id", agencyId)
+      .eq("function_key", "aguardando_cliente")
+      .maybeSingle();
+    const currentConfig = (current as any)?.config || {};
+    const newConfig = { ...currentConfig, client_return: next };
+    const { error } = await supabase
+      .from("flow_functions")
+      .update({ config: newConfig })
+      .eq("tenant_id", agencyId)
+      .eq("function_key", "aguardando_cliente");
+    if (error) {
+      toast.error("Erro ao salvar retorno automático");
+      console.error(error);
+    }
+    setSavingAwaiting(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] xl:max-w-[1400px] max-h-[90vh] overflow-y-auto">
