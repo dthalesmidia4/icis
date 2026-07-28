@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { pickAssigneeForFunction } from "@/lib/proceedDemand";
 import type { DemandTypeKey } from "@/lib/proceedDemand";
 import { recordFlowHistory } from "@/lib/flowHistory";
+import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 
 export interface CreateCardInput {
   tenantId: string;
