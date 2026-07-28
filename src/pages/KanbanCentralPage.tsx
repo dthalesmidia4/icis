@@ -231,13 +231,22 @@ const KanbanCentralPage = () => {
   const [isDraftMode, setIsDraftMode] = useState(false);
   const [draftClients, setDraftClients] = useState<{ id: string; name: string }[]>([]);
 
-  // Modo "Registro de Cards" — mostra cards que já passaram por cada colaborador
-  const [viewMode, setViewMode] = useState<"active" | "history">("active");
-  const [historyRange, setHistoryRange] = useState<string>("7"); // "today" | "1" | "7" | ...
-
-  // Map<toUserId, Array<{ demandId, lastSeenAt }>>
-  const [historyByUser, setHistoryByUser] = useState<Map<string, Array<{ demandId: string; lastSeenAt: string }>>>(new Map());
-  const [historyLoading, setHistoryLoading] = useState(false);
+  // Histórico por coluna — cada coluna pode ativar independentemente o "Registro de entregas".
+  // range: 'today' | '7' | '30' | 'day' | 'custom'
+  type ColumnHistoryFilter = {
+    range: "today" | "7" | "30" | "day" | "custom";
+    dayISO?: string;
+    fromISO?: string;
+    toISO?: string;
+  };
+  const [columnHistory, setColumnHistory] = useState<Map<string, ColumnHistoryFilter>>(new Map());
+  const [columnHistoryRows, setColumnHistoryRows] = useState<
+    Map<string, Array<{ demandId: string; lastSeenAt: string }>>
+  >(new Map());
+  const [columnHistoryLoading, setColumnHistoryLoading] = useState<Set<string>>(new Set());
+  const [historyPopoverOpen, setHistoryPopoverOpen] = useState<string | null>(null);
+  // Modal de reorganização de sequência (agency_manager / super_admin)
+  const [reorderModalColumnId, setReorderModalColumnId] = useState<string | null>(null);
 
 
 
