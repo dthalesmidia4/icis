@@ -12,7 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { computeReorder, hasPublishDateCandidates, type ReorderCardInput, type ReorderProposal } from "@/lib/reorderSequence";
+import { computeReorder, hasPublishDateCandidates, type ReorderCardInput, type ReorderProposal, type StageDurationOverrides } from "@/lib/reorderSequence";
+import { loadDurationsForTenant } from "@/lib/flowDurations";
 import { useWorkHoursConfig } from "@/hooks/useWorkHoursConfig";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
