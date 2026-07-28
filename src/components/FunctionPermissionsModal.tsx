@@ -105,6 +105,13 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
   // durations[function_key][group] = minutos
   const [durations, setDurations] = useState<Record<string, Partial<Record<DurationTypeGroup, number>>>>({});
   const [savingDuration, setSavingDuration] = useState<string | null>(null);
+  const [awaitingConfig, setAwaitingConfig] = useState<{
+    wait_hours: number;
+    return_times: string[];
+    max_resends: number | null;
+    timezone: string;
+  }>({ wait_hours: 24, return_times: ["10:00"], max_resends: null, timezone: "America/Sao_Paulo" });
+  const [savingAwaiting, setSavingAwaiting] = useState(false);
 
   const seedIfEmpty = async (tenantId: string) => {
     // Seed flow_functions
@@ -174,6 +181,17 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
       }
     });
     setDurations(durMap);
+
+    const awaitingRow = (fnRows || []).find((r: any) => r.function_key === "aguardando_cliente");
+    const ac = (awaitingRow as any)?.config?.client_return;
+    if (ac && typeof ac === "object") {
+      setAwaitingConfig({
+        wait_hours: Number(ac.wait_hours) || 24,
+        return_times: Array.isArray(ac.return_times) && ac.return_times.length > 0 ? ac.return_times : ["10:00"],
+        max_resends: ac.max_resends == null ? null : Number(ac.max_resends),
+        timezone: ac.timezone || "America/Sao_Paulo",
+      });
+    }
     setLoading(false);
   };
 
@@ -317,9 +335,34 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     return rm === 0 ? `${h}h` : `${h}h${String(rm).padStart(2, "0")}`;
   };
 
+  const saveAwaitingConfig = async (patch: Partial<typeof awaitingConfig>) => {
+    if (!agencyId) return;
+    const next = { ...awaitingConfig, ...patch };
+    setAwaitingConfig(next);
+    setSavingAwaiting(true);
+    const { data: current } = await supabase
+      .from("flow_functions")
+      .select("config")
+      .eq("tenant_id", agencyId)
+      .eq("function_key", "aguardando_cliente")
+      .maybeSingle();
+    const currentConfig = (current as any)?.config || {};
+    const newConfig = { ...currentConfig, client_return: next };
+    const { error } = await supabase
+      .from("flow_functions")
+      .update({ config: newConfig })
+      .eq("tenant_id", agencyId)
+      .eq("function_key", "aguardando_cliente");
+    if (error) {
+      toast.error("Erro ao salvar retorno automático");
+      console.error(error);
+    }
+    setSavingAwaiting(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl">
+      <DialogContent className="max-w-[95vw] xl:max-w-[1400px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Configurar funções do fluxo</DialogTitle>
           <DialogDescription>
@@ -327,11 +370,12 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs key="fpm-tabs-v2" defaultValue="participacao" className="w-full">
-          <TabsList className="grid w-full max-w-2xl grid-cols-3">
+        <Tabs key="fpm-tabs-v3" defaultValue="participacao" className="w-full">
+          <TabsList className="grid w-full max-w-3xl grid-cols-4">
             <TabsTrigger value="participacao">Participação</TabsTrigger>
             <TabsTrigger value="tempo">Tempo estimado</TabsTrigger>
             <TabsTrigger value="alocacao">Alocação por área</TabsTrigger>
+            <TabsTrigger value="retorno">Retorno do cliente</TabsTrigger>
           </TabsList>
 
           <TabsContent value="participacao" className="mt-4">
@@ -500,6 +544,125 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
               Blocos de horário de cada colaborador por dia da semana × área (Mídia ou Sistemas). Vazios significam sem alocação naquela área. A área padrão define em qual área nascem as demandas criadas por esse colaborador.
             </p>
             <AreaAllocationTab />
+          </TabsContent>
+
+          <TabsContent value="retorno" className="mt-4">
+            <div className="space-y-4 max-w-2xl">
+              <p className="text-xs text-muted-foreground">
+                Quando um card fica em "Aguardando cliente" por muito tempo, o sistema devolve automaticamente para "Enviar cliente" nos horários definidos, incrementando o contador de reenvios. Se você não quiser retorno automático, remova todos os horários.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 border rounded-lg">
+                <div>
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">
+                    Tempo mínimo aguardando (horas)
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    defaultValue={awaitingConfig.wait_hours}
+                    key={`wh:${awaitingConfig.wait_hours}`}
+                    disabled={savingAwaiting}
+                    onBlur={(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      if (Number.isFinite(v) && v >= 1 && v !== awaitingConfig.wait_hours) {
+                        saveAwaitingConfig({ wait_hours: v });
+                      }
+                    }}
+                    className="mt-1 h-9"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Só devolve o card se já estiver aguardando há esse tempo.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">
+                    Máximo de reenvios (opcional)
+                  </label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
+                    placeholder="Sem limite"
+                    defaultValue={awaitingConfig.max_resends ?? ""}
+                    key={`mr:${awaitingConfig.max_resends ?? "null"}`}
+                    disabled={savingAwaiting}
+                    onBlur={(e) => {
+                      const raw = e.target.value.trim();
+                      if (raw === "") {
+                        if (awaitingConfig.max_resends !== null) saveAwaitingConfig({ max_resends: null });
+                        return;
+                      }
+                      const v = parseInt(raw, 10);
+                      if (Number.isFinite(v) && v >= 0 && v !== awaitingConfig.max_resends) {
+                        saveAwaitingConfig({ max_resends: v });
+                      }
+                    }}
+                    className="mt-1 h-9"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Depois desse total o card permanece aguardando e não volta mais sozinho.
+                  </p>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-semibold uppercase text-muted-foreground">
+                    Horários de retorno automático
+                  </label>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {awaitingConfig.return_times.map((t, idx) => (
+                      <div key={idx} className="flex items-center gap-1 border rounded px-2 py-1 bg-muted/40">
+                        <Input
+                          type="time"
+                          defaultValue={t}
+                          disabled={savingAwaiting}
+                          onBlur={(e) => {
+                            const v = e.target.value;
+                            if (!v || v === t) return;
+                            const next = [...awaitingConfig.return_times];
+                            next[idx] = v;
+                            saveAwaitingConfig({ return_times: next });
+                          }}
+                          className="h-7 w-[100px] text-xs px-1 border-0 bg-transparent"
+                        />
+                        <button
+                          type="button"
+                          className="text-xs text-muted-foreground hover:text-destructive"
+                          disabled={savingAwaiting}
+                          onClick={() => {
+                            const next = awaitingConfig.return_times.filter((_, i) => i !== idx);
+                            saveAwaitingConfig({ return_times: next });
+                          }}
+                          title="Remover horário"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8"
+                      disabled={savingAwaiting}
+                      onClick={() => {
+                        const next = [...awaitingConfig.return_times, "15:00"];
+                        saveAwaitingConfig({ return_times: next });
+                      }}
+                    >
+                      + Adicionar horário
+                    </Button>
+                    {savingAwaiting && (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-2">
+                    Nesses horários (fuso {awaitingConfig.timezone}), cards elegíveis voltam para "Enviar cliente" e o contador de reenvios é incrementado. Sem horários = sem retorno automático.
+                  </p>
+                </div>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>

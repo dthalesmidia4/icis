@@ -222,7 +222,7 @@ export async function jumpToFunction({
   if (currentFunctionKey === "enviar_cliente" && target.function_key === "aguardando_cliente") {
     const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
     const keep = (cur as any)?.assigned_to || null;
-    const { error } = await supabase.from("demands").update({ current_function_key: target.function_key } as any).eq("id", demandId);
+    const { error } = await supabase.from("demands").update({ current_function_key: target.function_key, client_wait_started_at: new Date().toISOString() } as any).eq("id", demandId);
     if (error) return { success: false, message: "Erro ao atualizar etapa." };
     await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: keep, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
     return { success: true, assignedTo: keep || undefined, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name}.` };
@@ -300,7 +300,7 @@ export async function proceedDemand({
     const keepAssignee = (current as any)?.assigned_to || null;
     const { error: upErr } = await supabase
       .from("demands")
-      .update({ current_function_key: nextFn.function_key } as any)
+      .update({ current_function_key: nextFn.function_key, client_wait_started_at: new Date().toISOString() } as any)
       .eq("id", demandId);
     if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
     await recordFlowHistory({
@@ -405,13 +405,19 @@ export async function regressDemand({
   if (currentFunctionKey === "aguardando_cliente" && prevFn.function_key === "enviar_cliente") {
     const { data: current } = await supabase
       .from("demands")
-      .select("assigned_to")
+      .select("assigned_to, client_resend_count")
       .eq("id", demandId)
       .maybeSingle();
     const keepAssignee = (current as any)?.assigned_to || null;
+    const prevCount = (current as any)?.client_resend_count || 0;
     const { error: upErr } = await supabase
       .from("demands")
-      .update({ current_function_key: prevFn.function_key } as any)
+      .update({
+        current_function_key: prevFn.function_key,
+        client_resend_count: prevCount + 1,
+        client_last_resend_at: new Date().toISOString(),
+        client_wait_started_at: null,
+      } as any)
       .eq("id", demandId);
     if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
     await recordFlowHistory({
