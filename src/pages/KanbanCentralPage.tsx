@@ -1752,32 +1752,6 @@ const KanbanCentralPage = () => {
       </Dialog>
 
       {/* Kanban Board (columns = collaborators) */}
-      {viewMode === "history" && (
-        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-sm text-blue-700 dark:text-blue-300">
-          <History className="h-4 w-4" />
-          <span className="flex-1 min-w-0">
-            Modo <strong>Registro de Cards</strong>: {historyRange === "today" ? "cards movimentados hoje por cada colaborador" : `cards que passaram por cada colaborador nos últimos ${historyRange} ${historyRange === "1" ? "dia" : "dias"}`}.
-            {historyLoading && " Carregando..."}
-          </span>
-          <div className="flex items-center gap-2">
-            <span className="text-xs">Período:</span>
-            <Select value={historyRange} onValueChange={setHistoryRange}>
-              <SelectTrigger className="h-8 w-[160px] bg-background text-foreground">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Hoje</SelectItem>
-                <SelectItem value="1">Último 1 dia</SelectItem>
-                <SelectItem value="7">Últimos 7 dias</SelectItem>
-                <SelectItem value="15">Últimos 15 dias</SelectItem>
-                <SelectItem value="30">Últimos 30 dias</SelectItem>
-                <SelectItem value="60">Últimos 60 dias</SelectItem>
-                <SelectItem value="90">Últimos 90 dias</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      )}
 
       <DragDropContext onDragEnd={handleDragEnd}>
         <div ref={boardScrollRef} className="flex gap-4 overflow-x-auto pb-4">
