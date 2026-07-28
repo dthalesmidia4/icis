@@ -117,8 +117,8 @@ const ClientEvolution = () => {
   const [pipelineStatuses, setPipelineStatuses] = useState<PipelineStatus[]>([]);
   const [selectedCard, setSelectedCard] = useState<KanbanCardData | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
-  const [scope, setScope] = useState<ScopeFilter>("active");
-  const [period, setPeriod] = useState<PeriodFilter>("all");
+  const [scope, setScope] = useState<ScopeFilter>("all");
+  const [period, setPeriod] = useState<PeriodFilter>("this_month");
 
   // Load static data
   useEffect(() => {
