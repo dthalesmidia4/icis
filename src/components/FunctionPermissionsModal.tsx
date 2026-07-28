@@ -105,6 +105,13 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
   // durations[function_key][group] = minutos
   const [durations, setDurations] = useState<Record<string, Partial<Record<DurationTypeGroup, number>>>>({});
   const [savingDuration, setSavingDuration] = useState<string | null>(null);
+  const [awaitingConfig, setAwaitingConfig] = useState<{
+    wait_hours: number;
+    return_times: string[];
+    max_resends: number | null;
+    timezone: string;
+  }>({ wait_hours: 24, return_times: ["10:00"], max_resends: null, timezone: "America/Sao_Paulo" });
+  const [savingAwaiting, setSavingAwaiting] = useState(false);
 
   const seedIfEmpty = async (tenantId: string) => {
     // Seed flow_functions
