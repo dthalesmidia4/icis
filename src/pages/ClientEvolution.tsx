@@ -36,7 +36,7 @@ interface TypeRule {
 type Filter = "all" | "done" | "in_progress" | "overdue" | "queued";
 type ScopeFilter = "active" | "all";
 type PeriodFilter = "all" | "7d" | "30d" | "this_month" | "last_month";
-type SortKey = "title" | "type" | "assignee" | "area" | "stage" | "progress" | "next" | "publish" | "deadline";
+type SortKey = "title" | "type" | "assignee" | "area" | "stage" | "progress" | "next" | "publish" | "production";
 type SortDir = "asc" | "desc";
 
 const isOverdue = (deliveryDate?: string | null, deliveryTime?: string | null, status?: string) => {
