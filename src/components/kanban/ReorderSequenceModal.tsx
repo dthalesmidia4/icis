@@ -13,12 +13,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { computeReorder, type ReorderCardInput, type ReorderProposal } from "@/lib/reorderSequence";
+import { useWorkHoursConfig } from "@/hooks/useWorkHoursConfig";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   columnName: string;
   cards: ReorderCardInput[];
+  tenantId?: string | null;
   onApplied?: () => void;
 }
 
