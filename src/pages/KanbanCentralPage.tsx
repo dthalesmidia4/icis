@@ -177,28 +177,123 @@ const KanbanCentralPage = () => {
   }, []);
   // Focus mode: quando setado, decompõe a coluna do responsável em sub-colunas por agrupamento.
   const [focusedColumnId, setFocusedColumnId] = useState<string | null>(null);
-  const withViewTransition = useCallback((fn: () => void) => {
-    const anyDoc = document as any;
-    if (typeof anyDoc.startViewTransition === "function") {
-      anyDoc.startViewTransition(() => fn());
-    } else {
-      fn();
-    }
+  const kanbanColumnRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const pendingFocusTransitionRef = useRef<{
+    direction: "enter" | "exit";
+    from: Map<string, { rect: DOMRect; clone: HTMLElement }>;
+  } | null>(null);
+
+  const setKanbanColumnRef = useCallback((key: string, el: HTMLDivElement | null) => {
+    if (el) kanbanColumnRefs.current.set(key, el);
+    else kanbanColumnRefs.current.delete(key);
   }, []);
+
+  const captureKanbanColumnLayout = useCallback(() => {
+    const captured = new Map<string, { rect: DOMRect; clone: HTMLElement }>();
+    kanbanColumnRefs.current.forEach((el, key) => {
+      const clone = el.cloneNode(true);
+      if (!(clone instanceof HTMLElement)) return;
+      captured.set(key, { rect: el.getBoundingClientRect(), clone });
+    });
+    return captured;
+  }, []);
+
+  const changeFocusColumn = useCallback((nextColumnId: string | null) => {
+    if (!prefersReducedKanbanMotion()) {
+      pendingFocusTransitionRef.current = {
+        direction: nextColumnId ? "enter" : "exit",
+        from: captureKanbanColumnLayout(),
+      };
+    }
+    setFocusedColumnId(nextColumnId);
+  }, [captureKanbanColumnLayout]);
+
   const enterFocus = useCallback((userId: string) => {
-    withViewTransition(() => setFocusedColumnId(userId));
-  }, [withViewTransition]);
+    changeFocusColumn(userId);
+  }, [changeFocusColumn]);
   const exitFocus = useCallback(() => {
-    withViewTransition(() => setFocusedColumnId(null));
-  }, [withViewTransition]);
+    changeFocusColumn(null);
+  }, [changeFocusColumn]);
+
+  useLayoutEffect(() => {
+    const pending = pendingFocusTransitionRef.current;
+    if (!pending) return;
+    pendingFocusTransitionRef.current = null;
+
+    const current = new Map(kanbanColumnRefs.current);
+    if (pending.direction === "enter" && boardScrollRef.current) {
+      boardScrollRef.current.scrollLeft = 0;
+    }
+
+    const easing = "cubic-bezier(0.22, 1, 0.36, 1)";
+
+    current.forEach((el, key) => {
+      const previous = pending.from.get(key);
+      const nextRect = el.getBoundingClientRect();
+      const focusOrder = Number(el.dataset.focusOrder || "0");
+      const delay = previous ? 0 : Math.min(focusOrder * 34, 120);
+      const animation = previous
+        ? el.animate(
+            [
+              {
+                transform: `translate3d(${previous.rect.left - nextRect.left}px, ${previous.rect.top - nextRect.top}px, 0)`,
+                opacity: 1,
+              },
+              { transform: "translate3d(0, 0, 0)", opacity: 1 },
+            ],
+            { duration: KANBAN_FOCUS_TRANSITION_MS, easing, fill: "both" }
+          )
+        : el.animate(
+            [
+              { transform: "translate3d(20px, 0, 0)", opacity: 0 },
+              { transform: "translate3d(0, 0, 0)", opacity: 1 },
+            ],
+            { duration: KANBAN_FOCUS_TRANSITION_MS, delay, easing, fill: "both" }
+          );
+
+      animation.finished
+        .then(() => {
+          el.style.transform = "";
+          el.style.opacity = "";
+        })
+        .catch(() => undefined);
+    });
+
+    pending.from.forEach(({ rect, clone }, key) => {
+      if (current.has(key)) return;
+      clone.classList.add("kanban-focus-ghost");
+      clone.style.position = "fixed";
+      clone.style.left = `${rect.left}px`;
+      clone.style.top = `${rect.top}px`;
+      clone.style.width = `${rect.width}px`;
+      clone.style.height = `${rect.height}px`;
+      clone.style.margin = "0";
+      clone.style.zIndex = "30";
+      clone.style.pointerEvents = "none";
+      document.body.appendChild(clone);
+
+      const moveX = pending.direction === "enter" ? -18 : 18;
+      const animation = clone.animate(
+        [
+          { transform: "translate3d(0, 0, 0)", opacity: 1 },
+          { transform: `translate3d(${moveX}px, 0, 0)`, opacity: 0 },
+        ],
+        { duration: KANBAN_FOCUS_TRANSITION_MS - 40, easing, fill: "forwards" }
+      );
+      animation.finished
+        .then(() => clone.remove())
+        .catch(() => clone.remove());
+    });
+  }, [focusedColumnId]);
+
   useEffect(() => {
     if (!focusedColumnId) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") withViewTransition(() => setFocusedColumnId(null));
+      if (e.key === "Escape") changeFocusColumn(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focusedColumnId, withViewTransition]);
+  }, [focusedColumnId, changeFocusColumn]);
 
   const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
