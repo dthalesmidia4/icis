@@ -340,9 +340,15 @@ export async function proceedDemand({
     return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
   }
 
+  const proceedPayload: any = { assigned_to: picked.userId, current_function_key: nextFn.function_key };
+  if (currentFunctionKey === "aguardando_cliente" && nextFn.function_key !== "enviar_cliente") {
+    proceedPayload.client_wait_started_at = null;
+    proceedPayload.client_resend_count = 0;
+    proceedPayload.client_last_resend_at = null;
+  }
   const { error: upErr } = await supabase
     .from("demands")
-    .update({ assigned_to: picked.userId, current_function_key: nextFn.function_key } as any)
+    .update(proceedPayload)
     .eq("id", demandId);
   if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
 
