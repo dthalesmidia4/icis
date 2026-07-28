@@ -718,6 +718,7 @@ export type Database = {
           tenant_id: string
           title: string
           updated_at: string
+          work_area: Database["public"]["Enums"]["work_area"]
         }
         Insert: {
           additional_publish_dates?: Json
@@ -763,6 +764,7 @@ export type Database = {
           tenant_id: string
           title: string
           updated_at?: string
+          work_area?: Database["public"]["Enums"]["work_area"]
         }
         Update: {
           additional_publish_dates?: Json
@@ -808,6 +810,7 @@ export type Database = {
           tenant_id?: string
           title?: string
           updated_at?: string
+          work_area?: Database["public"]["Enums"]["work_area"]
         }
         Relationships: [
           {
@@ -1376,6 +1379,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string | null
+          default_work_area: string
           full_name: string
           id: string
           settings: Json | null
@@ -1385,6 +1389,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string | null
+          default_work_area?: string
           full_name: string
           id: string
           settings?: Json | null
@@ -1394,6 +1399,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string | null
+          default_work_area?: string
           full_name?: string
           id?: string
           settings?: Json | null
@@ -1691,6 +1697,7 @@ export type Database = {
           content_requirements: string | null
           corporate_email: string | null
           created_at: string | null
+          default_work_area: Database["public"]["Enums"]["work_area"] | null
           email: string
           fantasy_name: string | null
           has_mascot: boolean
@@ -1729,6 +1736,7 @@ export type Database = {
           content_requirements?: string | null
           corporate_email?: string | null
           created_at?: string | null
+          default_work_area?: Database["public"]["Enums"]["work_area"] | null
           email: string
           fantasy_name?: string | null
           has_mascot?: boolean
@@ -1767,6 +1775,7 @@ export type Database = {
           content_requirements?: string | null
           corporate_email?: string | null
           created_at?: string | null
+          default_work_area?: Database["public"]["Enums"]["work_area"] | null
           email?: string
           fantasy_name?: string | null
           has_mascot?: boolean
@@ -1910,6 +1919,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_area_schedules: {
+        Row: {
+          created_at: string
+          end_time: string
+          id: string
+          start_time: string
+          tenant_id: string
+          updated_at: string
+          user_id: string
+          weekday: number
+          work_area: Database["public"]["Enums"]["work_area"]
+        }
+        Insert: {
+          created_at?: string
+          end_time: string
+          id?: string
+          start_time: string
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+          weekday: number
+          work_area: Database["public"]["Enums"]["work_area"]
+        }
+        Update: {
+          created_at?: string
+          end_time?: string
+          id?: string
+          start_time?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+          weekday?: number
+          work_area?: Database["public"]["Enums"]["work_area"]
+        }
+        Relationships: []
       }
       user_column_permissions: {
         Row: {
@@ -2360,6 +2405,7 @@ export type Database = {
         | "rescheduled"
         | "created"
         | "scheduled"
+      work_area: "midia" | "sistemas"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2504,6 +2550,7 @@ export const Constants = {
         "created",
         "scheduled",
       ],
+      work_area: ["midia", "sistemas"],
     },
   },
 } as const
