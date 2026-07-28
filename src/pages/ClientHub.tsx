@@ -1734,8 +1734,23 @@ Retorne APENAS um JSON válido (sem markdown, sem comentários). A estrutura do 
         error = res.error;
       }
 
-      if (error) { console.error('Edge function error:', error); toast.error(`Erro ao gerar Cena ${sceneIndex + 1}.`); return; }
-      if (data?.error) { toast.error(data.error); return; }
+      if (error) {
+        console.error('Edge function error:', error);
+        let friendly = `Erro ao gerar Cena ${sceneIndex + 1}.`;
+        try {
+          const ctx: any = (error as any).context;
+          if (ctx?.json) {
+            const body = await ctx.json();
+            if (body?.error) friendly = body.error;
+          } else if (ctx?.text) {
+            const txt = await ctx.text();
+            try { const parsed = JSON.parse(txt); if (parsed?.error) friendly = parsed.error; } catch {}
+          }
+        } catch (e) { console.error('Failed to parse edge error body:', e); }
+        toast.error(friendly, { duration: 8000 });
+        return;
+      }
+      if (data?.error) { toast.error(data.error, { duration: 8000 }); return; }
       if (data?.videoUrl) {
         setVideoScenes(prev => {
           const updated = prev.map((s, i) => i === sceneIndex ? { ...s, video_url: data.videoUrl } : s);
