@@ -477,7 +477,7 @@ export function sortForReorder(
 
 export async function computeReorder(
   cards: ReorderCardInput[],
-  opts?: { startFrom?: Date; workHours?: WorkHoursConfig; prioritizePublishDate?: boolean },
+  opts?: { startFrom?: Date; workHours?: WorkHoursConfig; prioritizePublishDate?: boolean; durations?: StageDurationOverrides },
 ): Promise<ReorderProposal[]> {
   if (cards.length === 0) return [];
 
