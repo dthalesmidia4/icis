@@ -1,0 +1,1 @@
+ALTER VIEW public.v_demand_stage_misalignment SET (security_invoker = true);
