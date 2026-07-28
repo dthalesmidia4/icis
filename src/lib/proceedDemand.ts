@@ -405,13 +405,19 @@ export async function regressDemand({
   if (currentFunctionKey === "aguardando_cliente" && prevFn.function_key === "enviar_cliente") {
     const { data: current } = await supabase
       .from("demands")
-      .select("assigned_to")
+      .select("assigned_to, client_resend_count")
       .eq("id", demandId)
       .maybeSingle();
     const keepAssignee = (current as any)?.assigned_to || null;
+    const prevCount = (current as any)?.client_resend_count || 0;
     const { error: upErr } = await supabase
       .from("demands")
-      .update({ current_function_key: prevFn.function_key } as any)
+      .update({
+        current_function_key: prevFn.function_key,
+        client_resend_count: prevCount + 1,
+        client_last_resend_at: new Date().toISOString(),
+        client_wait_started_at: null,
+      } as any)
       .eq("id", demandId);
     if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
     await recordFlowHistory({
