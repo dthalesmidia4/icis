@@ -1994,7 +1994,7 @@ const KanbanCentralPage = () => {
             // Cards HISTÓRICOS: todos que já passaram por esse colaborador
             let historyColumnCards: Array<CentralKanbanCard & { _historyAt?: string }> = [];
             if (isHistoryMode) {
-              const rows = columnHistoryRows.get(column.id) || [];
+              const rows = columnHistoryRows.get(columnUserId) || [];
               const cardIndex = new Map<string, CentralKanbanCard>();
               [...cards, ...archivedCards].forEach((c) => cardIndex.set(c.id, c));
               historyColumnCards = rows
@@ -2009,7 +2009,7 @@ const KanbanCentralPage = () => {
             const allColumnCards = isHistoryMode ? historyColumnCards : activeColumnCards;
 
             // Aguardando Clientes = cards na função operacional aguardando_cliente (apenas modo ativo)
-            const awaitingCards = !isHistoryMode
+            const awaitingCardsBase = !isHistoryMode
               ? allColumnCards.filter((c) => c.current_function_key === 'aguardando_cliente')
               : [];
             const nonAwaitingCards = !isHistoryMode
@@ -2021,19 +2021,33 @@ const KanbanCentralPage = () => {
               ? nonAwaitingCards.filter((c) => isReviewFunction(c.current_function_key))
               : [];
             const shouldGroupReview = reviewCandidateCards.length >= 3;
-            const reviewCards = shouldGroupReview ? reviewCandidateCards : [];
-            const columnCards = shouldGroupReview
+            const reviewCardsBase = shouldGroupReview ? reviewCandidateCards : [];
+            const columnCardsBase = shouldGroupReview
               ? nonAwaitingCards.filter((c) => !isReviewFunction(c.current_function_key))
               : nonAwaitingCards;
 
-            const isAwaitingCollapsed = !expandedAwaiting.has(column.id);
-            const isReviewCollapsed = !expandedReview.has(column.id);
-
             // Avaliar: cards planejados aguardando aprovação atribuídos a esse colaborador
-            const evaluateCards = !isHistoryMode
-              ? (evalByAssignee.get(column.id) || [])
+            const evaluateCardsBase = !isHistoryMode
+              ? (evalByAssignee.get(columnUserId) || [])
               : [];
-            const isEvaluateCollapsed = !expandedEvaluate.has(column.id);
+
+            // Aplicar overrides do modo foco (isola exatamente 1 agrupamento por sub-coluna)
+            const columnCards = focusKind
+              ? (focusKind === 'production' ? nonAwaitingCards.filter((c) => !isReviewFunction(c.current_function_key)) : [])
+              : columnCardsBase;
+            const evaluateCards = focusKind
+              ? (focusKind === 'evaluate' ? evaluateCardsBase : [])
+              : evaluateCardsBase;
+            const awaitingCards = focusKind
+              ? (focusKind === 'awaiting' ? awaitingCardsBase : [])
+              : awaitingCardsBase;
+            const reviewCards = focusKind
+              ? (focusKind === 'review' ? reviewCandidateCards : [])
+              : reviewCardsBase;
+
+            const isAwaitingCollapsed = focusKind ? false : !expandedAwaiting.has(column.id);
+            const isReviewCollapsed = focusKind ? false : !expandedReview.has(column.id);
+            const isEvaluateCollapsed = focusKind ? false : !expandedEvaluate.has(column.id);
 
             return (
               <Droppable key={column.id} droppableId={column.id}>
