@@ -73,6 +73,7 @@ export async function resolveFunctionForAssignee(
       .select("function_key, position, active")
       .eq("tenant_id", tenantId)
       .eq("active", true)
+      .neq("function_key", "avaliar")
       .order("position"),
     demandTypeKey
       ? supabase
@@ -86,7 +87,8 @@ export async function resolveFunctionForAssignee(
       .select("function_key, allowed")
       .eq("tenant_id", tenantId)
       .eq("user_id", assigneeUserId)
-      .eq("allowed", true),
+      .eq("allowed", true)
+      .neq("function_key", "avaliar"),
   ]);
 
   if (!fns || fns.length === 0) return null;
