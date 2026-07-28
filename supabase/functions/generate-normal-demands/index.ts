@@ -143,6 +143,7 @@ Cada demanda: {"tipo":"...","type_key":"criativo_estatico|carrossel|video_captad
 type_key: "criativo_estatico" post/imagem/story estático; "carrossel" carrossel; "video_captado" exige gravação real; "video_gerado" 100% IA/motion/stock; null se incerto. NUNCA compor tipos ("Post + Stories" → null).
 
 TÍTULO: PROIBIDO incluir o nome da empresa/marca ("${brand}"), abreviações ou variações no título. O nome do cliente já é exibido separadamente em um badge acima do título no card — repeti-lo gera redundância. O "titulo" deve ser APENAS o gancho/tema criativo do conteúdo (ex.: "Como ler seu Demonstrativo em 5 minutos"), sem prefixos, sem "–", sem "-", sem ":" com a marca.
+TÍTULO — PROIBIDO PREFIXO DE TIPO: também é PROIBIDO iniciar o "titulo" com o tipo/formato do conteúdo ("Post Estático", "Post", "Carrossel", "Carrossel (N slides)", "Vídeo", "Video", "Vídeos Curtos", "Reels", "Story", "Stories", "Criativo estático", "Criativo", "Educação rápida", "Tutorial") seguido de "-", "–", "—", ":" ou "|". O tipo já é exibido em coluna/chip separada no card; repeti-lo no início gera redundância visual. Exemplos: RUIM: "Post Estático — Como ler seu Demonstrativo" · "Carrossel: 5 dicas de finanças". BOM: "Como ler seu Demonstrativo em 5 minutos" · "5 dicas de finanças que ninguém te conta".
 
 Formato: {"plan":[...],"summary":"resumo curto do racional"}`;
 
