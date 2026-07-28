@@ -255,6 +255,7 @@ Cada item DEVE ter EXATAMENTE este formato:
 
 REGRA de type_key: "criativo_estatico" (post/story estático), "carrossel" (múltiplos slides), "video_captado" (exige gravação real), "video_gerado" (100% IA/motion/stock), null se incerto. NUNCA use tipos compostos.
 REGRA de TÍTULO: PROIBIDO incluir o nome da empresa/marca ("${brand}"), abreviações ou variações no título. O nome do cliente já aparece em um badge acima do título no card — repeti-lo cria duplicidade visual. O "titulo" deve ser APENAS o gancho criativo do conteúdo, sem prefixos como "${brand} –", "${brand} -" ou "${brand}:".
+REGRA de TÍTULO — SEM PREFIXO DE TIPO: também é PROIBIDO iniciar o "titulo" com o tipo/formato ("Post Estático", "Post", "Carrossel", "Carrossel (N slides)", "Vídeo", "Video", "Vídeos Curtos", "Reels", "Story", "Stories", "Criativo estático", "Criativo", "Educação rápida", "Tutorial") seguido de "-", "–", "—", ":" ou "|". O tipo já é exibido em coluna/chip separada no card. Exemplos: RUIM: "Post Estático — beneficios do plano" · "Carrossel: crie um post cirúrgico". BOM: "Benefícios do plano em 3 pontos" · "Crie um post cirúrgico em 5 passos".
 
 Formato final: {"plan":[...${customQuantity} itens...],"summary":"resumo do racional Ultra"}`;
 
@@ -347,10 +348,23 @@ Formato final: {"plan":[...${customQuantity} itens...],"summary":"resumo do raci
       return t.replace(re, "").trim();
     };
 
+    const stripTypePrefix = (t: string): string => {
+      if (!t) return t;
+      const typeAlt = "Post\\s*Est[aá]tico|Post|Carrossel(?:\\s*\\(\\s*\\d+\\s*slides?\\s*\\))?|V[ií]deos?\\s*Curtos|V[ií]deo|Reels?|Stor(?:y|ies)|Criativo\\s*est[aá]tico|Criativo|Educa[cç][aã]o\\s*r[aá]pida|Tutorial";
+      const re = new RegExp(`^\\s*(?:${typeAlt})\\s*[\\-\\u2013\\u2014:|]\\s*`, "i");
+      let prev = t.trim();
+      for (let i = 0; i < 3; i++) {
+        const next = prev.replace(re, "").trim();
+        if (next === prev || next.length < 3) break;
+        prev = next;
+      }
+      return prev;
+    };
+
     const ultraDemands = (parsed.plan || []).map((d: any) => {
       const tipo = d.tipo || d.demand_type || "";
       const type_key = coerceKey(d.type_key) ?? normalizeKey(tipo);
-      const titulo = stripBrandPrefix(String(d.titulo || d.title || ""));
+      const titulo = stripTypePrefix(stripBrandPrefix(String(d.titulo || d.title || "")));
       // preserve extended fields verbatim
       return {
         ...d,

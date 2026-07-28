@@ -143,6 +143,7 @@ Cada demanda: {"tipo":"...","type_key":"criativo_estatico|carrossel|video_captad
 type_key: "criativo_estatico" post/imagem/story estático; "carrossel" carrossel; "video_captado" exige gravação real; "video_gerado" 100% IA/motion/stock; null se incerto. NUNCA compor tipos ("Post + Stories" → null).
 
 TÍTULO: PROIBIDO incluir o nome da empresa/marca ("${brand}"), abreviações ou variações no título. O nome do cliente já é exibido separadamente em um badge acima do título no card — repeti-lo gera redundância. O "titulo" deve ser APENAS o gancho/tema criativo do conteúdo (ex.: "Como ler seu Demonstrativo em 5 minutos"), sem prefixos, sem "–", sem "-", sem ":" com a marca.
+TÍTULO — PROIBIDO PREFIXO DE TIPO: também é PROIBIDO iniciar o "titulo" com o tipo/formato do conteúdo ("Post Estático", "Post", "Carrossel", "Carrossel (N slides)", "Vídeo", "Video", "Vídeos Curtos", "Reels", "Story", "Stories", "Criativo estático", "Criativo", "Educação rápida", "Tutorial") seguido de "-", "–", "—", ":" ou "|". O tipo já é exibido em coluna/chip separada no card; repeti-lo no início gera redundância visual. Exemplos: RUIM: "Post Estático — Como ler seu Demonstrativo" · "Carrossel: 5 dicas de finanças". BOM: "Como ler seu Demonstrativo em 5 minutos" · "5 dicas de finanças que ninguém te conta".
 
 Formato: {"plan":[...],"summary":"resumo curto do racional"}`;
 
@@ -250,11 +251,25 @@ Formato: {"plan":[...],"summary":"resumo curto do racional"}`;
       return t.replace(re, "").trim();
     };
 
+    const stripTypePrefix = (t: string): string => {
+      if (!t) return t;
+      // remove leading type labels followed by separator; loop in case multiple prefixes chained
+      const typeAlt = "Post\\s*Est[aá]tico|Post|Carrossel(?:\\s*\\(\\s*\\d+\\s*slides?\\s*\\))?|V[ií]deos?\\s*Curtos|V[ií]deo|Reels?|Stor(?:y|ies)|Criativo\\s*est[aá]tico|Criativo|Educa[cç][aã]o\\s*r[aá]pida|Tutorial";
+      const re = new RegExp(`^\\s*(?:${typeAlt})\\s*[\\-\\u2013\\u2014:|]\\s*`, "i");
+      let prev = t.trim();
+      for (let i = 0; i < 3; i++) {
+        const next = prev.replace(re, "").trim();
+        if (next === prev || next.length < 3) break;
+        prev = next;
+      }
+      return prev;
+    };
+
     const planDemands = (parsed.plan || []).map((d: any) => {
       const tipo = batchType ? batchType : (d.tipo || d.demand_type || "");
       const forcedKey = batchType && Object.prototype.hasOwnProperty.call(BATCH_TO_KEY, batchType) ? BATCH_TO_KEY[batchType] : null;
       const type_key = forcedKey ?? coerceKey(d.type_key) ?? normalizeKey(tipo);
-      const titulo = stripBrandPrefix(String(d.titulo || d.title || ""));
+      const titulo = stripTypePrefix(stripBrandPrefix(String(d.titulo || d.title || "")));
       return { ...d, titulo, canal: priorityChannel, tipo, type_key };
     });
     const summary = parsed.summary || "";
