@@ -2554,7 +2554,7 @@ const KanbanCentralPage = () => {
             }))}
           onApplied={() => {
             setReorderModalColumnId(null);
-            fetchCards?.();
+            fetchAllCards?.();
           }}
         />
       )}
