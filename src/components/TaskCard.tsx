@@ -23,6 +23,7 @@ import { DailyCardSection } from "@/components/DailyCardSection";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { syncActiveDispatchDate } from "@/lib/syncActiveDispatchDate";
+import { checkAreaConflict, AREA_LABEL, type WorkArea } from "@/lib/areaConflicts";
 import { CalendarClock } from "lucide-react";
 
 // Split instructions field into "production instructions" and "CTA" parts.
@@ -970,6 +971,26 @@ export default function TaskCard({
       setRegeneratingSlide(null);
     }
   };
+  const warnAreaConflict = async (dateStr: string | null | undefined, timeStr: string | null | undefined) => {
+    if (!card || !dateStr || !card.assigned_to || !card.tenant_id) return;
+    const area = (((card as any).work_area as WorkArea) || "midia") as WorkArea;
+    try {
+      const conflict = await checkAreaConflict({
+        tenantId: card.tenant_id,
+        userId: card.assigned_to,
+        area,
+        date: dateStr,
+        time: timeStr || null,
+        excludeDemandId: card.id,
+      });
+      if (conflict) {
+        toast.warning(
+          `Conflito de área: o responsável já tem "${conflict.title}" (${AREA_LABEL[conflict.work_area]}) neste horário.`,
+        );
+      }
+    } catch { /* silencioso */ }
+  };
+
   const handlePublishDateChange = async (newDate: Date | undefined) => {
     if (!newDate || !card) return;
     
@@ -988,6 +1009,7 @@ export default function TaskCard({
     } else if (res.skipped && res.publishedExists) {
       toast.info("Existe uma publicação já publicada para este card; o agendamento não foi alterado.");
     }
+    await warnAreaConflict(dateStr, card.publish_time);
   };
 
   const handlePublishTimeChange = async (time: string) => {
@@ -1543,6 +1565,35 @@ export default function TaskCard({
                   </div>
 
                   <span className="text-muted-foreground/40 select-none">·</span>
+
+                  {/* Área */}
+                  <div className="flex items-center gap-1 min-w-0">
+                    <Select
+                      value={((card as any).work_area as WorkArea) || "midia"}
+                      onValueChange={async (val) => {
+                        const newArea = val as WorkArea;
+                        onCardChange({ ...card, work_area: newArea } as any);
+                        try {
+                          await supabase.from("demands").update({ work_area: newArea } as any).eq("id", card.id);
+                        } catch (e) {
+                          console.error("[TaskCard] update work_area error", e);
+                          toast.error("Erro ao atualizar área");
+                        }
+                      }}
+                      disabled={readOnly}
+                    >
+                      <SelectTrigger className="h-7 text-sm border-0 shadow-none bg-transparent px-1.5 gap-1 hover:bg-background/60 focus:ring-0 w-auto min-w-[90px]" aria-label="Área">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="midia">{AREA_LABEL.midia}</SelectItem>
+                        <SelectItem value="sistemas">{AREA_LABEL.sistemas}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <span className="text-muted-foreground/40 select-none">·</span>
+
 
                   {/* Tipo */}
                   <div className="flex items-center gap-1 min-w-0">

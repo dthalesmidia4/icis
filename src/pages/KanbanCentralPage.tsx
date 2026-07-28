@@ -72,6 +72,7 @@ interface CentralKanbanCard extends KanbanCardData {
   archived_at?: string | null;
   assigned_to?: string | null;
   status_color?: string | null;
+  work_area?: "midia" | "sistemas" | null;
 }
 
 const FINAL_STATUS_NAMES = ['feito', 'feitos', 'publicado'];
@@ -165,6 +166,7 @@ const KanbanCentralPage = () => {
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>("all");
   const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<string>("active");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("all");
+  const [selectedAreaFilter, setSelectedAreaFilter] = useState<"all" | "midia" | "sistemas">("all");
   const [dateGroupBy, setDateGroupBy] = useState<"start" | "delivery">("start");
   const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const { collaborators } = useCollaborators(tenantId);
@@ -296,6 +298,9 @@ const KanbanCentralPage = () => {
     if (selectedStatusFilter !== "all") {
       baseCards = baseCards.filter(card => card.status === selectedStatusFilter);
     }
+    if (selectedAreaFilter !== "all") {
+      baseCards = baseCards.filter(card => (card.work_area || "midia") === selectedAreaFilter);
+    }
     // Ocultar cards diários cuja próxima ocorrência ainda não chegou
     baseCards = baseCards.filter(card => isDailyCardVisibleNow(card as any));
     // Ocultar cards com dispatch ativo (agendados/em envio) — eles vivem na tela /scheduled
@@ -303,7 +308,7 @@ const KanbanCentralPage = () => {
       baseCards = baseCards.filter(card => !activeDispatchIds.has(card.id));
     }
     return baseCards;
-  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, activeDispatchIds]);
+  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, selectedAreaFilter, activeDispatchIds]);
 
   // Aplicar mesmos filtros (cliente/período) nos cards planejados aguardando avaliação.
   // Status não se aplica pois esses cards ainda não são demandas.
@@ -728,6 +733,7 @@ const KanbanCentralPage = () => {
           daily_total_occurrences: demand.daily_total_occurrences ?? null,
           daily_completed_occurrences: demand.daily_completed_occurrences ?? 0,
           daily_completed_dates: Array.isArray(demand.daily_completed_dates) ? demand.daily_completed_dates : [],
+          work_area: (demand.work_area as any) || "midia",
         } as any;
       };
 
@@ -1641,6 +1647,7 @@ const KanbanCentralPage = () => {
           (selectedClientFilter !== "all" ? 1 : 0) +
           (selectedPeriodFilter !== "active" ? 1 : 0) +
           (selectedStatusFilter !== "all" ? 1 : 0) +
+          (selectedAreaFilter !== "all" ? 1 : 0) +
           (dateGroupBy !== "start" ? 1 : 0);
         const clientLabel = clients.find((c) => c.id === selectedClientFilter)?.name;
         const periodLabel =
@@ -1717,6 +1724,19 @@ const KanbanCentralPage = () => {
                     </button>
                   </Badge>
                 )}
+                {selectedAreaFilter !== "all" && (
+                  <Badge variant="secondary" className="gap-1 pr-1">
+                    Área: {selectedAreaFilter === "midia" ? "Mídia" : "Sistemas"}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAreaFilter("all")}
+                      className="ml-1 hover:bg-background/40 rounded p-0.5"
+                      aria-label="Limpar filtro de área"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
                 {dateGroupBy !== "start" && (
                   <Badge variant="secondary" className="gap-1 pr-1">
                     Visualizar por: Data de término
@@ -1738,6 +1758,7 @@ const KanbanCentralPage = () => {
                     setSelectedClientFilter("all");
                     setSelectedPeriodFilter("active");
                     setSelectedStatusFilter("all");
+                    setSelectedAreaFilter("all");
                     setDateGroupBy("start");
                   }}
                 >
@@ -1866,6 +1887,27 @@ const KanbanCentralPage = () => {
                 </Select>
               </div>
             )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Área</label>
+              <div className="inline-flex rounded-md border border-border overflow-hidden">
+                {(["all", "midia", "sistemas"] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setSelectedAreaFilter(opt)}
+                    className={cn(
+                      "px-3 py-1.5 text-sm font-medium transition-colors",
+                      selectedAreaFilter === opt
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-transparent text-foreground hover:bg-accent/40"
+                    )}
+                  >
+                    {opt === "all" ? "Todas" : opt === "midia" ? "Mídia" : "Sistemas"}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-2">
@@ -1875,6 +1917,7 @@ const KanbanCentralPage = () => {
                 setSelectedClientFilter("all");
                 setSelectedPeriodFilter("active");
                 setSelectedStatusFilter("all");
+                setSelectedAreaFilter("all");
                 setDateGroupBy("start");
               }}
             >
@@ -2256,6 +2299,7 @@ const KanbanCentralPage = () => {
                                             dailyCompleted={(card as any).daily_completed_occurrences}
                                             dailyTotal={(card as any).daily_total_occurrences}
                                             dailyNextDate={(card as any).daily_next_date}
+                                            workArea={(card as any).work_area || null}
                                             onClick={() => handleCardClick(card, column.id)}
                                             onDatesChange={isHistory ? undefined : (changes) => handleInlineDatesChange(card.id, changes)}
                                           />
@@ -2387,6 +2431,7 @@ const KanbanCentralPage = () => {
                                       dailyCompleted={(card as any).daily_completed_occurrences}
                                       dailyTotal={(card as any).daily_total_occurrences}
                                       dailyNextDate={(card as any).daily_next_date}
+                                      workArea={(card as any).work_area || null}
                                       onClick={() => handleCardClick(card, column.id)}
                                       onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
                                     />
@@ -2448,6 +2493,7 @@ const KanbanCentralPage = () => {
                                       dailyCompleted={(card as any).daily_completed_occurrences}
                                       dailyTotal={(card as any).daily_total_occurrences}
                                       dailyNextDate={(card as any).daily_next_date}
+                                      workArea={(card as any).work_area || null}
                                       onClick={() => handleCardClick(card, column.id)}
                                       onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
                                     />
