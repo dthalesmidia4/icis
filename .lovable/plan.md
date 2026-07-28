@@ -1,92 +1,59 @@
-## Diagnóstico
+## Auditoria — Retorno automático do cliente
 
-**1. Visualização quebrada (aba "Tempo estimado")**
-No print, as colunas finais (`Revisar publicação`, `Total`, botão de reset) somem por baixo do lado direito do modal. Causa: `DialogContent` usa largura padrão (~`max-w-lg/2xl`) e a tabela tem 12 colunas + botão. O `overflow-auto` do wrapper existe, mas o próprio `DialogContent` limita a largura visível — dá para rolar horizontalmente, mas visualmente parece cortado / fade escuro. Fix: aumentar `max-w` do `DialogContent` (algo como `max-w-[95vw]` / `xl:max-w-[1200px]`) e garantir que o container da tabela tenha scroll horizontal claro.
+### O que já está funcionando
+- Migração aplicada: colunas `client_wait_started_at`, `client_resend_count`, `client_last_resend_at` + índice parcial.
+- Edge function `return-awaiting-client-cards` deployada.
+- Cron `return-awaiting-client-hourly` ativo (schedule `0 * * * *`).
+- `proceedDemand.ts` inicializa `client_wait_started_at` ao entrar em `aguardando_cliente` (fwd) e incrementa `client_resend_count` + limpa o timer ao voltar manualmente para `enviar_cliente`.
+- Modal "Configurar funções do fluxo" tem a aba **Retorno do cliente** com wait_hours, max_resends e horários.
+- KanbanCentralPage renderiza badges "Reenviado Nx" e "Xh aguardando" na seção Aguardando Clientes.
 
-**2. Retorno de "Aguardando cliente" a cada 4h — NÃO EXISTE hoje**
-Confirmei via busca: não há nenhum mecanismo automático de retorno de `aguardando_cliente` → `enviar_cliente`. Hoje o retorno é 100% manual (via botão "voltar demanda" em `proceedDemand.ts:404`). Não existe cron, timer, edge function ou trigger nesse fluxo. A percepção de "volta a cada 4h" provavelmente vem do próprio colaborador movendo. Vamos **criar** esse retorno automático do zero.
+### Pontas soltas encontradas
 
----
+**1. Bug crítico — chave de config incompatível entre UI e cron**
 
-## Plano
+O modal salva a configuração em `flow_functions.config.client_return.{wait_hours,return_times,max_resends,timezone}` (linhas 186 e 350 de `FunctionPermissionsModal.tsx`).
 
-### A. Corrigir visualização do modal de fluxo
-- `FunctionPermissionsModal.tsx`: aumentar largura do `DialogContent` para `max-w-[95vw]` (com um teto tipo `xl:max-w-[1400px]`).
-- Melhorar o wrapper da tabela para deixar o scroll horizontal explícito e a última coluna "Total" ficar sticky à direita (opcional; se ficar complicado, mantém scroll simples).
-- Ajuste idêntico para a aba "Participação" (mesmo problema).
+A edge function `return-awaiting-client-cards/index.ts` lê `config.wait_hours`, `config.return_times`, `config.max_resends` diretamente na raiz de `config`.
 
-### B. Retorno automático de "Aguardando cliente" com contagem de reenvios
+Resultado: a cron sempre entra no ramo `skipped: "no_return_times"` e nenhum card é devolvido automaticamente. Todo o pipeline de retorno automático está inerte hoje.
 
-**B.1 — Schema (migração)**
-- `demands`: adicionar
-  - `client_wait_started_at timestamptz` — quando entrou em `aguardando_cliente` na última rodada.
-  - `client_resend_count int not null default 0` — quantas vezes voltou para `enviar_cliente`.
-  - `client_last_resend_at timestamptz`.
-- `flow_functions.config` (JSONB, já existe): quando `function_key = 'aguardando_cliente'`, passa a aceitar:
-  - `wait_hours` (default 24): tempo mínimo em "Aguardando cliente" antes de ser elegível para retornar. Substitui semanticamente o valor de "Tempo estimado" para essa função (que hoje é minuto). Renderizar como "dia(s) / horas" na aba de tempo.
-  - `return_times`: array de horários locais (ex.: `["10:00", "15:00"]`) em que o cron devolve os cards para `enviar_cliente`. Configurável.
-  - `max_resends` (opcional, default null = ilimitado): trava de segurança.
+**2. Timer não é limpo em outras transições saindo de `aguardando_cliente`**
 
-**B.2 — Lógica de retorno (edge function + cron)**
-- Nova edge function `return-awaiting-client-cards`:
-  - Roda por tenant, lê `flow_functions.config` do `aguardando_cliente`, calcula quais cards já ultrapassaram `wait_hours`, e, se a hora atual (timezone do tenant) bate com algum `return_times` (janela de tolerância ±30 min desde a última execução), move para `enviar_cliente`:
-    - `current_function_key = 'enviar_cliente'`
-    - `client_resend_count += 1`
-    - `client_last_resend_at = now()`
-    - insere `demand_flow_history` (`action = 'auto_return_from_client'`, metadata com `resend_count`)
-    - preserva `assigned_to`
-  - Respeita `max_resends` quando configurado.
-- Agendar via `pg_cron` de hora em hora (`0 * * * *`) chamando a edge function com `service_role`. (Migração de dados-sensíveis via `supabase--insert`, não via migration tool, conforme instrução de `pg_cron`.)
+Só o caminho `aguardando_cliente → enviar_cliente` (regress manual) limpa `client_wait_started_at`. Se o card avançar para `agendar_publicacao` (ou qualquer outra função) via `proceedDemand`, o timestamp fica preso e o card, mesmo já publicado/agendado, aparece indefinidamente com badges "aguardando" caso volte para essa função futuramente. `client_resend_count` também deveria zerar quando o ciclo se encerra positivamente (aprovação do cliente).
 
-**B.3 — proceedDemand.ts**
-- Ao entrar em `aguardando_cliente`: setar `client_wait_started_at = now()`.
-- Ao voltar manualmente para `enviar_cliente`: também incrementar `client_resend_count` (mesma semântica do automático) para consistência.
+**3. Menor — sem seletor de timezone na UI**
 
-**B.4 — UI**
-- **Card (KanbanCard/TaskCard)**: badge discreto "Reenviada 2x" quando `client_resend_count > 0`; badge "Aguardando cliente há Xh" no grupo colapsado.
-- **Aba "Tempo estimado"** (`FunctionPermissionsModal`): para a coluna `Aguardando cliente`, trocar input de "minutos" por controle específico:
-  - Campo "Tempo mínimo antes de reenviar" em horas.
-  - Editor de "Horários de retorno" (chips de horários HH:MM adicionáveis).
-  - Campo opcional "Máximo de reenvios".
-  - Persistidos em `flow_functions.config` desse `function_key` (tenant-wide).
-- Sinalização no card em "Aguardando clientes" quando está elegível para retorno no próximo horário configurado.
+O modal já persiste `timezone: "America/Sao_Paulo"` como default e a edge function respeita `cfg.timezone`, mas não há campo visível. Aceitável para agora; documentar como default fixo até haver demanda multi-fuso.
 
-### C. Compatibilidade
-- Se `return_times` estiver vazio → não faz retorno automático (comportamento atual, só manual).
-- Cards que já estão em `aguardando_cliente` sem `client_wait_started_at` recebem o valor via backfill = `updated_at` na migração.
+### Plano de correção
 
----
+**Passo 1 — Alinhar leitura da edge function ao formato aninhado `client_return`**
 
-## Detalhes técnicos
-
-**Migração SQL principal**
-```sql
-ALTER TABLE public.demands
-  ADD COLUMN client_wait_started_at timestamptz,
-  ADD COLUMN client_resend_count int NOT NULL DEFAULT 0,
-  ADD COLUMN client_last_resend_at timestamptz;
-
-UPDATE public.demands
-SET client_wait_started_at = updated_at
-WHERE current_function_key = 'aguardando_cliente'
-  AND client_wait_started_at IS NULL;
+Em `supabase/functions/return-awaiting-client-cards/index.ts`, trocar:
+```ts
+const cfg = (row.config || {}) as Partial<AwaitingConfig>;
 ```
-
-**Edge function**: usa `SUPABASE_SERVICE_ROLE_KEY` internamente; cron agenda via `net.http_post` com anon key + verificação de segredo no header.
-
-**Cron via `supabase--insert`** (dado sensível, não migration tool):
-```sql
-select cron.schedule(
-  'return-awaiting-client-hourly',
-  '0 * * * *',
-  $$ select net.http_post(url:='.../functions/v1/return-awaiting-client-cards', ...) $$
-);
+por:
+```ts
+const cfg = ((row.config || {}).client_return || {}) as Partial<AwaitingConfig>;
 ```
+Manter fallback opcional para o formato flat (caso algum tenant já tivesse salvo assim) só se detectarmos dados legados — verificar rapidamente com um SELECT antes de decidir.
 
-Arquivos alterados:
-- `src/components/FunctionPermissionsModal.tsx` (largura + editor de retorno)
-- `src/lib/proceedDemand.ts` (setar wait_started_at, incrementar resend no manual)
-- `src/components/KanbanCard.tsx` / `src/components/TaskCard.tsx` (badges de reenvio)
-- `src/pages/KanbanCentralPage.tsx` (badge no header do agrupamento "Aguardando clientes")
-- Nova: `supabase/functions/return-awaiting-client-cards/index.ts`
-- Migração + `supabase--insert` do cron.
+**Passo 2 — Limpar estado ao sair de `aguardando_cliente` para qualquer função ≠ `enviar_cliente`**
+
+Em `src/lib/proceedDemand.ts`, nos caminhos `proceedDemand` (forward) e `jumpToFunction`, quando `currentFunctionKey === "aguardando_cliente"` e o destino não for `enviar_cliente`, incluir no update:
+```ts
+client_wait_started_at: null,
+client_resend_count: 0,
+client_last_resend_at: null,
+```
+Assim o ciclo encerra corretamente quando o cliente aprova e o card avança.
+
+**Passo 3 — Verificação pós-correção**
+
+- Rodar a edge function manualmente via `curl_edge_functions` fora do slot horário: deve retornar `skipped: "outside_window"` para tenants configurados (prova que agora enxerga o `return_times`).
+- Confirmar em `demand_flow_history` que registros `auto_return_from_client` são gerados na próxima execução dentro do horário.
+- Abrir um card de teste em `aguardando_cliente`, avançar para `agendar_publicacao` e verificar que `client_wait_started_at` e `client_resend_count` zeram na base.
+
+Sem mudanças de UI, tabela, cron ou secrets — apenas edge function e `proceedDemand.ts`.
