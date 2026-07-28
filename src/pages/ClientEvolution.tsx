@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -11,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Activity, CheckCircle2, Clock3, ListChecks, AlertTriangle, ChevronRight } from "lucide-react";
+import { Loader2, Activity, CheckCircle2, Clock3, ListChecks, AlertTriangle } from "lucide-react";
 import BackButton from "@/components/BackButton";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
@@ -35,7 +34,6 @@ interface TypeRule {
 }
 
 type Filter = "all" | "done" | "in_progress" | "overdue" | "queued";
-type AreaFilter = "all" | "midia" | "sistemas";
 type ScopeFilter = "active" | "all";
 type PeriodFilter = "all" | "7d" | "30d" | "this_month" | "last_month";
 
@@ -68,13 +66,14 @@ const relativeDays = (iso?: string | null) => {
 function periodRange(period: PeriodFilter): { start: Date; end: Date } | null {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
   if (period === "7d") {
     const s = new Date(today); s.setDate(s.getDate() - 6);
-    return { start: s, end: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59) };
+    return { start: s, end: endOfToday };
   }
   if (period === "30d") {
     const s = new Date(today); s.setDate(s.getDate() - 29);
-    return { start: s, end: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59) };
+    return { start: s, end: endOfToday };
   }
   if (period === "this_month") {
     return {
@@ -95,6 +94,14 @@ const periodLabel: Record<PeriodFilter, string> = {
   all: "Todas as datas",
   "7d": "Últimos 7 dias",
   "30d": "Últimos 30 dias",
+  this_month: "Este mês (inclui prazos futuros)",
+  last_month: "Mês passado",
+};
+
+const periodShortLabel: Record<PeriodFilter, string> = {
+  all: "Todas as datas",
+  "7d": "Últimos 7 dias",
+  "30d": "Últimos 30 dias",
   this_month: "Este mês",
   last_month: "Mês passado",
 };
@@ -110,8 +117,6 @@ const ClientEvolution = () => {
   const [pipelineStatuses, setPipelineStatuses] = useState<PipelineStatus[]>([]);
   const [selectedCard, setSelectedCard] = useState<KanbanCardData | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
-  const [selectedStage, setSelectedStage] = useState<string | null>(null);
-  const [areaFilter, setAreaFilter] = useState<AreaFilter>("all");
   const [scope, setScope] = useState<ScopeFilter>("active");
   const [period, setPeriod] = useState<PeriodFilter>("all");
 
@@ -161,14 +166,20 @@ const ClientEvolution = () => {
     }
     setLoading(true);
     try {
-      const { data: demands } = await supabase
+      let q = supabase
         .from("demands")
         .select("*, pipeline_statuses!inner(name, color), tenant_companies!inner(name, fantasy_name)")
         .eq("tenant_id", tenantId)
         .eq("client_id", selectedClient.id)
-        .is("archived_at", null)
         .eq("is_draft", false)
         .order("updated_at", { ascending: false });
+
+      // Scope: "Ativas" = não arquivadas. "Todas" = inclui arquivadas.
+      if (scope === "active") {
+        q = q.is("archived_at", null);
+      }
+
+      const { data: demands } = await q;
 
       if (demands) {
         const mapped: KanbanCardData[] = demands.map((d: any) => ({
@@ -222,7 +233,7 @@ const ClientEvolution = () => {
     } finally {
       setLoading(false);
     }
-  }, [tenantId, selectedClient?.id]);
+  }, [tenantId, selectedClient?.id, scope]);
 
   useEffect(() => { fetchDemands(); }, [fetchDemands]);
 
@@ -259,13 +270,10 @@ const ClientEvolution = () => {
     workArea: "midia" | "sistemas" | null;
   };
 
-  // Apply scope + period + area at the source
+  // Scope de conclusão + período
   const scopedCards = useMemo(() => {
     const range = periodRange(period);
     return cards.filter((c) => {
-      const workArea = (c as any).work_area as "midia" | "sistemas" | null;
-      if (areaFilter !== "all" && workArea !== areaFilter) return false;
-
       const done = FINAL_STATUSES.has((c.status || "").toLowerCase());
       if (scope === "active" && done) return false;
 
@@ -279,7 +287,7 @@ const ClientEvolution = () => {
       }
       return true;
     });
-  }, [cards, areaFilter, scope, period]);
+  }, [cards, scope, period]);
 
   const classified = useMemo<Classified[]>(() => {
     return scopedCards.map((c) => {
@@ -313,23 +321,12 @@ const ClientEvolution = () => {
     return { total, done, overdue, queued, inProgress };
   }, [classified]);
 
-  const stageCounts = useMemo(() => {
-    const map = new Map<string, number>();
-    classified.forEach((c) => {
-      if (c.isDone) return;
-      if (!c.stageKey) return;
-      map.set(c.stageKey, (map.get(c.stageKey) || 0) + 1);
-    });
-    return map;
-  }, [classified]);
-
   const timeline = useMemo(() => {
     let list = classified;
     if (filter === "done") list = list.filter((c) => c.isDone);
     else if (filter === "in_progress") list = list.filter((c) => !c.isDone && c.hasStage);
     else if (filter === "overdue") list = list.filter((c) => c.isOverdue);
     else if (filter === "queued") list = list.filter((c) => !c.isDone && !c.hasStage);
-    if (selectedStage) list = list.filter((c) => c.stageKey === selectedStage && !c.isDone);
     const rank = (c: Classified) => (c.isDone ? 2 : c.hasStage ? 0 : 1);
     return [...list].sort((a, b) => {
       const r = rank(a) - rank(b);
@@ -338,7 +335,7 @@ const ClientEvolution = () => {
       const bt = b.card.updated_at ? new Date(b.card.updated_at).getTime() : 0;
       return bt - at;
     });
-  }, [classified, filter, selectedStage]);
+  }, [classified, filter]);
 
   const handleSave = async (field: string, value: string) => {
     if (!selectedCard) return;
@@ -395,6 +392,7 @@ const ClientEvolution = () => {
                   "px-3 py-1.5 font-medium transition-colors",
                   scope === s ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted",
                 )}
+                title={s === "active" ? "Não arquivadas" : "Inclui concluídas e arquivadas"}
               >
                 {s === "active" ? "Ativas" : "Todas"}
               </button>
@@ -405,20 +403,15 @@ const ClientEvolution = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(Object.keys(periodLabel) as PeriodFilter[]).map((p) => (
-                <SelectItem key={p} value={p} className="text-xs">{periodLabel[p]}</SelectItem>
+              {(Object.keys(periodShortLabel) as PeriodFilter[]).map((p) => (
+                <SelectItem key={p} value={p} className="text-xs" title={periodLabel[p]}>
+                  {periodShortLabel[p]}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
       </div>
-
-      <p className="text-[11px] text-muted-foreground mb-4">
-        Mostrando: <span className="font-medium">{scope === "active" ? "ativas" : "todas"}</span>
-        {" · "}
-        <span className="font-medium">{periodLabel[period].toLowerCase()}</span>
-        {areaFilter !== "all" && <> {" · "} <span className="font-medium">{areaFilter === "midia" ? "mídia" : "sistemas"}</span></>}
-      </p>
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
@@ -431,102 +424,30 @@ const ClientEvolution = () => {
         </div>
       ) : (
         <>
-          {/* Painel de controle integrado */}
-          <div className="rounded-lg border bg-card p-4 mb-5 space-y-3">
-            {/* Contadores + progresso */}
-            <div className="flex flex-wrap items-center gap-2">
-              <CounterChip label="Total" value={summary.total} icon={ListChecks} tone="muted"
-                active={filter === "all"} onClick={() => { setFilter("all"); setSelectedStage(null); }} />
-              <CounterChip label="Em andamento" value={summary.inProgress} icon={Activity} tone="primary"
-                active={filter === "in_progress"} onClick={() => { setFilter("in_progress"); setSelectedStage(null); }} />
-              <CounterChip label="Concluídas" value={summary.done} icon={CheckCircle2} tone="emerald"
-                active={filter === "done"} onClick={() => { setFilter("done"); setSelectedStage(null); }} />
-              <CounterChip label="Fila" value={summary.queued} icon={Clock3} tone="amber"
-                active={filter === "queued"} onClick={() => { setFilter("queued"); setSelectedStage(null); }} />
-              <CounterChip label="Atrasadas" value={summary.overdue} icon={AlertTriangle} tone="destructive"
-                active={filter === "overdue"} onClick={() => { setFilter("overdue"); setSelectedStage(null); }} />
-              <div className="ml-auto flex items-center gap-2 min-w-[220px] flex-1 max-w-md">
-                <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full bg-emerald-500 transition-all" style={{ width: `${progressPct}%` }} />
-                </div>
-                <span className="text-[11px] text-muted-foreground tabular-nums whitespace-nowrap">
-                  {summary.done}/{summary.total} · {progressPct}%
-                </span>
+          {/* Barra de progresso full-width */}
+          <div className="mb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                <div className="h-full bg-emerald-500 transition-all" style={{ width: `${progressPct}%` }} />
               </div>
+              <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+                {summary.done}/{summary.total} · {progressPct}%
+              </span>
             </div>
-
-            {/* Divisor */}
-            {functions.length > 0 && (
-              <>
-                <div className="border-t border-border/60" />
-                <div className="flex flex-wrap items-center gap-1">
-                  {functions.map((fn, i) => {
-                    const count = stageCounts.get(fn.function_key) || 0;
-                    const active = selectedStage === fn.function_key;
-                    return (
-                      <div key={fn.function_key} className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedStage(active ? null : fn.function_key)}
-                          className={cn(
-                            "px-2.5 py-1 rounded-full border text-[11px] font-medium transition-colors flex items-center gap-1.5",
-                            active
-                              ? "bg-primary text-primary-foreground border-primary"
-                              : count > 0
-                                ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/15"
-                                : "bg-transparent text-muted-foreground border-border/60 hover:bg-muted/60",
-                          )}
-                        >
-                          <span>{fn.name}</span>
-                          <span className={cn(
-                            "tabular-nums text-[10px] px-1 rounded",
-                            active ? "bg-primary-foreground/20" : "bg-foreground/5",
-                          )}>{count}</span>
-                        </button>
-                        {i < functions.length - 1 && (
-                          <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
-                        )}
-                      </div>
-                    );
-                  })}
-                  <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
-                  <div className="px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-medium flex items-center gap-1.5">
-                    <span>Concluídas</span>
-                    <span className="tabular-nums text-[10px] px-1 rounded bg-emerald-500/20">{summary.done}</span>
-                  </div>
-                  {selectedStage && (
-                    <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px] ml-1" onClick={() => setSelectedStage(null)}>
-                      Limpar etapa
-                    </Button>
-                  )}
-                </div>
-              </>
-            )}
           </div>
 
-          {/* Filtro por área */}
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Área</span>
-            {(["all", "midia", "sistemas"] as AreaFilter[]).map((a) => (
-              <button
-                key={a}
-                onClick={() => setAreaFilter(a)}
-                className={cn(
-                  "px-2.5 py-0.5 rounded-full border text-[11px] font-medium transition-colors flex items-center gap-1.5",
-                  areaFilter === a
-                    ? "border-foreground/40 bg-foreground/5 text-foreground"
-                    : "border-border/60 text-muted-foreground hover:bg-muted/60",
-                )}
-              >
-                {a !== "all" && (
-                  <span className={cn(
-                    "h-2 w-2 rounded-full",
-                    a === "midia" ? "bg-primary" : "bg-slate-500",
-                  )} />
-                )}
-                {a === "all" ? "Todas" : a === "midia" ? "Mídia" : "Sistemas"}
-              </button>
-            ))}
+          {/* Chips de filtro por status */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <CounterChip label="Total" value={summary.total} icon={ListChecks} tone="muted"
+              active={filter === "all"} onClick={() => setFilter("all")} />
+            <CounterChip label="Em andamento" value={summary.inProgress} icon={Activity} tone="primary"
+              active={filter === "in_progress"} onClick={() => setFilter("in_progress")} />
+            <CounterChip label="Concluídas" value={summary.done} icon={CheckCircle2} tone="emerald"
+              active={filter === "done"} onClick={() => setFilter("done")} />
+            <CounterChip label="Fila" value={summary.queued} icon={Clock3} tone="amber"
+              active={filter === "queued"} onClick={() => setFilter("queued")} />
+            <CounterChip label="Atrasadas" value={summary.overdue} icon={AlertTriangle} tone="destructive"
+              active={filter === "overdue"} onClick={() => setFilter("overdue")} />
           </div>
 
           {/* Tabela densa */}
@@ -541,10 +462,11 @@ const ClientEvolution = () => {
                   <col className="w-[6px]" />
                   <col />
                   <col className="hidden md:table-column w-[9%]" />
-                  <col className="hidden md:table-column w-[12%]" />
-                  <col className="w-[16%]" />
-                  <col className="hidden lg:table-column w-[14%]" />
-                  <col className="hidden xl:table-column w-[12%]" />
+                  <col className="hidden md:table-column w-[11%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[14%]" />
+                  <col className="hidden lg:table-column w-[13%]" />
+                  <col className="hidden xl:table-column w-[11%]" />
                   <col className="w-[9%]" />
                 </colgroup>
                 <thead className="sticky top-0 bg-muted/70 backdrop-blur-sm text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -553,6 +475,7 @@ const ClientEvolution = () => {
                     <th className="text-left font-semibold px-3 py-2">Título</th>
                     <th className="text-left font-semibold px-2 py-2 hidden md:table-cell whitespace-nowrap">Tipo</th>
                     <th className="text-left font-semibold px-2 py-2 hidden md:table-cell whitespace-nowrap">Responsável</th>
+                    <th className="text-left font-semibold px-2 py-2 whitespace-nowrap">Área</th>
                     <th className="text-left font-semibold px-2 py-2 whitespace-nowrap">Etapa</th>
                     <th className="text-left font-semibold px-2 py-2 hidden lg:table-cell whitespace-nowrap">Progresso</th>
                     <th className="text-left font-semibold px-2 py-2 hidden xl:table-cell whitespace-nowrap">Próxima</th>
@@ -635,6 +558,26 @@ function CounterChip({
   );
 }
 
+function AreaBadge({ workArea }: { workArea: "midia" | "sistemas" | null }) {
+  if (!workArea) {
+    return <span className="text-muted-foreground text-[11px]">—</span>;
+  }
+  if (workArea === "midia") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-medium">
+        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+        Mídia
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-700 dark:text-slate-300 text-[11px] font-medium">
+      <span className="h-1.5 w-1.5 rounded-full bg-slate-500" />
+      Sistemas
+    </span>
+  );
+}
+
 function TableRow({
   row, assigneeName, onOpen, zebra,
 }: {
@@ -712,6 +655,9 @@ function TableRow({
       </td>
       <td className="px-2 py-2 hidden md:table-cell text-foreground text-[12px] truncate">
         {assigneeName || <span className="text-muted-foreground">—</span>}
+      </td>
+      <td className="px-2 py-2">
+        <AreaBadge workArea={workArea} />
       </td>
       <td className="px-2 py-2 text-[12px]">
         <div className="min-w-0 truncate">{stageCell()}</div>

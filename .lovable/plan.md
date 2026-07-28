@@ -1,70 +1,59 @@
-## Ajustes na tela Evolução das Demandas
 
-Cinco correções focadas em `src/pages/ClientEvolution.tsx`. Sem mudança de dados ou lógica de negócio.
+# Simplificar tela "Evolução das Demandas"
 
-### 1. Header em uma linha só
+Foco: corrigir bugs de filtro, remover o painel confuso acima da tabela, transformar "área" em coluna, e voltar com a barra de progresso ocupando a linha inteira.
 
-Hoje o `BackButton` fica isolado no topo e o título/subtítulo centralizado ocupa outra faixa vertical. Novo layout:
+## 1. Corrigir bug de período ("Este mês" > "Últimos 30 dias")
 
-```text
-[← Voltar]   Evolução das Demandas · SmartVety                          [ativas | período ▾]
-```
+Causa: hoje o filtro de período usa `delivery_date` com fallback para `created_at`. "Este mês" inclui prazos futuros até o fim do mês, enquanto "Últimos 30 dias" corta hoje — o que faz parecer inconsistente.
 
-- `BackButton` à esquerda, título+subtítulo (inline, separados por `·`) no centro/esq., controles à direita, tudo em uma única `flex` row.
-- Ícone `Activity` fica antes do título, mesma linha.
+Ajustes em `periodRange`:
+- Sempre usar a mesma referência: `delivery_date` quando existir, senão `created_at` (mantém), **mas** limitar todos os períodos ao intervalo passado + hoje (não incluir datas futuras em "últimos 7/30 dias").
+- "Este mês" e "Mês passado" continuam mês-calendário completo (comportamento correto).
+- Deixar mais claro no label: "Últimos 30 dias" → mantém; adicionar tooltip curto no seletor explicando que "Este mês" cobre o mês inteiro (inclui prazos futuros).
 
-### 2. Indicador de área (Mídia × Sistemas)
+## 2. Corrigir "Ativas" vs "Todas"
 
-Cada linha da tabela ganha um marcador visual da `work_area` da demanda:
+Hoje `fetchDemands` já ignora `archived_at`, então "Todas" não muda quando não há concluídas visíveis. Ajustes:
+- Quando `scope === "all"`, remover o `.is("archived_at", null)` do fetch para incluir demandas arquivadas.
+- Reexecutar `fetchDemands` quando `scope` mudar.
+- Labels: "Ativas" (não concluídas e não arquivadas) · "Todas" (inclui concluídas + arquivadas).
 
-- Coluna estreita à esquerda do título com uma barra vertical colorida (2px), sem header, sem ocupar largura significativa:
-  - `midia` → cor primary (azul)
-  - `sistemas` → âmbar suave (mesmo pastel usado no Kanban)
-  - sem área → cinza neutro
-- Tooltip no hover mostra "Mídia" / "Sistemas".
+## 3. Área como coluna (remover filtro)
 
-Também adiciona toggle no header da tabela (chips pequenos) para filtrar por área: `Todas · Mídia · Sistemas`.
+- Remover o bloco "ÁREA · Todas / Mídia / Sistemas" acima da tabela.
+- Remover `areaFilter` e sua lógica em `scopedCards`.
+- Adicionar coluna **"Área"** na tabela (após "Responsável"), exibindo badge discreto:
+  - Mídia → badge azul suave (bg-primary/10, text-primary).
+  - Sistemas → badge slate (bg-slate-500/10, text-slate-700).
+  - Sem área → "—".
+- Manter a barrinha colorida vertical de 3px no início da linha (já existe) como reforço visual.
 
-### 3. Integrar resumo + pipeline num único bloco de controle
+## 4. Remover o painel confuso e voltar com progresso full-width
 
-Hoje há três blocos empilhados competindo (5 cards de resumo, barra de progresso, card de pipeline). Consolidar em um único painel:
+Estado atual: bloco `rounded-lg border bg-card` mistura contadores (Total / Em andamento / Concluídas / Fila / Atrasadas), barra de progresso pequena e pipeline por etapa clicável.
 
-```text
-┌───────────────────────────────────────────────────────────────────────┐
-│  Total 5   Em andamento 5   Concluídas 0   Fila 0   Atrasadas 0       │
-│  ▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░  0 de 5 · 0%                            │
-│  ─────────────────────────────────────────────────────────────────    │
-│  Planejar 5 › Criar roteiro 0 › Criar arte 0 › … › Concluídas 0       │
-└───────────────────────────────────────────────────────────────────────┘
-```
+Novo layout, mais leve:
+- **Linha 1 (acima da tabela)**: barra de progresso ocupando 100% da largura, com rótulo à direita "5/10 · 50%".
+- **Linha 2**: chips de filtro compactos em uma linha só — Total, Em andamento, Concluídas, Fila, Atrasadas. Sem card externo, sem borda. Apenas chips clicáveis (mantém o filtro atual por status).
+- **Remover** o pipeline horizontal de etapas (barra grande com Planejar → Criar roteiro → ...). As mesmas informações já estão na coluna "Progresso" (bolinhas) e "Etapa" de cada linha. Se quiser filtrar por etapa, deixamos apenas via clicar em uma linha na coluna Etapa (opcional — por padrão, cortar).
+- Remover a linha "Mostrando: todas · este mês" (redundante — já visível nos toggles do header).
 
-- Um único `Card` com três faixas: contadores compactos em linha (não mais grid de 5 cards grandes), barra de progresso inline fina, pipeline abaixo com divisor sutil.
-- Contadores viram chips clicáveis pequenos (não cards de 2xl), reduzindo peso visual.
-- Pipeline mantém interação (clique filtra) mas com pílulas menores e ChevronRight mais discreto.
+## 5. Ajustes finos na tabela
 
-### 4. Filtro de escopo (ativas / período)
+- Ordem final de colunas: Título · Tipo · Responsável · **Área** · Etapa · Progresso · Próxima · Prazo.
+- Larguras via `colgroup` recalculadas para a nova coluna Área (~7%).
+- Manter zebra, hover, cor destacada para atrasadas.
 
-Novo controle no header da tela (canto direito) com dois seletores:
+## Detalhes técnicos
 
-- **Escopo**: chip toggle `Ativas` (padrão, esconde arquivadas/concluídas antigas) · `Todas` (inclui concluídas de qualquer data).
-- **Período**: `Select` com opções — `Todas as datas` (padrão), `Últimos 7 dias`, `Últimos 30 dias`, `Este mês`, `Mês passado`. Filtra por `delivery_date` (fallback `created_at` quando ausente).
+- Arquivo único: `src/pages/ClientEvolution.tsx`.
+- Remover estado `areaFilter` e `selectedStage` (não usado mais sem o pipeline clicável).
+- `fetchDemands` passa a depender de `scope` no `useCallback` deps.
+- `TableRow` recebe nova prop `workArea` já disponível e ganha `<td>` extra para o badge de área. A barra vertical de 3px permanece.
+- Sem mudanças em edge functions, migrações ou hooks.
 
-Uma nota discreta abaixo do título: `Mostrando: ativas · todas as datas` — deixa explícito o recorte atual, resolvendo o "não está claro se está mostrando apenas os ativos".
+## Fora de escopo
 
-### 5. Largura horizontal e scroll da tabela
-
-Hoje o container é `max-w-6xl` (~1152px) mesmo em viewports de 1879px, causando o scroll horizontal da tabela por falta de espaço para colunas como Progresso/Próxima. Correções:
-
-- Container passa a `max-w-[1600px]` (ou `container mx-auto` com padding maior) para aproveitar telas amplas.
-- Remover `overflow-x-auto` do wrapper da tabela e usar `table-fixed` com larguras percentuais bem definidas por coluna.
-- Ajustar breakpoints das colunas: Tipo/Responsável passam a aparecer em `md`, Progresso em `lg`, Próxima em `xl` já hoje — manter, mas garantir que em `≥1280px` tudo cabe sem scroll.
-- Truncar título com `truncate` + `title` (já existe) sem `max-w` fixo — deixa flex do `table-fixed` cuidar.
-
-### Fora do escopo
-
-- Sem mudanças no `TaskCard`, edge functions, schema ou lógica de proceed/regress.
-- Sem alteração no comportamento realtime.
-
-### Arquivos afetados
-
-- `src/pages/ClientEvolution.tsx` — todas as mudanças acima, isoladas nesta tela.
+- Filtros de status (Total/Em andamento/etc.) continuam funcionando como hoje.
+- Realtime e edição via TaskCard permanecem inalterados.
