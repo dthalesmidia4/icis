@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,6 +76,27 @@ interface CentralKanbanCard extends KanbanCardData {
 }
 
 const FINAL_STATUS_NAMES = ['feito', 'feitos', 'publicado'];
+const KANBAN_FOCUS_TRANSITION_MS = 280;
+
+type KanbanFocusKind = 'production' | 'evaluate' | 'awaiting' | 'review';
+type KanbanDisplayColumn = {
+  id: string;
+  name: string;
+  color: string;
+  userId: string;
+  focusKind?: KanbanFocusKind;
+};
+
+const getKanbanColumnVisualKey = (column: Pick<KanbanDisplayColumn, "userId" | "focusKind">) => {
+  if (column.userId === "__unassigned__") return "kanban-column:unassigned";
+  if (column.focusKind && column.focusKind !== "production") {
+    return `kanban-column:${column.userId}:${column.focusKind}`;
+  }
+  return `kanban-column:${column.userId}`;
+};
+
+const prefersReducedKanbanMotion = () =>
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const isCardOverdue = (card: { delivery_date?: string | null; delivery_time?: string | null; status?: string }) => {
   if (!card.delivery_date) return false;
