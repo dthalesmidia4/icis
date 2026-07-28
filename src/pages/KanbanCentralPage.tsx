@@ -2404,7 +2404,17 @@ const KanbanCentralPage = () => {
 
                             {!isAwaitingCollapsed && (
                               <div className="mt-1 space-y-1">
-                                {awaitingCards.map((card) => (
+                                {awaitingCards.map((card) => {
+                                  const resendCount = (card as any).client_resend_count || 0;
+                                  const waitStart = (card as any).client_wait_started_at;
+                                  let waitLabel = "";
+                                  if (waitStart) {
+                                    const hrs = Math.floor((Date.now() - new Date(waitStart).getTime()) / 3600000);
+                                    if (hrs >= 24) waitLabel = `${Math.floor(hrs / 24)}d aguardando`;
+                                    else if (hrs >= 1) waitLabel = `${hrs}h aguardando`;
+                                    else waitLabel = "aguardando";
+                                  }
+                                  return (
                                   <div
                                     key={card.id}
                                     ref={(el) => {
@@ -2435,8 +2445,23 @@ const KanbanCentralPage = () => {
                                       onClick={() => handleCardClick(card, column.id)}
                                       onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
                                     />
+                                    {(resendCount > 0 || waitLabel) && (
+                                      <div className="flex items-center gap-1.5 flex-wrap mt-1 px-1 text-[10px]">
+                                        {resendCount > 0 && (
+                                          <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-700 dark:text-blue-300 font-semibold">
+                                            Reenviado {resendCount}x
+                                          </span>
+                                        )}
+                                        {waitLabel && (
+                                          <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                            {waitLabel}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
