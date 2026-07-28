@@ -32,6 +32,7 @@ interface KanbanCardProps {
   dailyCompleted?: number;
   dailyTotal?: number | null;
   dailyNextDate?: string | null;
+  workArea?: "midia" | "sistemas" | null;
   onClick?: () => void;
   onDatesChange?: (changes: CardDatesChange) => Promise<void> | void;
 }
@@ -145,6 +146,7 @@ const KanbanCard = ({
   dailyCompleted = 0,
   dailyTotal = null,
   dailyNextDate = null,
+  workArea = null,
   onClick,
   onDatesChange,
 }: KanbanCardProps) => {
@@ -154,6 +156,7 @@ const KanbanCard = ({
 
   const hasAnyDate = !!(dueDate || cardDeliveryDate);
   const showInline = showStartEndLabels || hasAnyDate;
+  const isSistemas = workArea === "sistemas";
 
   return (
     <Card
@@ -162,6 +165,7 @@ const KanbanCard = ({
         isDragging && "shadow-xl rotate-1 scale-105",
         isOverdue && "bg-red-500/10 border-red-500/30 dark:bg-red-500/15 dark:border-red-500/40",
         isDailyCard && "border-l-4 border-l-amber-500",
+        isSistemas && !isOverdue && "bg-slate-500/5 dark:bg-slate-400/5 border-slate-500/25",
       )}
       onClick={onClick}
     >
@@ -174,19 +178,26 @@ const KanbanCard = ({
             {subtitle}
           </div>
         )}
-        {isDailyCard && (
+        {(isDailyCard || isSistemas) && (
           <div className="flex flex-wrap gap-1">
-            <Badge className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30">
-              Card Diário
-            </Badge>
-            {dailyTotal != null && (
+            {isDailyCard && (
+              <Badge className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30">
+                Card Diário
+              </Badge>
+            )}
+            {isDailyCard && dailyTotal != null && (
               <Badge variant="outline" className="text-[10px]">
                 Ocorrência {Math.min(dailyCompleted + 1, dailyTotal)} de {dailyTotal}
               </Badge>
             )}
-            {formattedNextDaily && (
+            {isDailyCard && formattedNextDaily && (
               <Badge variant="outline" className="text-[10px]">
                 Próx: {formattedNextDaily}
+              </Badge>
+            )}
+            {isSistemas && (
+              <Badge variant="outline" className="text-[10px] bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30">
+                Sistemas
               </Badge>
             )}
           </div>
