@@ -2073,13 +2073,15 @@ const KanbanCentralPage = () => {
               <Droppable key={column.id} droppableId={column.id}>
                 {(provided, snapshot) => (
                   <div
+                    key={`focus:${focusedColumnId ?? 'none'}:${column.id}`}
                     ref={provided.innerRef}
                     {...provided.droppableProps}
                     className={cn(
-                      "flex-shrink-0 w-[280px] bg-muted/30 rounded-xl border border-border/50 flex flex-col",
+                      "flex-shrink-0 w-[280px] bg-muted/30 rounded-xl border border-border/50 flex flex-col animate-fade-in",
                       snapshot.isDraggingOver && "border-primary/50 bg-primary/5"
                     )}
                   >
+
                     {/* Column Header */}
                     <div className="px-3 py-3 flex flex-col border-b border-border/30">
                       <div className="flex items-center gap-2">

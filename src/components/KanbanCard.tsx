@@ -170,34 +170,31 @@ const KanbanCard = ({
       onClick={onClick}
     >
       <CardHeader className="px-2.5 pt-2.5 pb-1.5 space-y-1">
-        {subtitle && (
+        {(subtitle || _statusName) && (
           <div
-            className="text-xs font-semibold text-foreground/80 leading-snug line-clamp-2 break-words"
-            title={subtitle}
+            className="text-xs font-semibold leading-snug line-clamp-2 break-words"
+            title={[subtitle, _statusName].filter(Boolean).join(" · ")}
           >
-            {subtitle}
+            {subtitle && <span className="text-foreground/80">{subtitle}</span>}
+            {subtitle && _statusName && (
+              <span className="text-muted-foreground/60"> · </span>
+            )}
+            {_statusName && <span className="text-muted-foreground">{_statusName}</span>}
           </div>
         )}
-        {(isDailyCard || isSistemas) && (
+        {isDailyCard && (
           <div className="flex flex-wrap gap-1">
-            {isDailyCard && (
-              <Badge className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30">
-                Card Diário
-              </Badge>
-            )}
-            {isDailyCard && dailyTotal != null && (
+            <Badge className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30">
+              Card Diário
+            </Badge>
+            {dailyTotal != null && (
               <Badge variant="outline" className="text-[10px]">
                 Ocorrência {Math.min(dailyCompleted + 1, dailyTotal)} de {dailyTotal}
               </Badge>
             )}
-            {isDailyCard && formattedNextDaily && (
+            {formattedNextDaily && (
               <Badge variant="outline" className="text-[10px]">
                 Próx: {formattedNextDaily}
-              </Badge>
-            )}
-            {isSistemas && (
-              <Badge variant="outline" className="text-[10px] bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30">
-                Sistemas
               </Badge>
             )}
           </div>
@@ -206,6 +203,7 @@ const KanbanCard = ({
           {title}
         </CardTitle>
       </CardHeader>
+
 
       {showInline && !hideDueDate && (
         <CardContent className="px-2.5 pb-2.5 pt-0">
