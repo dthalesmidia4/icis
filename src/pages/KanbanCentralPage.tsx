@@ -2535,6 +2535,7 @@ const KanbanCentralPage = () => {
         <ReorderSequenceModal
           open={!!reorderModalColumnId}
           onOpenChange={(o) => !o && setReorderModalColumnId(null)}
+          tenantId={tenantId}
           columnName={
             collaborators.find((c) => c.userId === reorderModalColumnId)?.fullName || "Coluna"
           }
@@ -2544,6 +2545,7 @@ const KanbanCentralPage = () => {
               id: c.id,
               title: c.title,
               demand_type: c.demand_type,
+              demand_type_key: c.demand_type_key,
               is_daily_card: (c as any).is_daily_card,
               publish_date: c.publish_date,
               publish_time: c.publish_time,
