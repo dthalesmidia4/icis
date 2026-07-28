@@ -233,30 +233,35 @@ const KanbanCentralPage = () => {
     if (hoverExitTimerRef.current) { window.clearTimeout(hoverExitTimerRef.current); hoverExitTimerRef.current = null; }
   }, []);
 
+  const updatePeekFocusSession = useCallback((session: KanbanFocusPeekSession | null) => {
+    peekFocusSessionRef.current = session;
+    setPeekFocusSession(session);
+  }, []);
+
   const restorePinnedFocusAfterPeek = useCallback((session: KanbanFocusPeekSession | null = peekFocusSessionRef.current) => {
     if (!session) return;
-    setPeekFocusSession(null);
+    updatePeekFocusSession(null);
     changeFocusColumn(session.restoreColumnId);
-  }, [changeFocusColumn]);
+  }, [changeFocusColumn, updatePeekFocusSession]);
 
   const enterFocus = useCallback((userId: string) => {
     clearHoverTimers();
-    setPeekFocusSession(null);
+    updatePeekFocusSession(null);
     setPinnedFocusColumnId(userId);
     changeFocusColumn(userId);
-  }, [changeFocusColumn, clearHoverTimers]);
+  }, [changeFocusColumn, clearHoverTimers, updatePeekFocusSession]);
   const exitFocus = useCallback(() => {
     clearHoverTimers();
-    setPeekFocusSession(null);
+    updatePeekFocusSession(null);
     setPinnedFocusColumnId(null);
     changeFocusColumn(null);
-  }, [changeFocusColumn, clearHoverTimers]);
+  }, [changeFocusColumn, clearHoverTimers, updatePeekFocusSession]);
 
   const commitVisibleFocusState = useCallback((columnUserId: string, isFocusSubColumn: boolean) => {
     clearHoverTimers();
     const activePeek = peekFocusSessionRef.current;
     if (activePeek) {
-      setPeekFocusSession(null);
+      updatePeekFocusSession(null);
       setPinnedFocusColumnId(activePeek.targetColumnId);
       changeFocusColumn(activePeek.targetColumnId);
       return;
@@ -268,7 +273,7 @@ const KanbanCentralPage = () => {
     }
 
     enterFocus(columnUserId);
-  }, [changeFocusColumn, clearHoverTimers, enterFocus, exitFocus]);
+  }, [changeFocusColumn, clearHoverTimers, enterFocus, exitFocus, updatePeekFocusSession]);
 
   // Hover "espiar": ao passar o mouse sobre o header da coluna, mostrar/tirar foco temporariamente.
   const handleColumnHeaderPointerEnter = useCallback((columnUserId: string, pointerType: string) => {
@@ -281,10 +286,10 @@ const KanbanCentralPage = () => {
       // Se não há, o hover foca temporariamente a coluna sob o cursor.
       const restoreColumnId = pinnedFocusColumnIdRef.current;
       const target = restoreColumnId ? null : columnUserId;
-      setPeekFocusSession({ restoreColumnId, targetColumnId: target });
+      updatePeekFocusSession({ restoreColumnId, targetColumnId: target });
       changeFocusColumn(target);
     }, 120);
-  }, [changeFocusColumn]);
+  }, [changeFocusColumn, updatePeekFocusSession]);
 
   const handleColumnHeaderPointerLeave = useCallback(() => {
     if (hoverEnterTimerRef.current) { window.clearTimeout(hoverEnterTimerRef.current); hoverEnterTimerRef.current = null; }
