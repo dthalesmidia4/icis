@@ -121,6 +121,7 @@ const ClientEvolution = () => {
   const [filter, setFilter] = useState<Filter>("all");
   const [scope, setScope] = useState<ScopeFilter>("all");
   const [period, setPeriod] = useState<PeriodFilter>("this_month");
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
 
   // Load static data
   useEffect(() => {
