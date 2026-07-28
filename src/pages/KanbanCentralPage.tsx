@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,6 +76,27 @@ interface CentralKanbanCard extends KanbanCardData {
 }
 
 const FINAL_STATUS_NAMES = ['feito', 'feitos', 'publicado'];
+const KANBAN_FOCUS_TRANSITION_MS = 280;
+
+type KanbanFocusKind = 'production' | 'evaluate' | 'awaiting' | 'review';
+type KanbanDisplayColumn = {
+  id: string;
+  name: string;
+  color: string;
+  userId: string;
+  focusKind?: KanbanFocusKind;
+};
+
+const getKanbanColumnVisualKey = (column: Pick<KanbanDisplayColumn, "userId" | "focusKind">) => {
+  if (column.userId === "__unassigned__") return "kanban-column:unassigned";
+  if (column.focusKind && column.focusKind !== "production") {
+    return `kanban-column:${column.userId}:${column.focusKind}`;
+  }
+  return `kanban-column:${column.userId}`;
+};
+
+const prefersReducedKanbanMotion = () =>
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const isCardOverdue = (card: { delivery_date?: string | null; delivery_time?: string | null; status?: string }) => {
   if (!card.delivery_date) return false;
@@ -156,28 +177,127 @@ const KanbanCentralPage = () => {
   }, []);
   // Focus mode: quando setado, decompõe a coluna do responsável em sub-colunas por agrupamento.
   const [focusedColumnId, setFocusedColumnId] = useState<string | null>(null);
-  const withViewTransition = useCallback((fn: () => void) => {
-    const anyDoc = document as any;
-    if (typeof anyDoc.startViewTransition === "function") {
-      anyDoc.startViewTransition(() => fn());
-    } else {
-      fn();
-    }
+  const kanbanColumnRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const focusBoardScrollLeftRef = useRef(0);
+  const pendingFocusTransitionRef = useRef<{
+    direction: "enter" | "exit";
+    from: Map<string, { rect: DOMRect; clone: HTMLElement }>;
+  } | null>(null);
+
+  const setKanbanColumnRef = useCallback((key: string, el: HTMLDivElement | null) => {
+    if (el) kanbanColumnRefs.current.set(key, el);
+    else kanbanColumnRefs.current.delete(key);
   }, []);
+
+  const captureKanbanColumnLayout = useCallback(() => {
+    const captured = new Map<string, { rect: DOMRect; clone: HTMLElement }>();
+    kanbanColumnRefs.current.forEach((el, key) => {
+      const clone = el.cloneNode(true);
+      if (!(clone instanceof HTMLElement)) return;
+      captured.set(key, { rect: el.getBoundingClientRect(), clone });
+    });
+    return captured;
+  }, []);
+
+  const changeFocusColumn = useCallback((nextColumnId: string | null) => {
+    if (!prefersReducedKanbanMotion()) {
+      if (nextColumnId && boardScrollRef.current) {
+        focusBoardScrollLeftRef.current = boardScrollRef.current.scrollLeft;
+      }
+      pendingFocusTransitionRef.current = {
+        direction: nextColumnId ? "enter" : "exit",
+        from: captureKanbanColumnLayout(),
+      };
+    }
+    setFocusedColumnId(nextColumnId);
+  }, [captureKanbanColumnLayout]);
+
   const enterFocus = useCallback((userId: string) => {
-    withViewTransition(() => setFocusedColumnId(userId));
-  }, [withViewTransition]);
+    changeFocusColumn(userId);
+  }, [changeFocusColumn]);
   const exitFocus = useCallback(() => {
-    withViewTransition(() => setFocusedColumnId(null));
-  }, [withViewTransition]);
+    changeFocusColumn(null);
+  }, [changeFocusColumn]);
+
+  useLayoutEffect(() => {
+    const pending = pendingFocusTransitionRef.current;
+    if (!pending) return;
+    pendingFocusTransitionRef.current = null;
+
+    const current = new Map(kanbanColumnRefs.current);
+    if (boardScrollRef.current) {
+      boardScrollRef.current.scrollLeft = pending.direction === "enter" ? 0 : focusBoardScrollLeftRef.current;
+    }
+
+    const easing = "cubic-bezier(0.22, 1, 0.36, 1)";
+
+    current.forEach((el, key) => {
+      const previous = pending.from.get(key);
+      const nextRect = el.getBoundingClientRect();
+      const focusOrder = Number(el.dataset.focusOrder || "0");
+      const delay = previous ? 0 : Math.min(focusOrder * 34, 120);
+      const animation = previous
+        ? el.animate(
+            [
+              {
+                transform: `translate3d(${previous.rect.left - nextRect.left}px, ${previous.rect.top - nextRect.top}px, 0)`,
+                opacity: 1,
+              },
+              { transform: "translate3d(0, 0, 0)", opacity: 1 },
+            ],
+            { duration: KANBAN_FOCUS_TRANSITION_MS, easing, fill: "both" }
+          )
+        : el.animate(
+            [
+              { transform: "translate3d(20px, 0, 0)", opacity: 0 },
+              { transform: "translate3d(0, 0, 0)", opacity: 1 },
+            ],
+            { duration: KANBAN_FOCUS_TRANSITION_MS, delay, easing, fill: "both" }
+          );
+
+      animation.finished
+        .then(() => {
+          el.style.transform = "";
+          el.style.opacity = "";
+        })
+        .catch(() => undefined);
+    });
+
+    pending.from.forEach(({ rect, clone }, key) => {
+      if (current.has(key)) return;
+      clone.classList.add("kanban-focus-ghost");
+      clone.style.position = "fixed";
+      clone.style.left = `${rect.left}px`;
+      clone.style.top = `${rect.top}px`;
+      clone.style.width = `${rect.width}px`;
+      clone.style.height = `${rect.height}px`;
+      clone.style.margin = "0";
+      clone.style.zIndex = "30";
+      clone.style.pointerEvents = "none";
+      document.body.appendChild(clone);
+
+      const moveX = pending.direction === "enter" ? -18 : 18;
+      const animation = clone.animate(
+        [
+          { transform: "translate3d(0, 0, 0)", opacity: 1 },
+          { transform: `translate3d(${moveX}px, 0, 0)`, opacity: 0 },
+        ],
+        { duration: KANBAN_FOCUS_TRANSITION_MS - 40, easing, fill: "forwards" }
+      );
+      animation.finished
+        .then(() => clone.remove())
+        .catch(() => clone.remove());
+    });
+  }, [focusedColumnId]);
+
   useEffect(() => {
     if (!focusedColumnId) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") withViewTransition(() => setFocusedColumnId(null));
+      if (e.key === "Escape") changeFocusColumn(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focusedColumnId, withViewTransition]);
+  }, [focusedColumnId, changeFocusColumn]);
 
   const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -1978,7 +2098,7 @@ const KanbanCentralPage = () => {
       <DragDropContext onDragEnd={handleDragEnd}>
         <div ref={boardScrollRef} className="flex gap-4 overflow-x-auto pb-4">
           {(() => {
-            const rawColumns: Array<{ id: string; name: string; color: string; userId: string; focusKind?: 'production'|'evaluate'|'awaiting'|'review' }> = [
+            const rawColumns: KanbanDisplayColumn[] = [
               ...collaborators.map((c) => ({
                 id: c.userId,
                 name: c.fullName,
@@ -2016,6 +2136,7 @@ const KanbanCentralPage = () => {
             return displayColumns.map((column, _focusIdx) => {
             const columnUserId = column.userId;
             const focusKind = column.focusKind;
+            const columnVisualKey = getKanbanColumnVisualKey(column);
             const columnHistoryFilter = columnHistory.get(columnUserId);
             const isHistoryMode = !!columnHistoryFilter && !focusKind;
             const isHistoryLoadingCol = columnHistoryLoading.has(columnUserId);
@@ -2084,20 +2205,19 @@ const KanbanCentralPage = () => {
             const isReviewCollapsed = focusKind ? false : !expandedReview.has(column.id);
             const isEvaluateCollapsed = focusKind ? false : !expandedEvaluate.has(column.id);
 
-            const vtName = columnUserId === "__unassigned__"
-              ? `kcol-unassigned`
-              : (focusKind && focusKind !== 'production')
-                ? `kcol-${columnUserId}-${focusKind}`
-                : `kcol-${columnUserId}`;
             return (
               <Droppable key={column.id} droppableId={column.id}>
                 {(provided, snapshot) => (
                   <div
-                    ref={provided.innerRef}
+                    ref={(el) => {
+                      provided.innerRef(el);
+                      setKanbanColumnRef(columnVisualKey, el);
+                    }}
                     {...provided.droppableProps}
-                    style={{ viewTransitionName: vtName } as React.CSSProperties}
+                    data-kanban-column-key={columnVisualKey}
+                    data-focus-order={_focusIdx}
                     className={cn(
-                      "flex-shrink-0 w-[280px] bg-muted/30 rounded-xl border border-border/50 flex flex-col",
+                      "kanban-focus-column flex-shrink-0 w-[280px] bg-muted/30 rounded-xl border border-border/50 flex flex-col",
                       snapshot.isDraggingOver && "border-primary/50 bg-primary/5"
                     )}
                   >

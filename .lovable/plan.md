@@ -1,21 +1,33 @@
-## Escopo
-Tornar visível a transição entrar/sair do modo foco e permitir sair clicando no cabeçalho de qualquer sub-coluna do foco.
+Plano para corrigir o corte seco das colunas no Modo Foco:
 
-### 1. Animação real da reorganização das colunas
-`animate-fade-in` só toca no mount — quem já existia (a coluna da Lúcia à direita, por exemplo) não se move visivelmente para a esquerda. Para animar a mudança de posição sem lib pesada, usar a **View Transitions API** nativa do browser (`document.startViewTransition`), que faz FLIP automático entre estados do DOM.
+1. Substituir a dependência principal do `document.startViewTransition()` por uma animação manual do tipo FLIP.
+   - A API nativa não está produzindo efeito perceptível no preview atual.
+   - A nova solução vai medir a posição das colunas antes e depois da troca de modo e animar `transform`/`opacity`, que é leve e performático.
 
-Em `src/pages/KanbanCentralPage.tsx`:
-- Criar um helper `withViewTransition(fn)` que chama `document.startViewTransition(fn)` quando disponível, senão executa `fn()` direto (fallback silencioso).
-- Envolver as trocas de foco: `enterFocus`, `exitFocus` e o ESC handler passam por `withViewTransition`.
-- Em cada wrapper de coluna, adicionar `style={{ viewTransitionName: \`kcol-${column.id}\` }}`. Como a coluna do responsável mantém o mesmo `columnUserId` na sub-coluna "production" (ex.: `<uid>::production` vs `<uid>`), usar um nome estável baseado em `columnUserId` para essa sub-coluna, para que o browser reconheça como o mesmo elemento e faça o slide para a esquerda. As demais sub-colunas (avaliar/aguardando/revisão) recebem nomes únicos e entram com o cross-fade padrão da API.
-- Custo: nenhum listener JS de animação; o browser faz o snapshot e roda transição em compositor (bom para máquinas fracas). Sem impacto em dispositivos que não suportam a API (fallback direto).
+2. Criar referências estáveis para as colunas do Kanban.
+   - Cada coluna terá uma chave visual estável: colaborador, produção, avaliar, aguardando clientes e em revisão.
+   - Ao clicar em uma coluna à direita, a coluna principal do colaborador será animada da posição antiga até a esquerda, em vez de simplesmente “aparecer” lá.
 
-### 2. Sair do foco clicando no header de qualquer sub-coluna
-Hoje, em `KanbanCentralPage.tsx`, o botão-header só é clicável quando `!focusKind || focusKind === 'production'`. Sub-colunas Avaliar/Aguardando/Revisão ficam com `<div>` estático.
+3. Animar colunas que entram e saem.
+   - Ao entrar no foco:
+     - a coluna clicada desliza para a esquerda;
+     - as colunas dos outros colaboradores somem rapidamente com fade/leve deslocamento;
+     - as colunas extras do foco entram em sequência curta: Produção, Avaliar, Aguardando clientes, Em revisão.
+   - Ao sair do foco:
+     - o Kanban volta para as colunas por colaborador com transição suave;
+     - a coluna do colaborador focado retorna visualmente para sua posição normal.
 
-Alterar a condição `isFocusToggle` para: `columnUserId !== "__unassigned__" && !isHistoryMode && (!focusKind || focusKind === 'production' || focusKind)`. Simplificando: quando há `focusKind` (qualquer valor), o header vira botão de "Sair do foco". O ícone `Focus` continua sendo mostrado como indicador ativo apenas na sub-coluna do responsável (production) para não poluir; nas demais sub-colunas mostra apenas o título clicável com `title="Sair do modo foco"`.
+4. Preservar desempenho.
+   - Animar apenas `transform` e `opacity`.
+   - Usar duração curta, cerca de 220–300ms.
+   - Respeitar `prefers-reduced-motion`, mantendo troca instantânea para quem reduziu animações.
+   - Não alterar regras de negócio, filtros, drag-and-drop, dados ou agrupamentos.
 
-### 3. Detalhes técnicos
-- Arquivo alterado: `src/pages/KanbanCentralPage.tsx`.
-- Adicionar CSS mínimo em `src/index.css` para tunar a duração da view transition (`::view-transition-group(*) { animation-duration: 260ms; }`) — mantém a sensação "breve e rápida" pedida pelo usuário.
-- Sem novas libs, sem mudança de banco, sem mudança em edge functions.
+5. Manter a interação atual.
+   - O clique no título da coluna continua entrando/saindo do modo foco.
+   - Em modo foco, clicar no título de qualquer subcoluna continua saindo do foco.
+   - O botão/chip superior de sair do foco permanece como alternativa, mas a animação principal será nas colunas, não nele.
+
+Arquivos previstos:
+- `src/pages/KanbanCentralPage.tsx`: adicionar captura de layout, refs das colunas e estados temporários de animação.
+- `src/index.css`: adicionar classes específicas para animação FLIP das colunas do Kanban e fallback para movimento reduzido.
