@@ -89,6 +89,7 @@ type KanbanDisplayColumn = {
 type KanbanFocusPeekSession = {
   restoreColumnId: string | null;
   targetColumnId: string | null;
+  sourceUserId: string;
   anchorRect: { left: number; top: number; right: number; bottom: number };
 };
 
@@ -296,6 +297,7 @@ const KanbanCentralPage = () => {
       updatePeekFocusSession({
         restoreColumnId,
         targetColumnId: target,
+        sourceUserId: columnUserId,
         anchorRect,
       });
       changeFocusColumn(target);
@@ -332,10 +334,7 @@ const KanbanCentralPage = () => {
       const trigger = getPeekTrigger(clientX, clientY);
       const triggerUserId = trigger?.dataset.focusUserId || null;
       if (!triggerUserId) return false;
-      if (peekFocusSession.targetColumnId) {
-        return triggerUserId === peekFocusSession.targetColumnId;
-      }
-      return true;
+      return triggerUserId === peekFocusSession.sourceUserId;
     };
 
     const restoreIfOutside = (event: PointerEvent) => {
