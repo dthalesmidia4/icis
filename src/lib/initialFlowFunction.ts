@@ -22,6 +22,7 @@ export async function resolveInitialFunction(
       .select("function_key, name, position, active")
       .eq("tenant_id", tenantId)
       .eq("active", true)
+      .neq("function_key", "avaliar")
       .order("position"),
     demandTypeKey
       ? supabase
@@ -35,7 +36,7 @@ export async function resolveInitialFunction(
 
   const required = new Set(
     ((rules as any[]) || [])
-      .filter((r) => r.requirement === "required")
+      .filter((r) => r.requirement === "required" && r.function_key !== "avaliar")
       .map((r) => r.function_key),
   );
 
@@ -72,6 +73,7 @@ export async function resolveFunctionForAssignee(
       .select("function_key, position, active")
       .eq("tenant_id", tenantId)
       .eq("active", true)
+      .neq("function_key", "avaliar")
       .order("position"),
     demandTypeKey
       ? supabase
@@ -85,7 +87,8 @@ export async function resolveFunctionForAssignee(
       .select("function_key, allowed")
       .eq("tenant_id", tenantId)
       .eq("user_id", assigneeUserId)
-      .eq("allowed", true),
+      .eq("allowed", true)
+      .neq("function_key", "avaliar"),
   ]);
 
   if (!fns || fns.length === 0) return null;
