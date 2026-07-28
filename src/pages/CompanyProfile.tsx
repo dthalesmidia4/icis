@@ -432,7 +432,7 @@ export default function CompanyProfile() {
               >
                 Voltar
               </Button>
-              <Button type="submit" disabled={isSaving || !isDirty}>
+              <Button type="submit" disabled={isSaving}>
                 {isSaving ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
