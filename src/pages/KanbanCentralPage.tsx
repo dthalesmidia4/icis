@@ -2084,15 +2084,20 @@ const KanbanCentralPage = () => {
             const isReviewCollapsed = focusKind ? false : !expandedReview.has(column.id);
             const isEvaluateCollapsed = focusKind ? false : !expandedEvaluate.has(column.id);
 
+            const vtName = columnUserId === "__unassigned__"
+              ? `kcol-unassigned`
+              : (focusKind && focusKind !== 'production')
+                ? `kcol-${columnUserId}-${focusKind}`
+                : `kcol-${columnUserId}`;
             return (
               <Droppable key={column.id} droppableId={column.id}>
                 {(provided, snapshot) => (
                   <div
-                    key={`focus:${focusedColumnId ?? 'none'}:${column.id}`}
                     ref={provided.innerRef}
                     {...provided.droppableProps}
+                    style={{ viewTransitionName: vtName } as React.CSSProperties}
                     className={cn(
-                      "flex-shrink-0 w-[280px] bg-muted/30 rounded-xl border border-border/50 flex flex-col animate-fade-in",
+                      "flex-shrink-0 w-[280px] bg-muted/30 rounded-xl border border-border/50 flex flex-col",
                       snapshot.isDraggingOver && "border-primary/50 bg-primary/5"
                     )}
                   >
@@ -2101,7 +2106,8 @@ const KanbanCentralPage = () => {
                     <div className="px-3 py-3 flex flex-col border-b border-border/30">
                       <div className="flex items-center gap-2">
                         {(() => {
-                          const isFocusToggle = columnUserId !== "__unassigned__" && !isHistoryMode && (!focusKind || focusKind === 'production');
+                          const isFocusToggle = columnUserId !== "__unassigned__" && !isHistoryMode;
+
                           const nameInner = (
                             <>
                               <span
