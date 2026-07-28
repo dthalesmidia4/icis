@@ -1501,8 +1501,31 @@ export default function TaskCard({
                       value={card.assigned_to || "__none__"}
                       onValueChange={async (val) => {
                         const newVal = val === "__none__" ? "" : val;
-                        onCardChange({ ...card, assigned_to: newVal || null });
+                        // Ajusta a etapa para uma função permitida do novo responsável.
+                        let nextFn: string | null = card.current_function_key ?? null;
+                        if (newVal && card.tenant_id) {
+                          try {
+                            const resolved = await resolveFunctionForAssignee(
+                              card.tenant_id,
+                              newVal,
+                              card.demand_type_key ?? null,
+                              card.current_function_key ?? null,
+                            );
+                            if (resolved) nextFn = resolved;
+                          } catch (e) { /* mantém etapa atual */ }
+                        } else if (!newVal) {
+                          nextFn = null;
+                        }
+                        onCardChange({ ...card, assigned_to: newVal || null, current_function_key: nextFn });
                         await onSave("assigned_to", newVal);
+                        if (nextFn !== (card.current_function_key ?? null) && !isDraft) {
+                          try {
+                            await supabase
+                              .from("demands")
+                              .update({ current_function_key: nextFn } as any)
+                              .eq("id", card.id);
+                          } catch (e) { /* noop */ }
+                        }
                       }}
                       disabled={readOnly}
                     >
