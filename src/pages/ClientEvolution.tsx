@@ -710,18 +710,18 @@ function TableRow({
   const total = sequence.length;
   const doneCount = isDone ? total : Math.max(0, stageIndex);
 
-  const prazoTone = overdue
-    ? "text-destructive font-medium"
-    : isDone
-      ? "text-muted-foreground"
-      : "text-foreground";
-
   const areaBar = workArea === "midia"
     ? "bg-primary"
     : workArea === "sistemas"
       ? "bg-slate-400 dark:bg-slate-500"
       : "bg-transparent";
   const areaTitle = workArea === "midia" ? "Mídia" : workArea === "sistemas" ? "Sistemas" : "Sem área";
+
+  const fmtTime = (t?: string | null) => (t ? t.slice(0, 5) : "");
+  const startDate = card.due_date || null;
+  const startTime = fmtTime((card as any).due_time);
+  const endDate = card.delivery_date || null;
+  const endTime = fmtTime((card as any).delivery_time);
 
   return (
     <tr
@@ -753,6 +753,50 @@ function TableRow({
       <td className="px-2 py-2 text-[12px]">
         <div className="min-w-0 truncate">{stageCell()}</div>
       </td>
+      <td className="px-2 py-2 hidden xl:table-cell text-muted-foreground text-[12px] truncate">
+        {isDone ? "—" : nextStageName || <span className="text-muted-foreground/60">—</span>}
+      </td>
+      <td className="px-2 py-2 text-[12px] whitespace-nowrap">
+        {startDate || endDate ? (
+          <div className="inline-flex items-center gap-1.5 flex-wrap">
+            {startDate && (
+              <span
+                className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 tabular-nums"
+                title="Início da produção"
+              >
+                <PlayCircle className="h-3 w-3" />
+                {formatDate(startDate)}
+                {startTime && <span className="opacity-80">· {startTime}</span>}
+              </span>
+            )}
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 tabular-nums",
+                overdue
+                  ? "bg-destructive/10 text-destructive"
+                  : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+              )}
+              title="Término da produção"
+            >
+              <Flag className="h-3 w-3" />
+              {endDate ? formatDate(endDate) : "—"}
+              {endTime && <span className="opacity-80">· {endTime}</span>}
+            </span>
+          </div>
+        ) : (
+          <span className="text-muted-foreground/60">—</span>
+        )}
+      </td>
+      <td className="px-2 py-2 text-[12px] tabular-nums whitespace-nowrap text-muted-foreground">
+        {card.publish_date ? (
+          <span title={card.publish_time || undefined}>
+            {formatDate(card.publish_date)}
+            {card.publish_time && <span className="text-[11px] opacity-80"> · {card.publish_time.slice(0, 5)}</span>}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/60">—</span>
+        )}
+      </td>
       <td className="px-2 py-2 hidden lg:table-cell">
         {total > 0 ? (
           <div className="flex items-center gap-1.5">
@@ -781,22 +825,6 @@ function TableRow({
         ) : (
           <span className="text-muted-foreground text-[11px]">—</span>
         )}
-      </td>
-      <td className="px-2 py-2 hidden xl:table-cell text-muted-foreground text-[12px] truncate">
-        {isDone ? "—" : nextStageName || <span className="text-muted-foreground/60">—</span>}
-      </td>
-      <td className="px-2 py-2 text-[12px] tabular-nums whitespace-nowrap text-muted-foreground">
-        {card.publish_date ? (
-          <span title={card.publish_time || undefined}>
-            {formatDate(card.publish_date)}
-            {card.publish_time && <span className="text-[11px] opacity-80"> · {card.publish_time.slice(0, 5)}</span>}
-          </span>
-        ) : (
-          <span className="text-muted-foreground/60">—</span>
-        )}
-      </td>
-      <td className={cn("px-3 py-2 whitespace-nowrap text-[12px] tabular-nums", prazoTone)}>
-        {card.delivery_date ? formatDate(card.delivery_date) : "—"}
       </td>
     </tr>
   );
