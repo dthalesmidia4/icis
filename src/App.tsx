@@ -57,6 +57,7 @@ import ContentHistory from "./pages/ContentHistory";
 import CollaboratorDemands from "./pages/CollaboratorDemands";
 import Settings from "./pages/Settings";
 import VideoReferencesLibrary from "./pages/VideoReferencesLibrary";
+import ClientEvolution from "./pages/ClientEvolution";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -334,6 +335,15 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <CronogramaGlobal />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/client-evolution" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <ClientEvolution />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>

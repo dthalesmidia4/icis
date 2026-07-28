@@ -28,6 +28,7 @@ export const CLIENT_HUB_BUTTONS = [
   { id: 'client_aprovar_producao', label: 'Aprovar Produção', description: 'Aprovação de demandas' },
   { id: 'client_demandas_reprovadas', label: 'Demandas Reprovadas', description: 'Visualização de demandas reprovadas' },
   { id: 'client_cronograma_atual', label: 'Cronograma Atual', description: 'Cronograma do período atual' },
+  { id: 'client_evolucao', label: 'Evolução das Demandas', description: 'Visão geral do andamento das demandas por etapa do fluxo' },
   { id: 'client_historico', label: 'Histórico de Períodos', description: 'Histórico de períodos anteriores' },
   { id: 'client_identidade_visual', label: 'Identidade Visual', description: 'Gestão da identidade visual' },
   { id: 'client_conteudo_avulso', label: 'Conteúdo Avulso', description: 'Criação de conteúdo avulso' },
