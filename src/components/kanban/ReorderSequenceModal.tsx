@@ -128,6 +128,28 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
           Pula finais de semana/feriados. Cards em <b>Aguardando cliente</b> não são reagendados.
         </div>
 
+        {showPublishToggle && (
+          <div className="flex items-start gap-3 mb-3 p-2.5 rounded-md border border-border/60 bg-muted/30">
+            <Switch
+              id="prioritize-publish"
+              checked={prioritizeByPublish}
+              onCheckedChange={setPrioritizeByPublish}
+              disabled={loading || applying}
+            />
+            <div className="flex-1 min-w-0">
+              <Label htmlFor="prioritize-publish" className="text-sm font-medium cursor-pointer">
+                Priorizar cards com data de publicação
+              </Label>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {prioritizeByPublish
+                  ? "Reordena a sequência para publicar antes o que tem prazo mais próximo."
+                  : "Preserva a sequência atual da coluna (data de início configurada)."}
+                {" "}O card em execução no topo é sempre preservado.
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <Badge variant="secondary">Total: {proposals.length}</Badge>
           <Badge variant="secondary">Reagendados: {changedCount}</Badge>
