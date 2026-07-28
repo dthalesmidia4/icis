@@ -154,6 +154,16 @@ const KanbanCentralPage = () => {
       return next;
     });
   }, []);
+  // Focus mode: quando setado, decompõe a coluna do responsável em sub-colunas por agrupamento.
+  const [focusedColumnId, setFocusedColumnId] = useState<string | null>(null);
+  const enterFocus = useCallback((userId: string) => setFocusedColumnId(userId), []);
+  const exitFocus = useCallback(() => setFocusedColumnId(null), []);
+  useEffect(() => {
+    if (!focusedColumnId) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setFocusedColumnId(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [focusedColumnId]);
   const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const savingDraftRef = useRef(false);
