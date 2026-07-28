@@ -37,11 +37,24 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   const [proposals, setProposals] = useState<ReorderProposal[]>([]);
   const { config: workHours } = useWorkHoursConfig(tenantId ?? null);
 
+  const showPublishToggle = hasPublishDateCandidates(cards);
+  const storageKey = `reorder-priority-mode:${tenantId || "default"}`;
+  const [prioritizeByPublish, setPrioritizeByPublish] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(storageKey) === "1";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(storageKey, prioritizeByPublish ? "1" : "0");
+    }
+  }, [prioritizeByPublish, storageKey]);
+
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setLoading(true);
-    computeReorder(cards, { workHours })
+    computeReorder(cards, { workHours, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
       .then((r) => {
         if (!cancelled) setProposals(r);
       })
@@ -55,7 +68,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     return () => {
       cancelled = true;
     };
-  }, [open, cards, workHours]);
+  }, [open, cards, workHours, prioritizeByPublish, showPublishToggle]);
 
   const changedCount = proposals.filter((p) => p.changed && !p.skipped).length;
   const warningCount = proposals.filter((p) => p.warning).length;
