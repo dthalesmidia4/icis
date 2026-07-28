@@ -2151,7 +2151,13 @@ const KanbanCentralPage = () => {
       {/* Kanban Board (columns = collaborators) */}
 
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div ref={boardScrollRef} className="flex gap-4 overflow-x-auto pb-4">
+        <div
+          ref={boardScrollRef}
+          className="flex gap-4 overflow-x-auto pb-4"
+          onPointerEnter={handleBoardPointerEnter}
+          onPointerLeave={(e) => handleBoardPointerLeave(e.pointerType)}
+        >
+
           {(() => {
             const rawColumns: KanbanDisplayColumn[] = [
               ...collaborators.map((c) => ({
