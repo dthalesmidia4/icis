@@ -12,8 +12,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { computeReorder, type ReorderCardInput, type ReorderProposal } from "@/lib/reorderSequence";
+import { computeReorder, hasPublishDateCandidates, type ReorderCardInput, type ReorderProposal } from "@/lib/reorderSequence";
 import { useWorkHoursConfig } from "@/hooks/useWorkHoursConfig";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface Props {
   open: boolean;
@@ -35,11 +37,24 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   const [proposals, setProposals] = useState<ReorderProposal[]>([]);
   const { config: workHours } = useWorkHoursConfig(tenantId ?? null);
 
+  const showPublishToggle = hasPublishDateCandidates(cards);
+  const storageKey = `reorder-priority-mode:${tenantId || "default"}`;
+  const [prioritizeByPublish, setPrioritizeByPublish] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(storageKey) === "1";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(storageKey, prioritizeByPublish ? "1" : "0");
+    }
+  }, [prioritizeByPublish, storageKey]);
+
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setLoading(true);
-    computeReorder(cards, { workHours })
+    computeReorder(cards, { workHours, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
       .then((r) => {
         if (!cancelled) setProposals(r);
       })
@@ -53,7 +68,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     return () => {
       cancelled = true;
     };
-  }, [open, cards, workHours]);
+  }, [open, cards, workHours, prioritizeByPublish, showPublishToggle]);
 
   const changedCount = proposals.filter((p) => p.changed && !p.skipped).length;
   const warningCount = proposals.filter((p) => p.warning).length;
@@ -112,6 +127,28 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
           Janela {workHours.start}–{workHours.end}, almoço {workHours.lunchStart}–{workHours.lunchEnd} ({workHours.tz.replace("America/", "")}).
           Pula finais de semana/feriados. Cards em <b>Aguardando cliente</b> não são reagendados.
         </div>
+
+        {showPublishToggle && (
+          <div className="flex items-start gap-3 mb-3 p-2.5 rounded-md border border-border/60 bg-muted/30">
+            <Switch
+              id="prioritize-publish"
+              checked={prioritizeByPublish}
+              onCheckedChange={setPrioritizeByPublish}
+              disabled={loading || applying}
+            />
+            <div className="flex-1 min-w-0">
+              <Label htmlFor="prioritize-publish" className="text-sm font-medium cursor-pointer">
+                Priorizar cards com data de publicação
+              </Label>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {prioritizeByPublish
+                  ? "Reordena a sequência para publicar antes o que tem prazo mais próximo."
+                  : "Preserva a sequência atual da coluna (data de início configurada)."}
+                {" "}O card em execução no topo é sempre preservado.
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <Badge variant="secondary">Total: {proposals.length}</Badge>
