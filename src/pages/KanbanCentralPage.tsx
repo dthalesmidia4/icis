@@ -738,69 +738,85 @@ const KanbanCentralPage = () => {
     }
   };
 
-  // Buscar histórico agrupado por colaborador quando o modo "Registro de Cards" está ativo
-  const fetchHistory = useCallback(async () => {
-    if (!tenantId) return;
-    setHistoryLoading(true);
+  // Calcula o range ISO para uma configuração de histórico de coluna.
+  const computeHistoryRange = useCallback((filter: ColumnHistoryFilter): { gte: string; lte?: string } => {
+    if (filter.range === "today") {
+      // Dia calendário em America/Sao_Paulo (UTC-3, sem DST atualmente).
+      const TZ_OFFSET_MIN = -180;
+      const now = new Date();
+      const spNow = new Date(now.getTime() + (now.getTimezoneOffset() - TZ_OFFSET_MIN) * 60000);
+      const y = spNow.getUTCFullYear();
+      const m = String(spNow.getUTCMonth() + 1).padStart(2, "0");
+      const d = String(spNow.getUTCDate()).padStart(2, "0");
+      return { gte: `${y}-${m}-${d}T00:00:00-03:00`, lte: `${y}-${m}-${d}T23:59:59.999-03:00` };
+    }
+    if (filter.range === "day" && filter.dayISO) {
+      return { gte: `${filter.dayISO}T00:00:00-03:00`, lte: `${filter.dayISO}T23:59:59.999-03:00` };
+    }
+    if (filter.range === "custom" && filter.fromISO) {
+      const lte = filter.toISO
+        ? `${filter.toISO}T23:59:59.999-03:00`
+        : `${filter.fromISO}T23:59:59.999-03:00`;
+      return { gte: `${filter.fromISO}T00:00:00-03:00`, lte };
+    }
+    const days = Number(filter.range) || 7;
+    return { gte: new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString() };
+  }, []);
+
+  // Buscar histórico de entregas de UMA coluna (colaborador) específica.
+  const fetchColumnHistory = useCallback(async (columnId: string, filter: ColumnHistoryFilter) => {
+    if (!tenantId || !columnId) return;
+    setColumnHistoryLoading((prev) => {
+      const next = new Set(prev);
+      next.add(columnId);
+      return next;
+    });
     try {
-      let gte: string;
-      let lte: string | null = null;
-      if (historyRange === "today") {
-        // Dia calendário no timezone America/Sao_Paulo (UTC-3, sem DST atualmente)
-        const TZ_OFFSET_MIN = -180; // America/Sao_Paulo
-        const now = new Date();
-        // hora "local SP" = UTC + (-offset). Descobre YYYY-MM-DD em SP.
-        const spNow = new Date(now.getTime() + (now.getTimezoneOffset() - TZ_OFFSET_MIN) * 60000);
-        const y = spNow.getUTCFullYear();
-        const m = String(spNow.getUTCMonth() + 1).padStart(2, "0");
-        const d = String(spNow.getUTCDate()).padStart(2, "0");
-        gte = `${y}-${m}-${d}T00:00:00-03:00`;
-        lte = `${y}-${m}-${d}T23:59:59.999-03:00`;
-      } else {
-        const days = Number(historyRange) || 7;
-        gte = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-      }
+      const { gte, lte } = computeHistoryRange(filter);
       let q = supabase
         .from("demand_flow_history" as any)
-        .select("demand_id, to_user_id, created_at")
+        .select("demand_id, created_at")
         .eq("tenant_id", tenantId)
-        .not("to_user_id", "is", null)
+        .eq("to_user_id", columnId)
         .gte("created_at", gte);
       if (lte) q = q.lte("created_at", lte);
-      const { data, error } = await q
-        .order("created_at", { ascending: false })
-        .limit(5000);
+      const { data, error } = await q.order("created_at", { ascending: false }).limit(2000);
       if (error) throw error;
-      const map = new Map<string, Map<string, string>>(); // userId -> (demandId -> lastSeenAt)
+      const seen = new Map<string, string>();
       (data || []).forEach((row: any) => {
-        const uid = row.to_user_id as string;
-        const did = row.demand_id as string;
-        const at = row.created_at as string;
-        if (!map.has(uid)) map.set(uid, new Map());
-        const inner = map.get(uid)!;
-        if (!inner.has(did)) inner.set(did, at); // primeira ocorrência = mais recente (ordenado desc)
+        if (!seen.has(row.demand_id)) seen.set(row.demand_id, row.created_at);
       });
-      const result = new Map<string, Array<{ demandId: string; lastSeenAt: string }>>();
-      map.forEach((inner, uid) => {
-        result.set(uid, Array.from(inner.entries()).map(([demandId, lastSeenAt]) => ({ demandId, lastSeenAt })));
+      const rows = Array.from(seen.entries()).map(([demandId, lastSeenAt]) => ({ demandId, lastSeenAt }));
+      setColumnHistoryRows((prev) => {
+        const next = new Map(prev);
+        next.set(columnId, rows);
+        return next;
       });
-      setHistoryByUser(result);
     } catch (err) {
-      console.error("[flowHistory] fetch error:", err);
+      console.error("[flowHistory] column fetch error:", err);
     } finally {
-      setHistoryLoading(false);
+      setColumnHistoryLoading((prev) => {
+        const next = new Set(prev);
+        next.delete(columnId);
+        return next;
+      });
     }
-  }, [tenantId, historyRange]);
+  }, [tenantId, computeHistoryRange]);
 
-
+  // Recarregar todas as colunas ativas quando o filtro mudar.
   useEffect(() => {
-    if (viewMode === "history") fetchHistory();
-  }, [viewMode, fetchHistory]);
+    columnHistory.forEach((filter, columnId) => {
+      fetchColumnHistory(columnId, filter);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnHistory]);
 
   useRealtimeDemandFlowHistory({
     tenantId,
-    enabled: !!tenantId && viewMode === "history",
-    onInsert: () => fetchHistory(),
+    enabled: !!tenantId && columnHistory.size > 0,
+    onInsert: () => {
+      columnHistory.forEach((filter, columnId) => fetchColumnHistory(columnId, filter));
+    },
   });
 
   useRealtimeFlowConfig({
