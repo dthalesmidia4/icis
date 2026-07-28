@@ -365,6 +365,61 @@ export default function CompanyProfile() {
               </div>
             </div>
 
+            {/* Seção 3 - Horário de expediente */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-lg font-semibold text-primary">
+                <Clock className="h-5 w-5" />
+                <h3>Horário de expediente</h3>
+              </div>
+              <Separator />
+              <p className="text-sm text-muted-foreground">
+                Usado pelo Kanban ao reorganizar a sequência de cards de cada colaborador. O sistema respeita a janela
+                de trabalho, o intervalo de almoço e pula finais de semana e feriados.
+              </p>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="wh_start">Início do expediente</Label>
+                  <Input
+                    id="wh_start"
+                    type="time"
+                    value={workHours.start}
+                    onChange={(e) => setWorkHours((w) => ({ ...w, start: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="wh_end">Fim do expediente</Label>
+                  <Input
+                    id="wh_end"
+                    type="time"
+                    value={workHours.end}
+                    onChange={(e) => setWorkHours((w) => ({ ...w, end: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="wh_lstart">Início do almoço</Label>
+                  <Input
+                    id="wh_lstart"
+                    type="time"
+                    value={workHours.lunch_start}
+                    onChange={(e) => setWorkHours((w) => ({ ...w, lunch_start: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="wh_lend">Fim do almoço</Label>
+                  <Input
+                    id="wh_lend"
+                    type="time"
+                    value={workHours.lunch_end}
+                    onChange={(e) => setWorkHours((w) => ({ ...w, lunch_end: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+
             <Separator />
 
             {/* Botões de ação */}
