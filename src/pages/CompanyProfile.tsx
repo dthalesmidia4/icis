@@ -42,7 +42,22 @@ interface TenantSettings {
     country?: string;
   };
   website?: string;
+  work_hours?: {
+    start?: string;
+    end?: string;
+    lunch_start?: string;
+    lunch_end?: string;
+    tz?: string;
+  };
 }
+
+const DEFAULT_WORK_HOURS = {
+  start: "09:00",
+  end: "18:00",
+  lunch_start: "12:00",
+  lunch_end: "13:30",
+  tz: "America/Sao_Paulo",
+};
 
 export default function CompanyProfile() {
   const navigate = useNavigate();
