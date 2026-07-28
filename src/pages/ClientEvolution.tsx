@@ -442,7 +442,7 @@ const ClientEvolution = () => {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <div className="flex rounded-md border border-border overflow-hidden text-xs">
-            {(["active", "all"] as ScopeFilter[]).map((s) => (
+            {(["all", "active"] as ScopeFilter[]).map((s) => (
               <button
                 key={s}
                 onClick={() => setScope(s)}
