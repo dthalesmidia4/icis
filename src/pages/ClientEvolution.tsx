@@ -210,20 +210,16 @@ const ClientEvolution = () => {
     }
     setLoading(true);
     try {
-      let q = supabase
+      // Sempre buscamos tudo do cliente. O escopo (Ativas/Todas) é aplicado em memória
+      // com base no status final, evitando esconder cards em andamento que tenham
+      // archived_at setado por fluxos intermediários (ex: retorno do cliente, replan).
+      const { data: demands } = await supabase
         .from("demands")
         .select("*, pipeline_statuses!inner(name, color), tenant_companies!inner(name, fantasy_name)")
         .eq("tenant_id", tenantId)
         .eq("client_id", selectedClient.id)
         .eq("is_draft", false)
         .order("updated_at", { ascending: false });
-
-      // Scope: "Ativas" = não arquivadas. "Todas" = inclui arquivadas.
-      if (scope === "active") {
-        q = q.is("archived_at", null);
-      }
-
-      const { data: demands } = await q;
 
       if (demands) {
         const mapped: KanbanCardData[] = demands.map((d: any) => ({
