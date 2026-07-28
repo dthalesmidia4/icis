@@ -156,14 +156,29 @@ const KanbanCentralPage = () => {
   }, []);
   // Focus mode: quando setado, decompõe a coluna do responsável em sub-colunas por agrupamento.
   const [focusedColumnId, setFocusedColumnId] = useState<string | null>(null);
-  const enterFocus = useCallback((userId: string) => setFocusedColumnId(userId), []);
-  const exitFocus = useCallback(() => setFocusedColumnId(null), []);
+  const withViewTransition = useCallback((fn: () => void) => {
+    const anyDoc = document as any;
+    if (typeof anyDoc.startViewTransition === "function") {
+      anyDoc.startViewTransition(() => fn());
+    } else {
+      fn();
+    }
+  }, []);
+  const enterFocus = useCallback((userId: string) => {
+    withViewTransition(() => setFocusedColumnId(userId));
+  }, [withViewTransition]);
+  const exitFocus = useCallback(() => {
+    withViewTransition(() => setFocusedColumnId(null));
+  }, [withViewTransition]);
   useEffect(() => {
     if (!focusedColumnId) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setFocusedColumnId(null); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") withViewTransition(() => setFocusedColumnId(null));
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focusedColumnId]);
+  }, [focusedColumnId, withViewTransition]);
+
   const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const savingDraftRef = useRef(false);
