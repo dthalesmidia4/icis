@@ -328,9 +328,10 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
         </DialogHeader>
 
         <Tabs defaultValue="participacao" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-2xl grid-cols-3">
             <TabsTrigger value="participacao">Participação</TabsTrigger>
             <TabsTrigger value="tempo">Tempo estimado</TabsTrigger>
+            <TabsTrigger value="alocacao">Alocação por área</TabsTrigger>
           </TabsList>
 
           <TabsContent value="participacao" className="mt-4">
