@@ -317,7 +317,24 @@ function scheduledSpanMinutes(card: ReorderCardInput, ctx: WorkCtx): number | nu
   return Math.max(5, rawMin - lunchDeductions);
 }
 
-function estimateDurationBase(card: ReorderCardInput, ctx: WorkCtx): number {
+export type StageDurationOverrides = Record<string, Partial<Record<DurationTypeGroup, number>>>;
+
+function pickFromOverrides(
+  overrides: StageDurationOverrides | undefined,
+  stage: string,
+  group: DurationTypeGroup,
+): number | null {
+  const row = overrides?.[stage];
+  if (!row) return null;
+  const v = row[group] ?? row.default;
+  return typeof v === "number" && v > 0 ? v : null;
+}
+
+function estimateDurationBase(
+  card: ReorderCardInput,
+  ctx: WorkCtx,
+  overrides?: StageDurationOverrides,
+): number {
   if (card.is_daily_card) return 20;
   const group = typeGroup(card);
   const stage = (card.current_function_key || "").toLowerCase();
@@ -326,11 +343,15 @@ function estimateDurationBase(card: ReorderCardInput, ctx: WorkCtx): number {
   if (isOtherType(card)) {
     const span = scheduledSpanMinutes(card, ctx);
     if (span && span > 0) return Math.min(span, workingMinutesPerDay(ctx) * 5); // teto 5 jornadas
+    const overridden = pickFromOverrides(overrides, stage, "outro");
+    if (overridden !== null) return overridden;
     const stageRow = DURATION_MATRIX[stage];
     if (stageRow) return stageRow.outro ?? stageRow.default;
     return FALLBACK_STAGE_DURATION.outro;
   }
 
+  const overridden = pickFromOverrides(overrides, stage, group);
+  if (overridden !== null) return overridden;
   const stageRow = DURATION_MATRIX[stage];
   if (stageRow) return stageRow[group] ?? stageRow.default;
   return FALLBACK_STAGE_DURATION[group];
