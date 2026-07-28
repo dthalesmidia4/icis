@@ -10,6 +10,7 @@ import { Loader2, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRealtimeFlowConfig } from "@/hooks/realtime";
 import { DURATION_MATRIX, type DurationTypeGroup } from "@/lib/reorderSequence";
+import { AreaAllocationTab } from "@/components/config/AreaAllocationTab";
 
 interface Props {
   open: boolean;
@@ -327,9 +328,10 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
         </DialogHeader>
 
         <Tabs defaultValue="participacao" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-2xl grid-cols-3">
             <TabsTrigger value="participacao">Participação</TabsTrigger>
             <TabsTrigger value="tempo">Tempo estimado</TabsTrigger>
+            <TabsTrigger value="alocacao">Alocação por área</TabsTrigger>
           </TabsList>
 
           <TabsContent value="participacao" className="mt-4">
@@ -491,6 +493,13 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                 </tbody>
               </table>
             </div>
+          </TabsContent>
+
+          <TabsContent value="alocacao" className="mt-4">
+            <p className="text-xs text-muted-foreground mb-3">
+              Blocos de horário de cada colaborador por dia da semana × área (Mídia ou Sistemas). Vazios significam sem alocação naquela área. A área padrão define em qual área nascem as demandas criadas por esse colaborador.
+            </p>
+            <AreaAllocationTab />
           </TabsContent>
         </Tabs>
       </DialogContent>
