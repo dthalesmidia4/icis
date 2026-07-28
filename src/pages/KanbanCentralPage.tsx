@@ -1845,7 +1845,7 @@ const KanbanCentralPage = () => {
                         <Badge variant="secondary" className="text-xs ml-auto">
                           {allColumnCards.length}
                         </Badge>
-                        {column.id !== "__unassigned__" && viewMode !== "history" && (
+                        {column.id !== "__unassigned__" && !isHistoryMode && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1859,11 +1859,131 @@ const KanbanCentralPage = () => {
                             <Focus className="h-3.5 w-3.5" />
                           </button>
                         )}
+                        {column.id !== "__unassigned__" && (
+                          <Popover
+                            open={historyPopoverOpen === column.id}
+                            onOpenChange={(o) => setHistoryPopoverOpen(o ? column.id : null)}
+                          >
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={(e) => e.stopPropagation()}
+                                className={cn(
+                                  "h-6 w-6 inline-flex items-center justify-center rounded-md transition-colors",
+                                  isHistoryMode
+                                    ? "text-primary bg-primary/10"
+                                    : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                )}
+                                title="Registro de entregas do colaborador"
+                                aria-label={`Registro de entregas: ${column.name}`}
+                              >
+                                <History className="h-3.5 w-3.5" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 p-2" align="end">
+                              <div className="text-xs font-semibold text-foreground px-2 py-1">
+                                Registro de entregas
+                              </div>
+                              <div className="text-[11px] text-muted-foreground px-2 pb-2">
+                                Mostra apenas o que passou por {column.name}.
+                              </div>
+                              {[
+                                { key: "today" as const, label: "Hoje" },
+                                { key: "7" as const, label: "Últimos 7 dias" },
+                                { key: "30" as const, label: "Últimos 30 dias" },
+                              ].map((opt) => (
+                                <button
+                                  key={opt.key}
+                                  type="button"
+                                  onClick={() => {
+                                    setColumnHistory((prev) => {
+                                      const next = new Map(prev);
+                                      next.set(column.id, { range: opt.key });
+                                      return next;
+                                    });
+                                    setHistoryPopoverOpen(null);
+                                  }}
+                                  className={cn(
+                                    "w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent transition-colors",
+                                    columnHistoryFilter?.range === opt.key && "bg-primary/10 text-primary font-medium"
+                                  )}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                              <div className="border-t border-border/50 my-2" />
+                              <div className="px-2 pb-1 text-[11px] text-muted-foreground">Data específica</div>
+                              <input
+                                type="date"
+                                className="w-full text-sm px-2 py-1.5 rounded bg-background border border-border"
+                                value={columnHistoryFilter?.range === "day" ? (columnHistoryFilter.dayISO || "") : ""}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  if (!v) return;
+                                  setColumnHistory((prev) => {
+                                    const next = new Map(prev);
+                                    next.set(column.id, { range: "day", dayISO: v });
+                                    return next;
+                                  });
+                                }}
+                              />
+                              {isHistoryMode && (
+                                <>
+                                  <div className="border-t border-border/50 my-2" />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setColumnHistory((prev) => {
+                                        const next = new Map(prev);
+                                        next.delete(column.id);
+                                        return next;
+                                      });
+                                      setColumnHistoryRows((prev) => {
+                                        const next = new Map(prev);
+                                        next.delete(column.id);
+                                        return next;
+                                      });
+                                      setHistoryPopoverOpen(null);
+                                    }}
+                                    className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-destructive/10 text-destructive"
+                                  >
+                                    Desativar registro
+                                  </button>
+                                </>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        )}
+                        {column.id !== "__unassigned__" && canReorder && !isHistoryMode && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReorderModalColumnId(column.id);
+                            }}
+                            className="h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            title="Reorganizar sequência (IA)"
+                            aria-label={`Reorganizar sequência: ${column.name}`}
+                          >
+                            <Wand2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
-                      {viewMode === "history" && (
-                        <span className="text-[11px] text-muted-foreground mt-1">
-                          {allColumnCards.length === 1 ? "1 card passou por aqui" : `${allColumnCards.length} cards passaram por aqui`}
-                        </span>
+                      {isHistoryMode && (
+                        <div className="mt-1 flex items-center gap-1 text-[11px] text-primary">
+                          <History className="h-3 w-3" />
+                          <span className="truncate">
+                            Registro —{" "}
+                            {columnHistoryFilter?.range === "today"
+                              ? "hoje"
+                              : columnHistoryFilter?.range === "day"
+                                ? columnHistoryFilter.dayISO
+                                : columnHistoryFilter?.range === "custom"
+                                  ? `${columnHistoryFilter.fromISO} → ${columnHistoryFilter.toISO || columnHistoryFilter.fromISO}`
+                                  : `últimos ${columnHistoryFilter?.range} dias`}
+                            {isHistoryLoadingCol ? " · carregando..." : ""}
+                          </span>
+                        </div>
                       )}
                     </div>
 
