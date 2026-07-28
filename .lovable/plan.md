@@ -1,69 +1,70 @@
-## Objetivo
+## Ajustes na tela Evolução das Demandas
 
-Transformar a tela **Evolução das Demandas** (`/client-evolution`) numa visualização tipo planilha, densa e escaneável, eliminando repetições (nome da empresa, rótulos redundantes) e priorizando informação por linha.
+Cinco correções focadas em `src/pages/ClientEvolution.tsx`. Sem mudança de dados ou lógica de negócio.
 
-## Problema atual
+### 1. Header em uma linha só
 
-Cada demanda é um card grande com:
-- Nome da empresa repetido em toda linha (já está no header da página)
-- Micro-stepper horizontal ocupa muita altura
-- Metadados (etapa atual, próxima, tempo, responsável) em blocos separados
-- Densidade baixa: ~4-6 demandas por tela
-
-## Nova visualização: tabela densa
-
-Uma tabela sticky-header, uma linha por demanda, colunas alinhadas verticalmente para leitura rápida.
-
-### Colunas (esq → dir)
+Hoje o `BackButton` fica isolado no topo e o título/subtítulo centralizado ocupa outra faixa vertical. Novo layout:
 
 ```text
-Título              Tipo   Responsável   Etapa atual · há    Progresso           Prev. próxima   Prazo
------------------------------------------------------------------------------------------------------
-Como ler seu...     Vídeo  Lúcia         Criar arte · 2h     ●●●○○○○ 3/7         Revisar hoje    28/07
-Atendimento 24h...  Post   Letícia       Planejar · 1d       ●●○○○○○ 2/7         Criar arte 29/07 30/07
+[← Voltar]   Evolução das Demandas · SmartVety                          [ativas | período ▾]
 ```
 
-- **Título**: truncado com tooltip; sem prefixo da empresa (já removido via `stripBrandPrefix`)
-- **Tipo**: chip compacto (Post / Carrossel / Vídeo / Story)
-- **Responsável**: só primeiro nome + avatar dot da cor da área (mídia/sistemas)
-- **Etapa atual · há**: nome da etapa + tempo relativo inline ("Criar arte · 2h")
-- **Progresso**: mini-stepper de bolinhas (uma por etapa do fluxo), preenchidas até a atual; hover mostra nome de cada etapa
-- **Prev. próxima**: nome da próxima etapa + data prevista quando calculável
-- **Prazo**: `due_date` com cor (vermelho se atrasado, âmbar se hoje/amanhã, neutro caso contrário)
-- Linha inteira clicável → abre `TaskCard`
+- `BackButton` à esquerda, título+subtítulo (inline, separados por `·`) no centro/esq., controles à direita, tudo em uma única `flex` row.
+- Ícone `Activity` fica antes do título, mesma linha.
 
-### Agrupamento e ordenação
+### 2. Indicador de área (Mídia × Sistemas)
 
-- **Agrupar por etapa** (padrão) com header sticky por grupo mostrando contagem — clicar no bloco do pipeline no topo filtra o grupo, como já faz hoje
-- Alternativa via toggle: **Agrupar por responsável** ou **Sem agrupamento** (ordena por prazo)
-- Concluídas colapsadas por padrão num grupo "Concluídas (N)" no fim
+Cada linha da tabela ganha um marcador visual da `work_area` da demanda:
 
-### Resumo e pipeline (topo)
+- Coluna estreita à esquerda do título com uma barra vertical colorida (2px), sem header, sem ocupar largura significativa:
+  - `midia` → cor primary (azul)
+  - `sistemas` → âmbar suave (mesmo pastel usado no Kanban)
+  - sem área → cinza neutro
+- Tooltip no hover mostra "Mídia" / "Sistemas".
 
-Manter, mas mais compactos:
-- Cards de resumo em uma faixa fina única (Total · Em andamento · Concluídas · Fila · Atrasadas + barra de progresso global inline)
-- Barra do pipeline por etapa continua clicável para filtrar; ativa o grupo correspondente na tabela
+Também adiciona toggle no header da tabela (chips pequenos) para filtrar por área: `Todas · Mídia · Sistemas`.
 
-### Filtros/controles no header da tabela
+### 3. Integrar resumo + pipeline num único bloco de controle
 
-- Busca por título (input pequeno)
-- Filtro por responsável (multi)
-- Filtro por tipo
-- Toggle "Ocultar concluídas"
-- Toggle de agrupamento (Etapa / Responsável / Nenhum)
+Hoje há três blocos empilhados competindo (5 cards de resumo, barra de progresso, card de pipeline). Consolidar em um único painel:
 
-### Densidade e responsividade
+```text
+┌───────────────────────────────────────────────────────────────────────┐
+│  Total 5   Em andamento 5   Concluídas 0   Fila 0   Atrasadas 0       │
+│  ▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░  0 de 5 · 0%                            │
+│  ─────────────────────────────────────────────────────────────────    │
+│  Planejar 5 › Criar roteiro 0 › Criar arte 0 › … › Concluídas 0       │
+└───────────────────────────────────────────────────────────────────────┘
+```
 
-- Altura de linha ~40px, fonte `text-sm`, zebra sutil
-- Em telas <lg: colapsa colunas menos críticas (Prev. próxima, Progresso vira só "3/7") mantendo Título, Etapa, Prazo
+- Um único `Card` com três faixas: contadores compactos em linha (não mais grid de 5 cards grandes), barra de progresso inline fina, pipeline abaixo com divisor sutil.
+- Contadores viram chips clicáveis pequenos (não cards de 2xl), reduzindo peso visual.
+- Pipeline mantém interação (clique filtra) mas com pílulas menores e ChevronRight mais discreto.
 
-## Arquivos afetados
+### 4. Filtro de escopo (ativas / período)
 
-- `src/pages/ClientEvolution.tsx` — substituir grid de cards por `<table>` com as colunas acima; manter data fetching, realtime, resumo e pipeline
-- Reutilizar utilitários existentes: `resolveStageLabel`, `stripBrandPrefix`, `flowFunctionNames`, cálculo de tempo relativo, cores de área
+Novo controle no header da tela (canto direito) com dois seletores:
 
-## Fora do escopo
+- **Escopo**: chip toggle `Ativas` (padrão, esconde arquivadas/concluídas antigas) · `Todas` (inclui concluídas de qualquer data).
+- **Período**: `Select` com opções — `Todas as datas` (padrão), `Últimos 7 dias`, `Últimos 30 dias`, `Este mês`, `Mês passado`. Filtra por `delivery_date` (fallback `created_at` quando ausente).
 
-- Nenhuma mudança em schema, edge functions ou lógica de negócio
-- Sem alterações no `TaskCard` (continua abrindo por clique na linha)
-- Sem mudanças no Client Hub ou rotas
+Uma nota discreta abaixo do título: `Mostrando: ativas · todas as datas` — deixa explícito o recorte atual, resolvendo o "não está claro se está mostrando apenas os ativos".
+
+### 5. Largura horizontal e scroll da tabela
+
+Hoje o container é `max-w-6xl` (~1152px) mesmo em viewports de 1879px, causando o scroll horizontal da tabela por falta de espaço para colunas como Progresso/Próxima. Correções:
+
+- Container passa a `max-w-[1600px]` (ou `container mx-auto` com padding maior) para aproveitar telas amplas.
+- Remover `overflow-x-auto` do wrapper da tabela e usar `table-fixed` com larguras percentuais bem definidas por coluna.
+- Ajustar breakpoints das colunas: Tipo/Responsável passam a aparecer em `md`, Progresso em `lg`, Próxima em `xl` já hoje — manter, mas garantir que em `≥1280px` tudo cabe sem scroll.
+- Truncar título com `truncate` + `title` (já existe) sem `max-w` fixo — deixa flex do `table-fixed` cuidar.
+
+### Fora do escopo
+
+- Sem mudanças no `TaskCard`, edge functions, schema ou lógica de proceed/regress.
+- Sem alteração no comportamento realtime.
+
+### Arquivos afetados
+
+- `src/pages/ClientEvolution.tsx` — todas as mudanças acima, isoladas nesta tela.
