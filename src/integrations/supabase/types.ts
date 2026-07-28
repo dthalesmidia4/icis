@@ -482,6 +482,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "demand_feedback_events_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "v_demand_stage_misalignment"
+            referencedColumns: ["demand_id"]
+          },
+          {
             foreignKeyName: "demand_feedback_events_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -546,6 +553,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "demand_fingerprints_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "v_demand_stage_misalignment"
+            referencedColumns: ["demand_id"]
+          },
+          {
             foreignKeyName: "demand_fingerprints_period_plan_id_fkey"
             columns: ["period_plan_id"]
             isOneToOne: false
@@ -608,6 +622,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "demands"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_flow_history_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "v_demand_stage_misalignment"
+            referencedColumns: ["demand_id"]
           },
         ]
       }
@@ -1500,6 +1521,13 @@ export type Database = {
             referencedRelation: "demands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "scheduled_publication_dispatches_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "v_demand_stage_misalignment"
+            referencedColumns: ["demand_id"]
+          },
         ]
       }
       seedance_pricing: {
@@ -2167,7 +2195,54 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_demand_stage_misalignment: {
+        Row: {
+          archived_at: string | null
+          assigned_to: string | null
+          client_id: string | null
+          current_function_key: string | null
+          demand_id: string | null
+          demand_type_key: string | null
+          tenant_id: string | null
+          title: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          assigned_to?: string | null
+          client_id?: string | null
+          current_function_key?: string | null
+          demand_id?: string | null
+          demand_type_key?: string | null
+          tenant_id?: string | null
+          title?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          assigned_to?: string | null
+          client_id?: string | null
+          current_function_key?: string | null
+          demand_id?: string | null
+          demand_type_key?: string | null
+          tenant_id?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demands_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demands_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       can_create_demands: { Args: { _tenant_id: string }; Returns: boolean }
@@ -2251,6 +2326,15 @@ export type Database = {
         Returns: Json
       }
       refresh_client_templates: { Args: { p_client_id: string }; Returns: Json }
+      resolve_function_for_assignee: {
+        Args: {
+          _current_key: string
+          _demand_type_key: string
+          _tenant_id: string
+          _user_id: string
+        }
+        Returns: string
+      }
       use_invitation: {
         Args: { _code: string; _user_id: string }
         Returns: Json
