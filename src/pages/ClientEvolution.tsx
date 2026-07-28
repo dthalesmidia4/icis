@@ -330,15 +330,33 @@ const ClientEvolution = () => {
     else if (filter === "in_progress") list = list.filter((c) => !c.isDone && c.hasStage);
     else if (filter === "overdue") list = list.filter((c) => c.isOverdue);
     else if (filter === "queued") list = list.filter((c) => !c.isDone && !c.hasStage);
+
     const rank = (c: Classified) => (c.isDone ? 2 : c.hasStage ? 0 : 1);
-    return [...list].sort((a, b) => {
+    const sorted = [...list].sort((a, b) => {
+      if (sort) {
+        const dir = sort.dir === "asc" ? 1 : -1;
+        const aVal = sortValue(a, sort.key, assigneeMap);
+        const bVal = sortValue(b, sort.key, assigneeMap);
+        if (aVal !== bVal) {
+          if (aVal === null || aVal === undefined) return 1;
+          if (bVal === null || bVal === undefined) return -1;
+          if (typeof aVal === "string" && typeof bVal === "string") {
+            return aVal.localeCompare(bVal, undefined, { sensitivity: "base" }) * dir;
+          }
+          if (typeof aVal === "number" && typeof bVal === "number") {
+            return (aVal - bVal) * dir;
+          }
+          return String(aVal).localeCompare(String(bVal)) * dir;
+        }
+      }
       const r = rank(a) - rank(b);
       if (r !== 0) return r;
       const at = a.card.updated_at ? new Date(a.card.updated_at).getTime() : 0;
       const bt = b.card.updated_at ? new Date(b.card.updated_at).getTime() : 0;
       return bt - at;
     });
-  }, [classified, filter]);
+    return sorted;
+  }, [classified, filter, sort, assigneeMap]);
 
   const handleSave = async (field: string, value: string) => {
     if (!selectedCard) return;
