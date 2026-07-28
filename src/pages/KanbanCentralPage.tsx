@@ -89,7 +89,6 @@ type KanbanDisplayColumn = {
 type KanbanFocusPeekSession = {
   restoreColumnId: string | null;
   targetColumnId: string | null;
-  sourceUserId: string;
 };
 
 const getKanbanColumnVisualKey = (column: Pick<KanbanDisplayColumn, "userId" | "focusKind">) => {
@@ -282,7 +281,7 @@ const KanbanCentralPage = () => {
       // Se não há, o hover foca temporariamente a coluna sob o cursor.
       const restoreColumnId = pinnedFocusColumnIdRef.current;
       const target = restoreColumnId ? null : columnUserId;
-      setPeekFocusSession({ restoreColumnId, targetColumnId: target, sourceUserId: columnUserId });
+      setPeekFocusSession({ restoreColumnId, targetColumnId: target });
       changeFocusColumn(target);
     }, 120);
   }, [changeFocusColumn]);
