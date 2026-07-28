@@ -587,6 +587,33 @@ const ClientEvolution = () => {
 
 // ------- subcomponents -------
 
+function SortHeader({
+  label, sortKey, sort, onToggle, className,
+}: {
+  label: string;
+  sortKey: SortKey;
+  sort: { key: SortKey; dir: SortDir } | null;
+  onToggle: (key: SortKey) => void;
+  className?: string;
+}) {
+  const active = sort?.key === sortKey;
+  const Icon = active ? (sort.dir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+  return (
+    <th
+      className={cn(
+        "text-left font-semibold px-2 py-2 whitespace-nowrap cursor-pointer select-none hover:text-foreground transition-colors",
+        className,
+      )}
+      onClick={() => onToggle(sortKey)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        <Icon className={cn("h-3 w-3", active ? "text-primary" : "text-muted-foreground/50")} />
+      </span>
+    </th>
+  );
+}
+
 const chipTone: Record<string, { active: string; idle: string; icon: string }> = {
   muted:       { active: "border-foreground/40 bg-foreground/5",        idle: "hover:bg-muted/60 border-border/60", icon: "text-muted-foreground" },
   primary:     { active: "border-primary bg-primary/15 text-primary",   idle: "hover:bg-primary/5 border-border/60", icon: "text-primary" },
