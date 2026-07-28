@@ -2094,7 +2094,7 @@ const KanbanCentralPage = () => {
       <DragDropContext onDragEnd={handleDragEnd}>
         <div ref={boardScrollRef} className="flex gap-4 overflow-x-auto pb-4">
           {(() => {
-            const rawColumns: Array<{ id: string; name: string; color: string; userId: string; focusKind?: 'production'|'evaluate'|'awaiting'|'review' }> = [
+            const rawColumns: KanbanDisplayColumn[] = [
               ...collaborators.map((c) => ({
                 id: c.userId,
                 name: c.fullName,
@@ -2132,6 +2132,7 @@ const KanbanCentralPage = () => {
             return displayColumns.map((column, _focusIdx) => {
             const columnUserId = column.userId;
             const focusKind = column.focusKind;
+            const columnVisualKey = getKanbanColumnVisualKey(column);
             const columnHistoryFilter = columnHistory.get(columnUserId);
             const isHistoryMode = !!columnHistoryFilter && !focusKind;
             const isHistoryLoadingCol = columnHistoryLoading.has(columnUserId);
@@ -2200,20 +2201,19 @@ const KanbanCentralPage = () => {
             const isReviewCollapsed = focusKind ? false : !expandedReview.has(column.id);
             const isEvaluateCollapsed = focusKind ? false : !expandedEvaluate.has(column.id);
 
-            const vtName = columnUserId === "__unassigned__"
-              ? `kcol-unassigned`
-              : (focusKind && focusKind !== 'production')
-                ? `kcol-${columnUserId}-${focusKind}`
-                : `kcol-${columnUserId}`;
             return (
               <Droppable key={column.id} droppableId={column.id}>
                 {(provided, snapshot) => (
                   <div
-                    ref={provided.innerRef}
+                    ref={(el) => {
+                      provided.innerRef(el);
+                      setKanbanColumnRef(columnVisualKey, el);
+                    }}
                     {...provided.droppableProps}
-                    style={{ viewTransitionName: vtName } as React.CSSProperties}
+                    data-kanban-column-key={columnVisualKey}
+                    data-focus-order={_focusIdx}
                     className={cn(
-                      "flex-shrink-0 w-[280px] bg-muted/30 rounded-xl border border-border/50 flex flex-col",
+                      "kanban-focus-column flex-shrink-0 w-[280px] bg-muted/30 rounded-xl border border-border/50 flex flex-col",
                       snapshot.isDraggingOver && "border-primary/50 bg-primary/5"
                     )}
                   >
