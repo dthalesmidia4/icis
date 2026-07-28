@@ -2089,7 +2089,7 @@ const KanbanCentralPage = () => {
                             <Focus className="h-3.5 w-3.5" />
                           </button>
                         )}
-                        {column.id !== "__unassigned__" && (
+                        {columnUserId !== "__unassigned__" && !focusKind && (
                           <Popover
                             open={historyPopoverOpen === column.id}
                             onOpenChange={(o) => setHistoryPopoverOpen(o ? column.id : null)}
