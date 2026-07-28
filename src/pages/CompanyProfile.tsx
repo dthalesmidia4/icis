@@ -64,6 +64,8 @@ export default function CompanyProfile() {
   const { agencyId, isLoading: agencyLoading } = useAgency();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [workHours, setWorkHours] = useState({ ...DEFAULT_WORK_HOURS });
+  const [otherSettings, setOtherSettings] = useState<TenantSettings>({});
 
   const {
     register,
