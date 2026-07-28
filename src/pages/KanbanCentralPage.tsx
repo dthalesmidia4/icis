@@ -2318,14 +2318,17 @@ const KanbanCentralPage = () => {
                               <button
                                 type="button"
                                 onClick={() => (focusKind ? exitFocus() : enterFocus(columnUserId))}
+                                onPointerEnter={(e) => handleColumnHeaderPointerEnter(columnUserId, e.pointerType)}
+                                onPointerLeave={handleColumnHeaderPointerLeave}
                                 className={cn(
                                   "flex items-center gap-2 flex-1 min-w-0 -mx-1 px-1 py-0.5 rounded-md transition-colors text-left",
                                   focusKind ? "hover:bg-primary/10" : "hover:bg-primary/5"
                                 )}
-                                title={focusKind ? "Sair do modo foco" : "Clique para focar nesta coluna"}
+                                title={pinnedFocusColumnId ? "Passe o mouse para espiar sem foco · clique para sair" : "Passe o mouse para espiar · clique para fixar"}
                                 aria-label={focusKind ? "Sair do modo foco" : `Focar em ${column.name}`}
                                 aria-pressed={!!focusKind}
                               >
+
                                 {nameInner}
                               </button>
                             );
