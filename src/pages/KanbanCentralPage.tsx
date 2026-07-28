@@ -2184,7 +2184,7 @@ const KanbanCentralPage = () => {
                             </PopoverContent>
                           </Popover>
                         )}
-                        {column.id !== "__unassigned__" && canReorder && !isHistoryMode && (
+                        {columnUserId !== "__unassigned__" && canReorder && !isHistoryMode && !focusKind && (
                           <button
                             type="button"
                             onClick={(e) => {
