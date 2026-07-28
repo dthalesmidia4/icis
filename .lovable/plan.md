@@ -1,35 +1,21 @@
 ## Escopo
-Três ajustes visuais no card e no modo foco da Visão Geral.
+Tornar visível a transição entrar/sair do modo foco e permitir sair clicando no cabeçalho de qualquer sub-coluna do foco.
 
-### 1. Suavizar entrada/saída do modo foco
-Hoje `KanbanCentralPage.tsx` troca o array de colunas instantaneamente ao setar `focusedColumnId`, o que causa o corte seco.
+### 1. Animação real da reorganização das colunas
+`animate-fade-in` só toca no mount — quem já existia (a coluna da Lúcia à direita, por exemplo) não se move visivelmente para a esquerda. Para animar a mudança de posição sem lib pesada, usar a **View Transitions API** nativa do browser (`document.startViewTransition`), que faz FLIP automático entre estados do DOM.
 
-Solução leve, só CSS (sem libs de animação, sem re-render extra):
-- Aplicar `animate-fade-in` (já existente no tailwind: 0.3s ease-out, fade + slide-up de 10px) no wrapper de cada coluna do Kanban.
-- Usar uma `key` que muda ao entrar/sair do foco (ex.: `focus:${focusedColumnId ?? 'none'}:${column.id}`) para que as sub-colunas do foco (Produção/Avaliar/Aguardando/Revisão) e as colunas normais toquem a animação ao montar.
-- Nenhum listener JS extra, nenhum layout shift observado; animação é puramente `opacity` + `transform`, boa para máquinas fracas.
+Em `src/pages/KanbanCentralPage.tsx`:
+- Criar um helper `withViewTransition(fn)` que chama `document.startViewTransition(fn)` quando disponível, senão executa `fn()` direto (fallback silencioso).
+- Envolver as trocas de foco: `enterFocus`, `exitFocus` e o ESC handler passam por `withViewTransition`.
+- Em cada wrapper de coluna, adicionar `style={{ viewTransitionName: \`kcol-${column.id}\` }}`. Como a coluna do responsável mantém o mesmo `columnUserId` na sub-coluna "production" (ex.: `<uid>::production` vs `<uid>`), usar um nome estável baseado em `columnUserId` para essa sub-coluna, para que o browser reconheça como o mesmo elemento e faça o slide para a esquerda. As demais sub-colunas (avaliar/aguardando/revisão) recebem nomes únicos e entram com o cross-fade padrão da API.
+- Custo: nenhum listener JS de animação; o browser faz o snapshot e roda transição em compositor (bom para máquinas fracas). Sem impacto em dispositivos que não suportam a API (fallback direto).
 
-Como o react-beautiful-dnd exige que o `Droppable` esteja montado, não animamos saída — apenas a entrada dos novos elementos, o que já elimina a sensação de corte seco.
+### 2. Sair do foco clicando no header de qualquer sub-coluna
+Hoje, em `KanbanCentralPage.tsx`, o botão-header só é clicável quando `!focusKind || focusKind === 'production'`. Sub-colunas Avaliar/Aguardando/Revisão ficam com `<div>` estático.
 
-### 2. Remover badge "Sistemas"
-Em `src/components/KanbanCard.tsx`:
-- Remover o `<Badge>` "Sistemas" (linhas ~198–201).
-- Manter a cor de fundo/borda `slate` do card (linha 168) como identificador visual único.
-- Ajustar o `flex-wrap` container para só renderizar quando `isDailyCard` for verdadeiro (não depender mais de `isSistemas`).
+Alterar a condição `isFocusToggle` para: `columnUserId !== "__unassigned__" && !isHistoryMode && (!focusKind || focusKind === 'production' || focusKind)`. Simplificando: quando há `focusKind` (qualquer valor), o header vira botão de "Sair do foco". O ícone `Focus` continua sendo mostrado como indicador ativo apenas na sub-coluna do responsável (production) para não poluir; nas demais sub-colunas mostra apenas o título clicável com `title="Sair do modo foco"`.
 
-Sem badge equivalente para "Mídia" — a cor default do card já representa mídia.
-
-### 3. Etapa exibida após o nome da empresa
-Hoje o subtítulo do `KanbanCard` mostra apenas `card.clientName`. A etapa (`card.status`) já é passada via prop `statusName` mas não é renderizada no cabeçalho.
-
-Em `KanbanCard.tsx`, no bloco do subtítulo (linhas 173–180):
-- Renderizar `clientName` seguido de `statusName` na **mesma fonte e tamanho** (`text-xs font-semibold`), separados por um divisor sutil `·` em `text-muted-foreground/60`.
-- A etapa recebe cor mais suave (`text-muted-foreground`) para não competir com o nome da empresa, mas sem virar "badge" nem mudar tipografia.
-- `line-clamp-2` preservado para não quebrar o layout do card.
-
-Resultado no card: `Hospital Veterinário Leal · Revisar` acima do título da demanda.
-
-## Detalhes técnicos
-- Arquivos alterados: `src/components/KanbanCard.tsx`, `src/pages/KanbanCentralPage.tsx`.
-- Sem mudanças no banco, edge functions, ou lógica de negócio.
-- Sem novas dependências; usa apenas utilitários Tailwind já configurados (`animate-fade-in`).
+### 3. Detalhes técnicos
+- Arquivo alterado: `src/pages/KanbanCentralPage.tsx`.
+- Adicionar CSS mínimo em `src/index.css` para tunar a duração da view transition (`::view-transition-group(*) { animation-duration: 260ms; }`) — mantém a sensação "breve e rápida" pedida pelo usuário.
+- Sem novas libs, sem mudança de banco, sem mudança em edge functions.
