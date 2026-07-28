@@ -406,16 +406,48 @@ function cardDeadline(card: ReorderCardInput): Date | null {
 // Ordenação
 // ------------------------------------------------------------------
 
-export function sortForReorder(cards: ReorderCardInput[]): ReorderCardInput[] {
-  const withDate = cards.map((c, i) => ({ c, i })).filter(({ c }) => !!c.publish_date);
-  const withoutDate = cards.map((c, i) => ({ c, i })).filter(({ c }) => !c.publish_date);
-  withDate.sort((a, b) => {
-    const da = `${a.c.publish_date}T${a.c.publish_time || "23:59"}`;
-    const db = `${b.c.publish_date}T${b.c.publish_time || "23:59"}`;
-    if (da === db) return a.i - b.i;
-    return da.localeCompare(db);
+function dueKey(c: ReorderCardInput): string {
+  return `${c.due_date || "9999-12-31"}T${(c.due_time || "23:59").slice(0, 5)}`;
+}
+function pubKey(c: ReorderCardInput): string {
+  if (!c.publish_date) return "9999-12-31T23:59";
+  return `${c.publish_date}T${(c.publish_time || "23:59").slice(0, 5)}`;
+}
+
+/** True se houver ≥ 1 card ativo (fora o em execução) com publish_date. */
+export function hasPublishDateCandidates(cards: ReorderCardInput[]): boolean {
+  const active = cards.filter((c) => (c.current_function_key || "").toLowerCase() !== "aguardando_cliente");
+  if (active.length <= 1) return false;
+  const byDue = [...active].sort((a, b) => dueKey(a).localeCompare(dueKey(b)));
+  const rest = byDue.slice(1);
+  return rest.some((c) => !!c.publish_date);
+}
+
+export function sortForReorder(
+  cards: ReorderCardInput[],
+  opts?: { prioritizePublishDate?: boolean },
+): ReorderCardInput[] {
+  if (cards.length === 0) return [];
+  const indexed = cards.map((c, i) => ({ c, i }));
+  // Ordem atual da coluna: due_date/due_time asc (nulos ao fim), estável.
+  const byDue = [...indexed].sort((a, b) => {
+    const cmp = dueKey(a.c).localeCompare(dueKey(b.c));
+    return cmp !== 0 ? cmp : a.i - b.i;
   });
-  return [...withDate.map((x) => x.c), ...withoutDate.map((x) => x.c)];
+  const inProgress = byDue[0];
+  const rest = byDue.slice(1);
+
+  if (opts?.prioritizePublishDate) {
+    rest.sort((a, b) => {
+      const cmp = pubKey(a.c).localeCompare(pubKey(b.c));
+      if (cmp !== 0) return cmp;
+      // Empate: preserva ordem atual da coluna (due asc).
+      return dueKey(a.c).localeCompare(dueKey(b.c));
+    });
+  }
+  // Modo padrão: rest já está na ordem da coluna (due asc).
+
+  return [inProgress, ...rest].map((x) => x.c);
 }
 
 // ------------------------------------------------------------------
