@@ -2084,7 +2084,7 @@ const KanbanCentralPage = () => {
                     <div className="px-3 py-3 flex flex-col border-b border-border/30">
                       <div className="flex items-center gap-2">
                         {(() => {
-                          const canEnterFocus = columnUserId !== "__unassigned__" && !isHistoryMode && !focusKind;
+                          const isFocusToggle = columnUserId !== "__unassigned__" && !isHistoryMode && (!focusKind || focusKind === 'production');
                           const nameInner = (
                             <>
                               <span
@@ -2099,16 +2099,28 @@ const KanbanCentralPage = () => {
                                   ? (columnCards.length + evaluateCards.length + awaitingCards.length + reviewCards.length)
                                   : allColumnCards.length}
                               </Badge>
+                              {isFocusToggle && (
+                                <Focus
+                                  className={cn(
+                                    "h-3.5 w-3.5 flex-shrink-0 ml-auto",
+                                    focusKind ? "text-primary" : "text-muted-foreground"
+                                  )}
+                                />
+                              )}
                             </>
                           );
-                          if (canEnterFocus) {
+                          if (isFocusToggle) {
                             return (
                               <button
                                 type="button"
-                                onClick={() => enterFocus(columnUserId)}
-                                className="flex items-center gap-2 flex-1 min-w-0 -mx-1 px-1 py-0.5 rounded-md hover:bg-primary/5 transition-colors text-left"
-                                title="Clique para focar nesta coluna"
-                                aria-label={`Focar em ${column.name}`}
+                                onClick={() => (focusKind ? exitFocus() : enterFocus(columnUserId))}
+                                className={cn(
+                                  "flex items-center gap-2 flex-1 min-w-0 -mx-1 px-1 py-0.5 rounded-md transition-colors text-left",
+                                  focusKind ? "hover:bg-primary/10" : "hover:bg-primary/5"
+                                )}
+                                title={focusKind ? "Sair do modo foco" : "Clique para focar nesta coluna"}
+                                aria-label={focusKind ? "Sair do modo foco" : `Focar em ${column.name}`}
+                                aria-pressed={!!focusKind}
                               >
                                 {nameInner}
                               </button>
@@ -2116,27 +2128,7 @@ const KanbanCentralPage = () => {
                           }
                           return <div className="flex items-center gap-2 flex-1 min-w-0">{nameInner}</div>;
                         })()}
-                        {columnUserId !== "__unassigned__" && !isHistoryMode && (!focusKind || focusKind === 'production') && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (focusKind) exitFocus();
-                              else enterFocus(columnUserId);
-                            }}
-                            className={cn(
-                              "h-6 w-6 inline-flex items-center justify-center rounded-md transition-colors",
-                              focusKind
-                                ? "text-primary bg-primary/10 hover:bg-primary/20"
-                                : "text-muted-foreground hover:text-primary hover:bg-primary/10"
-                            )}
-                            title={focusKind ? "Sair do modo foco" : "Modo foco"}
-                            aria-label={focusKind ? "Sair do modo foco" : `Modo foco: ${column.name}`}
-                            aria-pressed={!!focusKind}
-                          >
-                            <Focus className="h-3.5 w-3.5" />
-                          </button>
-                        )}
+
                         {columnUserId !== "__unassigned__" && (!focusKind || focusKind === 'production') && (
                           <Popover
                             open={historyPopoverOpen === columnUserId}
