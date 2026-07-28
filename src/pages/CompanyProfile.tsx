@@ -140,6 +140,7 @@ export default function CompanyProfile() {
           phone: data.phone,
           cnpj_cpf: data.cnpjCpf,
           settings: {
+            ...otherSettings,
             tradeName: data.tradeName,
             legalName: data.legalName,
             address: {
@@ -150,6 +151,7 @@ export default function CompanyProfile() {
               country: data.country,
             },
             website: data.website,
+            work_hours: { ...workHours },
           },
         })
         .eq('id', agencyId);
