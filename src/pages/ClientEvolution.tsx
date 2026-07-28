@@ -526,11 +526,11 @@ const ClientEvolution = () => {
                   <col className="hidden md:table-column w-[9%]" />
                   <col className="hidden md:table-column w-[11%]" />
                   <col className="w-[7%]" />
-                  <col className="w-[13%]" />
-                  <col className="hidden lg:table-column w-[12%]" />
+                  <col className="w-[12%]" />
                   <col className="hidden xl:table-column w-[10%]" />
-                  <col className="w-[11%]" />
-                  <col className="w-[9%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[10%]" />
+                  <col className="hidden lg:table-column w-[12%]" />
                 </colgroup>
                 <thead className="sticky top-0 bg-muted/70 backdrop-blur-sm text-[11px] uppercase tracking-wide text-muted-foreground">
                   <tr>
@@ -540,10 +540,10 @@ const ClientEvolution = () => {
                     <SortHeader label="Responsável" sortKey="assignee" sort={sort} onToggle={toggleSort} className="hidden md:table-cell" />
                     <SortHeader label="Área" sortKey="area" sort={sort} onToggle={toggleSort} />
                     <SortHeader label="Etapa" sortKey="stage" sort={sort} onToggle={toggleSort} />
-                    <SortHeader label="Progresso" sortKey="progress" sort={sort} onToggle={toggleSort} className="hidden lg:table-cell" />
                     <SortHeader label="Próxima" sortKey="next" sort={sort} onToggle={toggleSort} className="hidden xl:table-cell" />
+                    <SortHeader label="Produção" sortKey="production" sort={sort} onToggle={toggleSort} />
                     <SortHeader label="Publicação" sortKey="publish" sort={sort} onToggle={toggleSort} />
-                    <SortHeader label="Prazo" sortKey="deadline" sort={sort} onToggle={toggleSort} />
+                    <SortHeader label="Progresso" sortKey="progress" sort={sort} onToggle={toggleSort} className="hidden lg:table-cell" />
                   </tr>
                 </thead>
                 <tbody>
