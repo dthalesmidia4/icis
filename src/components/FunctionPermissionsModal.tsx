@@ -10,6 +10,7 @@ import { Loader2, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRealtimeFlowConfig } from "@/hooks/realtime";
 import { DURATION_MATRIX, type DurationTypeGroup } from "@/lib/reorderSequence";
+import { AreaAllocationTab } from "@/components/config/AreaAllocationTab";
 
 interface Props {
   open: boolean;
