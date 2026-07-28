@@ -623,7 +623,33 @@ All colors MUST be HSL.
   border-top: 1px solid hsl(var(--foreground));
 }
 
-/* View Transitions for Kanban focus mode */
+/* Kanban focus mode column transitions */
+.kanban-focus-column {
+  transform-origin: top left;
+  will-change: transform, opacity;
+  contain: layout paint;
+}
+
+.kanban-focus-ghost {
+  overflow: hidden;
+  transform-origin: top left;
+  will-change: transform, opacity;
+  box-shadow: var(--shadow-elevated);
+}
+
+.kanban-focus-ghost [data-radix-scroll-area-viewport] {
+  overflow: hidden !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kanban-focus-column,
+  .kanban-focus-ghost {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* View Transitions fallback tuning */
 @media (prefers-reduced-motion: no-preference) {
   ::view-transition-group(*) {
     animation-duration: 260ms;
