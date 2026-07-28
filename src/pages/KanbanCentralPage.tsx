@@ -249,6 +249,8 @@ const KanbanCentralPage = () => {
   >(new Map());
   const [columnHistoryLoading, setColumnHistoryLoading] = useState<Set<string>>(new Set());
   const [historyPopoverOpen, setHistoryPopoverOpen] = useState<string | null>(null);
+  const [globalHistoryFilter, setGlobalHistoryFilter] = useState<ColumnHistoryFilter | null>(null);
+  const [globalHistoryPopoverOpen, setGlobalHistoryPopoverOpen] = useState(false);
   // Modal de reorganização de sequência (agency_manager / super_admin)
   const [reorderModalColumnId, setReorderModalColumnId] = useState<string | null>(null);
 
