@@ -518,7 +518,7 @@ const ClientEvolution = () => {
               <table className="w-full text-sm border-collapse table-fixed">
                 <colgroup>
                   <col className="w-[6px]" />
-                  <col className="w-[100px]" />
+                  <col className="w-[140px]" />
                   <col className="hidden md:table-column w-[120px]" />
                   <col className="hidden md:table-column w-[140px]" />
                   <col className="w-[90px]" />
@@ -733,7 +733,7 @@ function TableRow({
       <td className="p-0" title={areaTitle}>
         <div className={cn("h-8 w-[3px] mx-auto rounded-full", areaBar)} />
       </td>
-      <td className="px-3 py-2 min-w-0 max-w-[100px]">
+      <td className="px-3 py-2 min-w-0 max-w-[140px]">
         <div className="font-medium text-foreground truncate" title={card.title}>
           {card.title}
         </div>
