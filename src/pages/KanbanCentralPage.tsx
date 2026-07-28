@@ -2568,7 +2568,7 @@ const KanbanCentralPage = () => {
                                             isDragging={snapshot.isDragging}
                                             isOverdue={isCardOverdue(card)}
                                             cardId={card.id}
-                                            statusName={card.status}
+                                           statusName={resolveStageLabel(card)}
                                             statusColor={card.status_color}
                                             isDailyCard={(card as any).is_daily_card}
                                             dailyCompleted={(card as any).daily_completed_occurrences}
@@ -2710,7 +2710,7 @@ const KanbanCentralPage = () => {
                                       deliveryTime={card.delivery_time || undefined}
                                       isOverdue={isCardOverdue(card)}
                                       cardId={card.id}
-                                      statusName={card.status}
+                                      statusName={resolveStageLabel(card)}
                                       statusColor={(card as any).status_color}
                                       isDailyCard={(card as any).is_daily_card}
                                       dailyCompleted={(card as any).daily_completed_occurrences}
@@ -2787,7 +2787,7 @@ const KanbanCentralPage = () => {
                                       deliveryTime={card.delivery_time || undefined}
                                       isOverdue={isCardOverdue(card)}
                                       cardId={card.id}
-                                      statusName={card.status}
+                                      statusName={resolveStageLabel(card)}
                                       statusColor={(card as any).status_color}
                                       isDailyCard={(card as any).is_daily_card}
                                       dailyCompleted={(card as any).daily_completed_occurrences}
