@@ -433,7 +433,7 @@ const ClientEvolution = () => {
   const progressPct = summary.total > 0 ? Math.round((summary.done / summary.total) * 100) : 0;
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6 lg:px-8 py-6">
+    <div className="mx-auto w-full max-w-[1920px] px-4 sm:px-6 lg:px-8 py-6">
       {/* Header em uma linha */}
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <BackButton to="/client-hub" />
@@ -513,25 +513,26 @@ const ClientEvolution = () => {
           </div>
 
           {/* Tabela densa */}
-          <div className="rounded-lg border bg-card">
+          <div className="rounded-lg border bg-card overflow-x-auto">
             {timeline.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground text-sm">
                 Nenhuma demanda para o filtro selecionado.
               </div>
             ) : (
-              <table className="w-full text-sm table-fixed border-collapse">
+              <table className="w-full text-sm border-collapse">
                 <colgroup>
                   <col className="w-[6px]" />
-                  <col />
-                  <col className="hidden md:table-column w-[9%]" />
-                  <col className="hidden md:table-column w-[11%]" />
-                  <col className="w-[7%]" />
-                  <col className="w-[12%]" />
-                  <col className="hidden xl:table-column w-[10%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[10%]" />
-                  <col className="hidden lg:table-column w-[12%]" />
+                  <col className="min-w-[220px]" />
+                  <col className="hidden md:table-column min-w-[110px]" />
+                  <col className="hidden md:table-column min-w-[140px]" />
+                  <col className="min-w-[90px]" />
+                  <col className="min-w-[150px]" />
+                  <col className="hidden xl:table-column min-w-[120px]" />
+                  <col className="min-w-[260px]" />
+                  <col className="min-w-[120px]" />
+                  <col className="hidden lg:table-column min-w-[120px]" />
                 </colgroup>
+
                 <thead className="sticky top-0 bg-muted/70 backdrop-blur-sm text-[11px] uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th aria-hidden className="p-0" />
