@@ -12,7 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { computeReorder, hasPublishDateCandidates, type ReorderCardInput, type ReorderProposal } from "@/lib/reorderSequence";
+import { computeReorder, hasPublishDateCandidates, type ReorderCardInput, type ReorderProposal, type StageDurationOverrides } from "@/lib/reorderSequence";
+import { loadDurationsForTenant } from "@/lib/flowDurations";
 import { useWorkHoursConfig } from "@/hooks/useWorkHoursConfig";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -36,6 +37,17 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   const [applying, setApplying] = useState(false);
   const [proposals, setProposals] = useState<ReorderProposal[]>([]);
   const { config: workHours } = useWorkHoursConfig(tenantId ?? null);
+  const [durations, setDurations] = useState<StageDurationOverrides>({});
+
+  useEffect(() => {
+    if (!open || !tenantId) return;
+    let cancelled = false;
+    loadDurationsForTenant(tenantId).then((d) => {
+      if (!cancelled) setDurations(d);
+    });
+    return () => { cancelled = true; };
+  }, [open, tenantId]);
+
 
   const showPublishToggle = hasPublishDateCandidates(cards);
   const storageKey = `reorder-priority-mode:${tenantId || "default"}`;
@@ -54,7 +66,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     if (!open) return;
     let cancelled = false;
     setLoading(true);
-    computeReorder(cards, { workHours, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
+    computeReorder(cards, { workHours, durations, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
       .then((r) => {
         if (!cancelled) setProposals(r);
       })
@@ -68,7 +80,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     return () => {
       cancelled = true;
     };
-  }, [open, cards, workHours, prioritizeByPublish, showPublishToggle]);
+  }, [open, cards, workHours, durations, prioritizeByPublish, showPublishToggle]);
 
   const changedCount = proposals.filter((p) => p.changed && !p.skipped).length;
   const warningCount = proposals.filter((p) => p.warning).length;

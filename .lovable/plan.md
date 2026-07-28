@@ -1,51 +1,46 @@
 
-# Alinhar etapa × responsável de forma sistêmica
+# Duração por etapa editável no modal de fluxo
 
-O sintoma da Letícia (card em `revisar` sem ela ter a função) é a ponta de um problema geral: hoje existem **9 cards ativos** cujo `current_function_key` não está entre as funções permitidas ao `assigned_to` em `collaborator_function_assignments`. A correção precisa (a) remapear todos os cards atuais, (b) fechar as portas restantes por onde novos cards entram desalinhados, e (c) instalar uma trava no banco para nunca mais persistir esse estado.
+Hoje a matriz `DURATION_MATRIX` em `src/lib/reorderSequence.ts` é hardcoded (11 etapas × 6 grupos de tipo). Vou expô-la para edição no mesmo modal que já configura permissões, persistindo por tenant.
 
-## 1. Migração de saneamento (cards existentes)
+## 1. Persistência
 
-- Percorrer todo `demands` com `archived_at IS NULL`, `assigned_to NOT NULL`, `current_function_key NOT NULL`.
-- Para cada card, aplicar a mesma lógica do `resolveFunctionForAssignee` no lado do banco (função SQL `security definer` `resolve_function_for_assignee(tenant, user, demand_type_key, current_key)`):
-  1. Considera a sequência do tipo (regras `required` de `demand_type_flow_rules`), com fallback para todas as `flow_functions` ativas.
-  2. Se a etapa atual já é permitida ao usuário → mantém.
-  3. Se a etapa está na sequência mas não é permitida → avança para a próxima permitida.
-  4. Caso contrário → primeira permitida da sequência.
-  5. Se o usuário não tem nenhuma função da sequência → limpa `assigned_to` (card volta a "sem responsável" para redistribuição) e mantém `current_function_key` no primeiro passo do fluxo.
-- Toda alteração da migração gera linha em `demand_flow_history` com `action='system_realign'` e `metadata={"reason":"backfill"}` para auditoria.
+Reutiliza a coluna `flow_functions.config` (jsonb) já existente. Cada linha guarda:
+```json
+{ "durations": { "estatico": 20, "carrossel": 40, "video_curto": 60, "video_longo": 90, "outro": 30 } }
+```
 
-## 2. Trava de servidor (banco)
+Sem migração de schema. No load do modal, se `config.durations` estiver ausente, popula com os valores atuais do `DURATION_MATRIX` para que o usuário edite a partir do estado presente.
 
-- Trigger `BEFORE INSERT OR UPDATE` em `demands` (`validate_demand_stage_assignment`) que, sempre que `assigned_to` e `current_function_key` estiverem preenchidos, chama a função acima e **reescreve** `current_function_key` (e, no limite, zera `assigned_to`) para um valor válido. Nenhum código cliente consegue mais gravar um par incoerente.
-- A trigger ignora quando o `assigned_to` é `NULL` (colunas "Sem responsável" continuam existindo) e não bloqueia updates que só mexem em campos alheios (checa se `assigned_to`/`current_function_key`/`demand_type_key` mudou ou se o registro está entrando).
+## 2. UI no `FunctionPermissionsModal`
 
-## 3. Frontes de código já cobertos e o que falta reforçar
+Adiciona um segmento no topo do modal com duas abas: **Participação** (matriz Sim/Não atual) e **Tempo estimado**. Ao selecionar Tempo estimado, mostra a mesma matriz transposta — linhas = tipos de demanda, colunas = funções — com inputs numéricos (minutos) em cada célula ativa.
 
-Já usam `resolveFunctionForAssignee`:
-- `KanbanCentralPage.tsx` (drag entre colunas)
-- `TaskCard.tsx` (popover "Trocar responsável")
-- `createCardFromContent.ts` / `assignInitialResponsible` (criação inicial)
+Regras da tabela de tempo:
+- Só permite editar células onde a permissão é `required` na aba Participação (as demais aparecem cinza/desativadas com `—`).
+- Cada célula é um input compacto (`w-16`, tipo number, step 5, min 1) com salvamento onBlur/debounce 500ms via `supabase.from("flow_functions").update({ config: {...} })`.
+- Cabeçalho da coluna mostra o nome da função; rodapé de cada linha exibe o subtotal em minutos das etapas required para aquele tipo (dá noção do custo total do fluxo).
+- Botão "Restaurar padrão" por linha (tipo de demanda) que reaplica os valores originais do `DURATION_MATRIX`.
 
-Vou revisar e alinhar também:
-- `src/pages/ApproveCards.tsx` — na aprovação, hoje passa direto pelo `pickAssigneeForFunction`; garantir que, se o responsável escolhido não tiver a função inicial do tipo, o `resolveFunctionForAssignee` decide a etapa.
-- `src/lib/evaluatePlanCard.ts` — mesmo tratamento na aprovação virtual.
-- `src/lib/proceedDemand.ts` — ao avançar de etapa, escolher o próximo responsável entre quem tem `next_function_key`; se ninguém tiver, cair na regra atual mas registrar log.
-- `RejectedCards.tsx` "Resgatar" — passar por `resolveFunctionForAssignee` antes de reinserir no plano.
-- Qualquer `.update({ assigned_to })` ou `.update({ current_function_key })` isolado (grep sistemático) é migrado para um helper único `updateDemandStageAndAssignee` que sempre chama o resolver.
+## 3. Consumo em `reorderSequence.ts`
 
-## 4. Ajuste do rótulo "próximo passo" no card
+- Adiciona `durations?: Record<functionKey, Record<typeGroup, number>>` em `PlanReorderOptions`.
+- `estimateDurationBase` passa a consultar primeiro o override do banco; cai no `DURATION_MATRIX` só se a célula não existir.
+- `ReorderSequenceModal` (chamador) já busca `work_hours` — adiciono ao mesmo fetch um `select("function_key, config")` de `flow_functions` do tenant, monta o mapa e passa para `planReorder`.
+- `estimateDurationMinutes` (usado fora do modal) mantém fallback hardcoded — não recebe overrides porque é síncrono; ok, é usado só para tooltips aproximados.
 
-O botão do topo do card ("Enviar cliente ▸") mostra o próximo `flow_function` da sequência do tipo. Isso é correto (a próxima etapa vai para outro colaborador), mas o texto atualmente sugere que quem age é o responsável atual. Vou trocar para "Próxima etapa: Enviar cliente" quando o próximo passo não pertencer ao usuário logado, deixando claro que a ação apenas transfere o card. Nenhuma mudança de dado — só cópia + tooltip.
+## 4. Realtime
+
+O hook `useRealtimeFlowConfig` já observa `flow_functions`. Adiciono no `onChange` do modal um reload de durações (fora do save-eco), mesmo padrão da matriz de permissões.
 
 ## 5. Validação
 
-- Rodar a migração em transação com `SELECT count(*)` antes/depois para confirmar 0 desalinhados.
-- Escrever uma query de "auditoria contínua" (view `v_demand_stage_misalignment`) para que qualquer regressão apareça no Dev Hub.
-- Testar manualmente: drag para coluna sem permissão, popover trocando responsável para usuário sem a função, aprovação de plano com responsável limitado, resgate de reprovado.
+- Test manual: alterar a duração de "criar_arte / estatico" de 20 para 45; rodar reordenar sequência e conferir que o card estático em criar_arte agora reserva 45min.
+- Test manual: restaurar padrão de "outro"; conferir que valores voltam a 15/30/etc.
+- Test manual: recarregar página e confirmar que os valores editados persistem (não voltam ao hardcoded).
 
 ## Detalhes técnicos
 
-- Nova função `public.resolve_function_for_assignee(tenant uuid, user_id uuid, demand_type_key text, current_key text) RETURNS text` `SECURITY DEFINER`, `SET search_path = public`.
-- Trigger `validate_demand_stage_assignment` idempotente; usa `NEW.current_function_key := resolve...` quando o par é inválido.
-- Migração de backfill em um único arquivo SQL, escrevendo em `demand_flow_history` com `to_function_key = novo`, `from_function_key = antigo`.
-- Nenhum GRANT adicional (tabelas já existentes).
+- Novo arquivo `src/lib/flowDurations.ts`: helpers `loadDurationsForTenant(tenantId)` e `resolveDurationMinutes(durations, stage, group)`.
+- `FunctionPermissionsModal` recebe uma segunda `Tabs` do shadcn; sem alteração no fluxo de save da matriz de permissões existente.
+- Sem novas policies/GRANTs — `flow_functions` já tem RLS e permissões.
