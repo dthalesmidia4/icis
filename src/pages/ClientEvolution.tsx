@@ -519,7 +519,7 @@ const ClientEvolution = () => {
                 <colgroup>
                   <col className="w-[6px]" />
                   <col className="min-w-[220px]" />
-                  <col className="hidden md:table-column min-w-[110px]" />
+                  <col className="hidden md:table-column w-[180px]" />
                   <col className="hidden md:table-column min-w-[140px]" />
                   <col className="min-w-[90px]" />
                   <col className="min-w-[150px]" />
