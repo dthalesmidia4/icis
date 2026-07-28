@@ -210,20 +210,16 @@ const ClientEvolution = () => {
     }
     setLoading(true);
     try {
-      let q = supabase
+      // Sempre buscamos tudo do cliente. O escopo (Ativas/Todas) é aplicado em memória
+      // com base no status final, evitando esconder cards em andamento que tenham
+      // archived_at setado por fluxos intermediários (ex: retorno do cliente, replan).
+      const { data: demands } = await supabase
         .from("demands")
         .select("*, pipeline_statuses!inner(name, color), tenant_companies!inner(name, fantasy_name)")
         .eq("tenant_id", tenantId)
         .eq("client_id", selectedClient.id)
         .eq("is_draft", false)
         .order("updated_at", { ascending: false });
-
-      // Scope: "Ativas" = não arquivadas. "Todas" = inclui arquivadas.
-      if (scope === "active") {
-        q = q.is("archived_at", null);
-      }
-
-      const { data: demands } = await q;
 
       if (demands) {
         const mapped: KanbanCardData[] = demands.map((d: any) => ({
@@ -446,7 +442,7 @@ const ClientEvolution = () => {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <div className="flex rounded-md border border-border overflow-hidden text-xs">
-            {(["active", "all"] as ScopeFilter[]).map((s) => (
+            {(["all", "active"] as ScopeFilter[]).map((s) => (
               <button
                 key={s}
                 onClick={() => setScope(s)}
@@ -523,7 +519,7 @@ const ClientEvolution = () => {
                 <colgroup>
                   <col className="w-[6px]" />
                   <col className="min-w-[220px]" />
-                  <col className="hidden md:table-column min-w-[110px]" />
+                  <col className="hidden md:table-column w-[180px]" />
                   <col className="hidden md:table-column min-w-[140px]" />
                   <col className="min-w-[90px]" />
                   <col className="min-w-[150px]" />
@@ -742,8 +738,8 @@ function TableRow({
           {card.title}
         </div>
       </td>
-      <td className="px-2 py-2 hidden md:table-cell text-muted-foreground text-[12px] truncate">
-        {card.demand_type || "—"}
+      <td className="px-2 py-2 hidden md:table-cell text-muted-foreground text-[12px] max-w-[180px]">
+        <div className="truncate" title={card.demand_type || undefined}>{card.demand_type || "—"}</div>
       </td>
       <td className="px-2 py-2 hidden md:table-cell text-foreground text-[12px] truncate">
         {assigneeName || <span className="text-muted-foreground">—</span>}
