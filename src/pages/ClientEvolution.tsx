@@ -93,7 +93,7 @@ const sortValue = (
     }
     case "next": return nextStageName || null;
     case "publish": return card.publish_date || null;
-    case "deadline": return card.delivery_date || null;
+    case "production": return card.due_date || card.delivery_date || null;
     default: return null;
   }
 };
