@@ -177,7 +177,7 @@ export async function assignInitialResponsible(
       fromUserId: null,
       toUserId: assigneeId,
       fromFunctionKey: null,
-      toFunctionKey: initial.functionKey,
+      toFunctionKey: functionKey,
       metadata: opts?.metadataSource ? { source: opts.metadataSource } : undefined,
     });
   } catch (err) {
