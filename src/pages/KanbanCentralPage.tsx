@@ -154,6 +154,16 @@ const KanbanCentralPage = () => {
       return next;
     });
   }, []);
+  // Focus mode: quando setado, decompõe a coluna do responsável em sub-colunas por agrupamento.
+  const [focusedColumnId, setFocusedColumnId] = useState<string | null>(null);
+  const enterFocus = useCallback((userId: string) => setFocusedColumnId(userId), []);
+  const exitFocus = useCallback(() => setFocusedColumnId(null), []);
+  useEffect(() => {
+    if (!focusedColumnId) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setFocusedColumnId(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [focusedColumnId]);
   const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const savingDraftRef = useRef(false);
@@ -1503,6 +1513,26 @@ const KanbanCentralPage = () => {
           <Badge variant="secondary">
             {filteredCards.length} {filteredCards.length === 1 ? 'demanda' : 'demandas'}
           </Badge>
+          {focusedColumnId && (() => {
+            const focusName = collaborators.find((c) => c.userId === focusedColumnId)?.fullName || "Colaborador";
+            return (
+              <div className="flex items-center gap-2 pl-3 ml-1 border-l border-border/60 animate-fade-in">
+                <Focus className="h-4 w-4 text-primary" />
+                <span className="text-sm font-semibold text-foreground">
+                  Modo foco: {focusName}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exitFocus}
+                  className="h-7 px-2 text-xs"
+                  title="Sair do modo foco (Esc)"
+                >
+                  Sair
+                </Button>
+              </div>
+            );
+          })()}
         </div>
 
         <div className="flex items-center gap-2">
@@ -1932,31 +1962,59 @@ const KanbanCentralPage = () => {
 
       <DragDropContext onDragEnd={handleDragEnd}>
         <div ref={boardScrollRef} className="flex gap-4 overflow-x-auto pb-4">
-          {[
-            ...collaborators.map((c) => ({
-              id: c.userId,
-              name: c.fullName,
-              color: "hsl(var(--primary))",
-            })),
-            ...((filteredCards.some((c) => !c.assigned_to)
-              || (evalByAssignee.get("__unassigned__")?.length ?? 0) > 0)
-              ? [{ id: "__unassigned__", name: "Sem responsável", color: "hsl(var(--muted-foreground))" }]
-              : []),
-          ].map((column) => {
-            const columnHistoryFilter = columnHistory.get(column.id);
-            const isHistoryMode = !!columnHistoryFilter;
-            const isHistoryLoadingCol = columnHistoryLoading.has(column.id);
+          {(() => {
+            const rawColumns: Array<{ id: string; name: string; color: string; userId: string; focusKind?: 'production'|'evaluate'|'awaiting'|'review' }> = [
+              ...collaborators.map((c) => ({
+                id: c.userId,
+                name: c.fullName,
+                color: "hsl(var(--primary))",
+                userId: c.userId,
+              })),
+              ...((filteredCards.some((c) => !c.assigned_to)
+                || (evalByAssignee.get("__unassigned__")?.length ?? 0) > 0)
+                ? [{ id: "__unassigned__", name: "Sem responsável", color: "hsl(var(--muted-foreground))", userId: "__unassigned__" }]
+                : []),
+            ];
+
+            let displayColumns = rawColumns;
+            if (focusedColumnId) {
+              const target = rawColumns.find((c) => c.userId === focusedColumnId);
+              if (target) {
+                const userCards = filteredCards.filter((c) =>
+                  target.userId === "__unassigned__" ? !c.assigned_to : c.assigned_to === target.userId
+                );
+                const _aw = userCards.filter((c) => c.current_function_key === 'aguardando_cliente');
+                const _nonAw = userCards.filter((c) => c.current_function_key !== 'aguardando_cliente');
+                const _rev = _nonAw.filter((c) => isReviewFunction(c.current_function_key));
+                const _prod = _nonAw.filter((c) => !isReviewFunction(c.current_function_key));
+                const _eval = evalByAssignee.get(target.userId) || [];
+                const sub: typeof rawColumns = [];
+                if (_prod.length > 0) sub.push({ id: `${target.userId}::production`, name: 'Produção', color: 'hsl(var(--primary))', userId: target.userId, focusKind: 'production' });
+                if (_eval.length > 0) sub.push({ id: `${target.userId}::evaluate`, name: 'Avaliar', color: 'hsl(280 70% 55%)', userId: target.userId, focusKind: 'evaluate' });
+                if (_aw.length > 0) sub.push({ id: `${target.userId}::awaiting`, name: 'Aguardando clientes', color: 'hsl(210 90% 55%)', userId: target.userId, focusKind: 'awaiting' });
+                if (_rev.length > 0) sub.push({ id: `${target.userId}::review`, name: 'Em revisão', color: 'hsl(38 92% 50%)', userId: target.userId, focusKind: 'review' });
+                if (sub.length === 0) sub.push({ id: `${target.userId}::production`, name: 'Produção', color: 'hsl(var(--primary))', userId: target.userId, focusKind: 'production' });
+                displayColumns = sub;
+              }
+            }
+
+            return displayColumns.map((column, _focusIdx) => {
+            const columnUserId = column.userId;
+            const focusKind = column.focusKind;
+            const columnHistoryFilter = columnHistory.get(columnUserId);
+            const isHistoryMode = !!columnHistoryFilter && !focusKind;
+            const isHistoryLoadingCol = columnHistoryLoading.has(columnUserId);
 
             // Cards ATIVOS deste colaborador (modo normal)
             const activeColumnCards = filteredCards.filter((card) => {
-              if (column.id === "__unassigned__") return !card.assigned_to;
-              return card.assigned_to === column.id;
+              if (columnUserId === "__unassigned__") return !card.assigned_to;
+              return card.assigned_to === columnUserId;
             });
 
             // Cards HISTÓRICOS: todos que já passaram por esse colaborador
             let historyColumnCards: Array<CentralKanbanCard & { _historyAt?: string }> = [];
             if (isHistoryMode) {
-              const rows = columnHistoryRows.get(column.id) || [];
+              const rows = columnHistoryRows.get(columnUserId) || [];
               const cardIndex = new Map<string, CentralKanbanCard>();
               [...cards, ...archivedCards].forEach((c) => cardIndex.set(c.id, c));
               historyColumnCards = rows
@@ -1971,7 +2029,7 @@ const KanbanCentralPage = () => {
             const allColumnCards = isHistoryMode ? historyColumnCards : activeColumnCards;
 
             // Aguardando Clientes = cards na função operacional aguardando_cliente (apenas modo ativo)
-            const awaitingCards = !isHistoryMode
+            const awaitingCardsBase = !isHistoryMode
               ? allColumnCards.filter((c) => c.current_function_key === 'aguardando_cliente')
               : [];
             const nonAwaitingCards = !isHistoryMode
@@ -1983,19 +2041,33 @@ const KanbanCentralPage = () => {
               ? nonAwaitingCards.filter((c) => isReviewFunction(c.current_function_key))
               : [];
             const shouldGroupReview = reviewCandidateCards.length >= 3;
-            const reviewCards = shouldGroupReview ? reviewCandidateCards : [];
-            const columnCards = shouldGroupReview
+            const reviewCardsBase = shouldGroupReview ? reviewCandidateCards : [];
+            const columnCardsBase = shouldGroupReview
               ? nonAwaitingCards.filter((c) => !isReviewFunction(c.current_function_key))
               : nonAwaitingCards;
 
-            const isAwaitingCollapsed = !expandedAwaiting.has(column.id);
-            const isReviewCollapsed = !expandedReview.has(column.id);
-
             // Avaliar: cards planejados aguardando aprovação atribuídos a esse colaborador
-            const evaluateCards = !isHistoryMode
-              ? (evalByAssignee.get(column.id) || [])
+            const evaluateCardsBase = !isHistoryMode
+              ? (evalByAssignee.get(columnUserId) || [])
               : [];
-            const isEvaluateCollapsed = !expandedEvaluate.has(column.id);
+
+            // Aplicar overrides do modo foco (isola exatamente 1 agrupamento por sub-coluna)
+            const columnCards = focusKind
+              ? (focusKind === 'production' ? nonAwaitingCards.filter((c) => !isReviewFunction(c.current_function_key)) : [])
+              : columnCardsBase;
+            const evaluateCards = focusKind
+              ? (focusKind === 'evaluate' ? evaluateCardsBase : [])
+              : evaluateCardsBase;
+            const awaitingCards = focusKind
+              ? (focusKind === 'awaiting' ? awaitingCardsBase : [])
+              : awaitingCardsBase;
+            const reviewCards = focusKind
+              ? (focusKind === 'review' ? reviewCandidateCards : [])
+              : reviewCardsBase;
+
+            const isAwaitingCollapsed = focusKind ? false : !expandedAwaiting.has(column.id);
+            const isReviewCollapsed = focusKind ? false : !expandedReview.has(column.id);
+            const isEvaluateCollapsed = focusKind ? false : !expandedEvaluate.has(column.id);
 
             return (
               <Droppable key={column.id} droppableId={column.id}>
@@ -2019,14 +2091,16 @@ const KanbanCentralPage = () => {
                           {column.name}
                         </span>
                         <Badge variant="secondary" className="text-xs ml-auto">
-                          {allColumnCards.length}
+                          {focusKind
+                            ? (columnCards.length + evaluateCards.length + awaitingCards.length + reviewCards.length)
+                            : allColumnCards.length}
                         </Badge>
-                        {column.id !== "__unassigned__" && !isHistoryMode && (
+                        {columnUserId !== "__unassigned__" && !isHistoryMode && !focusKind && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/colaboradores/${column.id}`);
+                              enterFocus(columnUserId);
                             }}
                             className="h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                             title="Modo foco"
@@ -2035,7 +2109,7 @@ const KanbanCentralPage = () => {
                             <Focus className="h-3.5 w-3.5" />
                           </button>
                         )}
-                        {column.id !== "__unassigned__" && (
+                        {columnUserId !== "__unassigned__" && !focusKind && (
                           <Popover
                             open={historyPopoverOpen === column.id}
                             onOpenChange={(o) => setHistoryPopoverOpen(o ? column.id : null)}
@@ -2130,7 +2204,7 @@ const KanbanCentralPage = () => {
                             </PopoverContent>
                           </Popover>
                         )}
-                        {column.id !== "__unassigned__" && canReorder && !isHistoryMode && (
+                        {columnUserId !== "__unassigned__" && canReorder && !isHistoryMode && !focusKind && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -2534,7 +2608,8 @@ const KanbanCentralPage = () => {
                 )}
               </Droppable>
             );
-          })}
+            });
+          })()}
         </div>
       </DragDropContext>
 
