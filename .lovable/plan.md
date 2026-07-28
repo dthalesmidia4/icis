@@ -1,84 +1,69 @@
-## Contexto
+## Objetivo
 
-Hoje o Client Hub tem "Cronograma Atual", mas ele leva para `/plan-period?tab=history&view=latest`, ou seja, depende de um **período planejado**. Para clientes como o SmartVety, que operam por **demandas avulsas sem período**, não existe uma tela que mostre a evolução geral: o que já foi entregue, o que está em produção, em qual etapa do fluxo cada card está e o que vem a seguir.
+Transformar a tela **Evolução das Demandas** (`/client-evolution`) numa visualização tipo planilha, densa e escaneável, eliminando repetições (nome da empresa, rótulos redundantes) e priorizando informação por linha.
 
-A `CronogramaGlobal` mostra os cards do cliente em uma tabela plana ordenável, mas não expressa a **jornada pelas etapas do fluxo** (`flow_functions` + `current_function_key`) nem separa entregues × em andamento × próximos.
+## Problema atual
 
-## Proposta: nova visão "Evolução das Demandas"
+Cada demanda é um card grande com:
+- Nome da empresa repetido em toda linha (já está no header da página)
+- Micro-stepper horizontal ocupa muita altura
+- Metadados (etapa atual, próxima, tempo, responsável) em blocos separados
+- Densidade baixa: ~4-6 demandas por tela
 
-Criar uma nova página `src/pages/ClientEvolution.tsx`, acessível a partir de um novo botão no Client Hub — **"Evolução das Demandas"** — posicionado ao lado de "Cronograma Atual". Funciona para qualquer cliente, com ou sem período ativo.
+## Nova visualização: tabela densa
 
-### Layout
+Uma tabela sticky-header, uma linha por demanda, colunas alinhadas verticalmente para leitura rápida.
 
-Três blocos verticais, do mais recente ao futuro:
+### Colunas (esq → dir)
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│ Resumo                                                  │
-│  Total: 42   Concluídas: 18   Em andamento: 20   Fila: 4│
-│  Barra de progresso (concluídas/total)                  │
-└─────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────┐
-│ Pipeline por etapa (visual horizontal)                  │
-│                                                         │
-│  Planejar → Criar arte → Revisar → Enviar cliente →     │
-│  Aguardando → Publicar → Feito                          │
-│   (3)         (5)         (4)       (2)     (1)  (2) (18)│
-│                                                         │
-│  Cada etapa clicável: expande lista dos cards nela.     │
-└─────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────┐
-│ Linha do tempo por demanda                              │
-│                                                         │
-│  ● Card A  [Planejar][Criar arte][Revisar]…[Feito]      │
-│    entregue em 12/07 · responsável atual: Lúcia          │
-│  ● Card B  [Planejar][✓Criar arte][●Revisar]…            │
-│    em revisão há 2 dias                                  │
-│  ● Card C  [●Planejar]…                                  │
-│    próxima etapa: Criar arte (Lúcia)                     │
-│                                                         │
-│  Cada item mostra micro-stepper com etapas: concluídas  │
-│  (preenchidas), atual (destacada), futuras (outline).   │
-│  Clique no card → abre o TaskCard existente.            │
-└─────────────────────────────────────────────────────────┘
+Título              Tipo   Responsável   Etapa atual · há    Progresso           Prev. próxima   Prazo
+-----------------------------------------------------------------------------------------------------
+Como ler seu...     Vídeo  Lúcia         Criar arte · 2h     ●●●○○○○ 3/7         Revisar hoje    28/07
+Atendimento 24h...  Post   Letícia       Planejar · 1d       ●●○○○○○ 2/7         Criar arte 29/07 30/07
 ```
 
-Filtros no topo: status (concluído / em andamento / atrasado), área (Mídia / Sistemas), responsável, intervalo de data (opcional).
+- **Título**: truncado com tooltip; sem prefixo da empresa (já removido via `stripBrandPrefix`)
+- **Tipo**: chip compacto (Post / Carrossel / Vídeo / Story)
+- **Responsável**: só primeiro nome + avatar dot da cor da área (mídia/sistemas)
+- **Etapa atual · há**: nome da etapa + tempo relativo inline ("Criar arte · 2h")
+- **Progresso**: mini-stepper de bolinhas (uma por etapa do fluxo), preenchidas até a atual; hover mostra nome de cada etapa
+- **Prev. próxima**: nome da próxima etapa + data prevista quando calculável
+- **Prazo**: `due_date` com cor (vermelho se atrasado, âmbar se hoje/amanhã, neutro caso contrário)
+- Linha inteira clicável → abre `TaskCard`
 
-### Fontes de dados
+### Agrupamento e ordenação
 
-- **Cards**: `demands` do cliente selecionado (`client_id`), não arquivados, `is_draft=false` — igual `CronogramaGlobal`.
-- **Sequência de etapas**: `flow_functions` da tenant (`active=true`, ordenado por `position`, excluindo `avaliar`), refinada por `demand_type_flow_rules` quando `requirement='required'` para o `demand_type_key` do card (mesma lógica de `resolveInitialFunction`).
-- **Etapa atual do card**: `demands.current_function_key`.
-- **Concluído**: status pertencente a `FINAL_STATUSES` (`feito`, `feitos`, `publicado`) — mesma regra que já usamos em `CronogramaGlobal` e no arquivamento.
-- **Histórico por etapa** (opcional, tooltip): `demand_flow_history` já preenchida por `recordFlowHistory` — mostrar quando o card entrou em cada etapa.
-- **Responsável atual**: `demands.assigned_to` + `profiles`.
+- **Agrupar por etapa** (padrão) com header sticky por grupo mostrando contagem — clicar no bloco do pipeline no topo filtra o grupo, como já faz hoje
+- Alternativa via toggle: **Agrupar por responsável** ou **Sem agrupamento** (ordena por prazo)
+- Concluídas colapsadas por padrão num grupo "Concluídas (N)" no fim
 
-Realtime via `useRealtimeDemands` (já existente) para refletir mudanças de etapa/assignee instantaneamente.
+### Resumo e pipeline (topo)
 
-### Onde exibir
+Manter, mas mais compactos:
+- Cards de resumo em uma faixa fina única (Total · Em andamento · Concluídas · Fila · Atrasadas + barra de progresso global inline)
+- Barra do pipeline por etapa continua clicável para filtrar; ativa o grupo correspondente na tabela
 
-1. **Client Hub** (`src/pages/ClientHub.tsx`): adicionar novo card **"Evolução das Demandas"** no grid, próximo a "Cronograma Atual". Rota: `/client-evolution`.
-2. Registrar a rota em `src/App.tsx` protegida por `ProtectedRoute` + `RequireTenant`, exigindo `selectedClient`.
-3. Não substitui "Cronograma Atual" — este continua útil para tabela ordenável de datas.
+### Filtros/controles no header da tabela
 
-### Detalhes técnicos
+- Busca por título (input pequeno)
+- Filtro por responsável (multi)
+- Filtro por tipo
+- Toggle "Ocultar concluídas"
+- Toggle de agrupamento (Etapa / Responsável / Nenhum)
 
-- Novos arquivos:
-  - `src/pages/ClientEvolution.tsx` — página com os três blocos.
-  - `src/components/evolution/StageProgressBar.tsx` — pipeline horizontal com contagem por etapa.
-  - `src/components/evolution/DemandTimelineRow.tsx` — micro-stepper por card.
-- Reuso:
-  - `TaskCard` para edição ao clicar no card.
-  - `resolveInitialFunction` / lógica de `demand_type_flow_rules` para calcular a sequência esperada por tipo de demanda.
-  - Hook `useRealtimeDemands` para live-update.
-- Sem migração de banco. Sem alteração em edge functions.
-- Ordenação padrão da linha do tempo: cards em andamento primeiro (por `updated_at desc`), depois concluídos (por `updated_at desc`), fila/sem etapa por último.
+### Densidade e responsividade
 
-### Fora do escopo
+- Altura de linha ~40px, fonte `text-sm`, zebra sutil
+- Em telas <lg: colapsa colunas menos críticas (Prev. próxima, Progresso vira só "3/7") mantendo Título, Etapa, Prazo
 
-- Não altera "Cronograma Atual" nem `CronogramaGlobal`.
-- Não muda fluxo, permissões, ou schema.
-- Não gera relatórios exportáveis (pode ser feito depois se pedido).
+## Arquivos afetados
+
+- `src/pages/ClientEvolution.tsx` — substituir grid de cards por `<table>` com as colunas acima; manter data fetching, realtime, resumo e pipeline
+- Reutilizar utilitários existentes: `resolveStageLabel`, `stripBrandPrefix`, `flowFunctionNames`, cálculo de tempo relativo, cores de área
+
+## Fora do escopo
+
+- Nenhuma mudança em schema, edge functions ou lógica de negócio
+- Sem alterações no `TaskCard` (continua abrindo por clique na linha)
+- Sem mudanças no Client Hub ou rotas
