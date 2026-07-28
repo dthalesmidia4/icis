@@ -1989,11 +1989,11 @@ const KanbanCentralPage = () => {
                 const _prod = _nonAw.filter((c) => !isReviewFunction(c.current_function_key));
                 const _eval = evalByAssignee.get(target.userId) || [];
                 const sub: typeof rawColumns = [];
-                if (_prod.length > 0) sub.push({ id: `${target.userId}::production`, name: 'Produção', color: 'hsl(var(--primary))', userId: target.userId, focusKind: 'production' });
+                if (_prod.length > 0) sub.push({ id: `${target.userId}::production`, name: target.name, color: 'hsl(var(--primary))', userId: target.userId, focusKind: 'production' });
                 if (_eval.length > 0) sub.push({ id: `${target.userId}::evaluate`, name: 'Avaliar', color: 'hsl(280 70% 55%)', userId: target.userId, focusKind: 'evaluate' });
                 if (_aw.length > 0) sub.push({ id: `${target.userId}::awaiting`, name: 'Aguardando clientes', color: 'hsl(210 90% 55%)', userId: target.userId, focusKind: 'awaiting' });
                 if (_rev.length > 0) sub.push({ id: `${target.userId}::review`, name: 'Em revisão', color: 'hsl(38 92% 50%)', userId: target.userId, focusKind: 'review' });
-                if (sub.length === 0) sub.push({ id: `${target.userId}::production`, name: 'Produção', color: 'hsl(var(--primary))', userId: target.userId, focusKind: 'production' });
+                if (sub.length === 0) sub.push({ id: `${target.userId}::production`, name: target.name, color: 'hsl(var(--primary))', userId: target.userId, focusKind: 'production' });
                 displayColumns = sub;
               }
             }
@@ -2083,36 +2083,64 @@ const KanbanCentralPage = () => {
                     {/* Column Header */}
                     <div className="px-3 py-3 flex flex-col border-b border-border/30">
                       <div className="flex items-center gap-2">
-                        <span
-                          className="h-3 w-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: column.color }}
-                        />
-                        <span className="text-base font-bold text-foreground truncate">
-                          {column.name}
-                        </span>
-                        <Badge variant="secondary" className="text-xs ml-auto">
-                          {focusKind
-                            ? (columnCards.length + evaluateCards.length + awaitingCards.length + reviewCards.length)
-                            : allColumnCards.length}
-                        </Badge>
-                        {columnUserId !== "__unassigned__" && !isHistoryMode && !focusKind && (
+                        {(() => {
+                          const canEnterFocus = columnUserId !== "__unassigned__" && !isHistoryMode && !focusKind;
+                          const nameInner = (
+                            <>
+                              <span
+                                className="h-3 w-3 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: column.color }}
+                              />
+                              <span className="text-base font-bold text-foreground truncate">
+                                {column.name}
+                              </span>
+                              <Badge variant="secondary" className="text-xs">
+                                {focusKind
+                                  ? (columnCards.length + evaluateCards.length + awaitingCards.length + reviewCards.length)
+                                  : allColumnCards.length}
+                              </Badge>
+                            </>
+                          );
+                          if (canEnterFocus) {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => enterFocus(columnUserId)}
+                                className="flex items-center gap-2 flex-1 min-w-0 -mx-1 px-1 py-0.5 rounded-md hover:bg-primary/5 transition-colors text-left"
+                                title="Clique para focar nesta coluna"
+                                aria-label={`Focar em ${column.name}`}
+                              >
+                                {nameInner}
+                              </button>
+                            );
+                          }
+                          return <div className="flex items-center gap-2 flex-1 min-w-0">{nameInner}</div>;
+                        })()}
+                        {columnUserId !== "__unassigned__" && !isHistoryMode && (!focusKind || focusKind === 'production') && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              enterFocus(columnUserId);
+                              if (focusKind) exitFocus();
+                              else enterFocus(columnUserId);
                             }}
-                            className="h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                            title="Modo foco"
-                            aria-label={`Modo foco: ${column.name}`}
+                            className={cn(
+                              "h-6 w-6 inline-flex items-center justify-center rounded-md transition-colors",
+                              focusKind
+                                ? "text-primary bg-primary/10 hover:bg-primary/20"
+                                : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            )}
+                            title={focusKind ? "Sair do modo foco" : "Modo foco"}
+                            aria-label={focusKind ? "Sair do modo foco" : `Modo foco: ${column.name}`}
+                            aria-pressed={!!focusKind}
                           >
                             <Focus className="h-3.5 w-3.5" />
                           </button>
                         )}
-                        {columnUserId !== "__unassigned__" && !focusKind && (
+                        {columnUserId !== "__unassigned__" && (!focusKind || focusKind === 'production') && (
                           <Popover
-                            open={historyPopoverOpen === column.id}
-                            onOpenChange={(o) => setHistoryPopoverOpen(o ? column.id : null)}
+                            open={historyPopoverOpen === columnUserId}
+                            onOpenChange={(o) => setHistoryPopoverOpen(o ? columnUserId : null)}
                           >
                             <PopoverTrigger asChild>
                               <button
@@ -2148,7 +2176,7 @@ const KanbanCentralPage = () => {
                                   onClick={() => {
                                     setColumnHistory((prev) => {
                                       const next = new Map(prev);
-                                      next.set(column.id, { range: opt.key });
+                                      next.set(columnUserId, { range: opt.key });
                                       return next;
                                     });
                                     setHistoryPopoverOpen(null);
@@ -2172,7 +2200,7 @@ const KanbanCentralPage = () => {
                                   if (!v) return;
                                   setColumnHistory((prev) => {
                                     const next = new Map(prev);
-                                    next.set(column.id, { range: "day", dayISO: v });
+                                    next.set(columnUserId, { range: "day", dayISO: v });
                                     return next;
                                   });
                                 }}
@@ -2185,12 +2213,12 @@ const KanbanCentralPage = () => {
                                     onClick={() => {
                                       setColumnHistory((prev) => {
                                         const next = new Map(prev);
-                                        next.delete(column.id);
+                                        next.delete(columnUserId);
                                         return next;
                                       });
                                       setColumnHistoryRows((prev) => {
                                         const next = new Map(prev);
-                                        next.delete(column.id);
+                                        next.delete(columnUserId);
                                         return next;
                                       });
                                       setHistoryPopoverOpen(null);
@@ -2204,12 +2232,12 @@ const KanbanCentralPage = () => {
                             </PopoverContent>
                           </Popover>
                         )}
-                        {columnUserId !== "__unassigned__" && canReorder && !isHistoryMode && !focusKind && (
+                        {columnUserId !== "__unassigned__" && canReorder && !isHistoryMode && (!focusKind || focusKind === 'production') && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setReorderModalColumnId(column.id);
+                              setReorderModalColumnId(columnUserId);
                             }}
                             className="h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                             title="Reorganizar sequência (IA)"
