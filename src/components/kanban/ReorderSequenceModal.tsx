@@ -80,7 +80,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     return () => {
       cancelled = true;
     };
-  }, [open, cards, workHours, prioritizeByPublish, showPublishToggle]);
+  }, [open, cards, workHours, durations, prioritizeByPublish, showPublishToggle]);
 
   const changedCount = proposals.filter((p) => p.changed && !p.skipped).length;
   const warningCount = proposals.filter((p) => p.warning).length;
