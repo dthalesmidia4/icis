@@ -344,13 +344,14 @@ const KanbanCentralPage = () => {
   }, [focusedColumnId]);
 
   useEffect(() => {
-    if (!focusedColumnId) return;
+    if (!pinnedFocusColumnId && !focusedColumnId) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") changeFocusColumn(null);
+      if (e.key === "Escape") exitFocus();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focusedColumnId, changeFocusColumn]);
+  }, [focusedColumnId, pinnedFocusColumnId, exitFocus]);
+
 
   const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
