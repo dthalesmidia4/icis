@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Activity, CheckCircle2, Clock3, ListChecks, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown, PlayCircle, Flag } from "lucide-react";
+import { Loader2, Activity, CheckCircle2, Clock3, ListChecks, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown, Calendar as CalendarIcon } from "lucide-react";
 import BackButton from "@/components/BackButton";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
@@ -756,31 +756,35 @@ function TableRow({
       <td className="px-2 py-2 hidden xl:table-cell text-muted-foreground text-[12px] truncate">
         {isDone ? "—" : nextStageName || <span className="text-muted-foreground/60">—</span>}
       </td>
-      <td className="px-2 py-2 text-[12px] whitespace-nowrap">
+      <td className="px-2 py-2 text-[11px] whitespace-nowrap">
         {startDate || endDate ? (
-          <div className="inline-flex items-center gap-1.5 flex-wrap">
-            {startDate && (
-              <span
-                className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 tabular-nums"
-                title="Início da produção"
-              >
-                <PlayCircle className="h-3 w-3" />
-                {formatDate(startDate)}
-                {startTime && <span className="opacity-80">· {startTime}</span>}
-              </span>
+          <div
+            className={cn(
+              "inline-flex items-center gap-2 rounded-md px-2 py-1 font-medium leading-tight tabular-nums",
+              overdue ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-muted/60 text-foreground",
             )}
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 tabular-nums",
-                overdue
-                  ? "bg-destructive/10 text-destructive"
-                  : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+          >
+            <span className="inline-flex items-center gap-1">
+              <CalendarIcon className="h-3 w-3 text-amber-500 shrink-0" />
+              <span className="text-muted-foreground">Ini:</span>
+              {startDate ? (
+                <span className="font-semibold">
+                  {formatDate(startDate)}{startTime && ` ${startTime}`}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">—</span>
               )}
-              title="Término da produção"
-            >
-              <Flag className="h-3 w-3" />
-              {endDate ? formatDate(endDate) : "—"}
-              {endTime && <span className="opacity-80">· {endTime}</span>}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <CalendarIcon className={cn("h-3 w-3 shrink-0", overdue ? "text-red-500" : "text-emerald-500")} />
+              <span className="text-muted-foreground">Fim:</span>
+              {endDate ? (
+                <span className={cn("font-semibold", overdue && "text-red-600 dark:text-red-400")}>
+                  {formatDate(endDate)}{endTime && ` ${endTime}`}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              )}
             </span>
           </div>
         ) : (
