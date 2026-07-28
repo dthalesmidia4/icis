@@ -177,6 +177,14 @@ const KanbanCentralPage = () => {
   }, []);
   // Focus mode: quando setado, decompõe a coluna do responsável em sub-colunas por agrupamento.
   const [focusedColumnId, setFocusedColumnId] = useState<string | null>(null);
+  // Foco "fixado" pelo clique. O hover apenas espia (altera focusedColumnId sem mexer no pinned).
+  const [pinnedFocusColumnId, setPinnedFocusColumnId] = useState<string | null>(null);
+  const focusedColumnIdRef = useRef<string | null>(null);
+  const pinnedFocusColumnIdRef = useRef<string | null>(null);
+  useEffect(() => { focusedColumnIdRef.current = focusedColumnId; }, [focusedColumnId]);
+  useEffect(() => { pinnedFocusColumnIdRef.current = pinnedFocusColumnId; }, [pinnedFocusColumnId]);
+  const hoverEnterTimerRef = useRef<number | null>(null);
+  const hoverExitTimerRef = useRef<number | null>(null);
   const kanbanColumnRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const focusBoardScrollLeftRef = useRef(0);
   const pendingFocusTransitionRef = useRef<{
@@ -200,8 +208,9 @@ const KanbanCentralPage = () => {
   }, []);
 
   const changeFocusColumn = useCallback((nextColumnId: string | null) => {
+    if (nextColumnId === focusedColumnIdRef.current) return;
     if (!prefersReducedKanbanMotion()) {
-      if (nextColumnId && boardScrollRef.current) {
+      if (nextColumnId && boardScrollRef.current && !focusedColumnIdRef.current) {
         focusBoardScrollLeftRef.current = boardScrollRef.current.scrollLeft;
       }
       pendingFocusTransitionRef.current = {
@@ -212,12 +221,56 @@ const KanbanCentralPage = () => {
     setFocusedColumnId(nextColumnId);
   }, [captureKanbanColumnLayout]);
 
+  const clearHoverTimers = useCallback(() => {
+    if (hoverEnterTimerRef.current) { window.clearTimeout(hoverEnterTimerRef.current); hoverEnterTimerRef.current = null; }
+    if (hoverExitTimerRef.current) { window.clearTimeout(hoverExitTimerRef.current); hoverExitTimerRef.current = null; }
+  }, []);
+
   const enterFocus = useCallback((userId: string) => {
+    clearHoverTimers();
+    setPinnedFocusColumnId(userId);
     changeFocusColumn(userId);
-  }, [changeFocusColumn]);
+  }, [changeFocusColumn, clearHoverTimers]);
   const exitFocus = useCallback(() => {
+    clearHoverTimers();
+    setPinnedFocusColumnId(null);
     changeFocusColumn(null);
+  }, [changeFocusColumn, clearHoverTimers]);
+
+  // Hover "espiar": ao passar o mouse sobre o header da coluna, mostrar/tirar foco temporariamente.
+  const handleColumnHeaderPointerEnter = useCallback((columnUserId: string, pointerType: string) => {
+    if (pointerType && pointerType !== 'mouse') return;
+    if (hoverExitTimerRef.current) { window.clearTimeout(hoverExitTimerRef.current); hoverExitTimerRef.current = null; }
+    if (hoverEnterTimerRef.current) window.clearTimeout(hoverEnterTimerRef.current);
+    hoverEnterTimerRef.current = window.setTimeout(() => {
+      hoverEnterTimerRef.current = null;
+      // Se há coluna fixada, o hover em qualquer header "espia" o modo sem foco.
+      // Se não há, o hover foca temporariamente a coluna sob o cursor.
+      const target = pinnedFocusColumnIdRef.current ? null : columnUserId;
+      changeFocusColumn(target);
+    }, 120);
   }, [changeFocusColumn]);
+
+  const handleColumnHeaderPointerLeave = useCallback(() => {
+    if (hoverEnterTimerRef.current) { window.clearTimeout(hoverEnterTimerRef.current); hoverEnterTimerRef.current = null; }
+  }, []);
+
+  const handleBoardPointerLeave = useCallback((pointerType: string) => {
+    if (pointerType && pointerType !== 'mouse') return;
+    if (hoverEnterTimerRef.current) { window.clearTimeout(hoverEnterTimerRef.current); hoverEnterTimerRef.current = null; }
+    if (hoverExitTimerRef.current) window.clearTimeout(hoverExitTimerRef.current);
+    hoverExitTimerRef.current = window.setTimeout(() => {
+      hoverExitTimerRef.current = null;
+      changeFocusColumn(pinnedFocusColumnIdRef.current);
+    }, 180);
+  }, [changeFocusColumn]);
+
+  const handleBoardPointerEnter = useCallback(() => {
+    if (hoverExitTimerRef.current) { window.clearTimeout(hoverExitTimerRef.current); hoverExitTimerRef.current = null; }
+  }, []);
+
+  useEffect(() => () => { clearHoverTimers(); }, [clearHoverTimers]);
+
 
   useLayoutEffect(() => {
     const pending = pendingFocusTransitionRef.current;
@@ -291,13 +344,14 @@ const KanbanCentralPage = () => {
   }, [focusedColumnId]);
 
   useEffect(() => {
-    if (!focusedColumnId) return;
+    if (!pinnedFocusColumnId && !focusedColumnId) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") changeFocusColumn(null);
+      if (e.key === "Escape") exitFocus();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focusedColumnId, changeFocusColumn]);
+  }, [focusedColumnId, pinnedFocusColumnId, exitFocus]);
+
 
   const [evaluateModalCard, setEvaluateModalCard] = useState<PendingEvaluationCard | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -1648,8 +1702,9 @@ const KanbanCentralPage = () => {
           <Badge variant="secondary">
             {filteredCards.length} {filteredCards.length === 1 ? 'demanda' : 'demandas'}
           </Badge>
-          {focusedColumnId && (() => {
-            const focusName = collaborators.find((c) => c.userId === focusedColumnId)?.fullName || "Colaborador";
+          {pinnedFocusColumnId && (() => {
+            const focusName = collaborators.find((c) => c.userId === pinnedFocusColumnId)?.fullName || "Colaborador";
+
             return (
               <div className="flex items-center gap-2 pl-3 ml-1 border-l border-border/60 animate-fade-in">
                 <Focus className="h-4 w-4 text-primary" />
@@ -2096,7 +2151,13 @@ const KanbanCentralPage = () => {
       {/* Kanban Board (columns = collaborators) */}
 
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div ref={boardScrollRef} className="flex gap-4 overflow-x-auto pb-4">
+        <div
+          ref={boardScrollRef}
+          className="flex gap-4 overflow-x-auto pb-4"
+          onPointerEnter={handleBoardPointerEnter}
+          onPointerLeave={(e) => handleBoardPointerLeave(e.pointerType)}
+        >
+
           {(() => {
             const rawColumns: KanbanDisplayColumn[] = [
               ...collaborators.map((c) => ({
@@ -2257,14 +2318,17 @@ const KanbanCentralPage = () => {
                               <button
                                 type="button"
                                 onClick={() => (focusKind ? exitFocus() : enterFocus(columnUserId))}
+                                onPointerEnter={(e) => handleColumnHeaderPointerEnter(columnUserId, e.pointerType)}
+                                onPointerLeave={handleColumnHeaderPointerLeave}
                                 className={cn(
                                   "flex items-center gap-2 flex-1 min-w-0 -mx-1 px-1 py-0.5 rounded-md transition-colors text-left",
                                   focusKind ? "hover:bg-primary/10" : "hover:bg-primary/5"
                                 )}
-                                title={focusKind ? "Sair do modo foco" : "Clique para focar nesta coluna"}
+                                title={pinnedFocusColumnId ? "Passe o mouse para espiar sem foco · clique para sair" : "Passe o mouse para espiar · clique para fixar"}
                                 aria-label={focusKind ? "Sair do modo foco" : `Focar em ${column.name}`}
                                 aria-pressed={!!focusKind}
                               >
+
                                 {nameInner}
                               </button>
                             );
