@@ -90,7 +90,6 @@ type KanbanFocusPeekSession = {
   restoreColumnId: string | null;
   targetColumnId: string | null;
   anchorRect: { left: number; top: number; right: number; bottom: number };
-  anchorGraceUntil: number;
 };
 
 const getKanbanColumnVisualKey = (column: Pick<KanbanDisplayColumn, "userId" | "focusKind">) => {
@@ -298,7 +297,6 @@ const KanbanCentralPage = () => {
         restoreColumnId,
         targetColumnId: target,
         anchorRect,
-        anchorGraceUntil: Date.now() + KANBAN_FOCUS_TRANSITION_MS + 40,
       });
       changeFocusColumn(target);
     }, 120);
@@ -330,7 +328,7 @@ const KanbanCentralPage = () => {
     };
 
     const isStillOnValidTriggerAt = (clientX: number, clientY: number) => {
-      if (Date.now() <= peekFocusSession.anchorGraceUntil && isPointInsideRect(clientX, clientY, peekFocusSession.anchorRect)) return true;
+      if (isPointInsideRect(clientX, clientY, peekFocusSession.anchorRect)) return true;
       const trigger = getPeekTrigger(clientX, clientY);
       const triggerUserId = trigger?.dataset.focusUserId || null;
       if (!triggerUserId) return false;
