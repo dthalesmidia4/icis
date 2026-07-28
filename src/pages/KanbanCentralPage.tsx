@@ -1702,8 +1702,9 @@ const KanbanCentralPage = () => {
           <Badge variant="secondary">
             {filteredCards.length} {filteredCards.length === 1 ? 'demanda' : 'demandas'}
           </Badge>
-          {focusedColumnId && (() => {
-            const focusName = collaborators.find((c) => c.userId === focusedColumnId)?.fullName || "Colaborador";
+          {pinnedFocusColumnId && (() => {
+            const focusName = collaborators.find((c) => c.userId === pinnedFocusColumnId)?.fullName || "Colaborador";
+
             return (
               <div className="flex items-center gap-2 pl-3 ml-1 border-l border-border/60 animate-fade-in">
                 <Focus className="h-4 w-4 text-primary" />
