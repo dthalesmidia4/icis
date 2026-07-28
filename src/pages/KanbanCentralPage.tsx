@@ -319,6 +319,9 @@ const KanbanCentralPage = () => {
   const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const { collaborators } = useCollaborators(tenantId);
   const navigate = useNavigate();
+  const { setSelectedClient } = useSelectedClient();
+  const [evolutionPopoverOpen, setEvolutionPopoverOpen] = useState(false);
+  const [evolutionSearch, setEvolutionSearch] = useState("");
   const { activeDispatchIds, count: scheduledCount } = useActiveDispatchIds(tenantId);
   const { cards: pendingEvalCards, refetch: refetchEval } = usePendingEvaluationCards(tenantId);
   const [periods, setPeriods] = useState<Array<{
