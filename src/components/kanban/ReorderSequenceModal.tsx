@@ -29,16 +29,17 @@ function fmtDate(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
-export default function ReorderSequenceModal({ open, onOpenChange, columnName, cards, onApplied }: Props) {
+export default function ReorderSequenceModal({ open, onOpenChange, columnName, cards, tenantId, onApplied }: Props) {
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
   const [proposals, setProposals] = useState<ReorderProposal[]>([]);
+  const { config: workHours } = useWorkHoursConfig(tenantId ?? null);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setLoading(true);
-    computeReorder(cards)
+    computeReorder(cards, { workHours })
       .then((r) => {
         if (!cancelled) setProposals(r);
       })
@@ -52,9 +53,9 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     return () => {
       cancelled = true;
     };
-  }, [open, cards]);
+  }, [open, cards, workHours]);
 
-  const changedCount = proposals.filter((p) => p.changed).length;
+  const changedCount = proposals.filter((p) => p.changed && !p.skipped).length;
   const warningCount = proposals.filter((p) => p.warning).length;
 
   const cardById = new Map(cards.map((c) => [c.id, c]));
