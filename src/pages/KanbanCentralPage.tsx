@@ -977,10 +977,48 @@ const KanbanCentralPage = () => {
     },
   });
 
+  const [flowFunctionNames, setFlowFunctionNames] = useState<Record<string, string>>({});
+
+  const fetchFlowFunctionNames = useCallback(async () => {
+    if (!tenantId) return;
+    const { data } = await supabase
+      .from("flow_functions")
+      .select("function_key, name")
+      .eq("tenant_id", tenantId);
+    const map: Record<string, string> = {};
+    (data || []).forEach((r: any) => { if (r.function_key) map[r.function_key] = r.name; });
+    setFlowFunctionNames(map);
+  }, [tenantId]);
+
+  useEffect(() => { fetchFlowFunctionNames(); }, [fetchFlowFunctionNames]);
+
+  const FALLBACK_FN_NAMES: Record<string, string> = {
+    planejar: "Planejar",
+    criar_roteiro: "Criar roteiro",
+    criar_arte: "Criar arte",
+    captar: "Captar",
+    gerar_video: "Gerar vídeo",
+    editar_video: "Editar vídeo",
+    revisar: "Revisar",
+    enviar_cliente: "Enviar cliente",
+    aguardando_cliente: "Aguardando cliente",
+    publicar: "Publicar",
+    revisar_publicacao: "Revisar publicação",
+    avaliar: "Avaliar",
+  };
+
+  const resolveStageLabel = useCallback((card: CentralKanbanCard): string => {
+    const key = (card as any).current_function_key as string | null | undefined;
+    if (key) {
+      return flowFunctionNames[key] || FALLBACK_FN_NAMES[key] || card.status;
+    }
+    return card.status;
+  }, [flowFunctionNames]);
+
   useRealtimeFlowConfig({
     tenantId,
     enabled: !!tenantId,
-    onChange: () => fetchColumns(),
+    onChange: () => { fetchColumns(); fetchFlowFunctionNames(); },
   });
 
   const handleDragEnd = async (result: any) => {
@@ -2530,7 +2568,7 @@ const KanbanCentralPage = () => {
                                             isDragging={snapshot.isDragging}
                                             isOverdue={isCardOverdue(card)}
                                             cardId={card.id}
-                                            statusName={card.status}
+                                           statusName={resolveStageLabel(card)}
                                             statusColor={card.status_color}
                                             isDailyCard={(card as any).is_daily_card}
                                             dailyCompleted={(card as any).daily_completed_occurrences}
@@ -2672,7 +2710,7 @@ const KanbanCentralPage = () => {
                                       deliveryTime={card.delivery_time || undefined}
                                       isOverdue={isCardOverdue(card)}
                                       cardId={card.id}
-                                      statusName={card.status}
+                                      statusName={resolveStageLabel(card)}
                                       statusColor={(card as any).status_color}
                                       isDailyCard={(card as any).is_daily_card}
                                       dailyCompleted={(card as any).daily_completed_occurrences}
@@ -2749,7 +2787,7 @@ const KanbanCentralPage = () => {
                                       deliveryTime={card.delivery_time || undefined}
                                       isOverdue={isCardOverdue(card)}
                                       cardId={card.id}
-                                      statusName={card.status}
+                                      statusName={resolveStageLabel(card)}
                                       statusColor={(card as any).status_color}
                                       isDailyCard={(card as any).is_daily_card}
                                       dailyCompleted={(card as any).daily_completed_occurrences}
