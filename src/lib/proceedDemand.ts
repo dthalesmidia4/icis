@@ -300,7 +300,7 @@ export async function proceedDemand({
     const keepAssignee = (current as any)?.assigned_to || null;
     const { error: upErr } = await supabase
       .from("demands")
-      .update({ current_function_key: nextFn.function_key } as any)
+      .update({ current_function_key: nextFn.function_key, client_wait_started_at: new Date().toISOString() } as any)
       .eq("id", demandId);
     if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
     await recordFlowHistory({
