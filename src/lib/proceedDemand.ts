@@ -222,7 +222,7 @@ export async function jumpToFunction({
   if (currentFunctionKey === "enviar_cliente" && target.function_key === "aguardando_cliente") {
     const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
     const keep = (cur as any)?.assigned_to || null;
-    const { error } = await supabase.from("demands").update({ current_function_key: target.function_key } as any).eq("id", demandId);
+    const { error } = await supabase.from("demands").update({ current_function_key: target.function_key, client_wait_started_at: new Date().toISOString() } as any).eq("id", demandId);
     if (error) return { success: false, message: "Erro ao atualizar etapa." };
     await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: keep, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
     return { success: true, assignedTo: keep || undefined, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name}.` };
