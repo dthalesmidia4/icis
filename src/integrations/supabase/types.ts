@@ -681,6 +681,9 @@ export type Database = {
           attachments: Json
           channel: string | null
           client_id: string
+          client_last_resend_at: string | null
+          client_resend_count: number
+          client_wait_started_at: string | null
           created_at: string
           created_by: string | null
           current_function_key: string | null
@@ -727,6 +730,9 @@ export type Database = {
           attachments?: Json
           channel?: string | null
           client_id: string
+          client_last_resend_at?: string | null
+          client_resend_count?: number
+          client_wait_started_at?: string | null
           created_at?: string
           created_by?: string | null
           current_function_key?: string | null
@@ -773,6 +779,9 @@ export type Database = {
           attachments?: Json
           channel?: string | null
           client_id?: string
+          client_last_resend_at?: string | null
+          client_resend_count?: number
+          client_wait_started_at?: string | null
           created_at?: string
           created_by?: string | null
           current_function_key?: string | null
