@@ -509,7 +509,7 @@ export async function computeReorder(
   let isFirstActive = true;
 
   for (const card of ordered) {
-    const baseDur = estimateDurationBase(card, ctx);
+    const baseDur = estimateDurationBase(card, ctx, opts?.durations);
     let dur = baseDur;
     let slackApplied = false;
     let start: Date;
