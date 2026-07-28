@@ -178,6 +178,7 @@ const KanbanCentralPage = () => {
   // Focus mode: quando setado, decompõe a coluna do responsável em sub-colunas por agrupamento.
   const [focusedColumnId, setFocusedColumnId] = useState<string | null>(null);
   const kanbanColumnRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const focusBoardScrollLeftRef = useRef(0);
   const pendingFocusTransitionRef = useRef<{
     direction: "enter" | "exit";
     from: Map<string, { rect: DOMRect; clone: HTMLElement }>;
@@ -200,6 +201,9 @@ const KanbanCentralPage = () => {
 
   const changeFocusColumn = useCallback((nextColumnId: string | null) => {
     if (!prefersReducedKanbanMotion()) {
+      if (nextColumnId && boardScrollRef.current) {
+        focusBoardScrollLeftRef.current = boardScrollRef.current.scrollLeft;
+      }
       pendingFocusTransitionRef.current = {
         direction: nextColumnId ? "enter" : "exit",
         from: captureKanbanColumnLayout(),
@@ -221,8 +225,8 @@ const KanbanCentralPage = () => {
     pendingFocusTransitionRef.current = null;
 
     const current = new Map(kanbanColumnRefs.current);
-    if (pending.direction === "enter" && boardScrollRef.current) {
-      boardScrollRef.current.scrollLeft = 0;
+    if (boardScrollRef.current) {
+      boardScrollRef.current.scrollLeft = pending.direction === "enter" ? 0 : focusBoardScrollLeftRef.current;
     }
 
     const easing = "cubic-bezier(0.22, 1, 0.36, 1)";
