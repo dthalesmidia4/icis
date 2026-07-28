@@ -733,7 +733,7 @@ function TableRow({
       <td className="p-0" title={areaTitle}>
         <div className={cn("h-8 w-[3px] mx-auto rounded-full", areaBar)} />
       </td>
-      <td className="px-3 py-2 min-w-0">
+      <td className="px-3 py-2 min-w-0 max-w-[100px]">
         <div className="font-medium text-foreground truncate" title={card.title}>
           {card.title}
         </div>
