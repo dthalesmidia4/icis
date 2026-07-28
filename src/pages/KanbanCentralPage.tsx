@@ -249,6 +249,8 @@ const KanbanCentralPage = () => {
   >(new Map());
   const [columnHistoryLoading, setColumnHistoryLoading] = useState<Set<string>>(new Set());
   const [historyPopoverOpen, setHistoryPopoverOpen] = useState<string | null>(null);
+  const [globalHistoryFilter, setGlobalHistoryFilter] = useState<ColumnHistoryFilter | null>(null);
+  const [globalHistoryPopoverOpen, setGlobalHistoryPopoverOpen] = useState(false);
   // Modal de reorganização de sequência (agency_manager / super_admin)
   const [reorderModalColumnId, setReorderModalColumnId] = useState<string | null>(null);
 
@@ -1487,7 +1489,105 @@ const KanbanCentralPage = () => {
               </span>
             )}
           </Button>
-          {/* "Registro de Cards" foi movido para cada coluna (botão discreto por colaborador). */}
+          {/* Registro de Cards global — replica o filtro para todas as colunas */}
+          <Popover open={globalHistoryPopoverOpen} onOpenChange={setGlobalHistoryPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant={globalHistoryFilter ? "default" : "outline"}
+                size="sm"
+                title="Registro de cards — o que cada colaborador entregou"
+              >
+                <History className="h-4 w-4 mr-1" />
+                Registro de cards
+                {globalHistoryFilter && (
+                  <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px]">
+                    {globalHistoryFilter.range === "today"
+                      ? "hoje"
+                      : globalHistoryFilter.range === "day"
+                        ? globalHistoryFilter.dayISO
+                        : `${globalHistoryFilter.range}d`}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-2" align="end">
+              <div className="text-xs font-semibold text-foreground px-2 py-1">
+                Registro em todas as colunas
+              </div>
+              <div className="text-[11px] text-muted-foreground px-2 pb-2">
+                Aplica o mesmo período ao registro de todos os colaboradores.
+              </div>
+              {[
+                { key: "today" as const, label: "Hoje" },
+                { key: "7" as const, label: "Últimos 7 dias" },
+                { key: "30" as const, label: "Últimos 30 dias" },
+              ].map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => {
+                    const filter = { range: opt.key } as ColumnHistoryFilter;
+                    setGlobalHistoryFilter(filter);
+                    setColumnHistory((prev) => {
+                      const next = new Map(prev);
+                      collaborators.forEach((c) => next.set(c.userId, filter));
+                      return next;
+                    });
+                    setGlobalHistoryPopoverOpen(false);
+                  }}
+                  className={cn(
+                    "w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent transition-colors",
+                    globalHistoryFilter?.range === opt.key && "bg-primary/10 text-primary font-medium"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+              <div className="border-t border-border/50 my-2" />
+              <div className="px-2 pb-1 text-[11px] text-muted-foreground">Data específica</div>
+              <input
+                type="date"
+                className="w-full text-sm px-2 py-1.5 rounded bg-background border border-border"
+                value={globalHistoryFilter?.range === "day" ? (globalHistoryFilter.dayISO || "") : ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (!v) return;
+                  const filter: ColumnHistoryFilter = { range: "day", dayISO: v };
+                  setGlobalHistoryFilter(filter);
+                  setColumnHistory((prev) => {
+                    const next = new Map(prev);
+                    collaborators.forEach((c) => next.set(c.userId, filter));
+                    return next;
+                  });
+                }}
+              />
+              {globalHistoryFilter && (
+                <>
+                  <div className="border-t border-border/50 my-2" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGlobalHistoryFilter(null);
+                      setColumnHistory((prev) => {
+                        const next = new Map(prev);
+                        collaborators.forEach((c) => next.delete(c.userId));
+                        return next;
+                      });
+                      setColumnHistoryRows((prev) => {
+                        const next = new Map(prev);
+                        collaborators.forEach((c) => next.delete(c.userId));
+                        return next;
+                      });
+                      setGlobalHistoryPopoverOpen(false);
+                    }}
+                    className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-destructive/10 text-destructive"
+                  >
+                    Desativar registro geral
+                  </button>
+                </>
+              )}
+            </PopoverContent>
+          </Popover>
           <Button
             variant="outline"
             size="sm"
@@ -2535,6 +2635,7 @@ const KanbanCentralPage = () => {
         <ReorderSequenceModal
           open={!!reorderModalColumnId}
           onOpenChange={(o) => !o && setReorderModalColumnId(null)}
+          tenantId={tenantId}
           columnName={
             collaborators.find((c) => c.userId === reorderModalColumnId)?.fullName || "Coluna"
           }
@@ -2544,6 +2645,7 @@ const KanbanCentralPage = () => {
               id: c.id,
               title: c.title,
               demand_type: c.demand_type,
+              demand_type_key: c.demand_type_key,
               is_daily_card: (c as any).is_daily_card,
               publish_date: c.publish_date,
               publish_time: c.publish_time,

@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { Building2, Mail, Phone, MapPin, Save, Loader2 } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, Save, Loader2, Clock } from 'lucide-react';
 import BackButton from '@/components/BackButton';
 
 const companySchema = z.object({
@@ -42,13 +42,30 @@ interface TenantSettings {
     country?: string;
   };
   website?: string;
+  work_hours?: {
+    start?: string;
+    end?: string;
+    lunch_start?: string;
+    lunch_end?: string;
+    tz?: string;
+  };
 }
+
+const DEFAULT_WORK_HOURS = {
+  start: "09:00",
+  end: "18:00",
+  lunch_start: "12:00",
+  lunch_end: "13:30",
+  tz: "America/Sao_Paulo",
+};
 
 export default function CompanyProfile() {
   const navigate = useNavigate();
   const { agencyId, isLoading: agencyLoading } = useAgency();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [workHours, setWorkHours] = useState({ ...DEFAULT_WORK_HOURS });
+  const [otherSettings, setOtherSettings] = useState<TenantSettings>({});
 
   const {
     register,
@@ -73,8 +90,16 @@ export default function CompanyProfile() {
         if (error) throw error;
 
         if (tenant) {
-          const settings = tenant.settings as TenantSettings | null;
-          
+          const settings = (tenant.settings as TenantSettings | null) ?? {};
+          setOtherSettings(settings);
+          setWorkHours({
+            start: settings.work_hours?.start ?? DEFAULT_WORK_HOURS.start,
+            end: settings.work_hours?.end ?? DEFAULT_WORK_HOURS.end,
+            lunch_start: settings.work_hours?.lunch_start ?? DEFAULT_WORK_HOURS.lunch_start,
+            lunch_end: settings.work_hours?.lunch_end ?? DEFAULT_WORK_HOURS.lunch_end,
+            tz: settings.work_hours?.tz ?? DEFAULT_WORK_HOURS.tz,
+          });
+
           reset({
             name: tenant.name || '',
             tradeName: settings?.tradeName || '',
@@ -115,6 +140,7 @@ export default function CompanyProfile() {
           phone: data.phone,
           cnpj_cpf: data.cnpjCpf,
           settings: {
+            ...otherSettings,
             tradeName: data.tradeName,
             legalName: data.legalName,
             address: {
@@ -125,6 +151,7 @@ export default function CompanyProfile() {
               country: data.country,
             },
             website: data.website,
+            work_hours: { ...workHours },
           },
         })
         .eq('id', agencyId);
@@ -338,6 +365,61 @@ export default function CompanyProfile() {
               </div>
             </div>
 
+            {/* Seção 3 - Horário de expediente */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-lg font-semibold text-primary">
+                <Clock className="h-5 w-5" />
+                <h3>Horário de expediente</h3>
+              </div>
+              <Separator />
+              <p className="text-sm text-muted-foreground">
+                Usado pelo Kanban ao reorganizar a sequência de cards de cada colaborador. O sistema respeita a janela
+                de trabalho, o intervalo de almoço e pula finais de semana e feriados.
+              </p>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="wh_start">Início do expediente</Label>
+                  <Input
+                    id="wh_start"
+                    type="time"
+                    value={workHours.start}
+                    onChange={(e) => setWorkHours((w) => ({ ...w, start: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="wh_end">Fim do expediente</Label>
+                  <Input
+                    id="wh_end"
+                    type="time"
+                    value={workHours.end}
+                    onChange={(e) => setWorkHours((w) => ({ ...w, end: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="wh_lstart">Início do almoço</Label>
+                  <Input
+                    id="wh_lstart"
+                    type="time"
+                    value={workHours.lunch_start}
+                    onChange={(e) => setWorkHours((w) => ({ ...w, lunch_start: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="wh_lend">Fim do almoço</Label>
+                  <Input
+                    id="wh_lend"
+                    type="time"
+                    value={workHours.lunch_end}
+                    onChange={(e) => setWorkHours((w) => ({ ...w, lunch_end: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+
             <Separator />
 
             {/* Botões de ação */}
@@ -350,7 +432,7 @@ export default function CompanyProfile() {
               >
                 Voltar
               </Button>
-              <Button type="submit" disabled={isSaving || !isDirty}>
+              <Button type="submit" disabled={isSaving}>
                 {isSaving ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

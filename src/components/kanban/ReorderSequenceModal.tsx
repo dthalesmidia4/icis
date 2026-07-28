@@ -13,12 +13,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { computeReorder, type ReorderCardInput, type ReorderProposal } from "@/lib/reorderSequence";
+import { useWorkHoursConfig } from "@/hooks/useWorkHoursConfig";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   columnName: string;
   cards: ReorderCardInput[];
+  tenantId?: string | null;
   onApplied?: () => void;
 }
 
@@ -27,16 +29,17 @@ function fmtDate(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
-export default function ReorderSequenceModal({ open, onOpenChange, columnName, cards, onApplied }: Props) {
+export default function ReorderSequenceModal({ open, onOpenChange, columnName, cards, tenantId, onApplied }: Props) {
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
   const [proposals, setProposals] = useState<ReorderProposal[]>([]);
+  const { config: workHours } = useWorkHoursConfig(tenantId ?? null);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setLoading(true);
-    computeReorder(cards)
+    computeReorder(cards, { workHours })
       .then((r) => {
         if (!cancelled) setProposals(r);
       })
@@ -50,15 +53,15 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     return () => {
       cancelled = true;
     };
-  }, [open, cards]);
+  }, [open, cards, workHours]);
 
-  const changedCount = proposals.filter((p) => p.changed).length;
+  const changedCount = proposals.filter((p) => p.changed && !p.skipped).length;
   const warningCount = proposals.filter((p) => p.warning).length;
 
   const cardById = new Map(cards.map((c) => [c.id, c]));
 
   async function handleApply() {
-    const toUpdate = proposals.filter((p) => p.changed);
+    const toUpdate = proposals.filter((p) => p.changed && !p.skipped);
     if (toUpdate.length === 0) {
       toast.info("Nada para reorganizar — a sequência já está otimizada.");
       onOpenChange(false);
@@ -105,8 +108,9 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
         </DialogHeader>
 
         <div className="text-xs text-muted-foreground -mt-2 mb-2">
-          A IA estima duração por tipo (Estático 20min, Carrossel 40min, Vídeo curto 2h, Vídeo longo 3h), respeita
-          janela 09:00–18:00 e pula finais de semana/feriados. Cards com data de publicação vêm primeiro.
+          Duração estimada por tipo × etapa do fluxo (ex.: Carrossel em <b>Criar arte</b> 40min, em <b>Revisar</b> 10min).
+          Janela {workHours.start}–{workHours.end}, almoço {workHours.lunchStart}–{workHours.lunchEnd} ({workHours.tz.replace("America/", "")}).
+          Pula finais de semana/feriados. Cards em <b>Aguardando cliente</b> não são reagendados.
         </div>
 
         <div className="flex flex-wrap items-center gap-2 mb-3">
