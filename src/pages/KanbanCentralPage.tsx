@@ -72,6 +72,7 @@ interface CentralKanbanCard extends KanbanCardData {
   archived_at?: string | null;
   assigned_to?: string | null;
   status_color?: string | null;
+  work_area?: "midia" | "sistemas" | null;
 }
 
 const FINAL_STATUS_NAMES = ['feito', 'feitos', 'publicado'];
@@ -165,6 +166,7 @@ const KanbanCentralPage = () => {
   const [selectedClientFilter, setSelectedClientFilter] = useState<string>("all");
   const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<string>("active");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>("all");
+  const [selectedAreaFilter, setSelectedAreaFilter] = useState<"all" | "midia" | "sistemas">("all");
   const [dateGroupBy, setDateGroupBy] = useState<"start" | "delivery">("start");
   const [isFiltersModalOpen, setIsFiltersModalOpen] = useState(false);
   const { collaborators } = useCollaborators(tenantId);
@@ -296,6 +298,9 @@ const KanbanCentralPage = () => {
     if (selectedStatusFilter !== "all") {
       baseCards = baseCards.filter(card => card.status === selectedStatusFilter);
     }
+    if (selectedAreaFilter !== "all") {
+      baseCards = baseCards.filter(card => (card.work_area || "midia") === selectedAreaFilter);
+    }
     // Ocultar cards diários cuja próxima ocorrência ainda não chegou
     baseCards = baseCards.filter(card => isDailyCardVisibleNow(card as any));
     // Ocultar cards com dispatch ativo (agendados/em envio) — eles vivem na tela /scheduled
@@ -303,7 +308,7 @@ const KanbanCentralPage = () => {
       baseCards = baseCards.filter(card => !activeDispatchIds.has(card.id));
     }
     return baseCards;
-  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, activeDispatchIds]);
+  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, selectedAreaFilter, activeDispatchIds]);
 
   // Aplicar mesmos filtros (cliente/período) nos cards planejados aguardando avaliação.
   // Status não se aplica pois esses cards ainda não são demandas.
@@ -728,6 +733,7 @@ const KanbanCentralPage = () => {
           daily_total_occurrences: demand.daily_total_occurrences ?? null,
           daily_completed_occurrences: demand.daily_completed_occurrences ?? 0,
           daily_completed_dates: Array.isArray(demand.daily_completed_dates) ? demand.daily_completed_dates : [],
+          work_area: (demand.work_area as any) || "midia",
         } as any;
       };
 
