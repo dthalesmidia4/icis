@@ -156,6 +156,14 @@ const ClientEvolution = () => {
   const [period, setPeriod] = useState<PeriodFilter>("this_month");
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
 
+  const toggleSort = (key: SortKey) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+  };
+
   // Load static data
   useEffect(() => {
     if (tenantLoading || !tenantId) return;
