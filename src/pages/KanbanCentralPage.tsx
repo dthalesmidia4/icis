@@ -89,6 +89,7 @@ type KanbanDisplayColumn = {
 type KanbanFocusPeekSession = {
   restoreColumnId: string | null;
   targetColumnId: string | null;
+  anchorRect: { left: number; top: number; right: number; bottom: number };
 };
 
 const getKanbanColumnVisualKey = (column: Pick<KanbanDisplayColumn, "userId" | "focusKind">) => {
@@ -277,7 +278,11 @@ const KanbanCentralPage = () => {
   }, [changeFocusColumn, clearHoverTimers, enterFocus, exitFocus, updatePeekFocusSession]);
 
   // Hover "espiar": ao passar o mouse sobre o header da coluna, mostrar/tirar foco temporariamente.
-  const handleColumnHeaderPointerEnter = useCallback((columnUserId: string, pointerType: string, clientX: number, clientY: number) => {
+  const isPointInsideRect = useCallback((clientX: number, clientY: number, rect: KanbanFocusPeekSession["anchorRect"]) => {
+    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+  }, []);
+
+  const handleColumnHeaderPointerEnter = useCallback((columnUserId: string, pointerType: string, clientX: number, clientY: number, anchorRect: KanbanFocusPeekSession["anchorRect"]) => {
     if (pointerType && pointerType !== 'mouse') return;
     peekPointerPositionRef.current = { x: clientX, y: clientY };
     if (hoverExitTimerRef.current) { window.clearTimeout(hoverExitTimerRef.current); hoverExitTimerRef.current = null; }
@@ -288,7 +293,7 @@ const KanbanCentralPage = () => {
       // Se não há, o hover foca temporariamente a coluna sob o cursor.
       const restoreColumnId = pinnedFocusColumnIdRef.current;
       const target = restoreColumnId ? null : columnUserId;
-      updatePeekFocusSession({ restoreColumnId, targetColumnId: target });
+      updatePeekFocusSession({ restoreColumnId, targetColumnId: target, anchorRect });
       changeFocusColumn(target);
     }, 120);
   }, [changeFocusColumn, updatePeekFocusSession]);
@@ -319,6 +324,7 @@ const KanbanCentralPage = () => {
     };
 
     const isStillOnValidTriggerAt = (clientX: number, clientY: number) => {
+      if (isPointInsideRect(clientX, clientY, peekFocusSession.anchorRect)) return true;
       const trigger = getPeekTrigger(clientX, clientY);
       const triggerUserId = trigger?.dataset.focusUserId || null;
       if (!triggerUserId) return false;
@@ -365,7 +371,7 @@ const KanbanCentralPage = () => {
       window.removeEventListener('pointerout', restoreOnWindowExit);
       window.removeEventListener('blur', restoreOnBlur);
     };
-  }, [peekFocusSession, restorePinnedFocusAfterPeek]);
+  }, [isPointInsideRect, peekFocusSession, restorePinnedFocusAfterPeek]);
 
 
   useLayoutEffect(() => {
@@ -2414,7 +2420,15 @@ const KanbanCentralPage = () => {
                               <button
                                 type="button"
                                 onClick={() => commitVisibleFocusState(columnUserId, !!focusKind)}
-                                onPointerEnter={(e) => handleColumnHeaderPointerEnter(columnUserId, e.pointerType, e.clientX, e.clientY)}
+                                onPointerEnter={(e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  handleColumnHeaderPointerEnter(columnUserId, e.pointerType, e.clientX, e.clientY, {
+                                    left: rect.left,
+                                    top: rect.top,
+                                    right: rect.right,
+                                    bottom: rect.bottom,
+                                  });
+                                }}
                                 onPointerLeave={handleColumnHeaderPointerLeave}
                                 data-focus-peek-trigger="true"
                                 data-focus-user-id={columnUserId}
