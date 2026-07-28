@@ -1,59 +1,30 @@
-## Auditoria — Retorno automático do cliente
+## Diagnóstico
 
-### O que já está funcionando
-- Migração aplicada: colunas `client_wait_started_at`, `client_resend_count`, `client_last_resend_at` + índice parcial.
-- Edge function `return-awaiting-client-cards` deployada.
-- Cron `return-awaiting-client-hourly` ativo (schedule `0 * * * *`).
-- `proceedDemand.ts` inicializa `client_wait_started_at` ao entrar em `aguardando_cliente` (fwd) e incrementa `client_resend_count` + limpa o timer ao voltar manualmente para `enviar_cliente`.
-- Modal "Configurar funções do fluxo" tem a aba **Retorno do cliente** com wait_hours, max_resends e horários.
-- KanbanCentralPage renderiza badges "Reenviado Nx" e "Xh aguardando" na seção Aguardando Clientes.
+Não é regressão de código. As duas últimas tentativas (17:09 e 17:14 UTC) foram bloqueadas pelo **filtro RAI (Responsible AI)** do Veo 3.1, com o motivo:
 
-### Pontas soltas encontradas
+> "Sorry, we can't create videos from input images containing celebrity or their likenesses. Please remove the reference and try again."
 
-**1. Bug crítico — chave de config incompatível entre UI e cron**
+O Veo classificou o mascote (foto realista de advogado em terno) como semelhança de celebridade. A operação chega a `done: true` no Google, mas retorna `raiMediaFilteredCount: 1` em vez de vídeos.
 
-O modal salva a configuração em `flow_functions.config.client_return.{wait_hours,return_times,max_resends,timezone}` (linhas 186 e 350 de `FunctionPermissionsModal.tsx`).
+O código atual joga isso no branch genérico "Nenhum vídeo gerado" com status 500 (linha 169-175 de `supabase/functions/generate-video-scene/index.ts`), então o usuário vê só `FunctionsHttpError` no console e um toast "Erro ao gerar Cena 1" — sem entender que precisa trocar a imagem.
 
-A edge function `return-awaiting-client-cards/index.ts` lê `config.wait_hours`, `config.return_times`, `config.max_resends` diretamente na raiz de `config`.
+## Correção
 
-Resultado: a cron sempre entra no ramo `skipped: "no_return_times"` e nenhum card é devolvido automaticamente. Todo o pipeline de retorno automático está inerte hoje.
+Editar `supabase/functions/generate-video-scene/index.ts` para detectar `raiMediaFilteredReasons` / `raiMediaFilteredCount` no `result.response.generateVideoResponse` e retornar uma resposta clara:
 
-**2. Timer não é limpo em outras transições saindo de `aguardando_cliente`**
+- Status `400` (não 500 — foi input do usuário, não falha do servidor).
+- Mensagem em português explicando que o Veo bloqueou a imagem por política de segurança (semelhança com pessoa real / celebridade) e sugerindo trocar o Frame 0 por um mascote ilustrado/estilizado ou remover a foto de referência.
+- Incluir a razão original do Veo (em campo separado) para debug, sem expor no toast principal.
 
-Só o caminho `aguardando_cliente → enviar_cliente` (regress manual) limpa `client_wait_started_at`. Se o card avançar para `agendar_publicacao` (ou qualquer outra função) via `proceedDemand`, o timestamp fica preso e o card, mesmo já publicado/agendado, aparece indefinidamente com badges "aguardando" caso volte para essa função futuramente. `client_resend_count` também deveria zerar quando o ciclo se encerra positivamente (aprovação do cliente).
+Também melhorar o toast no front (componente que chama `generate-video-scene` em `ClientHub.tsx` da tela de storyboard Seedance/Veo) para ler `error` da resposta JSON e mostrar a mensagem retornada em vez do genérico "Erro ao gerar Cena X".
 
-**3. Menor — sem seletor de timezone na UI**
+## Arquivos
 
-O modal já persiste `timezone: "America/Sao_Paulo"` como default e a edge function respeita `cfg.timezone`, mas não há campo visível. Aceitável para agora; documentar como default fixo até haver demanda multi-fuso.
+1. `supabase/functions/generate-video-scene/index.ts` — bloco de extração de vídeos (linhas ~164-175): checar RAI antes do fallback genérico.
+2. Handler de "Gerar Cena" na tela de storyboard (localizar via `rg "generate-video-scene"` no front) — surface do `error.message` da edge function no toast.
 
-### Plano de correção
+## Escopo fora
 
-**Passo 1 — Alinhar leitura da edge function ao formato aninhado `client_return`**
-
-Em `supabase/functions/return-awaiting-client-cards/index.ts`, trocar:
-```ts
-const cfg = (row.config || {}) as Partial<AwaitingConfig>;
-```
-por:
-```ts
-const cfg = ((row.config || {}).client_return || {}) as Partial<AwaitingConfig>;
-```
-Manter fallback opcional para o formato flat (caso algum tenant já tivesse salvo assim) só se detectarmos dados legados — verificar rapidamente com um SELECT antes de decidir.
-
-**Passo 2 — Limpar estado ao sair de `aguardando_cliente` para qualquer função ≠ `enviar_cliente`**
-
-Em `src/lib/proceedDemand.ts`, nos caminhos `proceedDemand` (forward) e `jumpToFunction`, quando `currentFunctionKey === "aguardando_cliente"` e o destino não for `enviar_cliente`, incluir no update:
-```ts
-client_wait_started_at: null,
-client_resend_count: 0,
-client_last_resend_at: null,
-```
-Assim o ciclo encerra corretamente quando o cliente aprova e o card avança.
-
-**Passo 3 — Verificação pós-correção**
-
-- Rodar a edge function manualmente via `curl_edge_functions` fora do slot horário: deve retornar `skipped: "outside_window"` para tenants configurados (prova que agora enxerga o `return_times`).
-- Confirmar em `demand_flow_history` que registros `auto_return_from_client` são gerados na próxima execução dentro do horário.
-- Abrir um card de teste em `aguardando_cliente`, avançar para `agendar_publicacao` e verificar que `client_wait_started_at` e `client_resend_count` zeram na base.
-
-Sem mudanças de UI, tabela, cron ou secrets — apenas edge function e `proceedDemand.ts`.
+- Não alterar Seedance (fluxo separado).
+- Não mexer em prompts do Veo — a rejeição é da imagem, não do texto.
+- Não mudar a política de mascotes; apenas comunicar o bloqueio.
