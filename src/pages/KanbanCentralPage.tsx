@@ -1647,6 +1647,7 @@ const KanbanCentralPage = () => {
           (selectedClientFilter !== "all" ? 1 : 0) +
           (selectedPeriodFilter !== "active" ? 1 : 0) +
           (selectedStatusFilter !== "all" ? 1 : 0) +
+          (selectedAreaFilter !== "all" ? 1 : 0) +
           (dateGroupBy !== "start" ? 1 : 0);
         const clientLabel = clients.find((c) => c.id === selectedClientFilter)?.name;
         const periodLabel =
@@ -1723,6 +1724,19 @@ const KanbanCentralPage = () => {
                     </button>
                   </Badge>
                 )}
+                {selectedAreaFilter !== "all" && (
+                  <Badge variant="secondary" className="gap-1 pr-1">
+                    Área: {selectedAreaFilter === "midia" ? "Mídia" : "Sistemas"}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAreaFilter("all")}
+                      className="ml-1 hover:bg-background/40 rounded p-0.5"
+                      aria-label="Limpar filtro de área"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
                 {dateGroupBy !== "start" && (
                   <Badge variant="secondary" className="gap-1 pr-1">
                     Visualizar por: Data de término
@@ -1744,6 +1758,7 @@ const KanbanCentralPage = () => {
                     setSelectedClientFilter("all");
                     setSelectedPeriodFilter("active");
                     setSelectedStatusFilter("all");
+                    setSelectedAreaFilter("all");
                     setDateGroupBy("start");
                   }}
                 >
