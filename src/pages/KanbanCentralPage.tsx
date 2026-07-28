@@ -107,7 +107,8 @@ const getDisplayDemandType = (
 const KanbanCentralPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { tenantId, isLoading: tenantLoading } = useTenant();
-  const { isSuperAdmin } = useAgencyRole();
+  const { isSuperAdmin, isAgencyManager } = useAgencyRole();
+  const canReorder = isSuperAdmin || isAgencyManager;
   const [cards, setCards] = useState<CentralKanbanCard[]>([]);
   const [archivedCards, setArchivedCards] = useState<CentralKanbanCard[]>([]);
   const [collapsedDateGroups, setCollapsedDateGroups] = useState<Set<string>>(new Set());
