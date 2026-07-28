@@ -5,8 +5,11 @@
  * - Aplica folga proporcional (30%) + atraso acumulado no primeiro card atrasado.
  * - Pula finais de semana e feriados (br_calendar_events).
  * - Usa fuso America/Sao_Paulo por padrão como "UTC virtual".
+ * - Respeita `user_area_schedules` por área (mídia/sistemas) quando fornecido.
  */
 import { fetchHolidaysInRange } from "@/lib/dailyCards";
+
+export type ReorderWorkArea = "midia" | "sistemas";
 
 export interface WorkHoursConfig {
   start: string;
@@ -24,6 +27,15 @@ export const DEFAULT_WORK_HOURS: WorkHoursConfig = {
   tz: "America/Sao_Paulo",
 };
 
+/**
+ * Mapa de blocos por área × weekday (0..6, dom..sáb).
+ * Cada bloco em minutos desde meia-noite.
+ */
+export type AreaScheduleMap = {
+  midia: Record<number, Array<{ s: number; e: number }>>;
+  sistemas: Record<number, Array<{ s: number; e: number }>>;
+};
+
 export interface ReorderCardInput {
   id: string;
   title: string;
@@ -37,6 +49,7 @@ export interface ReorderCardInput {
   delivery_date?: string | null;
   delivery_time?: string | null;
   current_function_key?: string | null;
+  work_area?: ReorderWorkArea | null;
 }
 
 export interface ReorderProposal {
@@ -160,9 +173,9 @@ function isWeekend(d: Date): boolean {
   const g = d.getUTCDay();
   return g === 0 || g === 6;
 }
-function setTimeOfDay(d: Date, h: number, m: number): Date {
+function setMinuteOfDay(d: Date, minute: number): Date {
   const n = new Date(d);
-  n.setUTCHours(h, m, 0, 0);
+  n.setUTCHours(Math.floor(minute / 60), minute % 60, 0, 0);
   return n;
 }
 function isNonWorkingDay(d: Date, holidays: Set<string>): boolean {
@@ -170,115 +183,135 @@ function isNonWorkingDay(d: Date, holidays: Set<string>): boolean {
 }
 
 // ------------------------------------------------------------------
-// Contexto de expediente (minutos por dia disponíveis)
+// Contexto de expediente
 // ------------------------------------------------------------------
 
 interface WorkCtx {
-  wsMin: number; // work start minutes of day
+  wsMin: number;
   weMin: number;
-  lsMin: number; // lunch start
+  lsMin: number;
   leMin: number;
   hasLunch: boolean;
-  workStart: { h: number; m: number };
-  workEnd: { h: number; m: number };
-  lunchStart: { h: number; m: number };
-  lunchEnd: { h: number; m: number };
   holidays: Set<string>;
+  areaSchedule?: AreaScheduleMap;
 }
 
-/** Minutos úteis num dia (sem contar almoço). */
-function workingMinutesPerDay(ctx: WorkCtx): number {
-  const raw = ctx.weMin - ctx.wsMin;
-  return ctx.hasLunch ? raw - (ctx.leMin - ctx.lsMin) : raw;
+function buildCtx(wh: WorkHoursConfig, holidays: Set<string>, areaSchedule?: AreaScheduleMap): WorkCtx {
+  const workStart = parseHM(wh.start);
+  const workEnd = parseHM(wh.end);
+  const lunchStart = parseHM(wh.lunchStart);
+  const lunchEnd = parseHM(wh.lunchEnd);
+  const wsMin = workStart.h * 60 + workStart.m;
+  const weMin = workEnd.h * 60 + workEnd.m;
+  const lsMin = lunchStart.h * 60 + lunchStart.m;
+  const leMin = lunchEnd.h * 60 + lunchEnd.m;
+  const hasLunch = leMin > lsMin && lsMin > wsMin && leMin < weMin;
+  return { wsMin, weMin, lsMin, leMin, hasLunch, holidays, areaSchedule };
 }
 
-/** Ajusta um cursor para o próximo instante trabalhável (skip almoço/fim de dia/feriados). */
-function normalizeCursor(d: Date, ctx: WorkCtx): Date {
-  let c = new Date(d);
-  // Pula fim de semana / feriado
-  while (isNonWorkingDay(c, ctx.holidays)) {
-    c.setUTCDate(c.getUTCDate() + 1);
-    c = setTimeOfDay(c, ctx.workStart.h, ctx.workStart.m);
-  }
-  const mod = c.getUTCHours() * 60 + c.getUTCMinutes();
-  // Antes do início → início
-  if (mod < ctx.wsMin) return setTimeOfDay(c, ctx.workStart.h, ctx.workStart.m);
-  // Durante almoço → fim do almoço
-  if (ctx.hasLunch && mod >= ctx.lsMin && mod < ctx.leMin) {
-    return setTimeOfDay(c, ctx.lunchEnd.h, ctx.lunchEnd.m);
-  }
-  // No/após fim → próximo dia útil
-  if (mod >= ctx.weMin) {
-    let next = new Date(c);
-    next.setUTCDate(next.getUTCDate() + 1);
-    next = setTimeOfDay(next, ctx.workStart.h, ctx.workStart.m);
-    while (isNonWorkingDay(next, ctx.holidays)) {
-      next.setUTCDate(next.getUTCDate() + 1);
+/** Blocos [start,end] em minutos do dia, ordenados, respeitando área quando disponível. */
+function dayBlocks(d: Date, area: ReorderWorkArea | null | undefined, ctx: WorkCtx): Array<{ s: number; e: number }> {
+  if (area && ctx.areaSchedule) {
+    const blocks = ctx.areaSchedule[area]?.[d.getUTCDay()];
+    if (blocks && blocks.length) {
+      return [...blocks].filter((b) => b.e > b.s).sort((a, b) => a.s - b.s);
     }
-    return next;
+  }
+  // Fallback: workHours + almoço genérico
+  if (ctx.hasLunch) {
+    return [
+      { s: ctx.wsMin, e: ctx.lsMin },
+      { s: ctx.leMin, e: ctx.weMin },
+    ];
+  }
+  return [{ s: ctx.wsMin, e: ctx.weMin }];
+}
+
+/** Minutos úteis num dia (somando todos os blocos da área). */
+function workingMinutesInDay(d: Date, area: ReorderWorkArea | null | undefined, ctx: WorkCtx): number {
+  return dayBlocks(d, area, ctx).reduce((acc, b) => acc + Math.max(0, b.e - b.s), 0);
+}
+
+/** Ajusta um cursor para o próximo instante trabalhável na área dada. */
+function normalizeCursor(d: Date, area: ReorderWorkArea | null | undefined, ctx: WorkCtx): Date {
+  let c = new Date(d);
+  for (let guard = 0; guard < 500; guard++) {
+    if (isNonWorkingDay(c, ctx.holidays)) {
+      c.setUTCDate(c.getUTCDate() + 1);
+      c.setUTCHours(0, 0, 0, 0);
+      continue;
+    }
+    const blocks = dayBlocks(c, area, ctx);
+    if (blocks.length === 0) {
+      c.setUTCDate(c.getUTCDate() + 1);
+      c.setUTCHours(0, 0, 0, 0);
+      continue;
+    }
+    const mod = c.getUTCHours() * 60 + c.getUTCMinutes();
+    // Antes do primeiro bloco
+    if (mod < blocks[0].s) return setMinuteOfDay(c, blocks[0].s);
+    // Dentro de algum bloco
+    for (const b of blocks) {
+      if (mod >= b.s && mod < b.e) return c;
+    }
+    // Em gap entre blocos → próximo bloco
+    for (const b of blocks) {
+      if (mod < b.s) return setMinuteOfDay(c, b.s);
+    }
+    // Após último bloco → próximo dia
+    c.setUTCDate(c.getUTCDate() + 1);
+    c.setUTCHours(0, 0, 0, 0);
   }
   return c;
 }
 
 /**
- * Aloca `durationMin` a partir de `cursor`, fatiando entre janelas de expediente,
- * pulando almoço, fim de dia, fins de semana e feriados. Retorna o instante inicial
- * (do primeiro bloco), final (do último bloco) e o número de dias úteis atravessados.
+ * Aloca `durationMin` a partir de `cursor`, fatiando entre blocos da área,
+ * pulando gaps/fins de expediente, fins de semana e feriados.
  */
 function allocateAcrossDays(
   cursor: Date,
   durationMin: number,
+  area: ReorderWorkArea | null | undefined,
   ctx: WorkCtx,
 ): { start: Date; end: Date; daysSpanned: number } {
-  let c = normalizeCursor(cursor, ctx);
+  let c = normalizeCursor(cursor, area, ctx);
   const start = new Date(c);
   let remaining = Math.max(1, durationMin);
   let last = new Date(c);
   const daysSeen = new Set<string>();
   daysSeen.add(isoDate(c));
 
-  // Segurança: no máximo ~120 dias
   for (let guard = 0; guard < 500 && remaining > 0; guard++) {
-    c = normalizeCursor(c, ctx);
+    c = normalizeCursor(c, area, ctx);
     daysSeen.add(isoDate(c));
     const nowMin = c.getUTCHours() * 60 + c.getUTCMinutes();
-
-    // Bloco corrente: até início do almoço OU até fim do expediente
-    let blockEndMin: number;
-    if (ctx.hasLunch && nowMin < ctx.lsMin) {
-      blockEndMin = ctx.lsMin;
-    } else {
-      blockEndMin = ctx.weMin;
-    }
-    const available = blockEndMin - nowMin;
-    if (available <= 0) {
-      // Empurra pra próxima janela
-      if (ctx.hasLunch && nowMin < ctx.leMin) {
-        c = setTimeOfDay(c, ctx.lunchEnd.h, ctx.lunchEnd.m);
-      } else {
-        c.setUTCDate(c.getUTCDate() + 1);
-        c = setTimeOfDay(c, ctx.workStart.h, ctx.workStart.m);
-      }
+    const blocks = dayBlocks(c, area, ctx);
+    // Bloco atual que contém nowMin
+    const currentBlock = blocks.find((b) => nowMin >= b.s && nowMin < b.e);
+    if (!currentBlock) {
+      // normalizeCursor deveria ter posicionado; segurança
+      c.setUTCDate(c.getUTCDate() + 1);
+      c.setUTCHours(0, 0, 0, 0);
       continue;
     }
-
+    const available = currentBlock.e - nowMin;
     if (remaining <= available) {
       last = new Date(c);
       last.setUTCMinutes(last.getUTCMinutes() + remaining);
       remaining = 0;
       break;
     }
-
-    // Consome bloco inteiro e avança
     remaining -= available;
-    c = setTimeOfDay(c, Math.floor(blockEndMin / 60), blockEndMin % 60);
-    if (ctx.hasLunch && blockEndMin === ctx.lsMin) {
-      // Pula almoço
-      c = setTimeOfDay(c, ctx.lunchEnd.h, ctx.lunchEnd.m);
+    // Avança ao fim deste bloco
+    c = setMinuteOfDay(c, currentBlock.e);
+    // Existe próximo bloco no mesmo dia?
+    const nextBlock = blocks.find((b) => b.s >= currentBlock.e);
+    if (nextBlock) {
+      c = setMinuteOfDay(c, nextBlock.s);
     } else {
-      // Fim de expediente → próximo dia útil
       c.setUTCDate(c.getUTCDate() + 1);
-      c = setTimeOfDay(c, ctx.workStart.h, ctx.workStart.m);
+      c.setUTCHours(0, 0, 0, 0);
     }
   }
 
@@ -290,15 +323,13 @@ function allocateAcrossDays(
 // Duração base do card
 // ------------------------------------------------------------------
 
-/** Minutos entre due e delivery, considerando expediente (subtrai almoço se cruzar). */
+/** Minutos entre due e delivery (aproximação: subtrai almoço quando cruzar). */
 function scheduledSpanMinutes(card: ReorderCardInput, ctx: WorkCtx): number | null {
   if (!card.due_date || !card.due_time || !card.delivery_date || !card.delivery_time) return null;
   const due = toVirtualUtc(card.due_date, card.due_time.slice(0, 5));
   const deliv = toVirtualUtc(card.delivery_date, card.delivery_time.slice(0, 5));
   if (!(deliv > due)) return null;
   const rawMin = Math.round((deliv.getTime() - due.getTime()) / 60000);
-  // Aproximação: se cruzou dias, ignora fins de semana/feriados; para "Outros" o intervalo é curto.
-  // Descontamos almoços atravessados.
   let lunchDeductions = 0;
   if (ctx.hasLunch) {
     const cur = new Date(due);
@@ -306,8 +337,8 @@ function scheduledSpanMinutes(card: ReorderCardInput, ctx: WorkCtx): number | nu
     const endDay = new Date(deliv);
     endDay.setUTCHours(0, 0, 0, 0);
     while (cur <= endDay) {
-      const lunchStart = setTimeOfDay(cur, ctx.lunchStart.h, ctx.lunchStart.m);
-      const lunchEnd = setTimeOfDay(cur, ctx.lunchEnd.h, ctx.lunchEnd.m);
+      const lunchStart = setMinuteOfDay(cur, ctx.lsMin);
+      const lunchEnd = setMinuteOfDay(cur, ctx.leMin);
       if (lunchEnd > due && lunchStart < deliv) {
         lunchDeductions += ctx.leMin - ctx.lsMin;
       }
@@ -339,10 +370,13 @@ function estimateDurationBase(
   const group = typeGroup(card);
   const stage = (card.current_function_key || "").toLowerCase();
 
-  // "Outros": prioriza intervalo agendado no próprio card
   if (isOtherType(card)) {
     const span = scheduledSpanMinutes(card, ctx);
-    if (span && span > 0) return Math.min(span, workingMinutesPerDay(ctx) * 5); // teto 5 jornadas
+    if (span && span > 0) {
+      // teto ~5 jornadas na área do card
+      const cap = Math.max(60, workingMinutesInDay(new Date(), card.work_area, ctx) * 5);
+      return Math.min(span, cap);
+    }
     const overridden = pickFromOverrides(overrides, stage, "outro");
     if (overridden !== null) return overridden;
     const stageRow = DURATION_MATRIX[stage];
@@ -363,25 +397,17 @@ export function estimateDurationMinutes(card: ReorderCardInput): number {
   return estimateDurationBase(card, ctx);
 }
 
-function buildCtx(wh: WorkHoursConfig, holidays: Set<string>): WorkCtx {
-  const workStart = parseHM(wh.start);
-  const workEnd = parseHM(wh.end);
-  const lunchStart = parseHM(wh.lunchStart);
-  const lunchEnd = parseHM(wh.lunchEnd);
-  const wsMin = workStart.h * 60 + workStart.m;
-  const weMin = workEnd.h * 60 + workEnd.m;
-  const lsMin = lunchStart.h * 60 + lunchStart.m;
-  const leMin = lunchEnd.h * 60 + lunchEnd.m;
-  const hasLunch = leMin > lsMin && lsMin > wsMin && leMin < weMin;
-  return { wsMin, weMin, lsMin, leMin, hasLunch, workStart, workEnd, lunchStart, lunchEnd, holidays };
-}
-
 // ------------------------------------------------------------------
 // Atraso
 // ------------------------------------------------------------------
 
-/** Minutos úteis (dentro do expediente) entre `from` e `to`. */
-function workingMinutesBetween(from: Date, to: Date, ctx: WorkCtx): number {
+/** Minutos úteis (dentro dos blocos da área) entre `from` e `to`. */
+function workingMinutesBetween(
+  from: Date,
+  to: Date,
+  area: ReorderWorkArea | null | undefined,
+  ctx: WorkCtx,
+): number {
   if (!(to > from)) return 0;
   let total = 0;
   const cur = new Date(from);
@@ -390,22 +416,15 @@ function workingMinutesBetween(from: Date, to: Date, ctx: WorkCtx): number {
   endDay.setUTCHours(0, 0, 0, 0);
   while (cur <= endDay) {
     if (!isNonWorkingDay(cur, ctx.holidays)) {
-      const dayStart = setTimeOfDay(cur, ctx.workStart.h, ctx.workStart.m);
-      const dayEnd = setTimeOfDay(cur, ctx.workEnd.h, ctx.workEnd.m);
-      const segStart = from > dayStart ? from : dayStart;
-      const segEnd = to < dayEnd ? to : dayEnd;
-      if (segEnd > segStart) {
-        let mins = Math.round((segEnd.getTime() - segStart.getTime()) / 60000);
-        if (ctx.hasLunch) {
-          const lStart = setTimeOfDay(cur, ctx.lunchStart.h, ctx.lunchStart.m);
-          const lEnd = setTimeOfDay(cur, ctx.lunchEnd.h, ctx.lunchEnd.m);
-          const overlapStart = segStart > lStart ? segStart : lStart;
-          const overlapEnd = segEnd < lEnd ? segEnd : lEnd;
-          if (overlapEnd > overlapStart) {
-            mins -= Math.round((overlapEnd.getTime() - overlapStart.getTime()) / 60000);
-          }
+      const blocks = dayBlocks(cur, area, ctx);
+      for (const b of blocks) {
+        const bStart = setMinuteOfDay(cur, b.s);
+        const bEnd = setMinuteOfDay(cur, b.e);
+        const segStart = from > bStart ? from : bStart;
+        const segEnd = to < bEnd ? to : bEnd;
+        if (segEnd > segStart) {
+          total += Math.round((segEnd.getTime() - segStart.getTime()) / 60000);
         }
-        total += Math.max(0, mins);
       }
     }
     cur.setUTCDate(cur.getUTCDate() + 1);
@@ -435,7 +454,6 @@ function pubKey(c: ReorderCardInput): string {
   return `${c.publish_date}T${(c.publish_time || "23:59").slice(0, 5)}`;
 }
 
-/** True se houver ≥ 1 card ativo (fora o em execução) com publish_date. */
 export function hasPublishDateCandidates(cards: ReorderCardInput[]): boolean {
   const active = cards.filter((c) => (c.current_function_key || "").toLowerCase() !== "aguardando_cliente");
   if (active.length <= 1) return false;
@@ -450,7 +468,6 @@ export function sortForReorder(
 ): ReorderCardInput[] {
   if (cards.length === 0) return [];
   const indexed = cards.map((c, i) => ({ c, i }));
-  // Ordem atual da coluna: due_date/due_time asc (nulos ao fim), estável.
   const byDue = [...indexed].sort((a, b) => {
     const cmp = dueKey(a.c).localeCompare(dueKey(b.c));
     return cmp !== 0 ? cmp : a.i - b.i;
@@ -462,11 +479,9 @@ export function sortForReorder(
     rest.sort((a, b) => {
       const cmp = pubKey(a.c).localeCompare(pubKey(b.c));
       if (cmp !== 0) return cmp;
-      // Empate: preserva ordem atual da coluna (due asc).
       return dueKey(a.c).localeCompare(dueKey(b.c));
     });
   }
-  // Modo padrão: rest já está na ordem da coluna (due asc).
 
   return [inProgress, ...rest].map((x) => x.c);
 }
@@ -477,7 +492,13 @@ export function sortForReorder(
 
 export async function computeReorder(
   cards: ReorderCardInput[],
-  opts?: { startFrom?: Date; workHours?: WorkHoursConfig; prioritizePublishDate?: boolean; durations?: StageDurationOverrides },
+  opts?: {
+    startFrom?: Date;
+    workHours?: WorkHoursConfig;
+    prioritizePublishDate?: boolean;
+    durations?: StageDurationOverrides;
+    areaSchedule?: AreaScheduleMap;
+  },
 ): Promise<ReorderProposal[]> {
   if (cards.length === 0) return [];
 
@@ -494,21 +515,37 @@ export async function computeReorder(
     holidays = new Set();
   }
 
-  const ctx = buildCtx(wh, holidays);
+  const ctx = buildCtx(wh, holidays, opts?.areaSchedule);
 
   const awaiting = cards.filter((c) => (c.current_function_key || "").toLowerCase() === "aguardando_cliente");
   const active = cards.filter((c) => (c.current_function_key || "").toLowerCase() !== "aguardando_cliente");
   const ordered = sortForReorder(active, { prioritizePublishDate: opts?.prioritizePublishDate });
 
-  // Cursor inicial (arredondado a 5min)
-  let cursor = normalizeCursor(new Date(now), ctx);
-  const bump = cursor.getUTCMinutes() % 5;
-  if (bump !== 0) cursor.setUTCMinutes(cursor.getUTCMinutes() + (5 - bump), 0, 0);
+  // Cursores separados por área quando há schedule por área.
+  // Se não há areaSchedule (fallback antigo), cursor único.
+  const useAreaCursors = !!opts?.areaSchedule;
+  const cursors: Record<string, Date> = {};
+  const initialCursor = normalizeCursor(new Date(now), null, ctx);
+  const bumped = new Date(initialCursor);
+  const bump = bumped.getUTCMinutes() % 5;
+  if (bump !== 0) bumped.setUTCMinutes(bumped.getUTCMinutes() + (5 - bump), 0, 0);
+  cursors.__default = bumped;
 
   const proposals: ReorderProposal[] = [];
   let isFirstActive = true;
 
   for (const card of ordered) {
+    const area: ReorderWorkArea | null = (card.work_area === "midia" || card.work_area === "sistemas")
+      ? card.work_area
+      : null;
+    const cursorKey = useAreaCursors && area ? area : "__default";
+    if (!cursors[cursorKey]) {
+      cursors[cursorKey] = normalizeCursor(new Date(now), area, ctx);
+      const b2 = cursors[cursorKey].getUTCMinutes() % 5;
+      if (b2 !== 0) cursors[cursorKey].setUTCMinutes(cursors[cursorKey].getUTCMinutes() + (5 - b2), 0, 0);
+    }
+    let cursor = cursors[cursorKey];
+
     const baseDur = estimateDurationBase(card, ctx, opts?.durations);
     let dur = baseDur;
     let slackApplied = false;
@@ -516,7 +553,6 @@ export async function computeReorder(
     let end: Date;
     let daysSpanned = 1;
 
-    // Regra do "primeiro card em atraso": preserva start original + folga
     let treatAsStuck = false;
     if (isFirstActive) {
       const deadline = cardDeadline(card);
@@ -525,22 +561,18 @@ export async function computeReorder(
 
     if (treatAsStuck && card.due_date && card.due_time) {
       const originalStart = toVirtualUtc(card.due_date, card.due_time.slice(0, 5));
-      const delayMin = workingMinutesBetween(originalStart, now, ctx);
+      const delayMin = workingMinutesBetween(originalStart, now, area, ctx);
       const slack = Math.round(baseDur * 0.30);
       dur = baseDur + Math.max(0, delayMin) + slack;
       slackApplied = true;
-      // Aloca a partir do start original preservado; se estava fora do expediente,
-      // normalizeCursor cuidará dentro de allocateAcrossDays.
-      ({ start, end, daysSpanned } = allocateAcrossDays(originalStart, dur, ctx));
-      // Se end < now (não deveria com dur > delay), força cursor pós-now
+      ({ start, end, daysSpanned } = allocateAcrossDays(originalStart, dur, area, ctx));
       if (end < now) {
-        ({ start, end, daysSpanned } = allocateAcrossDays(now, baseDur + slack, ctx));
+        ({ start, end, daysSpanned } = allocateAcrossDays(now, baseDur + slack, area, ctx));
       }
     } else {
-      ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, ctx));
+      ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx));
     }
 
-    // Avisos
     let warning: string | undefined;
     let publishDeadline: string | null = null;
     if (card.publish_date) {
@@ -586,10 +618,10 @@ export async function computeReorder(
       slackApplied,
     });
 
-    // Próximo cursor: 5min após o fim
-    cursor = new Date(end);
-    cursor.setUTCMinutes(cursor.getUTCMinutes() + 5);
-    cursor = normalizeCursor(cursor, ctx);
+    // Próximo cursor da área: 5min após o fim
+    const nextCursor = new Date(end);
+    nextCursor.setUTCMinutes(nextCursor.getUTCMinutes() + 5);
+    cursors[cursorKey] = normalizeCursor(nextCursor, area, ctx);
 
     isFirstActive = false;
   }

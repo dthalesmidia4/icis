@@ -2711,6 +2711,7 @@ const KanbanCentralPage = () => {
           open={!!reorderModalColumnId}
           onOpenChange={(o) => !o && setReorderModalColumnId(null)}
           tenantId={tenantId}
+          assigneeId={reorderModalColumnId}
           columnName={
             collaborators.find((c) => c.userId === reorderModalColumnId)?.fullName || "Coluna"
           }
@@ -2729,6 +2730,7 @@ const KanbanCentralPage = () => {
               delivery_date: c.delivery_date,
               delivery_time: c.delivery_time,
               current_function_key: c.current_function_key,
+              work_area: (c as any).work_area || null,
             }))}
           onApplied={() => {
             setReorderModalColumnId(null);

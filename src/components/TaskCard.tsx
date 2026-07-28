@@ -23,7 +23,7 @@ import { DailyCardSection } from "@/components/DailyCardSection";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { syncActiveDispatchDate } from "@/lib/syncActiveDispatchDate";
-import { checkAreaConflict, AREA_LABEL, type WorkArea } from "@/lib/areaConflicts";
+import { findAreaConflicts, AREA_LABEL, type WorkArea, type AreaConflictInfo } from "@/lib/areaConflicts";
 import { CalendarClock } from "lucide-react";
 
 // Split instructions field into "production instructions" and "CTA" parts.
@@ -971,11 +971,12 @@ export default function TaskCard({
       setRegeneratingSlide(null);
     }
   };
+  const [hardConflict, setHardConflict] = useState<{ items: AreaConflictInfo[]; targetArea: WorkArea } | null>(null);
   const warnAreaConflict = async (dateStr: string | null | undefined, timeStr: string | null | undefined) => {
     if (!card || !dateStr || !card.assigned_to || !card.tenant_id) return;
     const area = (((card as any).work_area as WorkArea) || "midia") as WorkArea;
     try {
-      const conflict = await checkAreaConflict({
+      const conflicts = await findAreaConflicts({
         tenantId: card.tenant_id,
         userId: card.assigned_to,
         area,
@@ -983,9 +984,15 @@ export default function TaskCard({
         time: timeStr || null,
         excludeDemandId: card.id,
       });
-      if (conflict) {
+      const hard = conflicts.filter((c) => c.hard);
+      if (hard.length > 0) {
+        setHardConflict({ items: hard, targetArea: area });
+        return;
+      }
+      const soft = conflicts[0];
+      if (soft) {
         toast.warning(
-          `Conflito de área: o responsável já tem "${conflict.title}" (${AREA_LABEL[conflict.work_area]}) neste horário.`,
+          `Conflito de área: o responsável já tem "${soft.title}" (${AREA_LABEL[soft.work_area]}) neste dia.`,
         );
       }
     } catch { /* silencioso */ }
@@ -2398,6 +2405,32 @@ export default function TaskCard({
           }
         }}
       />
+      <AlertDialog open={!!hardConflict} onOpenChange={(o) => { if (!o) setHardConflict(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conflito de área detectado</AlertDialogTitle>
+            <AlertDialogDescription>
+              O responsável já tem demanda(s) em outra área nesta janela. Você pode manter mesmo assim, mas isso pode gerar sobreposição de trabalho.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {hardConflict && (
+            <div className="max-h-56 overflow-auto space-y-2 py-2">
+              {hardConflict.items.map((c) => (
+                <div key={c.id} className="rounded-md border border-border/60 px-3 py-2 text-sm">
+                  <div className="font-medium truncate">{c.title}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Área: <span className="font-medium">{AREA_LABEL[c.work_area]}</span>
+                    {c.time ? ` · ${c.time}` : " · dia inteiro"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setHardConflict(null)}>Entendi</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>;
 
   return createPortal(modalContent, document.body);
