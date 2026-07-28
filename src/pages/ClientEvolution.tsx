@@ -464,9 +464,10 @@ const ClientEvolution = () => {
                   <col className="hidden md:table-column w-[9%]" />
                   <col className="hidden md:table-column w-[11%]" />
                   <col className="w-[7%]" />
-                  <col className="w-[14%]" />
-                  <col className="hidden lg:table-column w-[13%]" />
-                  <col className="hidden xl:table-column w-[11%]" />
+                  <col className="w-[13%]" />
+                  <col className="hidden lg:table-column w-[12%]" />
+                  <col className="hidden xl:table-column w-[10%]" />
+                  <col className="w-[11%]" />
                   <col className="w-[9%]" />
                 </colgroup>
                 <thead className="sticky top-0 bg-muted/70 backdrop-blur-sm text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -479,6 +480,7 @@ const ClientEvolution = () => {
                     <th className="text-left font-semibold px-2 py-2 whitespace-nowrap">Etapa</th>
                     <th className="text-left font-semibold px-2 py-2 hidden lg:table-cell whitespace-nowrap">Progresso</th>
                     <th className="text-left font-semibold px-2 py-2 hidden xl:table-cell whitespace-nowrap">Próxima</th>
+                    <th className="text-left font-semibold px-2 py-2 whitespace-nowrap">Publicação</th>
                     <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Prazo</th>
                   </tr>
                 </thead>
@@ -693,6 +695,16 @@ function TableRow({
       </td>
       <td className="px-2 py-2 hidden xl:table-cell text-muted-foreground text-[12px] truncate">
         {isDone ? "—" : nextStageName || <span className="text-muted-foreground/60">—</span>}
+      </td>
+      <td className="px-2 py-2 text-[12px] tabular-nums whitespace-nowrap text-muted-foreground">
+        {card.publish_date ? (
+          <span title={card.publish_time || undefined}>
+            {formatDate(card.publish_date)}
+            {card.publish_time && <span className="text-[11px] opacity-80"> · {card.publish_time.slice(0, 5)}</span>}
+          </span>
+        ) : (
+          <span className="text-muted-foreground/60">—</span>
+        )}
       </td>
       <td className={cn("px-3 py-2 whitespace-nowrap text-[12px] tabular-nums", prazoTone)}>
         {card.delivery_date ? formatDate(card.delivery_date) : "—"}
