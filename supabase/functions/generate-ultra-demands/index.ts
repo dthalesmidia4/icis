@@ -348,10 +348,23 @@ Formato final: {"plan":[...${customQuantity} itens...],"summary":"resumo do raci
       return t.replace(re, "").trim();
     };
 
+    const stripTypePrefix = (t: string): string => {
+      if (!t) return t;
+      const typeAlt = "Post\\s*Est[aá]tico|Post|Carrossel(?:\\s*\\(\\s*\\d+\\s*slides?\\s*\\))?|V[ií]deos?\\s*Curtos|V[ií]deo|Reels?|Stor(?:y|ies)|Criativo\\s*est[aá]tico|Criativo|Educa[cç][aã]o\\s*r[aá]pida|Tutorial";
+      const re = new RegExp(`^\\s*(?:${typeAlt})\\s*[\\-\\u2013\\u2014:|]\\s*`, "i");
+      let prev = t.trim();
+      for (let i = 0; i < 3; i++) {
+        const next = prev.replace(re, "").trim();
+        if (next === prev || next.length < 3) break;
+        prev = next;
+      }
+      return prev;
+    };
+
     const ultraDemands = (parsed.plan || []).map((d: any) => {
       const tipo = d.tipo || d.demand_type || "";
       const type_key = coerceKey(d.type_key) ?? normalizeKey(tipo);
-      const titulo = stripBrandPrefix(String(d.titulo || d.title || ""));
+      const titulo = stripTypePrefix(stripBrandPrefix(String(d.titulo || d.title || "")));
       // preserve extended fields verbatim
       return {
         ...d,
