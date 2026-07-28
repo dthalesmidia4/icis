@@ -1489,7 +1489,105 @@ const KanbanCentralPage = () => {
               </span>
             )}
           </Button>
-          {/* "Registro de Cards" foi movido para cada coluna (botão discreto por colaborador). */}
+          {/* Registro de Cards global — replica o filtro para todas as colunas */}
+          <Popover open={globalHistoryPopoverOpen} onOpenChange={setGlobalHistoryPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant={globalHistoryFilter ? "default" : "outline"}
+                size="sm"
+                title="Registro de cards — o que cada colaborador entregou"
+              >
+                <History className="h-4 w-4 mr-1" />
+                Registro de cards
+                {globalHistoryFilter && (
+                  <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px]">
+                    {globalHistoryFilter.range === "today"
+                      ? "hoje"
+                      : globalHistoryFilter.range === "day"
+                        ? globalHistoryFilter.dayISO
+                        : `${globalHistoryFilter.range}d`}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-2" align="end">
+              <div className="text-xs font-semibold text-foreground px-2 py-1">
+                Registro em todas as colunas
+              </div>
+              <div className="text-[11px] text-muted-foreground px-2 pb-2">
+                Aplica o mesmo período ao registro de todos os colaboradores.
+              </div>
+              {[
+                { key: "today" as const, label: "Hoje" },
+                { key: "7" as const, label: "Últimos 7 dias" },
+                { key: "30" as const, label: "Últimos 30 dias" },
+              ].map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => {
+                    const filter = { range: opt.key } as ColumnHistoryFilter;
+                    setGlobalHistoryFilter(filter);
+                    setColumnHistory((prev) => {
+                      const next = new Map(prev);
+                      collaborators.forEach((c) => next.set(c.userId, filter));
+                      return next;
+                    });
+                    setGlobalHistoryPopoverOpen(false);
+                  }}
+                  className={cn(
+                    "w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent transition-colors",
+                    globalHistoryFilter?.range === opt.key && "bg-primary/10 text-primary font-medium"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+              <div className="border-t border-border/50 my-2" />
+              <div className="px-2 pb-1 text-[11px] text-muted-foreground">Data específica</div>
+              <input
+                type="date"
+                className="w-full text-sm px-2 py-1.5 rounded bg-background border border-border"
+                value={globalHistoryFilter?.range === "day" ? (globalHistoryFilter.dayISO || "") : ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (!v) return;
+                  const filter: ColumnHistoryFilter = { range: "day", dayISO: v };
+                  setGlobalHistoryFilter(filter);
+                  setColumnHistory((prev) => {
+                    const next = new Map(prev);
+                    collaborators.forEach((c) => next.set(c.userId, filter));
+                    return next;
+                  });
+                }}
+              />
+              {globalHistoryFilter && (
+                <>
+                  <div className="border-t border-border/50 my-2" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGlobalHistoryFilter(null);
+                      setColumnHistory((prev) => {
+                        const next = new Map(prev);
+                        collaborators.forEach((c) => next.delete(c.userId));
+                        return next;
+                      });
+                      setColumnHistoryRows((prev) => {
+                        const next = new Map(prev);
+                        collaborators.forEach((c) => next.delete(c.userId));
+                        return next;
+                      });
+                      setGlobalHistoryPopoverOpen(false);
+                    }}
+                    className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-destructive/10 text-destructive"
+                  >
+                    Desativar registro geral
+                  </button>
+                </>
+              )}
+            </PopoverContent>
+          </Popover>
           <Button
             variant="outline"
             size="sm"
