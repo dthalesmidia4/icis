@@ -86,6 +86,11 @@ type KanbanDisplayColumn = {
   userId: string;
   focusKind?: KanbanFocusKind;
 };
+type KanbanFocusPeekSession = {
+  restoreColumnId: string | null;
+  targetColumnId: string | null;
+  sourceUserId: string;
+};
 
 const getKanbanColumnVisualKey = (column: Pick<KanbanDisplayColumn, "userId" | "focusKind">) => {
   if (column.userId === "__unassigned__") return "kanban-column:unassigned";
@@ -179,10 +184,13 @@ const KanbanCentralPage = () => {
   const [focusedColumnId, setFocusedColumnId] = useState<string | null>(null);
   // Foco "fixado" pelo clique. O hover apenas espia (altera focusedColumnId sem mexer no pinned).
   const [pinnedFocusColumnId, setPinnedFocusColumnId] = useState<string | null>(null);
+  const [peekFocusSession, setPeekFocusSession] = useState<KanbanFocusPeekSession | null>(null);
   const focusedColumnIdRef = useRef<string | null>(null);
   const pinnedFocusColumnIdRef = useRef<string | null>(null);
+  const peekFocusSessionRef = useRef<KanbanFocusPeekSession | null>(null);
   useEffect(() => { focusedColumnIdRef.current = focusedColumnId; }, [focusedColumnId]);
   useEffect(() => { pinnedFocusColumnIdRef.current = pinnedFocusColumnId; }, [pinnedFocusColumnId]);
+  useEffect(() => { peekFocusSessionRef.current = peekFocusSession; }, [peekFocusSession]);
   const hoverEnterTimerRef = useRef<number | null>(null);
   const hoverExitTimerRef = useRef<number | null>(null);
   const kanbanColumnRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -226,16 +234,42 @@ const KanbanCentralPage = () => {
     if (hoverExitTimerRef.current) { window.clearTimeout(hoverExitTimerRef.current); hoverExitTimerRef.current = null; }
   }, []);
 
+  const restorePinnedFocusAfterPeek = useCallback((session: KanbanFocusPeekSession | null = peekFocusSessionRef.current) => {
+    if (!session) return;
+    setPeekFocusSession(null);
+    changeFocusColumn(session.restoreColumnId);
+  }, [changeFocusColumn]);
+
   const enterFocus = useCallback((userId: string) => {
     clearHoverTimers();
+    setPeekFocusSession(null);
     setPinnedFocusColumnId(userId);
     changeFocusColumn(userId);
   }, [changeFocusColumn, clearHoverTimers]);
   const exitFocus = useCallback(() => {
     clearHoverTimers();
+    setPeekFocusSession(null);
     setPinnedFocusColumnId(null);
     changeFocusColumn(null);
   }, [changeFocusColumn, clearHoverTimers]);
+
+  const commitVisibleFocusState = useCallback((columnUserId: string, isFocusSubColumn: boolean) => {
+    clearHoverTimers();
+    const activePeek = peekFocusSessionRef.current;
+    if (activePeek) {
+      setPeekFocusSession(null);
+      setPinnedFocusColumnId(activePeek.targetColumnId);
+      changeFocusColumn(activePeek.targetColumnId);
+      return;
+    }
+
+    if (isFocusSubColumn) {
+      exitFocus();
+      return;
+    }
+
+    enterFocus(columnUserId);
+  }, [changeFocusColumn, clearHoverTimers, enterFocus, exitFocus]);
 
   // Hover "espiar": ao passar o mouse sobre o header da coluna, mostrar/tirar foco temporariamente.
   const handleColumnHeaderPointerEnter = useCallback((columnUserId: string, pointerType: string) => {
@@ -246,7 +280,9 @@ const KanbanCentralPage = () => {
       hoverEnterTimerRef.current = null;
       // Se há coluna fixada, o hover em qualquer header "espia" o modo sem foco.
       // Se não há, o hover foca temporariamente a coluna sob o cursor.
-      const target = pinnedFocusColumnIdRef.current ? null : columnUserId;
+      const restoreColumnId = pinnedFocusColumnIdRef.current;
+      const target = restoreColumnId ? null : columnUserId;
+      setPeekFocusSession({ restoreColumnId, targetColumnId: target, sourceUserId: columnUserId });
       changeFocusColumn(target);
     }, 120);
   }, [changeFocusColumn]);
@@ -258,18 +294,60 @@ const KanbanCentralPage = () => {
   const handleBoardPointerLeave = useCallback((pointerType: string) => {
     if (pointerType && pointerType !== 'mouse') return;
     if (hoverEnterTimerRef.current) { window.clearTimeout(hoverEnterTimerRef.current); hoverEnterTimerRef.current = null; }
-    if (hoverExitTimerRef.current) window.clearTimeout(hoverExitTimerRef.current);
-    hoverExitTimerRef.current = window.setTimeout(() => {
-      hoverExitTimerRef.current = null;
-      changeFocusColumn(pinnedFocusColumnIdRef.current);
-    }, 180);
-  }, [changeFocusColumn]);
+    restorePinnedFocusAfterPeek();
+  }, [restorePinnedFocusAfterPeek]);
 
   const handleBoardPointerEnter = useCallback(() => {
     if (hoverExitTimerRef.current) { window.clearTimeout(hoverExitTimerRef.current); hoverExitTimerRef.current = null; }
   }, []);
 
   useEffect(() => () => { clearHoverTimers(); }, [clearHoverTimers]);
+
+  useEffect(() => {
+    if (!peekFocusSession) return;
+
+    const getPeekTrigger = (clientX: number, clientY: number) => {
+      const element = document.elementFromPoint(clientX, clientY);
+      if (!(element instanceof Element)) return null;
+      return element.closest<HTMLElement>('[data-focus-peek-trigger="true"]');
+    };
+
+    const isStillOnValidTrigger = (event: PointerEvent) => {
+      const trigger = getPeekTrigger(event.clientX, event.clientY);
+      const triggerUserId = trigger?.dataset.focusUserId || null;
+      if (!triggerUserId) return false;
+      if (peekFocusSession.targetColumnId) {
+        return triggerUserId === peekFocusSession.targetColumnId;
+      }
+      return true;
+    };
+
+    const restoreIfOutside = (event: PointerEvent) => {
+      if (event.pointerType && event.pointerType !== 'mouse') return;
+      if (isStillOnValidTrigger(event)) return;
+      restorePinnedFocusAfterPeek(peekFocusSession);
+    };
+
+    const restoreOnWindowExit = (event: PointerEvent) => {
+      if (event.pointerType && event.pointerType !== 'mouse') return;
+      if (event.relatedTarget) return;
+      restorePinnedFocusAfterPeek(peekFocusSession);
+    };
+
+    const restoreOnBlur = () => restorePinnedFocusAfterPeek(peekFocusSession);
+
+    window.addEventListener('pointermove', restoreIfOutside, { passive: true });
+    window.addEventListener('pointerdown', restoreIfOutside, true);
+    window.addEventListener('pointerout', restoreOnWindowExit);
+    window.addEventListener('blur', restoreOnBlur);
+
+    return () => {
+      window.removeEventListener('pointermove', restoreIfOutside);
+      window.removeEventListener('pointerdown', restoreIfOutside, true);
+      window.removeEventListener('pointerout', restoreOnWindowExit);
+      window.removeEventListener('blur', restoreOnBlur);
+    };
+  }, [peekFocusSession, restorePinnedFocusAfterPeek]);
 
 
   useLayoutEffect(() => {
@@ -2317,14 +2395,16 @@ const KanbanCentralPage = () => {
                             return (
                               <button
                                 type="button"
-                                onClick={() => (focusKind ? exitFocus() : enterFocus(columnUserId))}
+                                onClick={() => commitVisibleFocusState(columnUserId, !!focusKind)}
                                 onPointerEnter={(e) => handleColumnHeaderPointerEnter(columnUserId, e.pointerType)}
                                 onPointerLeave={handleColumnHeaderPointerLeave}
+                                data-focus-peek-trigger="true"
+                                data-focus-user-id={columnUserId}
                                 className={cn(
                                   "flex items-center gap-2 flex-1 min-w-0 -mx-1 px-1 py-0.5 rounded-md transition-colors text-left",
                                   focusKind ? "hover:bg-primary/10" : "hover:bg-primary/5"
                                 )}
-                                title={pinnedFocusColumnId ? "Passe o mouse para espiar sem foco · clique para sair" : "Passe o mouse para espiar · clique para fixar"}
+                                title={peekFocusSession ? "Clique para manter esta visualização" : pinnedFocusColumnId ? "Passe o mouse para espiar sem foco · clique para sair" : "Passe o mouse para espiar · clique para fixar"}
                                 aria-label={focusKind ? "Sair do modo foco" : `Focar em ${column.name}`}
                                 aria-pressed={!!focusKind}
                               >
