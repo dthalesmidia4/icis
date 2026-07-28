@@ -518,8 +518,8 @@ const ClientEvolution = () => {
               <table className="w-full text-sm border-collapse">
                 <colgroup>
                   <col className="w-[6px]" />
-                  <col className="min-w-[220px]" />
-                  <col className="hidden md:table-column w-[180px]" />
+                  <col className="min-w-[160px]" />
+                  <col className="hidden md:table-column w-[120px]" />
                   <col className="hidden md:table-column min-w-[140px]" />
                   <col className="min-w-[90px]" />
                   <col className="min-w-[150px]" />
@@ -738,7 +738,7 @@ function TableRow({
           {card.title}
         </div>
       </td>
-      <td className="px-2 py-2 hidden md:table-cell text-muted-foreground text-[12px] max-w-[180px]">
+      <td className="px-2 py-2 hidden md:table-cell text-muted-foreground text-[12px] max-w-[120px]">
         <div className="truncate" title={card.demand_type || undefined}>{card.demand_type || "—"}</div>
       </td>
       <td className="px-2 py-2 hidden md:table-cell text-foreground text-[12px] truncate">
