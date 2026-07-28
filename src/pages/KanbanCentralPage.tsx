@@ -781,7 +781,8 @@ const KanbanCentralPage = () => {
         .from("demand_flow_history" as any)
         .select("demand_id, created_at")
         .eq("tenant_id", tenantId)
-        .eq("to_user_id", columnId)
+        .eq("from_user_id", columnId)
+        .in("action", ["proceeded", "delivered"])
         .gte("created_at", gte);
       if (lte) q = q.lte("created_at", lte);
       const { data, error } = await q.order("created_at", { ascending: false }).limit(2000);
