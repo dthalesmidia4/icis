@@ -2071,14 +2071,16 @@ const KanbanCentralPage = () => {
                           {column.name}
                         </span>
                         <Badge variant="secondary" className="text-xs ml-auto">
-                          {allColumnCards.length}
+                          {focusKind
+                            ? (columnCards.length + evaluateCards.length + awaitingCards.length + reviewCards.length)
+                            : allColumnCards.length}
                         </Badge>
-                        {column.id !== "__unassigned__" && !isHistoryMode && (
+                        {columnUserId !== "__unassigned__" && !isHistoryMode && !focusKind && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/colaboradores/${column.id}`);
+                              enterFocus(columnUserId);
                             }}
                             className="h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                             title="Modo foco"
