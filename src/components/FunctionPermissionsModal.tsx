@@ -370,11 +370,12 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs key="fpm-tabs-v2" defaultValue="participacao" className="w-full">
-          <TabsList className="grid w-full max-w-2xl grid-cols-3">
+        <Tabs key="fpm-tabs-v3" defaultValue="participacao" className="w-full">
+          <TabsList className="grid w-full max-w-3xl grid-cols-4">
             <TabsTrigger value="participacao">Participação</TabsTrigger>
             <TabsTrigger value="tempo">Tempo estimado</TabsTrigger>
             <TabsTrigger value="alocacao">Alocação por área</TabsTrigger>
+            <TabsTrigger value="retorno">Retorno do cliente</TabsTrigger>
           </TabsList>
 
           <TabsContent value="participacao" className="mt-4">
