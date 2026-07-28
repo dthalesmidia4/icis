@@ -90,8 +90,16 @@ export default function CompanyProfile() {
         if (error) throw error;
 
         if (tenant) {
-          const settings = tenant.settings as TenantSettings | null;
-          
+          const settings = (tenant.settings as TenantSettings | null) ?? {};
+          setOtherSettings(settings);
+          setWorkHours({
+            start: settings.work_hours?.start ?? DEFAULT_WORK_HOURS.start,
+            end: settings.work_hours?.end ?? DEFAULT_WORK_HOURS.end,
+            lunch_start: settings.work_hours?.lunch_start ?? DEFAULT_WORK_HOURS.lunch_start,
+            lunch_end: settings.work_hours?.lunch_end ?? DEFAULT_WORK_HOURS.lunch_end,
+            tz: settings.work_hours?.tz ?? DEFAULT_WORK_HOURS.tz,
+          });
+
           reset({
             name: tenant.name || '',
             tradeName: settings?.tradeName || '',
