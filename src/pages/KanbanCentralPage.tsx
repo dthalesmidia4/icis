@@ -1942,25 +1942,53 @@ const KanbanCentralPage = () => {
 
       <DragDropContext onDragEnd={handleDragEnd}>
         <div ref={boardScrollRef} className="flex gap-4 overflow-x-auto pb-4">
-          {[
-            ...collaborators.map((c) => ({
-              id: c.userId,
-              name: c.fullName,
-              color: "hsl(var(--primary))",
-            })),
-            ...((filteredCards.some((c) => !c.assigned_to)
-              || (evalByAssignee.get("__unassigned__")?.length ?? 0) > 0)
-              ? [{ id: "__unassigned__", name: "Sem responsável", color: "hsl(var(--muted-foreground))" }]
-              : []),
-          ].map((column) => {
-            const columnHistoryFilter = columnHistory.get(column.id);
-            const isHistoryMode = !!columnHistoryFilter;
-            const isHistoryLoadingCol = columnHistoryLoading.has(column.id);
+          {(() => {
+            const rawColumns: Array<{ id: string; name: string; color: string; userId: string; focusKind?: 'production'|'evaluate'|'awaiting'|'review' }> = [
+              ...collaborators.map((c) => ({
+                id: c.userId,
+                name: c.fullName,
+                color: "hsl(var(--primary))",
+                userId: c.userId,
+              })),
+              ...((filteredCards.some((c) => !c.assigned_to)
+                || (evalByAssignee.get("__unassigned__")?.length ?? 0) > 0)
+                ? [{ id: "__unassigned__", name: "Sem responsável", color: "hsl(var(--muted-foreground))", userId: "__unassigned__" }]
+                : []),
+            ];
+
+            let displayColumns = rawColumns;
+            if (focusedColumnId) {
+              const target = rawColumns.find((c) => c.userId === focusedColumnId);
+              if (target) {
+                const userCards = filteredCards.filter((c) =>
+                  target.userId === "__unassigned__" ? !c.assigned_to : c.assigned_to === target.userId
+                );
+                const _aw = userCards.filter((c) => c.current_function_key === 'aguardando_cliente');
+                const _nonAw = userCards.filter((c) => c.current_function_key !== 'aguardando_cliente');
+                const _rev = _nonAw.filter((c) => isReviewFunction(c.current_function_key));
+                const _prod = _nonAw.filter((c) => !isReviewFunction(c.current_function_key));
+                const _eval = evalByAssignee.get(target.userId) || [];
+                const sub: typeof rawColumns = [];
+                if (_prod.length > 0) sub.push({ id: `${target.userId}::production`, name: 'Produção', color: 'hsl(var(--primary))', userId: target.userId, focusKind: 'production' });
+                if (_eval.length > 0) sub.push({ id: `${target.userId}::evaluate`, name: 'Avaliar', color: 'hsl(280 70% 55%)', userId: target.userId, focusKind: 'evaluate' });
+                if (_aw.length > 0) sub.push({ id: `${target.userId}::awaiting`, name: 'Aguardando clientes', color: 'hsl(210 90% 55%)', userId: target.userId, focusKind: 'awaiting' });
+                if (_rev.length > 0) sub.push({ id: `${target.userId}::review`, name: 'Em revisão', color: 'hsl(38 92% 50%)', userId: target.userId, focusKind: 'review' });
+                if (sub.length === 0) sub.push({ id: `${target.userId}::production`, name: 'Produção', color: 'hsl(var(--primary))', userId: target.userId, focusKind: 'production' });
+                displayColumns = sub;
+              }
+            }
+
+            return displayColumns.map((column, _focusIdx) => {
+            const columnUserId = column.userId;
+            const focusKind = column.focusKind;
+            const columnHistoryFilter = columnHistory.get(columnUserId);
+            const isHistoryMode = !!columnHistoryFilter && !focusKind;
+            const isHistoryLoadingCol = columnHistoryLoading.has(columnUserId);
 
             // Cards ATIVOS deste colaborador (modo normal)
             const activeColumnCards = filteredCards.filter((card) => {
-              if (column.id === "__unassigned__") return !card.assigned_to;
-              return card.assigned_to === column.id;
+              if (columnUserId === "__unassigned__") return !card.assigned_to;
+              return card.assigned_to === columnUserId;
             });
 
             // Cards HISTÓRICOS: todos que já passaram por esse colaborador
