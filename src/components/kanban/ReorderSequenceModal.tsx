@@ -37,6 +37,17 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   const [applying, setApplying] = useState(false);
   const [proposals, setProposals] = useState<ReorderProposal[]>([]);
   const { config: workHours } = useWorkHoursConfig(tenantId ?? null);
+  const [durations, setDurations] = useState<StageDurationOverrides>({});
+
+  useEffect(() => {
+    if (!open || !tenantId) return;
+    let cancelled = false;
+    loadDurationsForTenant(tenantId).then((d) => {
+      if (!cancelled) setDurations(d);
+    });
+    return () => { cancelled = true; };
+  }, [open, tenantId]);
+
 
   const showPublishToggle = hasPublishDateCandidates(cards);
   const storageKey = `reorder-priority-mode:${tenantId || "default"}`;
