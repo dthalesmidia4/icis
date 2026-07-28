@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Activity, CheckCircle2, Clock3, ListChecks, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown, PlayCircle, Flag } from "lucide-react";
+import { Loader2, Activity, CheckCircle2, Clock3, ListChecks, AlertTriangle, ArrowUpDown, ArrowUp, ArrowDown, Calendar as CalendarIcon } from "lucide-react";
 import BackButton from "@/components/BackButton";
 import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
