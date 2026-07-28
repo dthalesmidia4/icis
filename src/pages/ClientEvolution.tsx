@@ -535,15 +535,15 @@ const ClientEvolution = () => {
                 <thead className="sticky top-0 bg-muted/70 backdrop-blur-sm text-[11px] uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th aria-hidden className="p-0" />
-                    <th className="text-left font-semibold px-3 py-2">Título</th>
-                    <th className="text-left font-semibold px-2 py-2 hidden md:table-cell whitespace-nowrap">Tipo</th>
-                    <th className="text-left font-semibold px-2 py-2 hidden md:table-cell whitespace-nowrap">Responsável</th>
-                    <th className="text-left font-semibold px-2 py-2 whitespace-nowrap">Área</th>
-                    <th className="text-left font-semibold px-2 py-2 whitespace-nowrap">Etapa</th>
-                    <th className="text-left font-semibold px-2 py-2 hidden lg:table-cell whitespace-nowrap">Progresso</th>
-                    <th className="text-left font-semibold px-2 py-2 hidden xl:table-cell whitespace-nowrap">Próxima</th>
-                    <th className="text-left font-semibold px-2 py-2 whitespace-nowrap">Publicação</th>
-                    <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Prazo</th>
+                    <SortHeader label="Título" sortKey="title" sort={sort} onToggle={toggleSort} />
+                    <SortHeader label="Tipo" sortKey="type" sort={sort} onToggle={toggleSort} className="hidden md:table-cell" />
+                    <SortHeader label="Responsável" sortKey="assignee" sort={sort} onToggle={toggleSort} className="hidden md:table-cell" />
+                    <SortHeader label="Área" sortKey="area" sort={sort} onToggle={toggleSort} />
+                    <SortHeader label="Etapa" sortKey="stage" sort={sort} onToggle={toggleSort} />
+                    <SortHeader label="Progresso" sortKey="progress" sort={sort} onToggle={toggleSort} className="hidden lg:table-cell" />
+                    <SortHeader label="Próxima" sortKey="next" sort={sort} onToggle={toggleSort} className="hidden xl:table-cell" />
+                    <SortHeader label="Publicação" sortKey="publish" sort={sort} onToggle={toggleSort} />
+                    <SortHeader label="Prazo" sortKey="deadline" sort={sort} onToggle={toggleSort} />
                   </tr>
                 </thead>
                 <tbody>
