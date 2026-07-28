@@ -66,7 +66,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     if (!open) return;
     let cancelled = false;
     setLoading(true);
-    computeReorder(cards, { workHours, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
+    computeReorder(cards, { workHours, durations, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
       .then((r) => {
         if (!cancelled) setProposals(r);
       })
