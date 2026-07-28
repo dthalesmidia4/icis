@@ -18,8 +18,11 @@ import {
   ChevronDown,
   X,
   History,
-  Focus
+  Focus,
+  Wand2
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import ReorderSequenceModal from "@/components/kanban/ReorderSequenceModal";
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
 import { useRealtimeDemandFlowHistory, useRealtimeFlowConfig } from "@/hooks/realtime";
@@ -107,7 +110,8 @@ const getDisplayDemandType = (
 const KanbanCentralPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { tenantId, isLoading: tenantLoading } = useTenant();
-  const { isSuperAdmin } = useAgencyRole();
+  const { isSuperAdmin, isAgencyManager } = useAgencyRole();
+  const canReorder = isSuperAdmin || isAgencyManager;
   const [cards, setCards] = useState<CentralKanbanCard[]>([]);
   const [archivedCards, setArchivedCards] = useState<CentralKanbanCard[]>([]);
   const [collapsedDateGroups, setCollapsedDateGroups] = useState<Set<string>>(new Set());
@@ -231,13 +235,22 @@ const KanbanCentralPage = () => {
   const [isDraftMode, setIsDraftMode] = useState(false);
   const [draftClients, setDraftClients] = useState<{ id: string; name: string }[]>([]);
 
-  // Modo "Registro de Cards" — mostra cards que já passaram por cada colaborador
-  const [viewMode, setViewMode] = useState<"active" | "history">("active");
-  const [historyRange, setHistoryRange] = useState<string>("7"); // "today" | "1" | "7" | ...
-
-  // Map<toUserId, Array<{ demandId, lastSeenAt }>>
-  const [historyByUser, setHistoryByUser] = useState<Map<string, Array<{ demandId: string; lastSeenAt: string }>>>(new Map());
-  const [historyLoading, setHistoryLoading] = useState(false);
+  // Histórico por coluna — cada coluna pode ativar independentemente o "Registro de entregas".
+  // range: 'today' | '7' | '30' | 'day' | 'custom'
+  type ColumnHistoryFilter = {
+    range: "today" | "7" | "30" | "day" | "custom";
+    dayISO?: string;
+    fromISO?: string;
+    toISO?: string;
+  };
+  const [columnHistory, setColumnHistory] = useState<Map<string, ColumnHistoryFilter>>(new Map());
+  const [columnHistoryRows, setColumnHistoryRows] = useState<
+    Map<string, Array<{ demandId: string; lastSeenAt: string }>>
+  >(new Map());
+  const [columnHistoryLoading, setColumnHistoryLoading] = useState<Set<string>>(new Set());
+  const [historyPopoverOpen, setHistoryPopoverOpen] = useState<string | null>(null);
+  // Modal de reorganização de sequência (agency_manager / super_admin)
+  const [reorderModalColumnId, setReorderModalColumnId] = useState<string | null>(null);
 
 
 
@@ -284,12 +297,11 @@ const KanbanCentralPage = () => {
     // Ocultar cards diários cuja próxima ocorrência ainda não chegou
     baseCards = baseCards.filter(card => isDailyCardVisibleNow(card as any));
     // Ocultar cards com dispatch ativo (agendados/em envio) — eles vivem na tela /scheduled
-    // O modo "Registro de Cards" (viewMode === "history") ignora esse filtro, para preservar o histórico.
-    if (viewMode !== "history" && activeDispatchIds.size > 0) {
+    if (activeDispatchIds.size > 0) {
       baseCards = baseCards.filter(card => !activeDispatchIds.has(card.id));
     }
     return baseCards;
-  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, activeDispatchIds, viewMode]);
+  }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, activeDispatchIds]);
 
   // Aplicar mesmos filtros (cliente/período) nos cards planejados aguardando avaliação.
   // Status não se aplica pois esses cards ainda não são demandas.
@@ -730,69 +742,85 @@ const KanbanCentralPage = () => {
     }
   };
 
-  // Buscar histórico agrupado por colaborador quando o modo "Registro de Cards" está ativo
-  const fetchHistory = useCallback(async () => {
-    if (!tenantId) return;
-    setHistoryLoading(true);
+  // Calcula o range ISO para uma configuração de histórico de coluna.
+  const computeHistoryRange = useCallback((filter: ColumnHistoryFilter): { gte: string; lte?: string } => {
+    if (filter.range === "today") {
+      // Dia calendário em America/Sao_Paulo (UTC-3, sem DST atualmente).
+      const TZ_OFFSET_MIN = -180;
+      const now = new Date();
+      const spNow = new Date(now.getTime() + (now.getTimezoneOffset() - TZ_OFFSET_MIN) * 60000);
+      const y = spNow.getUTCFullYear();
+      const m = String(spNow.getUTCMonth() + 1).padStart(2, "0");
+      const d = String(spNow.getUTCDate()).padStart(2, "0");
+      return { gte: `${y}-${m}-${d}T00:00:00-03:00`, lte: `${y}-${m}-${d}T23:59:59.999-03:00` };
+    }
+    if (filter.range === "day" && filter.dayISO) {
+      return { gte: `${filter.dayISO}T00:00:00-03:00`, lte: `${filter.dayISO}T23:59:59.999-03:00` };
+    }
+    if (filter.range === "custom" && filter.fromISO) {
+      const lte = filter.toISO
+        ? `${filter.toISO}T23:59:59.999-03:00`
+        : `${filter.fromISO}T23:59:59.999-03:00`;
+      return { gte: `${filter.fromISO}T00:00:00-03:00`, lte };
+    }
+    const days = Number(filter.range) || 7;
+    return { gte: new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString() };
+  }, []);
+
+  // Buscar histórico de entregas de UMA coluna (colaborador) específica.
+  const fetchColumnHistory = useCallback(async (columnId: string, filter: ColumnHistoryFilter) => {
+    if (!tenantId || !columnId) return;
+    setColumnHistoryLoading((prev) => {
+      const next = new Set(prev);
+      next.add(columnId);
+      return next;
+    });
     try {
-      let gte: string;
-      let lte: string | null = null;
-      if (historyRange === "today") {
-        // Dia calendário no timezone America/Sao_Paulo (UTC-3, sem DST atualmente)
-        const TZ_OFFSET_MIN = -180; // America/Sao_Paulo
-        const now = new Date();
-        // hora "local SP" = UTC + (-offset). Descobre YYYY-MM-DD em SP.
-        const spNow = new Date(now.getTime() + (now.getTimezoneOffset() - TZ_OFFSET_MIN) * 60000);
-        const y = spNow.getUTCFullYear();
-        const m = String(spNow.getUTCMonth() + 1).padStart(2, "0");
-        const d = String(spNow.getUTCDate()).padStart(2, "0");
-        gte = `${y}-${m}-${d}T00:00:00-03:00`;
-        lte = `${y}-${m}-${d}T23:59:59.999-03:00`;
-      } else {
-        const days = Number(historyRange) || 7;
-        gte = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-      }
+      const { gte, lte } = computeHistoryRange(filter);
       let q = supabase
         .from("demand_flow_history" as any)
-        .select("demand_id, to_user_id, created_at")
+        .select("demand_id, created_at")
         .eq("tenant_id", tenantId)
-        .not("to_user_id", "is", null)
+        .eq("to_user_id", columnId)
         .gte("created_at", gte);
       if (lte) q = q.lte("created_at", lte);
-      const { data, error } = await q
-        .order("created_at", { ascending: false })
-        .limit(5000);
+      const { data, error } = await q.order("created_at", { ascending: false }).limit(2000);
       if (error) throw error;
-      const map = new Map<string, Map<string, string>>(); // userId -> (demandId -> lastSeenAt)
+      const seen = new Map<string, string>();
       (data || []).forEach((row: any) => {
-        const uid = row.to_user_id as string;
-        const did = row.demand_id as string;
-        const at = row.created_at as string;
-        if (!map.has(uid)) map.set(uid, new Map());
-        const inner = map.get(uid)!;
-        if (!inner.has(did)) inner.set(did, at); // primeira ocorrência = mais recente (ordenado desc)
+        if (!seen.has(row.demand_id)) seen.set(row.demand_id, row.created_at);
       });
-      const result = new Map<string, Array<{ demandId: string; lastSeenAt: string }>>();
-      map.forEach((inner, uid) => {
-        result.set(uid, Array.from(inner.entries()).map(([demandId, lastSeenAt]) => ({ demandId, lastSeenAt })));
+      const rows = Array.from(seen.entries()).map(([demandId, lastSeenAt]) => ({ demandId, lastSeenAt }));
+      setColumnHistoryRows((prev) => {
+        const next = new Map(prev);
+        next.set(columnId, rows);
+        return next;
       });
-      setHistoryByUser(result);
     } catch (err) {
-      console.error("[flowHistory] fetch error:", err);
+      console.error("[flowHistory] column fetch error:", err);
     } finally {
-      setHistoryLoading(false);
+      setColumnHistoryLoading((prev) => {
+        const next = new Set(prev);
+        next.delete(columnId);
+        return next;
+      });
     }
-  }, [tenantId, historyRange]);
+  }, [tenantId, computeHistoryRange]);
 
-
+  // Recarregar todas as colunas ativas quando o filtro mudar.
   useEffect(() => {
-    if (viewMode === "history") fetchHistory();
-  }, [viewMode, fetchHistory]);
+    columnHistory.forEach((filter, columnId) => {
+      fetchColumnHistory(columnId, filter);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnHistory]);
 
   useRealtimeDemandFlowHistory({
     tenantId,
-    enabled: !!tenantId && viewMode === "history",
-    onInsert: () => fetchHistory(),
+    enabled: !!tenantId && columnHistory.size > 0,
+    onInsert: () => {
+      columnHistory.forEach((filter, columnId) => fetchColumnHistory(columnId, filter));
+    },
   });
 
   useRealtimeFlowConfig({
@@ -1458,15 +1486,7 @@ const KanbanCentralPage = () => {
               </span>
             )}
           </Button>
-          <Button
-            variant={viewMode === "history" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode((v) => (v === "history" ? "active" : "history"))}
-            title="Ver os cards que já passaram por cada colaborador"
-          >
-            <History className="h-4 w-4 mr-1" />
-            {viewMode === "history" ? "Modo ativo" : "Registro de Cards"}
-          </Button>
+          {/* "Registro de Cards" foi movido para cada coluna (botão discreto por colaborador). */}
           <Button
             variant="outline"
             size="sm"
@@ -1736,32 +1756,6 @@ const KanbanCentralPage = () => {
       </Dialog>
 
       {/* Kanban Board (columns = collaborators) */}
-      {viewMode === "history" && (
-        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-sm text-blue-700 dark:text-blue-300">
-          <History className="h-4 w-4" />
-          <span className="flex-1 min-w-0">
-            Modo <strong>Registro de Cards</strong>: {historyRange === "today" ? "cards movimentados hoje por cada colaborador" : `cards que passaram por cada colaborador nos últimos ${historyRange} ${historyRange === "1" ? "dia" : "dias"}`}.
-            {historyLoading && " Carregando..."}
-          </span>
-          <div className="flex items-center gap-2">
-            <span className="text-xs">Período:</span>
-            <Select value={historyRange} onValueChange={setHistoryRange}>
-              <SelectTrigger className="h-8 w-[160px] bg-background text-foreground">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Hoje</SelectItem>
-                <SelectItem value="1">Último 1 dia</SelectItem>
-                <SelectItem value="7">Últimos 7 dias</SelectItem>
-                <SelectItem value="15">Últimos 15 dias</SelectItem>
-                <SelectItem value="30">Últimos 30 dias</SelectItem>
-                <SelectItem value="60">Últimos 60 dias</SelectItem>
-                <SelectItem value="90">Últimos 90 dias</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      )}
 
       <DragDropContext onDragEnd={handleDragEnd}>
         <div ref={boardScrollRef} className="flex gap-4 overflow-x-auto pb-4">
@@ -1771,12 +1765,15 @@ const KanbanCentralPage = () => {
               name: c.fullName,
               color: "hsl(var(--primary))",
             })),
-            ...((viewMode === "history"
-              || filteredCards.some((c) => !c.assigned_to)
+            ...((filteredCards.some((c) => !c.assigned_to)
               || (evalByAssignee.get("__unassigned__")?.length ?? 0) > 0)
               ? [{ id: "__unassigned__", name: "Sem responsável", color: "hsl(var(--muted-foreground))" }]
               : []),
           ].map((column) => {
+            const columnHistoryFilter = columnHistory.get(column.id);
+            const isHistoryMode = !!columnHistoryFilter;
+            const isHistoryLoadingCol = columnHistoryLoading.has(column.id);
+
             // Cards ATIVOS deste colaborador (modo normal)
             const activeColumnCards = filteredCards.filter((card) => {
               if (column.id === "__unassigned__") return !card.assigned_to;
@@ -1785,8 +1782,8 @@ const KanbanCentralPage = () => {
 
             // Cards HISTÓRICOS: todos que já passaram por esse colaborador
             let historyColumnCards: Array<CentralKanbanCard & { _historyAt?: string }> = [];
-            if (viewMode === "history") {
-              const rows = historyByUser.get(column.id) || [];
+            if (isHistoryMode) {
+              const rows = columnHistoryRows.get(column.id) || [];
               const cardIndex = new Map<string, CentralKanbanCard>();
               [...cards, ...archivedCards].forEach((c) => cardIndex.set(c.id, c));
               historyColumnCards = rows
@@ -1798,18 +1795,18 @@ const KanbanCentralPage = () => {
                 .filter((x): x is CentralKanbanCard & { _historyAt?: string } => !!x);
             }
 
-            const allColumnCards = viewMode === "history" ? historyColumnCards : activeColumnCards;
+            const allColumnCards = isHistoryMode ? historyColumnCards : activeColumnCards;
 
             // Aguardando Clientes = cards na função operacional aguardando_cliente (apenas modo ativo)
-            const awaitingCards = viewMode === "active"
+            const awaitingCards = !isHistoryMode
               ? allColumnCards.filter((c) => c.current_function_key === 'aguardando_cliente')
               : [];
-            const nonAwaitingCards = viewMode === "active"
+            const nonAwaitingCards = !isHistoryMode
               ? allColumnCards.filter((c) => c.current_function_key !== 'aguardando_cliente')
               : allColumnCards;
 
             // Revisão: agrupar SE houver 3 ou mais cards em função de revisão neste colaborador (só modo ativo)
-            const reviewCandidateCards = viewMode === "active"
+            const reviewCandidateCards = !isHistoryMode
               ? nonAwaitingCards.filter((c) => isReviewFunction(c.current_function_key))
               : [];
             const shouldGroupReview = reviewCandidateCards.length >= 3;
@@ -1822,7 +1819,7 @@ const KanbanCentralPage = () => {
             const isReviewCollapsed = !expandedReview.has(column.id);
 
             // Avaliar: cards planejados aguardando aprovação atribuídos a esse colaborador
-            const evaluateCards = viewMode === "active"
+            const evaluateCards = !isHistoryMode
               ? (evalByAssignee.get(column.id) || [])
               : [];
             const isEvaluateCollapsed = !expandedEvaluate.has(column.id);
@@ -1851,7 +1848,7 @@ const KanbanCentralPage = () => {
                         <Badge variant="secondary" className="text-xs ml-auto">
                           {allColumnCards.length}
                         </Badge>
-                        {column.id !== "__unassigned__" && viewMode !== "history" && (
+                        {column.id !== "__unassigned__" && !isHistoryMode && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1865,11 +1862,131 @@ const KanbanCentralPage = () => {
                             <Focus className="h-3.5 w-3.5" />
                           </button>
                         )}
+                        {column.id !== "__unassigned__" && (
+                          <Popover
+                            open={historyPopoverOpen === column.id}
+                            onOpenChange={(o) => setHistoryPopoverOpen(o ? column.id : null)}
+                          >
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={(e) => e.stopPropagation()}
+                                className={cn(
+                                  "h-6 w-6 inline-flex items-center justify-center rounded-md transition-colors",
+                                  isHistoryMode
+                                    ? "text-primary bg-primary/10"
+                                    : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                )}
+                                title="Registro de entregas do colaborador"
+                                aria-label={`Registro de entregas: ${column.name}`}
+                              >
+                                <History className="h-3.5 w-3.5" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 p-2" align="end">
+                              <div className="text-xs font-semibold text-foreground px-2 py-1">
+                                Registro de entregas
+                              </div>
+                              <div className="text-[11px] text-muted-foreground px-2 pb-2">
+                                Mostra apenas o que passou por {column.name}.
+                              </div>
+                              {[
+                                { key: "today" as const, label: "Hoje" },
+                                { key: "7" as const, label: "Últimos 7 dias" },
+                                { key: "30" as const, label: "Últimos 30 dias" },
+                              ].map((opt) => (
+                                <button
+                                  key={opt.key}
+                                  type="button"
+                                  onClick={() => {
+                                    setColumnHistory((prev) => {
+                                      const next = new Map(prev);
+                                      next.set(column.id, { range: opt.key });
+                                      return next;
+                                    });
+                                    setHistoryPopoverOpen(null);
+                                  }}
+                                  className={cn(
+                                    "w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent transition-colors",
+                                    columnHistoryFilter?.range === opt.key && "bg-primary/10 text-primary font-medium"
+                                  )}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                              <div className="border-t border-border/50 my-2" />
+                              <div className="px-2 pb-1 text-[11px] text-muted-foreground">Data específica</div>
+                              <input
+                                type="date"
+                                className="w-full text-sm px-2 py-1.5 rounded bg-background border border-border"
+                                value={columnHistoryFilter?.range === "day" ? (columnHistoryFilter.dayISO || "") : ""}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  if (!v) return;
+                                  setColumnHistory((prev) => {
+                                    const next = new Map(prev);
+                                    next.set(column.id, { range: "day", dayISO: v });
+                                    return next;
+                                  });
+                                }}
+                              />
+                              {isHistoryMode && (
+                                <>
+                                  <div className="border-t border-border/50 my-2" />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setColumnHistory((prev) => {
+                                        const next = new Map(prev);
+                                        next.delete(column.id);
+                                        return next;
+                                      });
+                                      setColumnHistoryRows((prev) => {
+                                        const next = new Map(prev);
+                                        next.delete(column.id);
+                                        return next;
+                                      });
+                                      setHistoryPopoverOpen(null);
+                                    }}
+                                    className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-destructive/10 text-destructive"
+                                  >
+                                    Desativar registro
+                                  </button>
+                                </>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        )}
+                        {column.id !== "__unassigned__" && canReorder && !isHistoryMode && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReorderModalColumnId(column.id);
+                            }}
+                            className="h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            title="Reorganizar sequência (IA)"
+                            aria-label={`Reorganizar sequência: ${column.name}`}
+                          >
+                            <Wand2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
-                      {viewMode === "history" && (
-                        <span className="text-[11px] text-muted-foreground mt-1">
-                          {allColumnCards.length === 1 ? "1 card passou por aqui" : `${allColumnCards.length} cards passaram por aqui`}
-                        </span>
+                      {isHistoryMode && (
+                        <div className="mt-1 flex items-center gap-1 text-[11px] text-primary">
+                          <History className="h-3 w-3" />
+                          <span className="truncate">
+                            Registro —{" "}
+                            {columnHistoryFilter?.range === "today"
+                              ? "hoje"
+                              : columnHistoryFilter?.range === "day"
+                                ? columnHistoryFilter.dayISO
+                                : columnHistoryFilter?.range === "custom"
+                                  ? `${columnHistoryFilter.fromISO} → ${columnHistoryFilter.toISO || columnHistoryFilter.fromISO}`
+                                  : `últimos ${columnHistoryFilter?.range} dias`}
+                            {isHistoryLoadingCol ? " · carregando..." : ""}
+                          </span>
+                        </div>
                       )}
                     </div>
 
@@ -1959,7 +2076,7 @@ const KanbanCentralPage = () => {
                                     index={index}
                                   >
                                     {(provided, snapshot) => {
-                                      const isHistory = viewMode === "history";
+                                      const isHistory = isHistoryMode;
                                       const currentOwnerName = isHistory
                                         ? (collaborators.find((c) => c.userId === card.assigned_to)?.fullName || (card.assigned_to ? "Outro" : "Sem responsável"))
                                         : null;
@@ -2412,8 +2529,35 @@ const KanbanCentralPage = () => {
         onSuccess={handleColumnCreated}
       />
 
-
-
+      {/* Reorder Sequence Modal (Gestor Operacional) */}
+      {reorderModalColumnId && (
+        <ReorderSequenceModal
+          open={!!reorderModalColumnId}
+          onOpenChange={(o) => !o && setReorderModalColumnId(null)}
+          columnName={
+            collaborators.find((c) => c.userId === reorderModalColumnId)?.fullName || "Coluna"
+          }
+          cards={filteredCards
+            .filter((c) => c.assigned_to === reorderModalColumnId)
+            .map((c) => ({
+              id: c.id,
+              title: c.title,
+              demand_type: c.demand_type,
+              is_daily_card: (c as any).is_daily_card,
+              publish_date: c.publish_date,
+              publish_time: c.publish_time,
+              due_date: c.due_date,
+              due_time: c.due_time,
+              delivery_date: c.delivery_date,
+              delivery_time: c.delivery_time,
+              current_function_key: c.current_function_key,
+            }))}
+          onApplied={() => {
+            setReorderModalColumnId(null);
+            fetchAllCards?.();
+          }}
+        />
+      )}
 
     </div>
   );
