@@ -61,7 +61,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   const cardById = new Map(cards.map((c) => [c.id, c]));
 
   async function handleApply() {
-    const toUpdate = proposals.filter((p) => p.changed);
+    const toUpdate = proposals.filter((p) => p.changed && !p.skipped);
     if (toUpdate.length === 0) {
       toast.info("Nada para reorganizar — a sequência já está otimizada.");
       onOpenChange(false);
