@@ -1733,6 +1733,107 @@ const KanbanCentralPage = () => {
               </span>
             )}
           </Button>
+          {/* Evolução das Demandas — seletor rápido de cliente */}
+          <Popover
+            open={evolutionPopoverOpen}
+            onOpenChange={(o) => {
+              setEvolutionPopoverOpen(o);
+              if (!o) setEvolutionSearch("");
+            }}
+          >
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                title="Ver a evolução das demandas de um cliente"
+              >
+                <Activity className="h-4 w-4 mr-1" />
+                Evolução das demandas
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-2" align="end">
+              <div className="text-xs font-semibold text-foreground px-2 py-1">
+                Escolha um cliente
+              </div>
+              <div className="text-[11px] text-muted-foreground px-2 pb-2">
+                Abre a evolução das demandas do cliente selecionado.
+              </div>
+              <Input
+                autoFocus
+                value={evolutionSearch}
+                onChange={(e) => setEvolutionSearch(e.target.value)}
+                placeholder="Buscar cliente..."
+                className="h-8 text-xs mb-2"
+              />
+              {(() => {
+                const counts = new Map<string, { id: string; name: string; count: number }>();
+                cards.forEach((c) => {
+                  if (!c.clientId) return;
+                  const prev = counts.get(c.clientId);
+                  if (prev) prev.count += 1;
+                  else counts.set(c.clientId, { id: c.clientId, name: c.clientName || "Cliente", count: 1 });
+                });
+                const term = evolutionSearch.trim().toLowerCase();
+                const list = Array.from(counts.values())
+                  .filter((c) => !term || c.name.toLowerCase().includes(term))
+                  .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+                if (list.length === 0) {
+                  return (
+                    <div className="text-[11px] text-muted-foreground px-2 py-3 text-center">
+                      Nenhum cliente com demandas ativas.
+                    </div>
+                  );
+                }
+                return (
+                  <div className="max-h-72 overflow-y-auto -mx-1">
+                    {list.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={async () => {
+                          setEvolutionPopoverOpen(false);
+                          setEvolutionSearch("");
+                          try {
+                            const { data } = await supabase
+                              .from("tenant_companies")
+                              .select("id, name, fantasy_name, cnpj_cpf, email, tenant_id, brand_primary_color, brand_secondary_color, brand_font, has_mascot, mascot_description, mascot_url")
+                              .eq("id", c.id)
+                              .maybeSingle();
+                            if (data) {
+                              setSelectedClient(data as any);
+                            } else {
+                              setSelectedClient({
+                                id: c.id,
+                                name: c.name,
+                                fantasy_name: c.name,
+                                cnpj_cpf: "",
+                                email: "",
+                              } as any);
+                            }
+                          } catch {
+                            setSelectedClient({
+                              id: c.id,
+                              name: c.name,
+                              fantasy_name: c.name,
+                              cnpj_cpf: "",
+                              email: "",
+                            } as any);
+                          }
+                          navigate("/client-evolution");
+                        }}
+                        className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-muted text-left text-xs"
+                      >
+                        <span className="truncate">{c.name}</span>
+                        <span className="text-[10px] text-muted-foreground shrink-0">
+                          {c.count} {c.count === 1 ? "ativa" : "ativas"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+            </PopoverContent>
+          </Popover>
           {/* Registro de Cards global — replica o filtro para todas as colunas */}
           <Popover open={globalHistoryPopoverOpen} onOpenChange={setGlobalHistoryPopoverOpen}>
             <PopoverTrigger asChild>
