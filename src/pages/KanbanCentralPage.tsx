@@ -54,6 +54,8 @@ import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { usePendingEvaluationCards, type PendingEvaluationCard } from "@/hooks/usePendingEvaluationCards";
 import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
 import { ClipboardCheck } from "lucide-react";
+import { useSelectedClient } from "@/contexts/SelectedClientContext";
+import { Input } from "@/components/ui/input";
 
 interface PipelineStatus {
   id: string;
