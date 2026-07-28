@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { pickAssigneeForFunction } from "@/lib/proceedDemand";
 import type { DemandTypeKey } from "@/lib/proceedDemand";
 import { recordFlowHistory } from "@/lib/flowHistory";
+import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 
 export interface CreateCardInput {
   tenantId: string;
@@ -184,7 +185,23 @@ export async function createCardFromContent(input: CreateCardInput): Promise<Cre
   const title = buildTitle(typeKey, prompt);
   const description = (prompt || "").trim() || null;
 
-  // 8. INSERT
+  // 8. Resolver etapa apropriada ao responsável (caso o usuário escolhido
+  // via pickAssigneeForFunction("revisar") tenha múltiplas funções, respeitamos
+  // a sequência do tipo).
+  let functionKey: string = "revisar";
+  if (picked.userId) {
+    try {
+      const resolved = await resolveFunctionForAssignee(
+        tenantId,
+        picked.userId,
+        typeKey,
+        "revisar",
+      );
+      if (resolved) functionKey = resolved;
+    } catch { /* mantém revisar */ }
+  }
+
+  // 9. INSERT
   const { data: inserted, error: insErr } = await supabase
     .from("demands")
     .insert({
@@ -200,7 +217,7 @@ export async function createCardFromContent(input: CreateCardInput): Promise<Cre
       source: "standalone_content",
       attachments: attachments as any,
       assigned_to: picked.userId,
-      current_function_key: "revisar",
+      current_function_key: functionKey,
       created_by: user.id,
     } as any)
     .select("id")
@@ -218,7 +235,7 @@ export async function createCardFromContent(input: CreateCardInput): Promise<Cre
     fromUserId: null,
     toUserId: picked.userId ?? null,
     fromFunctionKey: null,
-    toFunctionKey: "revisar",
+    toFunctionKey: functionKey,
   });
 
   return {

@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Tag } from "lucide-react";
 import { proceedDemand, regressDemand, deliverDemand, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, getPipelineSequence, jumpToFunction, type DemandTypeKey } from "@/lib/proceedDemand";
+import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { completeDailyOccurrence, formatBR as formatBRDate } from "@/lib/dailyCards";
 import { DailyCardSection } from "@/components/DailyCardSection";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
@@ -1501,8 +1502,31 @@ export default function TaskCard({
                       value={card.assigned_to || "__none__"}
                       onValueChange={async (val) => {
                         const newVal = val === "__none__" ? "" : val;
-                        onCardChange({ ...card, assigned_to: newVal || null });
+                        // Ajusta a etapa para uma função permitida do novo responsável.
+                        let nextFn: string | null = card.current_function_key ?? null;
+                        if (newVal && card.tenant_id) {
+                          try {
+                            const resolved = await resolveFunctionForAssignee(
+                              card.tenant_id,
+                              newVal,
+                              card.demand_type_key ?? null,
+                              card.current_function_key ?? null,
+                            );
+                            if (resolved) nextFn = resolved;
+                          } catch (e) { /* mantém etapa atual */ }
+                        } else if (!newVal) {
+                          nextFn = null;
+                        }
+                        onCardChange({ ...card, assigned_to: newVal || null, current_function_key: nextFn });
                         await onSave("assigned_to", newVal);
+                        if (nextFn !== (card.current_function_key ?? null) && !isDraft) {
+                          try {
+                            await supabase
+                              .from("demands")
+                              .update({ current_function_key: nextFn } as any)
+                              .eq("id", card.id);
+                          } catch (e) { /* noop */ }
+                        }
                       }}
                       disabled={readOnly}
                     >

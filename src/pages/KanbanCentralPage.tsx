@@ -47,7 +47,7 @@ import { syncPeriodPlanSnapshot } from "@/lib/syncPeriodPlanItem";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { useCollaborators } from "@/hooks/useCollaborators";
 import { recordFlowHistory } from "@/lib/flowHistory";
-import { assignInitialResponsible } from "@/lib/initialFlowFunction";
+import { assignInitialResponsible, resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { isReviewFunction } from "@/lib/flowFunctions";
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { usePendingEvaluationCards, type PendingEvaluationCard } from "@/hooks/usePendingEvaluationCards";
@@ -845,21 +845,46 @@ const KanbanCentralPage = () => {
     const destColId = destination.droppableId as string;
     const newAssignedTo = destColId === "__unassigned__" ? null : destColId;
     const previousAssignedTo = card.assigned_to ?? null;
-
-    // Optimistic update
-    setCards((prev) => prev.map((c) =>
-      c.id === draggableId ? { ...c, assigned_to: newAssignedTo } : c
-    ));
+    const previousFunctionKey = card.current_function_key ?? null;
 
     if (previousAssignedTo === newAssignedTo) return;
 
+    // Resolver etapa alvo para o novo responsável (respeita fluxo + funções permitidas).
+    let nextFunctionKey: string | null = previousFunctionKey;
+    let functionRemappedWarning = false;
+    if (newAssignedTo && tenantId) {
+      const resolved = await resolveFunctionForAssignee(
+        tenantId,
+        newAssignedTo,
+        card.demand_type_key ?? null,
+        previousFunctionKey,
+      );
+      if (resolved) {
+        nextFunctionKey = resolved;
+      } else if (previousFunctionKey) {
+        functionRemappedWarning = true;
+      }
+    } else if (!newAssignedTo) {
+      // Sem responsável: limpar etapa (comportamento anterior da coluna __unassigned__).
+      nextFunctionKey = null;
+    }
+
+    // Optimistic update
+    setCards((prev) => prev.map((c) =>
+      c.id === draggableId ? { ...c, assigned_to: newAssignedTo, current_function_key: nextFunctionKey } : c
+    ));
+
     try {
+      const update: Record<string, any> = {
+        assigned_to: newAssignedTo,
+        updated_at: new Date().toISOString(),
+      };
+      if (nextFunctionKey !== previousFunctionKey) {
+        update.current_function_key = nextFunctionKey;
+      }
       const { error } = await supabase
         .from("demands")
-        .update({
-          assigned_to: newAssignedTo,
-          updated_at: new Date().toISOString(),
-        })
+        .update(update)
         .eq("id", card.id);
 
       if (error) throw error;
@@ -871,8 +896,8 @@ const KanbanCentralPage = () => {
           action: "manual_assignment",
           fromUserId: previousAssignedTo,
           toUserId: newAssignedTo,
-          fromFunctionKey: card.current_function_key ?? null,
-          toFunctionKey: card.current_function_key ?? null,
+          fromFunctionKey: previousFunctionKey,
+          toFunctionKey: nextFunctionKey,
           metadata: { source: "kanban_drag" },
         });
       }
@@ -880,13 +905,17 @@ const KanbanCentralPage = () => {
       const collabName = newAssignedTo
         ? collaborators.find((c) => c.userId === newAssignedTo)?.fullName || "colaborador"
         : "Sem responsável";
-      sonnerToast.success(`Atribuída a ${collabName}`);
+      if (functionRemappedWarning) {
+        sonnerToast.warning(`${collabName} não tem função compatível — etapa mantida`);
+      } else {
+        sonnerToast.success(`Atribuída a ${collabName}`);
+      }
     } catch (error) {
       console.error("Error updating assigned_to:", error);
       sonnerToast.error("Erro ao atribuir demanda");
       // Revert
       setCards((prev) => prev.map((c) =>
-        c.id === draggableId ? { ...c, assigned_to: previousAssignedTo } : c
+        c.id === draggableId ? { ...c, assigned_to: previousAssignedTo, current_function_key: previousFunctionKey } : c
       ));
     }
   };

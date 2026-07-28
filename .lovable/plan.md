@@ -1,53 +1,57 @@
+## Problema
 
-## Diagnóstico
+O card da Letícia está em `planejar`, mas ela não tem a função `planejar` habilitada em `collaborator_function_assignments`. Isso acontece porque:
 
-Consulta ao banco confirmou o ciclo: cards vão para `period_plans.rejected_plan` sem `_discarded=true`, e uma rotina de "backfill legado" na tela de Reprovados os devolve ao plano ativo, fazendo-os reaparecer na seção **Avaliar** (Visão Geral).
+1. **Drag-and-drop na Visão Geral** (`KanbanCentralPage.handleDragEnd`) troca `assigned_to` mas nunca altera `current_function_key`. Se um card em `planejar` sair da Lúcia (que tem planejar) para a Letícia (que não tem), a etapa permanece `planejar`.
+2. **Criação manual** (`handleDraftSave` → `assignInitialResponsible`) preserva o `assigned_to` escolhido no draft e resolve a etapa inicial pela regra de tipo/posição — sem cruzar com as funções permitidas do usuário. Então a Letícia pode receber um card em `planejar` mesmo sem essa função.
+3. **Criação a partir de conteúdo avulso** (`createCardFromContent`) força `current_function_key = "revisar"` — mesmo comportamento se o responsável escolhido não tiver "revisar".
 
-**Onde falha:**
+A conclusão: nenhum caminho valida se o responsável possui a função destino.
 
-- `src/pages/ApproveCards.tsx` `handleReject` (linhas 340-346): grava em `rejected_plan` **sem** `_discarded`/`_discardedAt`.
-- `src/pages/RejectedCards.tsx` (linhas 180-230): `bulkRestoreNonDiscarded` roda a cada montagem e devolve todos os itens sem `_discarded` para `default_plan/ultra_plan`.
-- Uma vez restaurados, `src/hooks/usePendingEvaluationCards.ts` volta a listá-los → coluna do avaliador (Lúcia).
+## Objetivo
 
-O `EvaluatePlanCardModal` (botão **Descartar** dentro do Avaliar) já grava `_discarded: true` — ele não é o problema. O ciclo é criado pelo caminho **Aprovar Produção → Reprovar** + backfill.
+Sempre que um responsável for atribuído a um card (criação, drag, ou seleção manual), a etapa (`current_function_key`) precisa cair numa função **permitida para aquele usuário** e coerente com o fluxo do tipo de demanda.
 
-## Correções
+## Regra de resolução (nova função `resolveFunctionForAssignee`)
 
-### 1. `src/pages/ApproveCards.tsx` — reprovação vira descarte explícito
+Entrada: `tenantId`, `assigneeUserId`, `demandTypeKey`, `currentFunctionKey` (opcional).
 
-No `handleReject`, ao empurrar para `rejected_plan`, incluir também:
+Passos:
+1. Buscar `flow_functions` ativas da tenant (ordenadas por `position`).
+2. Buscar `demand_type_flow_rules` do tipo → montar sequência `required` (se houver); caso contrário sequência = todas as funções ativas.
+3. Buscar `collaborator_function_assignments` do `assigneeUserId` com `allowed = true` → conjunto `allowedKeys`.
+4. Intersectar sequência × `allowedKeys`, preservando a ordem do fluxo.
+5. Escolher função destino:
+   - Se `currentFunctionKey` está no resultado, mantém.
+   - Senão, se `currentFunctionKey` existe na sequência (mas não é permitido), avança para a próxima função permitida a partir da posição atual.
+   - Senão, retorna a primeira função permitida da sequência.
+6. Se o usuário não tem nenhuma função permitida na sequência, retorna `null` e o chamador decide: manter etapa atual + aviso (não bloqueia atribuição), ou reverter a operação.
 
-```ts
-_discarded: true,
-_discardedAt: new Date().toISOString(),
-```
+## Aplicação
 
-Assim toda reprovação — venha do Avaliar ou da tela Aprovar Produção — chega em Reprovados como arquivo intencional e nunca mais é restaurada automaticamente.
+1. **`src/lib/initialFlowFunction.ts`**
+   - Adicionar `resolveFunctionForAssignee(...)` (exportada).
+   - `assignInitialResponsible`: quando `existingAssignee` estiver definido, usar `resolveFunctionForAssignee` para escolher a etapa; se não permitido, cair na `pickAssigneeForFunction` da etapa inicial (fluxo atual). Sem responsável pré-definido, comportamento atual permanece.
 
-### 2. `src/pages/RejectedCards.tsx` — desligar o backfill
+2. **`src/pages/KanbanCentralPage.tsx` → `handleDragEnd`**
+   - Após decidir `newAssignedTo` (não nulo), chamar `resolveFunctionForAssignee` com `currentFunctionKey = card.current_function_key`.
+   - Se retornar uma etapa diferente da atual, atualizar `current_function_key` no mesmo `update` e registrar `flow_history` com `action: "proceeded"` (ou nova `"reassigned"`) refletindo a mudança de função além da mudança de responsável.
+   - Se retornar `null`, mostrar toast de aviso ("Colaborador não tem função compatível — etapa mantida") e manter comportamento atual.
+   - Coluna `__unassigned__` continua limpando `current_function_key = null`.
 
-Remover o bloco `bulkRestoreNonDiscarded` (linhas 180-230) do `fetchData`. Deixar o helper existir em `evaluatePlanCard.ts` (não removo para não quebrar tipagens/imports em outros lugares), mas parar de invocá-lo. Também remover o `useState` `backfilledPeriods` e sua importação, e limpar a chamada de refetch subsequente.
+3. **`src/components/TaskCard.tsx` — popover "Trocar responsável"** (linha ~1219+)
+   - Onde o card é atribuído via UI (fora do drag), reaproveitar `resolveFunctionForAssignee` para ajustar `current_function_key` no mesmo update, mantendo consistência com o Kanban.
 
-### 3. `src/pages/RejectedCards.tsx` — exibir todos os itens de `rejected_plan` dentro dos 30 dias
+4. **`src/lib/createCardFromContent.ts`**
+   - Manter etapa `"revisar"` como intenção, mas antes de gravar chamar `resolveFunctionForAssignee` (`demandTypeKey`, `assignee`) para cair na função permitida do responsável escolhido; se `null`, seguir com "revisar" como está.
 
-Alterar o filtro em `fetchData` (linha 238) de `if (!item?._discarded) return;` para tratar itens legados (`_discarded` ausente) como descartados também. Regra:
+## Correção do card já afetado
 
-- Se `_discarded === true` **ou** o item tem `_rejectedAt` sem outra sinalização → mostrar em Reprovados (respeitando janela de 30 dias por `_rejectedAt`).
-
-Isso resolve os itens já em produção sem migração destrutiva: eles passam a aparecer em `/rejected-cards` (onde deveriam) e param de reaparecer no Avaliar (porque a etapa 2 não os devolve mais).
-
-### 4. Limpar reaparição imediata para Lúcia
-
-Como os cards legados hoje estão em `rejected_plan` (com `_discarded=false`), a etapa 2 já garante que não voltarão. A etapa 3 garante que eles fiquem visíveis em Reprovados. Nenhuma migração de dados é necessária.
+O card específico da Letícia (`Programação dos Stories Leal`, hoje em `planejar`) só é corrigido no próximo reassignment. Não faz sense migrar em massa — a regra passa a atuar dali em diante. O usuário pode arrastar o card para outra coluna e voltar, ou reatribuir pelo popover, e a etapa se reajusta.
 
 ## Detalhes técnicos
 
-- Escopo: só front-end em `src/pages/ApproveCards.tsx` e `src/pages/RejectedCards.tsx`. Zero SQL, zero edge function, zero mudança em schema/RLS.
-- Não altero `EvaluatePlanCardModal` nem `rejectPlanCard`/`bulkRestoreNonDiscarded` (o helper fica órfão intencionalmente, para não mexer em outras chamadas).
-- `usePendingEvaluationCards` continua igual — ele já ignora tudo que estiver em `rejected_plan` (porque só olha `default_plan`/`ultra_plan`). Como não haverá mais restauração automática, a coluna da Lúcia deixa de receber os descartes de volta.
-
-## Verificação após aplicar
-
-- Reprovar um card na tela **Aprovar Produção** → some da Visão Geral (Avaliar) e aparece em `/rejected-cards` como "Descartado".
-- Descartar via Avaliar (modal) → continua funcionando como já funcionava.
-- Abrir `/rejected-cards` → nada é devolvido para o plano ativo; a lista mostra todos os cards reprovados dos últimos 30 dias.
+- Sem mudanças de schema; apenas leitura extra em `collaborator_function_assignments`.
+- `flow_history` continua sendo gravado por operação; quando função e responsável mudam juntos, um único registro `proceeded` com `from/to` de ambos.
+- Nenhum ajuste em `proceedDemand` (que já respeita a sequência e escolhe o responsável a partir das funções permitidas).
+- Nada é alterado em geração de conteúdo, publicações agendadas ou permissões — apenas roteamento de etapa.
