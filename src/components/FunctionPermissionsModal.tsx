@@ -494,6 +494,13 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
               </table>
             </div>
           </TabsContent>
+
+          <TabsContent value="alocacao" className="mt-4">
+            <p className="text-xs text-muted-foreground mb-3">
+              Blocos de horário de cada colaborador por dia da semana × área (Mídia ou Sistemas). Vazios significam sem alocação naquela área. A área padrão define em qual área nascem as demandas criadas por esse colaborador.
+            </p>
+            <AreaAllocationTab />
+          </TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>
