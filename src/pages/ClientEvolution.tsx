@@ -433,7 +433,7 @@ const ClientEvolution = () => {
   const progressPct = summary.total > 0 ? Math.round((summary.done / summary.total) * 100) : 0;
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6 lg:px-8 py-6">
+    <div className="mx-auto w-full max-w-[1920px] px-4 sm:px-6 lg:px-8 py-6">
       {/* Header em uma linha */}
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <BackButton to="/client-hub" />
