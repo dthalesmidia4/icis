@@ -1,0 +1,18 @@
+/*
+  Cache-Control: no-store, no-cache, max-age=0, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+
+/service-worker.js
+  Cache-Control: no-store, no-cache, max-age=0, must-revalidate
+  Service-Worker-Allowed: /
+
+/sw.js
+  Cache-Control: no-store, no-cache, max-age=0, must-revalidate
+  Service-Worker-Allowed: /
+
+/registerSW.js
+  Cache-Control: no-store, no-cache, max-age=0, must-revalidate
+
+/manifest.webmanifest
+  Cache-Control: no-store, no-cache, max-age=0, must-revalidate
