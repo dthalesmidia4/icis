@@ -2073,7 +2073,7 @@ const KanbanCentralPage = () => {
                                     index={index}
                                   >
                                     {(provided, snapshot) => {
-                                      const isHistory = viewMode === "history";
+                                      const isHistory = isHistoryMode;
                                       const currentOwnerName = isHistory
                                         ? (collaborators.find((c) => c.userId === card.assigned_to)?.fullName || (card.assigned_to ? "Outro" : "Sem responsável"))
                                         : null;
