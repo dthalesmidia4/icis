@@ -515,18 +515,18 @@ const ClientEvolution = () => {
                 Nenhuma demanda para o filtro selecionado.
               </div>
             ) : (
-              <table className="w-full text-sm border-collapse">
+              <table className="w-full text-sm border-collapse table-fixed">
                 <colgroup>
                   <col className="w-[6px]" />
-                  <col className="min-w-[100px]" />
+                  <col className="w-[100px]" />
                   <col className="hidden md:table-column w-[120px]" />
-                  <col className="hidden md:table-column min-w-[140px]" />
-                  <col className="min-w-[90px]" />
-                  <col className="min-w-[150px]" />
-                  <col className="hidden xl:table-column min-w-[120px]" />
-                  <col className="min-w-[260px]" />
-                  <col className="min-w-[120px]" />
-                  <col className="hidden lg:table-column min-w-[120px]" />
+                  <col className="hidden md:table-column w-[140px]" />
+                  <col className="w-[90px]" />
+                  <col className="w-[150px]" />
+                  <col className="hidden xl:table-column w-[120px]" />
+                  <col className="w-[260px]" />
+                  <col className="w-[120px]" />
+                  <col className="hidden lg:table-column w-[120px]" />
                 </colgroup>
 
                 <thead className="sticky top-0 bg-muted/70 backdrop-blur-sm text-[11px] uppercase tracking-wide text-muted-foreground">
