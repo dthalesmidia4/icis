@@ -65,6 +65,39 @@ const relativeDays = (iso?: string | null) => {
   return `há ${days} dias`;
 };
 
+const sortValue = (
+  row: {
+    card: KanbanCardData;
+    isDone: boolean;
+    hasStage: boolean;
+    stageIndex: number;
+    sequence: { function_key: string; name: string }[];
+    stageName: string | null;
+    nextStageName: string | null;
+    workArea: "midia" | "sistemas" | null;
+  },
+  key: SortKey,
+  assigneeMap: Record<string, string>,
+): string | number | null => {
+  const { card, isDone, stageIndex, sequence, stageName, nextStageName, workArea } = row;
+  switch (key) {
+    case "title": return card.title || null;
+    case "type": return card.demand_type || null;
+    case "assignee": return assigneeMap[card.assigned_to || ""] || null;
+    case "area": return workArea || null;
+    case "stage": return isDone ? "zzzz_concluida" : stageName || null;
+    case "progress": {
+      const total = sequence.length;
+      const done = isDone ? total : Math.max(0, stageIndex);
+      return total > 0 ? done / total : -1;
+    }
+    case "next": return nextStageName || null;
+    case "publish": return card.publish_date || null;
+    case "deadline": return card.delivery_date || null;
+    default: return null;
+  }
+};
+
 function periodRange(period: PeriodFilter): { start: Date; end: Date } | null {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
