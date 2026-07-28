@@ -547,8 +547,8 @@ function SummaryCard({
   );
 }
 
-function TimelineRow({
-  row, assigneeName, onOpen,
+function TableRow({
+  row, assigneeName, onOpen, zebra,
 }: {
   row: {
     card: KanbanCardData;
@@ -563,92 +563,96 @@ function TimelineRow({
   };
   assigneeName: string | null;
   onOpen: () => void;
+  zebra: boolean;
 }) {
   const { card, isDone, isOverdue: overdue, hasStage, stageIndex, sequence, stageName, nextStageName } = row;
 
-  const stageMeta = () => {
-    if (isDone) return <span className="text-emerald-600 dark:text-emerald-400 font-medium">Concluída {card.delivery_date ? `em ${formatDate(card.delivery_date)}` : ""}</span>;
-    if (!hasStage) return <span className="text-amber-600 dark:text-amber-400 font-medium">Aguardando etapa inicial</span>;
+  const stageCell = () => {
+    if (isDone) {
+      return <span className="text-emerald-600 dark:text-emerald-400 font-medium">Concluída</span>;
+    }
+    if (!hasStage) {
+      return <span className="text-amber-600 dark:text-amber-400 font-medium">Aguardando início</span>;
+    }
     return (
-      <>
+      <span className="inline-flex items-center gap-1.5">
         <span className="font-medium text-foreground">{stageName}</span>
-        {card.updated_at && <span className="text-muted-foreground"> · {relativeDays(card.updated_at)}</span>}
-        {nextStageName && <span className="text-muted-foreground"> · próximo: {nextStageName}</span>}
-      </>
+        {card.updated_at && (
+          <span className="text-[11px] text-muted-foreground">· {relativeDays(card.updated_at)}</span>
+        )}
+      </span>
     );
   };
 
+  const total = sequence.length;
+  const doneCount = isDone ? total : Math.max(0, stageIndex);
+
+  const prazoTone = overdue
+    ? "text-destructive font-medium"
+    : isDone
+      ? "text-muted-foreground"
+      : "text-foreground";
+
   return (
-    <button
-      type="button"
+    <tr
       onClick={onOpen}
       className={cn(
-        "w-full text-left rounded-lg border bg-card p-3 transition-all hover:border-primary/50 hover:shadow-sm",
-        overdue && "border-destructive/40 bg-destructive/5",
-        isDone && "opacity-80",
+        "cursor-pointer border-t border-border/60 hover:bg-primary/5 transition-colors align-middle",
+        zebra && "bg-muted/20",
+        overdue && "bg-destructive/5 hover:bg-destructive/10",
+        isDone && "opacity-70",
       )}
     >
-      <div className="flex items-start justify-between gap-3 mb-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            {card.clientName && (
-              <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">{card.clientName}</Badge>
-            )}
-            {card.demand_type && (
-              <span className="text-[11px] text-muted-foreground">{card.demand_type}</span>
-            )}
+      <td className="px-3 py-2">
+        <div className="font-medium text-foreground truncate max-w-[560px]" title={card.title}>
+          {card.title}
+        </div>
+      </td>
+      <td className="px-2 py-2 hidden md:table-cell text-muted-foreground text-[12px] whitespace-nowrap">
+        {card.demand_type || "—"}
+      </td>
+      <td className="px-2 py-2 hidden md:table-cell text-foreground text-[12px] whitespace-nowrap">
+        {assigneeName || <span className="text-muted-foreground">—</span>}
+      </td>
+      <td className="px-2 py-2 text-[12px] whitespace-nowrap">
+        {stageCell()}
+      </td>
+      <td className="px-2 py-2 hidden lg:table-cell">
+        {total > 0 ? (
+          <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-0.5">
+              {sequence.map((fn, i) => {
+                const isCompleted = isDone || (stageIndex >= 0 && i < stageIndex);
+                const isCurrent = !isDone && i === stageIndex;
+                return (
+                  <span
+                    key={fn.function_key}
+                    title={fn.name}
+                    className={cn(
+                      "h-2 w-2 rounded-full",
+                      isCompleted && "bg-emerald-500",
+                      isCurrent && "bg-primary ring-2 ring-primary/30",
+                      !isCompleted && !isCurrent && "bg-muted-foreground/25",
+                    )}
+                  />
+                );
+              })}
+            </div>
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {doneCount}/{total}
+            </span>
           </div>
-          <h3 className="text-sm font-semibold text-foreground line-clamp-2">{card.title}</h3>
-        </div>
-        <div className="shrink-0 text-right text-[11px] leading-tight">
-          {overdue && <div className="text-destructive font-medium mb-0.5">Atrasada</div>}
-          {assigneeName && <div className="text-muted-foreground">{assigneeName}</div>}
-        </div>
-      </div>
-
-      {/* Micro stepper */}
-      {sequence.length > 0 && (
-        <div className="flex items-center gap-1 mb-2 overflow-x-auto">
-          {sequence.map((fn, i) => {
-            const done = isDone || (stageIndex >= 0 && i < stageIndex);
-            const current = !isDone && i === stageIndex;
-            const future = !done && !current;
-            return (
-              <div key={fn.function_key} className="flex items-center gap-1 shrink-0">
-                <div
-                  className={cn(
-                    "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
-                    done && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-                    current && "bg-primary text-primary-foreground",
-                    future && "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {done ? <CheckCircle2 className="h-3 w-3" /> : current ? <Activity className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
-                  <span>{fn.name}</span>
-                </div>
-                {i < sequence.length - 1 && <ChevronRight className="h-3 w-3 text-muted-foreground/40" />}
-              </div>
-            );
-          })}
-          <ChevronRight className="h-3 w-3 text-muted-foreground/40 shrink-0" />
-          <div
-            className={cn(
-              "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0",
-              isDone
-                ? "bg-emerald-500 text-white"
-                : "bg-muted text-muted-foreground",
-            )}
-          >
-            {isDone ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
-            <span>Concluída</span>
-          </div>
-        </div>
-      )}
-
-      <div className="text-[11px] text-muted-foreground">
-        {stageMeta()}
-      </div>
-    </button>
+        ) : (
+          <span className="text-muted-foreground text-[11px]">—</span>
+        )}
+      </td>
+      <td className="px-2 py-2 hidden xl:table-cell text-muted-foreground text-[12px] whitespace-nowrap">
+        {isDone ? "—" : nextStageName || <span className="text-muted-foreground/60">—</span>}
+      </td>
+      <td className={cn("px-3 py-2 whitespace-nowrap text-[12px] tabular-nums", prazoTone)}>
+        {card.delivery_date ? formatDate(card.delivery_date) : "—"}
+      </td>
+    </tr>
   );
 }
 
