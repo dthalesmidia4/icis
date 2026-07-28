@@ -90,7 +90,7 @@ const RejectedCards = () => {
   const [approvingIndex, setApprovingIndex] = useState<number | null>(null);
   const [reevaluatingIndex, setReevaluatingIndex] = useState<number | null>(null);
   const [expandedIdx, setExpandedIdx] = useState<Set<number>>(new Set());
-  const [backfilledPeriods, setBackfilledPeriods] = useState<Set<string>>(new Set());
+  
 
 
   // Prompt for missing reason
