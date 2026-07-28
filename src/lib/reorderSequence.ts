@@ -1,17 +1,19 @@
 /**
  * Reordena a sequência de produção de um colaborador.
- * Estima duração por (tipo de demanda × etapa do fluxo), respeita janela
- * de expediente e intervalo configurados na agência, pula finais de
- * semana/feriados e usa fuso America/Sao_Paulo por padrão.
+ * - Duração por (tipo × etapa) via matriz; "Outros" usa o intervalo agendado.
+ * - Divide cards longos em fatias que respeitam expediente + almoço.
+ * - Aplica folga proporcional (30%) + atraso acumulado no primeiro card atrasado.
+ * - Pula finais de semana e feriados (br_calendar_events).
+ * - Usa fuso America/Sao_Paulo por padrão como "UTC virtual".
  */
 import { fetchHolidaysInRange } from "@/lib/dailyCards";
 
 export interface WorkHoursConfig {
-  start: string; // "09:00"
-  end: string; // "18:00"
-  lunchStart: string; // "12:00"
-  lunchEnd: string; // "13:30"
-  tz: string; // "America/Sao_Paulo"
+  start: string;
+  end: string;
+  lunchStart: string;
+  lunchEnd: string;
+  tz: string;
 }
 
 export const DEFAULT_WORK_HOURS: WorkHoursConfig = {
@@ -41,18 +43,20 @@ export interface ReorderProposal {
   id: string;
   title: string;
   durationMin: number;
-  startISO: string; // YYYY-MM-DD (BRT wallclock)
-  startTime: string; // HH:mm
+  startISO: string;
+  startTime: string;
   endISO: string;
   endTime: string;
   publishDeadline?: string | null;
   warning?: string;
   changed: boolean;
-  skipped?: boolean; // aguardando_cliente
+  skipped?: boolean;
+  spansDays?: number;
+  slackApplied?: boolean;
 }
 
 // ------------------------------------------------------------------
-// Matriz duração (minutos) por [function_key][typeGroup]
+// Matriz duração
 // ------------------------------------------------------------------
 
 export type DurationTypeGroup =
@@ -60,20 +64,21 @@ export type DurationTypeGroup =
   | "carrossel"
   | "video_curto"
   | "video_longo"
+  | "outro"
   | "default";
 
 export const DURATION_MATRIX: Record<string, Record<DurationTypeGroup, number>> = {
-  avaliar:            { estatico:  5, carrossel:  5, video_curto:  5, video_longo:  5, default:  5 },
-  planejar:           { estatico: 10, carrossel: 15, video_curto: 15, video_longo: 20, default: 10 },
-  criar_roteiro:      { estatico: 10, carrossel: 20, video_curto: 25, video_longo: 40, default: 15 },
-  criar_arte:         { estatico: 20, carrossel: 40, video_curto: 20, video_longo: 20, default: 20 },
-  captar:             { estatico: 20, carrossel: 20, video_curto: 60, video_longo: 120, default: 30 },
-  gerar_video:        { estatico: 20, carrossel: 20, video_curto: 60, video_longo: 90,  default: 30 },
-  editar_video:       { estatico: 20, carrossel: 20, video_curto: 60, video_longo: 120, default: 30 },
-  revisar:            { estatico:  5, carrossel: 10, video_curto: 15, video_longo: 20, default: 10 },
-  enviar_cliente:     { estatico:  5, carrossel:  5, video_curto:  5, video_longo:  5, default:  5 },
-  publicar:           { estatico:  5, carrossel:  5, video_curto:  5, video_longo:  5, default:  5 },
-  revisar_publicacao: { estatico:  5, carrossel:  5, video_curto:  5, video_longo:  5, default:  5 },
+  avaliar:            { estatico:  5, carrossel:  5, video_curto:  5, video_longo:  5, outro:  5, default:  5 },
+  planejar:           { estatico: 10, carrossel: 15, video_curto: 15, video_longo: 20, outro: 15, default: 10 },
+  criar_roteiro:      { estatico: 10, carrossel: 20, video_curto: 25, video_longo: 40, outro: 20, default: 15 },
+  criar_arte:         { estatico: 20, carrossel: 40, video_curto: 20, video_longo: 20, outro: 30, default: 20 },
+  captar:             { estatico: 20, carrossel: 20, video_curto: 60, video_longo: 120, outro: 30, default: 30 },
+  gerar_video:        { estatico: 20, carrossel: 20, video_curto: 60, video_longo: 90,  outro: 30, default: 30 },
+  editar_video:       { estatico: 20, carrossel: 20, video_curto: 60, video_longo: 120, outro: 30, default: 30 },
+  revisar:            { estatico:  5, carrossel: 10, video_curto: 15, video_longo: 20, outro: 10, default: 10 },
+  enviar_cliente:     { estatico:  5, carrossel:  5, video_curto:  5, video_longo:  5, outro:  5, default:  5 },
+  publicar:           { estatico:  5, carrossel:  5, video_curto:  5, video_longo:  5, outro:  5, default:  5 },
+  revisar_publicacao: { estatico:  5, carrossel:  5, video_curto:  5, video_longo:  5, outro:  5, default:  5 },
 };
 
 const FALLBACK_STAGE_DURATION: Record<DurationTypeGroup, number> = {
@@ -81,6 +86,7 @@ const FALLBACK_STAGE_DURATION: Record<DurationTypeGroup, number> = {
   carrossel: 40,
   video_curto: 120,
   video_longo: 180,
+  outro: 30,
   default: 30,
 };
 
@@ -90,27 +96,25 @@ function typeGroup(card: ReorderCardInput): DurationTypeGroup {
   if (key === "carrossel") return "carrossel";
   if (key === "video_gerado" || key === "video_curto") return "video_curto";
   if (key === "video_longo") return "video_longo";
+  if (key === "outro") return "outro";
   const t = (card.demand_type || "").toLowerCase();
   if (t.includes("carross")) return "carrossel";
   if (t.includes("longo")) return "video_longo";
   if (t.includes("vídeo") || t.includes("video") || t.includes("reels") || t.includes("short")) return "video_curto";
   if (t.includes("estát") || t.includes("estat") || t.includes("post")) return "estatico";
+  if (t.includes("outro")) return "outro";
   return "default";
 }
 
-export function estimateDurationMinutes(card: ReorderCardInput): number {
-  if (card.is_daily_card) return 20;
-  const stage = (card.current_function_key || "").toLowerCase();
-  const group = typeGroup(card);
-  const stageRow = DURATION_MATRIX[stage];
-  if (stageRow) return stageRow[group] ?? stageRow.default;
-  return FALLBACK_STAGE_DURATION[group];
+function isOtherType(card: ReorderCardInput): boolean {
+  const key = (card.demand_type_key || "").toLowerCase();
+  if (key === "outro" || key === "") return !key || key === "outro" || typeGroup(card) === "outro" || typeGroup(card) === "default";
+  if (!card.demand_type_key && !card.demand_type) return true;
+  return typeGroup(card) === "outro" || typeGroup(card) === "default";
 }
 
 // ------------------------------------------------------------------
-// Utilitários de wallclock BRT (representa horário de SP como "UTC virtual").
-// Isso evita depender do fuso do navegador. Nunca convertemos essas Dates
-// de volta por métodos locais — sempre com getUTC*.
+// Utilitários wallclock BRT
 // ------------------------------------------------------------------
 
 function parseHM(hm: string): { h: number; m: number } {
@@ -132,13 +136,9 @@ function spNowVirtualUtc(tz: string): Date {
   fmt.formatToParts(new Date()).forEach((p) => {
     if (p.type !== "literal") parts[p.type] = p.value;
   });
-  const y = +parts.year;
-  const m = +parts.month;
-  const d = +parts.day;
   let h = +parts.hour;
   if (h === 24) h = 0;
-  const mm = +parts.minute;
-  return new Date(Date.UTC(y, m - 1, d, h, mm));
+  return new Date(Date.UTC(+parts.year, +parts.month - 1, +parts.day, h, +parts.minute));
 }
 
 function toVirtualUtc(dateISO: string, timeHM: string): Date {
@@ -160,64 +160,267 @@ function isWeekend(d: Date): boolean {
   const g = d.getUTCDay();
   return g === 0 || g === 6;
 }
-
 function setTimeOfDay(d: Date, h: number, m: number): Date {
   const n = new Date(d);
   n.setUTCHours(h, m, 0, 0);
   return n;
 }
-
-function advanceToNextValidDay(d: Date, holidays: Set<string>, workStart: { h: number; m: number }): Date {
-  const next = new Date(d);
-  next.setUTCDate(next.getUTCDate() + 1);
-  next.setUTCHours(workStart.h, workStart.m, 0, 0);
-  while (isWeekend(next) || holidays.has(isoDate(next))) {
-    next.setUTCDate(next.getUTCDate() + 1);
-  }
-  return next;
+function isNonWorkingDay(d: Date, holidays: Set<string>): boolean {
+  return isWeekend(d) || holidays.has(isoDate(d));
 }
 
-function ensureWorkingCursor(
-  d: Date,
-  holidays: Set<string>,
-  workStart: { h: number; m: number },
-  workEnd: { h: number; m: number },
-): Date {
+// ------------------------------------------------------------------
+// Contexto de expediente (minutos por dia disponíveis)
+// ------------------------------------------------------------------
+
+interface WorkCtx {
+  wsMin: number; // work start minutes of day
+  weMin: number;
+  lsMin: number; // lunch start
+  leMin: number;
+  hasLunch: boolean;
+  workStart: { h: number; m: number };
+  workEnd: { h: number; m: number };
+  lunchStart: { h: number; m: number };
+  lunchEnd: { h: number; m: number };
+  holidays: Set<string>;
+}
+
+/** Minutos úteis num dia (sem contar almoço). */
+function workingMinutesPerDay(ctx: WorkCtx): number {
+  const raw = ctx.weMin - ctx.wsMin;
+  return ctx.hasLunch ? raw - (ctx.leMin - ctx.lsMin) : raw;
+}
+
+/** Ajusta um cursor para o próximo instante trabalhável (skip almoço/fim de dia/feriados). */
+function normalizeCursor(d: Date, ctx: WorkCtx): Date {
   let c = new Date(d);
-  // Se antes do início, saltar para início.
-  const startToday = setTimeOfDay(c, workStart.h, workStart.m);
-  if (c < startToday) c = startToday;
-  // Se depois do fim, próximo dia útil.
-  const endToday = setTimeOfDay(c, workEnd.h, workEnd.m);
-  if (c >= endToday) c = advanceToNextValidDay(c, holidays, workStart);
-  while (isWeekend(c) || holidays.has(isoDate(c))) {
+  // Pula fim de semana / feriado
+  while (isNonWorkingDay(c, ctx.holidays)) {
     c.setUTCDate(c.getUTCDate() + 1);
-    c.setUTCHours(workStart.h, workStart.m, 0, 0);
+    c = setTimeOfDay(c, ctx.workStart.h, ctx.workStart.m);
+  }
+  const mod = c.getUTCHours() * 60 + c.getUTCMinutes();
+  // Antes do início → início
+  if (mod < ctx.wsMin) return setTimeOfDay(c, ctx.workStart.h, ctx.workStart.m);
+  // Durante almoço → fim do almoço
+  if (ctx.hasLunch && mod >= ctx.lsMin && mod < ctx.leMin) {
+    return setTimeOfDay(c, ctx.lunchEnd.h, ctx.lunchEnd.m);
+  }
+  // No/após fim → próximo dia útil
+  if (mod >= ctx.weMin) {
+    let next = new Date(c);
+    next.setUTCDate(next.getUTCDate() + 1);
+    next = setTimeOfDay(next, ctx.workStart.h, ctx.workStart.m);
+    while (isNonWorkingDay(next, ctx.holidays)) {
+      next.setUTCDate(next.getUTCDate() + 1);
+    }
+    return next;
   }
   return c;
 }
 
 /**
- * Ordena cards: com publish_date crescente primeiro, depois preserva a ordem
- * atual (que reflete a preferência do usuário) para os sem data de publicação.
+ * Aloca `durationMin` a partir de `cursor`, fatiando entre janelas de expediente,
+ * pulando almoço, fim de dia, fins de semana e feriados. Retorna o instante inicial
+ * (do primeiro bloco), final (do último bloco) e o número de dias úteis atravessados.
  */
-export function sortForReorder(cards: ReorderCardInput[]): ReorderCardInput[] {
-  const withDate = cards
-    .map((c, i) => ({ c, i }))
-    .filter(({ c }) => !!c.publish_date);
-  const withoutDate = cards
-    .map((c, i) => ({ c, i }))
-    .filter(({ c }) => !c.publish_date);
+function allocateAcrossDays(
+  cursor: Date,
+  durationMin: number,
+  ctx: WorkCtx,
+): { start: Date; end: Date; daysSpanned: number } {
+  let c = normalizeCursor(cursor, ctx);
+  const start = new Date(c);
+  let remaining = Math.max(1, durationMin);
+  let last = new Date(c);
+  const daysSeen = new Set<string>();
+  daysSeen.add(isoDate(c));
 
+  // Segurança: no máximo ~120 dias
+  for (let guard = 0; guard < 500 && remaining > 0; guard++) {
+    c = normalizeCursor(c, ctx);
+    daysSeen.add(isoDate(c));
+    const nowMin = c.getUTCHours() * 60 + c.getUTCMinutes();
+
+    // Bloco corrente: até início do almoço OU até fim do expediente
+    let blockEndMin: number;
+    if (ctx.hasLunch && nowMin < ctx.lsMin) {
+      blockEndMin = ctx.lsMin;
+    } else {
+      blockEndMin = ctx.weMin;
+    }
+    const available = blockEndMin - nowMin;
+    if (available <= 0) {
+      // Empurra pra próxima janela
+      if (ctx.hasLunch && nowMin < ctx.leMin) {
+        c = setTimeOfDay(c, ctx.lunchEnd.h, ctx.lunchEnd.m);
+      } else {
+        c.setUTCDate(c.getUTCDate() + 1);
+        c = setTimeOfDay(c, ctx.workStart.h, ctx.workStart.m);
+      }
+      continue;
+    }
+
+    if (remaining <= available) {
+      last = new Date(c);
+      last.setUTCMinutes(last.getUTCMinutes() + remaining);
+      remaining = 0;
+      break;
+    }
+
+    // Consome bloco inteiro e avança
+    remaining -= available;
+    c = setTimeOfDay(c, Math.floor(blockEndMin / 60), blockEndMin % 60);
+    if (ctx.hasLunch && blockEndMin === ctx.lsMin) {
+      // Pula almoço
+      c = setTimeOfDay(c, ctx.lunchEnd.h, ctx.lunchEnd.m);
+    } else {
+      // Fim de expediente → próximo dia útil
+      c.setUTCDate(c.getUTCDate() + 1);
+      c = setTimeOfDay(c, ctx.workStart.h, ctx.workStart.m);
+    }
+  }
+
+  daysSeen.add(isoDate(last));
+  return { start, end: last, daysSpanned: daysSeen.size };
+}
+
+// ------------------------------------------------------------------
+// Duração base do card
+// ------------------------------------------------------------------
+
+/** Minutos entre due e delivery, considerando expediente (subtrai almoço se cruzar). */
+function scheduledSpanMinutes(card: ReorderCardInput, ctx: WorkCtx): number | null {
+  if (!card.due_date || !card.due_time || !card.delivery_date || !card.delivery_time) return null;
+  const due = toVirtualUtc(card.due_date, card.due_time.slice(0, 5));
+  const deliv = toVirtualUtc(card.delivery_date, card.delivery_time.slice(0, 5));
+  if (!(deliv > due)) return null;
+  const rawMin = Math.round((deliv.getTime() - due.getTime()) / 60000);
+  // Aproximação: se cruzou dias, ignora fins de semana/feriados; para "Outros" o intervalo é curto.
+  // Descontamos almoços atravessados.
+  let lunchDeductions = 0;
+  if (ctx.hasLunch) {
+    const cur = new Date(due);
+    cur.setUTCHours(0, 0, 0, 0);
+    const endDay = new Date(deliv);
+    endDay.setUTCHours(0, 0, 0, 0);
+    while (cur <= endDay) {
+      const lunchStart = setTimeOfDay(cur, ctx.lunchStart.h, ctx.lunchStart.m);
+      const lunchEnd = setTimeOfDay(cur, ctx.lunchEnd.h, ctx.lunchEnd.m);
+      if (lunchEnd > due && lunchStart < deliv) {
+        lunchDeductions += ctx.leMin - ctx.lsMin;
+      }
+      cur.setUTCDate(cur.getUTCDate() + 1);
+    }
+  }
+  return Math.max(5, rawMin - lunchDeductions);
+}
+
+function estimateDurationBase(card: ReorderCardInput, ctx: WorkCtx): number {
+  if (card.is_daily_card) return 20;
+  const group = typeGroup(card);
+  const stage = (card.current_function_key || "").toLowerCase();
+
+  // "Outros": prioriza intervalo agendado no próprio card
+  if (isOtherType(card)) {
+    const span = scheduledSpanMinutes(card, ctx);
+    if (span && span > 0) return Math.min(span, workingMinutesPerDay(ctx) * 5); // teto 5 jornadas
+    const stageRow = DURATION_MATRIX[stage];
+    if (stageRow) return stageRow.outro ?? stageRow.default;
+    return FALLBACK_STAGE_DURATION.outro;
+  }
+
+  const stageRow = DURATION_MATRIX[stage];
+  if (stageRow) return stageRow[group] ?? stageRow.default;
+  return FALLBACK_STAGE_DURATION[group];
+}
+
+/** Compatibilidade retroativa (usada em outros lugares) */
+export function estimateDurationMinutes(card: ReorderCardInput): number {
+  const ctx: WorkCtx = buildCtx(DEFAULT_WORK_HOURS, new Set());
+  return estimateDurationBase(card, ctx);
+}
+
+function buildCtx(wh: WorkHoursConfig, holidays: Set<string>): WorkCtx {
+  const workStart = parseHM(wh.start);
+  const workEnd = parseHM(wh.end);
+  const lunchStart = parseHM(wh.lunchStart);
+  const lunchEnd = parseHM(wh.lunchEnd);
+  const wsMin = workStart.h * 60 + workStart.m;
+  const weMin = workEnd.h * 60 + workEnd.m;
+  const lsMin = lunchStart.h * 60 + lunchStart.m;
+  const leMin = lunchEnd.h * 60 + lunchEnd.m;
+  const hasLunch = leMin > lsMin && lsMin > wsMin && leMin < weMin;
+  return { wsMin, weMin, lsMin, leMin, hasLunch, workStart, workEnd, lunchStart, lunchEnd, holidays };
+}
+
+// ------------------------------------------------------------------
+// Atraso
+// ------------------------------------------------------------------
+
+/** Minutos úteis (dentro do expediente) entre `from` e `to`. */
+function workingMinutesBetween(from: Date, to: Date, ctx: WorkCtx): number {
+  if (!(to > from)) return 0;
+  let total = 0;
+  const cur = new Date(from);
+  cur.setUTCHours(0, 0, 0, 0);
+  const endDay = new Date(to);
+  endDay.setUTCHours(0, 0, 0, 0);
+  while (cur <= endDay) {
+    if (!isNonWorkingDay(cur, ctx.holidays)) {
+      const dayStart = setTimeOfDay(cur, ctx.workStart.h, ctx.workStart.m);
+      const dayEnd = setTimeOfDay(cur, ctx.workEnd.h, ctx.workEnd.m);
+      const segStart = from > dayStart ? from : dayStart;
+      const segEnd = to < dayEnd ? to : dayEnd;
+      if (segEnd > segStart) {
+        let mins = Math.round((segEnd.getTime() - segStart.getTime()) / 60000);
+        if (ctx.hasLunch) {
+          const lStart = setTimeOfDay(cur, ctx.lunchStart.h, ctx.lunchStart.m);
+          const lEnd = setTimeOfDay(cur, ctx.lunchEnd.h, ctx.lunchEnd.m);
+          const overlapStart = segStart > lStart ? segStart : lStart;
+          const overlapEnd = segEnd < lEnd ? segEnd : lEnd;
+          if (overlapEnd > overlapStart) {
+            mins -= Math.round((overlapEnd.getTime() - overlapStart.getTime()) / 60000);
+          }
+        }
+        total += Math.max(0, mins);
+      }
+    }
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return total;
+}
+
+function cardDeadline(card: ReorderCardInput): Date | null {
+  if (card.delivery_date && card.delivery_time) {
+    return toVirtualUtc(card.delivery_date, card.delivery_time.slice(0, 5));
+  }
+  if (card.publish_date) {
+    return toVirtualUtc(card.publish_date, (card.publish_time || "18:00").slice(0, 5));
+  }
+  return null;
+}
+
+// ------------------------------------------------------------------
+// Ordenação
+// ------------------------------------------------------------------
+
+export function sortForReorder(cards: ReorderCardInput[]): ReorderCardInput[] {
+  const withDate = cards.map((c, i) => ({ c, i })).filter(({ c }) => !!c.publish_date);
+  const withoutDate = cards.map((c, i) => ({ c, i })).filter(({ c }) => !c.publish_date);
   withDate.sort((a, b) => {
     const da = `${a.c.publish_date}T${a.c.publish_time || "23:59"}`;
     const db = `${b.c.publish_date}T${b.c.publish_time || "23:59"}`;
     if (da === db) return a.i - b.i;
     return da.localeCompare(db);
   });
-
   return [...withDate.map((x) => x.c), ...withoutDate.map((x) => x.c)];
 }
+
+// ------------------------------------------------------------------
+// Reorganização principal
+// ------------------------------------------------------------------
 
 export async function computeReorder(
   cards: ReorderCardInput[],
@@ -226,22 +429,11 @@ export async function computeReorder(
   if (cards.length === 0) return [];
 
   const wh = { ...DEFAULT_WORK_HOURS, ...(opts?.workHours || {}) };
-  const workStart = parseHM(wh.start);
-  const workEnd = parseHM(wh.end);
-  const lunchStart = parseHM(wh.lunchStart);
-  const lunchEnd = parseHM(wh.lunchEnd);
 
-  const wsMin = workStart.h * 60 + workStart.m;
-  const weMin = workEnd.h * 60 + workEnd.m;
-  const lsMin = lunchStart.h * 60 + lunchEnd.m > 0 ? lunchStart.h * 60 + lunchStart.m : 0;
-  const leMin = lunchEnd.h * 60 + lunchEnd.m;
-  const hasLunch = leMin > lsMin && lsMin > 0;
-
-  // Feriados (BRT) para os próximos 120 dias
   const now = opts?.startFrom ? new Date(opts.startFrom) : spNowVirtualUtc(wh.tz);
   const rangeStart = isoDate(now);
   const rangeEndDate = new Date(now);
-  rangeEndDate.setUTCDate(rangeEndDate.getUTCDate() + 120);
+  rangeEndDate.setUTCDate(rangeEndDate.getUTCDate() + 180);
   let holidays: Set<string> = new Set();
   try {
     holidays = await fetchHolidaysInRange(rangeStart, isoDate(rangeEndDate));
@@ -249,82 +441,70 @@ export async function computeReorder(
     holidays = new Set();
   }
 
-  // Separar aguardando_cliente — não reagendamos, mas devolvemos flag.
+  const ctx = buildCtx(wh, holidays);
+
   const awaiting = cards.filter((c) => (c.current_function_key || "").toLowerCase() === "aguardando_cliente");
   const active = cards.filter((c) => (c.current_function_key || "").toLowerCase() !== "aguardando_cliente");
-
   const ordered = sortForReorder(active);
 
-  // Cursor inicial
-  let cursor = new Date(now);
-  cursor = ensureWorkingCursor(cursor, holidays, workStart, workEnd);
-  // arredonda para múltiplo de 5min
+  // Cursor inicial (arredondado a 5min)
+  let cursor = normalizeCursor(new Date(now), ctx);
   const bump = cursor.getUTCMinutes() % 5;
   if (bump !== 0) cursor.setUTCMinutes(cursor.getUTCMinutes() + (5 - bump), 0, 0);
 
   const proposals: ReorderProposal[] = [];
+  let isFirstActive = true;
 
   for (const card of ordered) {
-    const dur = estimateDurationMinutes(card);
-    let start = new Date(cursor);
-    // Ajustar para janela de trabalho
-    start = ensureWorkingCursor(start, holidays, workStart, workEnd);
+    const baseDur = estimateDurationBase(card, ctx);
+    let dur = baseDur;
+    let slackApplied = false;
+    let start: Date;
+    let end: Date;
+    let daysSpanned = 1;
 
-    // Intervalo de almoço: se start dentro, empurra pro fim do almoço.
-    if (hasLunch) {
-      const startMinOfDay = start.getUTCHours() * 60 + start.getUTCMinutes();
-      if (startMinOfDay >= lsMin && startMinOfDay < leMin) {
-        start = setTimeOfDay(start, lunchEnd.h, lunchEnd.m);
-      }
+    // Regra do "primeiro card em atraso": preserva start original + folga
+    let treatAsStuck = false;
+    if (isFirstActive) {
+      const deadline = cardDeadline(card);
+      if (deadline && deadline < now) treatAsStuck = true;
     }
 
-    // Se a duração ultrapassa o fim do dia, próximo dia útil
-    let end = new Date(start);
-    end.setUTCMinutes(end.getUTCMinutes() + dur);
-    const endMinOfDay = end.getUTCHours() * 60 + end.getUTCMinutes();
-    const startMinOfDay = start.getUTCHours() * 60 + start.getUTCMinutes();
-
-    // Cruza almoço?
-    if (hasLunch && startMinOfDay < lsMin && endMinOfDay > lsMin) {
-      // empurra pra depois do almoço e recalcula
-      start = setTimeOfDay(start, lunchEnd.h, lunchEnd.m);
-      end = new Date(start);
-      end.setUTCMinutes(end.getUTCMinutes() + dur);
+    if (treatAsStuck && card.due_date && card.due_time) {
+      const originalStart = toVirtualUtc(card.due_date, card.due_time.slice(0, 5));
+      const delayMin = workingMinutesBetween(originalStart, now, ctx);
+      const slack = Math.round(baseDur * 0.30);
+      dur = baseDur + Math.max(0, delayMin) + slack;
+      slackApplied = true;
+      // Aloca a partir do start original preservado; se estava fora do expediente,
+      // normalizeCursor cuidará dentro de allocateAcrossDays.
+      ({ start, end, daysSpanned } = allocateAcrossDays(originalStart, dur, ctx));
+      // Se end < now (não deveria com dur > delay), força cursor pós-now
+      if (end < now) {
+        ({ start, end, daysSpanned } = allocateAcrossDays(now, baseDur + slack, ctx));
+      }
+    } else {
+      ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, ctx));
     }
 
-    // Ultrapassa fim do expediente?
-    const endMinOfDay2 = end.getUTCHours() * 60 + end.getUTCMinutes();
-    if (endMinOfDay2 > weMin || (end.getUTCDate() !== start.getUTCDate())) {
-      // Não cabe hoje — vai pro próximo dia útil
-      start = advanceToNextValidDay(start, holidays, workStart);
-      // recheca almoço no novo dia
-      const s2 = start.getUTCHours() * 60 + start.getUTCMinutes();
-      if (hasLunch && s2 >= lsMin && s2 < leMin) {
-        start = setTimeOfDay(start, lunchEnd.h, lunchEnd.m);
-      }
-      end = new Date(start);
-      end.setUTCMinutes(end.getUTCMinutes() + dur);
-      if (hasLunch) {
-        const s3 = start.getUTCHours() * 60 + start.getUTCMinutes();
-        const e3 = end.getUTCHours() * 60 + end.getUTCMinutes();
-        if (s3 < lsMin && e3 > lsMin) {
-          start = setTimeOfDay(start, lunchEnd.h, lunchEnd.m);
-          end = new Date(start);
-          end.setUTCMinutes(end.getUTCMinutes() + dur);
-        }
-      }
-    }
-
+    // Avisos
     let warning: string | undefined;
     let publishDeadline: string | null = null;
     if (card.publish_date) {
       const pt = (card.publish_time || "18:00").slice(0, 5);
       publishDeadline = `${card.publish_date}T${pt}`;
       const deadline = toVirtualUtc(card.publish_date, pt);
-      deadline.setUTCHours(deadline.getUTCHours() - 1); // reserva de 1h
-      if (end > deadline) {
-        warning = "Termina após o prazo de publicação recomendado.";
-      }
+      const reserve = new Date(deadline);
+      reserve.setUTCHours(reserve.getUTCHours() - 1);
+      if (end > reserve) warning = "Termina após o prazo de publicação recomendado.";
+    }
+    if (daysSpanned > 1) {
+      const extra = `Se estende por ${daysSpanned} dias úteis.`;
+      warning = warning ? `${warning} ${extra}` : extra;
+    }
+    if (slackApplied) {
+      const extra = "Tempo extra aplicado (atraso + 30%).";
+      warning = warning ? `${warning} ${extra}` : extra;
     }
 
     const startISO = isoDate(start);
@@ -349,14 +529,18 @@ export async function computeReorder(
       publishDeadline,
       warning,
       changed,
+      spansDays: daysSpanned,
+      slackApplied,
     });
 
+    // Próximo cursor: 5min após o fim
     cursor = new Date(end);
-    // gap 5min
     cursor.setUTCMinutes(cursor.getUTCMinutes() + 5);
+    cursor = normalizeCursor(cursor, ctx);
+
+    isFirstActive = false;
   }
 
-  // Anexa awaiting como skipped no final para transparência
   for (const c of awaiting) {
     proposals.push({
       id: c.id,
