@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { coerceDemandTypeKey, normalizeDemandTypeKey } from "@/lib/proceedDemand";
-import { bulkRestoreNonDiscarded } from "@/lib/evaluatePlanCard";
+
 
 import ContentRequirementsDiffModal from "@/components/ContentRequirementsDiffModal";
 import { useRealtimePeriodPlans, useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
@@ -90,7 +90,7 @@ const RejectedCards = () => {
   const [approvingIndex, setApprovingIndex] = useState<number | null>(null);
   const [reevaluatingIndex, setReevaluatingIndex] = useState<number | null>(null);
   const [expandedIdx, setExpandedIdx] = useState<Set<number>>(new Set());
-  const [backfilledPeriods, setBackfilledPeriods] = useState<Set<string>>(new Set());
+  
 
 
   // Prompt for missing reason
@@ -177,65 +177,13 @@ const RejectedCards = () => {
 
       setPeriods(normalized);
 
-      // Backfill one-shot: cards reprovados sem `_discarded` são legados de um
-      // fluxo anterior sem opção de descarte — devolvê-los para avaliação.
-      const toBackfill = normalized.filter(
-        (p) =>
-          !backfilledPeriods.has(p.id) &&
-          p.rejected_plan.some((it: any) => !it?._discarded),
-      );
-      if (toBackfill.length > 0) {
-        let totalMoved = 0;
-        for (const p of toBackfill) {
-          try {
-            const moved = await bulkRestoreNonDiscarded({
-              periodId: p.id,
-              currentDefault: p.default_plan,
-              currentUltra: p.ultra_plan,
-              currentRejected: p.rejected_plan,
-            });
-            totalMoved += moved;
-          } catch (e) {
-            console.warn("[RejectedCards] backfill failed for period", p.id, e);
-          }
-        }
-        setBackfilledPeriods((prev) => {
-          const next = new Set(prev);
-          toBackfill.forEach((p) => next.add(p.id));
-          return next;
-        });
-        if (totalMoved > 0) {
-          toast.success(
-            `${totalMoved} card(s) devolvido(s) para avaliação — só descartes explícitos permanecem aqui.`,
-          );
-          // Refetch limpo após o backfill.
-          const { data: refreshed } = await supabase
-            .from("period_plans")
-            .select("id, period_title, period_start, period_end, default_plan, ultra_plan, rejected_plan")
-            .eq("company_id", selectedClient.id)
-            .eq("tenant_id", tenantId)
-            .order("created_at", { ascending: false });
-          if (refreshed) {
-            const renorm: PeriodData[] = refreshed.map((p: any) => ({
-              ...p,
-              default_plan: Array.isArray(p.default_plan) ? p.default_plan : [],
-              ultra_plan: Array.isArray(p.ultra_plan) ? p.ultra_plan : [],
-              rejected_plan: Array.isArray(p.rejected_plan) ? p.rejected_plan : [],
-            }));
-            setPeriods(renorm);
-            normalized.length = 0;
-            renorm.forEach((r) => normalized.push(r));
-          }
-        }
-      }
-
-      // Mostra apenas descartes intencionais + respeita janela de 30 dias.
+      // Mostra todos os itens de rejected_plan (descartes explícitos + legados) dentro dos 30 dias.
       const now = Date.now();
       const collected: RejectedCardItem[] = [];
       let globalIdx = 0;
       for (const p of normalized) {
         p.rejected_plan.forEach((item: any, i: number) => {
-          if (!item?._discarded) return;
+          if (!item) return;
           const rejectedAt = item?._rejectedAt ? new Date(item._rejectedAt).getTime() : null;
           if (rejectedAt && now - rejectedAt > THIRTY_DAYS_MS) return;
           collected.push({
