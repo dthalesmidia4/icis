@@ -339,10 +339,13 @@ const ApproveCards = () => {
 
       const [removedCard] = plan.splice(card._indexInPlan, 1);
       const rejectedPlan = Array.isArray((period as any).rejected_plan) ? [...(period as any).rejected_plan] : [];
+      const nowIso = new Date().toISOString();
       rejectedPlan.push({
         ...removedCard,
         _originalSource: card._source,
-        _rejectedAt: new Date().toISOString(),
+        _rejectedAt: nowIso,
+        _discarded: true,
+        _discardedAt: nowIso,
       });
 
       const { error } = await supabase
