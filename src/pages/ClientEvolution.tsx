@@ -34,7 +34,7 @@ interface TypeRule {
   requirement: string;
 }
 
-type Filter = "all" | "done" | "in_progress" | "overdue" | "queued";
+type Filter = "all" | "done" | "in_progress" | "overdue" | "queued" | "scheduled_publish";
 type ScopeFilter = "active" | "all";
 type PeriodFilter = "all" | "7d" | "30d" | "this_month" | "last_month";
 type SortKey = "title" | "type" | "assignee" | "area" | "stage" | "progress" | "next" | "publish" | "production";
@@ -302,6 +302,7 @@ const ClientEvolution = () => {
   type Classified = {
     card: KanbanCardData;
     isDone: boolean;
+    isScheduledPublish: boolean;
     isOverdue: boolean;
     hasStage: boolean;
     stageKey: string | null;
@@ -335,15 +336,16 @@ const ClientEvolution = () => {
     return scopedCards.map((c) => {
       const stageKey = (c as any).current_function_key as string | null;
       const isDone = FINAL_STATUSES.has((c.status || "").toLowerCase());
+      const isScheduledPublish = !isDone && stageKey === "publicar" && activeDispatchIds.has(c.id);
       const seq = sequenceForCard(c.demand_type_key);
       const idx = stageKey ? seq.findIndex((f) => f.function_key === stageKey) : -1;
       const currentFn = idx >= 0 ? seq[idx] : null;
       const nextFn = idx >= 0 && idx < seq.length - 1 ? seq[idx + 1] : null;
-      const isScheduled = stageKey === "publicar" && activeDispatchIds.has(c.id);
-      const displayStageName = isScheduled ? "Publicar agendado" : (currentFn?.name ?? null);
+      const displayStageName = isScheduledPublish ? "Publicar agendado" : (currentFn?.name ?? null);
       return {
         card: c,
         isDone,
+        isScheduledPublish,
         isOverdue: isOverdue(c.delivery_date, c.delivery_time, c.status),
         hasStage: !!stageKey,
         stageKey,
@@ -359,20 +361,27 @@ const ClientEvolution = () => {
   const summary = useMemo(() => {
     const total = classified.length;
     const done = classified.filter((c) => c.isDone).length;
-    const overdue = classified.filter((c) => c.isOverdue).length;
+    const scheduledPublish = classified.filter((c) => c.isScheduledPublish).length;
+    const overdue = classified.filter((c) => c.isOverdue && !c.isScheduledPublish).length;
     const queued = classified.filter((c) => !c.isDone && !c.hasStage).length;
-    const inProgress = total - done - queued;
-    return { total, done, overdue, queued, inProgress };
+    const inProgress = Math.max(0, total - done - queued - scheduledPublish);
+    return { total, done, scheduledPublish, overdue, queued, inProgress };
   }, [classified]);
 
   const timeline = useMemo(() => {
     let list = classified;
     if (filter === "done") list = list.filter((c) => c.isDone);
-    else if (filter === "in_progress") list = list.filter((c) => !c.isDone && c.hasStage);
+    else if (filter === "in_progress") list = list.filter((c) => !c.isDone && c.hasStage && !c.isScheduledPublish);
+    else if (filter === "scheduled_publish") list = list.filter((c) => c.isScheduledPublish);
     else if (filter === "overdue") list = list.filter((c) => c.isOverdue);
     else if (filter === "queued") list = list.filter((c) => !c.isDone && !c.hasStage);
 
-    const rank = (c: Classified) => (c.isDone ? 2 : c.hasStage ? 0 : 1);
+    const rank = (c: Classified) => {
+      if (c.isDone) return 3;
+      if (c.isScheduledPublish) return 2;
+      if (!c.hasStage) return 1;
+      return 0;
+    };
     const sorted = [...list].sort((a, b) => {
       if (sort) {
         const dir = sort.dir === "asc" ? 1 : -1;
@@ -398,6 +407,7 @@ const ClientEvolution = () => {
     });
     return sorted;
   }, [classified, filter, sort, assigneeMap]);
+
 
   const handleSave = async (field: string, value: string) => {
     if (!selectedCard) return;
@@ -431,6 +441,7 @@ const ClientEvolution = () => {
 
   const displayName = selectedClient.fantasy_name || selectedClient.name;
   const progressPct = summary.total > 0 ? Math.round((summary.done / summary.total) * 100) : 0;
+  const scheduledPct = summary.total > 0 ? Math.round((summary.scheduledPublish / summary.total) * 100) : 0;
 
   return (
     <div className="mx-auto w-full max-w-[1920px] px-4 sm:px-6 lg:px-8 py-6">
@@ -486,14 +497,21 @@ const ClientEvolution = () => {
         </div>
       ) : (
         <>
-          {/* Barra de progresso full-width */}
+          {/* Barra de progresso full-width (concluído + publicar agendado) */}
           <div className="mb-4">
             <div className="flex items-center gap-3">
-              <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+              <div
+                className="flex-1 h-2 rounded-full bg-muted overflow-hidden flex"
+                title={`${summary.done} concluída(s) · ${summary.scheduledPublish} pronta(s) aguardando publicação`}
+              >
                 <div className="h-full bg-emerald-500 transition-all" style={{ width: `${progressPct}%` }} />
+                <div className="h-full bg-sky-500 transition-all" style={{ width: `${scheduledPct}%` }} />
               </div>
               <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
                 {summary.done}/{summary.total} · {progressPct}%
+                {summary.scheduledPublish > 0 && (
+                  <span className="text-sky-600 dark:text-sky-400"> · +{summary.scheduledPublish} agendado{summary.scheduledPublish === 1 ? "" : "s"}</span>
+                )}
               </span>
             </div>
           </div>
@@ -504,6 +522,8 @@ const ClientEvolution = () => {
               active={filter === "all"} onClick={() => setFilter("all")} />
             <CounterChip label="Em andamento" value={summary.inProgress} icon={Activity} tone="primary"
               active={filter === "in_progress"} onClick={() => setFilter("in_progress")} />
+            <CounterChip label="Publicar agendado" value={summary.scheduledPublish} icon={CalendarIcon} tone="sky"
+              active={filter === "scheduled_publish"} onClick={() => setFilter("scheduled_publish")} />
             <CounterChip label="Concluídas" value={summary.done} icon={CheckCircle2} tone="emerald"
               active={filter === "done"} onClick={() => setFilter("done")} />
             <CounterChip label="Fila" value={summary.queued} icon={Clock3} tone="amber"
@@ -511,6 +531,8 @@ const ClientEvolution = () => {
             <CounterChip label="Atrasadas" value={summary.overdue} icon={AlertTriangle} tone="destructive"
               active={filter === "overdue"} onClick={() => setFilter("overdue")} />
           </div>
+
+
 
           {/* Tabela densa */}
           <div className="rounded-lg border bg-card overflow-x-auto">
@@ -619,9 +641,11 @@ const chipTone: Record<string, { active: string; idle: string; icon: string }> =
   muted:       { active: "border-foreground/40 bg-foreground/5",        idle: "hover:bg-muted/60 border-border/60", icon: "text-muted-foreground" },
   primary:     { active: "border-primary bg-primary/15 text-primary",   idle: "hover:bg-primary/5 border-border/60", icon: "text-primary" },
   emerald:     { active: "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", idle: "hover:bg-emerald-500/5 border-border/60", icon: "text-emerald-600 dark:text-emerald-400" },
+  sky:         { active: "border-sky-500 bg-sky-500/15 text-sky-700 dark:text-sky-300", idle: "hover:bg-sky-500/5 border-border/60", icon: "text-sky-600 dark:text-sky-400" },
   amber:       { active: "border-amber-500 bg-amber-500/15 text-amber-700 dark:text-amber-300", idle: "hover:bg-amber-500/5 border-border/60", icon: "text-amber-600 dark:text-amber-400" },
   destructive: { active: "border-destructive bg-destructive/15 text-destructive", idle: "hover:bg-destructive/5 border-border/60", icon: "text-destructive" },
 };
+
 
 function CounterChip({
   label, value, icon: Icon, tone, active, onClick,
@@ -676,6 +700,7 @@ function TableRow({
   row: {
     card: KanbanCardData;
     isDone: boolean;
+    isScheduledPublish: boolean;
     isOverdue: boolean;
     hasStage: boolean;
     stageKey: string | null;
@@ -689,11 +714,14 @@ function TableRow({
   onOpen: () => void;
   zebra: boolean;
 }) {
-  const { card, isDone, isOverdue: overdue, hasStage, stageIndex, sequence, stageName, nextStageName, workArea } = row;
+  const { card, isDone, isScheduledPublish, isOverdue: overdue, hasStage, stageIndex, sequence, stageName, nextStageName, workArea } = row;
 
   const stageCell = () => {
     if (isDone) {
       return <span className="text-emerald-600 dark:text-emerald-400 font-medium">Concluída</span>;
+    }
+    if (isScheduledPublish) {
+      return <span className="text-sky-600 dark:text-sky-400 font-medium">Publicar agendado</span>;
     }
     if (!hasStage) {
       return <span className="text-amber-600 dark:text-amber-400 font-medium">Aguardando início</span>;
@@ -707,6 +735,7 @@ function TableRow({
       </span>
     );
   };
+
 
   const total = sequence.length;
   const doneCount = isDone ? total : Math.max(0, stageIndex);

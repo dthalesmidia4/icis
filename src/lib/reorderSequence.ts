@@ -600,11 +600,16 @@ export async function computeReorder(
   };
   for (const c of [...captarFixed, ...dailyFixed, ...awaiting]) {
     if (!c.due_date || !c.due_time || !c.delivery_date || !c.delivery_time) continue;
-    const s = toVirtualUtc(c.due_date, c.due_time.slice(0, 5));
+    const rawStart = toVirtualUtc(c.due_date, c.due_time.slice(0, 5));
     const e = toVirtualUtc(c.delivery_date, c.delivery_time.slice(0, 5));
+    // Descartar bloqueios totalmente no passado — não devem empurrar o cursor.
+    if (e <= now) continue;
+    // Truncar início ao agora: bloqueios que começaram no passado só valem daqui pra frente.
+    const s = rawStart < now ? new Date(now) : rawStart;
     if (e > s) blocked.push({ start: s, end: e, kind: tagFor(c), cardId: c.id, title: c.title });
   }
   blocked.sort((a, b) => a.start.getTime() - b.start.getTime());
+
 
   // Cursor ÚNICO por responsável (não mais separado por área).
   // A área do card só influencia quais BLOCOS de expediente estão disponíveis.
