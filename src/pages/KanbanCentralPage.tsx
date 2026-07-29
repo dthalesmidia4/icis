@@ -2688,6 +2688,20 @@ const KanbanCentralPage = () => {
                               {items.map((card) => {
                                 runningIndex += 1;
                                 const index = runningIndex;
+                                const isTopCard = index === 0;
+                                const cardKey = (card.current_function_key || "").toLowerCase();
+                                const isPausedByCaptarNow =
+                                  captarNow.length > 0 &&
+                                  !isCaptarNow &&
+                                  cardKey !== "captar" &&
+                                  cardKey !== "aguardando_cliente" &&
+                                  !(card as any).is_daily_card;
+                                const syntheticPausedByCaptar = isPausedByCaptarNow
+                                  ? {
+                                      atTime: (captarNow[0].due_time || "").slice(0, 5),
+                                      captarTitle: captarNow[0].title,
+                                    }
+                                  : null;
                                 return (
                                   <Draggable
                                     key={card.id}
