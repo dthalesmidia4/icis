@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { getGoogleAiKey, getOpenAiKey, MissingApiKeyError } from "../_shared/api-keys.ts";
-import { MODELS, OPENAI_CHAT_URL } from "../_shared/models.ts";
+import { MODELS, OPENAI_CHAT_URL, DEFAULT_IMAGE_MODEL } from "../_shared/models.ts";
 import { loadVisualIdentity } from "../_shared/visual-identity.ts";
 import { getCarouselPrompt } from "../_shared/system-prompts.ts";
 import { fetchInlineImage } from "../_shared/fetch-image.ts";
