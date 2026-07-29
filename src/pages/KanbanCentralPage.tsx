@@ -2855,6 +2855,67 @@ const KanbanCentralPage = () => {
                         })()}
                         {provided.placeholder}
 
+                        {/* Em Revisão — agrupa quando há 3+ cards em função de revisão neste colaborador */}
+                        {reviewCards.length > 0 && (
+                          <div className="mt-3 pt-2 border-t-2 border-amber-500/60">
+                            <button
+                              type="button"
+                              onClick={() => toggleReview(column.id)}
+                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 transition-colors border border-amber-500/40"
+                              aria-expanded={!isReviewCollapsed}
+                            >
+                              {isReviewCollapsed ? (
+                                <ChevronRight className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                              ) : (
+                                <ChevronDown className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                              )}
+                              <span className="text-sm font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">
+                                Em revisão
+                              </span>
+                              <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 ml-auto bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-500/40 font-bold">
+                                {reviewCards.length}
+                              </Badge>
+                            </button>
+
+                            {!isReviewCollapsed && (
+                              <div className="mt-1 space-y-1">
+                                {reviewCards.map((card) => (
+                                  <div
+                                    key={card.id}
+                                    ref={(el) => {
+                                      if (el) cardRefs.current.set(card.id, el);
+                                      else cardRefs.current.delete(card.id);
+                                    }}
+                                    className={cn(
+                                      highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
+                                    )}
+                                  >
+                                    <KanbanCard
+                                      title={card.title}
+                                      subtitle={card.clientName}
+                                      demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
+                                      dueDate={card.due_date}
+                                      dueTime={card.due_time || undefined}
+                                      cardDeliveryDate={card.delivery_date || undefined}
+                                      deliveryTime={card.delivery_time || undefined}
+                                      isOverdue={isCardOverdue(card)}
+                                      cardId={card.id}
+                                      statusName={resolveStageLabel(card)}
+                                      statusColor={(card as any).status_color}
+                                      isDailyCard={(card as any).is_daily_card}
+                                      dailyCompleted={(card as any).daily_completed_occurrences}
+                                      dailyTotal={(card as any).daily_total_occurrences}
+                                      dailyNextDate={(card as any).daily_next_date}
+                                      workArea={(card as any).work_area || null}
+                                      onClick={() => handleCardClick(card, column.id)}
+                                      onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {/* Aguardando clientes — cards em `aguardando_cliente` ficam agrupados aqui */}
                         {awaitingCards.length > 0 && (
                           <div className="mt-3 pt-2 border-t-2 border-blue-500/60">
@@ -2943,67 +3004,6 @@ const KanbanCentralPage = () => {
                           </div>
                         )}
 
-                        {/* Em Revisão — agrupa quando há 3+ cards em função de revisão neste colaborador */}
-                        {reviewCards.length > 0 && (
-                          <div className="mt-3 pt-2 border-t-2 border-amber-500/60">
-                            <button
-                              type="button"
-                              onClick={() => toggleReview(column.id)}
-                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 transition-colors border border-amber-500/40"
-                              aria-expanded={!isReviewCollapsed}
-                            >
-                              {isReviewCollapsed ? (
-                                <ChevronRight className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
-                              ) : (
-                                <ChevronDown className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
-                              )}
-                              <span className="text-sm font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">
-                                Em revisão
-                              </span>
-                              <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 ml-auto bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-500/40 font-bold">
-                                {reviewCards.length}
-                              </Badge>
-                            </button>
-
-                            {!isReviewCollapsed && (
-                              <div className="mt-1 space-y-1">
-                                {reviewCards.map((card) => (
-                                  <div
-                                    key={card.id}
-                                    ref={(el) => {
-                                      if (el) cardRefs.current.set(card.id, el);
-                                      else cardRefs.current.delete(card.id);
-                                    }}
-                                    className={cn(
-                                      highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
-                                    )}
-                                  >
-                                    <KanbanCard
-                                      title={card.title}
-                                      subtitle={card.clientName}
-                                      demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
-                                      dueDate={card.due_date}
-                                      dueTime={card.due_time || undefined}
-                                      cardDeliveryDate={card.delivery_date || undefined}
-                                      deliveryTime={card.delivery_time || undefined}
-                                      isOverdue={isCardOverdue(card)}
-                                      cardId={card.id}
-                                      statusName={resolveStageLabel(card)}
-                                      statusColor={(card as any).status_color}
-                                      isDailyCard={(card as any).is_daily_card}
-                                      dailyCompleted={(card as any).daily_completed_occurrences}
-                                      dailyTotal={(card as any).daily_total_occurrences}
-                                      dailyNextDate={(card as any).daily_next_date}
-                                      workArea={(card as any).work_area || null}
-                                      onClick={() => handleCardClick(card, column.id)}
-                                      onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
                         {/* Avaliar — cards planejados aguardando aprovação atribuídos a esse responsável */}
                         {evaluateCards.length > 0 && (
                           <div className="mt-3 pt-2 border-t-2 border-purple-500/60">
