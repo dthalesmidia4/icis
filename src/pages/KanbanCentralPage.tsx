@@ -3232,6 +3232,8 @@ const KanbanCentralPage = () => {
           onOpenChange={(o) => !o && setReorderModalColumnId(null)}
           tenantId={tenantId}
           assigneeId={reorderModalColumnId}
+          scheduledPublishIds={activeDispatchIds}
+
           hasActiveFilters={
             selectedClientFilter !== "all" ||
             (selectedPeriodFilter !== "active" && selectedPeriodFilter !== "all") ||
