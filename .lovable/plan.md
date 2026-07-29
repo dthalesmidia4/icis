@@ -1,54 +1,87 @@
-## Problema
+## Objetivo
 
-Na tela de Evolução (e nos cards da Visão Geral) muitos títulos aparecem prefixados com o tipo da demanda:
+1. **Reorganizador automático não altera cards de captação** (etapa `captar`) — são compromissos com clientes/externos.
+2. **Cards de captação podem ter múltiplos responsáveis**, aparecem na coluna de cada um, edição em qualquer coluna atualiza para todos, e continuam preservados pelo reorganizador.
 
-- "Post Estático — benefíc..."
-- "Carrossel — Crie um post..."
-- "Post Estático — CRIE U..."
+---
 
-Já existe uma coluna **Tipo** ao lado do título, e no card o tipo já é exibido como chip. O prefixo é redundância pura.
+## Parte 1 — Reorganizador preserva cards de captação
 
-Ao inspecionar os prompts:
+`src/lib/reorderSequence.ts` hoje só protege cards em `aguardando_cliente` (linhas 520-521 e 629-643). Estender a mesma lógica para `captar`:
 
-- `generate-normal-demands/index.ts` e `generate-ultra-demands/index.ts` **proíbem apenas o nome da marca** no título (regra "REGRA de TÍTULO"). Nada impede a IA de começar o título com "Post Estático —", "Carrossel —", "Vídeo —", etc.
-- Existe `stripBrandPrefix()` nos dois edge functions, mas **não há `stripTypePrefix()`**.
+- Criar um conjunto `PRESERVED_FUNCTION_KEYS = new Set(["aguardando_cliente", "captar"])`.
+- Substituir os dois filtros `!== "aguardando_cliente"` / `=== "aguardando_cliente"` por checagens contra esse Set.
+- No bloco final que gera propostas para cards não-reordenados, usar mensagens específicas:
+  - `aguardando_cliente` → "Aguardando cliente — não reagendado." (mantida)
+  - `captar` → "Captação com cliente — data mantida."
 
-Ou seja: é erro de prompt + falta de saneamento pós-IA. Ainda está ativo — não foi corrigido antes.
+Em `ReorderSequenceModal.tsx`, atualizar a linha explicativa: "Cards em **Aguardando cliente** e **Captação** não são reagendados."
 
-## Plano
+Nenhuma mudança no schema para esta parte.
 
-### 1. Corrigir os prompts (proibir prefixo de tipo)
+---
 
-Em `supabase/functions/generate-normal-demands/index.ts` e `supabase/functions/generate-ultra-demands/index.ts`, estender a regra "REGRA de TÍTULO":
+## Parte 2 — Múltiplos responsáveis (foco em captação)
 
-> Também é PROIBIDO iniciar o título com o tipo do conteúdo ("Post Estático", "Carrossel", "Vídeo", "Reels", "Story", "Criativo estático", "Checklist" quando o tipo já é o mesmo, etc.) seguido de "–", "-", "—", ":" ou "|". O tipo já é exibido em coluna/chip separada no card. O `titulo` deve ser APENAS o gancho criativo (ex.: "Como ler seu Demonstrativo em 5 minutos"), sem categorização redundante no começo.
+### 2.1 Schema
 
-Adicionar um exemplo de bom vs. ruim no prompt para reforçar.
+Migração adicionando uma coluna array em `public.demands`:
 
-### 2. Adicionar `stripTypePrefix()` como saneamento defensivo
+```sql
+ALTER TABLE public.demands
+  ADD COLUMN additional_assignees uuid[] NOT NULL DEFAULT '{}';
 
-Nos mesmos dois edge functions, criar helper que remove, no início do título, um dos rótulos abaixo seguido de separador (`-`, `–`, `—`, `:`, `|`):
+CREATE INDEX demands_additional_assignees_gin
+  ON public.demands USING gin (additional_assignees);
+```
 
-`Post Estático`, `Post`, `Carrossel`, `Carrossel (N slides)`, `Vídeo`, `Video`, `Vídeos Curtos`, `Reels`, `Story`, `Stories`, `Criativo estático`, `Criativo`, `Educação rápida`, `Tutorial`.
+- Fonte de verdade permanece uma única linha por card — edição sincroniza automaticamente para todos os responsáveis (não há necessidade de duplicar).
+- `assigned_to` continua sendo o responsável principal (quem pega o card no fluxo, quem valida o trigger `validate_demand_stage_assignment`); `additional_assignees` são co-responsáveis visíveis para exibição/filtragem.
+- Não altera RLS: coluna herda as políticas existentes de `demands`.
 
-Regex case-insensitive, tolerante a acentos e espaços. Aplicado depois de `stripBrandPrefix()`, dentro do map de `planDemands` (linha ~257 no normal e ~353 no ultra). Também aplicar em `fps.title` (linha 280 / 387) para persistência consistente.
+### 2.2 UI — edição de responsáveis
 
-### 3. Limpeza dos títulos já existentes (backfill)
+No `TaskCard.tsx`, no seletor de responsável do card:
 
-Executar migração SQL que aplica o mesmo strip a `public.demands.title` para linhas existentes. Regex em SQL usando `regexp_replace(title, '^\s*(Post Estático|Post|Carrossel( \(\d+ slides\))?|Vídeo|Video|Vídeos Curtos|Reels|Story|Stories|Criativo estático|Criativo|Educação rápida|Tutorial)\s*[-–—:|]\s*', '', 'i')`, com `WHERE title ~* '^\s*(Post Estático|...)\s*[-–—:|]'` para restringir. Não tocar em linhas onde após o strip o título ficaria vazio (guarda com `CASE WHEN length(...) > 3`).
+- Se `current_function_key === 'captar'` (ou tipo captação), exibir um **multi-select** de responsáveis (colaboradores do tenant).
+- O primeiro selecionado grava em `assigned_to`; os demais em `additional_assignees` (uuids, sem duplicar o principal).
+- Para os outros tipos, manter o seletor single-select atual (grava só `assigned_to`, `additional_assignees = []`).
+- Mostrar um chip discreto no header do card ("+1", "+2 responsáveis") quando o array não estiver vazio.
 
-Também atualizar `period_plans.default_plan` / `ultra_plan` / `final_plan` para os planos ainda não materializados? → **Não** neste plano: são JSONBs grandes e a exibição é feita a partir de `demands` uma vez aprovados; planos ainda em rascunho serão regenerados/aprovados pelo fluxo normal e passarão pelo novo `stripTypePrefix()`. Se você preferir cobrir os JSONBs também, avise.
+Como envolve mudança de UX de um campo existente, é uma alteração de apresentação — não muda regras de fluxo, `validate_demand_stage_assignment` continua validando `assigned_to`.
 
-### 4. Verificação
+### 2.3 Kanban — card aparece em várias colunas
 
-- Rodar SQL de conferência: `SELECT count(*) FROM demands WHERE title ~* '^\s*(Post Estático|Carrossel|Vídeo|...)\s*[-–—:|]'` antes e depois.
-- Abrir `/client-evolution` do Hospital Veterinário Leal e conferir se os títulos citados perderam o prefixo.
+Em `KanbanCentralPage.tsx`:
 
-## Detalhes técnicos
+- No fetch de demandas: selecionar também `additional_assignees`.
+- No agrupamento por coluna de colaborador (linhas ~2264, ~2291-2292), trocar a comparação:
+  ```
+  card.assigned_to === userId
+    → card.assigned_to === userId || (card.additional_assignees || []).includes(userId)
+  ```
+- Aplicar o mesmo em `useCollaborators.tsx` para a contagem `demandCount` (contar cards onde o usuário é principal OU adicional).
+- Ao mover o card entre colunas via drag: o comportamento continua trocando `assigned_to` (responsável principal); os adicionais permanecem. Se o card for arrastado para a coluna de alguém que já é adicional, esse usuário sai de `additional_assignees` e vira o principal (evita duplicação).
+- Realtime já cobre: como é a mesma linha, qualquer edição feita em uma coluna reflete instantaneamente nas outras via `useRealtimeDemands`.
 
-**Arquivos alterados:**
-- `supabase/functions/generate-normal-demands/index.ts` — prompt (~L145) + novo `stripTypePrefix` aplicado após `stripBrandPrefix` (~L257, L280).
-- `supabase/functions/generate-ultra-demands/index.ts` — prompt (~L257) + `stripTypePrefix` (~L353, L387).
-- Nova migração SQL para saneamento de `demands.title`.
+### 2.4 Reorganizador com múltiplos responsáveis
 
-**Escopo intencional:** apenas backend de geração + limpeza de dados. UI da Evolução e do card não muda (a coluna Tipo já existe e o Badge de tipo no card continua igual).
+`ReorderSequenceModal` é aberto para uma coluna específica (um `assigneeId`). Regras:
+
+- Cards de `captar` já são preservados na Parte 1 — independentemente de quantos responsáveis tenham.
+- Nada mais precisa mudar: o reorganizador da coluna X só puxa os cards visíveis naquela coluna, e captações não são reagendadas. Cards não-captação continuam com um único responsável (fluxo atual).
+
+---
+
+## Fora de escopo
+
+- Não mudar RLS/permissões.
+- Não introduzir tabela M:N — o array cobre o caso sem custo de JOIN e mantém sincronização "grátis".
+- Não expor multi-select em tipos que não sejam captação (evitar confusão).
+
+## Verificação
+
+- Build passa.
+- Reorganizador rodando numa coluna com card em `captar`: card aparece na lista com badge "Captação — data mantida" e `changed=false`.
+- Card de captação com 2 responsáveis aparece nas duas colunas; editar título/data numa reflete na outra em tempo real.
+- Contadores de `useCollaborators` refletem cards compartilhados.
