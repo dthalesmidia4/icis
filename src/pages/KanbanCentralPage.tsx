@@ -2635,6 +2635,7 @@ const KanbanCentralPage = () => {
                           }
 
                           let runningIndex = -1;
+                          let nonCaptarIndex = -1;
                           const _today = new Date();
                           const isoOf = (d: Date) => {
                             const y = d.getFullYear();
@@ -2702,11 +2703,12 @@ const KanbanCentralPage = () => {
                                 runningIndex += 1;
                                 const index = runningIndex;
                                 const isTopCard = index === 0;
+                                if (!isCaptarNow) nonCaptarIndex += 1;
+                                const isTopNonCaptar = !isCaptarNow && nonCaptarIndex === 0;
                                 const cardKey = (card.current_function_key || "").toLowerCase();
-                                // Só marca como "pausado por captação" o card que seria o PRÓXIMO
-                                // a ser executado agora (topo absoluto da coluna) e cuja data de
-                                // início já chegou. Cards em datas futuras não estão pausados,
-                                // pois nem começariam ainda.
+                                // Só marca como "pausado por captação" o PRIMEIRO card não-captar
+                                // da coluna, e apenas se sua data de início já chegou. Cards em
+                                // datas futuras não estão pausados — nem começariam ainda.
                                 const todayISO = (() => {
                                   const d = new Date();
                                   const y = d.getFullYear();
@@ -2717,8 +2719,7 @@ const KanbanCentralPage = () => {
                                 const cardStartsInFuture = !!card.due_date && card.due_date > todayISO;
                                 const isPausedByCaptarNow =
                                   captarNow.length > 0 &&
-                                  !isCaptarNow &&
-                                  isTopCard &&
+                                  isTopNonCaptar &&
                                   !cardStartsInFuture &&
                                   cardKey !== "captar" &&
                                   cardKey !== "aguardando_cliente" &&
