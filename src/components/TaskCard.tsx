@@ -16,7 +16,8 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Tag } from "lucide-react";
-import { proceedDemand, regressDemand, deliverDemand, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, getPipelineSequence, jumpToFunction, type DemandTypeKey } from "@/lib/proceedDemand";
+import { proceedDemand, regressDemand, deliverDemand, deliverMyPart, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, getPipelineSequence, jumpToFunction, type DemandTypeKey } from "@/lib/proceedDemand";
+import { useAuth } from "@/hooks/useAuth";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { completeDailyOccurrence, formatBR as formatBRDate } from "@/lib/dailyCards";
 import { DailyCardSection } from "@/components/DailyCardSection";
@@ -419,6 +420,17 @@ export default function TaskCard({
   const [delivering, setDelivering] = useState(false);
   const [inlineScheduleOpen, setInlineScheduleOpen] = useState(false);
   const [inlineScheduling, setInlineScheduling] = useState(false);
+  const [deliveringPart, setDeliveringPart] = useState(false);
+  const { user } = useAuth();
+  const currentUserId = user?.id ?? null;
+
+  const captarExtras = Array.isArray(card?.additional_assignees) ? (card?.additional_assignees as string[]) : [];
+  const captarAllAssignees = new Set<string>([...(card?.assigned_to ? [card.assigned_to] : []), ...captarExtras]);
+  const canDeliverPart =
+    (card?.current_function_key || "") === "captar" &&
+    captarAllAssignees.size > 1 &&
+    !!currentUserId &&
+    captarAllAssignees.has(currentUserId);
 
   useEffect(() => {
     let cancelled = false;
@@ -460,6 +472,33 @@ export default function TaskCard({
       }
     } finally {
       setProceeding(false);
+    }
+  };
+
+  const handleDeliverMyPart = async () => {
+    if (!card || !currentUserId || deliveringPart) return;
+    setDeliveringPart(true);
+    try {
+      const r = await deliverMyPart(card.id, currentUserId);
+      if (r.success) {
+        toast.success(r.message);
+        // Atualiza local: remove usuário do card
+        const nextExtras = (card.additional_assignees || []).filter((u: string) => u !== currentUserId);
+        let nextAssigned = card.assigned_to;
+        if (card.assigned_to === currentUserId) {
+          nextAssigned = r.becamePrimary ?? null;
+        }
+        onCardChange({
+          ...card,
+          assigned_to: nextAssigned,
+          additional_assignees: nextExtras.filter((u: string) => u !== nextAssigned),
+        } as any);
+        onOpenChange(false);
+      } else {
+        toast.error(r.message);
+      }
+    } finally {
+      setDeliveringPart(false);
     }
   };
 
@@ -1365,17 +1404,32 @@ export default function TaskCard({
                             <span>{nextLabel}</span>
                           </Button>
                         ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10"
-                            onClick={handleProceed}
-                            disabled={proceeding || !card.demand_type_key}
-                            title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : (isEnviarCliente ? "Marcar como enviado ao cliente" : `Enviar para ${nextLabel}`)}
-                          >
-                            <span className="max-w-[140px] truncate">{nextLabel}</span>
-                            {proceeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                          </Button>
+                          <>
+                            {canDeliverPart && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
+                                onClick={handleDeliverMyPart}
+                                disabled={deliveringPart}
+                                title="Registrar sua entrega e sair deste card — os demais responsáveis continuam"
+                              >
+                                {deliveringPart ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                <span className="max-w-[160px] truncate">Entregar minha parte</span>
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10"
+                              onClick={handleProceed}
+                              disabled={proceeding || !card.demand_type_key}
+                              title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : (isEnviarCliente ? "Marcar como enviado ao cliente" : `Enviar para ${nextLabel}`)}
+                            >
+                              <span className="max-w-[140px] truncate">{nextLabel}</span>
+                              {proceeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
+                            </Button>
+                          </>
                         )}
                       </div>
 

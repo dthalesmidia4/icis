@@ -736,3 +736,79 @@ export async function deliverDemand(
   };
 }
 
+/**
+ * "Entregar minha parte" para cards de Captar com múltiplos responsáveis.
+ * Remove o usuário atual da lista de responsáveis e registra `partial_delivered`
+ * no histórico. Quando resta apenas um responsável, mantém o card com esse
+ * responsável (o próximo `proceedDemand` faz a transição para a próxima etapa).
+ * Se o usuário for o `assigned_to` principal, promove um dos `additional_assignees`.
+ */
+export interface PartialDeliverResult {
+  success: boolean;
+  message: string;
+  removed?: boolean;
+  becamePrimary?: string | null;
+  remainingCount?: number;
+}
+
+export async function deliverMyPart(
+  demandId: string,
+  userId: string,
+): Promise<PartialDeliverResult> {
+  const { data: cur } = await supabase
+    .from("demands")
+    .select("tenant_id, assigned_to, additional_assignees, current_function_key")
+    .eq("id", demandId)
+    .maybeSingle() as { data: any | null };
+  if (!cur) return { success: false, message: "Demanda não encontrada." };
+  if ((cur.current_function_key || "") !== "captar") {
+    return { success: false, message: "Ação disponível apenas para cards em Captar." };
+  }
+  const primary: string | null = cur.assigned_to || null;
+  const extras: string[] = Array.isArray(cur.additional_assignees)
+    ? (cur.additional_assignees.filter(Boolean) as string[])
+    : [];
+  const allSet = new Set<string>([...(primary ? [primary] : []), ...extras]);
+  if (!allSet.has(userId)) {
+    return { success: false, message: "Você não é responsável por este card." };
+  }
+  if (allSet.size <= 1) {
+    return { success: false, message: "Apenas um responsável — use Prosseguir para entregar o card." };
+  }
+
+  let newPrimary = primary;
+  let newExtras = [...extras];
+  if (primary === userId) {
+    // promove o primeiro extra a responsável principal
+    newPrimary = newExtras.shift() || null;
+  } else {
+    newExtras = newExtras.filter((u) => u !== userId);
+  }
+
+  const { error } = await supabase
+    .from("demands")
+    .update({ assigned_to: newPrimary, additional_assignees: newExtras } as any)
+    .eq("id", demandId);
+  if (error) return { success: false, message: "Erro ao remover você do card." };
+
+  await recordFlowHistory({
+    tenantId: cur.tenant_id as string,
+    demandId,
+    action: "partial_delivered",
+    fromUserId: userId,
+    toUserId: newPrimary,
+    fromFunctionKey: "captar",
+    toFunctionKey: "captar",
+    metadata: { remaining_count: (newPrimary ? 1 : 0) + newExtras.length },
+  });
+
+  return {
+    success: true,
+    removed: true,
+    becamePrimary: newPrimary,
+    remainingCount: (newPrimary ? 1 : 0) + newExtras.length,
+    message: "Sua parte foi entregue. O card continua com os demais responsáveis.",
+  };
+}
+
+

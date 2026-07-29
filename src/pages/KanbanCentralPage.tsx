@@ -455,10 +455,9 @@ const KanbanCentralPage = () => {
     }
     // Ocultar cards diários cuja próxima ocorrência ainda não chegou
     baseCards = baseCards.filter(card => isDailyCardVisibleNow(card as any));
-    // Ocultar cards com dispatch ativo (agendados/em envio) — eles vivem na tela /scheduled
-    if (activeDispatchIds.size > 0) {
-      baseCards = baseCards.filter(card => !activeDispatchIds.has(card.id));
-    }
+    // Nota: cards com dispatch ativo NÃO são mais escondidos — permanecem na
+    // coluna "Publicar" com o rótulo "Publicar agendado" para o gestor operacional
+    // saber que a próxima ação é apenas aguardar/monitorar a publicação.
     return baseCards;
   }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, selectedAreaFilter, activeDispatchIds]);
 
@@ -944,7 +943,7 @@ const KanbanCentralPage = () => {
         .select("demand_id, created_at")
         .eq("tenant_id", tenantId)
         .eq("from_user_id", columnId)
-        .in("action", ["proceeded", "delivered"])
+        .in("action", ["proceeded", "delivered", "partial_delivered"])
         .gte("created_at", gte);
       if (lte) q = q.lte("created_at", lte);
       const { data, error } = await q.order("created_at", { ascending: false }).limit(2000);
@@ -1018,11 +1017,17 @@ const KanbanCentralPage = () => {
 
   const resolveStageLabel = useCallback((card: CentralKanbanCard): string => {
     const key = (card as any).current_function_key as string | null | undefined;
-    if (key) {
-      return flowFunctionNames[key] || FALLBACK_FN_NAMES[key] || card.status;
-    }
-    return card.status;
-  }, [flowFunctionNames]);
+    const base = key
+      ? (flowFunctionNames[key] || FALLBACK_FN_NAMES[key] || card.status)
+      : card.status;
+    // Sufixos de estado
+    const paused = (card as any).reorder_meta?.pausedByCaptar;
+    if (paused) return `${base} pausado para captação`;
+    if (key === "publicar" && activeDispatchIds.has(card.id)) return `${base} agendado`;
+    if (key === "aguardando_cliente") return base; // já implica espera
+    if (key) return `${base} em andamento`;
+    return base;
+  }, [flowFunctionNames, activeDispatchIds]);
 
   useRealtimeFlowConfig({
     tenantId,
