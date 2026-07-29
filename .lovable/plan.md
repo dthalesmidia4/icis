@@ -1,87 +1,51 @@
-## Objetivo
+## Auditoria: Reorganizador Automático de Sequência
 
-1. **Reorganizador automático não altera cards de captação** (etapa `captar`).
-2. **Cards de captação podem ter múltiplos responsáveis**, aparecem na coluna de cada um, edição sincroniza.
-3. **Ao prosseguir a etapa**, o card volta a ter um único responsável (o co-responsáveis se aplica só à captação).
-4. **Registro de entregas** aparece corretamente na coluna de todos os responsáveis envolvidos na captação.
+Percorri `computeReorder`, o modal e a integração no Kanban Central. **Base funcional está sólida** (respeita expediente, almoço, área, feriados, blocos por dia, atraso com folga, `aguardando_cliente` e `captar` protegidos). Mas há **6 pontas soltas** — 2 delas com potencial de causar decisões erradas em produção.
 
----
+### Riscos identificados
 
-## Parte 1 — Reorganizador preserva captações
+**🔴 Alto risco**
 
-`src/lib/reorderSequence.ts`:
-- `PRESERVED_FUNCTION_KEYS = new Set(["aguardando_cliente", "captar"])`.
-- Trocar os dois filtros que hoje isolam `aguardando_cliente` (linhas 520-521 e 629) por checagem contra o Set.
-- Mensagem por chave:
-  - `aguardando_cliente` → "Aguardando cliente — não reagendado."
-  - `captar` → "Captação com cliente — data mantida."
-- Texto explicativo no `ReorderSequenceModal.tsx`: incluir "Captação" ao lado de "Aguardando cliente".
+1. **Reorganiza sobre um recorte filtrado** — `KanbanCentralPage.tsx` passa `filteredCards` para o modal. Se o gestor tem filtro ativo (cliente/período/área), a sequência é calculada ignorando cards que ficam fora do filtro mas continuam ocupando a agenda do colaborador. Resultado: **colisões silenciosas** com cards não visíveis. Deve usar o conjunto completo daquele colaborador (independente de filtros), ou avisar no modal que há filtros ativos.
 
-## Parte 2 — Múltiplos responsáveis (captação)
+2. **Sem lock otimista no `handleApply`** — o loop faz `update` por card sem checar `updated_at`. Se o card foi movido/editado enquanto o modal estava aberto (Realtime rodando), a reorganização sobrescreve mudanças recentes sem aviso. Falhas no meio do loop deixam o estado parcialmente aplicado, sem rollback nem toast de detalhe.
 
-### 2.1 Schema
-```sql
-ALTER TABLE public.demands
-  ADD COLUMN additional_assignees uuid[] NOT NULL DEFAULT '{}';
-CREATE INDEX demands_additional_assignees_gin
-  ON public.demands USING gin (additional_assignees);
-```
-- Fonte de verdade continua uma única linha → edição já sincroniza via Realtime.
-- `assigned_to` = responsável principal (valida `validate_demand_stage_assignment`).
-- `additional_assignees` = co-responsáveis visíveis para agrupamento/registro.
+**🟡 Médio risco**
 
-### 2.2 UI — seleção de responsáveis
-No `TaskCard.tsx`, quando `current_function_key === 'captar'`:
-- Multi-select de colaboradores. Primeiro selecionado → `assigned_to`; demais → `additional_assignees` (sem duplicar).
-- Nos demais tipos, seletor single mantém `additional_assignees = []`.
-- Chip discreto no header do card ("+1", "+2 responsáveis") quando o array não estiver vazio.
+3. **Cards com `additional_assignees` (co-responsáveis de `captar`)** — o filtro `c.assigned_to === reorderModalColumnId` só pega o primário. Como `captar` já é skipped, o único efeito é o co-responsável não ver o card fixo na sua proposta. Cosmético, mas confuso.
 
-### 2.3 Kanban — exibição em várias colunas
-Em `KanbanCentralPage.tsx`:
-- Fetch inclui `additional_assignees`.
-- Agrupamento por coluna (linhas ~2264, 2291-2292):
-  ```
-  card.assigned_to === userId
-    → card.assigned_to === userId || (card.additional_assignees || []).includes(userId)
-  ```
-- Aplicar mesma lógica em `useCollaborators.tsx` para `demandCount`.
-- Drag para a coluna de um co-responsável: promover esse usuário a `assigned_to` e removê-lo de `additional_assignees` (evita duplicar).
-- Uma única linha no banco → Realtime já sincroniza edições feitas em qualquer coluna.
+4. **`is_daily_card` entra na fila** — recebe `20min` e é reagendado, mas cards diários têm ciclo próprio (`daily_next_date`). Reordenar `due_date/delivery_date` deles pode conflitar com a lógica de recorrência. Devem ser skipped como `captar`/`aguardando_cliente`.
 
-## Parte 3 — Proceed / prosseguir de etapa (NOVO)
+**🟢 Baixo risco (documentar)**
 
-`src/lib/proceedDemand.ts` — nas funções que avançam o card (`proceedDemand`, `assignAndProceed`, `regressDemand`):
+5. **Etapas `enviar_cliente` / `publicar` / `revisar_publicacao`** entram no reorder ativo com duração de 5min. Não tocam `publish_date` (dispatch fica intacto), então é seguro — mas o reagendamento do `due_date` pode dar sinal visual esquisito ("prazo passou") em cards já publicáveis. Considerar tratar como fixed.
 
-- Detectar quando o card **está saindo** de `captar` (`OLD.current_function_key === 'captar' && NEW.current_function_key !== 'captar'`).
-- Nesse caso, incluir no `updatePayload`:
-  ```
-  additional_assignees: []
-  ```
-- Efeito: fora da captação, o card volta a ter um único responsável (o novo `assigned_to` escolhido pelo fluxo). Os co-responsáveis pararam de vê-lo em suas colunas.
-- Regressão (retornar a etapa anterior): também zera `additional_assignees` — quem quiser reconstituir a co-responsabilidade seleciona no card.
+6. **Sem "desfazer"** — não há snapshot pré-aplicação. Um clique desatento em "Aplicar reorganização" mexe em N cards e o único caminho de volta é editar um a um.
 
-Nada muda para cards que já estavam em outras etapas: o array já é `{}` por default.
+### Correções propostas (mínimas, escopo cirúrgico)
 
-## Parte 4 — Registro de entregas em ambas as colunas (NOVO)
+- **Modal (`ReorderSequenceModal.tsx`)**
+  - Aplicar em batch com `Promise.all` + captura de `updated_at` original por card; adicionar cláusula `.eq('updated_at', original)` no update; contar conflitos e exibir toast dedicado ("N cards mudaram durante a análise — reabra o modal").
+  - Adicionar banner quando `props.hasActiveFilters` for true: "Filtros ativos — a sequência considera apenas os cards visíveis."
 
-Hoje `demand_flow_history` grava uma única linha por transição, com `from_user_id = assigned_to`. O painel "Registro de entregas do colaborador" filtra por `from_user_id = <userId da coluna>`. Se só logarmos o principal, os co-responsáveis não veriam a entrega.
+- **KanbanCentralPage (integração)**
+  - Buscar os cards do colaborador a partir de `allCards` (não `filteredCards`), OU passar `hasActiveFilters` para o banner acima.
+  - Alternativa preferida: usar `allCards.filter(c => c.assigned_to === reorderModalColumnId || (c.additional_assignees||[]).includes(reorderModalColumnId))` — fecha o item 3 no mesmo passo.
 
-Correção em `proceedDemand.ts` (e onde mais chamamos `logFlowTransition`):
+- **`reorderSequence.ts`**
+  - Adicionar `is_daily_card` ao filtro fixo (mesmo tratamento de `captar`): retorna proposta `skipped:true` com aviso "Card diário — ciclo próprio".
+  - Opcional: incluir `publicar` e `revisar_publicacao` como fixos se o card já tiver `publish_date` futura agendada.
 
-- Antes de zerar `additional_assignees` (Parte 3), coletar a lista `deliveringUsers = [assigned_to, ...additional_assignees]` (deduplicada, ignorando nulls).
-- Ao gravar o histórico da transição, inserir **uma linha por usuário** em `demand_flow_history`, todas com o mesmo `demand_id`, `action`, `to_user_id`, `to_function_key`, `created_at`, `metadata`, variando apenas `from_user_id` e `from_function_key`.
-- Como o `fetchColumnHistory` já deduplica por `demand_id` (`Map<demandId, lastSeenAt>`), o card aparece uma vez em cada coluna dos responsáveis envolvidos — que é exatamente o comportamento pedido.
+- **UX (opcional)**
+  - Em `handleApply`, antes do loop, guardar `{id, due_date, due_time, delivery_date, delivery_time}` de cada card afetado num ref. Toast final com botão "Desfazer" que reaplica o snapshot (10s).
 
-`src/lib/flowHistory.ts` ganha uma variante `logFlowTransitionForUsers(userIds: string[], ...)` ou aceita `fromUserIds: string[]` opcional; o call site em `proceedDemand.ts` passa a lista completa quando o card estava em `captar`; nos demais casos passa `[assigned_to]` (comportamento atual, sem regressão).
+### Fora de escopo
+- Não mudar duração da matriz.
+- Não alterar cálculo de atraso/slack — está correto.
+- Não tocar `scheduled_publication_dispatches` (o reorder já não mexe em `publish_date`, e deve continuar assim).
 
-## Fora de escopo
-- Nada de RLS/permissões novo.
-- Sem tabela M:N.
-- Multi-select exposto só na captação.
-
-## Verificação
-- Reorganizador: card em `captar` aparece na proposta como preservado ("Captação com cliente — data mantida"), `changed=false`.
-- Captação com 2 responsáveis: card aparece nas duas colunas; editar em uma reflete na outra via Realtime.
-- Ao prosseguir do `captar`: `additional_assignees` fica `[]`; card some das colunas dos co-responsáveis e aparece só na do novo responsável.
-- Registro de entregas: card aparece no histórico das duas colunas de origem.
-- Contadores `useCollaborators.demandCount` refletem cards compartilhados enquanto o card está em `captar`.
+### Verificação após aplicação
+- Filtrar por 1 cliente e reorganizar: banner aparece; se ignorar o banner, os cards de outros clientes do mesmo colaborador continuam intactos.
+- Editar um card em outra aba enquanto o modal está aberto → aplicar → toast informa conflito, card editado não é sobrescrito.
+- Card `is_daily_card` na coluna aparece com badge "diário — não reagendado".
+- Erro no meio do loop → toast lista IDs que falharam; sucessos permanecem.
