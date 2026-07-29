@@ -790,14 +790,14 @@ function TableRow({
         <div className="min-w-0 truncate">{stageCell()}</div>
       </td>
       <td className="px-2 py-2 hidden xl:table-cell text-muted-foreground text-[12px] truncate">
-        {isDone ? "—" : nextStageName || <span className="text-muted-foreground/60">—</span>}
+        {isResolved ? "—" : nextStageName || <span className="text-muted-foreground/60">—</span>}
       </td>
       <td className="px-2 py-2 text-[11px] whitespace-nowrap">
         {startDate || endDate ? (
           <div
             className={cn(
               "inline-flex items-center gap-2 rounded-md px-2 py-1 font-medium leading-tight tabular-nums",
-              overdue ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-muted/60 text-foreground",
+              overdue && !isResolved ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-muted/60 text-foreground",
             )}
           >
             <span className="inline-flex items-center gap-1">
