@@ -1015,17 +1015,19 @@ const KanbanCentralPage = () => {
     avaliar: "Avaliar",
   };
 
-  const resolveStageLabel = useCallback((card: CentralKanbanCard): string => {
+  const resolveStageLabel = useCallback((
+    card: CentralKanbanCard,
+    opts?: { isTop?: boolean; isPausedByCaptarNow?: boolean },
+  ): string => {
     const key = (card as any).current_function_key as string | null | undefined;
     const base = key
       ? (flowFunctionNames[key] || FALLBACK_FN_NAMES[key] || card.status)
       : card.status;
-    // Sufixos de estado
-    const paused = (card as any).reorder_meta?.pausedByCaptar;
-    if (paused) return `${base} pausado para captação`;
+    const pausedMeta = (card as any).reorder_meta?.pausedByCaptar;
+    if (pausedMeta || opts?.isPausedByCaptarNow) return `${base} pausado para captação`;
     if (key === "publicar" && activeDispatchIds.has(card.id)) return `${base} agendado`;
-    if (key === "aguardando_cliente") return base; // já implica espera
-    if (key) return `${base} em andamento`;
+    if (key === "aguardando_cliente") return base;
+    if (opts?.isTop && key) return `${base} em andamento`;
     return base;
   }, [flowFunctionNames, activeDispatchIds]);
 
@@ -2686,6 +2688,20 @@ const KanbanCentralPage = () => {
                               {items.map((card) => {
                                 runningIndex += 1;
                                 const index = runningIndex;
+                                const isTopCard = index === 0;
+                                const cardKey = (card.current_function_key || "").toLowerCase();
+                                const isPausedByCaptarNow =
+                                  captarNow.length > 0 &&
+                                  !isCaptarNow &&
+                                  cardKey !== "captar" &&
+                                  cardKey !== "aguardando_cliente" &&
+                                  !(card as any).is_daily_card;
+                                const syntheticPausedByCaptar = isPausedByCaptarNow
+                                  ? {
+                                      atTime: (captarNow[0].due_time || "").slice(0, 5),
+                                      captarTitle: captarNow[0].title,
+                                    }
+                                  : null;
                                 return (
                                   <Draggable
                                     key={card.id}
@@ -2737,7 +2753,7 @@ const KanbanCentralPage = () => {
                                             isDragging={snapshot.isDragging}
                                             isOverdue={isCardOverdue(card)}
                                             cardId={card.id}
-                                           statusName={resolveStageLabel(card)}
+                                           statusName={resolveStageLabel(card, { isTop: isTopCard, isPausedByCaptarNow })}
                                             statusColor={card.status_color}
                                             isDailyCard={(card as any).is_daily_card}
                                             dailyCompleted={(card as any).daily_completed_occurrences}
@@ -2749,7 +2765,7 @@ const KanbanCentralPage = () => {
                                                   atTime: (card as any).reorder_meta.pausedByCaptar.atTime,
                                                   captarTitle: (card as any).reorder_meta.pausedByCaptar.captarTitle,
                                                 }
-                                              : null}
+                                              : syntheticPausedByCaptar}
                                             onClick={() => handleCardClick(card, column.id)}
                                             onDatesChange={isHistory ? undefined : (changes) => handleInlineDatesChange(card.id, changes)}
                                           />
