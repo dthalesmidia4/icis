@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StartEndDatePopover } from "@/components/kanban/StartEndDatePopover";
 
