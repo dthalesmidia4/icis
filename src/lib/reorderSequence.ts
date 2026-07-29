@@ -582,11 +582,10 @@ export async function computeReorder(
 ): Promise<ReorderProposal[]> {
   if (cards.length === 0) return [];
   const scheduledIds = opts?.scheduledPublishIds || new Set<string>();
-  // Cards com publicação agendada (dispatch ativo) não ocupam alocação — tratados como concluídos.
+  // Cards com publicação agendada (dispatch ativo) não ocupam alocação — tratados como externos à fila operacional.
+  // Isso vale para qualquer etapa: se já existe dispatch ativo, o card não deve empurrar a próxima tarefa real.
   cards = cards.filter((c) => {
-    const k = (c.current_function_key || "").toLowerCase();
-    if (k === "publicar" && scheduledIds.has(c.id)) return false;
-    return true;
+    return !scheduledIds.has(c.id);
   });
   if (cards.length === 0) return [];
 
@@ -669,19 +668,13 @@ export async function computeReorder(
       if (deadline && deadline < now) treatAsStuck = true;
     }
 
-    if (treatAsStuck && card.due_date && card.due_time) {
-      const originalStart = toVirtualUtc(card.due_date, card.due_time.slice(0, 5));
-      const delayMin = workingMinutesBetween(originalStart, now, area, ctx);
+    if (treatAsStuck) {
       const slack = Math.round(baseDur * 0.30);
-      // Cap na inflação: no máximo 2 jornadas úteis da área do card
-      const dayCap = Math.max(60, workingMinutesInDay(now, area, ctx) * 2);
-      const inflated = baseDur + Math.max(0, Math.round(delayMin * 0.5)) + slack;
-      dur = Math.min(inflated, dayCap);
+      dur = baseDur + slack;
       slackApplied = true;
-      ({ start, end, daysSpanned } = allocateAcrossDays(originalStart, dur, area, ctx, blocked));
-      if (end < now) {
-        ({ start, end, daysSpanned } = allocateAcrossDays(now, baseDur + slack, area, ctx, blocked));
-      }
+      // Card atrasado/iniciado vira a próxima ação: começa no primeiro slot útil a partir de agora,
+      // nunca preservando um horário antigo que já passou.
+      ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
     } else {
       ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
     }
