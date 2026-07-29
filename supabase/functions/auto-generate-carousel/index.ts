@@ -375,7 +375,7 @@ REGRAS:
         size: r.attachment.bytesLength,
         storagePath: r.attachment.storagePath,
         uploadedAt: new Date().toISOString(),
-        uploadedBy: { id: "auto-generator", email: "system@ai", name: "IA - Gemini 3 Pro Image (Carrossel)" },
+        uploadedBy: { id: "auto-generator", email: "system@ai", name: `IA - ${MODELS.IMAGE} (Carrossel)` },
         cardId: demandId,
         tenantId: demand.tenant_id,
         clientId: demand.client_id,
@@ -389,6 +389,13 @@ REGRAS:
         .single();
 
       const currentAttachments = Array.isArray(currentDemand?.attachments) ? currentDemand.attachments : [];
+      const slideAlreadyAttached = currentAttachments.some((att: any) =>
+        isAiCarouselSlide(att) && getSlideNumberFromAttachment(att) === r.slideNumber
+      );
+      if (slideAlreadyAttached) {
+        console.log(`  ↳ Slide ${r.slideNumber} already attached, skipping duplicate append`);
+        return;
+      }
 
       await supabase
         .from("demands")
