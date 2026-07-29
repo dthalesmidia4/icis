@@ -33,6 +33,7 @@ interface KanbanCardProps {
   dailyTotal?: number | null;
   dailyNextDate?: string | null;
   workArea?: "midia" | "sistemas" | null;
+  pausedByCaptar?: { atTime?: string; captarTitle?: string } | null;
   onClick?: () => void;
   onDatesChange?: (changes: CardDatesChange) => Promise<void> | void;
 }
