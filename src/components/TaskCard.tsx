@@ -1404,17 +1404,32 @@ export default function TaskCard({
                             <span>{nextLabel}</span>
                           </Button>
                         ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10"
-                            onClick={handleProceed}
-                            disabled={proceeding || !card.demand_type_key}
-                            title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : (isEnviarCliente ? "Marcar como enviado ao cliente" : `Enviar para ${nextLabel}`)}
-                          >
-                            <span className="max-w-[140px] truncate">{nextLabel}</span>
-                            {proceeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                          </Button>
+                          <>
+                            {canDeliverPart && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
+                                onClick={handleDeliverMyPart}
+                                disabled={deliveringPart}
+                                title="Registrar sua entrega e sair deste card — os demais responsáveis continuam"
+                              >
+                                {deliveringPart ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                <span className="max-w-[160px] truncate">Entregar minha parte</span>
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10"
+                              onClick={handleProceed}
+                              disabled={proceeding || !card.demand_type_key}
+                              title={!card.demand_type_key ? "Defina o tipo da demanda antes de prosseguir" : (isEnviarCliente ? "Marcar como enviado ao cliente" : `Enviar para ${nextLabel}`)}
+                            >
+                              <span className="max-w-[140px] truncate">{nextLabel}</span>
+                              {proceeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
+                            </Button>
+                          </>
                         )}
                       </div>
 
