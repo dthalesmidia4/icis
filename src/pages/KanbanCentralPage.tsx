@@ -2564,8 +2564,24 @@ const KanbanCentralPage = () => {
                             if (!groups.has(key)) groups.set(key, []);
                             groups.get(key)!.push(c);
                           }
+                          const nowMs = Date.now();
+                          const captarDue = (c: CentralKanbanCard): number => {
+                            const key = (c.current_function_key || "").toLowerCase();
+                            if (key !== "captar" || !c.due_date) return Number.POSITIVE_INFINITY;
+                            const t = (c.due_time || "00:00").slice(0, 5);
+                            const [y, mo, d] = c.due_date.split("-").map((x) => parseInt(x, 10));
+                            const [h, mm] = t.split(":").map((x) => parseInt(x, 10));
+                            return new Date(y, (mo || 1) - 1, d || 1, h || 0, mm || 0).getTime();
+                          };
                           const entries = Array.from(groups.entries()).map(([date, items]) => {
                             const sorted = [...items].sort((a, b) => {
+                              // R3: Captar cuja hora já chegou sobe ao topo da coluna
+                              const aCap = captarDue(a);
+                              const bCap = captarDue(b);
+                              const aActive = aCap <= nowMs ? 0 : 1;
+                              const bActive = bCap <= nowMs ? 0 : 1;
+                              if (aActive !== bActive) return aActive - bActive;
+                              if (aActive === 0 && bActive === 0) return aCap - bCap;
                               const ta = (dateGroupBy === "start" ? a.due_time : a.delivery_time) || "99:99";
                               const tb = (dateGroupBy === "start" ? b.due_time : b.delivery_time) || "99:99";
                               return ta.localeCompare(tb);
