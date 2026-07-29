@@ -521,10 +521,14 @@ export async function computeReorder(
 
   const awaiting = cards.filter((c) => (c.current_function_key || "").toLowerCase() === "aguardando_cliente");
   const captarFixed = cards.filter((c) => (c.current_function_key || "").toLowerCase() === "captar");
+  const dailyFixed = cards.filter((c) => !!c.is_daily_card && (c.current_function_key || "").toLowerCase() !== "aguardando_cliente" && (c.current_function_key || "").toLowerCase() !== "captar");
   const active = cards.filter((c) => {
     const k = (c.current_function_key || "").toLowerCase();
-    return k !== "aguardando_cliente" && k !== "captar";
+    if (k === "aguardando_cliente" || k === "captar") return false;
+    if (c.is_daily_card) return false;
+    return true;
   });
+
   const ordered = sortForReorder(active, { prioritizePublishDate: opts?.prioritizePublishDate });
 
   // Cursores separados por área quando há schedule por área.
