@@ -1440,17 +1440,48 @@ export default function TaskCard({
                         ) : (
                           <>
                             {canDeliverPart && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
-                                onClick={handleDeliverMyPart}
-                                disabled={deliveringPart}
-                                title="Registrar sua entrega e sair deste card — os demais responsáveis continuam"
-                              >
-                                {deliveringPart ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                                <span className="max-w-[160px] truncate">Entregar minha parte</span>
-                              </Button>
+                              <Popover open={deliverPartOpen} onOpenChange={setDeliverPartOpen}>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 gap-1 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
+                                    disabled={deliveringPart}
+                                    title="Registrar entrega de um dos responsáveis — os demais continuam no card"
+                                  >
+                                    {deliveringPart ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                    <span className="max-w-[160px] truncate">Entregar parte</span>
+                                    <ChevronDown className="h-3 w-3 opacity-70" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent align="end" className="w-64 p-1">
+                                  <div className="text-[11px] font-medium text-muted-foreground px-2 pt-1.5 pb-1">
+                                    Registrar entrega de:
+                                  </div>
+                                  <div className="max-h-64 overflow-y-auto">
+                                    {captarAllAssignees.map((uid) => {
+                                      const name = collaborators.find((c) => c.id === uid)?.name || (uid === currentUserId ? "Você" : "Colaborador");
+                                      const isMe = uid === currentUserId;
+                                      return (
+                                        <button
+                                          key={uid}
+                                          type="button"
+                                          disabled={deliveringPart}
+                                          onClick={() => handleDeliverMyPart(uid)}
+                                          className={cn(
+                                            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-left transition-colors hover:bg-muted",
+                                            deliveringPart && "opacity-60 cursor-wait",
+                                          )}
+                                        >
+                                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                          <span className="truncate flex-1">{name}</span>
+                                          {isMe && <span className="text-[10px] text-emerald-600 font-semibold shrink-0">(você)</span>}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
                             )}
                             <Button
                               variant="ghost"
