@@ -3125,11 +3125,21 @@ const KanbanCentralPage = () => {
           onOpenChange={(o) => !o && setReorderModalColumnId(null)}
           tenantId={tenantId}
           assigneeId={reorderModalColumnId}
+          hasActiveFilters={
+            selectedClientFilter !== "all" ||
+            (selectedPeriodFilter !== "active" && selectedPeriodFilter !== "all") ||
+            selectedStatusFilter !== "all" ||
+            selectedAreaFilter !== "all"
+          }
           columnName={
             collaborators.find((c) => c.userId === reorderModalColumnId)?.fullName || "Coluna"
           }
-          cards={filteredCards
-            .filter((c) => c.assigned_to === reorderModalColumnId)
+          cards={cards
+            .filter((c) =>
+              c.assigned_to === reorderModalColumnId ||
+              (Array.isArray((c as any).additional_assignees) &&
+                (c as any).additional_assignees.includes(reorderModalColumnId))
+            )
             .map((c) => ({
               id: c.id,
               title: c.title,
@@ -3144,6 +3154,7 @@ const KanbanCentralPage = () => {
               delivery_time: c.delivery_time,
               current_function_key: c.current_function_key,
               work_area: (c as any).work_area || null,
+              updated_at: (c as any).updated_at || null,
             }))}
           onApplied={() => {
             setReorderModalColumnId(null);
@@ -3151,6 +3162,7 @@ const KanbanCentralPage = () => {
           }}
         />
       )}
+
 
     </div>
   );
