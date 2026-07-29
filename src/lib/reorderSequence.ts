@@ -682,6 +682,22 @@ export async function computeReorder(
       card.delivery_date !== endISO ||
       (card.delivery_time || "").slice(0, 5) !== endTime;
 
+    // Detecta se algum intervalo bloqueado do tipo "captar" cai dentro deste card,
+    // sinalizando visualmente que a produção foi pausada para captação.
+    let pausedByCaptar: ReorderProposal["pausedByCaptar"] = null;
+    for (const b of blocked) {
+      if (b.kind !== "captar" || !b.cardId) continue;
+      if (b.start >= start && b.start < end) {
+        pausedByCaptar = {
+          atISO: isoDate(b.start),
+          atTime: hhmm(b.start),
+          captarId: b.cardId,
+          captarTitle: b.title || "Captar",
+        };
+        break;
+      }
+    }
+
     proposals.push({
       id: card.id,
       title: card.title,
@@ -695,6 +711,7 @@ export async function computeReorder(
       changed,
       spansDays: daysSpanned,
       slackApplied,
+      pausedByCaptar,
     });
 
     // Adiciona intervalo recém-alocado à lista de bloqueados para o próximo card.
