@@ -144,6 +144,7 @@ const periodShortLabel: Record<PeriodFilter, string> = {
 
 const ClientEvolution = () => {
   const { tenantId, isLoading: tenantLoading } = useTenant();
+  const { activeDispatchIds } = useActiveDispatchIds(tenantId);
   const { selectedClient } = useSelectedClient();
   const [cards, setCards] = useState<KanbanCardData[]>([]);
   const [loading, setLoading] = useState(false);
