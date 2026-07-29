@@ -265,7 +265,9 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
       currentDefault: Array.isArray(period.default_plan) ? period.default_plan : [],
       currentUltra: Array.isArray(period.ultra_plan) ? period.ultra_plan : [],
       updatedCard,
+      originalTitle: card.title,
     });
+
   };
 
   const finalizeDiscard = async () => {
