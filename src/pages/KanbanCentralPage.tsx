@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ReorderSequenceModal from "@/components/kanban/ReorderSequenceModal";
+import AwaitingClientActions from "@/components/kanban/AwaitingClientActions";
+
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
 import { useRealtimeDemandFlowHistory, useRealtimeFlowConfig } from "@/hooks/realtime";
