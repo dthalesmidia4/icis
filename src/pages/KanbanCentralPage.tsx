@@ -2354,9 +2354,52 @@ const KanbanCentralPage = () => {
             const awaitingCards = focusKind
               ? (focusKind === 'awaiting' ? awaitingCardsBase : [])
               : awaitingCardsBase;
-            const reviewCards = focusKind
+            const reviewCardsUnsorted = focusKind
               ? (focusKind === 'review' ? reviewCandidateCards : [])
               : reviewCardsBase;
+
+            // --- Ordenação cronológica dos agrupamentos ---
+            const startKeyOf = (c: CentralKanbanCard): string =>
+              `${c.due_date || "9999-12-31"}T${(c.due_time || "23:59").slice(0, 5)}`;
+            const sortChrono = (list: CentralKanbanCard[]) =>
+              [...list].sort((a, b) => startKeyOf(a).localeCompare(startKeyOf(b)));
+            const reviewCards = sortChrono(reviewCardsUnsorted);
+            const awaitingCardsSorted = sortChrono(awaitingCards);
+            const evaluateCardsSorted = [...evaluateCards].sort((a, b) =>
+              (a.suggestedDate || "9999-12-31").localeCompare(b.suggestedDate || "9999-12-31"));
+
+            // --- "Em andamento" = card mais atrasado que já deveria estar sendo feito ---
+            // Considera produção + revisão; ignora aguardando cliente, captação
+            // (que tem lógica própria de pausa) e publicações já agendadas.
+            const nowTs = Date.now();
+            const startTsOf = (c: CentralKanbanCard): number => {
+              if (!c.due_date) return Number.POSITIVE_INFINITY;
+              const [y, mo, d] = c.due_date.split("-").map((x) => parseInt(x, 10));
+              const [h, mi] = ((c.due_time || "00:00").slice(0, 5)).split(":").map((x) => parseInt(x, 10));
+              return new Date(y, (mo || 1) - 1, d || 1, h || 0, mi || 0).getTime();
+            };
+            const flowCandidates = [
+              ...columnCards.map((c) => ({ c, tier: 0 })),
+              ...reviewCards.map((c) => ({ c, tier: 1 })),
+            ].filter(({ c }) => {
+              const k = (c.current_function_key || "").toLowerCase();
+              if (k === "aguardando_cliente" || k === "captar") return false;
+              if (k === "publicar" && activeDispatchIds.has(c.id)) return false;
+              return Number.isFinite(startTsOf(c));
+            }).sort((a, b) => {
+              const d = startTsOf(a.c) - startTsOf(b.c);
+              return d !== 0 ? d : a.tier - b.tier;
+            });
+            const startedCandidates = flowCandidates.filter(({ c }) => startTsOf(c) <= nowTs);
+            const currentFlowCardId = startedCandidates.length > 0 ? startedCandidates[0].c.id : null;
+            const nextFlowCardId = (() => {
+              if (currentFlowCardId) {
+                const idx = flowCandidates.findIndex((x) => x.c.id === currentFlowCardId);
+                return flowCandidates[idx + 1]?.c.id || null;
+              }
+              return flowCandidates[0]?.c.id || null;
+            })();
+
 
             const isAwaitingCollapsed = focusKind ? false : !expandedAwaiting.has(column.id);
             const isReviewCollapsed = focusKind ? false : !expandedReview.has(column.id);
