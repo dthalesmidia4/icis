@@ -16,6 +16,7 @@ import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
 import { useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
+import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { cn } from "@/lib/utils";
 
 const FINAL_STATUSES = new Set(["feito", "feitos", "publicado"]);
