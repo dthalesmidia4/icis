@@ -4,9 +4,11 @@
 
 export const EVALUATION_FUNCTION_KEY = "avaliar";
 
+// Apenas cards que estão efetivamente PARADOS esperando o cliente.
+// `enviar_cliente` é uma tarefa operacional do colaborador (ele precisa enviar),
+// portanto continua na fila normal de produção.
 const CLIENT_WAITING_FUNCTION_KEYS = new Set([
   "aguardando_cliente",
-  "enviar_cliente",
 ]);
 
 const REVIEW_FUNCTION_KEYS = new Set([
