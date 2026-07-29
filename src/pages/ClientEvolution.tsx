@@ -441,6 +441,7 @@ const ClientEvolution = () => {
 
   const displayName = selectedClient.fantasy_name || selectedClient.name;
   const progressPct = summary.total > 0 ? Math.round((summary.done / summary.total) * 100) : 0;
+  const scheduledPct = summary.total > 0 ? Math.round((summary.scheduledPublish / summary.total) * 100) : 0;
 
   return (
     <div className="mx-auto w-full max-w-[1920px] px-4 sm:px-6 lg:px-8 py-6">
@@ -496,14 +497,21 @@ const ClientEvolution = () => {
         </div>
       ) : (
         <>
-          {/* Barra de progresso full-width */}
+          {/* Barra de progresso full-width (concluído + publicar agendado) */}
           <div className="mb-4">
             <div className="flex items-center gap-3">
-              <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+              <div
+                className="flex-1 h-2 rounded-full bg-muted overflow-hidden flex"
+                title={`${summary.done} concluída(s) · ${summary.scheduledPublish} pronta(s) aguardando publicação`}
+              >
                 <div className="h-full bg-emerald-500 transition-all" style={{ width: `${progressPct}%` }} />
+                <div className="h-full bg-sky-500 transition-all" style={{ width: `${scheduledPct}%` }} />
               </div>
               <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
                 {summary.done}/{summary.total} · {progressPct}%
+                {summary.scheduledPublish > 0 && (
+                  <span className="text-sky-600 dark:text-sky-400"> · +{summary.scheduledPublish} agendado{summary.scheduledPublish === 1 ? "" : "s"}</span>
+                )}
               </span>
             </div>
           </div>
@@ -514,6 +522,8 @@ const ClientEvolution = () => {
               active={filter === "all"} onClick={() => setFilter("all")} />
             <CounterChip label="Em andamento" value={summary.inProgress} icon={Activity} tone="primary"
               active={filter === "in_progress"} onClick={() => setFilter("in_progress")} />
+            <CounterChip label="Publicar agendado" value={summary.scheduledPublish} icon={CalendarIcon} tone="sky"
+              active={filter === "scheduled_publish"} onClick={() => setFilter("scheduled_publish")} />
             <CounterChip label="Concluídas" value={summary.done} icon={CheckCircle2} tone="emerald"
               active={filter === "done"} onClick={() => setFilter("done")} />
             <CounterChip label="Fila" value={summary.queued} icon={Clock3} tone="amber"
@@ -521,6 +531,8 @@ const ClientEvolution = () => {
             <CounterChip label="Atrasadas" value={summary.overdue} icon={AlertTriangle} tone="destructive"
               active={filter === "overdue"} onClick={() => setFilter("overdue")} />
           </div>
+
+
 
           {/* Tabela densa */}
           <div className="rounded-lg border bg-card overflow-x-auto">
