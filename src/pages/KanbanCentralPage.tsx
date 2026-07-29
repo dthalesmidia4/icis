@@ -2640,25 +2640,40 @@ const KanbanCentralPage = () => {
                           return entries.map(({ date, items }) => {
                             const groupKey = `${column.id}::${date}`;
                             const isCollapsed = collapsedDateGroups.has(groupKey);
+                            const isCaptarNow = date === "__captar_now__";
                             return (
                             <div key={date} className="space-y-1">
                               <button
                                 type="button"
                                 onClick={() => toggleDateGroup(groupKey)}
-                                className="w-full flex items-center gap-2 px-1 pt-1 pb-1 border-b border-border/40 hover:bg-muted/40 rounded-sm transition-colors"
+                                className={cn(
+                                  "w-full flex items-center gap-2 px-1 pt-1 pb-1 rounded-sm transition-colors",
+                                  isCaptarNow
+                                    ? "border border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/20 px-2"
+                                    : "border-b border-border/40 hover:bg-muted/40"
+                                )}
                                 aria-expanded={!isCollapsed}
                                 aria-label={isCollapsed ? "Expandir grupo" : "Recolher grupo"}
                               >
                                 {isCollapsed ? (
-                                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                  <ChevronRight className={cn("h-3.5 w-3.5 shrink-0", isCaptarNow ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")} />
                                 ) : (
-                                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                  <ChevronDown className={cn("h-3.5 w-3.5 shrink-0", isCaptarNow ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")} />
                                 )}
-                                <CalendarDays className="h-3.5 w-3.5 text-primary" />
-                                <span className="text-xs font-bold text-foreground">
+                                <CalendarDays className={cn("h-3.5 w-3.5", isCaptarNow ? "text-amber-600 dark:text-amber-400" : "text-primary")} />
+                                <span className={cn(
+                                  "text-xs font-bold",
+                                  isCaptarNow ? "text-amber-700 dark:text-amber-300 uppercase tracking-wide" : "text-foreground"
+                                )}>
                                   {formatHeader(date)}
                                 </span>
-                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 ml-auto">
+                                <Badge
+                                  variant="secondary"
+                                  className={cn(
+                                    "text-[10px] px-1.5 py-0 h-4 ml-auto",
+                                    isCaptarNow && "bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-500/40"
+                                  )}
+                                >
                                   {items.length}
                                 </Badge>
                               </button>
