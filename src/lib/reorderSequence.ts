@@ -761,6 +761,7 @@ export async function computeReorder(
   }
 
 
+  const awaiting = cards.filter((c) => (c.current_function_key || "").toLowerCase() === "aguardando_cliente");
   for (const c of awaiting) {
     proposals.push({
       id: c.id,
