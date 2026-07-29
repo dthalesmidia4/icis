@@ -997,7 +997,7 @@ export default function TaskCard({
       // Regenerate based on type — preserve existing attachments (new ones are appended)
       if (isCarousel) {
         const { data, error } = await supabase.functions.invoke("auto-generate-carousel", {
-          body: { demandId: card.id, aiModel: selectedAiModel },
+          body: { demandId: card.id, aiModel: selectedAiModel, forceRegenerate: true },
         });
         if (error) throw error;
         if (data?.error) {
