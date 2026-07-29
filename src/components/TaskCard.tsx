@@ -115,6 +115,7 @@ export interface KanbanCardData {
   demand_type?: string | null;
   demand_type_key?: string | null;
   assigned_to?: string | null;
+  additional_assignees?: string[];
   current_function_key?: string | null;
   // Card Diário (recorrência)
   is_daily_card?: boolean;
@@ -1570,6 +1571,85 @@ export default function TaskCard({
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {card.current_function_key === "captar" && (() => {
+                    const extras = Array.isArray(card.additional_assignees) ? card.additional_assignees : [];
+                    const available = collaborators.filter((c) => c.id !== card.assigned_to);
+                    const toggleExtra = async (uid: string) => {
+                      const set = new Set(extras);
+                      if (set.has(uid)) set.delete(uid);
+                      else set.add(uid);
+                      const next = Array.from(set);
+                      onCardChange({ ...card, additional_assignees: next } as any);
+                      try {
+                        await supabase
+                          .from("demands")
+                          .update({ additional_assignees: next } as any)
+                          .eq("id", card.id);
+                      } catch (e) {
+                        console.error("[TaskCard] update additional_assignees", e);
+                        toast.error("Erro ao atualizar responsáveis adicionais");
+                      }
+                    };
+                    return (
+                      <>
+                        <span className="text-muted-foreground/40 select-none">·</span>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={readOnly}
+                                className="h-7 px-1.5 text-sm gap-1 hover:bg-background/60"
+                                aria-label="Responsáveis adicionais"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                                {extras.length > 0 ? (
+                                  <span className="text-xs">+{extras.length}</span>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">Adicionar</span>
+                                )}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent align="start" className="w-64 p-2">
+                              <div className="text-xs font-medium text-muted-foreground px-1 pb-1.5">
+                                Responsáveis adicionais (Captar)
+                              </div>
+                              <div className="max-h-64 overflow-y-auto space-y-0.5">
+                                {available.length === 0 ? (
+                                  <div className="text-xs text-muted-foreground px-2 py-2">
+                                    Nenhum outro colaborador disponível.
+                                  </div>
+                                ) : (
+                                  available.map((c) => {
+                                    const checked = extras.includes(c.id);
+                                    return (
+                                      <label
+                                        key={c.id}
+                                        className="flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          onChange={() => toggleExtra(c.id)}
+                                          disabled={readOnly}
+                                          className="h-3.5 w-3.5"
+                                        />
+                                        <span className="truncate">{c.name}</span>
+                                      </label>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </>
+                    );
+                  })()}
+
 
                   <span className="text-muted-foreground/40 select-none">·</span>
 

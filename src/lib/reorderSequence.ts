@@ -518,7 +518,11 @@ export async function computeReorder(
   const ctx = buildCtx(wh, holidays, opts?.areaSchedule);
 
   const awaiting = cards.filter((c) => (c.current_function_key || "").toLowerCase() === "aguardando_cliente");
-  const active = cards.filter((c) => (c.current_function_key || "").toLowerCase() !== "aguardando_cliente");
+  const captarFixed = cards.filter((c) => (c.current_function_key || "").toLowerCase() === "captar");
+  const active = cards.filter((c) => {
+    const k = (c.current_function_key || "").toLowerCase();
+    return k !== "aguardando_cliente" && k !== "captar";
+  });
   const ordered = sortForReorder(active, { prioritizePublishDate: opts?.prioritizePublishDate });
 
   // Cursores separados por área quando há schedule por área.
@@ -639,6 +643,22 @@ export async function computeReorder(
       changed: false,
       skipped: true,
       warning: "Aguardando cliente — não reagendado.",
+    });
+  }
+
+  for (const c of captarFixed) {
+    proposals.push({
+      id: c.id,
+      title: c.title,
+      durationMin: 0,
+      startISO: c.due_date || "",
+      startTime: (c.due_time || "").slice(0, 5),
+      endISO: c.delivery_date || "",
+      endTime: (c.delivery_time || "").slice(0, 5),
+      publishDeadline: null,
+      changed: false,
+      skipped: true,
+      warning: "Captar — horário fixo, não reagendado.",
     });
   }
 

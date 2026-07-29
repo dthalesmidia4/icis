@@ -675,6 +675,7 @@ export type Database = {
       }
       demands: {
         Row: {
+          additional_assignees: string[]
           additional_publish_dates: Json
           archived_at: string | null
           assigned_to: string | null
@@ -724,6 +725,7 @@ export type Database = {
           work_area: Database["public"]["Enums"]["work_area"]
         }
         Insert: {
+          additional_assignees?: string[]
           additional_publish_dates?: Json
           archived_at?: string | null
           assigned_to?: string | null
@@ -773,6 +775,7 @@ export type Database = {
           work_area?: Database["public"]["Enums"]["work_area"]
         }
         Update: {
+          additional_assignees?: string[]
           additional_publish_dates?: Json
           archived_at?: string | null
           assigned_to?: string | null

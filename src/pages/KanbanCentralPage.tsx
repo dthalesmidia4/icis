@@ -74,6 +74,7 @@ interface CentralKanbanCard extends KanbanCardData {
   isArchived?: boolean;
   archived_at?: string | null;
   assigned_to?: string | null;
+  additional_assignees?: string[];
   status_color?: string | null;
   work_area?: "midia" | "sistemas" | null;
 }
@@ -640,6 +641,7 @@ const KanbanCentralPage = () => {
         demand_type_key: data.demand_type_key ?? null,
         current_function_key: (data as any).current_function_key ?? null,
         assigned_to: data.assigned_to || null,
+        additional_assignees: Array.isArray((data as any).additional_assignees) ? ((data as any).additional_assignees as string[]) : [],
         status_color: data.pipeline_statuses?.color || null,
         additional_publish_dates: Array.isArray(data.additional_publish_dates) ? (data.additional_publish_dates as unknown as string[]) : []
       };
@@ -872,6 +874,7 @@ const KanbanCentralPage = () => {
           demand_type_key: demand.demand_type_key ?? null,
           current_function_key: demand.current_function_key ?? null,
           assigned_to: demand.assigned_to || null,
+          additional_assignees: Array.isArray((demand as any).additional_assignees) ? ((demand as any).additional_assignees as string[]) : [],
           status_color: demand.pipeline_statuses?.color || null,
           additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates : [],
           is_daily_card: !!demand.is_daily_card,
@@ -2250,7 +2253,7 @@ const KanbanCentralPage = () => {
                 color: "hsl(var(--primary))",
                 userId: c.userId,
               })),
-              ...((filteredCards.some((c) => !c.assigned_to)
+              ...((filteredCards.some((c) => !c.assigned_to && !(c.additional_assignees?.length))
                 || (evalByAssignee.get("__unassigned__")?.length ?? 0) > 0)
                 ? [{ id: "__unassigned__", name: "Sem responsável", color: "hsl(var(--muted-foreground))", userId: "__unassigned__" }]
                 : []),
@@ -2261,7 +2264,9 @@ const KanbanCentralPage = () => {
               const target = rawColumns.find((c) => c.userId === focusedColumnId);
               if (target) {
                 const userCards = filteredCards.filter((c) =>
-                  target.userId === "__unassigned__" ? !c.assigned_to : c.assigned_to === target.userId
+                  target.userId === "__unassigned__"
+                    ? !c.assigned_to && !(c.additional_assignees?.length)
+                    : c.assigned_to === target.userId || (c.additional_assignees?.includes(target.userId) ?? false)
                 );
                 const _aw = userCards.filter((c) => c.current_function_key === 'aguardando_cliente');
                 const _nonAw = userCards.filter((c) => c.current_function_key !== 'aguardando_cliente');
@@ -2288,8 +2293,8 @@ const KanbanCentralPage = () => {
 
             // Cards ATIVOS deste colaborador (modo normal)
             const activeColumnCards = filteredCards.filter((card) => {
-              if (columnUserId === "__unassigned__") return !card.assigned_to;
-              return card.assigned_to === columnUserId;
+              if (columnUserId === "__unassigned__") return !card.assigned_to && !(card.additional_assignees?.length);
+              return card.assigned_to === columnUserId || (card.additional_assignees?.includes(columnUserId) ?? false);
             });
 
             // Cards HISTÓRICOS: todos que já passaram por esse colaborador
