@@ -2941,7 +2941,7 @@ const KanbanCentralPage = () => {
 
                             {!isAwaitingCollapsed && (
                               <div className="mt-1 space-y-1">
-                                {awaitingCards.map((card) => {
+                                {awaitingCardsSorted.map((card) => {
                                   const resendCount = (card as any).client_resend_count || 0;
                                   const waitStart = (card as any).client_wait_started_at;
                                   let waitLabel = "";
@@ -3029,7 +3029,7 @@ const KanbanCentralPage = () => {
 
                             {!isEvaluateCollapsed && (
                               <div className="mt-1 space-y-1">
-                                {evaluateCards.map((ec) => (
+                                {evaluateCardsSorted.map((ec) => (
                                   <button
                                     type="button"
                                     key={ec.key}
