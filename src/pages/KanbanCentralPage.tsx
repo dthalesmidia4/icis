@@ -1017,7 +1017,7 @@ const KanbanCentralPage = () => {
 
   const resolveStageLabel = useCallback((
     card: CentralKanbanCard,
-    opts?: { isTop?: boolean; isPausedByCaptarNow?: boolean },
+    opts?: { isCurrent?: boolean; isNext?: boolean; isPausedByCaptarNow?: boolean },
   ): string => {
     const key = (card as any).current_function_key as string | null | undefined;
     const base = key
@@ -1027,7 +1027,8 @@ const KanbanCentralPage = () => {
     if (pausedMeta || opts?.isPausedByCaptarNow) return `${base} pausado para captação`;
     if (key === "publicar" && activeDispatchIds.has(card.id)) return `${base} agendado`;
     if (key === "aguardando_cliente") return base;
-    if (opts?.isTop && key) return `${base} em andamento`;
+    if (opts?.isCurrent && key) return `${base} em andamento`;
+    if (opts?.isNext && key) return `${base} próximo`;
     return base;
   }, [flowFunctionNames, activeDispatchIds]);
 
