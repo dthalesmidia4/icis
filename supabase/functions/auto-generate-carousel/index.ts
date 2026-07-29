@@ -400,7 +400,17 @@ REGRAS:
     const BATCH_SIZE = 2;
     let totalGenerated = 0;
     const totalAlreadyGenerated = existingSlideNumbers.size;
-    const missingSlides = slides.filter((_slide, idx) => !existingSlideNumbers.has(idx + 1));
+    const missingRanges: Array<{ startIndex: number; slides: Array<{ text: string; label: string }> }> = [];
+    slides.forEach((slide, idx) => {
+      if (existingSlideNumbers.has(idx + 1)) return;
+      const last = missingRanges[missingRanges.length - 1];
+      if (last && last.startIndex + last.slides.length === idx && last.slides.length < BATCH_SIZE) {
+        last.slides.push(slide);
+      } else {
+        missingRanges.push({ startIndex: idx, slides: [slide] });
+      }
+    });
+    const missingCount = missingRanges.reduce((sum, range) => sum + range.slides.length, 0);
 
     const partialResponse = (reason: string) => new Response(
       JSON.stringify({
@@ -418,7 +428,7 @@ REGRAS:
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
 
-    if (missingSlides.length === 0) {
+    if (missingCount === 0) {
       console.log(`✅ Carousel already has ${totalAlreadyGenerated}/${slides.length} AI slides attached`);
       return new Response(
         JSON.stringify({
@@ -434,15 +444,15 @@ REGRAS:
       );
     }
 
-    for (let batchStart = 0; batchStart < missingSlides.length; batchStart += BATCH_SIZE) {
+    let processedMissing = 0;
+    for (const range of missingRanges) {
       if ((totalGenerated > 0 || totalAlreadyGenerated > 0) && elapsedMs() > SAFE_RETURN_MS - MIN_NEW_BATCH_BUDGET_MS) {
         console.log(`⏳ Returning partial carousel before next batch to avoid timeout (${elapsedMs()}ms)`);
         return partialResponse("safe_timeout_before_next_batch");
       }
 
-      const batch = missingSlides.slice(batchStart, batchStart + BATCH_SIZE);
-      const globalStart = slides.findIndex((s) => s === batch[0]);
-      console.log(`  → Batch missing ${batchStart + 1}-${batchStart + batch.length}/${missingSlides.length} (elapsed ${elapsedMs()}ms)`);
+      const batch = range.slides;
+      console.log(`  → Batch missing ${processedMissing + 1}-${processedMissing + batch.length}/${missingCount} (slides ${range.startIndex + 1}-${range.startIndex + batch.length}, elapsed ${elapsedMs()}ms)`);
 
       const { results } = await generateCarouselSlideImages({
         supabase,
@@ -454,7 +464,7 @@ REGRAS:
         strategySnippet,
         slides: batch,
         allSlides: slides,
-        batchOffset: globalStart,
+        batchOffset: range.startIndex,
         mascotInline,
         logoInline,
         storagePathBuilder: (slideNumber, ext) =>
@@ -463,6 +473,7 @@ REGRAS:
       });
 
       totalGenerated += results.filter((r) => r.ok).length;
+      processedMissing += batch.length;
 
       if (totalAlreadyGenerated + totalGenerated < slides.length && elapsedMs() > SAFE_RETURN_MS) {
         console.log(`⏳ Returning partial carousel after batch to avoid timeout (${elapsedMs()}ms)`);
