@@ -33,6 +33,7 @@ interface KanbanCardProps {
   dailyTotal?: number | null;
   dailyNextDate?: string | null;
   workArea?: "midia" | "sistemas" | null;
+  pausedByCaptar?: { atTime?: string; captarTitle?: string } | null;
   onClick?: () => void;
   onDatesChange?: (changes: CardDatesChange) => Promise<void> | void;
 }
@@ -147,6 +148,7 @@ const KanbanCard = ({
   dailyTotal = null,
   dailyNextDate = null,
   workArea = null,
+  pausedByCaptar = null,
   onClick,
   onDatesChange,
 }: KanbanCardProps) => {
@@ -202,6 +204,15 @@ const KanbanCard = ({
         <CardTitle className="text-sm font-semibold leading-snug line-clamp-2 break-words text-foreground">
           {title}
         </CardTitle>
+        {pausedByCaptar && (
+          <Badge
+            variant="outline"
+            className="text-[10px] px-1.5 py-0 h-4 gap-1 border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300 self-start"
+            title={pausedByCaptar.captarTitle ? `Pausado para captação: ${pausedByCaptar.captarTitle}` : "Pausado para captação"}
+          >
+            ⏸ Pausado {pausedByCaptar.atTime || ""} · captação
+          </Badge>
+        )}
       </CardHeader>
 
 

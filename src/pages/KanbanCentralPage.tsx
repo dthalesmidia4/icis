@@ -2739,6 +2739,12 @@ const KanbanCentralPage = () => {
                                             dailyTotal={(card as any).daily_total_occurrences}
                                             dailyNextDate={(card as any).daily_next_date}
                                             workArea={(card as any).work_area || null}
+                                            pausedByCaptar={(card as any).reorder_meta?.pausedByCaptar
+                                              ? {
+                                                  atTime: (card as any).reorder_meta.pausedByCaptar.atTime,
+                                                  captarTitle: (card as any).reorder_meta.pausedByCaptar.captarTitle,
+                                                }
+                                              : null}
                                             onClick={() => handleCardClick(card, column.id)}
                                             onDatesChange={isHistory ? undefined : (changes) => handleInlineDatesChange(card.id, changes)}
                                           />

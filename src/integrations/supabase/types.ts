@@ -716,6 +716,7 @@ export type Database = {
           publish_date: string | null
           publish_time: string | null
           rejected_attachments: Json
+          reorder_meta: Json | null
           source: string
           status_id: string
           template_id: string | null
@@ -766,6 +767,7 @@ export type Database = {
           publish_date?: string | null
           publish_time?: string | null
           rejected_attachments?: Json
+          reorder_meta?: Json | null
           source?: string
           status_id: string
           template_id?: string | null
@@ -816,6 +818,7 @@ export type Database = {
           publish_date?: string | null
           publish_time?: string | null
           rejected_attachments?: Json
+          reorder_meta?: Json | null
           source?: string
           status_id?: string
           template_id?: string | null
