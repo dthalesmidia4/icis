@@ -779,7 +779,7 @@ function TableRow({
         <div className="truncate" title={card.demand_type || undefined}>{card.demand_type || "—"}</div>
       </td>
       <td className="px-2 py-2 hidden md:table-cell text-foreground text-[12px] truncate">
-        {assigneeName || <span className="text-muted-foreground">—</span>}
+        {(isDone || isScheduledPublish) ? <span className="text-muted-foreground">—</span> : (assigneeName || <span className="text-muted-foreground">—</span>)}
       </td>
       <td className="px-2 py-2">
         <AreaBadge workArea={workArea} />
