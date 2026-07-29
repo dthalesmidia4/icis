@@ -605,7 +605,8 @@ export async function computeReorder(
 
   const ctx = buildCtx(wh, holidays, opts?.areaSchedule);
 
-  const awaiting = cards.filter((c) => (c.current_function_key || "").toLowerCase() === "aguardando_cliente");
+  // Cards em `aguardando_cliente` estão com o cliente: não consomem tempo do
+  // colaborador nem recebem horário novo — ficam totalmente fora do cálculo.
   const captarFixed = cards.filter((c) => (c.current_function_key || "").toLowerCase() === "captar");
   const dailyFixed = cards.filter((c) => !!c.is_daily_card && (c.current_function_key || "").toLowerCase() !== "aguardando_cliente" && (c.current_function_key || "").toLowerCase() !== "captar");
   const active = cards.filter((c) => {
@@ -617,17 +618,16 @@ export async function computeReorder(
 
   const ordered = sortForReorder(active, { prioritizePublishDate: opts?.prioritizePublishDate });
 
-  // Intervalos ocupados por cards fixos (captar, daily, aguardando_cliente).
+  // Intervalos ocupados por cards fixos (captar, daily).
   // O alocador contornará esses intervalos em vez de agendar por cima.
   type BlockedInterval = { start: Date; end: Date; kind?: "captar" | "daily" | "awaiting"; cardId?: string; title?: string };
   const blocked: BlockedInterval[] = [];
   const tagFor = (c: ReorderCardInput): "captar" | "daily" | "awaiting" => {
     const k = (c.current_function_key || "").toLowerCase();
     if (k === "captar") return "captar";
-    if (k === "aguardando_cliente") return "awaiting";
     return "daily";
   };
-  for (const c of [...captarFixed, ...dailyFixed, ...awaiting]) {
+  for (const c of [...captarFixed, ...dailyFixed]) {
     if (!c.due_date || !c.due_time || !c.delivery_date || !c.delivery_time) continue;
     const rawStart = toVirtualUtc(c.due_date, c.due_time.slice(0, 5));
     const e = toVirtualUtc(c.delivery_date, c.delivery_time.slice(0, 5));
