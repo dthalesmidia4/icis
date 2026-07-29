@@ -480,17 +480,19 @@ export default function TaskCard({
     }
   };
 
-  const handleDeliverMyPart = async () => {
-    if (!card || !currentUserId || deliveringPart) return;
+  const handleDeliverMyPart = async (targetUserId?: string) => {
+    if (!card || deliveringPart) return;
+    const uid = targetUserId || currentUserId;
+    if (!uid) return;
     setDeliveringPart(true);
     try {
-      const r = await deliverMyPart(card.id, currentUserId);
+      const r = await deliverMyPart(card.id, uid);
       if (r.success) {
         toast.success(r.message);
         // Atualiza local: remove usuário do card
-        const nextExtras = (card.additional_assignees || []).filter((u: string) => u !== currentUserId);
+        const nextExtras = (card.additional_assignees || []).filter((u: string) => u !== uid);
         let nextAssigned = card.assigned_to;
-        if (card.assigned_to === currentUserId) {
+        if (card.assigned_to === uid) {
           nextAssigned = r.becamePrimary ?? null;
         }
         onCardChange({
@@ -498,7 +500,8 @@ export default function TaskCard({
           assigned_to: nextAssigned,
           additional_assignees: nextExtras.filter((u: string) => u !== nextAssigned),
         } as any);
-        onOpenChange(false);
+        setDeliverPartOpen(false);
+        if (uid === currentUserId) onOpenChange(false);
       } else {
         toast.error(r.message);
       }
