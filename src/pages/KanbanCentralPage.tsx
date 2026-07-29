@@ -3242,11 +3242,18 @@ const KanbanCentralPage = () => {
             collaborators.find((c) => c.userId === reorderModalColumnId)?.fullName || "Coluna"
           }
           cards={cards
-            .filter((c) =>
-              c.assigned_to === reorderModalColumnId ||
-              (Array.isArray((c as any).additional_assignees) &&
-                (c as any).additional_assignees.includes(reorderModalColumnId))
-            )
+            .filter((c) => {
+              const belongs =
+                c.assigned_to === reorderModalColumnId ||
+                (Array.isArray((c as any).additional_assignees) &&
+                  (c as any).additional_assignees.includes(reorderModalColumnId));
+              if (!belongs) return false;
+              // Excluir arquivados e cards com publicação agendada (fora da coluna operacional)
+              if ((c as any).isArchived) return false;
+              if (c.current_function_key === "publicar" && activeDispatchIds.has(c.id)) return false;
+              return true;
+            })
+
             .map((c) => ({
               id: c.id,
               title: c.title,
