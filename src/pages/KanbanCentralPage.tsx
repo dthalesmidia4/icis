@@ -2379,7 +2379,7 @@ const KanbanCentralPage = () => {
               const [h, mi] = ((c.due_time || "00:00").slice(0, 5)).split(":").map((x) => parseInt(x, 10));
               return new Date(y, (mo || 1) - 1, d || 1, h || 0, mi || 0).getTime();
             };
-            const allOperationalCards = activeColumnCards.filter((c) => !isHistoryMode || true);
+            const allOperationalCards = isHistoryMode ? [] : activeColumnCards;
             const flowCandidates = allOperationalCards.map((c) => ({
               c,
               tier: isReviewFunction(c.current_function_key) ? 1 : isEvaluationFunction(c.current_function_key) ? 2 : 0,
