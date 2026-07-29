@@ -582,15 +582,24 @@ export async function computeReorder(
 
   const ordered = sortForReorder(active, { prioritizePublishDate: opts?.prioritizePublishDate });
 
-  // Cursores separados por área quando há schedule por área.
-  // Se não há areaSchedule (fallback antigo), cursor único.
-  const useAreaCursors = !!opts?.areaSchedule;
-  const cursors: Record<string, Date> = {};
+  // Intervalos ocupados por cards fixos (captar, daily, aguardando_cliente).
+  // O alocador contornará esses intervalos em vez de agendar por cima.
+  const blocked: Array<{ start: Date; end: Date }> = [];
+  for (const c of [...captarFixed, ...dailyFixed, ...awaiting]) {
+    if (!c.due_date || !c.due_time || !c.delivery_date || !c.delivery_time) continue;
+    const s = toVirtualUtc(c.due_date, c.due_time.slice(0, 5));
+    const e = toVirtualUtc(c.delivery_date, c.delivery_time.slice(0, 5));
+    if (e > s) blocked.push({ start: s, end: e });
+  }
+  blocked.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+  // Cursor ÚNICO por responsável (não mais separado por área).
+  // A área do card só influencia quais BLOCOS de expediente estão disponíveis.
   const initialCursor = normalizeCursor(new Date(now), null, ctx);
   const bumped = new Date(initialCursor);
   const bump = bumped.getUTCMinutes() % 5;
   if (bump !== 0) bumped.setUTCMinutes(bumped.getUTCMinutes() + (5 - bump), 0, 0);
-  cursors.__default = bumped;
+  let cursor = bumped;
 
   const proposals: ReorderProposal[] = [];
   let isFirstActive = true;
@@ -599,13 +608,6 @@ export async function computeReorder(
     const area: ReorderWorkArea | null = (card.work_area === "midia" || card.work_area === "sistemas")
       ? card.work_area
       : null;
-    const cursorKey = useAreaCursors && area ? area : "__default";
-    if (!cursors[cursorKey]) {
-      cursors[cursorKey] = normalizeCursor(new Date(now), area, ctx);
-      const b2 = cursors[cursorKey].getUTCMinutes() % 5;
-      if (b2 !== 0) cursors[cursorKey].setUTCMinutes(cursors[cursorKey].getUTCMinutes() + (5 - b2), 0, 0);
-    }
-    let cursor = cursors[cursorKey];
 
     const baseDur = estimateDurationBase(card, ctx, opts?.durations);
     let dur = baseDur;
@@ -624,14 +626,17 @@ export async function computeReorder(
       const originalStart = toVirtualUtc(card.due_date, card.due_time.slice(0, 5));
       const delayMin = workingMinutesBetween(originalStart, now, area, ctx);
       const slack = Math.round(baseDur * 0.30);
-      dur = baseDur + Math.max(0, delayMin) + slack;
+      // Cap na inflação: no máximo 2 jornadas úteis da área do card
+      const dayCap = Math.max(60, workingMinutesInDay(now, area, ctx) * 2);
+      const inflated = baseDur + Math.max(0, Math.round(delayMin * 0.5)) + slack;
+      dur = Math.min(inflated, dayCap);
       slackApplied = true;
-      ({ start, end, daysSpanned } = allocateAcrossDays(originalStart, dur, area, ctx));
+      ({ start, end, daysSpanned } = allocateAcrossDays(originalStart, dur, area, ctx, blocked));
       if (end < now) {
-        ({ start, end, daysSpanned } = allocateAcrossDays(now, baseDur + slack, area, ctx));
+        ({ start, end, daysSpanned } = allocateAcrossDays(now, baseDur + slack, area, ctx, blocked));
       }
     } else {
-      ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx));
+      ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
     }
 
     let warning: string | undefined;
@@ -649,7 +654,7 @@ export async function computeReorder(
       warning = warning ? `${warning} ${extra}` : extra;
     }
     if (slackApplied) {
-      const extra = "Tempo extra aplicado (atraso + 30%).";
+      const extra = "Tempo extra aplicado (atraso + folga).";
       warning = warning ? `${warning} ${extra}` : extra;
     }
 
@@ -679,13 +684,18 @@ export async function computeReorder(
       slackApplied,
     });
 
-    // Próximo cursor da área: 5min após o fim
+    // Adiciona intervalo recém-alocado à lista de bloqueados para o próximo card.
+    blocked.push({ start, end });
+    blocked.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    // Próximo cursor: 5min após o fim do card (o skipBlocked cuidará de intervalos futuros).
     const nextCursor = new Date(end);
     nextCursor.setUTCMinutes(nextCursor.getUTCMinutes() + 5);
-    cursors[cursorKey] = normalizeCursor(nextCursor, area, ctx);
+    cursor = normalizeCursor(nextCursor, null, ctx);
 
     isFirstActive = false;
   }
+
 
   for (const c of awaiting) {
     proposals.push({
