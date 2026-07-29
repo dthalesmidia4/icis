@@ -17,6 +17,26 @@ async function fetchCaptarExtras(demandId: string): Promise<string[]> {
   return Array.isArray(raw) ? (raw.filter(Boolean) as string[]) : [];
 }
 
+/**
+ * Verifica se o card já teve entregas parciais na etapa `captar`.
+ * Usado para decidir se o último captador (que clica Prosseguir) também
+ * deve ficar registrado como `partial_delivered` no histórico.
+ */
+async function hadPriorCaptarPartialDelivery(tenantId: string, demandId: string): Promise<boolean> {
+  try {
+    const { count } = await supabase
+      .from("demand_flow_history")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("demand_id", demandId)
+      .eq("action", "partial_delivered")
+      .eq("from_function_key", "captar");
+    return (count || 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
 async function clearAdditionalAssignees(demandId: string): Promise<void> {
   try {
     await supabase
@@ -282,6 +302,10 @@ export async function jumpToFunction({
       [prevUser, ...captarExtras],
     );
   } else {
+    // Se este é o último captador de uma captação que teve entregas parciais, registra sua entrega também.
+    if (currentFunctionKey === "captar" && prevUser && await hadPriorCaptarPartialDelivery(tenantId, demandId)) {
+      await recordFlowHistory({ tenantId, demandId, action: "partial_delivered", fromUserId: prevUser, toUserId: prevUser, fromFunctionKey: "captar", toFunctionKey: "captar", metadata: { final_of_capture: true } as any });
+    }
     await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
   }
   return { success: true, assignedTo: picked.userId, assignedName: picked.name, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name} com ${picked.name}.` };
@@ -400,6 +424,19 @@ export async function proceedDemand({
       [previousAssignee, ...captarExtras],
     );
   } else {
+    // Último captador de uma captação com entregas parciais anteriores: registra também sua entrega.
+    if (currentFunctionKey === "captar" && previousAssignee && await hadPriorCaptarPartialDelivery(tenantId, demandId)) {
+      await recordFlowHistory({
+        tenantId,
+        demandId,
+        action: "partial_delivered",
+        fromUserId: previousAssignee,
+        toUserId: previousAssignee,
+        fromFunctionKey: "captar",
+        toFunctionKey: "captar",
+        metadata: { final_of_capture: true } as any,
+      });
+    }
     await recordFlowHistory({
       tenantId,
       demandId,
