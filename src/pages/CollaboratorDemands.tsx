@@ -494,9 +494,15 @@ const CollaboratorDemands = () => {
                       onChange={(e) => setEditDraft((d) => ({ ...d, due_time: e.target.value }))} className="h-8 w-28" />
                   </div>
                 ) : card.current_function_key === "aguardando_cliente" ? (
-                  <span className="text-blue-600 dark:text-blue-400 font-medium">
+                  <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 font-medium">
                     {formatClientSentText(card)}
+                    <ClientSendHistoryPopover
+                      demandId={card.id}
+                      fallbackSince={card.client_wait_started_at || card.client_sent_at_fallback}
+                      fallbackResendCount={card.client_resend_count}
+                    />
                   </span>
+
                 ) : (
                   <span>{formatDate(card.due_date)}{card.due_time ? ` · ${formatTime(card.due_time)}` : ""}</span>
                 )}
