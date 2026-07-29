@@ -3009,7 +3009,6 @@ const KanbanCentralPage = () => {
                                         tenantId={tenantId}
                                         demandTypeKey={(card as any).demand_type_key || card.demand_type}
                                         currentFunctionKey={card.current_function_key}
-                                        resendCount={resendCount}
                                         onDone={() => fetchAllCards()}
                                       />
                                     )}
