@@ -95,6 +95,27 @@ const CollaboratorDemands = () => {
 
 
       if (demands) {
+        const historyFallback = new Map<string, string>();
+        const awaitingWithoutStarted = demands
+          .filter((d: any) => d.current_function_key === "aguardando_cliente" && !d.client_wait_started_at)
+          .map((d: any) => d.id);
+
+        if (awaitingWithoutStarted.length > 0) {
+          const { data: historyRows } = await supabase
+            .from("demand_flow_history")
+            .select("demand_id, created_at")
+            .in("demand_id", awaitingWithoutStarted)
+            .eq("from_function_key", "enviar_cliente")
+            .eq("to_function_key", "aguardando_cliente")
+            .order("created_at", { ascending: false });
+
+          (historyRows || []).forEach((row: any) => {
+            if (row.demand_id && row.created_at && !historyFallback.has(row.demand_id)) {
+              historyFallback.set(row.demand_id, row.created_at);
+            }
+          });
+        }
+
         const mapped: KanbanCardData[] = demands.map((d: any) => ({
           id: d.id,
           title: d.title,
@@ -125,6 +146,7 @@ const CollaboratorDemands = () => {
           client_wait_started_at: d.client_wait_started_at ?? null,
           client_resend_count: d.client_resend_count ?? 0,
           client_last_resend_at: d.client_last_resend_at ?? null,
+          client_sent_at_fallback: historyFallback.get(d.id) ?? null,
           clientName: d.tenant_companies.fantasy_name || d.tenant_companies.name,
           clientId: d.client_id,
           is_daily_card: !!d.is_daily_card,
