@@ -1017,7 +1017,7 @@ const KanbanCentralPage = () => {
 
   const resolveStageLabel = useCallback((
     card: CentralKanbanCard,
-    opts?: { isTop?: boolean; isPausedByCaptarNow?: boolean },
+    opts?: { isCurrent?: boolean; isNext?: boolean; isPausedByCaptarNow?: boolean },
   ): string => {
     const key = (card as any).current_function_key as string | null | undefined;
     const base = key
@@ -1027,7 +1027,8 @@ const KanbanCentralPage = () => {
     if (pausedMeta || opts?.isPausedByCaptarNow) return `${base} pausado para captação`;
     if (key === "publicar" && activeDispatchIds.has(card.id)) return `${base} agendado`;
     if (key === "aguardando_cliente") return base;
-    if (opts?.isTop && key) return `${base} em andamento`;
+    if (opts?.isCurrent && key) return `${base} em andamento`;
+    if (opts?.isNext && key) return `${base} próximo`;
     return base;
   }, [flowFunctionNames, activeDispatchIds]);
 
@@ -2282,9 +2283,9 @@ const KanbanCentralPage = () => {
                 const _eval = evalByAssignee.get(target.userId) || [];
                 const sub: typeof rawColumns = [];
                 if (_prod.length > 0) sub.push({ id: `${target.userId}::production`, name: target.name, color: 'hsl(var(--primary))', userId: target.userId, focusKind: 'production' });
-                if (_eval.length > 0) sub.push({ id: `${target.userId}::evaluate`, name: 'Avaliar', color: 'hsl(280 70% 55%)', userId: target.userId, focusKind: 'evaluate' });
-                if (_aw.length > 0) sub.push({ id: `${target.userId}::awaiting`, name: 'Aguardando clientes', color: 'hsl(210 90% 55%)', userId: target.userId, focusKind: 'awaiting' });
                 if (_rev.length > 0) sub.push({ id: `${target.userId}::review`, name: 'Em revisão', color: 'hsl(38 92% 50%)', userId: target.userId, focusKind: 'review' });
+                if (_aw.length > 0) sub.push({ id: `${target.userId}::awaiting`, name: 'Aguardando clientes', color: 'hsl(210 90% 55%)', userId: target.userId, focusKind: 'awaiting' });
+                if (_eval.length > 0) sub.push({ id: `${target.userId}::evaluate`, name: 'Avaliar', color: 'hsl(280 70% 55%)', userId: target.userId, focusKind: 'evaluate' });
                 if (sub.length === 0) sub.push({ id: `${target.userId}::production`, name: target.name, color: 'hsl(var(--primary))', userId: target.userId, focusKind: 'production' });
                 displayColumns = sub;
               }
@@ -2354,9 +2355,52 @@ const KanbanCentralPage = () => {
             const awaitingCards = focusKind
               ? (focusKind === 'awaiting' ? awaitingCardsBase : [])
               : awaitingCardsBase;
-            const reviewCards = focusKind
+            const reviewCardsUnsorted = focusKind
               ? (focusKind === 'review' ? reviewCandidateCards : [])
               : reviewCardsBase;
+
+            // --- Ordenação cronológica dos agrupamentos ---
+            const startKeyOf = (c: CentralKanbanCard): string =>
+              `${c.due_date || "9999-12-31"}T${(c.due_time || "23:59").slice(0, 5)}`;
+            const sortChrono = (list: CentralKanbanCard[]) =>
+              [...list].sort((a, b) => startKeyOf(a).localeCompare(startKeyOf(b)));
+            const reviewCards = sortChrono(reviewCardsUnsorted);
+            const awaitingCardsSorted = sortChrono(awaitingCards);
+            const evaluateCardsSorted = [...evaluateCards].sort((a, b) =>
+              (a.suggestedDate || "9999-12-31").localeCompare(b.suggestedDate || "9999-12-31"));
+
+            // --- "Em andamento" = card mais atrasado que já deveria estar sendo feito ---
+            // Considera produção + revisão; ignora aguardando cliente, captação
+            // (que tem lógica própria de pausa) e publicações já agendadas.
+            const nowTs = Date.now();
+            const startTsOf = (c: CentralKanbanCard): number => {
+              if (!c.due_date) return Number.POSITIVE_INFINITY;
+              const [y, mo, d] = c.due_date.split("-").map((x) => parseInt(x, 10));
+              const [h, mi] = ((c.due_time || "00:00").slice(0, 5)).split(":").map((x) => parseInt(x, 10));
+              return new Date(y, (mo || 1) - 1, d || 1, h || 0, mi || 0).getTime();
+            };
+            const flowCandidates = [
+              ...columnCards.map((c) => ({ c, tier: 0 })),
+              ...reviewCards.map((c) => ({ c, tier: 1 })),
+            ].filter(({ c }) => {
+              const k = (c.current_function_key || "").toLowerCase();
+              if (k === "aguardando_cliente" || k === "captar") return false;
+              if (k === "publicar" && activeDispatchIds.has(c.id)) return false;
+              return Number.isFinite(startTsOf(c));
+            }).sort((a, b) => {
+              const d = startTsOf(a.c) - startTsOf(b.c);
+              return d !== 0 ? d : a.tier - b.tier;
+            });
+            const startedCandidates = flowCandidates.filter(({ c }) => startTsOf(c) <= nowTs);
+            const currentFlowCardId = startedCandidates.length > 0 ? startedCandidates[0].c.id : null;
+            const nextFlowCardId = (() => {
+              if (currentFlowCardId) {
+                const idx = flowCandidates.findIndex((x) => x.c.id === currentFlowCardId);
+                return flowCandidates[idx + 1]?.c.id || null;
+              }
+              return flowCandidates[0]?.c.id || null;
+            })();
+
 
             const isAwaitingCollapsed = focusKind ? false : !expandedAwaiting.has(column.id);
             const isReviewCollapsed = focusKind ? false : !expandedReview.has(column.id);
@@ -2781,7 +2825,7 @@ const KanbanCentralPage = () => {
                                             isDragging={snapshot.isDragging}
                                             isOverdue={isCardOverdue(card)}
                                             cardId={card.id}
-                                           statusName={resolveStageLabel(card, { isTop: isTopCard, isPausedByCaptarNow })}
+                                           statusName={resolveStageLabel(card, { isCurrent: card.id === currentFlowCardId, isNext: card.id === nextFlowCardId, isPausedByCaptarNow })}
                                             statusColor={card.status_color}
                                             isDailyCard={(card as any).is_daily_card}
                                             dailyCompleted={(card as any).daily_completed_occurrences}
@@ -2811,68 +2855,67 @@ const KanbanCentralPage = () => {
                         })()}
                         {provided.placeholder}
 
-                        {/* Avaliar — cards planejados aguardando aprovação atribuídos a esse responsável */}
-                        {evaluateCards.length > 0 && (
-                          <div className="mt-3 pt-2 border-t-2 border-purple-500/60">
+                        {/* Em Revisão — agrupa quando há 3+ cards em função de revisão neste colaborador */}
+                        {reviewCards.length > 0 && (
+                          <div className="mt-3 pt-2 border-t-2 border-amber-500/60">
                             <button
                               type="button"
-                              onClick={() => toggleEvaluate(column.id)}
-                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 transition-colors border border-purple-500/40"
-                              aria-expanded={!isEvaluateCollapsed}
+                              onClick={() => toggleReview(column.id)}
+                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 transition-colors border border-amber-500/40"
+                              aria-expanded={!isReviewCollapsed}
                             >
-                              {isEvaluateCollapsed ? (
-                                <ChevronRight className="h-5 w-5 text-purple-600 dark:text-purple-400 shrink-0" />
+                              {isReviewCollapsed ? (
+                                <ChevronRight className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
                               ) : (
-                                <ChevronDown className="h-5 w-5 text-purple-600 dark:text-purple-400 shrink-0" />
+                                <ChevronDown className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
                               )}
-                              <ClipboardCheck className="h-4 w-4 text-purple-600 dark:text-purple-400 shrink-0" />
-                              <span className="text-sm font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
-                                Avaliar
+                              <span className="text-sm font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">
+                                Em revisão
                               </span>
-                              <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 ml-auto bg-purple-500/25 text-purple-700 dark:text-purple-300 border-purple-500/40 font-bold">
-                                {evaluateCards.length}
+                              <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 ml-auto bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-500/40 font-bold">
+                                {reviewCards.length}
                               </Badge>
                             </button>
 
-                            {!isEvaluateCollapsed && (
+                            {!isReviewCollapsed && (
                               <div className="mt-1 space-y-1">
-                                {evaluateCards.map((ec) => (
-                                  <button
-                                    type="button"
-                                    key={ec.key}
-                                    onClick={() => setEvaluateModalCard(ec)}
-                                    className="w-full text-left rounded-lg border border-purple-500/30 bg-background hover:border-purple-500/60 hover:bg-purple-500/5 transition-colors p-2.5"
+                                {reviewCards.map((card) => (
+                                  <div
+                                    key={card.id}
+                                    ref={(el) => {
+                                      if (el) cardRefs.current.set(card.id, el);
+                                      else cardRefs.current.delete(card.id);
+                                    }}
+                                    className={cn(
+                                      highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
+                                    )}
                                   >
-                                    <div className="text-[10px] font-semibold uppercase tracking-wide text-purple-600/90 dark:text-purple-300/90 mb-0.5 truncate">
-                                      {ec.clientName}
-                                    </div>
-                                    <div className="text-sm font-medium text-foreground break-words line-clamp-2">
-                                      {ec.title}
-                                    </div>
-                                    <div className="mt-1 flex flex-wrap gap-1">
-                                      {ec.demandType && (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                                          {ec.demandType}
-                                        </span>
-                                      )}
-                                      {ec.suggestedDate && (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                                          {ec.suggestedDate}
-                                        </span>
-                                      )}
-                                      {ec.source === "ultra" && (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">
-                                          Ultra
-                                        </span>
-                                      )}
-                                    </div>
-                                  </button>
+                                    <KanbanCard
+                                      title={card.title}
+                                      subtitle={card.clientName}
+                                      demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
+                                      dueDate={card.due_date}
+                                      dueTime={card.due_time || undefined}
+                                      cardDeliveryDate={card.delivery_date || undefined}
+                                      deliveryTime={card.delivery_time || undefined}
+                                      isOverdue={isCardOverdue(card)}
+                                      cardId={card.id}
+                                      statusName={resolveStageLabel(card, { isCurrent: card.id === currentFlowCardId, isNext: card.id === nextFlowCardId })}
+                                      statusColor={(card as any).status_color}
+                                      isDailyCard={(card as any).is_daily_card}
+                                      dailyCompleted={(card as any).daily_completed_occurrences}
+                                      dailyTotal={(card as any).daily_total_occurrences}
+                                      dailyNextDate={(card as any).daily_next_date}
+                                      workArea={(card as any).work_area || null}
+                                      onClick={() => handleCardClick(card, column.id)}
+                                      onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
+                                    />
+                                  </div>
                                 ))}
                               </div>
                             )}
                           </div>
                         )}
-
                         {/* Aguardando clientes — cards em `aguardando_cliente` ficam agrupados aqui */}
                         {awaitingCards.length > 0 && (
                           <div className="mt-3 pt-2 border-t-2 border-blue-500/60">
@@ -2898,7 +2941,7 @@ const KanbanCentralPage = () => {
 
                             {!isAwaitingCollapsed && (
                               <div className="mt-1 space-y-1">
-                                {awaitingCards.map((card) => {
+                                {awaitingCardsSorted.map((card) => {
                                   const resendCount = (card as any).client_resend_count || 0;
                                   const waitStart = (card as any).client_wait_started_at;
                                   let waitLabel = "";
@@ -2961,67 +3004,68 @@ const KanbanCentralPage = () => {
                           </div>
                         )}
 
-                        {/* Em Revisão — agrupa quando há 3+ cards em função de revisão neste colaborador */}
-                        {reviewCards.length > 0 && (
-                          <div className="mt-3 pt-2 border-t-2 border-amber-500/60">
+                        {/* Avaliar — cards planejados aguardando aprovação atribuídos a esse responsável */}
+                        {evaluateCards.length > 0 && (
+                          <div className="mt-3 pt-2 border-t-2 border-purple-500/60">
                             <button
                               type="button"
-                              onClick={() => toggleReview(column.id)}
-                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 transition-colors border border-amber-500/40"
-                              aria-expanded={!isReviewCollapsed}
+                              onClick={() => toggleEvaluate(column.id)}
+                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 transition-colors border border-purple-500/40"
+                              aria-expanded={!isEvaluateCollapsed}
                             >
-                              {isReviewCollapsed ? (
-                                <ChevronRight className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                              {isEvaluateCollapsed ? (
+                                <ChevronRight className="h-5 w-5 text-purple-600 dark:text-purple-400 shrink-0" />
                               ) : (
-                                <ChevronDown className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                <ChevronDown className="h-5 w-5 text-purple-600 dark:text-purple-400 shrink-0" />
                               )}
-                              <span className="text-sm font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wide">
-                                Em revisão
+                              <ClipboardCheck className="h-4 w-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                              <span className="text-sm font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
+                                Avaliar
                               </span>
-                              <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 ml-auto bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-500/40 font-bold">
-                                {reviewCards.length}
+                              <Badge variant="secondary" className="text-xs px-2 py-0.5 h-5 ml-auto bg-purple-500/25 text-purple-700 dark:text-purple-300 border-purple-500/40 font-bold">
+                                {evaluateCards.length}
                               </Badge>
                             </button>
 
-                            {!isReviewCollapsed && (
+                            {!isEvaluateCollapsed && (
                               <div className="mt-1 space-y-1">
-                                {reviewCards.map((card) => (
-                                  <div
-                                    key={card.id}
-                                    ref={(el) => {
-                                      if (el) cardRefs.current.set(card.id, el);
-                                      else cardRefs.current.delete(card.id);
-                                    }}
-                                    className={cn(
-                                      highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
-                                    )}
+                                {evaluateCardsSorted.map((ec) => (
+                                  <button
+                                    type="button"
+                                    key={ec.key}
+                                    onClick={() => setEvaluateModalCard(ec)}
+                                    className="w-full text-left rounded-lg border border-purple-500/30 bg-background hover:border-purple-500/60 hover:bg-purple-500/5 transition-colors p-2.5"
                                   >
-                                    <KanbanCard
-                                      title={card.title}
-                                      subtitle={card.clientName}
-                                      demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
-                                      dueDate={card.due_date}
-                                      dueTime={card.due_time || undefined}
-                                      cardDeliveryDate={card.delivery_date || undefined}
-                                      deliveryTime={card.delivery_time || undefined}
-                                      isOverdue={isCardOverdue(card)}
-                                      cardId={card.id}
-                                      statusName={resolveStageLabel(card)}
-                                      statusColor={(card as any).status_color}
-                                      isDailyCard={(card as any).is_daily_card}
-                                      dailyCompleted={(card as any).daily_completed_occurrences}
-                                      dailyTotal={(card as any).daily_total_occurrences}
-                                      dailyNextDate={(card as any).daily_next_date}
-                                      workArea={(card as any).work_area || null}
-                                      onClick={() => handleCardClick(card, column.id)}
-                                      onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
-                                    />
-                                  </div>
+                                    <div className="text-[10px] font-semibold uppercase tracking-wide text-purple-600/90 dark:text-purple-300/90 mb-0.5 truncate">
+                                      {ec.clientName}
+                                    </div>
+                                    <div className="text-sm font-medium text-foreground break-words line-clamp-2">
+                                      {ec.title}
+                                    </div>
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                      {ec.demandType && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                          {ec.demandType}
+                                        </span>
+                                      )}
+                                      {ec.suggestedDate && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                          {ec.suggestedDate}
+                                        </span>
+                                      )}
+                                      {ec.source === "ultra" && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                                          Ultra
+                                        </span>
+                                      )}
+                                    </div>
+                                  </button>
                                 ))}
                               </div>
                             )}
                           </div>
                         )}
+
                       </div>
                     </ScrollArea>
                   </div>
