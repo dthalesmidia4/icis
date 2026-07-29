@@ -2557,13 +2557,6 @@ const KanbanCentralPage = () => {
                     >
                       <div className="space-y-2">
                         {(() => {
-                          // Group cards by chosen date
-                          const groups = new Map<string, CentralKanbanCard[]>();
-                          for (const c of columnCards) {
-                            const key = (dateGroupBy === "start" ? c.due_date : c.delivery_date) || "__no_date__";
-                            if (!groups.has(key)) groups.set(key, []);
-                            groups.get(key)!.push(c);
-                          }
                           const nowMs = Date.now();
                           const captarDue = (c: CentralKanbanCard): number => {
                             const key = (c.current_function_key || "").toLowerCase();
@@ -2573,9 +2566,31 @@ const KanbanCentralPage = () => {
                             const [h, mm] = t.split(":").map((x) => parseInt(x, 10));
                             return new Date(y, (mo || 1) - 1, d || 1, h || 0, mm || 0).getTime();
                           };
+
+                          // R3 real: captar cujo horário já chegou sobe ao TOPO ABSOLUTO da coluna,
+                          // fora dos agrupamentos por data.
+                          const captarNow: CentralKanbanCard[] = [];
+                          const remaining: CentralKanbanCard[] = [];
+                          for (const c of columnCards) {
+                            const cap = captarDue(c);
+                            if (cap !== Number.POSITIVE_INFINITY && cap <= nowMs) {
+                              captarNow.push(c);
+                            } else {
+                              remaining.push(c);
+                            }
+                          }
+                          captarNow.sort((a, b) => captarDue(a) - captarDue(b));
+
+                          // Group cards by chosen date
+                          const groups = new Map<string, CentralKanbanCard[]>();
+                          for (const c of remaining) {
+                            const key = (dateGroupBy === "start" ? c.due_date : c.delivery_date) || "__no_date__";
+                            if (!groups.has(key)) groups.set(key, []);
+                            groups.get(key)!.push(c);
+                          }
                           const entries = Array.from(groups.entries()).map(([date, items]) => {
                             const sorted = [...items].sort((a, b) => {
-                              // R3: Captar cuja hora já chegou sobe ao topo da coluna
+                              // Boost secundário: captar futuros do próprio dia mantêm prioridade dentro do grupo
                               const aCap = captarDue(a);
                               const bCap = captarDue(b);
                               const aActive = aCap <= nowMs ? 0 : 1;
@@ -2594,6 +2609,11 @@ const KanbanCentralPage = () => {
                             return a.date.localeCompare(b.date);
                           });
 
+                          // Prepend pseudo-grupo "Captação · agora" quando houver
+                          if (captarNow.length > 0) {
+                            entries.unshift({ date: "__captar_now__", items: captarNow });
+                          }
+
                           let runningIndex = -1;
                           const _today = new Date();
                           const isoOf = (d: Date) => {
@@ -2606,6 +2626,7 @@ const KanbanCentralPage = () => {
                           const yesterdayISO = isoOf(new Date(_today.getFullYear(), _today.getMonth(), _today.getDate() - 1));
                           const tomorrowISO = isoOf(new Date(_today.getFullYear(), _today.getMonth(), _today.getDate() + 1));
                           const formatHeader = (date: string) => {
+                            if (date === "__captar_now__") return "Captação · agora";
                             if (date === "__no_date__") {
                               return dateGroupBy === "start" ? "Sem data de início" : "Sem data de término";
                             }
@@ -2619,25 +2640,40 @@ const KanbanCentralPage = () => {
                           return entries.map(({ date, items }) => {
                             const groupKey = `${column.id}::${date}`;
                             const isCollapsed = collapsedDateGroups.has(groupKey);
+                            const isCaptarNow = date === "__captar_now__";
                             return (
                             <div key={date} className="space-y-1">
                               <button
                                 type="button"
                                 onClick={() => toggleDateGroup(groupKey)}
-                                className="w-full flex items-center gap-2 px-1 pt-1 pb-1 border-b border-border/40 hover:bg-muted/40 rounded-sm transition-colors"
+                                className={cn(
+                                  "w-full flex items-center gap-2 px-1 pt-1 pb-1 rounded-sm transition-colors",
+                                  isCaptarNow
+                                    ? "border border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/20 px-2"
+                                    : "border-b border-border/40 hover:bg-muted/40"
+                                )}
                                 aria-expanded={!isCollapsed}
                                 aria-label={isCollapsed ? "Expandir grupo" : "Recolher grupo"}
                               >
                                 {isCollapsed ? (
-                                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                  <ChevronRight className={cn("h-3.5 w-3.5 shrink-0", isCaptarNow ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")} />
                                 ) : (
-                                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                  <ChevronDown className={cn("h-3.5 w-3.5 shrink-0", isCaptarNow ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")} />
                                 )}
-                                <CalendarDays className="h-3.5 w-3.5 text-primary" />
-                                <span className="text-xs font-bold text-foreground">
+                                <CalendarDays className={cn("h-3.5 w-3.5", isCaptarNow ? "text-amber-600 dark:text-amber-400" : "text-primary")} />
+                                <span className={cn(
+                                  "text-xs font-bold",
+                                  isCaptarNow ? "text-amber-700 dark:text-amber-300 uppercase tracking-wide" : "text-foreground"
+                                )}>
                                   {formatHeader(date)}
                                 </span>
-                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 ml-auto">
+                                <Badge
+                                  variant="secondary"
+                                  className={cn(
+                                    "text-[10px] px-1.5 py-0 h-4 ml-auto",
+                                    isCaptarNow && "bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-500/40"
+                                  )}
+                                >
                                   {items.length}
                                 </Badge>
                               </button>

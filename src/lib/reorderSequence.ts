@@ -68,6 +68,12 @@ export interface ReorderProposal {
   skipped?: boolean;
   spansDays?: number;
   slackApplied?: boolean;
+  pausedByCaptar?: {
+    atISO: string;
+    atTime: string;
+    captarId: string;
+    captarTitle: string;
+  } | null;
 }
 
 // ------------------------------------------------------------------
@@ -584,12 +590,19 @@ export async function computeReorder(
 
   // Intervalos ocupados por cards fixos (captar, daily, aguardando_cliente).
   // O alocador contornará esses intervalos em vez de agendar por cima.
-  const blocked: Array<{ start: Date; end: Date }> = [];
+  type BlockedInterval = { start: Date; end: Date; kind?: "captar" | "daily" | "awaiting"; cardId?: string; title?: string };
+  const blocked: BlockedInterval[] = [];
+  const tagFor = (c: ReorderCardInput): "captar" | "daily" | "awaiting" => {
+    const k = (c.current_function_key || "").toLowerCase();
+    if (k === "captar") return "captar";
+    if (k === "aguardando_cliente") return "awaiting";
+    return "daily";
+  };
   for (const c of [...captarFixed, ...dailyFixed, ...awaiting]) {
     if (!c.due_date || !c.due_time || !c.delivery_date || !c.delivery_time) continue;
     const s = toVirtualUtc(c.due_date, c.due_time.slice(0, 5));
     const e = toVirtualUtc(c.delivery_date, c.delivery_time.slice(0, 5));
-    if (e > s) blocked.push({ start: s, end: e });
+    if (e > s) blocked.push({ start: s, end: e, kind: tagFor(c), cardId: c.id, title: c.title });
   }
   blocked.sort((a, b) => a.start.getTime() - b.start.getTime());
 
@@ -669,6 +682,22 @@ export async function computeReorder(
       card.delivery_date !== endISO ||
       (card.delivery_time || "").slice(0, 5) !== endTime;
 
+    // Detecta se algum intervalo bloqueado do tipo "captar" cai dentro deste card,
+    // sinalizando visualmente que a produção foi pausada para captação.
+    let pausedByCaptar: ReorderProposal["pausedByCaptar"] = null;
+    for (const b of blocked) {
+      if (b.kind !== "captar" || !b.cardId) continue;
+      if (b.start >= start && b.start < end) {
+        pausedByCaptar = {
+          atISO: isoDate(b.start),
+          atTime: hhmm(b.start),
+          captarId: b.cardId,
+          captarTitle: b.title || "Captar",
+        };
+        break;
+      }
+    }
+
     proposals.push({
       id: card.id,
       title: card.title,
@@ -682,6 +711,7 @@ export async function computeReorder(
       changed,
       spansDays: daysSpanned,
       slackApplied,
+      pausedByCaptar,
     });
 
     // Adiciona intervalo recém-alocado à lista de bloqueados para o próximo card.

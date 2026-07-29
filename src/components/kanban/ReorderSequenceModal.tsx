@@ -190,7 +190,10 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
             due_time: p.startTime,
             delivery_date: p.endISO,
             delivery_time: p.endTime,
-          })
+            reorder_meta: p.pausedByCaptar
+              ? { pausedByCaptar: p.pausedByCaptar, updatedAt: new Date().toISOString() }
+              : null,
+          } as any)
           .eq("id", p.id);
         if (liveUpdatedAt) q = q.eq("updated_at", liveUpdatedAt);
         const { error, data } = await q.select("id");
@@ -364,6 +367,15 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                           {p.slackApplied && (
                             <Badge variant="outline" className="text-[10px] border-orange-500/60 text-orange-600 dark:text-orange-400">
                               +folga
+                            </Badge>
+                          )}
+                          {p.pausedByCaptar && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] border-amber-500/60 text-amber-700 dark:text-amber-300"
+                              title={`Pausado para captação: ${p.pausedByCaptar.captarTitle}`}
+                            >
+                              ⏸ Pausado {p.pausedByCaptar.atTime} · captação
                             </Badge>
                           )}
                           {orig?.publish_date && (
