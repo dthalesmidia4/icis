@@ -50,7 +50,9 @@ export interface ReorderCardInput {
   delivery_time?: string | null;
   current_function_key?: string | null;
   work_area?: ReorderWorkArea | null;
+  updated_at?: string | null;
 }
+
 
 export interface ReorderProposal {
   id: string;
