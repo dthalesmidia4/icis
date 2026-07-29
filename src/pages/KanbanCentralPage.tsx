@@ -2753,7 +2753,7 @@ const KanbanCentralPage = () => {
                                             isDragging={snapshot.isDragging}
                                             isOverdue={isCardOverdue(card)}
                                             cardId={card.id}
-                                           statusName={resolveStageLabel(card)}
+                                           statusName={resolveStageLabel(card, { isTop: isTopCard, isPausedByCaptarNow })}
                                             statusColor={card.status_color}
                                             isDailyCard={(card as any).is_daily_card}
                                             dailyCompleted={(card as any).daily_completed_occurrences}
@@ -2765,7 +2765,7 @@ const KanbanCentralPage = () => {
                                                   atTime: (card as any).reorder_meta.pausedByCaptar.atTime,
                                                   captarTitle: (card as any).reorder_meta.pausedByCaptar.captarTitle,
                                                 }
-                                              : null}
+                                              : syntheticPausedByCaptar}
                                             onClick={() => handleCardClick(card, column.id)}
                                             onDatesChange={isHistory ? undefined : (changes) => handleInlineDatesChange(card.id, changes)}
                                           />
