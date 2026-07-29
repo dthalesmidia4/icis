@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StartEndDatePopover } from "@/components/kanban/StartEndDatePopover";
 
@@ -34,6 +34,10 @@ interface KanbanCardProps {
   dailyNextDate?: string | null;
   workArea?: "midia" | "sistemas" | null;
   pausedByCaptar?: { atTime?: string; captarTitle?: string } | null;
+  /** Modo "Aguardando cliente": substitui Ini/Fim pelo horário de envio ao cliente. */
+  awaitingClient?: boolean;
+  awaitingClientSince?: string | null;
+
   onClick?: () => void;
   onDatesChange?: (changes: CardDatesChange) => Promise<void> | void;
 }
@@ -125,8 +129,40 @@ const InlineDates = ({ dueDate, dueTime, deliveryDate, deliveryTime, isOverdue, 
   );
 };
 
+const fmtSentAt = (iso?: string | null): string | null => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+};
+
+const fmtSince = (iso?: string | null): string | null => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (mins < 60) return "agora há pouco";
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `há ${hrs}h`;
+  return `há ${Math.floor(hrs / 24)}d`;
+};
+
+const SentToClientPill = ({ since }: { since?: string | null }) => {
+  const at = fmtSentAt(since);
+  const rel = fmtSince(since);
+  return (
+    <div className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium leading-tight min-w-0 w-full bg-blue-500/10 text-blue-700 dark:text-blue-300">
+      <Send className="h-3 w-3 shrink-0" />
+      <span className="truncate">
+        {at ? `Enviado ao cliente · ${at}` : "Aguardando cliente"}
+      </span>
+      {rel && <span className="ml-auto shrink-0 opacity-70">{rel}</span>}
+    </div>
+  );
+};
 
 const KanbanCard = ({
+
   title,
   subtitle,
   demandType: _demandType,
@@ -149,6 +185,8 @@ const KanbanCard = ({
   dailyNextDate = null,
   workArea = null,
   pausedByCaptar = null,
+  awaitingClient = false,
+  awaitingClientSince = null,
   onClick,
   onDatesChange,
 }: KanbanCardProps) => {
@@ -159,15 +197,18 @@ const KanbanCard = ({
   const hasAnyDate = !!(dueDate || cardDeliveryDate);
   const showInline = showStartEndLabels || hasAnyDate;
   const isSistemas = workArea === "sistemas";
+  const overdue = isOverdue && !awaitingClient;
+
 
   return (
     <Card
       className={cn(
         "mb-3 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-border/50",
         isDragging && "shadow-xl rotate-1 scale-105",
-        isOverdue && "bg-red-500/10 border-red-500/30 dark:bg-red-500/15 dark:border-red-500/40",
+        overdue && "bg-red-500/10 border-red-500/30 dark:bg-red-500/15 dark:border-red-500/40",
         isDailyCard && "border-l-4 border-l-amber-500",
-        isSistemas && !isOverdue && "bg-slate-500/5 dark:bg-slate-400/5 border-slate-500/25",
+        awaitingClient && "border-l-4 border-l-blue-500",
+        isSistemas && !overdue && "bg-slate-500/5 dark:bg-slate-400/5 border-slate-500/25",
       )}
       onClick={onClick}
     >
@@ -215,33 +256,41 @@ const KanbanCard = ({
         )}
       </CardHeader>
 
+      {awaitingClient ? (
+        <CardContent className="px-2.5 pb-2.5 pt-0">
+          <SentToClientPill since={awaitingClientSince} />
+        </CardContent>
+      ) : (
+        <>
+          {showInline && !hideDueDate && (
+            <CardContent className="px-2.5 pb-2.5 pt-0">
+              <InlineDates
+                dueDate={dueDate}
+                dueTime={dueTime}
+                deliveryDate={cardDeliveryDate}
+                deliveryTime={deliveryTime}
+                isOverdue={overdue}
+                editable={!!onDatesChange}
+                onSave={onDatesChange}
+              />
+            </CardContent>
+          )}
+          {showInline && hideDueDate && cardDeliveryDate && (
+            <CardContent className="px-2.5 pb-2.5 pt-0">
+              <InlineDates
+                dueDate={undefined}
+                dueTime={undefined}
+                deliveryDate={cardDeliveryDate}
+                deliveryTime={deliveryTime}
+                isOverdue={overdue}
+                editable={!!onDatesChange}
+                onSave={onDatesChange}
+              />
+            </CardContent>
+          )}
+        </>
+      )}
 
-      {showInline && !hideDueDate && (
-        <CardContent className="px-2.5 pb-2.5 pt-0">
-          <InlineDates
-            dueDate={dueDate}
-            dueTime={dueTime}
-            deliveryDate={cardDeliveryDate}
-            deliveryTime={deliveryTime}
-            isOverdue={isOverdue}
-            editable={!!onDatesChange}
-            onSave={onDatesChange}
-          />
-        </CardContent>
-      )}
-      {showInline && hideDueDate && cardDeliveryDate && (
-        <CardContent className="px-2.5 pb-2.5 pt-0">
-          <InlineDates
-            dueDate={undefined}
-            dueTime={undefined}
-            deliveryDate={cardDeliveryDate}
-            deliveryTime={deliveryTime}
-            isOverdue={isOverdue}
-            editable={!!onDatesChange}
-            onSave={onDatesChange}
-          />
-        </CardContent>
-      )}
     </Card>
   );
 };

@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ReorderSequenceModal from "@/components/kanban/ReorderSequenceModal";
+import AwaitingClientActions from "@/components/kanban/AwaitingClientActions";
+
 import { useTenant } from "@/contexts/TenantContext";
 import { useRealtimeAttachments } from "@/hooks/useRealtimeAttachments";
 import { useRealtimeDemandFlowHistory, useRealtimeFlowConfig } from "@/hooks/realtime";
@@ -2946,13 +2948,6 @@ const KanbanCentralPage = () => {
                                 {awaitingCardsSorted.map((card) => {
                                   const resendCount = (card as any).client_resend_count || 0;
                                   const waitStart = (card as any).client_wait_started_at;
-                                  let waitLabel = "";
-                                  if (waitStart) {
-                                    const hrs = Math.floor((Date.now() - new Date(waitStart).getTime()) / 3600000);
-                                    if (hrs >= 24) waitLabel = `${Math.floor(hrs / 24)}d aguardando`;
-                                    else if (hrs >= 1) waitLabel = `${hrs}h aguardando`;
-                                    else waitLabel = "aguardando";
-                                  }
                                   return (
                                   <div
                                     key={card.id}
@@ -2968,39 +2963,28 @@ const KanbanCentralPage = () => {
                                       title={card.title}
                                       subtitle={card.clientName}
                                       demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
-                                      dueDate={card.due_date}
-                                      dueTime={card.due_time || undefined}
-                                      cardDeliveryDate={card.delivery_date || undefined}
-                                      deliveryTime={card.delivery_time || undefined}
-                                      isOverdue={isCardOverdue(card)}
                                       cardId={card.id}
                                       statusName={resolveStageLabel(card)}
                                       statusColor={(card as any).status_color}
-                                      isDailyCard={(card as any).is_daily_card}
-                                      dailyCompleted={(card as any).daily_completed_occurrences}
-                                      dailyTotal={(card as any).daily_total_occurrences}
-                                      dailyNextDate={(card as any).daily_next_date}
                                       workArea={(card as any).work_area || null}
+                                      awaitingClient
+                                      awaitingClientSince={waitStart || null}
                                       onClick={() => handleCardClick(card, column.id)}
-                                      onDatesChange={(changes) => handleInlineDatesChange(card.id, changes)}
                                     />
-                                    {(resendCount > 0 || waitLabel) && (
-                                      <div className="flex items-center gap-1.5 flex-wrap mt-1 px-1 text-[10px]">
-                                        {resendCount > 0 && (
-                                          <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-700 dark:text-blue-300 font-semibold">
-                                            Reenviado {resendCount}x
-                                          </span>
-                                        )}
-                                        {waitLabel && (
-                                          <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                                            {waitLabel}
-                                          </span>
-                                        )}
-                                      </div>
+                                    {tenantId && (
+                                      <AwaitingClientActions
+                                        demandId={card.id}
+                                        tenantId={tenantId}
+                                        demandTypeKey={(card as any).demand_type_key || card.demand_type}
+                                        currentFunctionKey={card.current_function_key}
+                                        resendCount={resendCount}
+                                        onDone={() => fetchAllCards()}
+                                      />
                                     )}
                                   </div>
                                   );
                                 })}
+
                               </div>
                             )}
                           </div>

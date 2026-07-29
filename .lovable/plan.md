@@ -1,32 +1,36 @@
-Plano para corrigir o problema sem novas perguntas:
+## Objetivo
 
-1. **Separar “cards de ação agora” de “cards informativos/externos”**
-   - Tratar `publicar` com agendamento ativo como fora da fila operacional real.
-   - Manter `aguardando_cliente` fora da fila operacional.
-   - Manter `enviar_cliente` como tarefa operacional normal, porque ela precisa aparecer na coluna.
-   - Preservar `captar` como horário fixo e prioridade própria.
+Cards em `aguardando_cliente` saíram da fila operacional, mas ainda exibem "Ini/Fim" como se tivessem execução agendada. Vamos trocar essa exibição por "Enviado ao cliente" e permitir aprovar o card direto na coluna, sem abrir o modal.
 
-2. **Corrigir a causa do “nada mudou” ao reorganizar**
-   - O reorganizador hoje recebe cards `publicar` agendados e alguns cards com dispatch ativo, mas eles não devem ocupar a sequência de execução.
-   - Ajustar o filtro enviado ao modal para passar somente cards que realmente podem ser reagendados ou bloqueiam a agenda.
-   - Garantir que cards com agendamento ativo não sejam aplicados como próximos horários de trabalho.
+## 1. Exibição: trocar Ini/Fim por "Enviado ao cliente + Data e Horário de Envio"
 
-3. **Recalcular a sequência sempre a partir do agora real**
-   - Ao reorganizar às 15h30, o primeiro card operacional reagendável deve começar em 15h30/15h35, não depois de uma sequência de cards que já estão agendados/publicados.
-   - Remover a lógica que conserva um “primeiro ativo” antigo quando ele não representa a tarefa real atual.
-   - O primeiro card executável atrasado ou iniciado deve ser puxado para o primeiro slot útil disponível.
+Em `src/components/KanbanCard.tsx`, adicionar um modo alternativo de rodapé (nova prop, ex. `awaitingClientSince?: string | null` + `hideExecutionDates?: boolean`):
 
-4. **Corrigir o rótulo “em andamento/próximo” para bater com a fila visual**
-   - A fila de rótulos deve usar a mesma lista operacional do reorganizador.
-   - `publicar` agendado e `aguardando_cliente` não recebem “em andamento” nem “próximo”.
-   - O primeiro card executável cujo início já passou vira “em andamento”.
-   - Se não houver card iniciado, o primeiro executável futuro vira “próximo”.
+- Quando ativo, no lugar do bloco `InlineDates` mostrar uma pílula azul: `Enviado ao cliente · 29/07 15:40`.
+- Formato relativo curto ao lado quando fizer sentido (`há 2h`, `há 3d`) — reaproveitando o cálculo que hoje já existe na seção "Aguardando clientes".
+- Sem estado "atrasado" vermelho: esses cards não têm prazo operacional, então o destaque vermelho atual desaparece.
+- Sem popover de edição de datas nesse modo (as datas voltam a ser editáveis quando o card retorna ao fluxo).
 
-5. **Corrigir ordenação visual dentro dos agrupamentos**
-   - Ordenar todos os grupos por data e hora de início, sem depender da ordem antiga carregada do banco.
-   - Garantir que “Em revisão” fique cronológico e que não roube prioridade antes da produção quando há cards executáveis anteriores.
+A data usada é `client_wait_started_at`, já preenchido em `src/lib/proceedDemand.ts` na transição `enviar_cliente → aguardando_cliente`. Se estiver nulo (cards antigos), mostrar apenas "Aguardando cliente" sem hora.
 
-6. **Verificação com o caso da Lúcia**
-   - Conferir que os cards `publicar` com dispatch ativo de 15:20, 15:30, 15:50 etc. não empurram a próxima atividade.
-   - Conferir que, às 15h30, a próxima demanda executável não fica em 16:15 quando existe tarefa operacional para iniciar agora.
-   - Conferir que `enviar_cliente` continua aparecendo normalmente na coluna.
+## 2. Aprovação rápida na coluna
+
+Abaixo de cada card da seção "Aguardando clientes" (em `src/pages/KanbanCentralPage.tsx`), adicionar um botão discreto **"Cliente aprovou"**:
+
+- Ao clicar (com `stopPropagation` para não abrir o card), chama `proceedDemand` com o card atual — mesma função usada hoje pelo botão dentro do modal, o que garante limpeza de `client_wait_started_at` / `client_resend_count` e o registro em `demand_flow_history`.
+- Confirmação leve inline (o botão vira "Confirmar?" antes de executar) para evitar clique acidental, com estado de loading e proteção contra clique duplo.
+- Toast de sucesso informando a etapa de destino, e toast de erro em caso de falha.
+- Realtime já atualiza a coluna; a lista é recarregada via o mesmo callback usado pelas outras ações.
+
+O botão respeita as permissões já existentes na coluna (só aparece para quem pode operar aquele card).
+
+## 3. Onde mais aplicar
+
+Aplicar o mesmo tratamento visual na lista equivalente de `src/pages/CollaboratorDemands.tsx` (seção `aguardando_cliente`) e no Modo Foco, que reutiliza a mesma seção do Kanban Central — assim a leitura fica consistente em todas as visões.
+
+## Detalhes técnicos
+
+- Arquivos: `src/components/KanbanCard.tsx`, `src/pages/KanbanCentralPage.tsx`, `src/pages/CollaboratorDemands.tsx`.
+- Nenhuma migração de banco: `client_wait_started_at`, `client_resend_count` e `demand_flow_history` já existem.
+- Nenhuma mudança em `reorderSequence.ts` — esses cards já estão fora da fila operacional.
+- Cores via tokens semânticos existentes (paleta azul já usada na seção "Aguardando clientes").
