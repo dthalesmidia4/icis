@@ -42,7 +42,7 @@ function toMinutes(t: string | null | undefined): number {
   return h * 60 + m;
 }
 
-export default function ReorderSequenceModal({ open, onOpenChange, columnName, cards, tenantId, assigneeId, hasActiveFilters, onApplied }: Props) {
+export default function ReorderSequenceModal({ open, onOpenChange, columnName, cards, tenantId, assigneeId, hasActiveFilters, scheduledPublishIds, onApplied }: Props) {
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
   const [proposals, setProposals] = useState<ReorderProposal[]>([]);
