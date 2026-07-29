@@ -34,7 +34,7 @@ interface TypeRule {
   requirement: string;
 }
 
-type Filter = "all" | "done" | "in_progress" | "overdue" | "queued";
+type Filter = "all" | "done" | "in_progress" | "overdue" | "queued" | "scheduled_publish";
 type ScopeFilter = "active" | "all";
 type PeriodFilter = "all" | "7d" | "30d" | "this_month" | "last_month";
 type SortKey = "title" | "type" | "assignee" | "area" | "stage" | "progress" | "next" | "publish" | "production";
