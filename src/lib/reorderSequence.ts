@@ -8,7 +8,7 @@
  * - Respeita `user_area_schedules` por área (mídia/sistemas) quando fornecido.
  */
 import { fetchHolidaysInRange } from "@/lib/dailyCards";
-import { isReviewFunction, isEvaluationFunction } from "@/lib/flowFunctions";
+import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from "@/lib/flowFunctions";
 
 export type ReorderWorkArea = "midia" | "sistemas";
 
@@ -515,7 +515,7 @@ function pubKey(c: ReorderCardInput): string {
 }
 
 export function hasPublishDateCandidates(cards: ReorderCardInput[]): boolean {
-  const active = cards.filter((c) => (c.current_function_key || "").toLowerCase() !== "aguardando_cliente");
+  const active = cards.filter((c) => !isClientWaitingFunction(c.current_function_key));
   if (active.length <= 1) return false;
   const byDue = [...active].sort((a, b) => dueKey(a).localeCompare(dueKey(b)));
   const rest = byDue.slice(1);
@@ -605,13 +605,13 @@ export async function computeReorder(
 
   const ctx = buildCtx(wh, holidays, opts?.areaSchedule);
 
-  // Cards em `aguardando_cliente` estão com o cliente: não consomem tempo do
+  // Cards em espera/envio de cliente estão com o cliente: não consomem tempo do
   // colaborador nem recebem horário novo — ficam totalmente fora do cálculo.
   const captarFixed = cards.filter((c) => (c.current_function_key || "").toLowerCase() === "captar");
-  const dailyFixed = cards.filter((c) => !!c.is_daily_card && (c.current_function_key || "").toLowerCase() !== "aguardando_cliente" && (c.current_function_key || "").toLowerCase() !== "captar");
+  const dailyFixed = cards.filter((c) => !!c.is_daily_card && !isClientWaitingFunction(c.current_function_key) && (c.current_function_key || "").toLowerCase() !== "captar");
   const active = cards.filter((c) => {
     const k = (c.current_function_key || "").toLowerCase();
-    if (k === "aguardando_cliente" || k === "captar") return false;
+    if (isClientWaitingFunction(k) || k === "captar") return false;
     if (c.is_daily_card) return false;
     return true;
   });
@@ -761,7 +761,7 @@ export async function computeReorder(
   }
 
 
-  const awaiting = cards.filter((c) => (c.current_function_key || "").toLowerCase() === "aguardando_cliente");
+  const awaiting = cards.filter((c) => isClientWaitingFunction(c.current_function_key));
   for (const c of awaiting) {
     proposals.push({
       id: c.id,
@@ -774,7 +774,7 @@ export async function computeReorder(
       publishDeadline: null,
       changed: false,
       skipped: true,
-      warning: "Aguardando cliente — não reagendado.",
+      warning: "Cliente — não reagendado.",
     });
   }
 
