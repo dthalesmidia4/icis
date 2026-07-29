@@ -562,6 +562,14 @@ export async function computeReorder(
 
 ): Promise<ReorderProposal[]> {
   if (cards.length === 0) return [];
+  const scheduledIds = opts?.scheduledPublishIds || new Set<string>();
+  // Cards com publicação agendada (dispatch ativo) não ocupam alocação — tratados como concluídos.
+  cards = cards.filter((c) => {
+    const k = (c.current_function_key || "").toLowerCase();
+    if (k === "publicar" && scheduledIds.has(c.id)) return false;
+    return true;
+  });
+  if (cards.length === 0) return [];
 
   const wh = { ...DEFAULT_WORK_HOURS, ...(opts?.workHours || {}) };
 
