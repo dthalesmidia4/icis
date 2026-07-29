@@ -1293,12 +1293,14 @@ export default function TaskCard({
                     const curIdx = curKey ? seq.findIndex((s) => s.function_key === curKey) : -1;
                     const prev = curIdx > 0 ? seq[curIdx - 1] : null;
                     const next = curIdx >= 0 && curIdx < seq.length - 1 ? seq[curIdx + 1] : null;
-                    const curName = curIdx >= 0 ? seq[curIdx].name : (curKey || "Sem etapa");
+                    const baseCurName = curIdx >= 0 ? seq[curIdx].name : (curKey || "Sem etapa");
+                    const isPublicarScheduled = curKey === "publicar" && isScheduledPublish;
+                    const curName = isPublicarScheduled ? "Publicar agendado" : baseCurName;
 
                     const nextIsPublicar = curKey === "publicar";
                     const isEnviarCliente = curKey === "enviar_cliente";
                     const nextLabel = nextIsPublicar
-                      ? "Agendar Publicação"
+                      ? (isPublicarScheduled ? "Reagendar" : "Agendar Publicação")
                       : isLastFn
                         ? "Entregar"
                         : isEnviarCliente
