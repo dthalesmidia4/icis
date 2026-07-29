@@ -71,16 +71,6 @@ const fmtDateTime = (iso?: string | null): string | null => {
   return `${dateStr} ${timeStr}`;
 };
 
-const fmtSince = (iso?: string | null): string | null => {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
-  if (mins < 60) return "agora há pouco";
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `há ${hrs}h`;
-  return `há ${Math.floor(hrs / 24)}d`;
-};
 
 const SentToClientPill = ({
   since,
@@ -92,7 +82,6 @@ const SentToClientPill = ({
   demandId?: string | null;
 }) => {
   const at = fmtDateTime(since);
-  const rel = fmtSince(since);
   const sendNumber = Math.max(1, (Number(resendCount) || 0) + 1);
   return (
     <div className="flex items-start gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium leading-tight min-w-0 w-full bg-blue-500/10 text-blue-700 dark:text-blue-300">
@@ -101,7 +90,6 @@ const SentToClientPill = ({
         <span>Enviado pela {sendNumber}ª vez ao cliente</span>
         {at && <span className="block font-semibold">em {at}</span>}
       </span>
-      {rel && <span className="shrink-0 opacity-70 mt-0.5">{rel}</span>}
       <ClientSendHistoryPopover
         demandId={demandId}
         fallbackSince={since}
