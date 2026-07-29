@@ -1,25 +1,36 @@
-Plano de correção
+## Diagnóstico (confirmado no banco)
 
-1. Corrigir o texto do card em “Aguardando clientes”
-   - Passar `client_resend_count` para o componente do card.
-   - Exibir o envio como ordinal:
-     - `client_resend_count = 0` → “Enviado pela 1ª vez ao cliente em 29/07/2026 13:25”
-     - `client_resend_count = 1` → “Enviado pela 2ª vez ao cliente em 29/07/2026 13:25”
-   - Manter o tempo relativo à direita quando existir data válida.
+O card "Teste" está em `aguardando_cliente` com `client_wait_started_at = null`. O histórico mostra a transição real: `planejar → aguardando_cliente` (pulou `enviar_cliente`).
 
-2. Corrigir o motivo de “apenas Enviado ao cliente” continuar aparecendo
-   - O componente `KanbanCard` hoje só recebe `awaitingClientSince`; ele não recebe a contagem de reenvios.
-   - O handler de realtime do Kanban também não atualiza `client_wait_started_at`, `client_resend_count`, `client_last_resend_at` nem `current_function_key` quando a demanda muda, então a tela pode continuar usando dados antigos até recarregar.
-   - Vou incluir esses campos no update em tempo real para a mudança aparecer imediatamente.
+Hoje o carimbo de data só é gravado quando a etapa **anterior** é exatamente `enviar_cliente` (`src/lib/proceedDemand.ts`, nas duas funções: `proceedDemand` e `jumpToFunction`). Qualquer outro caminho até `aguardando_cliente` entra sem data — por isso o pill mostra só "Enviado pela 1ª vez ao cliente", sem data/hora.
 
-3. Tornar o horário robusto para cards antigos/incompletos
-   - Quando `client_wait_started_at` vier nulo, usar como fallback o último registro de histórico `enviar_cliente → aguardando_cliente` em `demand_flow_history`.
-   - Isso evita o estado genérico “Enviado ao cliente” quando o banco já tem histórico suficiente para saber a data/hora.
+## O que fazer
 
-4. Ajustar a ação rápida
-   - Remover/evitar duplicidade visual do badge separado “Reenviado 1x”, porque a informação principal passará a ficar no próprio pill do card.
-   - Manter o botão discreto “Cliente aprovou”.
+### 1. Gravar a data em toda entrada em "Aguardando clientes"
+Em `src/lib/proceedDemand.ts`, trocar a condição: sempre que a etapa **destino** for `aguardando_cliente` (independentemente da origem), preencher `client_wait_started_at = now()`. Aplicar em `proceedDemand` e em `jumpToFunction`, mantendo a regra atual de preservar o responsável quando a origem é `enviar_cliente`.
 
-5. Verificação
-   - Validar no preview do Kanban Central que os cards em “Aguardando clientes” mostram data/hora e ordinal corretamente.
-   - Confirmar que uma atualização por realtime muda o texto sem precisar recarregar a página.
+Também garantir que ao sair de `aguardando_cliente` os campos sejam limpos (já existe) e que o reenvio automático continue incrementando `client_resend_count`.
+
+### 2. Backfill do card atual
+Migração simples: preencher `client_wait_started_at` dos cards em `aguardando_cliente` que estejam nulos, usando o `created_at` da última entrada em `demand_flow_history` com `to_function_key = 'aguardando_cliente'`.
+
+### 3. Registrar cada envio no histórico
+Ao entrar em `aguardando_cliente`, gravar em `demand_flow_history` uma linha com `action = 'sent_to_client'` e `metadata = { send_number }`, além da linha `proceeded` já existente. O reenvio automático (`return-awaiting-client-cards`) já sabe a contagem; a numeração vem de `client_resend_count + 1`.
+
+### 4. Consulta discreta dentro do card
+No card do Kanban (`src/components/KanbanCard.tsx`), o pill "Enviado pela Nª vez ao cliente em dd/mm hh:mm" vira clicável (ícone pequeno de histórico ao lado, sem aumentar a altura do card). Ao clicar, abre um popover leve listando os envios:
+
+```text
+Envios ao cliente
+1º envio — 29/07/2026 13:25
+2º envio — 30/07/2026 09:10  (reenvio automático)
+```
+
+Os dados vêm de `demand_flow_history` (entradas `sent_to_client`), carregados sob demanda ao abrir o popover. Se não houver registros históricos, mostra o envio atual a partir de `client_wait_started_at` / `client_last_resend_at`.
+
+O mesmo popover fica disponível na lista do colaborador (`src/pages/CollaboratorDemands.tsx`), acionado pelo mesmo texto.
+
+## Detalhes técnicos
+- Arquivos: `src/lib/proceedDemand.ts`, `src/components/KanbanCard.tsx`, novo `src/components/kanban/ClientSendHistoryPopover.tsx`, `src/pages/CollaboratorDemands.tsx`, `src/pages/KanbanCentralPage.tsx` (passar `demandId`/`tenantId` ao pill).
+- Uma migração de backfill (somente UPDATE de dados, sem mudança de schema).
+- Nenhuma alteração no realtime além do que já existe.

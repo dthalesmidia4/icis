@@ -37,6 +37,39 @@ async function hadPriorCaptarPartialDelivery(tenantId: string, demandId: string)
   }
 }
 
+/**
+ * Toda entrada em "Aguardando clientes" carimba a data/hora do envio e
+ * registra o envio no histórico (`sent_to_client`) com o número do envio.
+ */
+export async function recordClientSend(
+  tenantId: string,
+  demandId: string,
+  fromFunctionKey: string | null,
+  userId: string | null,
+): Promise<void> {
+  try {
+    const { data } = await supabase
+      .from("demands")
+      .select("client_resend_count" as any)
+      .eq("id", demandId)
+      .maybeSingle();
+    const sendNumber = (Number((data as any)?.client_resend_count) || 0) + 1;
+    await recordFlowHistory({
+      tenantId,
+      demandId,
+      action: "sent_to_client",
+      fromUserId: userId,
+      toUserId: userId,
+      fromFunctionKey,
+      toFunctionKey: "aguardando_cliente",
+      metadata: { send_number: sendNumber },
+    });
+  } catch (e) {
+    console.warn("[proceedDemand] recordClientSend error:", e);
+  }
+}
+
+
 async function clearAdditionalAssignees(demandId: string): Promise<void> {
   try {
     await supabase
@@ -266,14 +299,17 @@ export async function jumpToFunction({
   const target = seq.find((f) => f.function_key === targetFunctionKey);
   if (!target) return { success: false, message: "Etapa não encontrada no fluxo." };
 
-  if (currentFunctionKey === "enviar_cliente" && target.function_key === "aguardando_cliente") {
+  // Qualquer entrada em "Aguardando clientes" mantém o mesmo responsável e carimba o envio.
+  if (target.function_key === "aguardando_cliente") {
     const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
     const keep = (cur as any)?.assigned_to || null;
     const { error } = await supabase.from("demands").update({ current_function_key: target.function_key, client_wait_started_at: new Date().toISOString() } as any).eq("id", demandId);
     if (error) return { success: false, message: "Erro ao atualizar etapa." };
     await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: keep, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
+    await recordClientSend(tenantId, demandId, currentFunctionKey || null, keep);
     return { success: true, assignedTo: keep || undefined, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name}.` };
   }
+
 
   const picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name);
   if (!picked.success || !picked.userId) return { success: false, message: picked.message || "Nenhum responsável para a etapa." };
@@ -358,8 +394,8 @@ export async function proceedDemand({
   }
   const nextFn = sequence[nextIndex] as { function_key: string; name: string };
 
-  // Transição especial: enviar_cliente → aguardando_cliente mantém o mesmo responsável.
-  if (currentFunctionKey === "enviar_cliente" && nextFn.function_key === "aguardando_cliente") {
+  // Qualquer entrada em "Aguardando clientes" mantém o mesmo responsável e carimba o envio.
+  if (nextFn.function_key === "aguardando_cliente") {
     const { data: current } = await supabase
       .from("demands")
       .select("assigned_to")
@@ -380,6 +416,8 @@ export async function proceedDemand({
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: nextFn.function_key,
     });
+    await recordClientSend(tenantId, demandId, currentFunctionKey || null, keepAssignee);
+
     return {
       success: true,
       assignedTo: keepAssignee || undefined,
