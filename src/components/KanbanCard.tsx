@@ -34,6 +34,10 @@ interface KanbanCardProps {
   dailyNextDate?: string | null;
   workArea?: "midia" | "sistemas" | null;
   pausedByCaptar?: { atTime?: string; captarTitle?: string } | null;
+  /** Modo "Aguardando cliente": substitui Ini/Fim pelo horário de envio ao cliente. */
+  awaitingClient?: boolean;
+  awaitingClientSince?: string | null;
+
   onClick?: () => void;
   onDatesChange?: (changes: CardDatesChange) => Promise<void> | void;
 }
