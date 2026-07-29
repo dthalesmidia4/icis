@@ -700,6 +700,7 @@ function TableRow({
   row: {
     card: KanbanCardData;
     isDone: boolean;
+    isScheduledPublish: boolean;
     isOverdue: boolean;
     hasStage: boolean;
     stageKey: string | null;
@@ -713,11 +714,14 @@ function TableRow({
   onOpen: () => void;
   zebra: boolean;
 }) {
-  const { card, isDone, isOverdue: overdue, hasStage, stageIndex, sequence, stageName, nextStageName, workArea } = row;
+  const { card, isDone, isScheduledPublish, isOverdue: overdue, hasStage, stageIndex, sequence, stageName, nextStageName, workArea } = row;
 
   const stageCell = () => {
     if (isDone) {
       return <span className="text-emerald-600 dark:text-emerald-400 font-medium">Concluída</span>;
+    }
+    if (isScheduledPublish) {
+      return <span className="text-sky-600 dark:text-sky-400 font-medium">Publicar agendado</span>;
     }
     if (!hasStage) {
       return <span className="text-amber-600 dark:text-amber-400 font-medium">Aguardando início</span>;
@@ -731,6 +735,7 @@ function TableRow({
       </span>
     );
   };
+
 
   const total = sequence.length;
   const doneCount = isDone ? total : Math.max(0, stageIndex);
