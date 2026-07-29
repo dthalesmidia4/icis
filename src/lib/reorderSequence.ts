@@ -573,8 +573,8 @@ export async function computeReorder(
 
   const ctx = buildCtx(wh, holidays, opts?.areaSchedule);
 
-  // Cards em espera/envio de cliente estão com o cliente: não consomem tempo do
-  // colaborador nem recebem horário novo — ficam totalmente fora do cálculo.
+  // Cards que estão aguardando resposta do cliente não consomem tempo do colaborador
+  // nem recebem horário novo — ficam totalmente fora do cálculo.
   const captarFixed = cards.filter((c) => (c.current_function_key || "").toLowerCase() === "captar");
   const dailyFixed = cards.filter((c) => !!c.is_daily_card && !isClientWaitingFunction(c.current_function_key) && (c.current_function_key || "").toLowerCase() !== "captar");
   const active = cards.filter((c) => {
