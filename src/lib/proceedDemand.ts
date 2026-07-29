@@ -681,9 +681,9 @@ export async function deliverDemand(
   }
   const { data: currentDemand } = await supabase
     .from("demands")
-    .select("tenant_id, assigned_to, current_function_key, additional_assignees" as any)
+    .select("tenant_id, assigned_to, current_function_key, additional_assignees")
     .eq("id", demandId)
-    .maybeSingle();
+    .maybeSingle() as { data: any | null };
 
   const wasCaptar = ((currentDemand as any)?.current_function_key || "") === "captar";
   const extras: string[] = wasCaptar && Array.isArray((currentDemand as any)?.additional_assignees)
