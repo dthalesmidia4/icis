@@ -889,6 +889,10 @@ const KanbanCentralPage = () => {
           daily_completed_occurrences: demand.daily_completed_occurrences ?? 0,
           daily_completed_dates: Array.isArray(demand.daily_completed_dates) ? demand.daily_completed_dates : [],
           work_area: (demand.work_area as any) || "midia",
+          client_wait_started_at: (demand as any).client_wait_started_at ?? null,
+          client_resend_count: (demand as any).client_resend_count ?? 0,
+          client_last_resend_at: (demand as any).client_last_resend_at ?? null,
+          reorder_meta: (demand as any).reorder_meta ?? null,
         } as any;
       };
 
