@@ -1,64 +1,46 @@
-## 1. Reorganização automática — contagem inflada e horários pulando para 16h+
+# Ajustes: barra de progresso, alocação de "Publicar agendado" e entregas parciais
 
-### Diagnóstico (verificado no código)
+## 1. Barra de progresso conta agendados como concluídos
 
-O modal `ReorderSequenceModal` recebe **todos** os cards da lista `cards` de `KanbanCentralPage.tsx` filtrando apenas por `assigned_to === reorderModalColumnId` (ou `additional_assignees`). Porém `cards` inclui:
+Em `src/pages/ClientEvolution.tsx`, a barra hoje usa apenas `done`; o `+8 agendados` é meramente informativo. Vamos tratar "Publicar agendado" como concluído para fins de percentual, mantendo distinção visual.
 
-- Cards **arquivados** (`fetchAllCards` busca `archived_at IS NOT NULL` também).
-- Cards em **`publicar_agendado`** (aqueles com dispatch ativo, hoje escondidos da coluna e movidos para "Agendamentos" — mas ainda vivem no state `cards`).
-- Cards em `aguardando_cliente`, `captar` e diários.
+- Novo cálculo: `progress = (done + scheduledPublish) / total`. No exemplo do print: (10+8)/24 = 75%.
+- Barra em dois segmentos empilhados:
+  - Segmento esmeralda: `done / total`
+  - Segmento sky (adjacente, mesma faixa): `scheduledPublish / total`
+  - Restante: cinza claro
+- Tooltip nativo (`title=`) em cada segmento: "10 concluídas" / "8 agendadas para publicação".
+- Legenda numérica ao lado direito passa a mostrar `18/24 · 75%` com sub-linha `10 concluídas · 8 agendadas`, em vez de `10/24 · 42% · +8 agendados`.
 
-Consequências:
+## 2. "Publicar agendado" sem alocação no reorganizador
 
-1. **Toast diz "34" em vez de "16"**: a Lúcia enxerga 16 cards ativos, mas o modal reagenda também arquivados e agendados que continuam com `assigned_to` dela → `changed=true` para todos, inflando o número.
-2. **Horários vão para 16h+**: em `reorderSequence.ts`, cards de `aguardando_cliente`/`captar`/`daily` viram intervalos "blocked" (linhas 601–606). Quando esses cards têm `due_date` no passado com `delivery_date` distante (típico de "aguardando cliente" antigo), o intervalo bloqueado engole o expediente atual e o `skipBlocked` empurra o cursor de 11h para depois do fim do bloqueio — só então começam os cards ativos. O código não descarta bloqueios cujo `end < now`.
+Hoje cards em `publicar` com dispatch ativo aparecem em Agendamentos (fora do Kanban Central), mas o `reorderSequence` ainda pode considerá-los se estiverem na coluna. Vamos torná-los explicitamente sem alocação, como Concluídos:
 
-### Correções
+- Em `src/lib/reorderSequence.ts` (`computeReorder`): descartar cards cujo `current_function_key === 'publicar'` E que tenham dispatch ativo (passar `activeDispatchIds` como parâmetro adicional). Esses cards não entram na lista de itens a reagendar nem em `blocked`.
+- Em `src/pages/KanbanCentralPage.tsx` (chamada do modal Reorganizar): já filtramos `activeDispatchIds` da entrada; agora também passamos o Set adiante para que a função interna trate igualmente.
+- Impacto em automações: **nenhum**. O dispatch continua registrado em `scheduled_publication_dispatches` com `scheduled_at` próprio; `run-scheduled-dispatches` não usa `due_date`/`delivery_date` do card para decidir publicação. Removê-lo da alocação apenas evita que o horário do card empurre outras demandas.
+- UI opcional (baixo custo): em `TaskCard.tsx`, quando o card está agendado, esconder o alerta de conflito de área e o realce de "atrasado" (já parcialmente coberto por estar fora do Kanban).
 
-**A) `src/pages/KanbanCentralPage.tsx` (props do `ReorderSequenceModal`)**
-- Ao montar a lista `cards={…}`, filtrar também:
-  - `!c.isArchived`
-  - `!(c.current_function_key === "publicar" && activeDispatchIds.has(c.id))` — cards com dispatch ativo já saíram da coluna operacional.
-- Passar `activeDispatchIds` para o filtro (o hook `useActiveDispatchIds` já é usado na página; se ainda não estiver, importar).
+## 3. Histórico de entregas parciais visível no card
 
-**B) `src/lib/reorderSequence.ts` (função `computeReorder`)**
-- Ao construir a lista `blocked` (linhas 594–606), descartar qualquer intervalo com `end <= now` (não bloqueiam mais o cursor).
-- Para `aguardando_cliente` cujo `due_date` seja anterior a hoje mas `delivery_date` seja futuro (ex.: aguardando resposta há dias), truncar `start` para `now` antes de adicionar em `blocked` — o bloqueio só existe no futuro. Isso evita que o cursor pule para o "delivery_date" quando o bloqueio na verdade começou no passado.
-- Não alterar o comportamento de `captar` futuro (permanece fixo).
+`deliverMyPart` já grava `demand_flow_history` com `action='partial_delivered'` (from_user_id = quem entregou). Vamos exibir isso ao abrir o card.
 
-**C) Consistência do toast**
-- Nada a mudar em `ReorderSequenceModal.tsx`: com as correções acima, `changedCount` refletirá apenas os cards realmente visíveis/ativos da coluna. O texto continua "N cards reorganizados".
+- Em `src/components/TaskCard.tsx`, ao carregar o card (Captar com múltiplos responsáveis OU com histórico de entregas parciais):
+  - Buscar `demand_flow_history` onde `demand_id = card.id` e `action = 'partial_delivered'` ordenado por `created_at` asc.
+  - Mapear `from_user_id` → nome (usar `useCollaborators` já disponível).
+- Renderizar, dentro do bloco de responsáveis do Captar (já existente), uma seção compacta:
 
----
-
-## 2. Tela "Evolução das Demandas" — separar "Publicar agendado" dos "Em andamento"
-
-Hoje, quando `stageKey === "publicar"` e há dispatch ativo, `displayStageName` vira "Publicar agendado" (linha 342 de `ClientEvolution.tsx`), mas o card ainda é contado em `inProgress` e ordenado junto com "em andamento".
-
-### Alterações em `src/pages/ClientEvolution.tsx`
-
-**a) Classificação:** adicionar campo `isScheduledPublish: boolean` em `Classified` (true quando `stageKey === "publicar" && activeDispatchIds.has(card.id)` e não `isDone`).
-
-**b) Summary:** novo contador `scheduledPublish`; `inProgress` passa a excluir esses cards:
-```
-inProgress = total − done − queued − scheduledPublish
+```text
+Já entregaram sua parte:
+  ✓ Fulano · há 2h
+  ✓ Beltrano · ontem 15:40
 ```
 
-**c) Barra de progresso** (linhas 490–498): renderizar dois segmentos empilhados:
-- Segmento emerald (`bg-emerald-500`) com `width = done/total`.
-- Segmento sky (`bg-sky-500`) logo em seguida com `width = scheduledPublish/total` — indica "pronto, aguardando publicação".
-- Rótulo: `{done}/{total} · {progressPct}% concluído · +{scheduledPublish} agendado` (só mostra o "+N agendado" quando > 0).
-
-**d) Chips de filtro** (linhas 502–513): adicionar novo `CounterChip` "Publicar agendado" com tone `sky`, entre "Em andamento" e "Concluídas". Filtro `scheduled_publish` que só mostra esses cards. Atualizar tipo `Filter`.
-
-**e) Ordem na timeline** (função `rank`, linha 375): usar 3 níveis → `hasStage && !scheduled = 0`, `scheduled = 1`, `queued = 2`, `done = 3`. Assim os "publicar agendado" ficam agrupados **abaixo dos em andamento e acima dos concluídos**, sem poluir a fila de pendências. `filter === "in_progress"` NÃO inclui esses cards.
-
-**f) Rótulo de estágio:** mantém "Publicar agendado" (já existe). Aplicar cor `text-sky-600 dark:text-sky-400` na célula da coluna Etapa quando `isScheduledPublish`.
-
-Sem alterações no schema nem em edge functions.
+- Estilo: linha com ícone `CheckCircle2` esmeralda, nome em `text-foreground`, timestamp em `text-muted-foreground text-[11px]`, sem borda pesada — segue padrão de listagens do card.
+- Mostrar mesmo se o card já não estiver mais em `captar` (útil para consultar depois), quando houver registros.
 
 ## Detalhes técnicos
 
-- `activeDispatchIds` já é retornado pelo hook `useActiveDispatchIds(tenantId)` e usado em ambas as telas — reaproveitar.
-- `reorderSequence.ts`: a truncagem de `start` para `now` deve ocorrer com `spNowVirtualUtc(wh.tz)` já calculado (variável `now` local à função) para permanecer em wallclock BRT.
-- Progress bar dupla: usar flex container com dois `<div>` filhos, ou um `<div>` empilhado com `background: linear-gradient` de duas paradas — a versão em dois filhos com `width` é mais legível e testável.
+- Arquivos: `src/pages/ClientEvolution.tsx`, `src/lib/reorderSequence.ts`, `src/pages/KanbanCentralPage.tsx`, `src/components/TaskCard.tsx`.
+- Sem migrações. `demand_flow_history` já tem os dados necessários.
+- Nenhuma alteração em edge functions ou dispatcher.

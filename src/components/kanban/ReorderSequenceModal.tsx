@@ -26,7 +26,9 @@ interface Props {
   tenantId?: string | null;
   assigneeId?: string | null;
   hasActiveFilters?: boolean;
+  scheduledPublishIds?: Set<string>;
   onApplied?: () => void;
+
 }
 
 function fmtDate(iso: string): string {
@@ -40,7 +42,7 @@ function toMinutes(t: string | null | undefined): number {
   return h * 60 + m;
 }
 
-export default function ReorderSequenceModal({ open, onOpenChange, columnName, cards, tenantId, assigneeId, hasActiveFilters, onApplied }: Props) {
+export default function ReorderSequenceModal({ open, onOpenChange, columnName, cards, tenantId, assigneeId, hasActiveFilters, scheduledPublishIds, onApplied }: Props) {
   const [loading, setLoading] = useState(false);
   const [applying, setApplying] = useState(false);
   const [proposals, setProposals] = useState<ReorderProposal[]>([]);
@@ -113,7 +115,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     if (!open) return;
     let cancelled = false;
     setLoading(true);
-    computeReorder(cards, { workHours, durations, areaSchedule, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
+    computeReorder(cards, { workHours, durations, areaSchedule, scheduledPublishIds, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
       .then((r) => {
         if (!cancelled) setProposals(r);
       })
