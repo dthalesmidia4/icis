@@ -420,6 +420,17 @@ export default function TaskCard({
   const [delivering, setDelivering] = useState(false);
   const [inlineScheduleOpen, setInlineScheduleOpen] = useState(false);
   const [inlineScheduling, setInlineScheduling] = useState(false);
+  const [deliveringPart, setDeliveringPart] = useState(false);
+  const { user } = useAuth();
+  const currentUserId = user?.id ?? null;
+
+  const captarExtras = Array.isArray(card?.additional_assignees) ? (card?.additional_assignees as string[]) : [];
+  const captarAllAssignees = new Set<string>([...(card?.assigned_to ? [card.assigned_to] : []), ...captarExtras]);
+  const canDeliverPart =
+    (card?.current_function_key || "") === "captar" &&
+    captarAllAssignees.size > 1 &&
+    !!currentUserId &&
+    captarAllAssignees.has(currentUserId);
 
   useEffect(() => {
     let cancelled = false;
