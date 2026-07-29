@@ -185,6 +185,8 @@ const KanbanCard = ({
   dailyNextDate = null,
   workArea = null,
   pausedByCaptar = null,
+  awaitingClient = false,
+  awaitingClientSince = null,
   onClick,
   onDatesChange,
 }: KanbanCardProps) => {
@@ -195,6 +197,8 @@ const KanbanCard = ({
   const hasAnyDate = !!(dueDate || cardDeliveryDate);
   const showInline = showStartEndLabels || hasAnyDate;
   const isSistemas = workArea === "sistemas";
+  const overdue = isOverdue && !awaitingClient;
+
 
   return (
     <Card
