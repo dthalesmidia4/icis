@@ -8,6 +8,7 @@
  * - Respeita `user_area_schedules` por área (mídia/sistemas) quando fornecido.
  */
 import { fetchHolidaysInRange } from "@/lib/dailyCards";
+import { isReviewFunction, isEvaluationFunction } from "@/lib/flowFunctions";
 
 export type ReorderWorkArea = "midia" | "sistemas";
 
