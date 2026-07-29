@@ -197,13 +197,26 @@ export async function replacePlanCard(params: {
   currentDefault: any[];
   currentUltra: any[];
   updatedCard: any;
+  originalTitle?: string;
 }) {
   const isDefault = params.source === "default";
   const plan = isDefault ? [...params.currentDefault] : [...params.currentUltra];
-  if (params.indexInPlan < 0 || params.indexInPlan >= plan.length) return;
+  const targetTitle = String(params.originalTitle ?? "").trim();
 
-  const previous = plan[params.indexInPlan] || {};
-  plan[params.indexInPlan] = {
+  let idx = params.indexInPlan;
+  const atIdxTitle = String(plan[idx]?.titulo ?? plan[idx]?.title ?? "").trim();
+  if (targetTitle && atIdxTitle !== targetTitle) {
+    idx = plan.findIndex((it: any) => {
+      const t = String(it?.titulo ?? it?.title ?? "").trim();
+      return t && t === targetTitle;
+    });
+  }
+  if (idx < 0 || idx >= plan.length) {
+    throw new Error("Card não encontrado no plano (já removido ou alterado). Recarregue a Avaliação.");
+  }
+
+  const previous = plan[idx] || {};
+  plan[idx] = {
     ...previous,
     ...params.updatedCard,
     _reevaluatedAt: new Date().toISOString(),
@@ -217,6 +230,7 @@ export async function replacePlanCard(params: {
 
   if (error) throw error;
 }
+
 
 /**
  * Move um card de rejected_plan de volta para default_plan/ultra_plan
