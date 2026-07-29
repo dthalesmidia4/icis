@@ -148,6 +148,7 @@ const KanbanCard = ({
   dailyTotal = null,
   dailyNextDate = null,
   workArea = null,
+  pausedByCaptar = null,
   onClick,
   onDatesChange,
 }: KanbanCardProps) => {
