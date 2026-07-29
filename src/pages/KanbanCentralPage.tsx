@@ -49,7 +49,7 @@ import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createS
 import { useCollaborators } from "@/hooks/useCollaborators";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { assignInitialResponsible, resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
-import { isReviewFunction } from "@/lib/flowFunctions";
+import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from "@/lib/flowFunctions";
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { usePendingEvaluationCards, type PendingEvaluationCard } from "@/hooks/usePendingEvaluationCards";
 import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
@@ -1026,7 +1026,7 @@ const KanbanCentralPage = () => {
     const pausedMeta = (card as any).reorder_meta?.pausedByCaptar;
     if (pausedMeta || opts?.isPausedByCaptarNow) return `${base} pausado para captação`;
     if (key === "publicar" && activeDispatchIds.has(card.id)) return `${base} agendado`;
-    if (key === "aguardando_cliente") return base;
+    if (isClientWaitingFunction(key)) return base;
     if (opts?.isCurrent && key) return `${base} em andamento`;
     if (opts?.isNext && key) return `${base} próximo`;
     return base;
@@ -2276,10 +2276,10 @@ const KanbanCentralPage = () => {
                     ? !c.assigned_to && !(c.additional_assignees?.length)
                     : c.assigned_to === target.userId || (c.additional_assignees?.includes(target.userId) ?? false)
                 );
-                const _aw = userCards.filter((c) => c.current_function_key === 'aguardando_cliente');
-                const _nonAw = userCards.filter((c) => c.current_function_key !== 'aguardando_cliente');
+                const _aw = userCards.filter((c) => isClientWaitingFunction(c.current_function_key));
+                const _nonAw = userCards.filter((c) => !isClientWaitingFunction(c.current_function_key));
                 const _rev = _nonAw.filter((c) => isReviewFunction(c.current_function_key));
-                const _prod = _nonAw.filter((c) => !isReviewFunction(c.current_function_key));
+                const _prod = _nonAw.filter((c) => !isReviewFunction(c.current_function_key) && !isEvaluationFunction(c.current_function_key));
                 const _eval = evalByAssignee.get(target.userId) || [];
                 const sub: typeof rawColumns = [];
                 if (_prod.length > 0) sub.push({ id: `${target.userId}::production`, name: target.name, color: 'hsl(var(--primary))', userId: target.userId, focusKind: 'production' });
@@ -2322,12 +2322,12 @@ const KanbanCentralPage = () => {
 
             const allColumnCards = isHistoryMode ? historyColumnCards : activeColumnCards;
 
-            // Aguardando Clientes = cards na função operacional aguardando_cliente (apenas modo ativo)
+            // Aguardando Clientes = cards que estão com/para cliente (apenas modo ativo)
             const awaitingCardsBase = !isHistoryMode
-              ? allColumnCards.filter((c) => c.current_function_key === 'aguardando_cliente')
+              ? allColumnCards.filter((c) => isClientWaitingFunction(c.current_function_key))
               : [];
             const nonAwaitingCards = !isHistoryMode
-              ? allColumnCards.filter((c) => c.current_function_key !== 'aguardando_cliente')
+              ? allColumnCards.filter((c) => !isClientWaitingFunction(c.current_function_key))
               : allColumnCards;
 
             // Revisão: agrupar SE houver 3 ou mais cards em função de revisão neste colaborador (só modo ativo)
@@ -2347,7 +2347,7 @@ const KanbanCentralPage = () => {
 
             // Aplicar overrides do modo foco (isola exatamente 1 agrupamento por sub-coluna)
             const columnCards = focusKind
-              ? (focusKind === 'production' ? nonAwaitingCards.filter((c) => !isReviewFunction(c.current_function_key)) : [])
+              ? (focusKind === 'production' ? nonAwaitingCards.filter((c) => !isReviewFunction(c.current_function_key) && !isEvaluationFunction(c.current_function_key)) : [])
               : columnCardsBase;
             const evaluateCards = focusKind
               ? (focusKind === 'evaluate' ? evaluateCardsBase : [])
@@ -2370,7 +2370,7 @@ const KanbanCentralPage = () => {
               (a.suggestedDate || "9999-12-31").localeCompare(b.suggestedDate || "9999-12-31"));
 
             // --- "Em andamento" = card mais atrasado que já deveria estar sendo feito ---
-            // Considera produção + revisão; ignora aguardando cliente, captação
+            // Considera a fila operacional inteira do colaborador; ignora cliente, captação
             // (que tem lógica própria de pausa) e publicações já agendadas.
             const nowTs = Date.now();
             const startTsOf = (c: CentralKanbanCard): number => {
@@ -2379,13 +2379,15 @@ const KanbanCentralPage = () => {
               const [h, mi] = ((c.due_time || "00:00").slice(0, 5)).split(":").map((x) => parseInt(x, 10));
               return new Date(y, (mo || 1) - 1, d || 1, h || 0, mi || 0).getTime();
             };
-            const flowCandidates = [
-              ...columnCards.map((c) => ({ c, tier: 0 })),
-              ...reviewCards.map((c) => ({ c, tier: 1 })),
-            ].filter(({ c }) => {
+            const allOperationalCards = activeColumnCards.filter((c) => !isHistoryMode || true);
+            const flowCandidates = allOperationalCards.map((c) => ({
+              c,
+              tier: isReviewFunction(c.current_function_key) ? 1 : isEvaluationFunction(c.current_function_key) ? 2 : 0,
+            })).filter(({ c }) => {
               const k = (c.current_function_key || "").toLowerCase();
-              if (k === "aguardando_cliente" || k === "captar") return false;
+              if (isClientWaitingFunction(k) || k === "captar") return false;
               if (k === "publicar" && activeDispatchIds.has(c.id)) return false;
+              if ((c as any).is_daily_card) return false;
               return Number.isFinite(startTsOf(c));
             }).sort((a, b) => {
               const d = startTsOf(a.c) - startTsOf(b.c);
@@ -2766,7 +2768,7 @@ const KanbanCentralPage = () => {
                                   isTopNonCaptar &&
                                   !cardStartsInFuture &&
                                   cardKey !== "captar" &&
-                                  cardKey !== "aguardando_cliente" &&
+                                  !isClientWaitingFunction(cardKey) &&
                                   !(card as any).is_daily_card;
                                 const syntheticPausedByCaptar = isPausedByCaptarNow
                                   ? {
