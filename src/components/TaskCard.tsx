@@ -1808,6 +1808,11 @@ export default function TaskCard({
                           await onSave('due_time', patch.due_time);
                           await onSave('delivery_date', patch.delivery_date);
                           await onSave('delivery_time', patch.delivery_time);
+                          // Checagem de conflito de área (schedule + card-vs-card)
+                          const checkDate = patch.delivery_date || patch.due_date;
+                          const checkStart = patch.due_time || patch.delivery_time;
+                          const checkEnd = patch.delivery_time || patch.due_time;
+                          if (checkDate) await warnAreaConflict(checkDate, checkStart, checkEnd);
                         }}
                         trigger={
                           <button
