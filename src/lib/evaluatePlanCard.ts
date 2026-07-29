@@ -142,15 +142,30 @@ export async function rejectPlanCard(params: {
 }) {
   const isDefault = params.source === "default";
   const plan = isDefault ? [...params.currentDefault] : [...params.currentUltra];
-  if (params.indexInPlan < 0 || params.indexInPlan >= plan.length) return;
+  const cardTitle = String(params.card?.titulo ?? params.card?.title ?? "").trim();
 
-  const [removed] = plan.splice(params.indexInPlan, 1);
+  // Locate by index first; if title doesn't match (plan mutated in the meantime),
+  // fall back to a title-based search. Prevents removing the wrong item.
+  let removeAt = params.indexInPlan;
+  const atIdxTitle = String(plan[removeAt]?.titulo ?? plan[removeAt]?.title ?? "").trim();
+  if (!cardTitle || atIdxTitle !== cardTitle) {
+    removeAt = plan.findIndex((it: any) => {
+      const t = String(it?.titulo ?? it?.title ?? "").trim();
+      return t && t === cardTitle;
+    });
+  }
+  if (removeAt < 0 || removeAt >= plan.length) {
+    throw new Error("Card não encontrado no plano (já removido ou alterado). Recarregue a Avaliação.");
+  }
+
+  const [removed] = plan.splice(removeAt, 1);
   const rejected = [...(params.currentRejected || [])];
   const reason = (params.reason ?? "").trim();
   const nowIso = new Date().toISOString();
   rejected.push({
     ...removed,
     _originalSource: params.source,
+    _originalIndex: params.indexInPlan,
     _rejectedAt: nowIso,
     ...(reason ? { _rejectReason: reason } : {}),
     ...(params.discarded ? { _discarded: true, _discardedAt: nowIso } : {}),
@@ -167,6 +182,7 @@ export async function rejectPlanCard(params: {
 
   if (error) throw error;
 }
+
 
 
 /**
