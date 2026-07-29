@@ -85,16 +85,14 @@ const SentToClientPill = ({ since, resendCount }: { since?: string | null; resen
   const at = fmtDateTime(since);
   const rel = fmtSince(since);
   const sendNumber = Math.max(1, (Number(resendCount) || 0) + 1);
-  const sendText = at
-    ? `Enviado pela ${sendNumber}ª vez ao cliente em ${at}`
-    : `Enviado pela ${sendNumber}ª vez ao cliente`;
   return (
-    <div className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium leading-tight min-w-0 w-full bg-blue-500/10 text-blue-700 dark:text-blue-300">
-      <Send className="h-3 w-3 shrink-0" />
-      <span className="truncate">
-        {sendText}
+    <div className="flex items-start gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium leading-tight min-w-0 w-full bg-blue-500/10 text-blue-700 dark:text-blue-300">
+      <Send className="h-3 w-3 shrink-0 mt-0.5" />
+      <span className="min-w-0 flex-1 whitespace-normal break-words">
+        <span>Enviado pela {sendNumber}ª vez ao cliente</span>
+        {at && <span className="block font-semibold">em {at}</span>}
       </span>
-      {rel && <span className="ml-auto shrink-0 opacity-70">{rel}</span>}
+      {rel && <span className="shrink-0 opacity-70 mt-0.5">{rel}</span>}
     </div>
   );
 };
