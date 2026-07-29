@@ -518,7 +518,11 @@ export async function computeReorder(
   const ctx = buildCtx(wh, holidays, opts?.areaSchedule);
 
   const awaiting = cards.filter((c) => (c.current_function_key || "").toLowerCase() === "aguardando_cliente");
-  const active = cards.filter((c) => (c.current_function_key || "").toLowerCase() !== "aguardando_cliente");
+  const captarFixed = cards.filter((c) => (c.current_function_key || "").toLowerCase() === "captar");
+  const active = cards.filter((c) => {
+    const k = (c.current_function_key || "").toLowerCase();
+    return k !== "aguardando_cliente" && k !== "captar";
+  });
   const ordered = sortForReorder(active, { prioritizePublishDate: opts?.prioritizePublishDate });
 
   // Cursores separados por área quando há schedule por área.
