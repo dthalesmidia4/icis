@@ -943,7 +943,7 @@ const KanbanCentralPage = () => {
         .select("demand_id, created_at")
         .eq("tenant_id", tenantId)
         .eq("from_user_id", columnId)
-        .in("action", ["proceeded", "delivered"])
+        .in("action", ["proceeded", "delivered", "partial_delivered"])
         .gte("created_at", gte);
       if (lte) q = q.lte("created_at", lte);
       const { data, error } = await q.order("created_at", { ascending: false }).limit(2000);
