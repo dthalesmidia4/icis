@@ -299,14 +299,17 @@ export async function jumpToFunction({
   const target = seq.find((f) => f.function_key === targetFunctionKey);
   if (!target) return { success: false, message: "Etapa não encontrada no fluxo." };
 
-  if (currentFunctionKey === "enviar_cliente" && target.function_key === "aguardando_cliente") {
+  // Qualquer entrada em "Aguardando clientes" mantém o mesmo responsável e carimba o envio.
+  if (target.function_key === "aguardando_cliente") {
     const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
     const keep = (cur as any)?.assigned_to || null;
     const { error } = await supabase.from("demands").update({ current_function_key: target.function_key, client_wait_started_at: new Date().toISOString() } as any).eq("id", demandId);
     if (error) return { success: false, message: "Erro ao atualizar etapa." };
     await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: keep, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
+    await recordClientSend(tenantId, demandId, currentFunctionKey || null, keep);
     return { success: true, assignedTo: keep || undefined, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name}.` };
   }
+
 
   const picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name);
   if (!picked.success || !picked.userId) return { success: false, message: picked.message || "Nenhum responsável para a etapa." };
