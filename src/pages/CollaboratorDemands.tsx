@@ -23,6 +23,17 @@ import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
 import { getRoleLabel } from "@/lib/constants/roles";
 
 const FINAL_STATUSES = ["feito", "feitos", "publicado"];
+const formatClientSentText = (card: KanbanCardData) => {
+  const sentAt = card.client_wait_started_at || card.client_sent_at_fallback;
+  const sendNumber = Math.max(1, (Number(card.client_resend_count) || 0) + 1);
+  if (!sentAt) return `Enviado pela ${sendNumber}ª vez ao cliente`;
+
+  const date = new Date(sentAt);
+  if (Number.isNaN(date.getTime())) return `Enviado pela ${sendNumber}ª vez ao cliente`;
+
+  return `Enviado pela ${sendNumber}ª vez ao cliente em ${date.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+};
+
 const isOverdue = (deliveryDate?: string | null, deliveryTime?: string | null, status?: string) => {
   if (!deliveryDate) return false;
   if (FINAL_STATUSES.includes((status || "").toLowerCase())) return false;
@@ -111,6 +122,9 @@ const CollaboratorDemands = () => {
           updated_at: d.updated_at,
           assigned_to: d.assigned_to || null,
           current_function_key: d.current_function_key ?? null,
+          client_wait_started_at: d.client_wait_started_at ?? null,
+          client_resend_count: d.client_resend_count ?? 0,
+          client_last_resend_at: d.client_last_resend_at ?? null,
           clientName: d.tenant_companies.fantasy_name || d.tenant_companies.name,
           clientId: d.client_id,
           is_daily_card: !!d.is_daily_card,
@@ -459,9 +473,7 @@ const CollaboratorDemands = () => {
                   </div>
                 ) : card.current_function_key === "aguardando_cliente" ? (
                   <span className="text-blue-600 dark:text-blue-400 font-medium">
-                    Enviado ao cliente em {(card as any).client_wait_started_at
-                      ? new Date((card as any).client_wait_started_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
-                      : "—"}
+                    {formatClientSentText(card)}
                   </span>
                 ) : (
                   <span>{formatDate(card.due_date)}{card.due_time ? ` · ${formatTime(card.due_time)}` : ""}</span>
