@@ -2825,7 +2825,7 @@ const KanbanCentralPage = () => {
                                             isDragging={snapshot.isDragging}
                                             isOverdue={isCardOverdue(card)}
                                             cardId={card.id}
-                                           statusName={resolveStageLabel(card, { isTop: isTopCard, isPausedByCaptarNow })}
+                                           statusName={resolveStageLabel(card, { isCurrent: card.id === currentFlowCardId, isNext: card.id === nextFlowCardId, isPausedByCaptarNow })}
                                             statusColor={card.status_color}
                                             isDailyCard={(card as any).is_daily_card}
                                             dailyCompleted={(card as any).daily_completed_occurrences}
