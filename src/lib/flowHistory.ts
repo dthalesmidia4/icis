@@ -5,6 +5,7 @@ export type FlowHistoryAction =
   | "proceeded"
   | "moved_back"
   | "delivered"
+  | "partial_delivered"
   | "manual_assignment";
 
 export interface RecordFlowHistoryInput {
