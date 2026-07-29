@@ -1829,7 +1829,7 @@ const KanbanCentralPage = () => {
                               email: "",
                             } as any);
                           }
-                          navigate("/client-evolution");
+                          navigate("/client-evolution", { state: { from: "/kanban-central" } });
                         }}
                         className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded hover:bg-muted text-left text-xs"
                       >

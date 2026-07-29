@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
@@ -146,6 +147,8 @@ const ClientEvolution = () => {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const { activeDispatchIds } = useActiveDispatchIds(tenantId);
   const { selectedClient } = useSelectedClient();
+  const location = useLocation();
+  const backTo = (location.state as { from?: string } | null)?.from || "/client-hub";
   const [cards, setCards] = useState<KanbanCardData[]>([]);
   const [loading, setLoading] = useState(false);
   const [functions, setFunctions] = useState<FlowFunction[]>([]);
@@ -450,7 +453,7 @@ const ClientEvolution = () => {
     <div className="mx-auto w-full max-w-[1920px] px-4 sm:px-6 lg:px-8 py-6">
       {/* Header em uma linha */}
       <div className="flex flex-wrap items-center gap-3 mb-5">
-        <BackButton to="/client-hub" />
+        <BackButton to={backTo} />
         <div className="flex items-center gap-2 min-w-0">
           <Activity className="h-5 w-5 text-primary shrink-0" />
           <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">
