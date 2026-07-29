@@ -339,20 +339,22 @@ const ClientEvolution = () => {
       const idx = stageKey ? seq.findIndex((f) => f.function_key === stageKey) : -1;
       const currentFn = idx >= 0 ? seq[idx] : null;
       const nextFn = idx >= 0 && idx < seq.length - 1 ? seq[idx + 1] : null;
+      const isScheduled = stageKey === "publicar" && activeDispatchIds.has(c.id);
+      const displayStageName = isScheduled ? "Publicar agendado" : (currentFn?.name ?? null);
       return {
         card: c,
         isDone,
         isOverdue: isOverdue(c.delivery_date, c.delivery_time, c.status),
         hasStage: !!stageKey,
         stageKey,
-        stageName: currentFn?.name ?? null,
+        stageName: displayStageName,
         stageIndex: idx,
         sequence: seq,
         nextStageName: nextFn?.name ?? null,
         workArea: ((c as any).work_area as "midia" | "sistemas" | null) ?? null,
       };
     });
-  }, [scopedCards, sequenceForCard]);
+  }, [scopedCards, sequenceForCard, activeDispatchIds]);
 
   const summary = useMemo(() => {
     const total = classified.length;
