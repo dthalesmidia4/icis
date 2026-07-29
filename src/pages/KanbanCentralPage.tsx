@@ -84,6 +84,9 @@ interface CentralKanbanCard extends KanbanCardData {
 const FINAL_STATUS_NAMES = ['feito', 'feitos', 'publicado'];
 const KANBAN_FOCUS_TRANSITION_MS = 280;
 
+const getClientSentAt = (card: Pick<KanbanCardData, "client_wait_started_at"> & { client_sent_at_fallback?: string | null }) =>
+  card.client_wait_started_at || card.client_sent_at_fallback || null;
+
 type KanbanFocusKind = 'production' | 'evaluate' | 'awaiting' | 'review';
 type KanbanDisplayColumn = {
   id: string;
@@ -547,40 +550,39 @@ const KanbanCentralPage = () => {
     setColumns(currentColumns => {
       const statusCol = currentColumns.find(col => col.id === newStatusId);
       const newStatusName = statusCol?.name;
-      
-      if (newStatusName) {
-        setCards(prevCards => 
-          prevCards.map(card => {
-            if (card.id !== demandId) return card;
-            return {
-              ...card,
-              status: newStatusName,
-              title: payload.title ?? card.title,
-              demand_type: payload.demand_type ?? card.demand_type,
-              demand_type_key: payload.demand_type_key ?? card.demand_type_key,
-              assigned_to: payload.assigned_to !== undefined ? payload.assigned_to : card.assigned_to,
-              publish_date: payload.publish_date ?? card.publish_date,
-              publish_time: payload.publish_time ?? card.publish_time,
-              delivery_date: payload.delivery_date ?? card.delivery_date,
-              delivery_time: payload.delivery_time ?? card.delivery_time,
-              due_date: payload.due_date ?? card.due_date,
-              due_time: payload.due_time ?? card.due_time,
-              objective: payload.objective ?? card.objective,
-              observations: payload.observations ?? card.observations,
-              instructions: payload.instructions ?? card.instructions,
-              description: payload.description ?? card.description,
-              post_caption: payload.post_caption ?? card.post_caption,
-            };
-          })
-        );
-        setSelectedCard(prev => {
-          if (prev && prev.id === demandId) {
-            sonnerToast.info("Este card foi atualizado por outro usuário.", { id: `rt-updated-${demandId}` });
-            return { ...prev, status: newStatusName, title: payload.title ?? prev.title };
-          }
-          return prev;
-        });
-      }
+
+      const applyPayload = <T extends KanbanCardData>(card: T): T => ({
+        ...card,
+        status: newStatusName ?? card.status,
+        title: payload.title ?? card.title,
+        demand_type: payload.demand_type ?? card.demand_type,
+        demand_type_key: payload.demand_type_key ?? card.demand_type_key,
+        assigned_to: payload.assigned_to !== undefined ? payload.assigned_to : card.assigned_to,
+        current_function_key: payload.current_function_key !== undefined ? payload.current_function_key : card.current_function_key,
+        publish_date: payload.publish_date ?? card.publish_date,
+        publish_time: payload.publish_time ?? card.publish_time,
+        delivery_date: payload.delivery_date ?? card.delivery_date,
+        delivery_time: payload.delivery_time ?? card.delivery_time,
+        due_date: payload.due_date ?? card.due_date,
+        due_time: payload.due_time ?? card.due_time,
+        objective: payload.objective ?? card.objective,
+        observations: payload.observations ?? card.observations,
+        instructions: payload.instructions ?? card.instructions,
+        description: payload.description ?? card.description,
+        post_caption: payload.post_caption ?? card.post_caption,
+        client_wait_started_at: payload.client_wait_started_at !== undefined ? payload.client_wait_started_at : card.client_wait_started_at,
+        client_resend_count: payload.client_resend_count !== undefined ? payload.client_resend_count : card.client_resend_count,
+        client_last_resend_at: payload.client_last_resend_at !== undefined ? payload.client_last_resend_at : card.client_last_resend_at,
+      });
+
+      setCards(prevCards => prevCards.map(card => (card.id === demandId ? applyPayload(card) : card)));
+      setSelectedCard(prev => {
+        if (prev && prev.id === demandId) {
+          sonnerToast.info("Este card foi atualizado por outro usuário.", { id: `rt-updated-${demandId}` });
+          return applyPayload(prev);
+        }
+        return prev;
+      });
       
       return currentColumns; // Don't change columns
     });
@@ -841,6 +843,27 @@ const KanbanCentralPage = () => {
 
       if (archivedError) throw archivedError;
 
+      const activeHistoryFallback = new Map<string, string>();
+      const awaitingWithoutStarted = (activeData || [])
+        .filter((d: any) => d.current_function_key === "aguardando_cliente" && !d.client_wait_started_at)
+        .map((d: any) => d.id);
+
+      if (awaitingWithoutStarted.length > 0) {
+        const { data: historyRows } = await supabase
+          .from("demand_flow_history")
+          .select("demand_id, created_at")
+          .in("demand_id", awaitingWithoutStarted)
+          .eq("from_function_key", "enviar_cliente")
+          .eq("to_function_key", "aguardando_cliente")
+          .order("created_at", { ascending: false });
+
+        (historyRows || []).forEach((row: any) => {
+          if (row.demand_id && row.created_at && !activeHistoryFallback.has(row.demand_id)) {
+            activeHistoryFallback.set(row.demand_id, row.created_at);
+          }
+        });
+      }
+
       const mapDemand = (demand: any, isArchived: boolean): CentralKanbanCard => {
         const statusName = demand.pipeline_statuses?.name || "Planejamento";
         const company = demand.tenant_companies;
@@ -895,6 +918,7 @@ const KanbanCentralPage = () => {
           client_wait_started_at: (demand as any).client_wait_started_at ?? null,
           client_resend_count: (demand as any).client_resend_count ?? 0,
           client_last_resend_at: (demand as any).client_last_resend_at ?? null,
+          client_sent_at_fallback: activeHistoryFallback.get(demand.id) ?? null,
           reorder_meta: (demand as any).reorder_meta ?? null,
         } as any;
       };
@@ -2954,7 +2978,7 @@ const KanbanCentralPage = () => {
                               <div className="mt-1 space-y-1">
                                 {awaitingCardsSorted.map((card) => {
                                   const resendCount = (card as any).client_resend_count || 0;
-                                  const waitStart = (card as any).client_wait_started_at;
+                                  const waitStart = getClientSentAt(card as any);
                                   return (
                                   <div
                                     key={card.id}
@@ -2976,6 +3000,7 @@ const KanbanCentralPage = () => {
                                       workArea={(card as any).work_area || null}
                                       awaitingClient
                                       awaitingClientSince={waitStart || null}
+                                      awaitingClientResendCount={resendCount}
                                       onClick={() => handleCardClick(card, column.id)}
                                     />
                                     {tenantId && (
@@ -2984,7 +3009,6 @@ const KanbanCentralPage = () => {
                                         tenantId={tenantId}
                                         demandTypeKey={(card as any).demand_type_key || card.demand_type}
                                         currentFunctionKey={card.current_function_key}
-                                        resendCount={resendCount}
                                         onDone={() => fetchAllCards()}
                                       />
                                     )}

@@ -9,7 +9,6 @@ interface Props {
   tenantId: string;
   demandTypeKey?: string | null;
   currentFunctionKey?: string | null;
-  resendCount?: number;
   onDone?: () => void;
 }
 
@@ -22,7 +21,6 @@ export default function AwaitingClientActions({
   tenantId,
   demandTypeKey,
   currentFunctionKey,
-  resendCount = 0,
   onDone,
 }: Props) {
   const [confirming, setConfirming] = useState(false);
@@ -60,11 +58,6 @@ export default function AwaitingClientActions({
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap mt-1 px-1 text-[10px]">
-      {resendCount > 0 && (
-        <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-700 dark:text-blue-300 font-semibold">
-          Reenviado {resendCount}x
-        </span>
-      )}
       <button
         type="button"
         onClick={handleApprove}
