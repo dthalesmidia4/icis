@@ -302,6 +302,7 @@ const ClientEvolution = () => {
   type Classified = {
     card: KanbanCardData;
     isDone: boolean;
+    isScheduledPublish: boolean;
     isOverdue: boolean;
     hasStage: boolean;
     stageKey: string | null;
@@ -335,15 +336,16 @@ const ClientEvolution = () => {
     return scopedCards.map((c) => {
       const stageKey = (c as any).current_function_key as string | null;
       const isDone = FINAL_STATUSES.has((c.status || "").toLowerCase());
+      const isScheduledPublish = !isDone && stageKey === "publicar" && activeDispatchIds.has(c.id);
       const seq = sequenceForCard(c.demand_type_key);
       const idx = stageKey ? seq.findIndex((f) => f.function_key === stageKey) : -1;
       const currentFn = idx >= 0 ? seq[idx] : null;
       const nextFn = idx >= 0 && idx < seq.length - 1 ? seq[idx + 1] : null;
-      const isScheduled = stageKey === "publicar" && activeDispatchIds.has(c.id);
-      const displayStageName = isScheduled ? "Publicar agendado" : (currentFn?.name ?? null);
+      const displayStageName = isScheduledPublish ? "Publicar agendado" : (currentFn?.name ?? null);
       return {
         card: c,
         isDone,
+        isScheduledPublish,
         isOverdue: isOverdue(c.delivery_date, c.delivery_time, c.status),
         hasStage: !!stageKey,
         stageKey,
@@ -359,20 +361,27 @@ const ClientEvolution = () => {
   const summary = useMemo(() => {
     const total = classified.length;
     const done = classified.filter((c) => c.isDone).length;
-    const overdue = classified.filter((c) => c.isOverdue).length;
+    const scheduledPublish = classified.filter((c) => c.isScheduledPublish).length;
+    const overdue = classified.filter((c) => c.isOverdue && !c.isScheduledPublish).length;
     const queued = classified.filter((c) => !c.isDone && !c.hasStage).length;
-    const inProgress = total - done - queued;
-    return { total, done, overdue, queued, inProgress };
+    const inProgress = Math.max(0, total - done - queued - scheduledPublish);
+    return { total, done, scheduledPublish, overdue, queued, inProgress };
   }, [classified]);
 
   const timeline = useMemo(() => {
     let list = classified;
     if (filter === "done") list = list.filter((c) => c.isDone);
-    else if (filter === "in_progress") list = list.filter((c) => !c.isDone && c.hasStage);
+    else if (filter === "in_progress") list = list.filter((c) => !c.isDone && c.hasStage && !c.isScheduledPublish);
+    else if (filter === "scheduled_publish") list = list.filter((c) => c.isScheduledPublish);
     else if (filter === "overdue") list = list.filter((c) => c.isOverdue);
     else if (filter === "queued") list = list.filter((c) => !c.isDone && !c.hasStage);
 
-    const rank = (c: Classified) => (c.isDone ? 2 : c.hasStage ? 0 : 1);
+    const rank = (c: Classified) => {
+      if (c.isDone) return 3;
+      if (c.isScheduledPublish) return 2;
+      if (!c.hasStage) return 1;
+      return 0;
+    };
     const sorted = [...list].sort((a, b) => {
       if (sort) {
         const dir = sort.dir === "asc" ? 1 : -1;
@@ -398,6 +407,7 @@ const ClientEvolution = () => {
     });
     return sorted;
   }, [classified, filter, sort, assigneeMap]);
+
 
   const handleSave = async (field: string, value: string) => {
     if (!selectedCard) return;
