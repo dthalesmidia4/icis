@@ -644,7 +644,10 @@ const KanbanCentralPage = () => {
         assigned_to: data.assigned_to || null,
         additional_assignees: Array.isArray((data as any).additional_assignees) ? ((data as any).additional_assignees as string[]) : [],
         status_color: data.pipeline_statuses?.color || null,
-        additional_publish_dates: Array.isArray(data.additional_publish_dates) ? (data.additional_publish_dates as unknown as string[]) : []
+        additional_publish_dates: Array.isArray(data.additional_publish_dates) ? (data.additional_publish_dates as unknown as string[]) : [],
+        client_wait_started_at: (data as any).client_wait_started_at ?? null,
+        client_resend_count: (data as any).client_resend_count ?? 0,
+        client_last_resend_at: (data as any).client_last_resend_at ?? null,
       };
 
       if (data.archived_at) {
