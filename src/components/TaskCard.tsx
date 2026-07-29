@@ -115,6 +115,7 @@ export interface KanbanCardData {
   demand_type?: string | null;
   demand_type_key?: string | null;
   assigned_to?: string | null;
+  additional_assignees?: string[];
   current_function_key?: string | null;
   // Card Diário (recorrência)
   is_daily_card?: boolean;
