@@ -1017,11 +1017,17 @@ const KanbanCentralPage = () => {
 
   const resolveStageLabel = useCallback((card: CentralKanbanCard): string => {
     const key = (card as any).current_function_key as string | null | undefined;
-    if (key) {
-      return flowFunctionNames[key] || FALLBACK_FN_NAMES[key] || card.status;
-    }
-    return card.status;
-  }, [flowFunctionNames]);
+    const base = key
+      ? (flowFunctionNames[key] || FALLBACK_FN_NAMES[key] || card.status)
+      : card.status;
+    // Sufixos de estado
+    const paused = (card as any).reorder_meta?.pausedByCaptar;
+    if (paused) return `${base} pausado para captação`;
+    if (key === "publicar" && activeDispatchIds.has(card.id)) return `${base} agendado`;
+    if (key === "aguardando_cliente") return base; // já implica espera
+    if (key) return `${base} em andamento`;
+    return base;
+  }, [flowFunctionNames, activeDispatchIds]);
 
   useRealtimeFlowConfig({
     tenantId,
