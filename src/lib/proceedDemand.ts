@@ -35,7 +35,39 @@ async function hadPriorCaptarPartialDelivery(tenantId: string, demandId: string)
   } catch {
     return false;
   }
+
+/**
+ * Toda entrada em "Aguardando clientes" carimba a data/hora do envio e
+ * registra o envio no histórico (`sent_to_client`) com o número do envio.
+ */
+export async function recordClientSend(
+  tenantId: string,
+  demandId: string,
+  fromFunctionKey: string | null,
+  userId: string | null,
+): Promise<void> {
+  try {
+    const { data } = await supabase
+      .from("demands")
+      .select("client_resend_count" as any)
+      .eq("id", demandId)
+      .maybeSingle();
+    const sendNumber = (Number((data as any)?.client_resend_count) || 0) + 1;
+    await recordFlowHistory({
+      tenantId,
+      demandId,
+      action: "sent_to_client",
+      fromUserId: userId,
+      toUserId: userId,
+      fromFunctionKey,
+      toFunctionKey: "aguardando_cliente",
+      metadata: { send_number: sendNumber },
+    });
+  } catch (e) {
+    console.warn("[proceedDemand] recordClientSend error:", e);
+  }
 }
+
 
 async function clearAdditionalAssignees(demandId: string): Promise<void> {
   try {
