@@ -725,7 +725,7 @@ function TableRow({
       return <span className="text-emerald-600 dark:text-emerald-400 font-medium">Concluída</span>;
     }
     if (isScheduledPublish) {
-      return <span className="text-sky-600 dark:text-sky-400 font-medium">Publicar agendado</span>;
+      return <span className="text-sky-600/70 dark:text-sky-400/70">Publicar agendado</span>;
     }
     if (!hasStage) {
       return <span className="text-amber-600 dark:text-amber-400 font-medium">Aguardando início</span>;
