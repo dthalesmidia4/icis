@@ -1,44 +1,48 @@
-## O que ficou faltando da rodada anterior
-
-Confirmei no código e no histórico (6 regras propostas — R1 a R6). Foram implementadas R1, R2, R4 e uma versão **parcial** de R3. Ficam desta rodada:
-
-1. **R3 completo — Captar sobe ao topo absoluto da coluna** (hoje sobe só dentro do grupo Ontem/Hoje/Amanhã).
-2. **R5 — Modal de Reorganizar sempre com o conjunto completo do responsável** (hoje recebe `cards` já filtrados pelos filtros globais, causando colisões silenciosas com cards ocultos).
-3. **Indicação de "pausado para executar Captar"** — em vez do R6 antigo (rejeitado, já existe a cor cinza para Sistemas), sinalizar visualmente quando um card foi partido/empurrado por um Captar que entrou no meio do seu intervalo.
-
 ## O que fazer
 
-### 1. R3 real — Captar sai do grupo de data e vai ao topo absoluto
+### 1. Label de etapa com estado ("em andamento" / "pausado para captação" / "agendado")
 
-Em `KanbanCentralPage.tsx`, no bloco que monta `entries` por data da coluna:
+Em `src/pages/KanbanCentralPage.tsx`, ampliar `resolveStageLabel(card)` para devolver a etapa + um sufixo de estado:
 
-- Antes do agrupamento por data, extrair captar do responsável cujo `due_datetime` já chegou e que ainda estejam ativos (etapa continua `captar`).
-- Renderizar um **pseudo-grupo fixo no topo** com cabeçalho âmbar "Captação · agora" contendo esses cards, fora do fluxo Ontem/Hoje/Amanhã.
-- Remover esses cards do restante para não duplicar.
-- Sem captar no horário → grupo não aparece. Boost dentro dos grupos de data permanece para captar futuros do próprio dia.
+- Base: nome da função atual (já existe hoje).
+- Se `card.reorder_meta?.pausedByCaptar` estiver preenchido **e** o card não for da etapa `captar` → sufixo `pausado para captação` (ex.: "Planejar pausado para captação").
+- Se a etapa atual for `publicar` **e** `activeDispatchIds.has(card.id)` → sufixo `agendado` (ex.: "Publicar agendado"). Isso resolve o segundo ponto do usuário: hoje todos os cards ficam apenas como "Publicar" mesmo já tendo dispatch programado.
+- Caso contrário → sufixo `em andamento` (ex.: "Captar em andamento", "Planejar em andamento").
 
-### 2. R5 — Modal recebe sempre todos os cards ativos do responsável
+Para o segundo caso, passar `activeDispatchIds` (já disponível via `useActiveDispatchIds`) como dependência do `useCallback` e usar dentro. O sufixo deve ser aplicado só para cards ativos — quando `isHistory` (Registro de Cards), manter o label puro.
 
-Em `KanbanCentralPage.tsx` (bloco 3138–3179):
+Sem mudanças em `KanbanCard.tsx` — ele já renderiza `statusName` como está.
 
-- Ao abrir o `ReorderSequenceModal`, passar o array **bruto** de `cards` (todos os ativos do tenant carregados no estado), filtrando só por `assigned_to === columnId || additional_assignees.includes(columnId)`, sem aplicar filtros globais (cliente/período/status/área).
-- Manter `hasActiveFilters` para o aviso existente no modal ("considera todos os cards ativos desta coluna") passar a ser verdadeiro sempre.
+### 2. "Entregar minha parte" em cards Captar com múltiplos responsáveis
 
-### 3. Sinalização de "pausado por Captar"
+Fluxo atual (`proceedDemand.ts` → `handleCaptarProceed`): quando qualquer responsável avança um Captar, o card avança para o próximo do fluxo global e some da coluna de todos. Novo comportamento desejado:
 
-Ao computar a proposta em `reorderSequence.ts`, o alocador já contorna intervalos bloqueados (R2). Falta expor esse fato ao usuário:
+- Se o card `captar` tem mais de um responsável (owner + `additional_assignees`), o botão principal do `TaskCard` passa a se chamar **"Entregar minha parte"** (em vez de "Prosseguir"). Só o último responsável remanescente vê o rótulo padrão "Prosseguir".
+- Ao clicar em "Entregar minha parte":
+  - Remove o `userId` atual (o usuário logado) do conjunto {`assigned_to`, `additional_assignees`}.
+  - Registra em `demand_flow_history` uma linha `action = "partial_delivered"` com `from_user_id = user`, mantendo `from_function_key = to_function_key = captar` e `metadata = { remaining_assignees: [...] }`. Isso faz o card aparecer no Registro de Cards daquele responsável como entrega parcial no dia.
+  - Se `assigned_to` era o próprio usuário e ainda restam responsáveis, promove o primeiro dos `additional_assignees` a `assigned_to` (transferência interna, sem mudar etapa nem datas).
+  - Se após a remoção não sobra ninguém → cai no fluxo normal de `proceedDemand` (avança etapa global, limpa `additional_assignees`).
+- O card **não** muda de datas (Captar tem horário fixo).
 
-- Em `computeReorder`, quando `allocateAcrossDays` divide um card em mais de um intervalo por causa de um bloqueio de `captar` (não daily/aguardando), anexar em `ReorderProposal` um novo campo `pausedByCaptar?: { at: string; captarId?: string; captarTitle?: string }`.
-- Na coluna do Kanban Central (`TaskCard` compacto): quando o card tem `pausedByCaptar` no último resultado do reorder (persistido junto ao card ou marcado via um flag leve — ver detalhe técnico), exibir um chip discreto **"Pausado às HH:mm para captação"** ao lado das pílulas de data, com tooltip nomeando o captar.
-- No `ReorderSequenceModal`, na linha da proposta, exibir o mesmo chip para o usuário entender antes de aplicar por que aquele card ficou partido/empurrado.
+### 3. Implementação técnica
 
-## Detalhes técnicos
+- Nova função `deliverMyPart({ tenantId, demandId, userId })` em `src/lib/proceedDemand.ts`:
+  - `SELECT assigned_to, additional_assignees, current_function_key, tenant_id`.
+  - Se `current_function_key !== 'captar'` ou não há múltiplos responsáveis → chama `proceedDemand` normal.
+  - Caso contrário monta o novo par (`assigned_to`, `additional_assignees`) e faz `UPDATE`.
+  - Chama `recordFlowHistory({ action: "partial_delivered", fromUserId: userId, toUserId: userId, fromFunctionKey: "captar", toFunctionKey: "captar", metadata: { remaining: [...] } })`.
+- Botão em `TaskCard.tsx`: onde hoje aparece "Prosseguir" para Captar, detectar `isCaptar && (additional_assignees.length + (assigned_to?1:0)) > 1 && (currentUser está em assignees)` e mudar o texto/handler. Handler chama a nova função.
+- Compatibilidade com o Registro de Cards: `demand_flow_history` já tem `action text` (livre), então `partial_delivered` é aceito. Na renderização da coluna Registro (`KanbanCentralPage.tsx`), incluir esse novo `action` como uma entrega válida do dia para aquele `from_user_id`.
 
-- Arquivos: `src/pages/KanbanCentralPage.tsx` (pseudo-grupo Captar + fonte do array no modal), `src/lib/reorderSequence.ts` (detectar overlap com captar e emitir `pausedByCaptar` na proposta), `src/components/kanban/ReorderSequenceModal.tsx` (chip na linha da proposta), `src/components/TaskCard.tsx` (chip no card compacto quando aplicável).
-- Persistência do "pausado": sinal efêmero no resultado da última reorder é suficiente para o modal. Para o card compacto ver o chip fora do modal, gravar em `demands.reorder_meta` (JSONB nullable já usável — se não existir, cai em migração mínima adicionando a coluna). Se o usuário preferir não persistir, o chip aparece apenas no modal — decido pela persistência para dar valor duradouro; migração é 1 coluna JSONB sem RLS mudanças.
-- Sem alteração em edge functions. Realtime já cobre `demands` updates.
+### Arquivos afetados
 
-## Fora de escopo
+- `src/pages/KanbanCentralPage.tsx` — `resolveStageLabel` com sufixo de estado, inclusão de `partial_delivered` na leitura do histórico por coluna.
+- `src/lib/proceedDemand.ts` — nova `deliverMyPart`.
+- `src/components/TaskCard.tsx` — botão "Entregar minha parte" condicional para Captar multi-responsável.
 
-- Mudar o algoritmo de reorder (R1/R2/R4 já entregues).
-- Diferenciação "Publicar agendado × Publicar agora" (tópico separado, tratamos em outro ciclo).
+### Fora de escopo
+
+- Não altero visual do card em si (badges do cliente/etapa continuam vindo do `subtitle`+`statusName` já existentes).
+- Não mexo em edge functions nem em reorder — o campo `reorder_meta.pausedByCaptar` já é populado e será apenas lido para o sufixo.
+- Não redesenho o Registro de Cards; só acrescento o novo `action` como evento válido.
