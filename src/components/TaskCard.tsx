@@ -428,12 +428,14 @@ export default function TaskCard({
   const isScheduledPublish = !!card && activeDispatchIds.has(card.id);
 
   const captarExtras = Array.isArray(card?.additional_assignees) ? (card?.additional_assignees as string[]) : [];
-  const captarAllAssignees = new Set<string>([...(card?.assigned_to ? [card.assigned_to] : []), ...captarExtras]);
+  const captarAllAssignees = Array.from(new Set<string>([
+    ...(card?.assigned_to ? [card.assigned_to] : []),
+    ...captarExtras,
+  ]));
   const canDeliverPart =
     (card?.current_function_key || "") === "captar" &&
-    captarAllAssignees.size > 1 &&
-    !!currentUserId &&
-    captarAllAssignees.has(currentUserId);
+    captarAllAssignees.length > 1;
+  const [deliverPartOpen, setDeliverPartOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
