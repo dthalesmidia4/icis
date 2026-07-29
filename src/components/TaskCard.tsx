@@ -424,6 +424,8 @@ export default function TaskCard({
   const [deliveringPart, setDeliveringPart] = useState(false);
   const { user } = useAuth();
   const currentUserId = user?.id ?? null;
+  const { activeDispatchIds } = useActiveDispatchIds(card?.tenant_id ?? null);
+  const isScheduledPublish = !!card && activeDispatchIds.has(card.id);
 
   const captarExtras = Array.isArray(card?.additional_assignees) ? (card?.additional_assignees as string[]) : [];
   const captarAllAssignees = new Set<string>([...(card?.assigned_to ? [card.assigned_to] : []), ...captarExtras]);
