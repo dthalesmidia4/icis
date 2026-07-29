@@ -646,5 +646,21 @@ export async function computeReorder(
     });
   }
 
+  for (const c of captarFixed) {
+    proposals.push({
+      id: c.id,
+      title: c.title,
+      durationMin: 0,
+      startISO: c.due_date || "",
+      startTime: (c.due_time || "").slice(0, 5),
+      endISO: c.delivery_date || "",
+      endTime: (c.delivery_time || "").slice(0, 5),
+      publishDeadline: null,
+      changed: false,
+      skipped: true,
+      warning: "Captar — horário fixo, não reagendado.",
+    });
+  }
+
   return proposals;
 }
