@@ -1,63 +1,64 @@
-## Diagnóstico
+## 1. Reorganização automática — contagem inflada e horários pulando para 16h+
 
-### 1. Badge "pausado por captação" não aparece no card do Eric
-Na coluna do Eric o grupo "CAPTAÇÃO · AGORA" contém o card de captação, e logo abaixo o card "Templates personalizados" está com horário que **cruza a janela da captação (28/07 14:35 → 30/07 14:00 vs. 29/07 08:00 → 30/07 10:00)**. Ele deveria aparecer como "pausado para captação", mas não aparece.
+### Diagnóstico (verificado no código)
 
-Causa raiz confirmada em `src/pages/KanbanCentralPage.tsx` (linhas 2637–2720):
-- `runningIndex` é incrementado para **todos** os cards, inclusive os do pseudo-grupo `__captar_now__`.
-- Depois da última correção, `isPausedByCaptarNow` exige `isTopCard` (`index === 0`). Como o card de captação recebe `index 0`, o primeiro card real da coluna (não-captar) fica com `index 1` e não é marcado como pausado.
-- Na coluna da Letícia, coincidentemente, existe apenas 1 card na captação e 1 no "Hoje", e o próximo da fila acaba sendo o primeiro do grupo "Hoje" que é `index 1`, mas a versão anterior sem o filtro `isTopCard` mostrava para todos — foi por isso que "funcionava" antes.
+O modal `ReorderSequenceModal` recebe **todos** os cards da lista `cards` de `KanbanCentralPage.tsx` filtrando apenas por `assigned_to === reorderModalColumnId` (ou `additional_assignees`). Porém `cards` inclui:
 
-### 2. Bloqueio/aviso ao lançar demanda fora da janela de área configurada
-Estado atual, confirmado em `src/lib/areaConflicts.ts` (linhas 41–112):
-- `findAreaConflicts` **só compara com outras demandas do mesmo dia em áreas diferentes**. Não consulta `user_area_schedules`.
-- Em `src/components/TaskCard.tsx` (linhas 1017–1062), `warnAreaConflict` é chamado **apenas** no `handlePublishDateChange`. Não é chamado quando muda `delivery_date`, `delivery_time`, `due_time` nem responsável, e não roda no formulário de criação.
-- Ou seja: hoje, se Letícia tem `user_area_schedules` com a tarde como `sistemas`, um card de `midia` cujo horário termina 14:15 (dentro da faixa `sistemas`) **não gera aviso nem bloqueio** — a menos que exista outra demanda `sistemas` no mesmo dia. É essa a lacuna descrita pelo usuário.
+- Cards **arquivados** (`fetchAllCards` busca `archived_at IS NOT NULL` também).
+- Cards em **`publicar_agendado`** (aqueles com dispatch ativo, hoje escondidos da coluna e movidos para "Agendamentos" — mas ainda vivem no state `cards`).
+- Cards em `aguardando_cliente`, `captar` e diários.
 
-## Correções
+Consequências:
 
-### 1. Corrigir o "topo" da coluna para o badge de pausa — `src/pages/KanbanCentralPage.tsx`
-Ao redor da linha 2637 e 2701–2725:
-- Introduzir um contador auxiliar `nonCaptarIndex` (começa em -1) que só é incrementado quando `!isCaptarNow`.
-- Trocar a condição atual `isTopCard = index === 0` (no contexto da pausa) por `isTopNonCaptar = nonCaptarIndex === 0`.
-- Manter `isTopCard` original para o rótulo "em andamento" (esse deve continuar restrito ao primeiríssimo card da coluna, incluindo o de captação — comportamento atual desejado).
+1. **Toast diz "34" em vez de "16"**: a Lúcia enxerga 16 cards ativos, mas o modal reagenda também arquivados e agendados que continuam com `assigned_to` dela → `changed=true` para todos, inflando o número.
+2. **Horários vão para 16h+**: em `reorderSequence.ts`, cards de `aguardando_cliente`/`captar`/`daily` viram intervalos "blocked" (linhas 601–606). Quando esses cards têm `due_date` no passado com `delivery_date` distante (típico de "aguardando cliente" antigo), o intervalo bloqueado engole o expediente atual e o `skipBlocked` empurra o cursor de 11h para depois do fim do bloqueio — só então começam os cards ativos. O código não descarta bloqueios cujo `end < now`.
 
-Resultado: com a captação ativa, o **primeiro card não-captar** da coluna vira "pausado por captação", mesmo que outros cards do topo (da captação) já tenham consumido `runningIndex`.
+### Correções
 
-### 2. Checagem contra `user_area_schedules`
+**A) `src/pages/KanbanCentralPage.tsx` (props do `ReorderSequenceModal`)**
+- Ao montar a lista `cards={…}`, filtrar também:
+  - `!c.isArchived`
+  - `!(c.current_function_key === "publicar" && activeDispatchIds.has(c.id))` — cards com dispatch ativo já saíram da coluna operacional.
+- Passar `activeDispatchIds` para o filtro (o hook `useActiveDispatchIds` já é usado na página; se ainda não estiver, importar).
 
-#### 2.a. Estender `src/lib/areaConflicts.ts`
-Adicionar uma função nova `findScheduleAreaConflict` que recebe `{ tenantId, userId, area, date, startTime, endTime }`:
-1. Deriva `weekday` de `date` (0–6).
-2. Lê de `user_area_schedules` **todas** as linhas do usuário para aquele `weekday`.
-3. Se o usuário não tem nenhuma linha configurada → retorna `null` (sem opinião, mantém comportamento atual).
-4. Se a janela `[startTime..endTime]` do card:
-   - Cai **inteiramente** dentro de uma faixa da **mesma** `area` → OK, sem alerta.
-   - Cai **inteiramente** dentro de uma faixa de **outra** área → `hard: true` (bloqueio duro, como o `hardConflict` atual).
-   - **Cruza** a fronteira (parte dentro da área correta, parte na outra) → `soft: true` (toast de aviso).
-   - Está fora de qualquer faixa configurada → `soft: true` com mensagem "fora da janela configurada".
+**B) `src/lib/reorderSequence.ts` (função `computeReorder`)**
+- Ao construir a lista `blocked` (linhas 594–606), descartar qualquer intervalo com `end <= now` (não bloqueiam mais o cursor).
+- Para `aguardando_cliente` cujo `due_date` seja anterior a hoje mas `delivery_date` seja futuro (ex.: aguardando resposta há dias), truncar `start` para `now` antes de adicionar em `blocked` — o bloqueio só existe no futuro. Isso evita que o cursor pule para o "delivery_date" quando o bloqueio na verdade começou no passado.
+- Não alterar o comportamento de `captar` futuro (permanece fixo).
 
-Retornar `{ hard, soft, reason, offendingArea, offendingWindow }`.
+**C) Consistência do toast**
+- Nada a mudar em `ReorderSequenceModal.tsx`: com as correções acima, `changedCount` refletirá apenas os cards realmente visíveis/ativos da coluna. O texto continua "N cards reorganizados".
 
-#### 2.b. Chamar no `TaskCard`
-- Atualizar `warnAreaConflict` em `src/components/TaskCard.tsx` (linha 1018) para também considerar `delivery_time` (não só `publish_time`) e chamar `findScheduleAreaConflict` além de `findAreaConflicts`.
-- Disparar em três handlers, não só um:
-  - `handlePublishDateChange` (já existe)
-  - `handlePublishTimeChange` (linha 1065)
-  - `handleDeliveryDateChange` / `handleDeliveryTimeChange` (localizar e adicionar; hoje não têm gatilho).
-- Quando `hard=true` da checagem de schedule → reaproveitar o `AlertDialog` de `hardConflict` já existente, adicionando `reason: "schedule"` para exibir a mensagem correta ("Este horário está dentro da janela configurada de {Sistemas} para este responsável.").
-- Quando `soft=true` → `toast.warning` com o motivo.
+---
 
-#### 2.c. Chamar na criação de demanda
-Localizar o formulário de criação (a partir de `demands.insert`) para disparar a mesma checagem antes de gravar. Se `hard=true`, mostrar `AlertDialog` bloqueando o "Salvar" até o usuário mudar o horário/responsável/área. Se `soft=true`, apenas `toast.warning` e permitir salvar.
+## 2. Tela "Evolução das Demandas" — separar "Publicar agendado" dos "Em andamento"
 
-### Fora de escopo
-- Não altero políticas de RLS ou o schema (`user_area_schedules` já existe).
-- Não mexo em `reorderSequence.ts` — o reorganizador já respeita `user_area_schedules`.
-- Não altero rotinas do dispatcher/publicação.
+Hoje, quando `stageKey === "publicar"` e há dispatch ativo, `displayStageName` vira "Publicar agendado" (linha 342 de `ClientEvolution.tsx`), mas o card ainda é contado em `inProgress` e ordenado junto com "em andamento".
 
-## Como validar depois
-1. Coluna Eric: com captação ativa, o "Templates personalizados" passa a mostrar o chip "⏸ Pausado HH:mm · captação".
-2. Criar/editar um card `midia` para Letícia com `delivery_time = 14:15` numa segunda-feira em que a tarde dela está configurada como `sistemas`:
-   - Se a janela ficar 100% em sistemas → `AlertDialog` bloqueia.
-   - Se cruzar (ex. início 13:30 mídia, fim 14:15 já em sistemas) → toast de aviso.
+### Alterações em `src/pages/ClientEvolution.tsx`
+
+**a) Classificação:** adicionar campo `isScheduledPublish: boolean` em `Classified` (true quando `stageKey === "publicar" && activeDispatchIds.has(card.id)` e não `isDone`).
+
+**b) Summary:** novo contador `scheduledPublish`; `inProgress` passa a excluir esses cards:
+```
+inProgress = total − done − queued − scheduledPublish
+```
+
+**c) Barra de progresso** (linhas 490–498): renderizar dois segmentos empilhados:
+- Segmento emerald (`bg-emerald-500`) com `width = done/total`.
+- Segmento sky (`bg-sky-500`) logo em seguida com `width = scheduledPublish/total` — indica "pronto, aguardando publicação".
+- Rótulo: `{done}/{total} · {progressPct}% concluído · +{scheduledPublish} agendado` (só mostra o "+N agendado" quando > 0).
+
+**d) Chips de filtro** (linhas 502–513): adicionar novo `CounterChip` "Publicar agendado" com tone `sky`, entre "Em andamento" e "Concluídas". Filtro `scheduled_publish` que só mostra esses cards. Atualizar tipo `Filter`.
+
+**e) Ordem na timeline** (função `rank`, linha 375): usar 3 níveis → `hasStage && !scheduled = 0`, `scheduled = 1`, `queued = 2`, `done = 3`. Assim os "publicar agendado" ficam agrupados **abaixo dos em andamento e acima dos concluídos**, sem poluir a fila de pendências. `filter === "in_progress"` NÃO inclui esses cards.
+
+**f) Rótulo de estágio:** mantém "Publicar agendado" (já existe). Aplicar cor `text-sky-600 dark:text-sky-400` na célula da coluna Etapa quando `isScheduledPublish`.
+
+Sem alterações no schema nem em edge functions.
+
+## Detalhes técnicos
+
+- `activeDispatchIds` já é retornado pelo hook `useActiveDispatchIds(tenantId)` e usado em ambas as telas — reaproveitar.
+- `reorderSequence.ts`: a truncagem de `start` para `now` deve ocorrer com `spNowVirtualUtc(wh.tz)` já calculado (variável `now` local à função) para permanecer em wallclock BRT.
+- Progress bar dupla: usar flex container com dois `<div>` filhos, ou um `<div>` empilhado com `background: linear-gradient` de duas paradas — a versão em dois filhos com `width` é mais legível e testável.
