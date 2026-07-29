@@ -641,9 +641,11 @@ const chipTone: Record<string, { active: string; idle: string; icon: string }> =
   muted:       { active: "border-foreground/40 bg-foreground/5",        idle: "hover:bg-muted/60 border-border/60", icon: "text-muted-foreground" },
   primary:     { active: "border-primary bg-primary/15 text-primary",   idle: "hover:bg-primary/5 border-border/60", icon: "text-primary" },
   emerald:     { active: "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", idle: "hover:bg-emerald-500/5 border-border/60", icon: "text-emerald-600 dark:text-emerald-400" },
+  sky:         { active: "border-sky-500 bg-sky-500/15 text-sky-700 dark:text-sky-300", idle: "hover:bg-sky-500/5 border-border/60", icon: "text-sky-600 dark:text-sky-400" },
   amber:       { active: "border-amber-500 bg-amber-500/15 text-amber-700 dark:text-amber-300", idle: "hover:bg-amber-500/5 border-border/60", icon: "text-amber-600 dark:text-amber-400" },
   destructive: { active: "border-destructive bg-destructive/15 text-destructive", idle: "hover:bg-destructive/5 border-border/60", icon: "text-destructive" },
 };
+
 
 function CounterChip({
   label, value, icon: Icon, tone, active, onClick,
