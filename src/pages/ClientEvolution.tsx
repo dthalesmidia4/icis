@@ -725,7 +725,7 @@ function TableRow({
       return <span className="text-emerald-600 dark:text-emerald-400 font-medium">Concluída</span>;
     }
     if (isScheduledPublish) {
-      return <span className="text-sky-600 dark:text-sky-400 font-medium">Publicar agendado</span>;
+      return <span className="text-sky-600/70 dark:text-sky-400/70">Publicar agendado</span>;
     }
     if (!hasStage) {
       return <span className="text-amber-600 dark:text-amber-400 font-medium">Aguardando início</span>;
@@ -757,14 +757,16 @@ function TableRow({
   const endDate = card.delivery_date || null;
   const endTime = fmtTime((card as any).delivery_time);
 
+  const isResolved = isDone || isScheduledPublish;
+
   return (
     <tr
       onClick={onOpen}
       className={cn(
         "cursor-pointer border-t border-border/60 hover:bg-primary/5 transition-colors align-middle",
         zebra && "bg-muted/20",
-        overdue && "bg-destructive/5 hover:bg-destructive/10",
-        isDone && "opacity-70",
+        overdue && !isResolved && "bg-destructive/5 hover:bg-destructive/10",
+        isResolved && "opacity-70",
       )}
     >
       <td className="p-0" title={areaTitle}>
@@ -788,14 +790,14 @@ function TableRow({
         <div className="min-w-0 truncate">{stageCell()}</div>
       </td>
       <td className="px-2 py-2 hidden xl:table-cell text-muted-foreground text-[12px] truncate">
-        {isDone ? "—" : nextStageName || <span className="text-muted-foreground/60">—</span>}
+        {isResolved ? "—" : nextStageName || <span className="text-muted-foreground/60">—</span>}
       </td>
       <td className="px-2 py-2 text-[11px] whitespace-nowrap">
         {startDate || endDate ? (
           <div
             className={cn(
               "inline-flex items-center gap-2 rounded-md px-2 py-1 font-medium leading-tight tabular-nums",
-              overdue ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-muted/60 text-foreground",
+              overdue && !isResolved ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-muted/60 text-foreground",
             )}
           >
             <span className="inline-flex items-center gap-1">
@@ -810,10 +812,10 @@ function TableRow({
               )}
             </span>
             <span className="inline-flex items-center gap-1">
-              <CalendarIcon className={cn("h-3 w-3 shrink-0", overdue ? "text-red-500" : "text-emerald-500")} />
+              <CalendarIcon className={cn("h-3 w-3 shrink-0", overdue && !isResolved ? "text-red-500" : "text-emerald-500")} />
               <span className="text-muted-foreground">Fim:</span>
               {endDate ? (
-                <span className={cn("font-semibold", overdue && "text-red-600 dark:text-red-400")}>
+                <span className={cn("font-semibold", overdue && !isResolved && "text-red-600 dark:text-red-400")}>
                   {formatDate(endDate)}{endTime && ` ${endTime}`}
                 </span>
               ) : (

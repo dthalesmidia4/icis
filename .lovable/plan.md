@@ -1,57 +1,31 @@
-## 1. Coluna "Área" como texto simples (Evolução das Demandas)
+## 1. Erro 500 ao clicar "Gerar carrossel com IA"
 
-Arquivo: `src/pages/ClientEvolution.tsx`.
+Causa confirmada nos logs da edge function `auto-generate-carousel` (é essa que o botão do card chama, em `src/components/TaskCard.tsx`): todos os slides falham com `Slide N error: Chave OpenAI ausente.`
 
-- Substituir o componente `AreaBadge` por um texto: "Mídia", "Sistemas" ou "—", com `text-muted-foreground text-[12px]`, sem pílula, sem bolinha, sem fundo.
-- Manter a barrinha vertical colorida na primeira coluna (já é sutil e serve como marcador).
+Motivo no código: a função busca as duas chaves (`GOOGLE_API_KEY` e `OPENAI_API_KEY`, ambas existentes na tabela `api_keys`), mas ao chamar `generateCarouselSlideImages` passa apenas `googleApiKey` — sem `openaiApiKey` e sem `aiModel`. O runner então usa o modelo padrão (`gpt-image-2`, provider OpenAI) e aborta por falta da chave, resultando em 0 imagens e resposta 500.
 
-## 2. Ocultar responsável quando `Publicar agendado` (Evolução das Demandas)
+Correção em `supabase/functions/auto-generate-carousel/index.ts`:
 
-Arquivo: `src/pages/ClientEvolution.tsx` (célula `RESPONSÁVEL` em `TableRow`, ~linha 790–792).
+- Passar `openaiApiKey: OPENAI_API_KEY` e `aiModel: DEFAULT_IMAGE_MODEL` (gpt2, conforme padrão do projeto) na chamada de `generateCarouselSlideImages`.
+- Importar `DEFAULT_IMAGE_MODEL` de `../_shared/models.ts`.
+- Deploy da função e teste real de geração em um card de carrossel, verificando os logs para confirmar que os slides geram sem o erro de chave.
 
-- Quando `row.isScheduledPublish` for `true`, exibir "—" no lugar do nome do responsável. Concluídas já não exibem alocação; a lógica passa a ser: `isDone || isScheduledPublish → "—"`.
-- Não altera dados no banco; é somente apresentação (o dispatcher continua funcionando pelo `scheduled_publication_dispatches`).
+Também vou conferir se `auto-generate-post` / demais chamadores do runner sofrem do mesmo esquecimento e aplicar o mesmo ajuste onde faltar.
 
-## 3. Nova etapa `revisar_captacao` entre Captar e Editar
+## 2. Evolução das Demandas: "Publicar agendado" mais discreto
 
-Objetivo: após `captar`, o card cai numa etapa de revisão (gestor operacional decide quem edita) antes de `editar`. O fluxo geral do tipo "vídeo captado" passa a ser:
+Arquivo: `src/pages/ClientEvolution.tsx` (componente da linha da tabela).
 
-```text
-planejar → captar → revisar_captacao → editar → revisar → publicar → concluir
-```
+- Aplicar a mesma atenuação usada em concluídas: `isDone || isScheduledPublish → opacity-70`.
+- Não aplicar o realce vermelho de atraso (`bg-destructive/5`) quando `isScheduledPublish` for verdadeiro — hoje uma linha agendada aparece em vermelho no print, competindo visualmente.
+- Suavizar o texto da etapa: "Publicar agendado" passa de `text-sky-600 font-medium` para um tom mais discreto (sky com menor peso/saturação), próximo do visual de "Concluída".
+- Coluna "Próxima": exibir "—" também quando agendado (hoje mostra "Revisar publicação"), igual às concluídas.
+- Chips de produção (Ini/Fim) das linhas agendadas ficam no estilo neutro, sem vermelho de atraso.
 
-Alcance: aplicar apenas aos tipos que hoje passam por `captar` (vídeo captado). Demais tipos permanecem intactos.
+Sem mudanças de dados ou de fluxo — apenas apresentação.
 
-Passos:
-
-- Migração SQL:
-  - Inserir `flow_functions.function_key = 'revisar_captacao'` (nome: "Revisar captação", `active = true`, posicionada logo após `captar`) para cada tenant que já tenha `captar` ativa. Reordenar `position` das etapas posteriores.
-  - Inserir `pipeline_function_rules` com `requirement = 'required'` para o tipo de demanda que usa `captar` (vídeo captado), replicando as permissões existentes.
-  - Backfill: cards atualmente em `captar` continuam onde estão; não movemos automaticamente.
-- Roteamento inicial: `src/lib/initialFlowFunction.ts` e `resolve_function_for_assignee` (RPC) passam a reconhecer `revisar_captacao` como etapa válida via `flow_functions`/`pipeline_function_rules` — nada hardcoded.
-- Área/agenda: `revisar_captacao` herda a mesma checagem de área (Mídia/Sistemas) que as demais revisões — sem código específico.
-
-## 4. Correção do registro de entrega do último captador
-
-Contexto: em captação com 2 responsáveis, quando o primeiro clica "Entregar parte", a outra pessoa fica sozinha e o botão passa a ser "Prosseguir". Isso avança o fluxo mas não grava `partial_delivered` para essa última pessoa — logo o card abrindo depois só mostra 1 entrega (a de Letícia), perdendo o histórico do Eric.
-
-Correção em `src/lib/proceedDemand.ts` (`proceedDemand` e `proceedToNext`, ramo `currentFunctionKey === 'captar'`):
-
-- Antes de fazer o `update` que move para a próxima etapa, se o card tinha `additional_assignees` originalmente **ou** se já existe pelo menos um `partial_delivered` em `demand_flow_history` para este card na etapa `captar`, registrar um `partial_delivered` para o `previousAssignee` (usuário que executou o proceed), com `metadata: { final_of_capture: true, remaining_count: 0 }`.
-- Só depois emitir o `proceeded` normal para a etapa seguinte (`revisar_captacao` após o item 3).
-- Isso garante que o histórico exiba todos que trabalharam na captação, inclusive quem clicou em "Prosseguir".
-
-Também no popover "Entregar parte" (`src/components/TaskCard.tsx`): quando restar apenas 1 responsável após a entrega, exibir dica "Ao prosseguir, sua entrega também será registrada." (texto informativo, sem mudança de lógica).
-
-## 5. Verificação
+## Verificação
 
 - Build passa.
-- Abrir Evolução: "Área" aparece como texto; linhas em Publicar agendado mostram "—" em Responsável.
-- Criar/mover card de vídeo captado: após Captar aparece Revisar captação; depois Editar.
-- Simular captação com 2 responsáveis: primeiro clica Entregar parte, segundo clica Prosseguir. Reabrir o card → popover "entregou parte" lista os dois.
-
-## Detalhes técnicos
-
-- Nenhum breaking change em tipos: `revisar_captacao` é apenas uma linha nova em `flow_functions`/`pipeline_function_rules`; toda a UI já lê essas tabelas.
-- `deliverMyPart` fica inalterado; a correção do "último" ocorre no `proceedDemand`/`proceedToNext` para não duplicar registros quando não há histórico de captação múltipla.
-- Sem impacto em dispatchers, reorganizador ou áreas — `revisar_captacao` entra automaticamente na sequência ordenada por `position`.
+- Card de carrossel: "Gerar carrossel com IA" conclui e anexa as imagens; logs sem "Chave OpenAI ausente".
+- Evolução: linhas "Publicar agendado" com aparência atenuada como as concluídas, sem fundo vermelho.
