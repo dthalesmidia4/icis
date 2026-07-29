@@ -265,7 +265,9 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
       currentDefault: Array.isArray(period.default_plan) ? period.default_plan : [],
       currentUltra: Array.isArray(period.ultra_plan) ? period.ultra_plan : [],
       updatedCard,
+      originalTitle: card.title,
     });
+
   };
 
   const finalizeDiscard = async () => {
@@ -329,31 +331,32 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
     }
     setBusy("discard");
     try {
-      // Ainda chamamos reevaluate-card para aproveitar o aprendizado de exigências,
-      // mas ignoramos updatedCard — o card vai para Reprovados como arquivo.
-      let data: any = null;
-      try {
-        data = await callReevaluate();
-      } catch (learnErr) {
-        console.warn("[EvaluatePlanCardModal] learning skipped:", learnErr);
-      }
-      if (data) {
-        openDiffOrFinalize(
-          data,
-          { kind: "discard" },
-          async () => {
-            await finalizeDiscard();
-            toast.success("Card descartado (arquivado em Reprovados)");
-            onDone?.();
-            onOpenChange(false);
-          },
-        );
-      } else {
-        await finalizeDiscard();
-        toast.success("Card descartado (arquivado em Reprovados)");
-        onDone?.();
-        onOpenChange(false);
-      }
+      // 1) Persiste o descarte PRIMEIRO — nunca refém de um modal secundário.
+      await finalizeDiscard();
+      toast.success("Card descartado (arquivado em Reprovados)");
+      onDone?.();
+      onOpenChange(false);
+
+      // 2) Em background, tenta aprender exigências. Se a IA propuser uma regra,
+      //    abre o diff apenas para persistir as exigências (o card já foi descartado).
+      (async () => {
+        try {
+          const data = await callReevaluate();
+          if (!data) return;
+          const status = data.learningStatus;
+          if (status === "meaningful" || status === "ambiguous") {
+            const proposal = data.requirementsProposal || { current: "", proposed: "", additions: "" };
+            setDiffReasoning(data.learningReasoning || "");
+            setDiffCurrent(proposal.current || "");
+            setDiffProposed(proposal.proposed || proposal.current || "");
+            setDiffMode(status);
+            setPendingAction({ kind: "discard" });
+            setDiffOpen(true);
+          }
+        } catch (learnErr) {
+          console.warn("[EvaluatePlanCardModal] learning skipped:", learnErr);
+        }
+      })();
     } catch (err: any) {
       console.error(err);
       toast.error(err?.message || "Erro ao descartar card");
@@ -361,6 +364,7 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
       setBusy(null);
     }
   };
+
 
   const handleDiffConfirm = async (action: "apply" | "skip", finalRequirements?: string) => {
     if (!pendingAction) return;
@@ -376,18 +380,17 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
             ? "Nova versão gerada e exigências atualizadas"
             : "Nova versão gerada e enviada para avaliação",
         );
+        onDone?.();
+        onOpenChange(false);
       } else {
-        await finalizeDiscard();
-        toast.success(
-          action === "apply"
-            ? "Card descartado e exigências atualizadas"
-            : "Card descartado (arquivado em Reprovados)",
-        );
+        // Discard já foi persistido antes de abrir esse diff. Aqui só aprendemos exigências.
+        if (action === "apply") {
+          toast.success("Exigências atualizadas com base no descarte");
+        }
       }
       setDiffOpen(false);
       setPendingAction(null);
-      onDone?.();
-      onOpenChange(false);
+
     } catch (err: any) {
       console.error(err);
       toast.error(err?.message || "Erro ao finalizar");

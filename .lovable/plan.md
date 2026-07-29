@@ -1,51 +1,50 @@
-## Auditoria: Reorganizador Automático de Sequência
+# Correção: descarte de cards na Avaliação não persistia
 
-Percorri `computeReorder`, o modal e a integração no Kanban Central. **Base funcional está sólida** (respeita expediente, almoço, área, feriados, blocos por dia, atraso com folga, `aguardando_cliente` e `captar` protegidos). Mas há **6 pontas soltas** — 2 delas com potencial de causar decisões erradas em produção.
+## Diagnóstico (confirmado)
 
-### Riscos identificados
+Verifiquei os 3 cards do print no período `2f4e9f93` (CAMPANHA JULHO 26) de Hospital Veterinário Leal:
 
-**🔴 Alto risco**
+- `Nos Bastidores do Leal…` continua em `default_plan`
+- `Erros comuns no pós‑op…` continua em `ultra_plan`
+- `O que o mascote Dr. Leal…` continua em `ultra_plan`
+- Nenhum dos 3 títulos aparece em `rejected_plan` (nem com `_discardedAt`, nem com `_rejectedAt`)
 
-1. **Reorganiza sobre um recorte filtrado** — `KanbanCentralPage.tsx` passa `filteredCards` para o modal. Se o gestor tem filtro ativo (cliente/período/área), a sequência é calculada ignorando cards que ficam fora do filtro mas continuam ocupando a agenda do colaborador. Resultado: **colisões silenciosas** com cards não visíveis. Deve usar o conjunto completo daquele colaborador (independente de filtros), ou avisar no modal que há filtros ativos.
+Ou seja: o clique em "Descartar" **nunca chegou a gravar** no banco. Por isso reapareceram hoje.
 
-2. **Sem lock otimista no `handleApply`** — o loop faz `update` por card sem checar `updated_at`. Se o card foi movido/editado enquanto o modal estava aberto (Realtime rodando), a reorganização sobrescreve mudanças recentes sem aviso. Falhas no meio do loop deixam o estado parcialmente aplicado, sem rollback nem toast de detalhe.
+### Causa raiz
 
-**🟡 Médio risco**
+Em `src/components/EvaluatePlanCardModal.tsx → handleDiscard`:
 
-3. **Cards com `additional_assignees` (co-responsáveis de `captar`)** — o filtro `c.assigned_to === reorderModalColumnId` só pega o primário. Como `captar` já é skipped, o único efeito é o co-responsável não ver o card fixo na sua proposta. Cosmético, mas confuso.
+1. Antes de descartar, o código chama `callReevaluate()` só para "aprender" novas exigências.
+2. Se a IA sugere alguma exigência (`learningStatus = "meaningful"` ou `"ambiguous"`), abre-se o modal de diff de exigências e o descarte **só é gravado se o usuário clicar em "Aplicar" ou "Pular"** dentro desse segundo modal (via `handleDiffConfirm → finalizeDiscard`).
+3. Se o usuário fechar o diff (clique fora / X / ESC), `onOpenChange(false)` só faz `setDiffOpen(false); setPendingAction(null)` — o card **não** é removido de `default_plan`/`ultra_plan` nem inserido em `rejected_plan`. Nenhum erro, nenhum toast — silencioso.
 
-4. **`is_daily_card` entra na fila** — recebe `20min` e é reagendado, mas cards diários têm ciclo próprio (`daily_next_date`). Reordenar `due_date/delivery_date` deles pode conflitar com a lógica de recorrência. Devem ser skipped como `captar`/`aguardando_cliente`.
+Foi isso que aconteceu com a Lúcia: o descarte ficou refém de um modal secundário de "aprendizado". Como o objetivo primário é descartar, isso está invertido.
 
-**🟢 Baixo risco (documentar)**
+Efeito colateral relacionado (a corrigir junto):
+- `finalizeDiscard` usa `card.indexInPlan` capturado na abertura do modal. Se o plano mudou entre abrir e confirmar (reavaliações, outros descartes, realtime), o `splice(index, 1)` remove o item errado. Precisamos casar por título+source, não por índice.
 
-5. **Etapas `enviar_cliente` / `publicar` / `revisar_publicacao`** entram no reorder ativo com duração de 5min. Não tocam `publish_date` (dispatch fica intacto), então é seguro — mas o reagendamento do `due_date` pode dar sinal visual esquisito ("prazo passou") em cards já publicáveis. Considerar tratar como fixed.
+## Correção
 
-6. **Sem "desfazer"** — não há snapshot pré-aplicação. Um clique desatento em "Aplicar reorganização" mexe em N cards e o único caminho de volta é editar um a um.
+### 1. `src/components/EvaluatePlanCardModal.tsx`
+- `handleDiscard`: gravar o descarte **primeiro** (chamar `finalizeDiscard` imediatamente, com toast de sucesso e fechar modal). Só **depois** chamar `callReevaluate` em background para eventual proposta de exigências — abrindo, se houver, um diff modal só para "aprender regra" (sem repetir o descarte). O botão "Descartar" nunca mais deve depender do resultado da IA.
+- Ajustar `handleDiffConfirm` para, no ramo `"discard"`, não chamar `finalizeDiscard` de novo (o descarte já foi feito); apenas persistir exigências se `action === "apply"`.
+- Mesma proteção leve em `handleReevaluate` não é necessária agora (a Reavaliação depende do `updatedCard` da IA por definição), mas vou blindar `finalizeDiscard`/`finalizeReevaluate` contra índice obsoleto no item 2.
 
-### Correções propostas (mínimas, escopo cirúrgico)
+### 2. `src/lib/evaluatePlanCard.ts`
+- `rejectPlanCard` e `applyReevaluatedToActivePlan` passam a localizar o item por `(source, title)` — usando o índice recebido só como pista. Se o título no índice não bater, procura por título; se não achar, lança erro claro ("card já removido/alterado — recarregue").
+- Adiciona `_originalIndex` no payload salvo em `rejected_plan` só para debug.
 
-- **Modal (`ReorderSequenceModal.tsx`)**
-  - Aplicar em batch com `Promise.all` + captura de `updated_at` original por card; adicionar cláusula `.eq('updated_at', original)` no update; contar conflitos e exibir toast dedicado ("N cards mudaram durante a análise — reabra o modal").
-  - Adicionar banner quando `props.hasActiveFilters` for true: "Filtros ativos — a sequência considera apenas os cards visíveis."
+### 3. Backfill dos 3 cards do print
+Executar update em `period_plans 2f4e9f93` para mover os 3 títulos de `default_plan`/`ultra_plan` para `rejected_plan` com `_discarded=true, _discardedAt=now(), _rejectReason='Descarte manual — Lúcia (backfill 28/07)'`, para que sumam da Visão Geral e apareçam corretamente na tela de Reprovados.
 
-- **KanbanCentralPage (integração)**
-  - Buscar os cards do colaborador a partir de `allCards` (não `filteredCards`), OU passar `hasActiveFilters` para o banner acima.
-  - Alternativa preferida: usar `allCards.filter(c => c.assigned_to === reorderModalColumnId || (c.additional_assignees||[]).includes(reorderModalColumnId))` — fecha o item 3 no mesmo passo.
+## Validação
+1. Recarregar `/kanban-central` → os 3 cards não aparecem mais em "Avaliar" de Hospital Veterinário Leal.
+2. Em `/rejected-cards` → os 3 aparecem como descartados hoje.
+3. Descartar um card de teste e fechar o diff de exigências no X → o card sai da Avaliação e vai para Reprovados (comportamento novo).
+4. Descartar dois cards seguidos no mesmo período → cada um remove o item certo (matching por título).
 
-- **`reorderSequence.ts`**
-  - Adicionar `is_daily_card` ao filtro fixo (mesmo tratamento de `captar`): retorna proposta `skipped:true` com aviso "Card diário — ciclo próprio".
-  - Opcional: incluir `publicar` e `revisar_publicacao` como fixos se o card já tiver `publish_date` futura agendada.
-
-- **UX (opcional)**
-  - Em `handleApply`, antes do loop, guardar `{id, due_date, due_time, delivery_date, delivery_time}` de cada card afetado num ref. Toast final com botão "Desfazer" que reaplica o snapshot (10s).
-
-### Fora de escopo
-- Não mudar duração da matriz.
-- Não alterar cálculo de atraso/slack — está correto.
-- Não tocar `scheduled_publication_dispatches` (o reorder já não mexe em `publish_date`, e deve continuar assim).
-
-### Verificação após aplicação
-- Filtrar por 1 cliente e reorganizar: banner aparece; se ignorar o banner, os cards de outros clientes do mesmo colaborador continuam intactos.
-- Editar um card em outra aba enquanto o modal está aberto → aplicar → toast informa conflito, card editado não é sobrescrito.
-- Card `is_daily_card` na coluna aparece com badge "diário — não reagendado".
-- Erro no meio do loop → toast lista IDs que falharam; sucessos permanecem.
+## Detalhes técnicos
+- Sem mudança de schema.
+- Sem mudança nas edge functions.
+- `usePendingEvaluationCards` continua ignorando cards que não estão em `default_plan`/`ultra_plan`; o problema era apenas o descarte não persistir.
