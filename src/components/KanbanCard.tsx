@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar as CalendarIcon, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StartEndDatePopover } from "@/components/kanban/StartEndDatePopover";
+import { ClientSendHistoryPopover } from "@/components/kanban/ClientSendHistoryPopover";
 
 export interface CardDatesChange {
   due_date?: string | null;
