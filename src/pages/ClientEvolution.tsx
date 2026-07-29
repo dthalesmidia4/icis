@@ -147,6 +147,8 @@ const ClientEvolution = () => {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const { activeDispatchIds } = useActiveDispatchIds(tenantId);
   const { selectedClient } = useSelectedClient();
+  const location = useLocation();
+  const backTo = (location.state as { from?: string } | null)?.from || "/client-hub";
   const [cards, setCards] = useState<KanbanCardData[]>([]);
   const [loading, setLoading] = useState(false);
   const [functions, setFunctions] = useState<FlowFunction[]>([]);
