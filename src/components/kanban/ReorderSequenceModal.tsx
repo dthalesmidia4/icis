@@ -190,7 +190,10 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
             due_time: p.startTime,
             delivery_date: p.endISO,
             delivery_time: p.endTime,
-          })
+            reorder_meta: p.pausedByCaptar
+              ? { pausedByCaptar: p.pausedByCaptar, updatedAt: new Date().toISOString() }
+              : null,
+          } as any)
           .eq("id", p.id);
         if (liveUpdatedAt) q = q.eq("updated_at", liveUpdatedAt);
         const { error, data } = await q.select("id");
