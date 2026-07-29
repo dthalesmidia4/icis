@@ -461,37 +461,6 @@ export function estimateDurationMinutes(card: ReorderCardInput): number {
 // Atraso
 // ------------------------------------------------------------------
 
-/** Minutos úteis (dentro dos blocos da área) entre `from` e `to`. */
-function workingMinutesBetween(
-  from: Date,
-  to: Date,
-  area: ReorderWorkArea | null | undefined,
-  ctx: WorkCtx,
-): number {
-  if (!(to > from)) return 0;
-  let total = 0;
-  const cur = new Date(from);
-  cur.setUTCHours(0, 0, 0, 0);
-  const endDay = new Date(to);
-  endDay.setUTCHours(0, 0, 0, 0);
-  while (cur <= endDay) {
-    if (!isNonWorkingDay(cur, ctx.holidays)) {
-      const blocks = dayBlocks(cur, area, ctx);
-      for (const b of blocks) {
-        const bStart = setMinuteOfDay(cur, b.s);
-        const bEnd = setMinuteOfDay(cur, b.e);
-        const segStart = from > bStart ? from : bStart;
-        const segEnd = to < bEnd ? to : bEnd;
-        if (segEnd > segStart) {
-          total += Math.round((segEnd.getTime() - segStart.getTime()) / 60000);
-        }
-      }
-    }
-    cur.setUTCDate(cur.getUTCDate() + 1);
-  }
-  return total;
-}
-
 function cardDeadline(card: ReorderCardInput): Date | null {
   if (card.delivery_date && card.delivery_time) {
     return toVirtualUtc(card.delivery_date, card.delivery_time.slice(0, 5));
