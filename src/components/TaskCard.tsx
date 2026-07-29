@@ -2573,10 +2573,12 @@ export default function TaskCard({
           <AlertDialogHeader>
             <AlertDialogTitle>Conflito de área detectado</AlertDialogTitle>
             <AlertDialogDescription>
-              O responsável já tem demanda(s) em outra área nesta janela. Você pode manter mesmo assim, mas isso pode gerar sobreposição de trabalho.
+              {hardConflict?.scheduleMessage
+                ? hardConflict.scheduleMessage
+                : "O responsável já tem demanda(s) em outra área nesta janela. Você pode manter mesmo assim, mas isso pode gerar sobreposição de trabalho."}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {hardConflict && (
+          {hardConflict && hardConflict.items.length > 0 && (
             <div className="max-h-56 overflow-auto space-y-2 py-2">
               {hardConflict.items.map((c) => (
                 <div key={c.id} className="rounded-md border border-border/60 px-3 py-2 text-sm">
