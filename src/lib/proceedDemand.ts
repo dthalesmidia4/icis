@@ -681,9 +681,14 @@ export async function deliverDemand(
   }
   const { data: currentDemand } = await supabase
     .from("demands")
-    .select("tenant_id, assigned_to, current_function_key")
+    .select("tenant_id, assigned_to, current_function_key, additional_assignees" as any)
     .eq("id", demandId)
     .maybeSingle();
+
+  const wasCaptar = ((currentDemand as any)?.current_function_key || "") === "captar";
+  const extras: string[] = wasCaptar && Array.isArray((currentDemand as any)?.additional_assignees)
+    ? ((currentDemand as any).additional_assignees.filter(Boolean) as string[])
+    : [];
 
   const { error: uErr } = await supabase
     .from("demands")
@@ -691,21 +696,37 @@ export async function deliverDemand(
       status_id: done.id,
       current_function_key: null,
       assigned_to: null,
+      additional_assignees: [],
       archived_at: new Date().toISOString(),
     } as any)
     .eq("id", demandId);
   if (uErr) return { success: false, message: "Erro ao entregar a demanda." };
 
   if (currentDemand?.tenant_id) {
-    await recordFlowHistory({
-      tenantId: currentDemand.tenant_id as string,
-      demandId,
-      action: "delivered",
-      fromUserId: (currentDemand as any).assigned_to ?? null,
-      toUserId: null,
-      fromFunctionKey: (currentDemand as any).current_function_key ?? null,
-      toFunctionKey: null,
-    });
+    const primary = (currentDemand as any).assigned_to ?? null;
+    if (extras.length > 0) {
+      await recordFlowHistoryForUsers(
+        {
+          tenantId: currentDemand.tenant_id as string,
+          demandId,
+          action: "delivered",
+          toUserId: null,
+          fromFunctionKey: (currentDemand as any).current_function_key ?? null,
+          toFunctionKey: null,
+        },
+        [primary, ...extras],
+      );
+    } else {
+      await recordFlowHistory({
+        tenantId: currentDemand.tenant_id as string,
+        demandId,
+        action: "delivered",
+        fromUserId: primary,
+        toUserId: null,
+        fromFunctionKey: (currentDemand as any).current_function_key ?? null,
+        toFunctionKey: null,
+      });
+    }
   }
   return {
     success: true,
