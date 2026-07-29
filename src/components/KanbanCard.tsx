@@ -129,8 +129,40 @@ const InlineDates = ({ dueDate, dueTime, deliveryDate, deliveryTime, isOverdue, 
   );
 };
 
+const fmtSentAt = (iso?: string | null): string | null => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+};
+
+const fmtSince = (iso?: string | null): string | null => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (mins < 60) return "agora há pouco";
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `há ${hrs}h`;
+  return `há ${Math.floor(hrs / 24)}d`;
+};
+
+const SentToClientPill = ({ since }: { since?: string | null }) => {
+  const at = fmtSentAt(since);
+  const rel = fmtSince(since);
+  return (
+    <div className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium leading-tight min-w-0 w-full bg-blue-500/10 text-blue-700 dark:text-blue-300">
+      <Send className="h-3 w-3 shrink-0" />
+      <span className="truncate">
+        {at ? `Enviado ao cliente · ${at}` : "Aguardando cliente"}
+      </span>
+      {rel && <span className="ml-auto shrink-0 opacity-70">{rel}</span>}
+    </div>
+  );
+};
 
 const KanbanCard = ({
+
   title,
   subtitle,
   demandType: _demandType,
