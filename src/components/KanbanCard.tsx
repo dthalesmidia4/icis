@@ -215,7 +215,7 @@ const KanbanCard = ({
       onClick={onClick}
     >
       <CardHeader className="px-2.5 pt-2.5 pb-1.5 space-y-1">
-        {(subtitle || _statusName) && (
+        {(subtitle || _statusName) && !awaitingClient && (
           <div
             className="text-xs font-semibold leading-snug line-clamp-2 break-words"
             title={[subtitle, _statusName].filter(Boolean).join(" · ")}
@@ -225,6 +225,11 @@ const KanbanCard = ({
               <span className="text-muted-foreground/60"> · </span>
             )}
             {_statusName && <span className="text-muted-foreground">{_statusName}</span>}
+          </div>
+        )}
+        {awaitingClient && subtitle && (
+          <div className="text-xs font-semibold leading-snug line-clamp-2 break-words text-foreground/80">
+            {subtitle}
           </div>
         )}
         {isDailyCard && (
