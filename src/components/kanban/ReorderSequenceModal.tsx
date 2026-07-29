@@ -369,6 +369,15 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                               +folga
                             </Badge>
                           )}
+                          {p.pausedByCaptar && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] border-amber-500/60 text-amber-700 dark:text-amber-300"
+                              title={`Pausado para captação: ${p.pausedByCaptar.captarTitle}`}
+                            >
+                              ⏸ Pausado {p.pausedByCaptar.atTime} · captação
+                            </Badge>
+                          )}
                           {orig?.publish_date && (
                             <span className="text-muted-foreground">
                               📢 pub {fmtDate(orig.publish_date)}
