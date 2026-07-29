@@ -1015,17 +1015,19 @@ const KanbanCentralPage = () => {
     avaliar: "Avaliar",
   };
 
-  const resolveStageLabel = useCallback((card: CentralKanbanCard): string => {
+  const resolveStageLabel = useCallback((
+    card: CentralKanbanCard,
+    opts?: { isTop?: boolean; isPausedByCaptarNow?: boolean },
+  ): string => {
     const key = (card as any).current_function_key as string | null | undefined;
     const base = key
       ? (flowFunctionNames[key] || FALLBACK_FN_NAMES[key] || card.status)
       : card.status;
-    // Sufixos de estado
-    const paused = (card as any).reorder_meta?.pausedByCaptar;
-    if (paused) return `${base} pausado para captação`;
+    const pausedMeta = (card as any).reorder_meta?.pausedByCaptar;
+    if (pausedMeta || opts?.isPausedByCaptarNow) return `${base} pausado para captação`;
     if (key === "publicar" && activeDispatchIds.has(card.id)) return `${base} agendado`;
-    if (key === "aguardando_cliente") return base; // já implica espera
-    if (key) return `${base} em andamento`;
+    if (key === "aguardando_cliente") return base;
+    if (opts?.isTop && key) return `${base} em andamento`;
     return base;
   }, [flowFunctionNames, activeDispatchIds]);
 
