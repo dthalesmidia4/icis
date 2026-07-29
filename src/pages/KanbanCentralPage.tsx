@@ -2589,9 +2589,22 @@ const KanbanCentralPage = () => {
                           captarNow.sort((a, b) => captarDue(a) - captarDue(b));
 
                           // Group cards by chosen date
+                          const _todayForGroup = new Date();
+                          const _todayISOForGroup = `${_todayForGroup.getFullYear()}-${String(_todayForGroup.getMonth() + 1).padStart(2, "0")}-${String(_todayForGroup.getDate()).padStart(2, "0")}`;
                           const groups = new Map<string, CentralKanbanCard[]>();
                           for (const c of remaining) {
-                            const key = (dateGroupBy === "start" ? c.due_date : c.delivery_date) || "__no_date__";
+                            let key: string;
+                            if (dateGroupBy === "start") {
+                              const start = c.due_date;
+                              const end = c.delivery_date || c.due_date;
+                              if (start && start < _todayISOForGroup && end && end >= _todayISOForGroup) {
+                                key = _todayISOForGroup;
+                              } else {
+                                key = start || "__no_date__";
+                              }
+                            } else {
+                              key = c.delivery_date || "__no_date__";
+                            }
                             if (!groups.has(key)) groups.set(key, []);
                             groups.get(key)!.push(c);
                           }

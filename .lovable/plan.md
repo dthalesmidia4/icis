@@ -1,29 +1,22 @@
-## Correção dos sufixos de etapa por coluna
+## Problema
+No agrupamento por data das colunas da Visão Geral, cards com **início no passado** (ex.: `due_date = 28/07`) mas **término hoje ou futuro** (`delivery_date ≥ hoje`) aparecem sob "Ontem" (ou datas mais antigas) quando o modo de agrupamento é por data de início. Eles estão **em andamento hoje** e deveriam cair no grupo "Hoje".
 
-**Problema:**
-1. "em andamento" aparece em **todos** os cards da coluna; deveria aparecer só no card do topo (o que o colaborador está efetivamente fazendo agora).
-2. "pausado para captação" não aparece no card do Eric porque depende de `reorder_meta.pausedByCaptar`, que só é preenchido quando o "Reorganizar" roda. Quando existe uma captação **em andamento agora** (pseudo-grupo "CAPTAÇÃO · AGORA") na mesma coluna, os demais cards ativos daquele colaborador deveriam ser marcados como pausados dinamicamente.
+## Correção proposta
+Em `src/pages/KanbanCentralPage.tsx`, na montagem da chave de agrupamento (`const key = ...` por volta da linha 2594), tratar cards em andamento como "hoje":
 
-**Ajustes em `src/pages/KanbanCentralPage.tsx`:**
+- Quando `dateGroupBy === "start"`:
+  - Calcular `todayISO` uma vez antes do loop.
+  - Se `c.due_date < todayISO` **e** `(c.delivery_date ?? c.due_date) >= todayISO`, usar `todayISO` como chave em vez de `c.due_date`.
+  - Caso contrário, mantém `c.due_date` (comportamento atual).
+- Quando `dateGroupBy === "delivery"`: nenhuma mudança — já agrupa pelo término.
 
-1. **Sufixo "em andamento" só no primeiro card da coluna.**
-   Trocar `resolveStageLabel(card)` por `resolveStageLabel(card, { isTop, isPausedByCaptarNow })`, chamado no render onde já sabemos a posição:
-   - `isTop = true` só para o primeiro card renderizado da coluna (considerando a ordem final: `captarNow` primeiro, depois os grupos por data).
-   - Cards de captar no pseudo-grupo "CAPTAÇÃO · AGORA" → recebem `isTop=true` (o "agora" implica em andamento).
-   - Demais cards → sem sufixo (fica só "SmartVety · Planejar").
+Isso é uma alteração isolada dentro do bloco de agrupamento; a ordenação interna do grupo continua usando `due_time`/`delivery_time` como hoje.
 
-2. **Pausa dinâmica por captação ativa.**
-   Ao montar cada coluna, verificar se existe algum card `captar` no pseudo-grupo "CAPTAÇÃO · AGORA" para aquele responsável. Se sim, `isPausedByCaptarNow = true` para todos os outros cards ativos dessa coluna (exceto o próprio card de captação, cards diários que rodam à parte e cards de `aguardando_cliente`). O sufixo passa a ser `"<etapa> pausado para captação"`.
+## Efeito esperado
+- Card "SESMAP · VÍDEO REGULARIZAÇÃO..." (Ini 28/07, Fim 29/07) — hoje é 29/07 → passa de "Ontem" para "Hoje".
+- Cards com início e término no passado (entregas atrasadas ainda não movidas) continuam em seus dias reais (ex.: "Ontem", "19/06"), pois `delivery_date < hoje`.
+- Cards sem `delivery_date` seguem a data de início.
 
-3. **Ordem de precedência dos sufixos** em `resolveStageLabel`:
-   - `reorder_meta.pausedByCaptar` **ou** `isPausedByCaptarNow` → `"<etapa> pausado para captação"`.
-   - `publicar` + dispatch ativo → `"Publicar agendado"`.
-   - `aguardando_cliente` → sem sufixo (a etapa já implica espera).
-   - `isTop === true` → `"<etapa> em andamento"`.
-   - Caso contrário → só o nome da etapa.
-
-**Fora do escopo:** cores/estilos dos cards, comportamento do botão "Entregar minha parte" e demais fluxos já entregues no turno anterior.
-
-**Resultado esperado no cenário do print:**
-- Eric: card de captação → "Captar em andamento". Card SmartVety abaixo → "Planejar pausado para captação".
-- Henrique: primeiro card ("Atividades SmartVety") → "Planejar em andamento". Os outros 3 → só "Planejar".
+## Fora do escopo
+- Não altero o modo "por término", o boost de captação, os pseudo-grupos "Captação · agora", nem a ordenação.
+- Não mudo rótulos de estágio nem lógica de pausa.
