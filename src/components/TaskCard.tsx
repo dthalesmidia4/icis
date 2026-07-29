@@ -1035,7 +1035,7 @@ export default function TaskCard({
           time: timeStr || null,
           excludeDemandId: card.id,
         }),
-        (await import("@/lib/areaConflicts")).findScheduleAreaConflict({
+        findScheduleAreaConflict({
           tenantId: card.tenant_id,
           userId: card.assigned_to,
           area,
