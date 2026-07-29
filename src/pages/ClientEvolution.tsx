@@ -689,20 +689,11 @@ function CounterChip({
 
 function AreaBadge({ workArea }: { workArea: "midia" | "sistemas" | null }) {
   if (!workArea) {
-    return <span className="text-muted-foreground text-[11px]">—</span>;
-  }
-  if (workArea === "midia") {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-medium">
-        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-        Mídia
-      </span>
-    );
+    return <span className="text-muted-foreground text-[12px]">—</span>;
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-700 dark:text-slate-300 text-[11px] font-medium">
-      <span className="h-1.5 w-1.5 rounded-full bg-slate-500" />
-      Sistemas
+    <span className="text-muted-foreground text-[12px]">
+      {workArea === "midia" ? "Mídia" : "Sistemas"}
     </span>
   );
 }
