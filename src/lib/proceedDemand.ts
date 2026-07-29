@@ -1,5 +1,32 @@
 import { supabase } from "@/integrations/supabase/client";
-import { recordFlowHistory } from "@/lib/flowHistory";
+import { recordFlowHistory, recordFlowHistoryForUsers } from "@/lib/flowHistory";
+
+/**
+ * Quando um card "Captar" muda de etapa, todos os `additional_assignees`
+ * são desligados (a próxima etapa tem responsável único).
+ * - Retorna a lista para uso no histórico multi-usuário.
+ * - Faz a limpeza defensiva na base após a transição.
+ */
+async function fetchCaptarExtras(demandId: string): Promise<string[]> {
+  const { data } = await supabase
+    .from("demands")
+    .select("additional_assignees" as any)
+    .eq("id", demandId)
+    .maybeSingle();
+  const raw = (data as any)?.additional_assignees;
+  return Array.isArray(raw) ? (raw.filter(Boolean) as string[]) : [];
+}
+
+async function clearAdditionalAssignees(demandId: string): Promise<void> {
+  try {
+    await supabase
+      .from("demands")
+      .update({ additional_assignees: [] } as any)
+      .eq("id", demandId);
+  } catch (e) {
+    console.warn("[proceedDemand] clearAdditionalAssignees error:", e);
+  }
+}
 
 /**
  * Chaves técnicas oficiais de tipo de demanda. Usadas pelo botão Prosseguir
