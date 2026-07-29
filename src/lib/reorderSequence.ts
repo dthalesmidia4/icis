@@ -590,12 +590,19 @@ export async function computeReorder(
 
   // Intervalos ocupados por cards fixos (captar, daily, aguardando_cliente).
   // O alocador contornará esses intervalos em vez de agendar por cima.
-  const blocked: Array<{ start: Date; end: Date }> = [];
+  type BlockedInterval = { start: Date; end: Date; kind?: "captar" | "daily" | "awaiting"; cardId?: string; title?: string };
+  const blocked: BlockedInterval[] = [];
+  const tagFor = (c: ReorderCardInput): "captar" | "daily" | "awaiting" => {
+    const k = (c.current_function_key || "").toLowerCase();
+    if (k === "captar") return "captar";
+    if (k === "aguardando_cliente") return "awaiting";
+    return "daily";
+  };
   for (const c of [...captarFixed, ...dailyFixed, ...awaiting]) {
     if (!c.due_date || !c.due_time || !c.delivery_date || !c.delivery_time) continue;
     const s = toVirtualUtc(c.due_date, c.due_time.slice(0, 5));
     const e = toVirtualUtc(c.delivery_date, c.delivery_time.slice(0, 5));
-    if (e > s) blocked.push({ start: s, end: e });
+    if (e > s) blocked.push({ start: s, end: e, kind: tagFor(c), cardId: c.id, title: c.title });
   }
   blocked.sort((a, b) => a.start.getTime() - b.start.getTime());
 
