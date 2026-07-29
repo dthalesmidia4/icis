@@ -1,30 +1,32 @@
-Plano para corrigir o Kanban sem perguntar novas decisões:
+Plano para corrigir o problema sem novas perguntas:
 
-1. **Definir uma fila operacional única por colaborador**
-   - Usar a ordem correta: Produção → Em revisão → Avaliar.
-   - Excluir da fila de execução: `aguardando_cliente`, `enviar_cliente`, `publicar` já agendado e cards sem ação operacional imediata.
-   - Manter `captar` como exceção: quando chegou o horário de captação, ele continua tendo prioridade/pausa própria.
+1. **Separar “cards de ação agora” de “cards informativos/externos”**
+   - Tratar `publicar` com agendamento ativo como fora da fila operacional real.
+   - Manter `aguardando_cliente` fora da fila operacional.
+   - Manter `enviar_cliente` como tarefa operacional normal, porque ela precisa aparecer na coluna.
+   - Preservar `captar` como horário fixo e prioridade própria.
 
-2. **Corrigir o cálculo de “em andamento”**
-   - O card “em andamento” será o mais antigo cujo início já passou, considerando apenas cards executáveis.
-   - Se houver card atrasado de ontem ou de horário anterior, ele vence qualquer card futuro.
-   - Se não houver nenhum iniciado/atrasado, o “próximo” será o primeiro card executável futuro.
+2. **Corrigir a causa do “nada mudou” ao reorganizar**
+   - O reorganizador hoje recebe cards `publicar` agendados e alguns cards com dispatch ativo, mas eles não devem ocupar a sequência de execução.
+   - Ajustar o filtro enviado ao modal para passar somente cards que realmente podem ser reagendados ou bloqueiam a agenda.
+   - Garantir que cards com agendamento ativo não sejam aplicados como próximos horários de trabalho.
 
-3. **Corrigir o cálculo de “próximo”**
-   - Não marcar como “próximo” um card de `enviar_cliente`/aguardando cliente.
-   - Quando existe um card “em andamento” atrasado, o “próximo” deve ser o próximo executável real depois dele, e não o primeiro card visível do agrupamento errado.
-   - Se a próxima ação real estiver em um grupo recolhido, o rótulo deve continuar correto no card real, não em outro card visível às 16:05.
+3. **Recalcular a sequência sempre a partir do agora real**
+   - Ao reorganizar às 15h30, o primeiro card operacional reagendável deve começar em 15h30/15h35, não depois de uma sequência de cards que já estão agendados/publicados.
+   - Remover a lógica que conserva um “primeiro ativo” antigo quando ele não representa a tarefa real atual.
+   - O primeiro card executável atrasado ou iniciado deve ser puxado para o primeiro slot útil disponível.
 
-4. **Aplicar a mesma lógica no modo foco**
-   - Sub-colunas do modo foco seguem a ordem: produção → revisão → aguardando clientes → avaliar.
-   - Rótulos de andamento/próximo continuam calculados pelo conjunto operacional do colaborador, não apenas pela sub-coluna visível.
+4. **Corrigir o rótulo “em andamento/próximo” para bater com a fila visual**
+   - A fila de rótulos deve usar a mesma lista operacional do reorganizador.
+   - `publicar` agendado e `aguardando_cliente` não recebem “em andamento” nem “próximo”.
+   - O primeiro card executável cujo início já passou vira “em andamento”.
+   - Se não houver card iniciado, o primeiro executável futuro vira “próximo”.
 
-5. **Ajustar renderização dos agrupamentos**
-   - Cards em `enviar_cliente` devem sair da fila principal quando representam espera/cliente e entrar no agrupamento de cliente, junto com `aguardando_cliente`, para não poluir “agora”.
-   - Cards de revisão continuam ordenados cronologicamente.
-   - Avaliar fica por último e não deve roubar o rótulo de “próximo” se ainda há produção/revisão executável.
+5. **Corrigir ordenação visual dentro dos agrupamentos**
+   - Ordenar todos os grupos por data e hora de início, sem depender da ordem antiga carregada do banco.
+   - Garantir que “Em revisão” fique cronológico e que não roube prioridade antes da produção quando há cards executáveis anteriores.
 
-6. **Verificação**
-   - Conferir no código que nenhum card de cliente/espera recebe “próximo”.
-   - Conferir que um card atrasado antes de 15h15 recebe “em andamento” antes de qualquer card 16:05.
-   - Conferir que a pausa por captação foi preservada.
+6. **Verificação com o caso da Lúcia**
+   - Conferir que os cards `publicar` com dispatch ativo de 15:20, 15:30, 15:50 etc. não empurram a próxima atividade.
+   - Conferir que, às 15h30, a próxima demanda executável não fica em 16:15 quando existe tarefa operacional para iniciar agora.
+   - Conferir que `enviar_cliente` continua aparecendo normalmente na coluna.

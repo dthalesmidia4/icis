@@ -1025,7 +1025,7 @@ const KanbanCentralPage = () => {
       : card.status;
     const pausedMeta = (card as any).reorder_meta?.pausedByCaptar;
     if (pausedMeta || opts?.isPausedByCaptarNow) return `${base} pausado para captação`;
-    if (key === "publicar" && activeDispatchIds.has(card.id)) return `${base} agendado`;
+    if (activeDispatchIds.has(card.id)) return `${base} agendado`;
     if (isClientWaitingFunction(key)) return base;
     if (opts?.isCurrent && key) return `${base} em andamento`;
     if (opts?.isNext && key) return `${base} próximo`;
@@ -2386,7 +2386,7 @@ const KanbanCentralPage = () => {
             })).filter(({ c }) => {
               const k = (c.current_function_key || "").toLowerCase();
               if (isClientWaitingFunction(k) || k === "captar") return false;
-              if (k === "publicar" && activeDispatchIds.has(c.id)) return false;
+              if (activeDispatchIds.has(c.id)) return false;
               if ((c as any).is_daily_card) return false;
               return Number.isFinite(startTsOf(c));
             }).sort((a, b) => {
@@ -3298,7 +3298,7 @@ const KanbanCentralPage = () => {
               if (!belongs) return false;
               // Excluir arquivados e cards com publicação agendada (fora da coluna operacional)
               if ((c as any).isArchived) return false;
-              if (c.current_function_key === "publicar" && activeDispatchIds.has(c.id)) return false;
+              if (activeDispatchIds.has(c.id)) return false;
               return true;
             })
 
