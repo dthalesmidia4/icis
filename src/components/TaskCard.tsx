@@ -25,7 +25,7 @@ import { DailyCardSection } from "@/components/DailyCardSection";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { syncActiveDispatchDate } from "@/lib/syncActiveDispatchDate";
-import { findAreaConflicts, AREA_LABEL, type WorkArea, type AreaConflictInfo } from "@/lib/areaConflicts";
+import { findAreaConflicts, findScheduleAreaConflict, AREA_LABEL, type WorkArea, type AreaConflictInfo } from "@/lib/areaConflicts";
 import { CalendarClock } from "lucide-react";
 
 // Split instructions field into "production instructions" and "CTA" parts.
@@ -1014,23 +1014,47 @@ export default function TaskCard({
       setRegeneratingSlide(null);
     }
   };
-  const [hardConflict, setHardConflict] = useState<{ items: AreaConflictInfo[]; targetArea: WorkArea } | null>(null);
-  const warnAreaConflict = async (dateStr: string | null | undefined, timeStr: string | null | undefined) => {
+  const [hardConflict, setHardConflict] = useState<
+    | { items: AreaConflictInfo[]; targetArea: WorkArea; scheduleMessage?: string | null }
+    | null
+  >(null);
+  const warnAreaConflict = async (
+    dateStr: string | null | undefined,
+    timeStr: string | null | undefined,
+    endTimeStr?: string | null | undefined,
+  ) => {
     if (!card || !dateStr || !card.assigned_to || !card.tenant_id) return;
     const area = (((card as any).work_area as WorkArea) || "midia") as WorkArea;
     try {
-      const conflicts = await findAreaConflicts({
-        tenantId: card.tenant_id,
-        userId: card.assigned_to,
-        area,
-        date: dateStr,
-        time: timeStr || null,
-        excludeDemandId: card.id,
-      });
+      const [conflicts, scheduleResult] = await Promise.all([
+        findAreaConflicts({
+          tenantId: card.tenant_id,
+          userId: card.assigned_to,
+          area,
+          date: dateStr,
+          time: timeStr || null,
+          excludeDemandId: card.id,
+        }),
+        findScheduleAreaConflict({
+          tenantId: card.tenant_id,
+          userId: card.assigned_to,
+          area,
+          date: dateStr,
+          startTime: timeStr || null,
+          endTime: endTimeStr ?? timeStr ?? null,
+        }),
+      ]);
       const hard = conflicts.filter((c) => c.hard);
-      if (hard.length > 0) {
-        setHardConflict({ items: hard, targetArea: area });
+      if (hard.length > 0 || (scheduleResult && scheduleResult.hard)) {
+        setHardConflict({
+          items: hard,
+          targetArea: area,
+          scheduleMessage: scheduleResult?.hard ? scheduleResult.message : null,
+        });
         return;
+      }
+      if (scheduleResult && !scheduleResult.hard) {
+        toast.warning(scheduleResult.message);
       }
       const soft = conflicts[0];
       if (soft) {
@@ -1784,6 +1808,11 @@ export default function TaskCard({
                           await onSave('due_time', patch.due_time);
                           await onSave('delivery_date', patch.delivery_date);
                           await onSave('delivery_time', patch.delivery_time);
+                          // Checagem de conflito de área (schedule + card-vs-card)
+                          const checkDate = patch.delivery_date || patch.due_date;
+                          const checkStart = patch.due_time || patch.delivery_time;
+                          const checkEnd = patch.delivery_time || patch.due_time;
+                          if (checkDate) await warnAreaConflict(checkDate, checkStart, checkEnd);
                         }}
                         trigger={
                           <button
@@ -2549,10 +2578,12 @@ export default function TaskCard({
           <AlertDialogHeader>
             <AlertDialogTitle>Conflito de área detectado</AlertDialogTitle>
             <AlertDialogDescription>
-              O responsável já tem demanda(s) em outra área nesta janela. Você pode manter mesmo assim, mas isso pode gerar sobreposição de trabalho.
+              {hardConflict?.scheduleMessage
+                ? hardConflict.scheduleMessage
+                : "O responsável já tem demanda(s) em outra área nesta janela. Você pode manter mesmo assim, mas isso pode gerar sobreposição de trabalho."}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {hardConflict && (
+          {hardConflict && hardConflict.items.length > 0 && (
             <div className="max-h-56 overflow-auto space-y-2 py-2">
               {hardConflict.items.map((c) => (
                 <div key={c.id} className="rounded-md border border-border/60 px-3 py-2 text-sm">
