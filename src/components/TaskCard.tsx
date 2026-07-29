@@ -475,6 +475,33 @@ export default function TaskCard({
     }
   };
 
+  const handleDeliverMyPart = async () => {
+    if (!card || !currentUserId || deliveringPart) return;
+    setDeliveringPart(true);
+    try {
+      const r = await deliverMyPart(card.id, currentUserId);
+      if (r.success) {
+        toast.success(r.message);
+        // Atualiza local: remove usuário do card
+        const nextExtras = (card.additional_assignees || []).filter((u: string) => u !== currentUserId);
+        let nextAssigned = card.assigned_to;
+        if (card.assigned_to === currentUserId) {
+          nextAssigned = r.becamePrimary ?? null;
+        }
+        onCardChange({
+          ...card,
+          assigned_to: nextAssigned,
+          additional_assignees: nextExtras.filter((u: string) => u !== nextAssigned),
+        } as any);
+        onOpenChange(false);
+      } else {
+        toast.error(r.message);
+      }
+    } finally {
+      setDeliveringPart(false);
+    }
+  };
+
   const handleRegress = async () => {
     if (!card || regressing) return;
     if (!card.demand_type_key) {
