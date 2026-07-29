@@ -424,6 +424,19 @@ export async function proceedDemand({
       [previousAssignee, ...captarExtras],
     );
   } else {
+    // Último captador de uma captação com entregas parciais anteriores: registra também sua entrega.
+    if (currentFunctionKey === "captar" && previousAssignee && await hadPriorCaptarPartialDelivery(tenantId, demandId)) {
+      await recordFlowHistory({
+        tenantId,
+        demandId,
+        action: "partial_delivered",
+        fromUserId: previousAssignee,
+        toUserId: previousAssignee,
+        fromFunctionKey: "captar",
+        toFunctionKey: "captar",
+        metadata: { final_of_capture: true } as any,
+      });
+    }
     await recordFlowHistory({
       tenantId,
       demandId,
