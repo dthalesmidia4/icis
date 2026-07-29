@@ -2703,9 +2703,23 @@ const KanbanCentralPage = () => {
                                 const index = runningIndex;
                                 const isTopCard = index === 0;
                                 const cardKey = (card.current_function_key || "").toLowerCase();
+                                // Só marca como "pausado por captação" o card que seria o PRÓXIMO
+                                // a ser executado agora (topo absoluto da coluna) e cuja data de
+                                // início já chegou. Cards em datas futuras não estão pausados,
+                                // pois nem começariam ainda.
+                                const todayISO = (() => {
+                                  const d = new Date();
+                                  const y = d.getFullYear();
+                                  const m = String(d.getMonth() + 1).padStart(2, "0");
+                                  const day = String(d.getDate()).padStart(2, "0");
+                                  return `${y}-${m}-${day}`;
+                                })();
+                                const cardStartsInFuture = !!card.due_date && card.due_date > todayISO;
                                 const isPausedByCaptarNow =
                                   captarNow.length > 0 &&
                                   !isCaptarNow &&
+                                  isTopCard &&
+                                  !cardStartsInFuture &&
                                   cardKey !== "captar" &&
                                   cardKey !== "aguardando_cliente" &&
                                   !(card as any).is_daily_card;
