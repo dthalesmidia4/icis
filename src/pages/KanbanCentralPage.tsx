@@ -2900,7 +2900,7 @@ const KanbanCentralPage = () => {
                                       deliveryTime={card.delivery_time || undefined}
                                       isOverdue={isCardOverdue(card)}
                                       cardId={card.id}
-                                      statusName={resolveStageLabel(card)}
+                                      statusName={resolveStageLabel(card, { isCurrent: card.id === currentFlowCardId, isNext: card.id === nextFlowCardId })}
                                       statusColor={(card as any).status_color}
                                       isDailyCard={(card as any).is_daily_card}
                                       dailyCompleted={(card as any).daily_completed_occurrences}
