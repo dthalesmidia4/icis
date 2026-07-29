@@ -26,7 +26,9 @@ interface Props {
   tenantId?: string | null;
   assigneeId?: string | null;
   hasActiveFilters?: boolean;
+  scheduledPublishIds?: Set<string>;
   onApplied?: () => void;
+
 }
 
 function fmtDate(iso: string): string {
