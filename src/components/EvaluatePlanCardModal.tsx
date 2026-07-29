@@ -380,18 +380,17 @@ export function EvaluatePlanCardModal({ open, onOpenChange, card, tenantId, onDo
             ? "Nova versão gerada e exigências atualizadas"
             : "Nova versão gerada e enviada para avaliação",
         );
+        onDone?.();
+        onOpenChange(false);
       } else {
-        await finalizeDiscard();
-        toast.success(
-          action === "apply"
-            ? "Card descartado e exigências atualizadas"
-            : "Card descartado (arquivado em Reprovados)",
-        );
+        // Discard já foi persistido antes de abrir esse diff. Aqui só aprendemos exigências.
+        if (action === "apply") {
+          toast.success("Exigências atualizadas com base no descarte");
+        }
       }
       setDiffOpen(false);
       setPendingAction(null);
-      onDone?.();
-      onOpenChange(false);
+
     } catch (err: any) {
       console.error(err);
       toast.error(err?.message || "Erro ao finalizar");
