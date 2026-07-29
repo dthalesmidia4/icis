@@ -394,8 +394,8 @@ export async function proceedDemand({
   }
   const nextFn = sequence[nextIndex] as { function_key: string; name: string };
 
-  // Transição especial: enviar_cliente → aguardando_cliente mantém o mesmo responsável.
-  if (currentFunctionKey === "enviar_cliente" && nextFn.function_key === "aguardando_cliente") {
+  // Qualquer entrada em "Aguardando clientes" mantém o mesmo responsável e carimba o envio.
+  if (nextFn.function_key === "aguardando_cliente") {
     const { data: current } = await supabase
       .from("demands")
       .select("assigned_to")
@@ -416,6 +416,8 @@ export async function proceedDemand({
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: nextFn.function_key,
     });
+    await recordClientSend(tenantId, demandId, currentFunctionKey || null, keepAssignee);
+
     return {
       success: true,
       assignedTo: keepAssignee || undefined,
