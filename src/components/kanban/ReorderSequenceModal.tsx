@@ -345,7 +345,22 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                     <div className="flex items-start gap-2">
                       <span className="text-xs font-mono text-muted-foreground mt-0.5 w-6">{i + 1}.</span>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{p.title}</div>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {(() => {
+                            const tier = orig ? reorderTier(orig) : 0;
+                            const meta = tier === 2
+                              ? { label: "Avaliar", cls: "border-purple-500/60 text-purple-600 dark:text-purple-400" }
+                              : tier === 1
+                                ? { label: "Revisão", cls: "border-amber-500/60 text-amber-600 dark:text-amber-400" }
+                                : { label: "Produção", cls: "border-primary/60 text-primary" };
+                            return (
+                              <Badge variant="outline" className={"text-[10px] shrink-0 " + meta.cls}>
+                                {meta.label}
+                              </Badge>
+                            );
+                          })()}
+                          <div className="text-sm font-medium truncate">{p.title}</div>
+                        </div>
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                           {p.skipped ? (
                             <span className="text-muted-foreground">{origStart}</span>
