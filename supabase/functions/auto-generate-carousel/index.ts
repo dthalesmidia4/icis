@@ -319,6 +319,8 @@ REGRAS:
       const { results } = await generateCarouselSlideImages({
         supabase,
         googleApiKey: GOOGLE_API_KEY,
+        openaiApiKey: OPENAI_API_KEY,
+        aiModel: DEFAULT_IMAGE_MODEL,
         vi,
         basePrompt,
         strategySnippet,
