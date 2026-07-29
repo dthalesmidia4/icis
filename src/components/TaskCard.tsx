@@ -119,6 +119,10 @@ export interface KanbanCardData {
   assigned_to?: string | null;
   additional_assignees?: string[];
   current_function_key?: string | null;
+  // Aguardando cliente
+  client_wait_started_at?: string | null;
+  client_resend_count?: number | null;
+  client_last_resend_at?: string | null;
   // Card Diário (recorrência)
   is_daily_card?: boolean;
   daily_start_date?: string | null;
