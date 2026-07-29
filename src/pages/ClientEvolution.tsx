@@ -812,10 +812,10 @@ function TableRow({
               )}
             </span>
             <span className="inline-flex items-center gap-1">
-              <CalendarIcon className={cn("h-3 w-3 shrink-0", overdue ? "text-red-500" : "text-emerald-500")} />
+              <CalendarIcon className={cn("h-3 w-3 shrink-0", overdue && !isResolved ? "text-red-500" : "text-emerald-500")} />
               <span className="text-muted-foreground">Fim:</span>
               {endDate ? (
-                <span className={cn("font-semibold", overdue && "text-red-600 dark:text-red-400")}>
+                <span className={cn("font-semibold", overdue && !isResolved && "text-red-600 dark:text-red-400")}>
                   {formatDate(endDate)}{endTime && ` ${endTime}`}
                 </span>
               ) : (
