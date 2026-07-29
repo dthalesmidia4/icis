@@ -1,50 +1,30 @@
-## O que confirmei nos dados e no código
+Plano para corrigir o Kanban sem perguntar novas decisões:
 
-- No banco, a reorganização da coluna da Lúcia **ficou contígua** a partir de agora (14:50 → 16:10 sem buracos). O problema é de **leitura**: os cards intermediários estão em outros agrupamentos (Em revisão / Avaliar), então "Hoje" parece começar às 16:10.
-- O badge "em andamento" usa `isTopCard = index === 0` (`KanbanCentralPage.tsx`): marca o primeiro card da lista de produção mesmo que o horário dele ainda não tenha chegado.
-- Os agrupamentos "Em revisão", "Aguardando clientes" e "Avaliar" **não têm sort por data/hora** — por isso 17:30 aparece acima de 14:50.
-- Ordem de render atual: Avaliar → Aguardando clientes → Em revisão. O pedido é o inverso.
+1. **Definir uma fila operacional única por colaborador**
+   - Usar a ordem correta: Produção → Em revisão → Avaliar.
+   - Excluir da fila de execução: `aguardando_cliente`, `enviar_cliente`, `publicar` já agendado e cards sem ação operacional imediata.
+   - Manter `captar` como exceção: quando chegou o horário de captação, ele continua tendo prioridade/pausa própria.
 
-## O que vou fazer
+2. **Corrigir o cálculo de “em andamento”**
+   - O card “em andamento” será o mais antigo cujo início já passou, considerando apenas cards executáveis.
+   - Se houver card atrasado de ontem ou de horário anterior, ele vence qualquer card futuro.
+   - Se não houver nenhum iniciado/atrasado, o “próximo” será o primeiro card executável futuro.
 
-### 1. Ordenar todos os agrupamentos cronologicamente
-Aplicar o mesmo critério da lista principal (data de início + hora, fallback entrega) em Em revisão, Aguardando clientes e Avaliar. Sem data vai para o fim.
+3. **Corrigir o cálculo de “próximo”**
+   - Não marcar como “próximo” um card de `enviar_cliente`/aguardando cliente.
+   - Quando existe um card “em andamento” atrasado, o “próximo” deve ser o próximo executável real depois dele, e não o primeiro card visível do agrupamento errado.
+   - Se a próxima ação real estiver em um grupo recolhido, o rótulo deve continuar correto no card real, não em outro card visível às 16:05.
 
-### 2. Corrigir a ordem dos agrupamentos
-Renderizar na ordem **Em revisão → Aguardando clientes → Avaliar**, na coluna normal e nas sub-colunas do modo foco.
+4. **Aplicar a mesma lógica no modo foco**
+   - Sub-colunas do modo foco seguem a ordem: produção → revisão → aguardando clientes → avaliar.
+   - Rótulos de andamento/próximo continuam calculados pelo conjunto operacional do colaborador, não apenas pela sub-coluna visível.
 
-### 3. Rótulo "em andamento" pelo card mais atrasado
-Regra, considerando todos os cards ativos do colaborador (produção + revisão + avaliar; fora aguardando cliente e publicações agendadas):
+5. **Ajustar renderização dos agrupamentos**
+   - Cards em `enviar_cliente` devem sair da fila principal quando representam espera/cliente e entrar no agrupamento de cliente, junto com `aguardando_cliente`, para não poluir “agora”.
+   - Cards de revisão continuam ordenados cronologicamente.
+   - Avaliar fica por último e não deve roubar o rótulo de “próximo” se ainda há produção/revisão executável.
 
-1. Entre os cards **cujo início (data + hora) já passou**, o "em andamento" é o **mais antigo** — ou seja, o mais atrasado vence, inclusive se for de ontem ou de semanas atrás.
-2. Empate no mesmo horário: desempata pela prioridade **Produção → Revisão → Avaliar**.
-3. Se nenhum card já começou, marca-se o **próximo a começar** como "próximo" e nenhum card fica "em andamento".
-4. O card seguinte na fila recebe **"próximo"**.
-
-Consequência natural: "Em revisão" só terá o "em andamento" quando não houver card de produção já iniciado (produção vazia ou só com datas futuras) e a revisão tiver data/hora já alcançada.
-
-**Captação continua como está**: card `captar` com horário chegado sobe ao topo absoluto e o card que seria o atual exibe "pausado para captação" — esse rótulo tem precedência sobre "em andamento"/"próximo".
-
-### 4. Prioridade da reorganização de sequência
-A reorganização passa a alocar horários nesta ordem:
-1. **Produção**
-2. **Em revisão**
-3. **Avaliar** — sempre por último na fila do dia
-4. **Aguardando clientes** — **excluído** do cálculo: não consome tempo e não recebe horário novo.
-Publicações já agendadas continuam fora do cálculo, e cards `captar` continuam com horário protegido.
-
-### 5. Prévia do modal de reorganização
-Mostrar a linha do tempo em ordem cronológica com etiqueta de origem por card (Produção / Revisão / Avaliar), para ficar claro por que o próximo card de "Hoje" começa mais tarde.
-
-## Arquivos envolvidos
-
-- `src/pages/KanbanCentralPage.tsx` — ordenação dos agrupamentos, ordem de render, cálculo de "em andamento"/"próximo" preservando a pausa por captação.
-- `src/components/KanbanCard.tsx` — suporte ao rótulo "próximo".
-- `src/lib/reorderSequence.ts` — prioridade produção → revisão → avaliar; exclusão dos cards em `aguardando_cliente`.
-- `src/components/kanban/ReorderSequenceModal.tsx` — etiqueta de origem e ordem cronológica na prévia.
-
-Sem mudanças de banco.
-
-## Resultado esperado
-
-Agrupamentos em ordem cronológica e na ordem pedida (Revisar → Aguardando clientes → Avaliar), "em andamento" sempre no card mais atrasado que já deveria estar sendo feito (com "próximo" logo em seguida e a pausa por captação preservada), e reorganização priorizando produção, depois revisão, com Avaliar por último e ignorando cards que estão com o cliente.
+6. **Verificação**
+   - Conferir no código que nenhum card de cliente/espera recebe “próximo”.
+   - Conferir que um card atrasado antes de 15h15 recebe “em andamento” antes de qualquer card 16:05.
+   - Conferir que a pausa por captação foi preservada.
