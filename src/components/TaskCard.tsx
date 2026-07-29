@@ -707,6 +707,34 @@ export default function TaskCard({
     return () => { cancelled = true; };
   }, [open, card?.tenant_id]);
 
+  // Partial delivery history (Captar multi-responsáveis) — quem já entregou sua parte
+  const [partialDeliveries, setPartialDeliveries] = useState<
+    Array<{ user_id: string; created_at: string }>
+  >([]);
+  useEffect(() => {
+    if (!open || !card?.id) {
+      setPartialDeliveries([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("demand_flow_history")
+        .select("from_user_id, created_at")
+        .eq("demand_id", card.id)
+        .eq("action", "partial_delivered")
+        .order("created_at", { ascending: true });
+      if (cancelled) return;
+      setPartialDeliveries(
+        (data || [])
+          .filter((r: any) => r?.from_user_id)
+          .map((r: any) => ({ user_id: r.from_user_id, created_at: r.created_at })),
+      );
+    })();
+    return () => { cancelled = true; };
+  }, [open, card?.id, card?.assigned_to, card?.additional_assignees]);
+
+
   // Derive priority from publish date proximity
   const getDerivedPriority = () => {
     if (!card?.publish_date) return null;
