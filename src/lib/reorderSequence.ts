@@ -270,34 +270,50 @@ function normalizeCursor(d: Date, area: ReorderWorkArea | null | undefined, ctx:
 /**
  * Aloca `durationMin` a partir de `cursor`, fatiando entre blocos da área,
  * pulando gaps/fins de expediente, fins de semana e feriados.
+ * Se `blocked` (intervalos ocupados por cards fixos: captar/daily/aguardando)
+ * for fornecido, o alocador contorna esses intervalos.
  */
 function allocateAcrossDays(
   cursor: Date,
   durationMin: number,
   area: ReorderWorkArea | null | undefined,
   ctx: WorkCtx,
+  blocked?: Array<{ start: Date; end: Date }>,
 ): { start: Date; end: Date; daysSpanned: number } {
   let c = normalizeCursor(cursor, area, ctx);
+  c = skipBlocked(c, blocked);
+  c = normalizeCursor(c, area, ctx);
   const start = new Date(c);
   let remaining = Math.max(1, durationMin);
   let last = new Date(c);
   const daysSeen = new Set<string>();
   daysSeen.add(isoDate(c));
 
-  for (let guard = 0; guard < 500 && remaining > 0; guard++) {
+  for (let guard = 0; guard < 800 && remaining > 0; guard++) {
+    c = normalizeCursor(c, area, ctx);
+    c = skipBlocked(c, blocked);
     c = normalizeCursor(c, area, ctx);
     daysSeen.add(isoDate(c));
     const nowMin = c.getUTCHours() * 60 + c.getUTCMinutes();
     const blocks = dayBlocks(c, area, ctx);
-    // Bloco atual que contém nowMin
     const currentBlock = blocks.find((b) => nowMin >= b.s && nowMin < b.e);
     if (!currentBlock) {
-      // normalizeCursor deveria ter posicionado; segurança
       c.setUTCDate(c.getUTCDate() + 1);
       c.setUTCHours(0, 0, 0, 0);
       continue;
     }
-    const available = currentBlock.e - nowMin;
+    // Limite do segmento contínuo: fim do bloco OU início do próximo intervalo bloqueado neste dia
+    let segmentEndMin = currentBlock.e;
+    const nextBlockedStart = nextBlockedStartInDay(c, currentBlock, blocked);
+    if (nextBlockedStart !== null && nextBlockedStart > nowMin && nextBlockedStart < segmentEndMin) {
+      segmentEndMin = nextBlockedStart;
+    }
+    const available = segmentEndMin - nowMin;
+    if (available <= 0) {
+      c = setMinuteOfDay(c, segmentEndMin);
+      c = skipBlocked(c, blocked);
+      continue;
+    }
     if (remaining <= available) {
       last = new Date(c);
       last.setUTCMinutes(last.getUTCMinutes() + remaining);
@@ -305,9 +321,11 @@ function allocateAcrossDays(
       break;
     }
     remaining -= available;
-    // Avança ao fim deste bloco
-    c = setMinuteOfDay(c, currentBlock.e);
-    // Existe próximo bloco no mesmo dia?
+    c = setMinuteOfDay(c, segmentEndMin);
+    if (segmentEndMin < currentBlock.e) {
+      c = skipBlocked(c, blocked);
+      continue;
+    }
     const nextBlock = blocks.find((b) => b.s >= currentBlock.e);
     if (nextBlock) {
       c = setMinuteOfDay(c, nextBlock.s);
@@ -319,6 +337,39 @@ function allocateAcrossDays(
 
   daysSeen.add(isoDate(last));
   return { start, end: last, daysSpanned: daysSeen.size };
+}
+
+/** Se `c` cai dentro de algum intervalo bloqueado, avança para o fim dele (encadeia). */
+function skipBlocked(c: Date, blocked?: Array<{ start: Date; end: Date }>): Date {
+  if (!blocked || blocked.length === 0) return c;
+  let cur = new Date(c);
+  for (let guard = 0; guard < 50; guard++) {
+    const hit = blocked.find((b) => cur >= b.start && cur < b.end);
+    if (!hit) return cur;
+    cur = new Date(hit.end);
+  }
+  return cur;
+}
+
+/** Início (min do dia) do próximo bloqueio que cai dentro do bloco atual, ou null. */
+function nextBlockedStartInDay(
+  c: Date,
+  currentBlock: { s: number; e: number },
+  blocked?: Array<{ start: Date; end: Date }>,
+): number | null {
+  if (!blocked || blocked.length === 0) return null;
+  const dayISO = isoDate(c);
+  const nowMin = c.getUTCHours() * 60 + c.getUTCMinutes();
+  let best: number | null = null;
+  for (const b of blocked) {
+    const bStartDay = isoDate(b.start);
+    if (bStartDay !== dayISO) continue;
+    const bStartMin = b.start.getUTCHours() * 60 + b.start.getUTCMinutes();
+    if (bStartMin > nowMin && bStartMin >= currentBlock.s && bStartMin < currentBlock.e) {
+      if (best === null || bStartMin < best) best = bStartMin;
+    }
+  }
+  return best;
 }
 
 // ------------------------------------------------------------------
@@ -531,15 +582,24 @@ export async function computeReorder(
 
   const ordered = sortForReorder(active, { prioritizePublishDate: opts?.prioritizePublishDate });
 
-  // Cursores separados por área quando há schedule por área.
-  // Se não há areaSchedule (fallback antigo), cursor único.
-  const useAreaCursors = !!opts?.areaSchedule;
-  const cursors: Record<string, Date> = {};
+  // Intervalos ocupados por cards fixos (captar, daily, aguardando_cliente).
+  // O alocador contornará esses intervalos em vez de agendar por cima.
+  const blocked: Array<{ start: Date; end: Date }> = [];
+  for (const c of [...captarFixed, ...dailyFixed, ...awaiting]) {
+    if (!c.due_date || !c.due_time || !c.delivery_date || !c.delivery_time) continue;
+    const s = toVirtualUtc(c.due_date, c.due_time.slice(0, 5));
+    const e = toVirtualUtc(c.delivery_date, c.delivery_time.slice(0, 5));
+    if (e > s) blocked.push({ start: s, end: e });
+  }
+  blocked.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+  // Cursor ÚNICO por responsável (não mais separado por área).
+  // A área do card só influencia quais BLOCOS de expediente estão disponíveis.
   const initialCursor = normalizeCursor(new Date(now), null, ctx);
   const bumped = new Date(initialCursor);
   const bump = bumped.getUTCMinutes() % 5;
   if (bump !== 0) bumped.setUTCMinutes(bumped.getUTCMinutes() + (5 - bump), 0, 0);
-  cursors.__default = bumped;
+  let cursor = bumped;
 
   const proposals: ReorderProposal[] = [];
   let isFirstActive = true;
@@ -548,13 +608,6 @@ export async function computeReorder(
     const area: ReorderWorkArea | null = (card.work_area === "midia" || card.work_area === "sistemas")
       ? card.work_area
       : null;
-    const cursorKey = useAreaCursors && area ? area : "__default";
-    if (!cursors[cursorKey]) {
-      cursors[cursorKey] = normalizeCursor(new Date(now), area, ctx);
-      const b2 = cursors[cursorKey].getUTCMinutes() % 5;
-      if (b2 !== 0) cursors[cursorKey].setUTCMinutes(cursors[cursorKey].getUTCMinutes() + (5 - b2), 0, 0);
-    }
-    let cursor = cursors[cursorKey];
 
     const baseDur = estimateDurationBase(card, ctx, opts?.durations);
     let dur = baseDur;
@@ -573,14 +626,17 @@ export async function computeReorder(
       const originalStart = toVirtualUtc(card.due_date, card.due_time.slice(0, 5));
       const delayMin = workingMinutesBetween(originalStart, now, area, ctx);
       const slack = Math.round(baseDur * 0.30);
-      dur = baseDur + Math.max(0, delayMin) + slack;
+      // Cap na inflação: no máximo 2 jornadas úteis da área do card
+      const dayCap = Math.max(60, workingMinutesInDay(now, area, ctx) * 2);
+      const inflated = baseDur + Math.max(0, Math.round(delayMin * 0.5)) + slack;
+      dur = Math.min(inflated, dayCap);
       slackApplied = true;
-      ({ start, end, daysSpanned } = allocateAcrossDays(originalStart, dur, area, ctx));
+      ({ start, end, daysSpanned } = allocateAcrossDays(originalStart, dur, area, ctx, blocked));
       if (end < now) {
-        ({ start, end, daysSpanned } = allocateAcrossDays(now, baseDur + slack, area, ctx));
+        ({ start, end, daysSpanned } = allocateAcrossDays(now, baseDur + slack, area, ctx, blocked));
       }
     } else {
-      ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx));
+      ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
     }
 
     let warning: string | undefined;
@@ -598,7 +654,7 @@ export async function computeReorder(
       warning = warning ? `${warning} ${extra}` : extra;
     }
     if (slackApplied) {
-      const extra = "Tempo extra aplicado (atraso + 30%).";
+      const extra = "Tempo extra aplicado (atraso + folga).";
       warning = warning ? `${warning} ${extra}` : extra;
     }
 
@@ -628,13 +684,18 @@ export async function computeReorder(
       slackApplied,
     });
 
-    // Próximo cursor da área: 5min após o fim
+    // Adiciona intervalo recém-alocado à lista de bloqueados para o próximo card.
+    blocked.push({ start, end });
+    blocked.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    // Próximo cursor: 5min após o fim do card (o skipBlocked cuidará de intervalos futuros).
     const nextCursor = new Date(end);
     nextCursor.setUTCMinutes(nextCursor.getUTCMinutes() + 5);
-    cursors[cursorKey] = normalizeCursor(nextCursor, area, ctx);
+    cursor = normalizeCursor(nextCursor, null, ctx);
 
     isFirstActive = false;
   }
+
 
   for (const c of awaiting) {
     proposals.push({
