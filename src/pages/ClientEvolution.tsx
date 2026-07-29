@@ -16,6 +16,7 @@ import TaskCard from "@/components/TaskCard";
 import type { KanbanCardData, Attachment, PipelineStatus } from "@/components/TaskCard";
 import { toast as sonnerToast } from "sonner";
 import { useRealtimeDemands, useDebouncedCallback } from "@/hooks/realtime";
+import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { cn } from "@/lib/utils";
 
 const FINAL_STATUSES = new Set(["feito", "feitos", "publicado"]);
@@ -143,6 +144,7 @@ const periodShortLabel: Record<PeriodFilter, string> = {
 
 const ClientEvolution = () => {
   const { tenantId, isLoading: tenantLoading } = useTenant();
+  const { activeDispatchIds } = useActiveDispatchIds(tenantId);
   const { selectedClient } = useSelectedClient();
   const [cards, setCards] = useState<KanbanCardData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -337,20 +339,22 @@ const ClientEvolution = () => {
       const idx = stageKey ? seq.findIndex((f) => f.function_key === stageKey) : -1;
       const currentFn = idx >= 0 ? seq[idx] : null;
       const nextFn = idx >= 0 && idx < seq.length - 1 ? seq[idx + 1] : null;
+      const isScheduled = stageKey === "publicar" && activeDispatchIds.has(c.id);
+      const displayStageName = isScheduled ? "Publicar agendado" : (currentFn?.name ?? null);
       return {
         card: c,
         isDone,
         isOverdue: isOverdue(c.delivery_date, c.delivery_time, c.status),
         hasStage: !!stageKey,
         stageKey,
-        stageName: currentFn?.name ?? null,
+        stageName: displayStageName,
         stageIndex: idx,
         sequence: seq,
         nextStageName: nextFn?.name ?? null,
         workArea: ((c as any).work_area as "midia" | "sistemas" | null) ?? null,
       };
     });
-  }, [scopedCards, sequenceForCard]);
+  }, [scopedCards, sequenceForCard, activeDispatchIds]);
 
   const summary = useMemo(() => {
     const total = classified.length;

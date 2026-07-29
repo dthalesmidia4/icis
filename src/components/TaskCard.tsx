@@ -18,6 +18,7 @@ import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Tag } from "lucide-react";
 import { proceedDemand, regressDemand, deliverDemand, deliverMyPart, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, getPipelineSequence, jumpToFunction, type DemandTypeKey } from "@/lib/proceedDemand";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { completeDailyOccurrence, formatBR as formatBRDate } from "@/lib/dailyCards";
 import { DailyCardSection } from "@/components/DailyCardSection";
@@ -423,6 +424,8 @@ export default function TaskCard({
   const [deliveringPart, setDeliveringPart] = useState(false);
   const { user } = useAuth();
   const currentUserId = user?.id ?? null;
+  const { activeDispatchIds } = useActiveDispatchIds(card?.tenant_id ?? null);
+  const isScheduledPublish = !!card && activeDispatchIds.has(card.id);
 
   const captarExtras = Array.isArray(card?.additional_assignees) ? (card?.additional_assignees as string[]) : [];
   const captarAllAssignees = new Set<string>([...(card?.assigned_to ? [card.assigned_to] : []), ...captarExtras]);
@@ -1290,12 +1293,14 @@ export default function TaskCard({
                     const curIdx = curKey ? seq.findIndex((s) => s.function_key === curKey) : -1;
                     const prev = curIdx > 0 ? seq[curIdx - 1] : null;
                     const next = curIdx >= 0 && curIdx < seq.length - 1 ? seq[curIdx + 1] : null;
-                    const curName = curIdx >= 0 ? seq[curIdx].name : (curKey || "Sem etapa");
+                    const baseCurName = curIdx >= 0 ? seq[curIdx].name : (curKey || "Sem etapa");
+                    const isPublicarScheduled = curKey === "publicar" && isScheduledPublish;
+                    const curName = isPublicarScheduled ? "Publicar agendado" : baseCurName;
 
                     const nextIsPublicar = curKey === "publicar";
                     const isEnviarCliente = curKey === "enviar_cliente";
                     const nextLabel = nextIsPublicar
-                      ? "Agendar Publicação"
+                      ? (isPublicarScheduled ? "Reagendar" : "Agendar Publicação")
                       : isLastFn
                         ? "Entregar"
                         : isEnviarCliente

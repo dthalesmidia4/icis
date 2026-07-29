@@ -455,9 +455,9 @@ const KanbanCentralPage = () => {
     }
     // Ocultar cards diários cuja próxima ocorrência ainda não chegou
     baseCards = baseCards.filter(card => isDailyCardVisibleNow(card as any));
-    // Nota: cards com dispatch ativo NÃO são mais escondidos — permanecem na
-    // coluna "Publicar" com o rótulo "Publicar agendado" para o gestor operacional
-    // saber que a próxima ação é apenas aguardar/monitorar a publicação.
+    // Cards com dispatch de publicação ativo NÃO devem poluir a Visão Geral —
+    // eles ficam disponíveis apenas em Home → Agendamentos (dispatcher).
+    baseCards = baseCards.filter(card => !activeDispatchIds.has(card.id));
     return baseCards;
   }, [cards, archivedCards, selectedClientFilter, selectedPeriodFilter, selectedStatusFilter, selectedAreaFilter, activeDispatchIds]);
 

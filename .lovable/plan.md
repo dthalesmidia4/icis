@@ -1,22 +1,35 @@
-## Problema
-No agrupamento por data das colunas da Visão Geral, cards com **início no passado** (ex.: `due_date = 28/07`) mas **término hoje ou futuro** (`delivery_date ≥ hoje`) aparecem sob "Ontem" (ou datas mais antigas) quando o modo de agrupamento é por data de início. Eles estão **em andamento hoje** e deveriam cair no grupo "Hoje".
+## Problemas identificados
 
-## Correção proposta
-Em `src/pages/KanbanCentralPage.tsx`, na montagem da chave de agrupamento (`const key = ...` por volta da linha 2594), tratar cards em andamento como "hoje":
+1. **Cards agendados poluem a Visão Geral**: hoje, a decisão anterior deixava cards com dispatch ativo visíveis na coluna "Publicar" do responsável. O usuário quer voltar a escondê-los da Visão Geral (aparecem apenas em Home → Agendamentos, que já lê `scheduled_publication_dispatches`).
+2. **`ClientEvolution` (Evolução das Demandas)** mostra a etapa apenas como "Publicar", mesmo quando há dispatch ativo. Deveria mostrar "Publicar agendado".
+3. **Modal do card (TaskCard)**, ao abrir um card já agendado:
+   - o seletor de etapa exibe "Publicar" (deveria exibir "Publicar agendado");
+   - o botão de prosseguir mostra "Agendar Publicação" (o card já está agendado — não faz sentido).
 
-- Quando `dateGroupBy === "start"`:
-  - Calcular `todayISO` uma vez antes do loop.
-  - Se `c.due_date < todayISO` **e** `(c.delivery_date ?? c.due_date) >= todayISO`, usar `todayISO` como chave em vez de `c.due_date`.
-  - Caso contrário, mantém `c.due_date` (comportamento atual).
-- Quando `dateGroupBy === "delivery"`: nenhuma mudança — já agrupa pelo término.
+## Correções
 
-Isso é uma alteração isolada dentro do bloco de agrupamento; a ordenação interna do grupo continua usando `due_time`/`delivery_time` como hoje.
+### 1. Ocultar cards agendados da Visão Geral — `src/pages/KanbanCentralPage.tsx`
+Em `filteredCards` (linha 456-461), reintroduzir o filtro que remove cards com dispatch ativo. Manter os cards no `useActiveDispatchIds`; o badge de "Conteúdos agendados" e a coluna de Agendamentos seguem funcionando via essa mesma fonte de dados. Efeitos colaterais controlados:
+- `resolveStageLabel` deixa de precisar do sufixo "agendado" (mantenho, mas na prática não será renderizado na Visão Geral).
+- Contadores de coluna passam a não incluir agendados (comportamento desejado — sem poluição).
 
-## Efeito esperado
-- Card "SESMAP · VÍDEO REGULARIZAÇÃO..." (Ini 28/07, Fim 29/07) — hoje é 29/07 → passa de "Ontem" para "Hoje".
-- Cards com início e término no passado (entregas atrasadas ainda não movidas) continuam em seus dias reais (ex.: "Ontem", "19/06"), pois `delivery_date < hoje`.
-- Cards sem `delivery_date` seguem a data de início.
+### 2. Rótulo em `ClientEvolution` — `src/pages/ClientEvolution.tsx`
+- Fazer o fetch de dispatches ativos do tenant (usar `useActiveDispatchIds(tenantId)` como no Kanban) para obter o `Set<string>` de `card_id` agendados.
+- Em `classified` (linha 332-353), quando `stageKey === "publicar"` e o card estiver em `activeDispatchIds`, definir `stageName = "Publicar agendado"`.
+- Assim, a coluna "Etapa atual" da planilha reflete o estado real e mantém ordenação/filtragem existentes.
 
-## Fora do escopo
-- Não altero o modo "por término", o boost de captação, os pseudo-grupos "Captação · agora", nem a ordenação.
-- Não mudo rótulos de estágio nem lógica de pausa.
+### 3. Modal do TaskCard — `src/components/TaskCard.tsx`
+- Consumir `useActiveDispatchIds(card.tenant_id)` no componente e derivar `isScheduled = activeDispatchIds.has(card.id)`.
+- No bloco de linhas 1287-1303:
+  - Ajustar `curName` quando `curKey === "publicar" && isScheduled` para `"Publicar agendado"` (sobrescreve o nome vindo da pipeline).
+  - Alterar `nextLabel`/renderização: quando `nextIsPublicar && isScheduled`, substituir o botão "Agendar Publicação" por "Reagendar" (mantém o click `setInlineScheduleOpen(true)`, mesmo ícone `CalendarClock`). Isso resolve tanto a UX quanto o rótulo confuso.
+  - Quando `nextIsPublicar && !isScheduled`, comportamento atual permanece ("Agendar Publicação").
+- O seletor de etapas (Popover) também exibe `curName`; portanto a mesma sobrescrita já cobre o header do modal.
+
+### Comportamento nos Agendamentos (Home → Visão Geral → Agendamentos)
+Nada muda: `Scheduled.tsx` já é alimentado por `scheduled_publication_dispatches` (não pela lista `demands` da Visão Geral). Os cards continuarão aparecendo lá com histórico e futuros.
+
+## Fora de escopo
+- Não altero políticas de RLS, edge functions, hooks de realtime, nem a lógica de execução do dispatcher.
+- Não mudo o texto do badge "Conteúdos agendados" no topo do Kanban.
+- Não altero a lógica de reorganização automática.
