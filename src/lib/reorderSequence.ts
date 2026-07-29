@@ -68,6 +68,12 @@ export interface ReorderProposal {
   skipped?: boolean;
   spansDays?: number;
   slackApplied?: boolean;
+  pausedByCaptar?: {
+    atISO: string;
+    atTime: string;
+    captarId: string;
+    captarTitle: string;
+  } | null;
 }
 
 // ------------------------------------------------------------------
