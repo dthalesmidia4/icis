@@ -12,6 +12,60 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const SAFE_RETURN_MS = 150_000;
+const MIN_NEW_BATCH_BUDGET_MS = 45_000;
+
+async function hashText(input: string): Promise<string> {
+  const bytes = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function getSlideNumberFromAttachment(att: any): number | null {
+  if (!att) return null;
+  if (typeof att.carouselSlideNumber === "number") return att.carouselSlideNumber;
+  const name = String(att.name || "");
+  const match = name.match(/(?:carrossel\s*)?slide\s*(\d+)/i) || name.match(/carousel\s*slide\s*(\d+)/i);
+  if (!match) return null;
+  const n = Number(match[1]);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function getExistingCarouselSlideNumbers(attachments: any[]): Set<number> {
+  const numbers = new Set<number>();
+  for (const att of attachments) {
+    if (!isAiCarouselSlide(att)) continue;
+    const slideNumber = getSlideNumberFromAttachment(att);
+    if (slideNumber) numbers.add(slideNumber);
+  }
+  return numbers;
+}
+
+function getCarouselGenerationMeta(reorderMeta: any): any | null {
+  if (!reorderMeta || typeof reorderMeta !== "object" || Array.isArray(reorderMeta)) return null;
+  const meta = reorderMeta.carouselGeneration;
+  if (!meta || typeof meta !== "object" || !Array.isArray(meta.slides)) return null;
+  return meta;
+}
+
+async function persistCarouselGenerationMeta(
+  supabase: any,
+  demandId: string,
+  currentReorderMeta: any,
+  meta: Record<string, unknown>,
+) {
+  const nextMeta = currentReorderMeta && typeof currentReorderMeta === "object" && !Array.isArray(currentReorderMeta)
+    ? { ...currentReorderMeta, carouselGeneration: meta }
+    : { carouselGeneration: meta };
+  const { error } = await supabase
+    .from("demands")
+    .update({ reorder_meta: nextMeta })
+    .eq("id", demandId);
+  if (error) console.error("[auto-generate-carousel] failed to persist carouselGeneration meta:", error);
+}
+
 // Helper: check if attachment is an AI-generated carousel slide
 function isAiCarouselSlide(att: any): boolean {
   if (!att) return false;
@@ -67,7 +121,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { demandId, source, minimalText } = await req.json();
+    const startedAt = Date.now();
+    const elapsedMs = () => Date.now() - startedAt;
+
+    const { demandId, source, minimalText, forceRegenerate } = await req.json();
     const isPlanned = source === 'planned' || minimalText === true;
 
     if (!demandId) {
@@ -156,6 +213,20 @@ Deno.serve(async (req) => {
     ].filter(Boolean).join("\n");
 
     const slideCount = 5;
+    const contentSignature = await hashText([
+      demand.title || "",
+      demand.objective || "",
+      demand.instructions || "",
+      demand.description || "",
+      demand.demand_type || "",
+      demand.demand_type_key || "",
+      isPlanned ? "planned" : "standard",
+    ].join("\n---\n"));
+
+    const currentAttachments = Array.isArray(demand.attachments) ? demand.attachments : [];
+    const existingSlideNumbers = forceRegenerate
+      ? new Set<number>()
+      : getExistingCarouselSlideNumbers(currentAttachments);
 
     // ============ STEP 1: slide texts via OpenAI ============
     console.log(`Step 1: Generating ${slideCount} slide texts via ${MODELS.TEXT_PLANNING}...`);
@@ -185,72 +256,78 @@ REGRAS:
 
     const userPrompt = `Crie ${slideCount} slides para este card:\n\n${cardContent}`;
 
-    const contentResponse = await fetch(OPENAI_CHAT_URL, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: MODELS.TEXT_PLANNING,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "create_carousel_slides",
-            description: "Retorna os slides do carrossel",
-            parameters: {
-              type: "object",
-              properties: {
-                slides: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: { text: { type: "string" }, label: { type: "string" } },
-                    required: ["text", "label"],
-                    additionalProperties: false,
+    let slides: Array<{ text: string; label: string }>;
+    const existingPlan = !forceRegenerate ? getCarouselGenerationMeta(demand.reorder_meta) : null;
+    if (existingPlan?.contentSignature === contentSignature && existingPlan.slides.length > 0) {
+      slides = existingPlan.slides.slice(0, slideCount);
+      console.log(`↪️ Reusing saved carousel slide plan (${slides.length} slides) for continuation`);
+    } else {
+      const contentResponse = await fetch(OPENAI_CHAT_URL, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: MODELS.TEXT_PLANNING,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          tools: [{
+            type: "function",
+            function: {
+              name: "create_carousel_slides",
+              description: "Retorna os slides do carrossel",
+              parameters: {
+                type: "object",
+                properties: {
+                  slides: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: { text: { type: "string" }, label: { type: "string" } },
+                      required: ["text", "label"],
+                      additionalProperties: false,
+                    },
                   },
                 },
+                required: ["slides"],
+                additionalProperties: false,
               },
-              required: ["slides"],
-              additionalProperties: false,
             },
-          },
-        }],
-        tool_choice: { type: "function", function: { name: "create_carousel_slides" } },
-      }),
-    });
+          }],
+          tool_choice: { type: "function", function: { name: "create_carousel_slides" } },
+        }),
+      });
 
-    if (!contentResponse.ok) {
-      const errorText = await contentResponse.text();
-      console.error("OpenAI error:", contentResponse.status, errorText);
-      return new Response(
-        JSON.stringify({ error: `Erro OpenAI: ${contentResponse.status}` }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+      if (!contentResponse.ok) {
+        const errorText = await contentResponse.text();
+        console.error("OpenAI error:", contentResponse.status, errorText);
+        return new Response(
+          JSON.stringify({ error: `Erro OpenAI: ${contentResponse.status}` }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
 
-    const contentData = await contentResponse.json();
-    const toolCall = contentData.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) {
-      return new Response(
-        JSON.stringify({ error: "A IA não retornou os slides estruturados." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+      const contentData = await contentResponse.json();
+      const toolCall = contentData.choices?.[0]?.message?.tool_calls?.[0];
+      if (!toolCall) {
+        return new Response(
+          JSON.stringify({ error: "A IA não retornou os slides estruturados." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
 
-    let slides: Array<{ text: string; label: string }>;
-    try {
-      const args = typeof toolCall.function.arguments === "string"
-        ? JSON.parse(toolCall.function.arguments)
-        : toolCall.function.arguments;
-      slides = args.slides;
-    } catch (e) {
-      console.error("Failed to parse slides:", e);
-      return new Response(
-        JSON.stringify({ error: "Falha ao interpretar slides da IA." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      try {
+        const args = typeof toolCall.function.arguments === "string"
+          ? JSON.parse(toolCall.function.arguments)
+          : toolCall.function.arguments;
+        slides = args.slides;
+      } catch (e) {
+        console.error("Failed to parse slides:", e);
+        return new Response(
+          JSON.stringify({ error: "Falha ao interpretar slides da IA." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
     }
 
     if (!Array.isArray(slides) || slides.length === 0) {
@@ -259,6 +336,16 @@ REGRAS:
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    slides = slides.slice(0, slideCount);
+
+    await persistCarouselGenerationMeta(supabase, demandId, demand.reorder_meta, {
+      contentSignature,
+      slides,
+      totalSlides: slides.length,
+      promptKey,
+      createdAt: new Date().toISOString(),
+    });
 
     console.log(`✅ Step 1 complete: ${slides.length} slide texts generated`);
 
@@ -288,10 +375,11 @@ REGRAS:
         size: r.attachment.bytesLength,
         storagePath: r.attachment.storagePath,
         uploadedAt: new Date().toISOString(),
-        uploadedBy: { id: "auto-generator", email: "system@ai", name: "IA - Gemini 3 Pro Image (Carrossel)" },
+        uploadedBy: { id: "auto-generator", email: "system@ai", name: `IA - ${MODELS.IMAGE} (Carrossel)` },
         cardId: demandId,
         tenantId: demand.tenant_id,
         clientId: demand.client_id,
+        carouselSlideNumber: r.slideNumber,
       };
 
       const { data: currentDemand } = await supabase
@@ -301,6 +389,13 @@ REGRAS:
         .single();
 
       const currentAttachments = Array.isArray(currentDemand?.attachments) ? currentDemand.attachments : [];
+      const slideAlreadyAttached = currentAttachments.some((att: any) =>
+        isAiCarouselSlide(att) && getSlideNumberFromAttachment(att) === r.slideNumber
+      );
+      if (slideAlreadyAttached) {
+        console.log(`  ↳ Slide ${r.slideNumber} already attached, skipping duplicate append`);
+        return;
+      }
 
       await supabase
         .from("demands")
@@ -311,10 +406,60 @@ REGRAS:
 
     const BATCH_SIZE = 2;
     let totalGenerated = 0;
+    const totalAlreadyGenerated = existingSlideNumbers.size;
+    const missingRanges: Array<{ startIndex: number; slides: Array<{ text: string; label: string }> }> = [];
+    slides.forEach((slide, idx) => {
+      if (existingSlideNumbers.has(idx + 1)) return;
+      const last = missingRanges[missingRanges.length - 1];
+      if (last && last.startIndex + last.slides.length === idx && last.slides.length < BATCH_SIZE) {
+        last.slides.push(slide);
+      } else {
+        missingRanges.push({ startIndex: idx, slides: [slide] });
+      }
+    });
+    const missingCount = missingRanges.reduce((sum, range) => sum + range.slides.length, 0);
 
-    for (let batchStart = 0; batchStart < slides.length; batchStart += BATCH_SIZE) {
-      const batch = slides.slice(batchStart, batchStart + BATCH_SIZE);
-      console.log(`  → Batch ${batchStart + 1}-${batchStart + batch.length}/${slides.length}`);
+    const partialResponse = (reason: string) => new Response(
+      JSON.stringify({
+        success: true,
+        partial: true,
+        reason,
+        totalGenerated,
+        totalAlreadyGenerated,
+        totalAvailable: totalAlreadyGenerated + totalGenerated,
+        totalSlides: slides.length,
+        archivedSlides: archivedCount,
+        demandId,
+        message: `Carrossel parcialmente gerado: ${totalAlreadyGenerated + totalGenerated}/${slides.length} slides. Clique novamente para continuar.`,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+
+    if (missingCount === 0) {
+      console.log(`✅ Carousel already has ${totalAlreadyGenerated}/${slides.length} AI slides attached`);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          totalGenerated: 0,
+          totalAlreadyGenerated,
+          totalSlides: slides.length,
+          archivedSlides: archivedCount,
+          demandId,
+          message: `Carrossel já possui ${slides.length} slides gerados.`,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    let processedMissing = 0;
+    for (const range of missingRanges) {
+      if ((totalGenerated > 0 || totalAlreadyGenerated > 0) && elapsedMs() > SAFE_RETURN_MS - MIN_NEW_BATCH_BUDGET_MS) {
+        console.log(`⏳ Returning partial carousel before next batch to avoid timeout (${elapsedMs()}ms)`);
+        return partialResponse("safe_timeout_before_next_batch");
+      }
+
+      const batch = range.slides;
+      console.log(`  → Batch missing ${processedMissing + 1}-${processedMissing + batch.length}/${missingCount} (slides ${range.startIndex + 1}-${range.startIndex + batch.length}, elapsed ${elapsedMs()}ms)`);
 
       const { results } = await generateCarouselSlideImages({
         supabase,
@@ -326,7 +471,7 @@ REGRAS:
         strategySnippet,
         slides: batch,
         allSlides: slides,
-        batchOffset: batchStart,
+        batchOffset: range.startIndex,
         mascotInline,
         logoInline,
         storagePathBuilder: (slideNumber, ext) =>
@@ -335,26 +480,40 @@ REGRAS:
       });
 
       totalGenerated += results.filter((r) => r.ok).length;
+      processedMissing += batch.length;
+
+      if (totalAlreadyGenerated + totalGenerated < slides.length && elapsedMs() > SAFE_RETURN_MS) {
+        console.log(`⏳ Returning partial carousel after batch to avoid timeout (${elapsedMs()}ms)`);
+        return partialResponse("safe_timeout_after_batch");
+      }
     }
 
-    if (totalGenerated === 0) {
+    if (totalGenerated === 0 && totalAlreadyGenerated === 0) {
       return new Response(
         JSON.stringify({ error: "Nenhuma imagem de carrossel foi gerada." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
+    if (totalAlreadyGenerated + totalGenerated < slides.length) {
+      return partialResponse("some_slides_failed_or_pending");
+    }
+
     console.log(`✅ Auto-generated ${totalGenerated} carousel slides for demand ${demandId} (archived ${archivedCount} previous)`);
 
     // Gera a legenda automaticamente com base nos slides recém criados
-    try {
-      const { error: capErr } = await supabase.functions.invoke("generate-post-caption", {
-        body: { demandId },
-      });
-      if (capErr) console.error("[auto-generate-carousel] caption invoke error:", capErr);
-      else console.log(`✅ Caption auto-generated for carousel ${demandId}`);
-    } catch (e) {
-      console.error("[auto-generate-carousel] caption generation failed:", e);
+    if (elapsedMs() < SAFE_RETURN_MS - 20_000) {
+      try {
+        const { error: capErr } = await supabase.functions.invoke("generate-post-caption", {
+          body: { demandId },
+        });
+        if (capErr) console.error("[auto-generate-carousel] caption invoke error:", capErr);
+        else console.log(`✅ Caption auto-generated for carousel ${demandId}`);
+      } catch (e) {
+        console.error("[auto-generate-carousel] caption generation failed:", e);
+      }
+    } else {
+      console.log(`⏭️ Skipping caption generation to avoid timeout (${elapsedMs()}ms)`);
     }
 
     return new Response(
