@@ -42,3 +42,23 @@ export async function recordFlowHistory(input: RecordFlowHistoryInput): Promise<
     console.warn("[flowHistory] unexpected error:", err);
   }
 }
+
+/**
+ * Registra uma transição envolvendo múltiplos usuários "from" — usada quando
+ * um card com `additional_assignees` (etapa Captar) prossegue para a próxima
+ * função. Cada usuário responsável gera uma linha em `demand_flow_history`
+ * para aparecer no histórico de entregas da coluna dele.
+ */
+export async function recordFlowHistoryForUsers(
+  input: Omit<RecordFlowHistoryInput, "fromUserId">,
+  fromUserIds: Array<string | null | undefined>,
+): Promise<void> {
+  const unique = Array.from(new Set((fromUserIds || []).filter(Boolean))) as string[];
+  if (unique.length === 0) {
+    await recordFlowHistory({ ...input, fromUserId: null });
+    return;
+  }
+  await Promise.all(
+    unique.map((uid) => recordFlowHistory({ ...input, fromUserId: uid })),
+  );
+}
