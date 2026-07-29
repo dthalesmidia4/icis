@@ -522,28 +522,46 @@ export function hasPublishDateCandidates(cards: ReorderCardInput[]): boolean {
   return rest.some((c) => !!c.publish_date);
 }
 
+/**
+ * Prioridade de alocação: Produção (0) → Em revisão (1) → Avaliar (2).
+ */
+export function reorderTier(c: ReorderCardInput): 0 | 1 | 2 {
+  const k = (c.current_function_key || "").toLowerCase();
+  if (isEvaluationFunction(k)) return 2;
+  if (isReviewFunction(k)) return 1;
+  return 0;
+}
+
 export function sortForReorder(
   cards: ReorderCardInput[],
   opts?: { prioritizePublishDate?: boolean },
 ): ReorderCardInput[] {
   if (cards.length === 0) return [];
-  const indexed = cards.map((c, i) => ({ c, i }));
-  const byDue = [...indexed].sort((a, b) => {
-    const cmp = dueKey(a.c).localeCompare(dueKey(b.c));
-    return cmp !== 0 ? cmp : a.i - b.i;
-  });
-  const inProgress = byDue[0];
-  const rest = byDue.slice(1);
 
-  if (opts?.prioritizePublishDate) {
-    rest.sort((a, b) => {
-      const cmp = pubKey(a.c).localeCompare(pubKey(b.c));
-      if (cmp !== 0) return cmp;
-      return dueKey(a.c).localeCompare(dueKey(b.c));
+  const sortTier = (tierCards: { c: ReorderCardInput; i: number }[]) => {
+    if (tierCards.length === 0) return [];
+    const byDue = [...tierCards].sort((a, b) => {
+      const cmp = dueKey(a.c).localeCompare(dueKey(b.c));
+      return cmp !== 0 ? cmp : a.i - b.i;
     });
-  }
+    const inProgress = byDue[0];
+    const rest = byDue.slice(1);
+    if (opts?.prioritizePublishDate) {
+      rest.sort((a, b) => {
+        const cmp = pubKey(a.c).localeCompare(pubKey(b.c));
+        if (cmp !== 0) return cmp;
+        return dueKey(a.c).localeCompare(dueKey(b.c));
+      });
+    }
+    return [inProgress, ...rest];
+  };
 
-  return [inProgress, ...rest].map((x) => x.c);
+  const indexed = cards.map((c, i) => ({ c, i }));
+  const t0 = indexed.filter((x) => reorderTier(x.c) === 0);
+  const t1 = indexed.filter((x) => reorderTier(x.c) === 1);
+  const t2 = indexed.filter((x) => reorderTier(x.c) === 2);
+
+  return [...sortTier(t0), ...sortTier(t1), ...sortTier(t2)].map((x) => x.c);
 }
 
 // ------------------------------------------------------------------
