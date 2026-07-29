@@ -1014,23 +1014,47 @@ export default function TaskCard({
       setRegeneratingSlide(null);
     }
   };
-  const [hardConflict, setHardConflict] = useState<{ items: AreaConflictInfo[]; targetArea: WorkArea } | null>(null);
-  const warnAreaConflict = async (dateStr: string | null | undefined, timeStr: string | null | undefined) => {
+  const [hardConflict, setHardConflict] = useState<
+    | { items: AreaConflictInfo[]; targetArea: WorkArea; scheduleMessage?: string | null }
+    | null
+  >(null);
+  const warnAreaConflict = async (
+    dateStr: string | null | undefined,
+    timeStr: string | null | undefined,
+    endTimeStr?: string | null | undefined,
+  ) => {
     if (!card || !dateStr || !card.assigned_to || !card.tenant_id) return;
     const area = (((card as any).work_area as WorkArea) || "midia") as WorkArea;
     try {
-      const conflicts = await findAreaConflicts({
-        tenantId: card.tenant_id,
-        userId: card.assigned_to,
-        area,
-        date: dateStr,
-        time: timeStr || null,
-        excludeDemandId: card.id,
-      });
+      const [conflicts, scheduleResult] = await Promise.all([
+        findAreaConflicts({
+          tenantId: card.tenant_id,
+          userId: card.assigned_to,
+          area,
+          date: dateStr,
+          time: timeStr || null,
+          excludeDemandId: card.id,
+        }),
+        (await import("@/lib/areaConflicts")).findScheduleAreaConflict({
+          tenantId: card.tenant_id,
+          userId: card.assigned_to,
+          area,
+          date: dateStr,
+          startTime: timeStr || null,
+          endTime: endTimeStr ?? timeStr ?? null,
+        }),
+      ]);
       const hard = conflicts.filter((c) => c.hard);
-      if (hard.length > 0) {
-        setHardConflict({ items: hard, targetArea: area });
+      if (hard.length > 0 || (scheduleResult && scheduleResult.hard)) {
+        setHardConflict({
+          items: hard,
+          targetArea: area,
+          scheduleMessage: scheduleResult?.hard ? scheduleResult.message : null,
+        });
         return;
+      }
+      if (scheduleResult && !scheduleResult.hard) {
+        toast.warning(scheduleResult.message);
       }
       const soft = conflicts[0];
       if (soft) {
