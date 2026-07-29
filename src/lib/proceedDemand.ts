@@ -260,6 +260,7 @@ export async function jumpToFunction({
 
   const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
   const prevUser = (cur as any)?.assigned_to || null;
+  const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
 
   const updatePayload: any = { assigned_to: picked.userId, current_function_key: target.function_key };
   if (currentFunctionKey === "aguardando_cliente" && target.function_key !== "enviar_cliente") {
@@ -267,12 +268,22 @@ export async function jumpToFunction({
     updatePayload.client_resend_count = 0;
     updatePayload.client_last_resend_at = null;
   }
+  if (currentFunctionKey === "captar") {
+    updatePayload.additional_assignees = [];
+  }
   const { error } = await supabase
     .from("demands")
     .update(updatePayload)
     .eq("id", demandId);
   if (error) return { success: false, message: "Erro ao atualizar etapa." };
-  await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
+  if (currentFunctionKey === "captar" && captarExtras.length > 0) {
+    await recordFlowHistoryForUsers(
+      { tenantId, demandId, action: "proceeded", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key },
+      [prevUser, ...captarExtras],
+    );
+  } else {
+    await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
+  }
   return { success: true, assignedTo: picked.userId, assignedName: picked.name, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name} com ${picked.name}.` };
 }
 
