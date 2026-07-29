@@ -2964,7 +2964,7 @@ const KanbanCentralPage = () => {
                                       subtitle={card.clientName}
                                       demandType={getDisplayDemandType(card.demand_type, card.title, card.description, card.attachments)}
                                       cardId={card.id}
-                                      statusName={resolveStageLabel(card)}
+                                      statusName={undefined}
                                       statusColor={(card as any).status_color}
                                       workArea={(card as any).work_area || null}
                                       awaitingClient
