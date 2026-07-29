@@ -25,7 +25,7 @@ import { DailyCardSection } from "@/components/DailyCardSection";
 import { SchedulePublicationModal } from "@/components/SchedulePublicationModal";
 import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createScheduleDispatch";
 import { syncActiveDispatchDate } from "@/lib/syncActiveDispatchDate";
-import { findAreaConflicts, AREA_LABEL, type WorkArea, type AreaConflictInfo } from "@/lib/areaConflicts";
+import { findAreaConflicts, findScheduleAreaConflict, AREA_LABEL, type WorkArea, type AreaConflictInfo } from "@/lib/areaConflicts";
 import { CalendarClock } from "lucide-react";
 
 // Split instructions field into "production instructions" and "CTA" parts.
