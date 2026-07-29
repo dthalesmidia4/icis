@@ -457,6 +457,12 @@ const CollaboratorDemands = () => {
                     <Input type="time" value={editDraft.due_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
                       onChange={(e) => setEditDraft((d) => ({ ...d, due_time: e.target.value }))} className="h-8 w-28" />
                   </div>
+                ) : card.current_function_key === "aguardando_cliente" ? (
+                  <span className="text-blue-600 dark:text-blue-400 font-medium">
+                    Enviado ao cliente em {(card as any).client_wait_started_at
+                      ? new Date((card as any).client_wait_started_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                      : "—"}
+                  </span>
                 ) : (
                   <span>{formatDate(card.due_date)}{card.due_time ? ` · ${formatTime(card.due_time)}` : ""}</span>
                 )}
@@ -469,6 +475,8 @@ const CollaboratorDemands = () => {
                     <Input type="time" value={editDraft.delivery_time?.slice(0,5) || ""} onClick={(e) => e.stopPropagation()}
                       onChange={(e) => setEditDraft((d) => ({ ...d, delivery_time: e.target.value }))} className="h-8 w-28" />
                   </div>
+                ) : card.current_function_key === "aguardando_cliente" ? (
+                  <span className="text-muted-foreground">—</span>
                 ) : (
                   <span>{formatDate(card.delivery_date)}{card.delivery_time ? ` · ${formatTime(card.delivery_time)}` : ""}</span>
                 )}
