@@ -74,6 +74,7 @@ interface CentralKanbanCard extends KanbanCardData {
   isArchived?: boolean;
   archived_at?: string | null;
   assigned_to?: string | null;
+  additional_assignees?: string[];
   status_color?: string | null;
   work_area?: "midia" | "sistemas" | null;
 }
