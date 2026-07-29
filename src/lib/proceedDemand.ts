@@ -17,6 +17,26 @@ async function fetchCaptarExtras(demandId: string): Promise<string[]> {
   return Array.isArray(raw) ? (raw.filter(Boolean) as string[]) : [];
 }
 
+/**
+ * Verifica se o card já teve entregas parciais na etapa `captar`.
+ * Usado para decidir se o último captador (que clica Prosseguir) também
+ * deve ficar registrado como `partial_delivered` no histórico.
+ */
+async function hadPriorCaptarPartialDelivery(tenantId: string, demandId: string): Promise<boolean> {
+  try {
+    const { count } = await supabase
+      .from("demand_flow_history")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("demand_id", demandId)
+      .eq("action", "partial_delivered")
+      .eq("from_function_key", "captar");
+    return (count || 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
 async function clearAdditionalAssignees(demandId: string): Promise<void> {
   try {
     await supabase
