@@ -205,9 +205,10 @@ const KanbanCard = ({
       className={cn(
         "mb-3 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-border/50",
         isDragging && "shadow-xl rotate-1 scale-105",
-        isOverdue && "bg-red-500/10 border-red-500/30 dark:bg-red-500/15 dark:border-red-500/40",
+        overdue && "bg-red-500/10 border-red-500/30 dark:bg-red-500/15 dark:border-red-500/40",
         isDailyCard && "border-l-4 border-l-amber-500",
-        isSistemas && !isOverdue && "bg-slate-500/5 dark:bg-slate-400/5 border-slate-500/25",
+        awaitingClient && "border-l-4 border-l-blue-500",
+        isSistemas && !overdue && "bg-slate-500/5 dark:bg-slate-400/5 border-slate-500/25",
       )}
       onClick={onClick}
     >
@@ -255,33 +256,41 @@ const KanbanCard = ({
         )}
       </CardHeader>
 
+      {awaitingClient ? (
+        <CardContent className="px-2.5 pb-2.5 pt-0">
+          <SentToClientPill since={awaitingClientSince} />
+        </CardContent>
+      ) : (
+        <>
+          {showInline && !hideDueDate && (
+            <CardContent className="px-2.5 pb-2.5 pt-0">
+              <InlineDates
+                dueDate={dueDate}
+                dueTime={dueTime}
+                deliveryDate={cardDeliveryDate}
+                deliveryTime={deliveryTime}
+                isOverdue={overdue}
+                editable={!!onDatesChange}
+                onSave={onDatesChange}
+              />
+            </CardContent>
+          )}
+          {showInline && hideDueDate && cardDeliveryDate && (
+            <CardContent className="px-2.5 pb-2.5 pt-0">
+              <InlineDates
+                dueDate={undefined}
+                dueTime={undefined}
+                deliveryDate={cardDeliveryDate}
+                deliveryTime={deliveryTime}
+                isOverdue={overdue}
+                editable={!!onDatesChange}
+                onSave={onDatesChange}
+              />
+            </CardContent>
+          )}
+        </>
+      )}
 
-      {showInline && !hideDueDate && (
-        <CardContent className="px-2.5 pb-2.5 pt-0">
-          <InlineDates
-            dueDate={dueDate}
-            dueTime={dueTime}
-            deliveryDate={cardDeliveryDate}
-            deliveryTime={deliveryTime}
-            isOverdue={isOverdue}
-            editable={!!onDatesChange}
-            onSave={onDatesChange}
-          />
-        </CardContent>
-      )}
-      {showInline && hideDueDate && cardDeliveryDate && (
-        <CardContent className="px-2.5 pb-2.5 pt-0">
-          <InlineDates
-            dueDate={undefined}
-            dueTime={undefined}
-            deliveryDate={cardDeliveryDate}
-            deliveryTime={deliveryTime}
-            isOverdue={isOverdue}
-            editable={!!onDatesChange}
-            onSave={onDatesChange}
-          />
-        </CardContent>
-      )}
     </Card>
   );
 };
