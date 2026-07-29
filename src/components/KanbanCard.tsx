@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar as CalendarIcon, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StartEndDatePopover } from "@/components/kanban/StartEndDatePopover";
+import { ClientSendHistoryPopover } from "@/components/kanban/ClientSendHistoryPopover";
 
 export interface CardDatesChange {
   due_date?: string | null;
@@ -81,7 +82,15 @@ const fmtSince = (iso?: string | null): string | null => {
   return `há ${Math.floor(hrs / 24)}d`;
 };
 
-const SentToClientPill = ({ since, resendCount }: { since?: string | null; resendCount?: number | null }) => {
+const SentToClientPill = ({
+  since,
+  resendCount,
+  demandId,
+}: {
+  since?: string | null;
+  resendCount?: number | null;
+  demandId?: string | null;
+}) => {
   const at = fmtDateTime(since);
   const rel = fmtSince(since);
   const sendNumber = Math.max(1, (Number(resendCount) || 0) + 1);
@@ -93,9 +102,16 @@ const SentToClientPill = ({ since, resendCount }: { since?: string | null; resen
         {at && <span className="block font-semibold">em {at}</span>}
       </span>
       {rel && <span className="shrink-0 opacity-70 mt-0.5">{rel}</span>}
+      <ClientSendHistoryPopover
+        demandId={demandId}
+        fallbackSince={since}
+        fallbackResendCount={resendCount}
+        className="mt-0.5 text-blue-700 dark:text-blue-300"
+      />
     </div>
   );
 };
+
 
 interface InlineDatesProps {
   dueDate?: string;
@@ -269,7 +285,7 @@ const KanbanCard = ({
 
       {awaitingClient ? (
         <CardContent className="px-2.5 pb-2.5 pt-0">
-          <SentToClientPill since={awaitingClientSince} resendCount={awaitingClientResendCount} />
+          <SentToClientPill since={awaitingClientSince} resendCount={awaitingClientResendCount} demandId={_cardId} />
         </CardContent>
       ) : (
         <>
