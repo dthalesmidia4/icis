@@ -557,7 +557,9 @@ export async function computeReorder(
     prioritizePublishDate?: boolean;
     durations?: StageDurationOverrides;
     areaSchedule?: AreaScheduleMap;
+    scheduledPublishIds?: Set<string>;
   },
+
 ): Promise<ReorderProposal[]> {
   if (cards.length === 0) return [];
 
