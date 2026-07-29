@@ -440,8 +440,11 @@ const ClientEvolution = () => {
   }
 
   const displayName = selectedClient.fantasy_name || selectedClient.name;
-  const progressPct = summary.total > 0 ? Math.round((summary.done / summary.total) * 100) : 0;
-  const scheduledPct = summary.total > 0 ? Math.round((summary.scheduledPublish / summary.total) * 100) : 0;
+  const donePct = summary.total > 0 ? (summary.done / summary.total) * 100 : 0;
+  const scheduledPct = summary.total > 0 ? (summary.scheduledPublish / summary.total) * 100 : 0;
+  const combinedPct = Math.round(donePct + scheduledPct);
+  const combinedCount = summary.done + summary.scheduledPublish;
+
 
   return (
     <div className="mx-auto w-full max-w-[1920px] px-4 sm:px-6 lg:px-8 py-6">
