@@ -35,6 +35,7 @@ async function hadPriorCaptarPartialDelivery(tenantId: string, demandId: string)
   } catch {
     return false;
   }
+}
 
 /**
  * Toda entrada em "Aguardando clientes" carimba a data/hora do envio e
