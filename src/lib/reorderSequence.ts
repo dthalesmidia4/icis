@@ -668,5 +668,22 @@ export async function computeReorder(
     });
   }
 
+  for (const c of dailyFixed) {
+    proposals.push({
+      id: c.id,
+      title: c.title,
+      durationMin: 0,
+      startISO: c.due_date || "",
+      startTime: (c.due_time || "").slice(0, 5),
+      endISO: c.delivery_date || "",
+      endTime: (c.delivery_time || "").slice(0, 5),
+      publishDeadline: null,
+      changed: false,
+      skipped: true,
+      warning: "Card diário — ciclo próprio, não reagendado.",
+    });
+  }
+
   return proposals;
 }
+
