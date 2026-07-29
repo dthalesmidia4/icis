@@ -503,20 +503,30 @@ const ClientEvolution = () => {
           {/* Barra de progresso full-width (concluído + publicar agendado) */}
           <div className="mb-4">
             <div className="flex items-center gap-3">
-              <div
-                className="flex-1 h-2 rounded-full bg-muted overflow-hidden flex"
-                title={`${summary.done} concluída(s) · ${summary.scheduledPublish} pronta(s) aguardando publicação`}
-              >
-                <div className="h-full bg-emerald-500 transition-all" style={{ width: `${progressPct}%` }} />
-                <div className="h-full bg-sky-500 transition-all" style={{ width: `${scheduledPct}%` }} />
+              <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden flex">
+                <div
+                  className="h-full bg-emerald-500 transition-all"
+                  style={{ width: `${donePct}%` }}
+                  title={`${summary.done} concluída${summary.done === 1 ? "" : "s"}`}
+                />
+                <div
+                  className="h-full bg-sky-500 transition-all"
+                  style={{ width: `${scheduledPct}%` }}
+                  title={`${summary.scheduledPublish} agendada${summary.scheduledPublish === 1 ? "" : "s"} para publicação`}
+                />
               </div>
               <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
-                {summary.done}/{summary.total} · {progressPct}%
+                {combinedCount}/{summary.total} · {combinedPct}%
                 {summary.scheduledPublish > 0 && (
-                  <span className="text-sky-600 dark:text-sky-400"> · +{summary.scheduledPublish} agendado{summary.scheduledPublish === 1 ? "" : "s"}</span>
+                  <span className="text-muted-foreground/80">
+                    {" "}(<span className="text-emerald-600 dark:text-emerald-400">{summary.done} concluída{summary.done === 1 ? "" : "s"}</span>
+                    {" · "}
+                    <span className="text-sky-600 dark:text-sky-400">{summary.scheduledPublish} agendada{summary.scheduledPublish === 1 ? "" : "s"}</span>)
+                  </span>
                 )}
               </span>
             </div>
+
           </div>
 
           {/* Chips de filtro por status */}
