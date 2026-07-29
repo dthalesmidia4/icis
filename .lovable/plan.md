@@ -1,31 +1,43 @@
-## 1. Erro 500 ao clicar "Gerar carrossel com IA"
+## Diagnóstico confirmado
 
-Causa confirmada nos logs da edge function `auto-generate-carousel` (é essa que o botão do card chama, em `src/components/TaskCard.tsx`): todos os slides falham com `Slide N error: Chave OpenAI ausente.`
+- A função `auto-generate-carousel` não está mais falhando no início: ela gera os textos e começa a anexar slides.
+- Pelos logs, a chamada recente ficou assim:
+  - 17:08:37: iniciou a geração do carrossel.
+  - 17:09:14: terminou textos e começou imagens.
+  - 17:11:01: chegou ao último lote, mas ainda faltava finalizar o slide 5.
+  - 17:11:56/57: a função foi encerrada pelo runtime.
+- O problema atual é timeout de Edge Function: a função tenta fazer tudo em uma única requisição síncrona, incluindo texto, 5 imagens em lotes e legenda. Com `gpt-image-2`, isso pode ultrapassar o limite do gateway e deixar a UI em “gerando” até retornar 504.
 
-Motivo no código: a função busca as duas chaves (`GOOGLE_API_KEY` e `OPENAI_API_KEY`, ambas existentes na tabela `api_keys`), mas ao chamar `generateCarouselSlideImages` passa apenas `googleApiKey` — sem `openaiApiKey` e sem `aiModel`. O runner então usa o modelo padrão (`gpt-image-2`, provider OpenAI) e aborta por falta da chave, resultando em 0 imagens e resposta 500.
+## Plano de correção segura
 
-Correção em `supabase/functions/auto-generate-carousel/index.ts`:
+1. **Tornar a função mais resiliente ao limite de tempo**
+   - Adicionar controle de tempo dentro de `auto-generate-carousel`.
+   - Se o limite seguro estiver próximo, retornar sucesso parcial em vez de deixar a função morrer em 504.
+   - Exemplo: “4 de 5 slides gerados. Clique novamente para continuar.”
 
-- Passar `openaiApiKey: OPENAI_API_KEY` e `aiModel: DEFAULT_IMAGE_MODEL` (gpt2, conforme padrão do projeto) na chamada de `generateCarouselSlideImages`.
-- Importar `DEFAULT_IMAGE_MODEL` de `../_shared/models.ts`.
-- Deploy da função e teste real de geração em um card de carrossel, verificando os logs para confirmar que os slides geram sem o erro de chave.
+2. **Persistir progresso por slide e permitir continuação**
+   - Antes de gerar, detectar quais slides de IA já existem anexados ao card.
+   - Ao clicar novamente em “Gerar carrossel com IA”, continuar a partir dos slides que faltam, em vez de reiniciar tudo do zero.
+   - Manter os slides já anexados, evitando perda de trabalho e chamadas duplicadas.
 
-Também vou conferir se `auto-generate-post` / demais chamadores do runner sofrem do mesmo esquecimento e aplicar o mesmo ajuste onde faltar.
+3. **Reduzir trabalho dentro da mesma requisição**
+   - Evitar chamar a legenda automática quando a função já estiver perto do tempo limite.
+   - Se necessário, gerar a legenda só depois que todos os slides forem anexados e ainda houver tempo seguro.
 
-## 2. Evolução das Demandas: "Publicar agendado" mais discreto
+4. **Melhorar feedback no card**
+   - Trocar a mensagem genérica de erro por uma mensagem clara quando houver timeout/parcial:
+     - “Carrossel parcialmente gerado: X/Y slides. Clique novamente para continuar.”
+   - Após qualquer retorno parcial, atualizar anexos do card para exibir imediatamente os slides já gerados.
 
-Arquivo: `src/pages/ClientEvolution.tsx` (componente da linha da tabela).
+5. **Validar com logs e chamada real**
+   - Deployar a edge function atualizada.
+   - Testar uma geração/continuação e verificar nos logs se a função retorna antes do 504.
 
-- Aplicar a mesma atenuação usada em concluídas: `isDone || isScheduledPublish → opacity-70`.
-- Não aplicar o realce vermelho de atraso (`bg-destructive/5`) quando `isScheduledPublish` for verdadeiro — hoje uma linha agendada aparece em vermelho no print, competindo visualmente.
-- Suavizar o texto da etapa: "Publicar agendado" passa de `text-sky-600 font-medium` para um tom mais discreto (sky com menor peso/saturação), próximo do visual de "Concluída".
-- Coluna "Próxima": exibir "—" também quando agendado (hoje mostra "Revisar publicação"), igual às concluídas.
-- Chips de produção (Ini/Fim) das linhas agendadas ficam no estilo neutro, sem vermelho de atraso.
+## Arquivos envolvidos
 
-Sem mudanças de dados ou de fluxo — apenas apresentação.
+- `supabase/functions/auto-generate-carousel/index.ts`
+- `src/components/TaskCard.tsx`
 
-## Verificação
+## Resultado esperado
 
-- Build passa.
-- Card de carrossel: "Gerar carrossel com IA" conclui e anexa as imagens; logs sem "Chave OpenAI ausente".
-- Evolução: linhas "Publicar agendado" com aparência atenuada como as concluídas, sem fundo vermelho.
+O botão não deve mais ficar preso em “gerando” por vários minutos. Se a geração demorar demais, o sistema salva o que já foi produzido, informa o progresso e permite continuar sem perder os slides.
