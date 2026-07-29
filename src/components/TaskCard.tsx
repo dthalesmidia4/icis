@@ -936,10 +936,14 @@ export default function TaskCard({
       }
 
       if (isCarousel) {
-        const archivedMsg = data?.archivedSlides > 0 
-          ? ` (${data.archivedSlides} slides anteriores movidos para histórico)` 
-          : "";
-        toast.success(`Carrossel gerado com sucesso!${archivedMsg}`);
+        if (data?.partial) {
+          toast.warning(data.message || "Carrossel parcialmente gerado. Clique novamente para continuar.");
+        } else {
+          const archivedMsg = data?.archivedSlides > 0 
+            ? ` (${data.archivedSlides} slides anteriores movidos para histórico)` 
+            : "";
+          toast.success(data?.message || `Carrossel gerado com sucesso!${archivedMsg}`);
+        }
       } else {
         toast.success(`${data?.generated || 0} imagem(ns) gerada(s) com sucesso!`);
       }
@@ -958,8 +962,21 @@ export default function TaskCard({
       }
     } catch (error: any) {
       console.error("Error generating images:", error);
+      if (isCarousel) {
+        const { data: updatedDemand } = await supabase
+          .from("demands")
+          .select("attachments, rejected_attachments")
+          .eq("id", card.id)
+          .single();
+        if (updatedDemand) {
+          onCardChange({ 
+            ...card, 
+            attachments: updatedDemand.attachments as unknown as Attachment[],
+          });
+        }
+      }
       const msg = error?.message || "Erro ao gerar imagens";
-      toast.error(msg.includes("non-2xx") ? "Erro na geração. Tente novamente em alguns segundos." : msg);
+      toast.error(msg.includes("non-2xx") ? "A geração demorou demais. Se alguns slides apareceram, clique novamente para continuar." : msg);
     } finally {
       setGeneratingImages(false);
       setGenerationProgress(null);
@@ -987,7 +1004,11 @@ export default function TaskCard({
           toast.error(data.error);
           return;
         }
-        toast.success("Carrossel regenerado com sucesso!");
+        if (data?.partial) {
+          toast.warning(data.message || "Carrossel parcialmente regenerado. Clique novamente para continuar.");
+        } else {
+          toast.success(data?.message || "Carrossel regenerado com sucesso!");
+        }
       } else {
         const { data, error } = await supabase.functions.invoke("generate-post-image", {
           body: { demandId: card.id, aiModel: selectedAiModel },
@@ -1011,7 +1032,18 @@ export default function TaskCard({
       }
     } catch (error: any) {
       console.error("Error regenerating:", error);
-      toast.error(error.message || "Erro ao regenerar");
+      if (isCarousel) {
+        const { data: updatedDemand } = await supabase
+          .from("demands")
+          .select("attachments")
+          .eq("id", card.id)
+          .single();
+        if (updatedDemand) {
+          onCardChange({ ...card, attachments: updatedDemand.attachments as unknown as Attachment[] });
+        }
+      }
+      const msg = error?.message || "Erro ao regenerar";
+      toast.error(msg.includes("non-2xx") ? "A regeneração demorou demais. Se alguns slides apareceram, clique novamente para continuar." : msg);
     } finally {
       setRegeneratingAll(false);
     }
