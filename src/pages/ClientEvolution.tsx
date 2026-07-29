@@ -757,14 +757,16 @@ function TableRow({
   const endDate = card.delivery_date || null;
   const endTime = fmtTime((card as any).delivery_time);
 
+  const isResolved = isDone || isScheduledPublish;
+
   return (
     <tr
       onClick={onOpen}
       className={cn(
         "cursor-pointer border-t border-border/60 hover:bg-primary/5 transition-colors align-middle",
         zebra && "bg-muted/20",
-        overdue && "bg-destructive/5 hover:bg-destructive/10",
-        isDone && "opacity-70",
+        overdue && !isResolved && "bg-destructive/5 hover:bg-destructive/10",
+        isResolved && "opacity-70",
       )}
     >
       <td className="p-0" title={areaTitle}>
