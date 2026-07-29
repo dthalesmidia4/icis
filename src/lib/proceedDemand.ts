@@ -372,6 +372,7 @@ export async function proceedDemand({
     .eq("id", demandId)
     .maybeSingle();
   const previousAssignee = (currentDemand as any)?.assigned_to || null;
+  const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
 
   const picked = await pickAssigneeForFunction(tenantId, nextFn.function_key, nextFn.name);
   if (!picked.success || !picked.userId) {
@@ -384,21 +385,31 @@ export async function proceedDemand({
     proceedPayload.client_resend_count = 0;
     proceedPayload.client_last_resend_at = null;
   }
+  if (currentFunctionKey === "captar") {
+    proceedPayload.additional_assignees = [];
+  }
   const { error: upErr } = await supabase
     .from("demands")
     .update(proceedPayload)
     .eq("id", demandId);
   if (upErr) return { success: false, message: "Erro ao atualizar a demanda." };
 
-  await recordFlowHistory({
-    tenantId,
-    demandId,
-    action: "proceeded",
-    fromUserId: previousAssignee,
-    toUserId: picked.userId,
-    fromFunctionKey: currentFunctionKey || null,
-    toFunctionKey: nextFn.function_key,
-  });
+  if (currentFunctionKey === "captar" && captarExtras.length > 0) {
+    await recordFlowHistoryForUsers(
+      { tenantId, demandId, action: "proceeded", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: nextFn.function_key },
+      [previousAssignee, ...captarExtras],
+    );
+  } else {
+    await recordFlowHistory({
+      tenantId,
+      demandId,
+      action: "proceeded",
+      fromUserId: previousAssignee,
+      toUserId: picked.userId,
+      fromFunctionKey: currentFunctionKey || null,
+      toFunctionKey: nextFn.function_key,
+    });
+  }
 
   return {
     success: true,
