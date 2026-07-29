@@ -285,7 +285,7 @@ const KanbanCard = ({
 
       {awaitingClient ? (
         <CardContent className="px-2.5 pb-2.5 pt-0">
-          <SentToClientPill since={awaitingClientSince} resendCount={awaitingClientResendCount} />
+          <SentToClientPill since={awaitingClientSince} resendCount={awaitingClientResendCount} demandId={cardId} />
         </CardContent>
       ) : (
         <>
