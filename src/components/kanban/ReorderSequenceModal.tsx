@@ -573,54 +573,130 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                         )}
 
                         {isEditing && (
-                          <div className="mt-2 flex flex-wrap items-end gap-2 p-2 rounded-md border border-border/60 bg-muted/30">
-                            <div className="flex flex-col gap-1">
-                              <Label className="text-[10px] text-muted-foreground">Início</Label>
-                              <Input
-                                type="date"
-                                className="h-8 w-[9.5rem] text-xs"
-                                value={draft.date}
-                                onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))}
-                              />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <Label className="text-[10px] text-muted-foreground">Hora</Label>
-                              <Input
-                                type="time"
-                                className="h-8 w-[6.5rem] text-xs"
-                                value={draft.time}
-                                onChange={(e) => setDraft((d) => ({ ...d, time: e.target.value }))}
-                              />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <Label className="text-[10px] text-muted-foreground">Duração (min)</Label>
-                              <Input
-                                type="number"
-                                min={5}
-                                step={5}
-                                className="h-8 w-[6.5rem] text-xs"
-                                value={draft.duration}
-                                onChange={(e) => setDraft((d) => ({ ...d, duration: e.target.value }))}
-                              />
-                            </div>
-                            <Button
-                              size="sm"
-                              className="h-8"
-                              onClick={() => {
-                                const dur = parseInt(draft.duration, 10);
-                                if (!draft.date || !draft.time || !Number.isFinite(dur) || dur < 5) {
-                                  toast.error("Informe data, hora e duração (mín. 5 min).");
-                                  return;
-                                }
-                                setManualOverrides((prev) => ({
-                                  ...prev,
-                                  [p.id]: { startISO: draft.date, startTime: draft.time, durationMin: dur },
-                                }));
-                                setEditingId(null);
-                              }}
-                            >
-                              Aplicar ajuste
-                            </Button>
+                          <div className="mt-2 p-2 rounded-md border border-border/60 bg-muted/30">
+                            <div className="flex flex-wrap items-end gap-2">
+                              {p.keepStart ? (
+                                <>
+                                  <div className="flex flex-col gap-1">
+                                    <Label className="text-[10px] text-muted-foreground">Novo término (data)</Label>
+                                    <Input
+                                      type="date"
+                                      className="h-8 w-[9.5rem] text-xs"
+                                      value={draft.endDate}
+                                      onChange={(e) => setDraft((d) => ({ ...d, endDate: e.target.value }))}
+                                    />
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <Label className="text-[10px] text-muted-foreground">Hora</Label>
+                                    <Input
+                                      type="time"
+                                      className="h-8 w-[6.5rem] text-xs"
+                                      value={draft.endTime}
+                                      onChange={(e) => setDraft((d) => ({ ...d, endTime: e.target.value }))}
+                                    />
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="flex flex-col gap-1">
+                                    <Label className="text-[10px] text-muted-foreground">Início</Label>
+                                    <Input
+                                      type="date"
+                                      className="h-8 w-[9.5rem] text-xs"
+                                      value={draft.date}
+                                      onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))}
+                                    />
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <Label className="text-[10px] text-muted-foreground">Hora</Label>
+                                    <Input
+                                      type="time"
+                                      className="h-8 w-[6.5rem] text-xs"
+                                      value={draft.time}
+                                      onChange={(e) => setDraft((d) => ({ ...d, time: e.target.value }))}
+                                    />
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <Label className="text-[10px] text-muted-foreground">
+                                      Duração — ajustada ao expediente e à área
+                                    </Label>
+                                    <div className="flex items-center gap-1">
+                                      <Input
+                                        type="number"
+                                        min={5}
+                                        step={5}
+                                        disabled={draft.durMode === "auto"}
+                                        className="h-8 w-[6.5rem] text-xs"
+                                        value={draft.duration}
+                                        onChange={(e) =>
+                                          setDraft((d) => ({ ...d, duration: e.target.value, durMode: "manual" }))
+                                        }
+                                      />
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 px-2 text-[10px] text-muted-foreground"
+                                        onClick={() =>
+                                          setDraft((d) => ({
+                                            ...d,
+                                            durMode: d.durMode === "auto" ? "manual" : "auto",
+                                            duration: d.durMode === "manual" ? String(p.durationMin) : d.duration,
+                                          }))
+                                        }
+                                      >
+                                        {draft.durMode === "auto" ? "digitar" : "voltar para automática"}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                              <Button
+                                size="sm"
+                                className="h-8"
+                                onClick={() => {
+                                  const base = startFrom ?? new Date();
+                                  if (p.keepStart) {
+                                    if (!draft.endDate || !draft.endTime) {
+                                      toast.error("Informe a data e a hora do novo término.");
+                                      return;
+                                    }
+                                    const [hh, mm] = draft.endTime.split(":").map((x) => parseInt(x, 10) || 0);
+                                    const [y, mo, dd] = draft.endDate.split("-").map((x) => parseInt(x, 10) || 0);
+                                    const endLocal = new Date(y, (mo || 1) - 1, dd || 1, hh, mm, 0, 0);
+                                    if (endLocal.getTime() <= base.getTime()) {
+                                      toast.error("O novo término precisa ser posterior ao horário atual.");
+                                      return;
+                                    }
+                                    setManualOverrides((prev) => ({
+                                      ...prev,
+                                      [p.id]: { endISO: draft.endDate, endTime: draft.endTime },
+                                    }));
+                                    setEditingId(null);
+                                    return;
+                                  }
+                                  const dur = parseInt(draft.duration, 10);
+                                  if (!draft.date || !draft.time) {
+                                    toast.error("Informe data e hora de início.");
+                                    return;
+                                  }
+                                  if (draft.durMode === "manual" && (!Number.isFinite(dur) || dur < 5)) {
+                                    toast.error("Duração manual mínima de 5 min.");
+                                    return;
+                                  }
+                                  setManualOverrides((prev) => ({
+                                    ...prev,
+                                    [p.id]: {
+                                      startISO: draft.date,
+                                      startTime: draft.time,
+                                      ...(draft.durMode === "manual" ? { durationMin: dur } : {}),
+                                    },
+                                  }));
+                                  setEditingId(null);
+                                }}
+                              >
+                                Aplicar ajuste
+                              </Button>
+
                             {manualOverrides[p.id] && (
                               <Button
                                 size="sm"
