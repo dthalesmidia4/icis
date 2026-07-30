@@ -620,6 +620,9 @@ export function sortForReorder(
 export interface ReorderManualOverride {
   startISO?: string;
   startTime?: string;
+  /** Término fixado manualmente (usado em cards em execução, cujo início não deve mudar). */
+  endISO?: string;
+  endTime?: string;
   durationMin?: number;
 }
 
