@@ -192,27 +192,38 @@ export default function SystemsClients() {
   };
 
   return (
-    <div>
-      <PageHeader
-        title="Clientes de Sistemas"
-        subtitle="Base de clientes atendidos pelas empresas de Sistemas (ex.: clínicas da SmartVety)."
-        backTo="/customer-success-sistemas"
-        actions={[
-          {
-            label: "Novo cliente",
-            icon: <Plus className="h-4 w-4" />,
-            onClick: openCreate,
-          },
-          {
-            label: "Customer Success",
-            variant: "outline",
-            icon: <HeartPulse className="h-4 w-4" />,
-            onClick: () => navigate("/customer-success-sistemas", { state: { from: "/clientes-sistemas" } }),
-          },
-        ]}
-      />
+    <div className="mt-4 px-3 sm:px-4">
+      {/* Header — mesma estrutura da Visão Geral das Tarefas */}
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <Building2 className="h-5 w-5 text-primary" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">
+            Clientes de Sistemas
+          </h2>
+          <Badge variant="secondary">
+            {clients.length} {clients.length === 1 ? "cliente" : "clientes"}
+          </Badge>
+        </div>
 
-      <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-1" />
+            Novo cliente
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/customer-success-sistemas", { state: { from: "/clientes-sistemas" } })}
+          >
+            <HeartPulse className="h-4 w-4 mr-1" />
+            Customer Success
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-6 pb-8">
 
 
       <div className="flex flex-wrap gap-2">
