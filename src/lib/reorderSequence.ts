@@ -848,6 +848,9 @@ export async function computeReorder(
         : "Tempo extra aplicado (atraso + folga).";
       warning = warning ? `${warning} ${extra}` : extra;
     }
+    if (clampWarning) {
+      warning = warning ? `${warning} ${clampWarning}` : clampWarning;
+    }
 
 
     const startISO = isoDate(start);
