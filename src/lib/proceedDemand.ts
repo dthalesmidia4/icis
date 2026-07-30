@@ -2,6 +2,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { recordFlowHistory, recordFlowHistoryForUsers } from "@/lib/flowHistory";
 import { getStageCompletions, lastUserOfStage } from "@/lib/stageCompletions";
 import { buildReturnFromClientDates } from "@/lib/flowDurations";
+import { isReviewFunction } from "@/lib/flowFunctions";
+
 
 /**
  * Duração anterior do card (fim − início), em minutos. Usada como fallback
