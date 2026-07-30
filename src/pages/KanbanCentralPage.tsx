@@ -452,7 +452,7 @@ const KanbanCentralPage = () => {
   };
   const [columnHistory, setColumnHistory] = useState<Map<string, ColumnHistoryFilter>>(new Map());
   const [columnHistoryRows, setColumnHistoryRows] = useState<
-    Map<string, Array<{ demandId: string; lastSeenAt: string }>>
+    Map<string, Array<{ demandId: string; lastSeenAt: string; deliveredStage?: string | null }>>
   >(new Map());
   const [columnHistoryLoading, setColumnHistoryLoading] = useState<Set<string>>(new Set());
   const [historyPopoverOpen, setHistoryPopoverOpen] = useState<string | null>(null);
