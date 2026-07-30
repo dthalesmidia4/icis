@@ -57,6 +57,9 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   const { config: workHours } = useWorkHoursConfig(tenantId ?? null);
   const [durations, setDurations] = useState<StageDurationOverrides>({});
   const [areaSchedule, setAreaSchedule] = useState<AreaScheduleMap | undefined>(undefined);
+  const [manualOverrides, setManualOverrides] = useState<Record<string, ReorderManualOverride>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<{ date: string; time: string; duration: string }>({ date: "", time: "", duration: "" });
 
   useEffect(() => {
     if (!open || !tenantId) return;
