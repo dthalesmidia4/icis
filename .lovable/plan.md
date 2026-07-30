@@ -1,28 +1,41 @@
-## Diagnóstico confirmado
+## Objetivo
 
-O banco **está salvando corretamente**: a demanda **“Agente de Vacinas”** possui atualmente dois clientes em `subclient_ids` — **Bellotti** e **Pontes Gestal**.
+1. Corrigir o header das telas de Customer Success (header vazio no topo, título solto no corpo, botão Voltar isolado).
+2. Deixar visível e utilizável a classificação de contato/origem (solicitação, visita, reunião, etc.).
 
-A perda acontece na interface atual, **Evolução das Demandas**: ao carregar os cards, `ClientEvolution.tsx` não inclui `subclient_id`, `subclient_ids` nem `origin` no mapeamento. Assim, ao fechar e reabrir, o modal recebe um card sem esses campos e mostra a seleção vazia, embora os dados continuem no banco.
+## 1. Header padronizado
 
-## Correção
+Telas afetadas: `src/pages/CustomerSuccessSistemas.tsx` e `src/pages/SystemsClients.tsx`.
 
-1. **Completar o modelo compartilhado do card**
-   - Declarar `work_area`, `origin`, `origin_note`, `subclient_id` e `subclient_ids` em `KanbanCardData`, eliminando os casts frágeis e garantindo que todas as telas preservem esses campos.
+Hoje elas renderizam `<BackButton />` solto e um `<header>` próprio dentro do corpo, enquanto a barra superior do `Layout` fica vazia (só breadcrumb).
 
-2. **Corrigir a tela Evolução das Demandas**
-   - Mapear `subclient_id`, `subclient_ids` e `origin` ao carregar as demandas.
-   - Atualizar também a lista local de cards quando a seleção mudar, não apenas o card aberto.
-   - Reabrir o card usando os valores realmente persistidos.
+Mudança:
+- Substituir o bloco `BackButton` + `<header>` pelo componente existente `PageHeader`, que já junta botão Voltar + título + subtítulo + ações à direita.
+- Customer Success: título "Customer Success · Sistemas", subtítulo atual, ações "Cadastro de clientes" e "Atualizar".
+- Clientes de Sistemas: título "Clientes de Sistemas", subtítulo atual, ações "Customer Success" e "Novo cliente".
+- Ajustar o padding do conteúdo (o `PageHeader` já tem container próprio), mantendo o corpo alinhado ao restante do sistema.
+- Definir o breadcrumb dessas rotas (override de breadcrumb já existente) para que a barra superior não fique vazia.
 
-3. **Fechar os caminhos equivalentes**
-   - Auditar os demais pontos que abrem `TaskCard` e garantir que seus mapeamentos não descartem os mesmos campos.
-   - Completar o handler de realtime do Kanban para propagar alterações de `subclient_id` e `subclient_ids`, evitando que uma atualização em tempo real substitua o estado correto por dados incompletos.
+## 2. Classificação do contato (Customer Success)
 
-4. **Tornar o salvamento verificável**
-   - Após o `UPDATE`, ler de volta os campos salvos e sincronizar o estado do modal com a resposta do banco.
-   - Em caso de erro, restaurar a seleção anterior e mostrar a mensagem real, em vez de deixar uma seleção otimista que aparenta ter sido salva.
+O diálogo "Contato" já tem seletor de tipo, mas está pouco descoberto e falta o tipo "Solicitação".
 
-5. **Validar o fluxo real**
-   - Na tela `/client-evolution`, selecionar dois clientes, fechar o card, reabrir e confirmar que ambos permanecem marcados.
-   - Recarregar a página e repetir a verificação.
-   - Confirmar que a mesma demanda continua atribuída aos dois clientes no Customer Success.
+Mudanças:
+- Adicionar `solicitacao` ("Solicitação do cliente") à lista de tipos em `src/lib/recordTouchpoint.ts` e no diálogo, junto de visita/reunião/ligação/mensagem/treinamento/entrega/feedback/outro.
+- Transformar o seletor em botões-chip (tipo visível de imediato) no diálogo, com o resumo opcional.
+- Nova coluna/expansão "Histórico de contatos" por cliente: ao clicar na linha, abrir painel lateral com os últimos contatos (tipo, data, resumo, origem automática × manual), lendo de `client_touchpoints`.
+- Mostrar o tipo do último contato de forma legível na coluna "Último contato" (hoje aparece a chave crua).
+
+## 3. Origem da demanda (onde marcar)
+
+O seletor de Origem (Interno, Solicitação do cliente, Feedback do cliente, Suporte) existe no cabeçalho do card, mas fica no meio de vários chips e passa despercebido.
+
+Mudança:
+- Destacar o chip de Origem no card (ícone + rótulo "Origem: …", borda leve quando origem é de cliente), sem alterar a lógica de fluxo.
+- No Customer Success, exibir a origem das demandas abertas de cada cliente (contagem por origem no tooltip da coluna "Abertas"), para o registro ficar rastreável.
+
+## Detalhes técnicos
+
+- Sem migração de banco: `client_touchpoints.touchpoint_type` é texto livre; `solicitacao` entra apenas como novo valor aceito na UI/tipagem TS.
+- `PageHeader` já suporta `backTo`/`onBack`, ações com `variant`/`icon` e comportamento mobile (ação primária + dropdown).
+- Arquivos tocados: `CustomerSuccessSistemas.tsx`, `SystemsClients.tsx`, `recordTouchpoint.ts`, `clientHealth.ts` (agregação por origem), `TaskCard.tsx` (apenas apresentação do chip de origem).
