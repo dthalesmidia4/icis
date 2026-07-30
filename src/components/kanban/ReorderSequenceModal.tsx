@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Wand2, AlertTriangle, ArrowRight, Filter, Pencil, RotateCcw, Pin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -60,6 +60,41 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   const [manualOverrides, setManualOverrides] = useState<Record<string, ReorderManualOverride>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<{ date: string; time: string; duration: string }>({ date: "", time: "", duration: "" });
+  // Instante-base congelado por abertura do modal: evita que a proposta "ande" sozinha
+  // a cada re-render do Kanban (realtime / tick de relógio).
+  const [startFrom, setStartFrom] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (open) setStartFrom((prev) => prev ?? new Date());
+    else setStartFrom(null);
+  }, [open]);
+
+  // Assinatura estável dos cards: só recalcula quando algo relevante muda de fato.
+  const cardsSignature = useMemo(
+    () =>
+      JSON.stringify(
+        cards.map((c) => [
+          c.id,
+          c.due_date,
+          c.due_time,
+          c.delivery_date,
+          c.delivery_time,
+          c.current_function_key,
+          c.work_area,
+          c.publish_date,
+          c.publish_time,
+          c.is_daily_card,
+        ])
+      ),
+    [cards]
+  );
+  const publishIdsSignature = useMemo(
+    () => Array.from(scheduledPublishIds || []).sort().join(","),
+    [scheduledPublishIds]
+  );
+  const durationsSignature = useMemo(() => JSON.stringify(durations), [durations]);
+  const areaSignature = useMemo(() => JSON.stringify(areaSchedule ?? null), [areaSchedule]);
+  const workHoursSignature = useMemo(() => JSON.stringify(workHours), [workHours]);
 
   useEffect(() => {
     if (!open || !tenantId) return;
@@ -123,10 +158,10 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   }, [prioritizeByPublish, storageKey]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !startFrom) return;
     let cancelled = false;
     setLoading(true);
-    computeReorder(cards, { workHours, durations, areaSchedule, scheduledPublishIds, manualOverrides, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
+    computeReorder(cards, { startFrom, workHours, durations, areaSchedule, scheduledPublishIds, manualOverrides, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
       .then((r) => {
         if (!cancelled) setProposals(r);
       })
@@ -140,7 +175,8 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     return () => {
       cancelled = true;
     };
-  }, [open, cards, workHours, durations, areaSchedule, prioritizeByPublish, showPublishToggle, manualOverrides]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, startFrom, cardsSignature, workHoursSignature, durationsSignature, areaSignature, publishIdsSignature, prioritizeByPublish, showPublishToggle, manualOverrides]);
 
   // Limpa ajustes manuais ao fechar o modal
   useEffect(() => {
@@ -149,6 +185,19 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
       setEditingId(null);
     }
   }, [open]);
+
+  // Mantém o rascunho do "Ajustar" coerente com a proposta exibida
+  useEffect(() => {
+    if (!editingId || manualOverrides[editingId]) return;
+    const p = proposals.find((x) => x.id === editingId);
+    if (!p) return;
+    setDraft((d) =>
+      d.date === p.startISO && d.time === p.startTime && d.duration === String(p.durationMin)
+        ? d
+        : { date: p.startISO, time: p.startTime, duration: String(p.durationMin) }
+    );
+  }, [editingId, proposals, manualOverrides]);
+
 
   const changedCount = proposals.filter((p) => p.changed && !p.skipped).length;
   const warningCount = proposals.filter((p) => p.warning).length;
@@ -328,6 +377,19 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
             <Badge variant="outline" className="border-amber-500/60 text-amber-600 dark:text-amber-400">
               <AlertTriangle className="h-3 w-3 mr-1" /> {warningCount} com aviso
             </Badge>
+          )}
+          {startFrom && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 ml-auto text-xs text-muted-foreground"
+              disabled={loading || applying}
+              onClick={() => setStartFrom(new Date())}
+              title="Recalcular usando o horário atual"
+            >
+              <RotateCcw className="h-3 w-3 mr-1" />
+              base {startFrom.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · recalcular
+            </Button>
           )}
         </div>
 
