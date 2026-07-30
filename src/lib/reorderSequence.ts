@@ -73,7 +73,7 @@ export interface ReorderProposal {
   slackApplied?: boolean;
   pinned?: boolean;
   /** Indica se o ajuste manual fixou o início ou o término. */
-  pinnedKind?: "start" | "end" | null;
+  pinnedKind?: "start" | "end" | "both" | null;
   /** Card atrasado em execução: início histórico preservado, só o término é recalculado. */
   keepStart?: boolean;
   stageStartISO?: string | null;
@@ -776,9 +776,30 @@ export async function computeReorder(
     // Término fixado manualmente: mantém o início (histórico ou o do cursor) e
     // deriva a duração pelo tempo útil até o término escolhido.
     const usableManualEnd = manualEnd && manualEnd > now ? manualEnd : null;
-    let pinnedKind: "start" | "end" | null = null;
+    let pinnedKind: "start" | "end" | "both" | null = null;
 
-    if (manualStart) {
+    if (manualStart && usableManualEnd) {
+      // Início E término fixados manualmente: a duração é o tempo útil entre eles.
+      pinnedKind = "both";
+      let effectiveStart = manualStart;
+      if (manualStart < now) {
+        effectiveStart = normalizeCursor(new Date(now), area, ctx);
+        clampWarning = "Ajuste anterior ao horário atual — movido para o próximo horário útil.";
+      }
+      if (usableManualEnd <= effectiveStart) {
+        // Término inválido depois do clamp: cai no cálculo automático a partir do início.
+        ({ start, end, daysSpanned } = allocateAcrossDays(effectiveStart, dur, area, ctx, undefined));
+        clampWarning = clampWarning
+          ? `${clampWarning} Término informado é anterior ao início — recalculado.`
+          : "Término informado é anterior ao início — recalculado.";
+      } else {
+        start = effectiveStart;
+        end = usableManualEnd;
+        dur = Math.max(5, businessMinutesBetween(effectiveStart, usableManualEnd, area, ctx) || 5);
+        daysSpanned = isoDate(end) === isoDate(start) ? 1 : 2;
+      }
+      keepStart = false;
+    } else if (manualStart) {
       pinnedKind = "start";
       // Início fixado manualmente nunca pode cair no passado.
       let effectiveStart = manualStart;
