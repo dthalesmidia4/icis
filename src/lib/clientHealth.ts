@@ -134,6 +134,8 @@ export interface SystemsClientHealth extends ClientHealth {
   parentCompanyId: string;
   parentCompanyName: string;
   status: string;
+  /** Demandas abertas agrupadas por origem (interno, cliente_solicitacao, ...). */
+  openByOrigin: Record<string, number>;
 }
 
 /**
@@ -161,7 +163,7 @@ export async function loadSystemsClientHealth(tenantId: string): Promise<Systems
         .order("occurred_at", { ascending: false }),
       supabase
         .from("demands")
-        .select("subclient_id, subclient_ids, due_date, delivery_date, archived_at")
+        .select("subclient_id, subclient_ids, due_date, delivery_date, archived_at, origin")
         .eq("tenant_id", tenantId)
         .is("archived_at", null),
 
@@ -197,6 +199,11 @@ export async function loadSystemsClientHealth(tenantId: string): Promise<Systems
     const overdueDemands = own.filter(
       (d: any) => d.due_date && d.due_date < todayStr && !d.delivery_date,
     ).length;
+    const openByOrigin: Record<string, number> = {};
+    own.forEach((d: any) => {
+      const key = d.origin || "interno";
+      openByOrigin[key] = (openByOrigin[key] || 0) + 1;
+    });
 
     let score = 100;
     const reasons: string[] = [];
@@ -241,6 +248,7 @@ export async function loadSystemsClientHealth(tenantId: string): Promise<Systems
       parentCompanyId: s.parent_company_id,
       parentCompanyName: companyName.get(s.parent_company_id) || "—",
       status: s.status,
+      openByOrigin,
       cadenceDays,
       lastTouchAt,
       lastTouchType: last?.touchpoint_type || null,
