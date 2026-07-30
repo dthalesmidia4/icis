@@ -305,3 +305,79 @@ export async function loadSubclientTouchpointTimeline(
   return grouped;
 }
 
+
+export interface CadenceSeriesPoint {
+  /** timestamp (ms) do dia */
+  t: number;
+  /** rótulo curto dd/mm */
+  label: string;
+  /** dias sem contato por cliente (clientId → dias) */
+  [clientId: string]: number | string;
+}
+
+export interface CadenceSeries {
+  points: CadenceSeriesPoint[];
+  /** clientId → dia (dd/mm) → contatos daquele dia */
+  contactsByDay: Record<string, Record<string, TimelineTouchpoint[]>>;
+}
+
+const DAY_MS = 86_400_000;
+const dayKey = (ms: number) =>
+  new Date(ms).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+
+/**
+ * Constrói a série "dias desde o último contato" por dia do período, para cada
+ * cliente — base do gráfico de linha de cadência do Customer Success.
+ */
+export function buildCadenceSeries(
+  rows: SystemsClientHealth[],
+  timeline: Record<string, TimelineTouchpoint[]>,
+  days: number,
+): CadenceSeries {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endMs = today.getTime();
+  const startMs = endMs - (days - 1) * DAY_MS;
+
+  const contactsByDay: Record<string, Record<string, TimelineTouchpoint[]>> = {};
+  const stamps: Record<string, number[]> = {};
+
+  rows.forEach((row) => {
+    const tps = (timeline[row.clientId] || []).slice().sort(
+      (a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime(),
+    );
+    contactsByDay[row.clientId] = {};
+    tps.forEach((t) => {
+      const k = dayKey(new Date(t.occurredAt).getTime());
+      (contactsByDay[row.clientId][k] ||= []).push(t);
+    });
+    stamps[row.clientId] = tps.map((t) => {
+      const d = new Date(t.occurredAt);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    });
+    // contato anterior à janela: usa o último contato conhecido do health
+    if (row.lastTouchAt) {
+      const d = new Date(row.lastTouchAt);
+      d.setHours(0, 0, 0, 0);
+      if (d.getTime() < startMs) stamps[row.clientId].unshift(d.getTime());
+    }
+  });
+
+  const points: CadenceSeriesPoint[] = [];
+  for (let ms = startMs; ms <= endMs; ms += DAY_MS) {
+    const point: CadenceSeriesPoint = { t: ms, label: dayKey(ms) };
+    rows.forEach((row) => {
+      const previous = (stamps[row.clientId] || []).filter((s) => s <= ms);
+      if (previous.length === 0) {
+        // nunca houve contato até esse dia: conta desde o início da janela
+        point[row.clientId] = Math.round((ms - startMs) / DAY_MS) + days;
+      } else {
+        point[row.clientId] = Math.round((ms - previous[previous.length - 1]) / DAY_MS);
+      }
+    });
+    points.push(point);
+  }
+
+  return { points, contactsByDay };
+}
