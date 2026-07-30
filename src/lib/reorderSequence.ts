@@ -397,27 +397,27 @@ function nextBlockedStartInDay(
 // ------------------------------------------------------------------
 
 /**
- * Minutos ÚTEIS entre due e delivery: soma apenas a interseção com os blocos
- * de expediente de cada dia (respeita almoço, área mídia×sistemas), ignorando
+ * Minutos ÚTEIS entre dois instantes: soma apenas a interseção com os blocos de
+ * expediente de cada dia (respeita almoço, área mídia×sistemas), ignorando
  * noites, fins de semana e feriados.
  */
-function scheduledSpanMinutes(card: ReorderCardInput, ctx: WorkCtx): number | null {
-  if (!card.due_date || !card.due_time || !card.delivery_date || !card.delivery_time) return null;
-  const due = toVirtualUtc(card.due_date, card.due_time.slice(0, 5));
-  const deliv = toVirtualUtc(card.delivery_date, card.delivery_time.slice(0, 5));
-  if (!(deliv > due)) return null;
-
-  const area = card.work_area === "midia" || card.work_area === "sistemas" ? card.work_area : null;
+function businessMinutesBetween(
+  from: Date,
+  to: Date,
+  area: ReorderWorkArea | null,
+  ctx: WorkCtx,
+): number {
+  if (!(to > from)) return 0;
   let total = 0;
-  const cur = new Date(due);
+  const cur = new Date(from);
   cur.setUTCHours(0, 0, 0, 0);
-  const endDay = new Date(deliv);
+  const endDay = new Date(to);
   endDay.setUTCHours(0, 0, 0, 0);
 
   for (let guard = 0; guard < 400 && cur <= endDay; guard++) {
     if (!isNonWorkingDay(cur, ctx.holidays)) {
-      const dayStartMin = isoDate(cur) === isoDate(due) ? due.getUTCHours() * 60 + due.getUTCMinutes() : 0;
-      const dayEndMin = isoDate(cur) === isoDate(deliv) ? deliv.getUTCHours() * 60 + deliv.getUTCMinutes() : 24 * 60;
+      const dayStartMin = isoDate(cur) === isoDate(from) ? from.getUTCHours() * 60 + from.getUTCMinutes() : 0;
+      const dayEndMin = isoDate(cur) === isoDate(to) ? to.getUTCHours() * 60 + to.getUTCMinutes() : 24 * 60;
       for (const b of dayBlocks(cur, area, ctx)) {
         const s = Math.max(b.s, dayStartMin);
         const e = Math.min(b.e, dayEndMin);
@@ -426,10 +426,54 @@ function scheduledSpanMinutes(card: ReorderCardInput, ctx: WorkCtx): number | nu
     }
     cur.setUTCDate(cur.getUTCDate() + 1);
   }
+  return total;
+}
 
+function cardArea(card: ReorderCardInput): ReorderWorkArea | null {
+  return card.work_area === "midia" || card.work_area === "sistemas" ? card.work_area : null;
+}
+
+function scheduledSpanMinutes(card: ReorderCardInput, ctx: WorkCtx): number | null {
+  if (!card.due_date || !card.due_time || !card.delivery_date || !card.delivery_time) return null;
+  const due = toVirtualUtc(card.due_date, card.due_time.slice(0, 5));
+  const deliv = toVirtualUtc(card.delivery_date, card.delivery_time.slice(0, 5));
+  if (!(deliv > due)) return null;
+  const total = businessMinutesBetween(due, deliv, cardArea(card), ctx);
   if (total <= 0) return null;
   return Math.max(5, total);
 }
+
+/**
+ * Instante em que o card entrou na etapa atual, no relógio virtual do expediente.
+ * A base é o mais recente entre a entrada na etapa e o início registrado do card;
+ * assim, ao trocar de etapa o acumulado das etapas anteriores deixa de contar.
+ */
+function stageBaseStart(card: ReorderCardInput, tz: string): Date | null {
+  const origStart = card.due_date && card.due_time
+    ? toVirtualUtc(card.due_date, card.due_time.slice(0, 5))
+    : null;
+  let stageStart: Date | null = null;
+  if (card.stage_started_at) {
+    const parsed = new Date(card.stage_started_at);
+    if (!Number.isNaN(parsed.getTime())) stageStart = toZonedVirtualUtc(parsed, tz);
+  }
+  if (origStart && stageStart) return stageStart > origStart ? stageStart : origStart;
+  return stageStart ?? origStart;
+}
+
+/**
+ * Tempo útil já planejado DENTRO da etapa atual (entre a base da etapa e o
+ * término previsto). Sem teto de jornada: uma etapa pode legitimamente ocupar
+ * vários dias, e cortar isso reduziria 14h25 a poucos minutos.
+ */
+function stagePlannedMinutes(card: ReorderCardInput, ctx: WorkCtx, tz: string): number | null {
+  const base = stageBaseStart(card, tz);
+  const end = cardDeadline(card);
+  if (!base || !end || !(end > base)) return null;
+  const total = businessMinutesBetween(base, end, cardArea(card), ctx);
+  return total > 0 ? total : null;
+}
+
 
 
 export type StageDurationOverrides = Record<string, Partial<Record<DurationTypeGroup, number>>>;
