@@ -547,7 +547,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                               </Badge>
                               {p.pinned && (
                                 <Badge variant="outline" className="text-[10px] border-primary/60 text-primary">
-                                  <Pin className="h-3 w-3 mr-1" /> {p.pinnedKind === "end" ? "término ajustado" : "início ajustado"}
+                                  <Pin className="h-3 w-3 mr-1" /> {p.pinnedKind === "both" ? "início e término ajustados" : p.pinnedKind === "end" ? "término ajustado" : "início ajustado"}
                                 </Badge>
                               )}
                             </>
@@ -565,7 +565,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                               </Badge>
                               {p.pinned && (
                                 <Badge variant="outline" className="text-[10px] border-primary/60 text-primary">
-                                  <Pin className="h-3 w-3 mr-1" /> {p.pinnedKind === "end" ? "término ajustado" : "início ajustado"}
+                                  <Pin className="h-3 w-3 mr-1" /> {p.pinnedKind === "both" ? "início e término ajustados" : p.pinnedKind === "end" ? "término ajustado" : "início ajustado"}
                                 </Badge>
                               )}
                             </>
