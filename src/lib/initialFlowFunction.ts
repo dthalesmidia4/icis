@@ -2,6 +2,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { pickAssigneeForFunction } from "@/lib/proceedDemand";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { getStageCompletions, hasUserCompletedStage } from "@/lib/stageCompletions";
+import { isReviewFunction } from "@/lib/flowFunctions";
+
 
 export interface InitialFunction {
   functionKey: string;
@@ -113,9 +115,17 @@ export async function resolveFunctionForAssignee(
 
   // Etapas que este usuário já concluiu neste card nunca são reatribuídas a ele.
   const completions = demandId ? await getStageCompletions(tenantId, demandId) : null;
-  const usable = (k: string) =>
-    allowedKeys.has(k) &&
-    !(completions && hasUserCompletedStage(completions, k, assigneeUserId));
+  const usable = (k: string) => {
+    if (!allowedKeys.has(k)) return false;
+    if (completions && hasUserCompletedStage(completions, k, assigneeUserId)) return false;
+    // Auto-revisão: ninguém revisa a etapa que ele mesmo executou.
+    if (completions && isReviewFunction(k)) {
+      const prev = sequence[sequence.indexOf(k) - 1];
+      if (prev && hasUserCompletedStage(completions, prev, assigneeUserId)) return false;
+    }
+    return true;
+  };
+
 
   if (currentFunctionKey && sequence.includes(currentFunctionKey)) {
     if (usable(currentFunctionKey)) return currentFunctionKey;

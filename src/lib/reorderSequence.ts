@@ -104,6 +104,9 @@ export const DURATION_MATRIX: Record<string, Record<DurationTypeGroup, number>> 
   avaliar:            { estatico:  5, carrossel:  5, video_curto:  5, video_longo:  5, outro:  5, default:  5 },
   planejar:           { estatico: 10, carrossel: 15, video_curto: 15, video_longo: 20, outro: 15, default: 10 },
   criar_roteiro:      { estatico: 10, carrossel: 20, video_curto: 25, video_longo: 40, outro: 20, default: 15 },
+  revisar_roteiro:    { estatico:  5, carrossel: 10, video_curto: 10, video_longo: 15, outro: 10, default: 10 },
+  revisar_captacao:   { estatico:  5, carrossel: 10, video_curto: 15, video_longo: 20, outro: 10, default: 10 },
+
   criar_arte:         { estatico: 20, carrossel: 40, video_curto: 20, video_longo: 20, outro: 30, default: 20 },
   captar:             { estatico: 20, carrossel: 20, video_curto: 60, video_longo: 120, outro: 30, default: 30 },
   gerar_video:        { estatico: 20, carrossel: 20, video_curto: 60, video_longo: 90,  outro: 30, default: 30 },

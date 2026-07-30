@@ -2,6 +2,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { recordFlowHistory, recordFlowHistoryForUsers } from "@/lib/flowHistory";
 import { getStageCompletions, lastUserOfStage } from "@/lib/stageCompletions";
 import { buildReturnFromClientDates } from "@/lib/flowDurations";
+import { isReviewFunction } from "@/lib/flowFunctions";
+
 
 /**
  * Duração anterior do card (fim − início), em minutos. Usada como fallback
@@ -312,6 +314,7 @@ export async function pickAssigneeForFunction(
   tenantId: string,
   functionKey: string,
   functionName?: string,
+  opts?: { excludeUserIds?: Array<string | null | undefined>; preferUserIds?: Array<string | null | undefined> },
 ): Promise<PickAssigneeResult> {
   const label = functionName || functionKey;
 
@@ -334,9 +337,18 @@ export async function pickAssigneeForFunction(
     .eq("tenant_id", tenantId)
     .in("user_id", candidateIds)
     .in("role", ["agency_admin", "agency_manager", "agency_user"]);
-  const internalIds = Array.from(new Set((roles || []).map((r: any) => r.user_id)));
+  let internalIds = Array.from(new Set((roles || []).map((r: any) => r.user_id)));
   if (internalIds.length === 0) {
     return { success: false, message: `Nenhum colaborador interno com a função "${label}".` };
+  }
+
+  // Exclusão (ex.: etapas de revisão nunca caem em quem executou a etapa anterior).
+  const excluded = new Set((opts?.excludeUserIds || []).filter(Boolean) as string[]);
+  if (excluded.size > 0) {
+    internalIds = internalIds.filter((id) => !excluded.has(id));
+    if (internalIds.length === 0) {
+      return { success: false, message: `Nenhum outro colaborador disponível para "${label}".` };
+    }
   }
 
   const [{ data: profiles }, { data: demands }] = await Promise.all([
@@ -356,6 +368,13 @@ export async function pickAssigneeForFunction(
   const profileById = new Map<string, string>();
   (profiles || []).forEach((p: any) => profileById.set(p.id, p.full_name || "Colaborador"));
 
+  // Preferência (sticky): se alguém que já está no card pode exercer a função, fica com ele.
+  const preferred = (opts?.preferUserIds || []).filter(Boolean) as string[];
+  const stickyMatch = preferred.find((id) => internalIds.includes(id));
+  if (stickyMatch) {
+    return { success: true, userId: stickyMatch, name: profileById.get(stickyMatch) || "Colaborador" };
+  }
+
   internalIds.sort((a, b) => {
     const ca = counts.get(a) || 0;
     const cb = counts.get(b) || 0;
@@ -369,6 +388,90 @@ export async function pickAssigneeForFunction(
     name: profileById.get(chosen) || "Colaborador",
   };
 }
+
+/**
+ * Todos os usuários que executaram a etapa atual do card: responsável,
+ * `additional_assignees` e quem registrou entrega parcial no histórico.
+ * Usado para (a) manter o card com a mesma pessoa na próxima etapa de produção
+ * e (b) impedir auto-revisão.
+ */
+async function collectStageExecutors(
+  tenantId: string,
+  demandId: string,
+  currentFunctionKey: string | null | undefined,
+  previousAssignee: string | null,
+  extras: string[],
+): Promise<string[]> {
+  const set = new Set<string>();
+  if (previousAssignee) set.add(previousAssignee);
+  extras.filter(Boolean).forEach((id) => set.add(id));
+  if (currentFunctionKey) {
+    try {
+      const completions = await getStageCompletions(tenantId, demandId);
+      (completions.get(currentFunctionKey)?.userIds || []).forEach((id) => set.add(id));
+    } catch (e) {
+      console.warn("[proceedDemand] collectStageExecutors error:", e);
+    }
+  }
+  return Array.from(set);
+}
+
+/**
+ * Etapas de produção em que o card deve "colar" no responsável atual quando ele
+ * tem a função permitida (ex.: quem planejou e também cria roteiro continua com o card).
+ */
+const STICKY_STAGES = new Set([
+  "criar_roteiro",
+  "criar_arte",
+  "captar",
+  "gerar_video",
+  "editar_video",
+  "enviar_cliente",
+  "publicar",
+]);
+
+export interface ResolvedNextStage {
+  fn: { function_key: string; name: string };
+  /** `null` para `aguardando_cliente` (mantém o mesmo responsável). */
+  picked: PickAssigneeResult | null;
+  /** Etapas de revisão puladas por não haver revisor diferente do executor. */
+  skipped: string[];
+}
+
+/**
+ * Resolve a próxima etapa + responsável a partir de `startIndex`, aplicando:
+ *  - sticky nas etapas de produção (mantém quem já está no card);
+ *  - revisão nunca é auto-revisão: se o único revisor possível for quem executou,
+ *    a etapa de revisão é pulada e o fluxo avança (em cascata).
+ */
+async function resolveNextStage(
+  tenantId: string,
+  sequence: { function_key: string; name: string }[],
+  startIndex: number,
+  executors: string[],
+): Promise<ResolvedNextStage | null> {
+  const skipped: string[] = [];
+  for (let i = startIndex; i < sequence.length; i++) {
+    const fn = sequence[i];
+    if (fn.function_key === "aguardando_cliente") {
+      return { fn, picked: null, skipped };
+    }
+    if (isReviewFunction(fn.function_key)) {
+      const picked = await pickAssigneeForFunction(tenantId, fn.function_key, fn.name, {
+        excludeUserIds: executors,
+      });
+      if (picked.success && picked.userId) return { fn, picked, skipped };
+      skipped.push(fn.function_key);
+      continue;
+    }
+    const picked = await pickAssigneeForFunction(tenantId, fn.function_key, fn.name, {
+      preferUserIds: STICKY_STAGES.has(fn.function_key) ? executors : [],
+    });
+    return { fn, picked, skipped };
+  }
+  return null;
+}
+
 
 /**
  * Devolve a sequência ordenada de funções obrigatórias para um `demand_type_key`.
@@ -438,13 +541,25 @@ export async function jumpToFunction({
   }
 
 
-  const picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name);
-  if (!picked.success || !picked.userId) return { success: false, message: picked.message || "Nenhum responsável para a etapa." };
-
   const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
   const prevUser = (cur as any)?.assigned_to || null;
   const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
   const stageExtras = currentFunctionKey === "captar" ? captarExtras : await fetchExtraAssignees(demandId);
+  const jumpExecutors = await collectStageExecutors(tenantId, demandId, currentFunctionKey, prevUser, stageExtras);
+
+  // Salto manual: mantém quem já está no card quando a etapa é de produção;
+  // etapas de revisão nunca caem em quem executou a etapa anterior.
+  const isReviewTarget = isReviewFunction(target.function_key);
+  let picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, {
+    preferUserIds: !isReviewTarget && STICKY_STAGES.has(target.function_key) ? jumpExecutors : [],
+    excludeUserIds: isReviewTarget ? jumpExecutors : [],
+  });
+  if (isReviewTarget && (!picked.success || !picked.userId)) {
+    // Sem revisor alternativo: usa a escolha normal por carga (o usuário pediu esta etapa).
+    picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name);
+  }
+  if (!picked.success || !picked.userId) return { success: false, message: picked.message || "Nenhum responsável para a etapa." };
+
 
   const updatePayload: any = { assigned_to: picked.userId, current_function_key: target.function_key };
   if (currentFunctionKey === "aguardando_cliente" && target.function_key !== "enviar_cliente") {
@@ -523,16 +638,40 @@ export async function proceedDemand({
   if (nextIndex >= sequence.length) {
     return { success: false, end: true, message: "Essa demanda já chegou ao final do fluxo." };
   }
-  const nextFn = sequence[nextIndex] as { function_key: string; name: string };
+
+  const { data: currentDemand } = await supabase
+    .from("demands")
+    .select("assigned_to")
+    .eq("id", demandId)
+    .maybeSingle();
+  const previousAssignee = (currentDemand as any)?.assigned_to || null;
+  const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
+  const stageExtras = currentFunctionKey === "captar" ? captarExtras : await fetchExtraAssignees(demandId);
+  const executors = await collectStageExecutors(
+    tenantId,
+    demandId,
+    currentFunctionKey,
+    previousAssignee,
+    stageExtras,
+  );
+
+  const resolved = await resolveNextStage(
+    tenantId,
+    sequence as any,
+    nextIndex,
+    executors,
+  );
+  if (!resolved) {
+    return { success: false, end: true, message: "Essa demanda já chegou ao final do fluxo." };
+  }
+  const nextFn = resolved.fn;
+  const skipped = resolved.skipped;
+  const skipMeta = skipped.length > 0 ? { skipped } : undefined;
+  const skipNote = skipped.length > 0 ? " (revisão dispensada: mesma pessoa executou)" : "";
 
   // Qualquer entrada em "Aguardando clientes" mantém o mesmo responsável e carimba o envio.
   if (nextFn.function_key === "aguardando_cliente") {
-    const { data: current } = await supabase
-      .from("demands")
-      .select("assigned_to")
-      .eq("id", demandId)
-      .maybeSingle();
-    const keepAssignee = (current as any)?.assigned_to || null;
+    const keepAssignee = previousAssignee;
     const { error: upErr } = await supabase
       .from("demands")
       .update({ current_function_key: nextFn.function_key, client_wait_started_at: new Date().toISOString() } as any)
@@ -546,12 +685,13 @@ export async function proceedDemand({
       toUserId: keepAssignee,
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: nextFn.function_key,
+      metadata: skipMeta as any,
     });
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keepAssignee);
     // Registra a entrega da etapa que enviou ao cliente (impede regressão para ela).
     await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [
       keepAssignee,
-      ...(await fetchExtraAssignees(demandId)),
+      ...stageExtras,
     ]);
 
     return {
@@ -560,25 +700,17 @@ export async function proceedDemand({
       assignedName: "mesmo responsável",
       functionKey: nextFn.function_key,
       functionName: nextFn.name,
-      message: `Demanda marcada como enviada — aguardando retorno do cliente.`,
+      message: `Demanda marcada como enviada — aguardando retorno do cliente.${skipNote}`,
     };
   }
 
-  const { data: currentDemand } = await supabase
-    .from("demands")
-    .select("assigned_to")
-    .eq("id", demandId)
-    .maybeSingle();
-  const previousAssignee = (currentDemand as any)?.assigned_to || null;
-  const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
-  const stageExtras = currentFunctionKey === "captar" ? captarExtras : await fetchExtraAssignees(demandId);
-
-  const picked = await pickAssigneeForFunction(tenantId, nextFn.function_key, nextFn.name);
-  if (!picked.success || !picked.userId) {
-    return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
+  const picked = resolved.picked;
+  if (!picked || !picked.success || !picked.userId) {
+    return { success: false, message: picked?.message || "Não foi possível escolher colaborador." };
   }
 
   const proceedPayload: any = { assigned_to: picked.userId, current_function_key: nextFn.function_key };
+
   if (currentFunctionKey === "aguardando_cliente" && nextFn.function_key !== "enviar_cliente") {
     proceedPayload.client_wait_started_at = null;
     proceedPayload.client_resend_count = 0;
@@ -596,7 +728,7 @@ export async function proceedDemand({
 
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
-      { tenantId, demandId, action: "proceeded", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: nextFn.function_key },
+      { tenantId, demandId, action: "proceeded", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: nextFn.function_key, metadata: skipMeta as any },
       [previousAssignee, ...captarExtras],
     );
   } else {
@@ -621,19 +753,24 @@ export async function proceedDemand({
       toUserId: picked.userId,
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: nextFn.function_key,
+      metadata: skipMeta as any,
     });
   }
 
   await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [previousAssignee, ...stageExtras]);
 
+  const samePerson = picked.userId === previousAssignee;
   return {
     success: true,
     assignedTo: picked.userId,
     assignedName: picked.name,
     functionKey: nextFn.function_key,
     functionName: nextFn.name,
-    message: `Demanda enviada para ${picked.name} na função ${nextFn.name}.`,
+    message: samePerson
+      ? `Demanda avançou para ${nextFn.name} e continua com ${picked.name}.${skipNote}`
+      : `Demanda enviada para ${picked.name} na função ${nextFn.name}.${skipNote}`,
   };
+
 
 }
 
