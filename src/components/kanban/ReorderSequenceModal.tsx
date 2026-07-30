@@ -186,6 +186,19 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     }
   }, [open]);
 
+  // Mantém o rascunho do "Ajustar" coerente com a proposta exibida
+  useEffect(() => {
+    if (!editingId || manualOverrides[editingId]) return;
+    const p = proposals.find((x) => x.id === editingId);
+    if (!p) return;
+    setDraft((d) =>
+      d.date === p.startISO && d.time === p.startTime && d.duration === String(p.durationMin)
+        ? d
+        : { date: p.startISO, time: p.startTime, duration: String(p.durationMin) }
+    );
+  }, [editingId, proposals, manualOverrides]);
+
+
   const changedCount = proposals.filter((p) => p.changed && !p.skipped).length;
   const warningCount = proposals.filter((p) => p.warning).length;
 
