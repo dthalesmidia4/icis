@@ -12,6 +12,9 @@ interface Props {
   tenantId: string;
   demandTypeKey?: string | null;
   currentFunctionKey?: string | null;
+  /** Área e origem definem quais etapas existem no fluxo do card. */
+  workArea?: string | null;
+  origin?: string | null;
   /** Dados usados para agendar direto quando o card já está pronto. */
   clientId?: string | null;
   publishDate?: string | null;
@@ -26,15 +29,26 @@ interface Props {
 // Cache em módulo: evita uma query por card na coluna.
 const sequenceCache = new Map<string, Promise<{ function_key: string; name: string }[]>>();
 
-function loadSequence(tenantId: string, demandTypeKey?: string | null) {
-  const key = `${tenantId}::${demandTypeKey || "__none__"}`;
+function loadSequence(
+  tenantId: string,
+  demandTypeKey?: string | null,
+  workArea?: string | null,
+  origin?: string | null,
+) {
+  const area = workArea === "sistemas" ? "sistemas" : "midia";
+  const org = origin || "interno";
+  const key = `${tenantId}::${demandTypeKey || "__none__"}::${area}::${org}`;
   let p = sequenceCache.get(key);
   if (!p) {
-    p = getPipelineSequence(tenantId, (demandTypeKey as any) ?? null).catch(() => []);
+    p = getPipelineSequence(tenantId, (demandTypeKey as any) ?? null, {
+      workArea: area,
+      origin: org,
+    }).catch(() => []);
     sequenceCache.set(key, p);
   }
   return p;
 }
+
 
 const fmtSchedule = (date?: string | null, time?: string | null): string | null => {
   if (!date || !time) return null;
