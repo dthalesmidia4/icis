@@ -1059,11 +1059,13 @@ const KanbanCentralPage = () => {
 
   useRealtimeDemandFlowHistory({
     tenantId,
-    enabled: !!tenantId && columnHistory.size > 0,
+    enabled: !!tenantId,
     onInsert: () => {
       columnHistory.forEach((filter, columnId) => fetchColumnHistory(columnId, filter));
+      setDeliveriesRefreshKey((k) => k + 1);
     },
   });
+
 
   const [flowFunctionNames, setFlowFunctionNames] = useState<Record<string, string>>({});
 
