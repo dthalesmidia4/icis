@@ -63,11 +63,14 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   // Instante-base congelado por abertura do modal: evita que a proposta "ande" sozinha
   // a cada re-render do Kanban (realtime / tick de relógio).
   const [startFrom, setStartFrom] = useState<Date | null>(null);
+  // Entrada de cada card na etapa atual (histórico de fluxo): base do cálculo de atraso.
+  const [stageStarts, setStageStarts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (open) setStartFrom((prev) => prev ?? new Date());
     else setStartFrom(null);
   }, [open]);
+
 
   // Assinatura estável dos cards: só recalcula quando algo relevante muda de fato.
   const cardsSignature = useMemo(
