@@ -2742,6 +2742,12 @@ const KanbanCentralPage = () => {
                           }
                           const entries = Array.from(groups.entries()).map(([date, items]) => {
                             const sorted = [...items].sort((a, b) => {
+                              if (isHistoryMode) {
+                                // Registro: mais recentes primeiro, pelo horário da entrega
+                                const aAt = ((a as any)._historyAt as string | undefined) || "";
+                                const bAt = ((b as any)._historyAt as string | undefined) || "";
+                                return bAt.localeCompare(aAt);
+                              }
                               // Boost secundário: captar futuros do próprio dia mantêm prioridade dentro do grupo
                               const aCap = captarDue(a);
                               const bCap = captarDue(b);
@@ -2761,7 +2767,9 @@ const KanbanCentralPage = () => {
                           entries.sort((a, b) => {
                             if (a.date === "__no_date__") return 1;
                             if (b.date === "__no_date__") return -1;
-                            return a.date.localeCompare(b.date);
+                            return isHistoryMode
+                              ? b.date.localeCompare(a.date)
+                              : a.date.localeCompare(b.date);
                           });
 
                           // Prepend pseudo-grupo "Captação · agora" quando houver
