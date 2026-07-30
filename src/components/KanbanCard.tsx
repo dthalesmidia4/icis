@@ -200,6 +200,8 @@ const KanbanCard = ({
   awaitingClient = false,
   awaitingClientSince = null,
   awaitingClientResendCount = 0,
+  awaitingClientActions,
+
   onClick,
   onDatesChange,
 }: KanbanCardProps) => {
