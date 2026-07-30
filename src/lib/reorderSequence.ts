@@ -433,6 +433,16 @@ function cardArea(card: ReorderCardInput): ReorderWorkArea | null {
   return card.work_area === "midia" || card.work_area === "sistemas" ? card.work_area : null;
 }
 
+/** Formata minutos como "4h20" / "45min" para os avisos do reorganizador. */
+export function fmtMinutes(min: number): string {
+  const total = Math.max(0, Math.round(min));
+  if (total < 60) return `${total}min`;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, "0")}`;
+}
+
+
 function scheduledSpanMinutes(card: ReorderCardInput, ctx: WorkCtx): number | null {
   if (!card.due_date || !card.due_time || !card.delivery_date || !card.delivery_time) return null;
   const due = toVirtualUtc(card.due_date, card.due_time.slice(0, 5));
