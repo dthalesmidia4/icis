@@ -1,6 +1,46 @@
 import { supabase } from "@/integrations/supabase/client";
 import { recordFlowHistory, recordFlowHistoryForUsers } from "@/lib/flowHistory";
 import { getStageCompletions, lastUserOfStage } from "@/lib/stageCompletions";
+import { buildReturnFromClientDates } from "@/lib/flowDurations";
+
+/**
+ * Duração anterior do card (fim − início), em minutos. Usada como fallback
+ * quando a etapa de destino não tem duração configurada.
+ */
+async function previousDurationMinutes(demandId: string): Promise<number | null> {
+  try {
+    const { data } = await supabase
+      .from("demands")
+      .select("due_date, due_time, delivery_date, delivery_time")
+      .eq("id", demandId)
+      .maybeSingle();
+    const d: any = data;
+    if (!d?.due_date || !d?.delivery_date) return null;
+    const s = new Date(`${d.due_date}T${(d.due_time || "00:00").slice(0, 5)}:00`).getTime();
+    const e = new Date(`${d.delivery_date}T${(d.delivery_time || "00:00").slice(0, 5)}:00`).getTime();
+    const min = Math.round((e - s) / 60000);
+    return Number.isFinite(min) && min > 0 ? min : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Ao sair de "Aguardando clientes" para uma etapa operacional, o card é
+ * reagendado para começar agora — evita reentrar em atraso por causa do
+ * tempo parado no cliente.
+ */
+async function applyReturnFromClientSchedule(
+  payload: any,
+  tenantId: string,
+  demandId: string,
+  targetStage: string,
+  demandTypeKey?: string | null,
+): Promise<void> {
+  const fallback = await previousDurationMinutes(demandId);
+  const dates = await buildReturnFromClientDates(tenantId, targetStage, demandTypeKey, fallback);
+  Object.assign(payload, dates);
+}
 
 /**
  * Fonte da verdade da etapa atual: o banco. O valor vindo da tela pode estar
