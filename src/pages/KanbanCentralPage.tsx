@@ -964,6 +964,10 @@ const KanbanCentralPage = () => {
           daily_completed_occurrences: demand.daily_completed_occurrences ?? 0,
           daily_completed_dates: Array.isArray(demand.daily_completed_dates) ? demand.daily_completed_dates : [],
           work_area: (demand.work_area as any) || "midia",
+          origin: (demand as any).origin || "interno",
+          origin_note: (demand as any).origin_note ?? null,
+          subclient_id: (demand as any).subclient_id ?? null,
+          subclient_ids: Array.isArray((demand as any).subclient_ids) ? ((demand as any).subclient_ids as string[]) : [],
           client_wait_started_at: (demand as any).client_wait_started_at ?? null,
           client_resend_count: (demand as any).client_resend_count ?? 0,
           client_last_resend_at: (demand as any).client_last_resend_at ?? null,
@@ -1725,6 +1729,15 @@ const KanbanCentralPage = () => {
         work_area: (selectedCard as any).work_area || "midia",
         origin: (selectedCard as any).origin || "interno",
       };
+      {
+        const subIds = Array.isArray((selectedCard as any).subclient_ids)
+          ? ((selectedCard as any).subclient_ids as string[])
+          : [];
+        if (subIds.length > 0) {
+          extra.subclient_ids = subIds;
+          extra.subclient_id = subIds[0];
+        }
+      }
       if (selectedCard.objective) extra.objective = selectedCard.objective;
       if (selectedCard.instructions) extra.instructions = selectedCard.instructions;
       if (selectedCard.observations) extra.observations = selectedCard.observations;
