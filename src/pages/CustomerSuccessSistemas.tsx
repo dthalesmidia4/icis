@@ -35,7 +35,7 @@ import {
 } from "@/lib/recordTouchpoint";
 import { DEMAND_ORIGIN_LABEL } from "@/lib/proceedDemand";
 import { HealthCadenceBar } from "@/components/customer-success/HealthCadenceBar";
-import { TouchpointTimeline } from "@/components/customer-success/TouchpointTimeline";
+import { CadenceLineChart } from "@/components/customer-success/CadenceLineChart";
 
 
 const LEVEL_STYLES: Record<HealthLevel, string> = {
