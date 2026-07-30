@@ -59,6 +59,8 @@ import Settings from "./pages/Settings";
 import VideoReferencesLibrary from "./pages/VideoReferencesLibrary";
 import ClientEvolution from "./pages/ClientEvolution";
 import CustomerSuccessSistemas from "./pages/CustomerSuccessSistemas";
+import SystemsClients from "./pages/SystemsClients";
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
