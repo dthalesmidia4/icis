@@ -548,6 +548,12 @@ export function sortForReorder(
 // Reorganização principal
 // ------------------------------------------------------------------
 
+export interface ReorderManualOverride {
+  startISO?: string;
+  startTime?: string;
+  durationMin?: number;
+}
+
 export async function computeReorder(
   cards: ReorderCardInput[],
   opts?: {
@@ -557,7 +563,10 @@ export async function computeReorder(
     durations?: StageDurationOverrides;
     areaSchedule?: AreaScheduleMap;
     scheduledPublishIds?: Set<string>;
+    manualOverrides?: Record<string, ReorderManualOverride>;
   },
+
+
 
 ): Promise<ReorderProposal[]> {
   if (cards.length === 0) return [];
