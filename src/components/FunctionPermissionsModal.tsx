@@ -162,6 +162,10 @@ function hardcodedDuration(functionKey: string, group: DurationTypeGroup): numbe
 
 export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
   const { agencyId } = useAgency();
+  const [area, setArea] = useState<WorkAreaKey>("midia");
+  const FUNCTIONS = area === "sistemas" ? SISTEMAS_FUNCTIONS : MIDIA_FUNCTIONS;
+  const DEMAND_TYPES = area === "sistemas" ? SISTEMAS_DEMAND_TYPES : MIDIA_DEMAND_TYPES;
+  const DEFAULTS = area === "sistemas" ? SISTEMAS_DEFAULTS : MIDIA_DEFAULTS;
   const [loading, setLoading] = useState(true);
   const [rules, setRules] = useState<Record<string, Record<string, Requirement>>>({});
   const [saving, setSaving] = useState<string | null>(null);
