@@ -2,6 +2,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { pickAssigneeForFunction } from "@/lib/proceedDemand";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { getStageCompletions, hasUserCompletedStage } from "@/lib/stageCompletions";
+import { isReviewFunction } from "@/lib/flowFunctions";
+
 
 export interface InitialFunction {
   functionKey: string;
