@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, Wand2, AlertTriangle, ArrowRight, Filter } from "lucide-react";
+import { Loader2, Wand2, AlertTriangle, ArrowRight, Filter, Pencil, RotateCcw, Pin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -11,8 +11,9 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { computeReorder, hasPublishDateCandidates, reorderTier, type ReorderCardInput, type ReorderProposal, type StageDurationOverrides, type AreaScheduleMap } from "@/lib/reorderSequence";
+import { computeReorder, hasPublishDateCandidates, reorderTier, type ReorderCardInput, type ReorderProposal, type ReorderManualOverride, type StageDurationOverrides, type AreaScheduleMap } from "@/lib/reorderSequence";
 import { loadDurationsForTenant } from "@/lib/flowDurations";
 import { useWorkHoursConfig } from "@/hooks/useWorkHoursConfig";
 import { Switch } from "@/components/ui/switch";
