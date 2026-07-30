@@ -62,6 +62,63 @@ async function hadPriorCaptarPartialDelivery(tenantId: string, demandId: string)
 }
 
 /**
+ * Lista de responsáveis extras (`additional_assignees`) de qualquer etapa.
+ */
+async function fetchExtraAssignees(demandId: string): Promise<string[]> {
+  return fetchCaptarExtras(demandId);
+}
+
+/**
+ * Registra automaticamente a entrega (`partial_delivered`) de cada responsável
+ * da etapa de origem quando o card avança no fluxo.
+ * Vale para QUALQUER etapa (não só `captar`) e evita duplicar quem já havia
+ * usado o botão "Entregar minha parte".
+ */
+export async function recordStageDeliveries(
+  tenantId: string,
+  demandId: string,
+  fromFunctionKey: string | null,
+  userIds: Array<string | null | undefined>,
+): Promise<void> {
+  const stage = (fromFunctionKey || "").trim();
+  if (!tenantId || !demandId || !stage) return;
+  // Etapas sem execução operacional não geram entrega.
+  if (stage === "aguardando_cliente") return;
+
+  const unique = Array.from(new Set((userIds || []).filter(Boolean))) as string[];
+  if (unique.length === 0) return;
+
+  try {
+    const { data } = await supabase
+      .from("demand_flow_history")
+      .select("from_user_id")
+      .eq("tenant_id", tenantId)
+      .eq("demand_id", demandId)
+      .eq("action", "partial_delivered")
+      .eq("from_function_key", stage);
+    const already = new Set(((data as any[]) || []).map((r) => r.from_user_id).filter(Boolean));
+    const pending = unique.filter((uid) => !already.has(uid));
+    if (pending.length === 0) return;
+    await Promise.all(
+      pending.map((uid) =>
+        recordFlowHistory({
+          tenantId,
+          demandId,
+          action: "partial_delivered",
+          fromUserId: uid,
+          toUserId: uid,
+          fromFunctionKey: stage,
+          toFunctionKey: stage,
+          metadata: { auto: true },
+        }),
+      ),
+    );
+  } catch (e) {
+    console.warn("[proceedDemand] recordStageDeliveries error:", e);
+  }
+}
+
+/**
  * Toda entrada em "Aguardando clientes" carimba a data/hora do envio e
  * registra o envio no histórico (`sent_to_client`) com o número do envio.
  */
@@ -342,6 +399,7 @@ export async function jumpToFunction({
   const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
   const prevUser = (cur as any)?.assigned_to || null;
   const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
+  const stageExtras = currentFunctionKey === "captar" ? captarExtras : await fetchExtraAssignees(demandId);
 
   const updatePayload: any = { assigned_to: picked.userId, current_function_key: target.function_key };
   if (currentFunctionKey === "aguardando_cliente" && target.function_key !== "enviar_cliente") {
@@ -369,6 +427,7 @@ export async function jumpToFunction({
     }
     await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
   }
+  await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [prevUser, ...stageExtras]);
   return { success: true, assignedTo: picked.userId, assignedName: picked.name, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name} com ${picked.name}.` };
 }
 
@@ -461,6 +520,7 @@ export async function proceedDemand({
     .maybeSingle();
   const previousAssignee = (currentDemand as any)?.assigned_to || null;
   const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
+  const stageExtras = currentFunctionKey === "captar" ? captarExtras : await fetchExtraAssignees(demandId);
 
   const picked = await pickAssigneeForFunction(tenantId, nextFn.function_key, nextFn.name);
   if (!picked.success || !picked.userId) {
@@ -511,6 +571,8 @@ export async function proceedDemand({
       toFunctionKey: nextFn.function_key,
     });
   }
+
+  await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [previousAssignee, ...stageExtras]);
 
   return {
     success: true,
@@ -810,8 +872,7 @@ export async function deliverDemand(
     .eq("id", demandId)
     .maybeSingle() as { data: any | null };
 
-  const wasCaptar = ((currentDemand as any)?.current_function_key || "") === "captar";
-  const extras: string[] = wasCaptar && Array.isArray((currentDemand as any)?.additional_assignees)
+  const extras: string[] = Array.isArray((currentDemand as any)?.additional_assignees)
     ? ((currentDemand as any).additional_assignees.filter(Boolean) as string[])
     : [];
 
@@ -852,6 +913,12 @@ export async function deliverDemand(
         toFunctionKey: null,
       });
     }
+    await recordStageDeliveries(
+      currentDemand.tenant_id as string,
+      demandId,
+      (currentDemand as any).current_function_key ?? null,
+      [primary, ...extras],
+    );
   }
   return {
     success: true,
