@@ -1,46 +1,34 @@
-## Diagnóstico (verificado no banco)
+## Objetivo
 
-- Todas as 9 empresas em `tenant_companies` têm `default_work_area` **nulo**. O filtro atual em `src/lib/clientHealth.ts` trata nulo como "serve para qualquer área", então as 8 empresas de Mídia aparecem no Customer Success · Sistemas.
-- Demandas: `sistemas` só existe para SmartVety (10 cards) e 1 card em D'thales Midia; todas as outras empresas têm apenas demandas de `midia`.
-- Não existe hoje nenhuma estrutura para cadastrar os **clientes da SmartVety** (as clínicas). Essa era a premissa errada do plano anterior: ele assumiu que os "clientes de Sistemas" seriam empresas de `tenant_companies`.
+Hoje uma demanda de Sistemas aponta para **um único** cliente final (`demands.subclient_id`). No caso real do card "Agente de Vacinas" a demanda foi solicitada por dois clientes (Belloti e Pontes Gestal) e isso hoje só cabe escrito no corpo do texto. Vamos permitir marcar **vários clientes solicitantes** na mesma demanda.
 
-## O que será construído
+## Como vai funcionar
 
-### 1. Nova estrutura: clientes de Sistemas (sub-clientes)
-Nova tabela `systems_clients`, sempre vinculada a uma empresa de Sistemas (a SmartVety):
-- `tenant_id`, `parent_company_id` (→ `tenant_companies`), `name`, `contact_name`, `email`, `phone`, `city/state`, `plan` (texto livre), `notes`
-- `contact_cadence_days` (padrão 30), `status` (ativo/pausado/cancelado), `onboarded_at`, timestamps
-- Grants para `authenticated`/`service_role`, RLS por tenant (mesmo padrão de `client_touchpoints`), trigger de `updated_at`
-
-Cadastro leve: só o nome é obrigatório.
-
-### 2. Vínculo opcional nas demandas e nos contatos
-- `demands.subclient_id` (nulo por padrão): o card continua pertencendo à SmartVety, mas pode indicar a clínica atendida.
-- `client_touchpoints.subclient_id` (nulo): permite registrar contato com a clínica.
-
-### 3. Correção dos dados atuais
-- `default_work_area = 'midia'` nas 8 empresas de Mídia; `'sistemas'` na SmartVety.
-- A partir daí o filtro passa a ser **estrito**: Mídia mostra só Mídia, Sistemas só Sistemas — sem o fallback "nulo vale para tudo".
-
-### 4. Customer Success · Sistemas reescrito
-A tela passa a listar **clientes da SmartVety** (não empresas):
-- Linhas = `systems_clients` das empresas de área `sistemas`
-- Colunas: cliente (+ empresa de sistemas), saúde/score, último contato, cadência, demandas abertas/atrasadas vinculadas ao sub-cliente, contatos 30d, ação "Contato"
-- Health score reaproveita a lógica atual (cadência estourada, atrasos, inatividade), agora medida por sub-cliente
-- Estado vazio com botão direto para cadastrar clientes
-- Registro manual de contato grava `subclient_id`
-
-### 5. Nova tela de cadastro
-Rota `/clientes-sistemas`: lista + criar/editar/arquivar clientes de Sistemas, com seletor da empresa de Sistemas dona (SmartVety), busca e status. Acesso pelo header do Customer Success e pelo Kanban Central.
-
-### 6. Card de demanda (Sistemas)
-No `TaskCard` e na criação de demanda, quando `work_area = 'sistemas'`: seletor opcional "Cliente da SmartVety", carregado dos sub-clientes da empresa do card. Sem impacto em Mídia.
+- O seletor "Cliente atendido" passa a ser **múltipla escolha** (checklist), com rótulo "Clientes solicitantes".
+- O chip no cabeçalho do card mostra:
+  - nenhum → "Sem cliente final"
+  - um → nome do cliente
+  - dois ou mais → "Belloti +1" (com todos os nomes no tooltip)
+- O Customer Success · Sistemas passa a contar a demanda para **cada** cliente vinculado (uma demanda solicitada por 2 clientes conta como aberta/atrasada para os dois), o que corrige a leitura de saúde por cliente.
+- Nada muda no fluxo de etapas, reorganização ou agendamento — o vínculo continua sendo apenas informativo/relatorial.
 
 ## Detalhes técnicos
 
-- Migração: `CREATE TABLE public.systems_clients` (+ GRANT + RLS + policies + trigger), `ALTER TABLE demands ADD COLUMN subclient_id uuid`, `ALTER TABLE client_touchpoints ADD COLUMN subclient_id uuid` (FKs com `ON DELETE SET NULL`), índices por `tenant_id`/`parent_company_id`.
-- Atualização de dados (`default_work_area`) via operação de dados separada, após a migração.
-- `src/lib/clientHealth.ts`: nova função `loadSystemsClientHealth(tenantId)` para sub-clientes; `loadClientHealth` passa a filtrar área estritamente (nulo = mídia).
-- `src/lib/recordTouchpoint.ts`: `recordManualTouchpoint` aceita `subclientId`.
-- `src/pages/CustomerSuccessSistemas.tsx` reescrita; nova `src/pages/SystemsClients.tsx` + rota em `App.tsx`.
-- Sem alteração no motor de fluxo/reorganização — `subclient_id` é puramente informativo/relatorial.
+1. **Migração**
+   - `ALTER TABLE public.demands ADD COLUMN subclient_ids uuid[] NOT NULL DEFAULT '{}'`.
+   - Backfill: `UPDATE public.demands SET subclient_ids = ARRAY[subclient_id] WHERE subclient_id IS NOT NULL`.
+   - `subclient_id` é mantido como "cliente principal" (primeiro do array) para compatibilidade com o que já existe; a gravação sempre sincroniza os dois campos.
+   - Índice GIN em `subclient_ids` para os filtros do CS.
+
+2. **`src/components/SubclientSelect.tsx`**
+   - Trocar `Select` por `Popover` + lista de `Checkbox` (mesmo padrão discreto já usado nos outros chips do cabeçalho), com props `value: string[]` e `onChange(ids: string[])`.
+   - Continua invisível quando a empresa não tem clientes cadastrados.
+
+3. **`src/components/TaskCard.tsx`**
+   - Passar/gravar `subclient_ids` (e `subclient_id` = primeiro item) no update da demanda, mantendo o guard de rascunho já existente.
+
+4. **`src/lib/clientHealth.ts`**
+   - `loadSystemsClientHealth`: ler `subclient_ids` das demandas e casar por "contém o cliente", em vez de igualdade com `subclient_id`; fallback para `subclient_id` em linhas antigas.
+
+5. **`src/lib/recordTouchpoint.ts` / Customer Success**
+   - Sem mudança estrutural: o contato manual continua sendo por cliente (1 contato = 1 cliente).
