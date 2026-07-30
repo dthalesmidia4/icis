@@ -67,7 +67,9 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     endTime: string;
     /** "auto": duração derivada do motor; "manual": valor digitado pelo usuário. */
     durMode: "auto" | "manual";
-  }>({ date: "", time: "", duration: "", endDate: "", endTime: "", durMode: "auto" });
+    /** true quando o usuário editou o término — nesse caso a duração é derivada do intervalo. */
+    endEdited: boolean;
+  }>({ date: "", time: "", duration: "", endDate: "", endTime: "", durMode: "auto", endEdited: false });
   // Instante-base congelado por abertura do modal: evita que a proposta "ande" sozinha
   // a cada re-render do Kanban (realtime / tick de relógio).
   const [startFrom, setStartFrom] = useState<Date | null>(null);
@@ -236,11 +238,13 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     if (!p) return;
     setDraft((d) => {
       const duration = d.durMode === "manual" ? d.duration : String(p.durationMin);
+      const endDate = d.endEdited ? d.endDate : p.endISO;
+      const endTime = d.endEdited ? d.endTime : p.endTime;
       if (
         d.date === p.startISO &&
         d.time === p.startTime &&
-        d.endDate === p.endISO &&
-        d.endTime === p.endTime &&
+        d.endDate === endDate &&
+        d.endTime === endTime &&
         d.duration === duration
       ) {
         return d;
@@ -249,12 +253,13 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
         ...d,
         date: p.startISO,
         time: p.startTime,
-        endDate: p.endISO,
-        endTime: p.endTime,
+        endDate,
+        endTime,
         duration,
       };
     });
   }, [editingId, proposals, manualOverrides]);
+
 
 
 
@@ -518,6 +523,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                                   endDate: p.endISO,
                                   endTime: p.endTime,
                                   durMode: "auto",
+                                  endEdited: false,
                                 });
                               }}
                             >
@@ -541,7 +547,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                               </Badge>
                               {p.pinned && (
                                 <Badge variant="outline" className="text-[10px] border-primary/60 text-primary">
-                                  <Pin className="h-3 w-3 mr-1" /> {p.pinnedKind === "end" ? "término ajustado" : "início ajustado"}
+                                  <Pin className="h-3 w-3 mr-1" /> {p.pinnedKind === "both" ? "início e término ajustados" : p.pinnedKind === "end" ? "término ajustado" : "início ajustado"}
                                 </Badge>
                               )}
                             </>
@@ -559,7 +565,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                               </Badge>
                               {p.pinned && (
                                 <Badge variant="outline" className="text-[10px] border-primary/60 text-primary">
-                                  <Pin className="h-3 w-3 mr-1" /> {p.pinnedKind === "end" ? "término ajustado" : "início ajustado"}
+                                  <Pin className="h-3 w-3 mr-1" /> {p.pinnedKind === "both" ? "início e término ajustados" : p.pinnedKind === "end" ? "término ajustado" : "início ajustado"}
                                 </Badge>
                               )}
                             </>
@@ -617,8 +623,34 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                                     />
                                   </div>
                                   <div className="flex flex-col gap-1">
+                                    <Label className="text-[10px] text-muted-foreground">Término</Label>
+                                    <Input
+                                      type="date"
+                                      className="h-8 w-[9.5rem] text-xs"
+                                      value={draft.endDate}
+                                      onChange={(e) =>
+                                        setDraft((d) => ({ ...d, endDate: e.target.value, endEdited: true, durMode: "auto" }))
+                                      }
+                                    />
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <Label className="text-[10px] text-muted-foreground">Hora</Label>
+                                    <Input
+                                      type="time"
+                                      className="h-8 w-[6.5rem] text-xs"
+                                      value={draft.endTime}
+                                      onChange={(e) =>
+                                        setDraft((d) => ({ ...d, endTime: e.target.value, endEdited: true, durMode: "auto" }))
+                                      }
+                                    />
+                                  </div>
+                                  <div className="flex flex-col gap-1">
                                     <Label className="text-[10px] text-muted-foreground">
-                                      Duração — ajustada ao expediente e à área
+                                      {draft.durMode === "manual"
+                                        ? "Duração (min) — manual"
+                                        : draft.endEdited
+                                          ? "Duração — derivada do término"
+                                          : "Duração — ajustada ao expediente e à área"}
                                     </Label>
                                     <div className="flex items-center gap-1">
                                       <Input
@@ -629,7 +661,12 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                                         className="h-8 w-[6.5rem] text-xs"
                                         value={draft.duration}
                                         onChange={(e) =>
-                                          setDraft((d) => ({ ...d, duration: e.target.value, durMode: "manual" }))
+                                          setDraft((d) => ({
+                                            ...d,
+                                            duration: e.target.value,
+                                            durMode: "manual",
+                                            endEdited: false,
+                                          }))
                                         }
                                       />
                                       <Button
@@ -641,6 +678,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                                             ...d,
                                             durMode: d.durMode === "auto" ? "manual" : "auto",
                                             duration: d.durMode === "manual" ? String(p.durationMin) : d.duration,
+                                            endEdited: d.durMode === "auto" ? false : d.endEdited,
                                           }))
                                         }
                                       >
@@ -683,12 +721,34 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                                     toast.error("Duração manual mínima de 5 min.");
                                     return;
                                   }
+                                  const parseLocal = (dISO: string, t: string) => {
+                                    const [hh, mm] = t.split(":").map((x) => parseInt(x, 10) || 0);
+                                    const [y, mo, dd] = dISO.split("-").map((x) => parseInt(x, 10) || 0);
+                                    return new Date(y, (mo || 1) - 1, dd || 1, hh, mm, 0, 0);
+                                  };
+                                  const pinEnd = draft.durMode === "auto" && draft.endEdited;
+                                  if (pinEnd) {
+                                    if (!draft.endDate || !draft.endTime) {
+                                      toast.error("Informe a data e a hora do término.");
+                                      return;
+                                    }
+                                    const endLocal = parseLocal(draft.endDate, draft.endTime);
+                                    if (endLocal.getTime() <= parseLocal(draft.date, draft.time).getTime()) {
+                                      toast.error("O término precisa ser posterior ao início.");
+                                      return;
+                                    }
+                                    if (endLocal.getTime() <= base.getTime()) {
+                                      toast.error("O término precisa ser posterior ao horário atual.");
+                                      return;
+                                    }
+                                  }
                                   setManualOverrides((prev) => ({
                                     ...prev,
                                     [p.id]: {
                                       startISO: draft.date,
                                       startTime: draft.time,
                                       ...(draft.durMode === "manual" ? { durationMin: dur } : {}),
+                                      ...(pinEnd ? { endISO: draft.endDate, endTime: draft.endTime } : {}),
                                     },
                                   }));
                                   setEditingId(null);
@@ -718,7 +778,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                             <p className="mt-1.5 text-[10px] text-muted-foreground">
                               {p.keepStart
                                 ? "Card em execução: o início histórico é preservado; apenas o término é recalculado."
-                                : "A duração automática segue a estimativa da etapa, o expediente da área e as folgas."}
+                                : "Edite início e/ou término — a duração é derivada do intervalo útil (expediente da área). Ou digite a duração para que o término seja calculado."}
                             </p>
                           </div>
                         )}

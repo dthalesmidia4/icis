@@ -1,41 +1,38 @@
-## Problema confirmado no código
+## Situação atual (confirmada no código)
 
-Três defeitos independentes, todos em `src/lib/reorderSequence.ts` + `src/components/kanban/ReorderSequenceModal.tsx`:
+Em `ReorderSequenceModal.tsx` o formulário "Ajustar" tem dois caminhos:
 
-1. **A duração não acompanha a hora digitada.** O campo "Duração (min)" é um valor solto: ao abrir o "Ajustar" ele recebe a duração calculada e nunca é recalculado quando você muda data/hora. Aplicando 17:00 com "260" herdado, o motor reserva 260 minutos a partir dali — sem considerar que a janela útil daquele início é outra.
-2. **O ajuste manual cancela o estado "em execução".** O motor só reconhece o card atrasado/em andamento quando **não** existe ajuste manual. Ao aplicar 17:00, o card perde a preservação do início histórico, passa a ser tratado como tarefa nova iniciando em 28/07 17:00 e o término cai em 29/07 13:50 — no passado, já que hoje é 30/07.
-3. **Nada impede propostas no passado.** O cursor da fila continua a partir do término do card ajustado, então os cards seguintes herdaram 29/07 — datas já vencidas.
+- Card em execução (`p.keepStart`): pede apenas **novo término** — correto, o início não deve mudar.
+- Demais cards: pede **Início (data + hora)** e **Duração**. Não existe campo de término; a duração vem da estimativa do tipo (ex.: 3h) e só muda se você entrar no modo manual e digitar minutos.
 
-## Correções
+Em `computeReorder` (`src/lib/reorderSequence.ts`), quando existe `startISO`, o `endISO` do ajuste é ignorado: o término é sempre `início + duração`.
 
-### A. Duração derivada, não digitada às cegas
-- Ao alterar **Início** (data ou hora), a duração é recalculada automaticamente pela mesma regra do motor: estimativa tipo × etapa, extensão por atraso quando aplicável, e reencaixe nos blocos de expediente/área daquele dia.
-- O campo passa a ter dois modos: **Automática** (padrão, exibe o valor calculado em cinza e o rótulo "auto") e **Manual**, ativado só quando você digita nele. Um botão "voltar para automática" restaura.
-- Rótulo do campo passa a explicitar a base: "Duração — ajustada ao expediente e à área".
+## Correção
 
-### B. Em cards em execução, o ajuste edita o TÉRMINO
-- Para o card marcado como "Em execução desde …", o formulário deixa de pedir novo início (que não deve mudar) e pede **Novo término** (data + hora).
-- O início histórico é preservado; a duração exibida passa a ser o tempo útil entre agora e o término escolhido.
-- O motor ganha suporte a `endISO`/`endTime` no ajuste manual e deixa de descartar o estado "em execução" quando existe ajuste — assim a leitura permanece `término antigo → término novo`.
+### 1. Campo de término nos cards não-em-execução
+No formulário de ajuste dos cards posteriores, além de Início (data + hora), passam a existir **Término (data + hora)**, pré-preenchidos com a proposta atual.
 
-### C. Nenhuma proposta no passado
-- Todo início fixado manualmente é limitado ao primeiro horário útil a partir do instante-base; se o valor digitado for anterior, ele é deslocado e o card recebe o aviso "Ajuste anterior ao horário atual — movido para o próximo horário útil".
-- Todo término fixado manualmente precisa ser posterior ao instante-base; caso contrário o ajuste é rejeitado com mensagem clara no modal.
-- O cursor da fila nunca retrocede: os cards seguintes partem sempre do maior valor entre o término do card anterior e o instante-base — eliminando as datas de 29/07 na sequência.
+- Ao mudar o término, a **duração passa a ser derivada** do intervalo útil entre início e término (expediente + área + folgas) e o campo Duração fica somente-leitura com rótulo "auto (derivada do término)".
+- O modo Duração manual continua disponível: ao digitar minutos, o término é recalculado a partir do início e o campo de término fica derivado. Ou seja, você fixa **término OU duração** — o último editado manda, e um botão "voltar para automática" volta tudo à estimativa da etapa.
 
-### D. Leitura do "Proposto"
-- Cards em execução: `Novo término: <antigo riscado> → <novo>`, com o início histórico exibido separadamente (já é o formato desejado; passa a se manter também depois do ajuste).
-- Cards normais: mantém `Anterior: início → fim` / `Proposto: início → fim`.
-- O selo "ajustado" indica se o ajuste foi de início ou de término.
+### 2. Validações
+- Término precisa ser posterior ao início; caso contrário o ajuste é rejeitado com mensagem no modal.
+- Término no passado (anterior ao instante-base) é rejeitado, como já ocorre nos cards em execução.
+- Início anterior ao instante-base continua sendo deslocado para o próximo horário útil com aviso.
+
+### 3. Motor de reorganização
+- `computeReorder` passa a aceitar `startISO+startTime` **e** `endISO+endTime` no mesmo override: novo caminho `pinnedKind: "both"` — início fixado (com clamp no agora), término fixado, e `durationMin` calculado por `businessMinutesBetween(start, end)`.
+- Os cards seguintes continuam partindo do término desse card (cursor nunca retrocede), então a cascata automática se mantém.
+- Selo do card passa a mostrar "início e término ajustados" quando ambos foram fixados.
 
 ## Detalhes técnicos
 
-- `ReorderManualOverride`: adicionar `endISO?`, `endTime?`; `durationMin` continua opcional e só é usado quando o usuário optar por manual.
-- `computeReorder`: remover `!manual` da condição `inProgressFirst`; tratar `pinnedStart` com clamp em `now` normalizado; novo caminho para `pinnedEnd` (calcula `dur` por `businessMinutesBetween(base, pinnedEnd)`); `cursor = max(end, nowNormalizado)` ao final de cada iteração; expor `pinnedKind: "start" | "end"` e o aviso de clamp em `ReorderProposal`.
-- `ReorderSequenceModal`: estado `draft` ganha `mode: "auto" | "manual"` para duração e `endDate/endTime` para cards em execução; validação antes de aplicar; sincronização do rascunho com a proposta recalculada mantida.
+- `ReorderManualOverride`: já possui `startISO/startTime/endISO/endTime/durationMin`; a mudança é permitir a combinação start+end em vez de tratá-las como exclusivas.
+- No modal, o estado `draft` reutiliza `endDate/endTime` também no ramo não-`keepStart`, e ganha `pin: "duration" | "end"` para saber qual dos dois o usuário fixou por último.
+- Rótulo da duração exibe o valor calculado em cinza quando derivada.
 
 ## Validação
 
-- Card atrasado em `planejar` (28/07 14:35 → 30/07 14:00): ajuste de término para 31/07 09:45 mantém início 28/07 e recalcula duração; nenhum card seguinte cai antes de 30/07.
-- Ajuste de início para uma hora passada: deslocado para o próximo horário útil com aviso.
-- Ajuste de início em card normal: duração recalcula sozinha; digitar duração fixa o valor até clicar em "voltar para automática".
+- Card 2 do exemplo (início 30/07 17:05): mudar término para 31/07 09:00 recalcula a duração para o tempo útil correspondente e empurra o card 3 a partir de 09:00 de 31/07.
+- Digitar duração manual continua funcionando e recalcula o término.
+- Card 1 (em execução) mantém o comportamento atual: só término editável.
