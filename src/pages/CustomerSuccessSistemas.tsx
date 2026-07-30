@@ -13,8 +13,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Loader2, AlertTriangle, CheckCircle2, Plus, RefreshCw, Building2, History } from "lucide-react";
-import { PageHeader } from "@/components/PageHeader";
+import { Loader2, AlertTriangle, CheckCircle2, Plus, RefreshCw, Building2, History, HeartPulse } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
