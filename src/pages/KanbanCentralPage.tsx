@@ -1021,7 +1021,7 @@ const KanbanCentralPage = () => {
       const { gte, lte } = computeHistoryRange(filter);
       let q = supabase
         .from("demand_flow_history" as any)
-        .select("demand_id, created_at")
+        .select("demand_id, created_at, from_function_key, to_function_key, action")
         .eq("tenant_id", tenantId)
         .eq("from_user_id", columnId)
         .in("action", ["proceeded", "delivered", "partial_delivered"])
@@ -1029,11 +1029,17 @@ const KanbanCentralPage = () => {
       if (lte) q = q.lte("created_at", lte);
       const { data, error } = await q.order("created_at", { ascending: false }).limit(2000);
       if (error) throw error;
-      const seen = new Map<string, string>();
+      // Uma entrada por (card + etapa entregue): a mesma pessoa pode ter entregue
+      // etapas diferentes do mesmo card dentro do período.
+      const seen = new Map<string, { demandId: string; lastSeenAt: string; deliveredStage?: string | null }>();
       (data || []).forEach((row: any) => {
-        if (!seen.has(row.demand_id)) seen.set(row.demand_id, row.created_at);
+        const stage = (row.from_function_key as string | null) || null;
+        const key = `${row.demand_id}::${stage || "__none__"}`;
+        if (!seen.has(key)) {
+          seen.set(key, { demandId: row.demand_id, lastSeenAt: row.created_at, deliveredStage: stage });
+        }
       });
-      const rows = Array.from(seen.entries()).map(([demandId, lastSeenAt]) => ({ demandId, lastSeenAt }));
+      const rows = Array.from(seen.values()).sort((a, b) => (a.lastSeenAt < b.lastSeenAt ? 1 : -1));
       setColumnHistoryRows((prev) => {
         const next = new Map(prev);
         next.set(columnId, rows);
