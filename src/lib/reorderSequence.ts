@@ -729,9 +729,24 @@ export async function computeReorder(
     let treatAsStuck = false;
     if (inProgressFirst && origEnd && origEnd < now) treatAsStuck = true;
 
+    // Card atrasado em execução: o esforço da ETAPA ATUAL é a base da extensão.
+    // A folga de 30% incide sobre o tempo útil já planejado dentro da etapa
+    // (não sobre a estimativa genérica, nem sobre a vida inteira do card).
+    const stageBase = treatAsStuck ? stageBaseStart(card, wh.tz) : null;
+    const stagePlanned = treatAsStuck ? stagePlannedMinutes(card, ctx, wh.tz) : null;
+    let extensionMin: number | null = null;
+    let keepStart = false;
+
     if (treatAsStuck) {
-      const slack = Math.round(baseDur * 0.30);
-      dur = baseDur + slack;
+      if (stagePlanned && stagePlanned > baseDur) {
+        extensionMin = Math.max(5, Math.round((stagePlanned * 0.30) / 5) * 5);
+        dur = extensionMin;
+        keepStart = true;
+      } else {
+        const slack = Math.round(baseDur * 0.30);
+        dur = baseDur + slack;
+        extensionMin = slack;
+      }
       slackApplied = true;
     }
 
@@ -742,19 +757,27 @@ export async function computeReorder(
     if (pinnedStart) {
       // Início fixado manualmente: aloca exatamente ali (ainda fatiando entre blocos de expediente).
       ({ start, end, daysSpanned } = allocateAcrossDays(pinnedStart, dur, area, ctx, undefined));
+      keepStart = false;
     } else {
       ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
+    }
+
+    // Atrasado em execução: preserva o início histórico e recalcula só o término,
+    // alocando a extensão a partir do instante-base.
+    if (keepStart && origStart) {
+      start = new Date(origStart);
     }
 
     // Um card em andamento com término futuro já consumiu parte do esforço.
     // Preserva o término vigente e agenda somente o tempo restante desde agora,
     // inclusive para intervalos antigos invertidos (como 14:35 → 14:00).
-    if (inProgressFirst && origEnd && origEnd > now && isoDate(origEnd) === isoDate(now)) {
+    if (!treatAsStuck && inProgressFirst && origEnd && origEnd > now && isoDate(origEnd) === isoDate(now)) {
       start = new Date(now);
       end = origEnd;
       dur = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
       daysSpanned = 1;
     }
+
 
 
 
