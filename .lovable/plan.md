@@ -1,35 +1,42 @@
-## Diagnóstico (verificado no banco)
+## Objetivo
 
-Card `DIA DOS PAIS L&C` (id `e8e0c03b…`):
-- Histórico: `enviar_cliente → aguardando_cliente` (30/07 13:16) e `aguardando_cliente → publicar` (30/07 14:41).
-- Datas atuais: `due_date/due_time = 30/07 10:15`, `delivery_date/delivery_time = 30/07 10:20` — **não foram tocadas** na volta do cliente. Por isso o card reentrou já em atraso (vermelho).
-- No histórico **não existe** nenhum `partial_delivered` para `enviar_cliente`. Em `proceedDemand.ts`, a transição para `aguardando_cliente` grava só `proceeded` + `sent_to_client` e nunca chama `recordStageDeliveries`. Logo o fluxo pode regredir para `enviar_cliente`, e o Registro de entregas não mostra essa entrega.
+No card em "Aguardando clientes", quando ele já está pronto para publicar, o atalho vira:
 
-## Correções
+**Cliente aprovou · Agendar post para 05/08 09:00 →**
 
-### 1. Registrar a entrega da etapa ao enviar para o cliente
-Em `src/lib/proceedDemand.ts`, nos dois ramos que entram em `aguardando_cliente` (`proceedDemand` e `proceedDemandTo`), chamar `recordStageDeliveries(tenantId, demandId, currentFunctionKey, [assignee, ...extras])` antes de retornar. Isso grava `partial_delivered` da etapa de origem (ex.: `enviar_cliente`), que já é o sinal usado por:
-- `resolveFunctionForAssignee` / `stageCompletions` → impede o "Voltar demanda" de regredir para uma etapa já entregue;
-- Registro de entregas por coluna → passa a mostrar corretamente "Enviar cliente" entregue naquele dia.
+Ao confirmar: cria o disparo de publicação, move o card para o status **Agendar Publicação**, desaloca o responsável, e o card some da coluna do colaborador — passando a ser visível em Conteúdos agendados.
 
-`recordStageDeliveries` continua ignorando `stage === "aguardando_cliente"` (espera do cliente não é entrega).
+## Verificações feitas (sem premissas soltas)
 
-### 2. Reagendar o card ao voltar do cliente (fim do atraso falso)
-O tempo parado no cliente não é responsabilidade do colaborador, então as datas antigas não devem ser herdadas. Nas transições em que `currentFunctionKey === "aguardando_cliente"` e o destino é uma etapa operacional (todo caso exceto voltar para `enviar_cliente`), além de limpar `client_wait_started_at`/`client_resend_count`, aplicar novo início/fim:
+- **A publicação automatizada NÃO exige que o card venha de `publicar`.** `run-scheduled-dispatches` lê exclusivamente a tabela `scheduled_publication_dispatches` (status `scheduled` + `scheduled_at` vencido). Ele nem consulta `current_function_key` ou `status_id` do card para decidir publicar. Só usa `demands` para pegar a legenda mais recente (`post_caption`).
+- **Depois de publicar, o próprio dispatcher reassume o card:** define status "Publicado", `current_function_key = 'revisar_publicacao'` e escolhe um revisor pela mesma regra de balanceamento do Prosseguir. Ou seja, deixar `assigned_to = null` durante o agendamento é seguro — o card volta com responsável na etapa de revisão de publicação.
+- **A saída da coluna é automática:** o Kanban já filtra `baseCards` por `activeDispatchIds` (disparos `scheduled`/`dispatching`), então basta o disparo existir.
+- **Conteúdos agendados** lista por dispatch (`Scheduled.tsx` busca dispatches e depois as demands por `card_id`), independente de responsável ou status — o card aparece lá corretamente.
+- **Legenda não é obrigatória** para o disparo: `createOrUpdateScheduleDispatch` valida mídia final por tipo de conteúdo, data futura e redes sociais ativas do cliente — mas não exige caption. Então a legenda não entra como requisito bloqueante (a legenda usada na hora da publicação é sempre a `post_caption` mais atual).
+- **Trigger `validate_demand_stage_assignment`** retorna cedo quando `assigned_to` é nulo — nenhum efeito colateral ao desalocar.
+- **Se o disparo falhar** no futuro (`status = failed`), o card reaparece no quadro sem responsável, na coluna "Sem responsável" que já existe no Kanban — fica visível e recuperável, não some.
 
-- Novo `due_date`/`due_time` = **agora**, arredondado para o próximo múltiplo de 5 minutos.
-- Novo `delivery_date`/`delivery_time` = início + a duração da etapa de destino, usando a duração já definida em `src/lib/flowDurations.ts` (mesma fonte usada pelo reorganizador); se não houver duração configurada, preserva a duração anterior do card (fim − início) e, na falta dela, usa o padrão da etapa.
-- Se o novo fim cruzar o fim do expediente da área (`work_area`), manter o comportamento do reorganizador: não estourar o dia — apenas alocar no primeiro horário válido; o reorganizador da coluna pode reposicionar depois.
-- Aplicar isso no mesmo `update` já existente (`proceedPayload` / `updatePayload`), sem query extra.
+## Mudanças
 
-Efeito: o card volta como "em andamento" agora, e não em atraso.
+### 1. `src/components/kanban/AwaitingClientActions.tsx`
+- Novas props vindas do card: `clientId`, `publishDate`, `publishTime`, `caption`, `attachments`, `demandType`, `title`.
+- **Estado "pronto para agendar"** (usado só para escolher o rótulo): tem `publish_date` + `publish_time`, o horário ainda é futuro e existe ao menos 1 anexo. As regras completas continuam sendo aplicadas por `createOrUpdateScheduleDispatch` no clique.
+- Rótulos:
+  - pronto → `Cliente aprovou · Agendar post para dd/MM HH:mm`; confirmação: `Confirmar agendamento para dd/MM HH:mm?`
+  - não pronto → comportamento atual (`Cliente aprovou · Enviar para {próxima etapa}`).
+- Ação de agendar, em ordem:
+  1. `createOrUpdateScheduleDispatch(...)`. Se falhar, mostra o motivo exato em toast (ex.: "cliente sem redes conectadas", "anexe a imagem final") e **não altera o card** — nada de estado intermediário inconsistente.
+  2. Sucesso → atualiza `demands`: `status_id` do status "Agendar Publicação" **resolvido pelo `pipeline_id` do próprio card** (não por um pipeline global), `current_function_key = 'publicar'`, `assigned_to = null`, e limpa `client_wait_started_at` / `client_resend_count` / `client_last_resend_at`. Se o status não existir naquele pipeline, mantém o status atual e segue (o disparo já garante a saída da coluna).
+  3. Registra histórico: `proceeded` de `aguardando_cliente` → `publicar` e a entrega da etapa anterior via `recordStageDeliveries` (já exportado em `proceedDemand.ts`), preservando Registro de entregas e a trava anti-regressão.
+  4. Toast de sucesso com data/hora e `onDone()`.
+- Se já houver disparo ativo para o card (`hasActiveDispatch`), o helper apenas atualiza o disparo existente — sem duplicar.
 
-### 3. Botão "Cliente aprovou" no card
-Nenhuma mudança de UI necessária — ele usa `proceedDemand`, então herda os dois comportamentos acima automaticamente.
+### 2. `src/pages/KanbanCentralPage.tsx`
+- Passar os dados do card para `AwaitingClientActions` (cliente, `publish_date`/`publish_time`, `post_caption` ou descrição, anexos, tipo, título).
+- Nenhuma mudança na renderização das colunas.
 
-## Notas técnicas
+## Pontas que este plano fecha
 
-- Arquivos: `src/lib/proceedDemand.ts` (principal) e, se preciso, um helper pequeno de reagendamento em `src/lib/flowDurations.ts`.
-- Regressão controlada: o reagendamento só dispara quando a etapa de origem é `aguardando_cliente`; nenhuma outra transição muda datas.
-- Volta `aguardando_cliente → enviar_cliente` (reenvio) continua sem mexer em datas.
-- Cards já retornados antes da correção (como o `DIA DOS PAIS L&C`) mantêm as datas antigas; podem ser corrigidos pelo reorganizador da coluna ou manualmente.
+- Não há dependência de o card passar por "Publicar" para a automação funcionar.
+- Regras de validação continuam em um único lugar (mesmo helper do modal de agendamento) — sem divergência entre atalho e modal.
+- Fallback intacto: faltando qualquer requisito, o botão volta a ser o fluxo normal para "Publicar", nunca bloqueando a aprovação do cliente.
