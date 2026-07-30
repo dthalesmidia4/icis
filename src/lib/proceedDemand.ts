@@ -756,6 +756,7 @@ export async function regressDemand({
     regressPayload.client_wait_started_at = null;
     regressPayload.client_resend_count = 0;
     regressPayload.client_last_resend_at = null;
+    await applyReturnFromClientSchedule(regressPayload, tenantId, demandId, prevFn.function_key, typeKey);
   }
   if (currentFunctionKey === "captar") {
     regressPayload.additional_assignees = [];
