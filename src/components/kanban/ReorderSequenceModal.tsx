@@ -511,7 +511,14 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                               onClick={() => {
                                 if (isEditing) { setEditingId(null); return; }
                                 setEditingId(p.id);
-                                setDraft({ date: p.startISO, time: p.startTime, duration: String(p.durationMin) });
+                                setDraft({
+                                  date: p.startISO,
+                                  time: p.startTime,
+                                  duration: String(p.durationMin),
+                                  endDate: p.endISO,
+                                  endTime: p.endTime,
+                                  durMode: "auto",
+                                });
                               }}
                             >
                               <Pencil className="h-3 w-3 mr-1" /> Ajustar
