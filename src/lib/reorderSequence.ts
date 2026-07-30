@@ -69,6 +69,7 @@ export interface ReorderProposal {
   skipped?: boolean;
   spansDays?: number;
   slackApplied?: boolean;
+  pinned?: boolean;
   pausedByCaptar?: {
     atISO: string;
     atTime: string;
