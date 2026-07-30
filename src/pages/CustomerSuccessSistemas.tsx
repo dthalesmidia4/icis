@@ -19,9 +19,11 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   loadSystemsClientHealth,
+  loadSubclientTouchpointTimeline,
   HEALTH_LABEL,
   type SystemsClientHealth,
   type HealthLevel,
+  type TimelineTouchpoint,
 } from "@/lib/clientHealth";
 import {
   recordManualTouchpoint,
@@ -32,6 +34,9 @@ import {
   type TouchpointRecord,
 } from "@/lib/recordTouchpoint";
 import { DEMAND_ORIGIN_LABEL } from "@/lib/proceedDemand";
+import { HealthCadenceBar } from "@/components/customer-success/HealthCadenceBar";
+import { TouchpointTimeline } from "@/components/customer-success/TouchpointTimeline";
+
 
 const LEVEL_STYLES: Record<HealthLevel, string> = {
   ok: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900",
