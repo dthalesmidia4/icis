@@ -1038,30 +1038,14 @@ export async function resolveInitialFunctionKey(
   tenantId: string,
   demandTypeKey?: string | null,
   currentFunctionKey?: string | null,
+  opts?: SequenceOptions,
 ): Promise<ResolveInitialFunctionResult> {
   const typeKey = coerceDemandTypeKey(demandTypeKey);
   if (!typeKey) {
     return { success: false, shouldUpdate: false, message: "Tipo de demanda inválido." };
   }
-  const [{ data: fns, error: fErr }, { data: rules, error: rErr }] = await Promise.all([
-    supabase
-      .from("flow_functions")
-      .select("function_key, position, active")
-      .eq("tenant_id", tenantId)
-      .eq("active", true)
-      .order("position"),
-    supabase
-      .from("demand_type_flow_rules")
-      .select("function_key, requirement")
-      .eq("tenant_id", tenantId)
-      .eq("demand_type_key", typeKey),
-  ]);
-  if (fErr || rErr) {
-    return { success: false, shouldUpdate: false, message: "Erro ao carregar fluxo configurado." };
-  }
-  const req = new Map<string, string>();
-  (rules || []).forEach((r: any) => req.set(r.function_key, r.requirement));
-  const sequence = (fns || []).filter((f: any) => req.get(f.function_key) === "required");
+  const sequence = await getPipelineSequence(tenantId, typeKey, opts);
+
   if (sequence.length === 0) {
     return {
       success: false,
