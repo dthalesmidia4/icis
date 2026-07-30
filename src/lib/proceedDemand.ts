@@ -550,21 +550,45 @@ async function resolveNextStage(
 }
 
 
+export interface SequenceOptions {
+  /** Quando informado, área e origem são lidas do próprio card. */
+  demandId?: string | null;
+  workArea?: "midia" | "sistemas" | null;
+  origin?: string | null;
+}
+
 /**
  * Devolve a sequência ordenada de funções obrigatórias para um `demand_type_key`.
+ * Filtros aplicados:
+ *  - `flow_functions.work_area` = área do card (Mídia × Sistemas);
+ *  - etapas com `requires_client_origin` só entram quando a demanda tem
+ *    origem de cliente (solicitação, feedback ou suporte).
  */
 export async function getPipelineSequence(
   tenantId: string,
   demandTypeKey?: string | null,
+  opts?: SequenceOptions,
 ): Promise<{ function_key: string; name: string }[]> {
   const typeKey = coerceDemandTypeKey(demandTypeKey);
   if (!typeKey || !tenantId) return [];
+
+  let workArea = opts?.workArea ?? null;
+  let origin = opts?.origin ?? null;
+  if ((!workArea || !origin) && opts?.demandId) {
+    const meta = await getDemandFlowMeta(opts.demandId);
+    workArea = workArea || meta.workArea;
+    origin = origin || meta.origin;
+  }
+  const area: "midia" | "sistemas" = workArea === "sistemas" ? "sistemas" : "midia";
+  const clientOrigin = isClientOrigin(origin);
+
   const [{ data: fns }, { data: rules }] = await Promise.all([
     supabase
       .from("flow_functions")
-      .select("function_key, name, position, active")
+      .select("function_key, name, position, active, work_area, requires_client_origin" as any)
       .eq("tenant_id", tenantId)
       .eq("active", true)
+      .eq("work_area" as any, area)
       .order("position"),
     supabase
       .from("demand_type_flow_rules")
@@ -577,8 +601,10 @@ export async function getPipelineSequence(
   (rules || []).forEach((r: any) => req.set(r.function_key, r.requirement));
   return (fns as any[])
     .filter((f) => req.get(f.function_key) === "required")
+    .filter((f) => (f.requires_client_origin ? clientOrigin : true))
     .map((f) => ({ function_key: f.function_key, name: f.name }));
 }
+
 
 /**
  * Pula diretamente a demanda para uma função específica do pipeline configurado.
