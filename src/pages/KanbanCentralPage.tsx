@@ -2403,39 +2403,17 @@ const KanbanCentralPage = () => {
             const evaluateCardsSorted = [...evaluateCards].sort((a, b) =>
               (a.suggestedDate || "9999-12-31").localeCompare(b.suggestedDate || "9999-12-31"));
 
-            // --- "Em andamento" = card mais atrasado que já deveria estar sendo feito ---
-            // Considera a fila operacional inteira do colaborador; ignora cliente, captação
-            // (que tem lógica própria de pausa) e publicações já agendadas.
-            const nowTs = Date.now();
-            const startTsOf = (c: CentralKanbanCard): number => {
-              if (!c.due_date) return Number.POSITIVE_INFINITY;
-              const [y, mo, d] = c.due_date.split("-").map((x) => parseInt(x, 10));
-              const [h, mi] = ((c.due_time || "00:00").slice(0, 5)).split(":").map((x) => parseInt(x, 10));
-              return new Date(y, (mo || 1) - 1, d || 1, h || 0, mi || 0).getTime();
-            };
-            const allOperationalCards = isHistoryMode ? [] : activeColumnCards;
-            const flowCandidates = allOperationalCards.map((c) => ({
-              c,
-              tier: isReviewFunction(c.current_function_key) ? 1 : isEvaluationFunction(c.current_function_key) ? 2 : 0,
-            })).filter(({ c }) => {
-              const k = (c.current_function_key || "").toLowerCase();
-              if (isClientWaitingFunction(k) || k === "captar") return false;
-              if (activeDispatchIds.has(c.id)) return false;
-              if ((c as any).is_daily_card) return false;
-              return Number.isFinite(startTsOf(c));
-            }).sort((a, b) => {
-              const d = startTsOf(a.c) - startTsOf(b.c);
-              return d !== 0 ? d : a.tier - b.tier;
-            });
-            const startedCandidates = flowCandidates.filter(({ c }) => startTsOf(c) <= nowTs);
-            const currentFlowCardId = startedCandidates.length > 0 ? startedCandidates[0].c.id : null;
-            const nextFlowCardId = (() => {
-              if (currentFlowCardId) {
-                const idx = flowCandidates.findIndex((x) => x.c.id === currentFlowCardId);
-                return flowCandidates[idx + 1]?.c.id || null;
-              }
-              return flowCandidates[0]?.c.id || null;
-            })();
+            // --- "Em andamento" = primeiro card pendente da fila operacional deste colaborador ---
+            // A coluna só contém cards pendentes: a entrega remove o card daqui.
+            // Ver src/lib/currentWorkCard.ts para a regra completa.
+            const { currentId: currentFlowCardId, nextId: nextFlowCardId } = isHistoryMode
+              ? { currentId: null as string | null, nextId: null as string | null }
+              : resolveCurrentAndNext(activeColumnCards as any[], {
+                  now: nowTs,
+                  activeDispatchIds,
+                  deliveredStagesByCard: deliveredStagesByUser.get(columnUserId),
+                });
+
 
 
             const isAwaitingCollapsed = focusKind ? false : !expandedAwaiting.has(column.id);
