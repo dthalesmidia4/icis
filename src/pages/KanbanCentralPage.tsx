@@ -374,7 +374,7 @@ const KanbanCentralPage = () => {
     };
     run();
     return () => { cancelled = true; };
-  }, [tenantId, multiAssigneeKey]);
+  }, [tenantId, multiAssigneeKey, deliveriesRefreshKey]);
 
 
 
