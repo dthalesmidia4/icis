@@ -496,6 +496,23 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                           {p.skipped ? (
                             <span className="text-muted-foreground">{origStart}</span>
+                          ) : p.keepStart ? (
+                            <>
+                              <span className="text-muted-foreground">Em execução desde:</span>
+                              <span className="text-foreground">{newStart}</span>
+                              <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-muted-foreground">Novo término:</span>
+                              <span className="text-muted-foreground line-through">{origEnd}</span>
+                              <span className="font-semibold text-foreground">{newEnd}</span>
+                              <Badge variant="outline" className="text-[10px]">
+                                +{fmtDuration(p.extensionMin || p.durationMin)}
+                              </Badge>
+                              {p.pinned && (
+                                <Badge variant="outline" className="text-[10px] border-primary/60 text-primary">
+                                  <Pin className="h-3 w-3 mr-1" /> ajustado
+                                </Badge>
+                              )}
+                            </>
                           ) : (
                             <>
                               <span className="text-muted-foreground">Anterior:</span>
@@ -516,6 +533,13 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                             </>
                           )}
                         </div>
+                        {p.keepStart && (
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            Na etapa atual desde {p.stageStartTime ? `${formatDayLabel(p.stageStartISO)} ${p.stageStartTime}` : "—"}
+                            {p.stagePlannedMin ? ` · tempo planejado na etapa ${fmtDuration(p.stagePlannedMin)} · extensão de 30% = ${fmtDuration(p.extensionMin || 0)}` : ""}
+                          </div>
+                        )}
+
                         {isEditing && (
                           <div className="mt-2 flex flex-wrap items-end gap-2 p-2 rounded-md border border-border/60 bg-muted/30">
                             <div className="flex flex-col gap-1">
