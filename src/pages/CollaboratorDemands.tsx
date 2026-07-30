@@ -160,6 +160,11 @@ const CollaboratorDemands = () => {
           daily_total_occurrences: d.daily_total_occurrences ?? null,
           daily_completed_occurrences: d.daily_completed_occurrences ?? 0,
           daily_completed_dates: Array.isArray(d.daily_completed_dates) ? d.daily_completed_dates : [],
+          work_area: d.work_area ?? null,
+          origin: d.origin ?? "interno",
+          origin_note: d.origin_note ?? null,
+          subclient_id: d.subclient_id ?? null,
+          subclient_ids: Array.isArray(d.subclient_ids) ? d.subclient_ids : [],
         })).filter((c: any) => isDailyCardVisibleNow(c));
 
         setCards(mapped);

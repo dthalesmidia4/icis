@@ -622,6 +622,13 @@ const KanbanCentralPage = () => {
         client_wait_started_at: payload.client_wait_started_at !== undefined ? payload.client_wait_started_at : card.client_wait_started_at,
         client_resend_count: payload.client_resend_count !== undefined ? payload.client_resend_count : card.client_resend_count,
         client_last_resend_at: payload.client_last_resend_at !== undefined ? payload.client_last_resend_at : card.client_last_resend_at,
+        work_area: payload.work_area !== undefined ? payload.work_area : card.work_area,
+        origin: payload.origin !== undefined ? payload.origin : card.origin,
+        origin_note: payload.origin_note !== undefined ? payload.origin_note : card.origin_note,
+        subclient_id: payload.subclient_id !== undefined ? payload.subclient_id : card.subclient_id,
+        subclient_ids: payload.subclient_ids !== undefined
+          ? (Array.isArray(payload.subclient_ids) ? payload.subclient_ids : [])
+          : card.subclient_ids,
       });
 
       setCards(prevCards => prevCards.map(card => (card.id === demandId ? applyPayload(card) : card)));
@@ -699,6 +706,11 @@ const KanbanCentralPage = () => {
         client_wait_started_at: (data as any).client_wait_started_at ?? null,
         client_resend_count: (data as any).client_resend_count ?? 0,
         client_last_resend_at: (data as any).client_last_resend_at ?? null,
+        work_area: (data.work_area as "midia" | "sistemas" | null) ?? null,
+        origin: (data as any).origin ?? "interno",
+        origin_note: (data as any).origin_note ?? null,
+        subclient_id: (data as any).subclient_id ?? null,
+        subclient_ids: Array.isArray((data as any).subclient_ids) ? (data as any).subclient_ids : [],
       };
 
       if (data.archived_at) {

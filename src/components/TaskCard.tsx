@@ -121,6 +121,12 @@ export interface KanbanCardData {
   assigned_to?: string | null;
   additional_assignees?: string[];
   current_function_key?: string | null;
+  // Área, origem e clientes finais solicitantes (fluxo Sistemas)
+  work_area?: "midia" | "sistemas" | null;
+  origin?: string | null;
+  origin_note?: string | null;
+  subclient_id?: string | null;
+  subclient_ids?: string[];
   // Aguardando cliente
   client_wait_started_at?: string | null;
   client_resend_count?: number | null;
@@ -2104,21 +2110,27 @@ export default function TaskCard({
                   </div>
 
                   {/* Clientes finais solicitantes (só Sistemas, opcional, múltiplos) */}
-                  {(card as any).work_area === "sistemas" && (
+                  {card.work_area === "sistemas" && (
                     <>
                       <span className="text-muted-foreground/40 select-none">·</span>
                       <SubclientSelect
                         tenantId={card.tenant_id}
                         parentCompanyId={card.clientId}
                         value={
-                          (card as any).subclient_ids?.length
-                            ? (card as any).subclient_ids
-                            : (card as any).subclient_id
-                              ? [(card as any).subclient_id]
+                          card.subclient_ids?.length
+                            ? card.subclient_ids
+                            : card.subclient_id
+                              ? [card.subclient_id]
                               : []
                         }
                         disabled={readOnly}
                         onChange={async (subclientIds) => {
+                          const previousIds = card.subclient_ids?.length
+                            ? card.subclient_ids
+                            : card.subclient_id
+                              ? [card.subclient_id]
+                              : [];
+                          const previousPrimary = card.subclient_id ?? previousIds[0] ?? null;
                           const primary = subclientIds[0] ?? null;
                           onCardChange({
                             ...card,
@@ -2127,13 +2139,26 @@ export default function TaskCard({
                           } as any);
                           if (isDraft) return;
                           try {
-                            const { error } = await supabase
+                            const { data, error } = await supabase
                               .from("demands")
                               .update({ subclient_ids: subclientIds, subclient_id: primary } as any)
-                              .eq("id", card.id);
+                              .eq("id", card.id)
+                              .select("subclient_id, subclient_ids")
+                              .single();
                             if (error) throw error;
+                            const persistedIds = Array.isArray(data?.subclient_ids) ? data.subclient_ids : [];
+                            onCardChange({
+                              ...card,
+                              subclient_ids: persistedIds,
+                              subclient_id: data?.subclient_id ?? persistedIds[0] ?? null,
+                            });
                           } catch (e) {
                             console.error("[TaskCard] update subclient_ids error", e);
+                            onCardChange({
+                              ...card,
+                              subclient_ids: previousIds,
+                              subclient_id: previousPrimary,
+                            });
                             toast.error("Erro ao atualizar clientes solicitantes");
                           }
                         }}
