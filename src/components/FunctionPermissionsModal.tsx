@@ -25,7 +25,8 @@ const FUNCTIONS: { key: string; name: string }[] = [
   { key: "revisar_roteiro", name: "Revisar roteiro" },
   { key: "criar_arte", name: "Criar arte" },
   { key: "captar", name: "Captar" },
-  { key: "revisar_captacao", name: "Descarregar captação" },
+  { key: "descarregar_captacao", name: "Descarregar captação" },
+  { key: "revisar_captacao", name: "Revisar captação" },
   { key: "gerar_video", name: "Gerar vídeo" },
   { key: "editar_video", name: "Editar vídeo" },
   { key: "revisar", name: "Revisar" },
@@ -47,32 +48,32 @@ const DEMAND_TYPES: { key: string; name: string; group: DurationTypeGroup }[] = 
 const DEFAULTS: Record<string, Record<string, Requirement>> = {
   criativo_estatico: {
     planejar: "required", criar_roteiro: "disabled", revisar_roteiro: "disabled", criar_arte: "required",
-    captar: "disabled", revisar_captacao: "disabled", gerar_video: "disabled", editar_video: "disabled",
+    captar: "disabled", descarregar_captacao: "disabled", revisar_captacao: "disabled", gerar_video: "disabled", editar_video: "disabled",
     revisar: "required", enviar_cliente: "required", aguardando_cliente: "required", publicar: "required", revisar_publicacao: "required",
   },
   carrossel: {
     planejar: "required", criar_roteiro: "required", revisar_roteiro: "required", criar_arte: "required",
-    captar: "disabled", revisar_captacao: "disabled", gerar_video: "disabled", editar_video: "disabled",
+    captar: "disabled", descarregar_captacao: "disabled", revisar_captacao: "disabled", gerar_video: "disabled", editar_video: "disabled",
     revisar: "required", enviar_cliente: "required", aguardando_cliente: "required", publicar: "required", revisar_publicacao: "required",
   },
   video_captado: {
     planejar: "required", criar_roteiro: "required", revisar_roteiro: "required", criar_arte: "disabled",
-    captar: "required", revisar_captacao: "required", gerar_video: "disabled", editar_video: "required",
+    captar: "required", descarregar_captacao: "required", revisar_captacao: "required", gerar_video: "disabled", editar_video: "required",
     revisar: "required", enviar_cliente: "required", aguardando_cliente: "required", publicar: "required", revisar_publicacao: "required",
   },
   video_gerado: {
     planejar: "required", criar_roteiro: "required", revisar_roteiro: "required", criar_arte: "disabled",
-    captar: "disabled", revisar_captacao: "disabled", gerar_video: "required", editar_video: "disabled",
+    captar: "disabled", descarregar_captacao: "disabled", revisar_captacao: "disabled", gerar_video: "required", editar_video: "disabled",
     revisar: "required", enviar_cliente: "required", aguardando_cliente: "required", publicar: "required", revisar_publicacao: "required",
   },
   anuncio: {
     planejar: "required", criar_roteiro: "required", revisar_roteiro: "required", criar_arte: "required",
-    captar: "disabled", revisar_captacao: "disabled", gerar_video: "disabled", editar_video: "disabled",
+    captar: "disabled", descarregar_captacao: "disabled", revisar_captacao: "disabled", gerar_video: "disabled", editar_video: "disabled",
     revisar: "required", enviar_cliente: "required", aguardando_cliente: "required", publicar: "required", revisar_publicacao: "disabled",
   },
   outro: {
     planejar: "required", criar_roteiro: "disabled", revisar_roteiro: "disabled", criar_arte: "disabled",
-    captar: "disabled", revisar_captacao: "disabled", gerar_video: "disabled", editar_video: "disabled",
+    captar: "disabled", descarregar_captacao: "disabled", revisar_captacao: "disabled", gerar_video: "disabled", editar_video: "disabled",
     revisar: "required", enviar_cliente: "disabled", aguardando_cliente: "disabled", publicar: "disabled", revisar_publicacao: "disabled",
   },
 };
