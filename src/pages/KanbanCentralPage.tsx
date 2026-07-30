@@ -337,6 +337,7 @@ const KanbanCentralPage = () => {
   const nowTs = useNowTick(60_000);
   // Entregas já registradas por usuário/card (cards multi-responsável)
   const [deliveredStagesByUser, setDeliveredStagesByUser] = useState<Map<string, Map<string, Set<string>>>>(new Map());
+  const [deliveriesRefreshKey, setDeliveriesRefreshKey] = useState(0);
 
   // Busca as entregas já registradas apenas dos cards multi-responsável
   const multiAssigneeCardIds = useMemo(
