@@ -1097,6 +1097,7 @@ const KanbanCentralPage = () => {
         newAssignedTo,
         card.demand_type_key ?? null,
         previousFunctionKey,
+        card.id,
       );
       if (resolved) {
         nextFunctionKey = resolved;

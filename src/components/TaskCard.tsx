@@ -16,7 +16,8 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Tag } from "lucide-react";
-import { proceedDemand, regressDemand, deliverDemand, deliverMyPart, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, getPipelineSequence, jumpToFunction, type DemandTypeKey } from "@/lib/proceedDemand";
+import { recordFlowHistory } from "@/lib/flowHistory";
+import { proceedDemand, regressDemand, deliverDemand, deliverMyPart, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, getPipelineSequence, jumpToFunction, getRegressOptions, type RegressOption, type DemandTypeKey } from "@/lib/proceedDemand";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
@@ -515,7 +516,7 @@ export default function TaskCard({
     }
   };
 
-  const handleRegress = async () => {
+  const handleRegress = async (targetFunctionKey?: string | null) => {
     if (!card || regressing) return;
     if (!card.demand_type_key) {
       toast.error("Defina o tipo da demanda antes de voltar.");
@@ -528,9 +529,11 @@ export default function TaskCard({
         tenantId: card.tenant_id,
         demandTypeKey: card.demand_type_key,
         currentFunctionKey: card.current_function_key,
+        targetFunctionKey: targetFunctionKey ?? null,
       });
       if (result.success) {
         toast.success(result.message);
+        setRegressOpen(false);
         onCardChange({
           ...card,
           assigned_to: result.assignedTo || null,
@@ -712,6 +715,27 @@ export default function TaskCard({
     return () => { cancelled = true; };
   }, [open, card?.tenant_id]);
 
+  // Opções de "Voltar demanda" (etapas anteriores + quem executou cada uma)
+  const [regressOpen, setRegressOpen] = useState(false);
+  const [regressOptions, setRegressOptions] = useState<RegressOption[]>([]);
+  useEffect(() => {
+    if (!open || !card?.id || !card?.tenant_id) {
+      setRegressOptions([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const opts = await getRegressOptions(
+        card.tenant_id,
+        card.id,
+        card.demand_type_key,
+        card.current_function_key,
+      );
+      if (!cancelled) setRegressOptions(opts);
+    })();
+    return () => { cancelled = true; };
+  }, [open, card?.id, card?.tenant_id, card?.demand_type_key, card?.current_function_key]);
+
   // Partial delivery history (Captar multi-responsáveis) — quem já entregou sua parte
   const [partialDeliveries, setPartialDeliveries] = useState<
     Array<{ user_id: string; created_at: string }>
@@ -725,9 +749,10 @@ export default function TaskCard({
     (async () => {
       const { data } = await supabase
         .from("demand_flow_history")
-        .select("from_user_id, created_at")
+        .select("from_user_id, created_at, from_function_key, action")
         .eq("demand_id", card.id)
-        .eq("action", "partial_delivered")
+        .in("action", ["partial_delivered", "proceeded"])
+        .eq("from_function_key", "captar")
         .order("created_at", { ascending: true });
       if (cancelled) return;
       setPartialDeliveries(
@@ -1426,19 +1451,66 @@ export default function TaskCard({
 
                     return (
                       <div className="flex items-center gap-0 shrink-0 rounded-md bg-muted/30 px-0.5 py-0.5">
-                        {prev && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/70"
-                            onClick={handleRegress}
-                            disabled={regressing || !card.demand_type_key}
-                            title={`Voltar para ${prev.name}`}
-                          >
-                            {regressing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowLeft className="h-3.5 w-3.5" />}
-                            <span className="max-w-[110px] truncate">{prev.name}</span>
-                          </Button>
-                        )}
+                        {prev && (() => {
+                          const suggested = regressOptions.find((o) => o.suggested) || null;
+                          const label = suggested?.functionName || prev.name;
+                          return (
+                            <Popover open={regressOpen} onOpenChange={setRegressOpen}>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 gap-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/70"
+                                  disabled={regressing || !card.demand_type_key}
+                                  title="Voltar demanda para uma etapa anterior"
+                                >
+                                  {regressing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowLeft className="h-3.5 w-3.5" />}
+                                  <span className="max-w-[110px] truncate">{label}</span>
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent align="start" className="w-72 p-2">
+                                <div className="text-xs font-medium text-muted-foreground px-1 pb-1.5">
+                                  Voltar demanda para
+                                </div>
+                                <div className="space-y-0.5 max-h-72 overflow-y-auto">
+                                  {(regressOptions.length > 0
+                                    ? regressOptions
+                                    : [{ functionKey: prev.function_key, functionName: prev.name, lastUserId: null, lastUserName: null, lastAt: null, completed: false, suggested: true } as RegressOption]
+                                  ).map((opt) => (
+                                    <button
+                                      key={opt.functionKey}
+                                      type="button"
+                                      disabled={regressing}
+                                      onClick={() => handleRegress(opt.functionKey)}
+                                      className="w-full text-left px-2 py-1.5 rounded hover:bg-muted flex items-start gap-2"
+                                    >
+                                      <ArrowLeft className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                                      <span className="min-w-0 flex-1">
+                                        <span className="flex items-center gap-1.5">
+                                          <span className="text-sm truncate">{opt.functionName}</span>
+                                          {opt.suggested && (
+                                            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">sugerido</Badge>
+                                          )}
+                                          {opt.completed && (
+                                            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-emerald-500/40 text-emerald-700 dark:text-emerald-400">
+                                              já entregue
+                                            </Badge>
+                                          )}
+                                        </span>
+                                        {opt.lastUserName && (
+                                          <span className="block text-[11px] text-muted-foreground truncate">
+                                            {opt.lastUserName}
+                                            {opt.lastAt && ` · ${new Date(opt.lastAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${new Date(opt.lastAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`}
+                                          </span>
+                                        )}
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          );
+                        })()}
                         {curKey && (
                           <Popover open={stepPickerOpen} onOpenChange={setStepPickerOpen}>
                             <PopoverTrigger asChild>
@@ -1725,6 +1797,7 @@ export default function TaskCard({
                               newVal,
                               card.demand_type_key ?? null,
                               card.current_function_key ?? null,
+                              card.id,
                             );
                             if (resolved) nextFn = resolved;
                           } catch (e) { /* mantém etapa atual */ }
@@ -1740,6 +1813,17 @@ export default function TaskCard({
                               .update({ current_function_key: nextFn } as any)
                               .eq("id", card.id);
                           } catch (e) { /* noop */ }
+                        }
+                        if (!isDraft && card.tenant_id) {
+                          await recordFlowHistory({
+                            tenantId: card.tenant_id,
+                            demandId: card.id,
+                            action: "manual_assignment",
+                            fromUserId: card.assigned_to ?? null,
+                            toUserId: newVal || null,
+                            fromFunctionKey: card.current_function_key ?? null,
+                            toFunctionKey: nextFn,
+                          });
                         }
                       }}
                       disabled={readOnly}

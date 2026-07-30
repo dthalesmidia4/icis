@@ -1,5 +1,29 @@
 import { supabase } from "@/integrations/supabase/client";
 import { recordFlowHistory, recordFlowHistoryForUsers } from "@/lib/flowHistory";
+import { getStageCompletions, lastUserOfStage } from "@/lib/stageCompletions";
+
+/**
+ * Fonte da verdade da etapa atual: o banco. O valor vindo da tela pode estar
+ * desatualizado (o card muda por realtime, por outro usuário ou por trigger),
+ * e usar valor velho já causou registros de histórico em etapas erradas.
+ */
+async function resolveCurrentStage(
+  demandId: string,
+  fallback?: string | null,
+): Promise<string | null> {
+  try {
+    const { data } = await supabase
+      .from("demands")
+      .select("current_function_key")
+      .eq("id", demandId)
+      .maybeSingle();
+    const key = (data as any)?.current_function_key;
+    if (key) return key as string;
+  } catch (e) {
+    console.warn("[proceedDemand] resolveCurrentStage error:", e);
+  }
+  return fallback ?? null;
+}
 
 /**
  * Quando um card "Captar" muda de etapa, todos os `additional_assignees`
@@ -295,6 +319,7 @@ export async function jumpToFunction({
   targetFunctionKey: string;
   currentFunctionKey?: string | null;
 }): Promise<ProceedResult> {
+  currentFunctionKey = await resolveCurrentStage(demandId, currentFunctionKey);
   const seq = await getPipelineSequence(tenantId, demandTypeKey);
   const target = seq.find((f) => f.function_key === targetFunctionKey);
   if (!target) return { success: false, message: "Etapa não encontrada no fluxo." };
@@ -361,6 +386,7 @@ export async function proceedDemand({
       message: "Defina o tipo da demanda antes de prosseguir.",
     };
   }
+  currentFunctionKey = await resolveCurrentStage(demandId, currentFunctionKey);
 
   const [{ data: fns, error: fnErr }, { data: rules, error: rErr }] = await Promise.all([
     supabase
@@ -506,11 +532,13 @@ export async function regressDemand({
   tenantId,
   demandTypeKey,
   currentFunctionKey,
-}: ProceedInput): Promise<ProceedResult> {
+  targetFunctionKey,
+}: ProceedInput & { targetFunctionKey?: string | null }): Promise<ProceedResult> {
   const typeKey = coerceDemandTypeKey(demandTypeKey);
   if (!typeKey) {
     return { success: false, needsTypeKey: true, message: "Defina o tipo da demanda antes de voltar." };
   }
+  currentFunctionKey = await resolveCurrentStage(demandId, currentFunctionKey);
   if (!currentFunctionKey) {
     return { success: false, message: "Esta demanda ainda não iniciou o fluxo." };
   }
@@ -535,7 +563,16 @@ export async function regressDemand({
   if (idx <= 0) {
     return { success: false, message: "Esta demanda já está na primeira etapa do fluxo." };
   }
-  const prevFn = sequence[idx - 1] as { function_key: string; name: string };
+  let prevFn = sequence[idx - 1] as { function_key: string; name: string };
+  if (targetFunctionKey) {
+    const chosen = sequence
+      .slice(0, idx)
+      .find((f: any) => f.function_key === targetFunctionKey) as any;
+    if (!chosen) {
+      return { success: false, message: "Etapa anterior inválida para este fluxo." };
+    }
+    prevFn = chosen;
+  }
 
   // Transição especial: aguardando_cliente → enviar_cliente mantém o mesmo responsável.
   if (currentFunctionKey === "aguardando_cliente" && prevFn.function_key === "enviar_cliente") {
@@ -583,7 +620,20 @@ export async function regressDemand({
   const previousAssignee = (currentDemand as any)?.assigned_to || null;
   const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
 
-  const picked = await pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name);
+  // Ao voltar, o responsável natural é quem já executou aquela etapa.
+  let picked = await (async (): Promise<PickAssigneeResult> => {
+    const completions = await getStageCompletions(tenantId, demandId);
+    const historic = lastUserOfStage(completions, prevFn.function_key);
+    if (historic) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", historic)
+        .maybeSingle();
+      return { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador" };
+    }
+    return pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name);
+  })();
   if (!picked.success || !picked.userId) {
     return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
   }
@@ -887,3 +937,64 @@ export async function deliverMyPart(
 }
 
 
+
+export interface RegressOption {
+  functionKey: string;
+  functionName: string;
+  /** Último responsável conhecido daquela etapa (histórico). */
+  lastUserId: string | null;
+  lastUserName: string | null;
+  lastAt: string | null;
+  /** true quando a etapa já foi concluída/entregue por alguém. */
+  completed: boolean;
+  /** true quando é a sugestão padrão do botão Voltar. */
+  suggested: boolean;
+}
+
+/**
+ * Opções de "Voltar demanda": todas as etapas anteriores do fluxo, com quem as
+ * executou. A sugestão padrão é a última etapa anterior **ainda não entregue**;
+ * se todas já foram entregues, sugere a imediatamente anterior.
+ */
+export async function getRegressOptions(
+  tenantId: string,
+  demandId: string,
+  demandTypeKey?: string | null,
+  currentFunctionKey?: string | null,
+): Promise<RegressOption[]> {
+  const seq = await getPipelineSequence(tenantId, demandTypeKey);
+  if (seq.length === 0) return [];
+  const curKey = await resolveCurrentStage(demandId, currentFunctionKey);
+  const idx = seq.findIndex((f) => f.function_key === curKey);
+  if (idx <= 0) return [];
+  const previous = seq.slice(0, idx);
+
+  const completions = await getStageCompletions(tenantId, demandId);
+  const userIds = Array.from(
+    new Set(previous.map((f) => lastUserOfStage(completions, f.function_key)).filter(Boolean) as string[]),
+  );
+  const nameById = new Map<string, string>();
+  if (userIds.length > 0) {
+    const { data } = await supabase.from("profiles").select("id, full_name").in("id", userIds);
+    (data as any[] | null)?.forEach((p) => nameById.set(p.id, p.full_name || "Colaborador"));
+  }
+
+  const pendingIdx = [...previous]
+    .map((f, i) => ({ f, i }))
+    .reverse()
+    .find(({ f }) => !completions.has(f.function_key))?.i;
+  const suggestedIdx = pendingIdx ?? previous.length - 1;
+
+  return previous.map((f, i) => {
+    const uid = lastUserOfStage(completions, f.function_key);
+    return {
+      functionKey: f.function_key,
+      functionName: f.name,
+      lastUserId: uid,
+      lastUserName: uid ? nameById.get(uid) || "Colaborador" : null,
+      lastAt: completions.get(f.function_key)?.lastAt ?? null,
+      completed: completions.has(f.function_key),
+      suggested: i === suggestedIdx,
+    };
+  });
+}
