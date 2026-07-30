@@ -623,8 +623,34 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                                     />
                                   </div>
                                   <div className="flex flex-col gap-1">
+                                    <Label className="text-[10px] text-muted-foreground">Término</Label>
+                                    <Input
+                                      type="date"
+                                      className="h-8 w-[9.5rem] text-xs"
+                                      value={draft.endDate}
+                                      onChange={(e) =>
+                                        setDraft((d) => ({ ...d, endDate: e.target.value, endEdited: true, durMode: "auto" }))
+                                      }
+                                    />
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <Label className="text-[10px] text-muted-foreground">Hora</Label>
+                                    <Input
+                                      type="time"
+                                      className="h-8 w-[6.5rem] text-xs"
+                                      value={draft.endTime}
+                                      onChange={(e) =>
+                                        setDraft((d) => ({ ...d, endTime: e.target.value, endEdited: true, durMode: "auto" }))
+                                      }
+                                    />
+                                  </div>
+                                  <div className="flex flex-col gap-1">
                                     <Label className="text-[10px] text-muted-foreground">
-                                      Duração — ajustada ao expediente e à área
+                                      {draft.durMode === "manual"
+                                        ? "Duração (min) — manual"
+                                        : draft.endEdited
+                                          ? "Duração — derivada do término"
+                                          : "Duração — ajustada ao expediente e à área"}
                                     </Label>
                                     <div className="flex items-center gap-1">
                                       <Input
@@ -635,7 +661,12 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                                         className="h-8 w-[6.5rem] text-xs"
                                         value={draft.duration}
                                         onChange={(e) =>
-                                          setDraft((d) => ({ ...d, duration: e.target.value, durMode: "manual" }))
+                                          setDraft((d) => ({
+                                            ...d,
+                                            duration: e.target.value,
+                                            durMode: "manual",
+                                            endEdited: false,
+                                          }))
                                         }
                                       />
                                       <Button
@@ -647,6 +678,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                                             ...d,
                                             durMode: d.durMode === "auto" ? "manual" : "auto",
                                             duration: d.durMode === "manual" ? String(p.durationMin) : d.duration,
+                                            endEdited: d.durMode === "auto" ? false : d.endEdited,
                                           }))
                                         }
                                       >
