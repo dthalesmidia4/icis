@@ -2856,11 +2856,12 @@ const KanbanCentralPage = () => {
                                     }
                                   : null;
                                 return (
-                                  <Draggable
-                                    key={card.id}
-                                    draggableId={card.id}
-                                    index={index}
-                                  >
+                                   <Draggable
+                                     key={`${card.id}${(card as any)._historyStage ? `::${(card as any)._historyStage}` : ""}`}
+                                     draggableId={`${card.id}${(card as any)._historyStage ? `::${(card as any)._historyStage}` : ""}`}
+                                     index={index}
+                                     isDragDisabled={isHistoryMode}
+                                   >
                                     {(provided, snapshot) => {
                                       const isHistory = isHistoryMode;
                                       const currentOwnerName = isHistory
