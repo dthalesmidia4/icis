@@ -77,6 +77,21 @@ const routeConfig: Record<string, BreadcrumbConfig> = {
       { label: 'Visão Geral', icon: LayoutGrid }
     ]
   },
+  '/customer-success-sistemas': {
+    items: [
+      { label: 'Home', href: '/home', icon: Home },
+      { label: 'Visão Geral', href: '/kanban-central', icon: LayoutGrid },
+      { label: 'Customer Success', icon: HeartPulse }
+    ]
+  },
+  '/clientes-sistemas': {
+    items: [
+      { label: 'Home', href: '/home', icon: Home },
+      { label: 'Visão Geral', href: '/kanban-central', icon: LayoutGrid },
+      { label: 'Customer Success', href: '/customer-success-sistemas', icon: HeartPulse },
+      { label: 'Clientes Sistemas', icon: Building2 }
+    ]
+  },
   '/scheduled': {
     items: [
       { label: 'Home', href: '/home', icon: Home },
