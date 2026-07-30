@@ -302,6 +302,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
           demand_type_name: demandName,
           function_key: fnKey,
           requirement: next,
+          work_area: area,
         },
         { onConflict: "tenant_id,demand_type_key,function_key" }
       );
