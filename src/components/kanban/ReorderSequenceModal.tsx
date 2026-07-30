@@ -63,11 +63,14 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   // Instante-base congelado por abertura do modal: evita que a proposta "ande" sozinha
   // a cada re-render do Kanban (realtime / tick de relógio).
   const [startFrom, setStartFrom] = useState<Date | null>(null);
+  // Entrada de cada card na etapa atual (histórico de fluxo): base do cálculo de atraso.
+  const [stageStarts, setStageStarts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (open) setStartFrom((prev) => prev ?? new Date());
     else setStartFrom(null);
   }, [open]);
+
 
   // Assinatura estável dos cards: só recalcula quando algo relevante muda de fato.
   const cardsSignature = useMemo(
@@ -104,6 +107,33 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     });
     return () => { cancelled = true; };
   }, [open, tenantId]);
+
+  // Busca a entrada na etapa atual de cada card (histórico de fluxo).
+  useEffect(() => {
+    if (!open || cards.length === 0) {
+      setStageStarts({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("demand_flow_history")
+        .select("demand_id, to_function_key, created_at")
+        .in("demand_id", cards.map((c) => c.id))
+        .order("created_at", { ascending: true });
+      if (cancelled || error || !data) return;
+      const byCard: Record<string, string> = {};
+      const stageOf = new Map(cards.map((c) => [c.id, (c.current_function_key || "").trim()]));
+      for (const row of data as Array<{ demand_id: string; to_function_key: string | null; created_at: string }>) {
+        const stage = stageOf.get(row.demand_id);
+        if (!stage || (row.to_function_key || "").trim() !== stage) continue;
+        byCard[row.demand_id] = row.created_at; // último registro vence (ordem crescente)
+      }
+      setStageStarts(byCard);
+    })();
+    return () => { cancelled = true; };
+  }, [open, cardsSignature]);
+
 
   // Carrega alocação por área do colaborador da coluna
   useEffect(() => {
@@ -157,11 +187,14 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     }
   }, [prioritizeByPublish, storageKey]);
 
+  const stageStartsSignature = useMemo(() => JSON.stringify(stageStarts), [stageStarts]);
+
   useEffect(() => {
     if (!open || !startFrom) return;
     let cancelled = false;
     setLoading(true);
-    computeReorder(cards, { startFrom, workHours, durations, areaSchedule, scheduledPublishIds, manualOverrides, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
+    const enriched = cards.map((c) => ({ ...c, stage_started_at: stageStarts[c.id] ?? null }));
+    computeReorder(enriched, { startFrom, workHours, durations, areaSchedule, scheduledPublishIds, manualOverrides, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
       .then((r) => {
         if (!cancelled) setProposals(r);
       })
@@ -176,7 +209,8 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, startFrom, cardsSignature, workHoursSignature, durationsSignature, areaSignature, publishIdsSignature, prioritizeByPublish, showPublishToggle, manualOverrides]);
+  }, [open, startFrom, cardsSignature, stageStartsSignature, workHoursSignature, durationsSignature, areaSignature, publishIdsSignature, prioritizeByPublish, showPublishToggle, manualOverrides]);
+
 
   // Limpa ajustes manuais ao fechar o modal
   useEffect(() => {
@@ -462,6 +496,23 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                           {p.skipped ? (
                             <span className="text-muted-foreground">{origStart}</span>
+                          ) : p.keepStart ? (
+                            <>
+                              <span className="text-muted-foreground">Em execução desde:</span>
+                              <span className="text-foreground">{newStart}</span>
+                              <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-muted-foreground">Novo término:</span>
+                              <span className="text-muted-foreground line-through">{origEnd}</span>
+                              <span className="font-semibold text-foreground">{newEnd}</span>
+                              <Badge variant="outline" className="text-[10px]">
+                                +{fmtDuration(p.extensionMin || p.durationMin)}
+                              </Badge>
+                              {p.pinned && (
+                                <Badge variant="outline" className="text-[10px] border-primary/60 text-primary">
+                                  <Pin className="h-3 w-3 mr-1" /> ajustado
+                                </Badge>
+                              )}
+                            </>
                           ) : (
                             <>
                               <span className="text-muted-foreground">Anterior:</span>
@@ -482,6 +533,13 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                             </>
                           )}
                         </div>
+                        {p.keepStart && (
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            Na etapa atual desde {p.stageStartISO && p.stageStartTime ? `${fmtDate(p.stageStartISO)} ${p.stageStartTime}` : "—"}
+                            {p.stagePlannedMin ? ` · tempo planejado na etapa ${fmtDuration(p.stagePlannedMin)} · extensão de 30% = ${fmtDuration(p.extensionMin || 0)}` : ""}
+                          </div>
+                        )}
+
                         {isEditing && (
                           <div className="mt-2 flex flex-wrap items-end gap-2 p-2 rounded-md border border-border/60 bg-muted/30">
                             <div className="flex flex-col gap-1">

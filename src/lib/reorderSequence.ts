@@ -52,6 +52,8 @@ export interface ReorderCardInput {
   current_function_key?: string | null;
   work_area?: ReorderWorkArea | null;
   updated_at?: string | null;
+  /** Instante (ISO) em que o card entrou na etapa atual — base do cálculo de atraso. */
+  stage_started_at?: string | null;
 }
 
 
@@ -70,6 +72,12 @@ export interface ReorderProposal {
   spansDays?: number;
   slackApplied?: boolean;
   pinned?: boolean;
+  /** Card atrasado em execução: início histórico preservado, só o término é recalculado. */
+  keepStart?: boolean;
+  stageStartISO?: string | null;
+  stageStartTime?: string | null;
+  stagePlannedMin?: number | null;
+  extensionMin?: number | null;
   pausedByCaptar?: {
     atISO: string;
     atTime: string;
@@ -389,27 +397,27 @@ function nextBlockedStartInDay(
 // ------------------------------------------------------------------
 
 /**
- * Minutos ÚTEIS entre due e delivery: soma apenas a interseção com os blocos
- * de expediente de cada dia (respeita almoço, área mídia×sistemas), ignorando
+ * Minutos ÚTEIS entre dois instantes: soma apenas a interseção com os blocos de
+ * expediente de cada dia (respeita almoço, área mídia×sistemas), ignorando
  * noites, fins de semana e feriados.
  */
-function scheduledSpanMinutes(card: ReorderCardInput, ctx: WorkCtx): number | null {
-  if (!card.due_date || !card.due_time || !card.delivery_date || !card.delivery_time) return null;
-  const due = toVirtualUtc(card.due_date, card.due_time.slice(0, 5));
-  const deliv = toVirtualUtc(card.delivery_date, card.delivery_time.slice(0, 5));
-  if (!(deliv > due)) return null;
-
-  const area = card.work_area === "midia" || card.work_area === "sistemas" ? card.work_area : null;
+function businessMinutesBetween(
+  from: Date,
+  to: Date,
+  area: ReorderWorkArea | null,
+  ctx: WorkCtx,
+): number {
+  if (!(to > from)) return 0;
   let total = 0;
-  const cur = new Date(due);
+  const cur = new Date(from);
   cur.setUTCHours(0, 0, 0, 0);
-  const endDay = new Date(deliv);
+  const endDay = new Date(to);
   endDay.setUTCHours(0, 0, 0, 0);
 
   for (let guard = 0; guard < 400 && cur <= endDay; guard++) {
     if (!isNonWorkingDay(cur, ctx.holidays)) {
-      const dayStartMin = isoDate(cur) === isoDate(due) ? due.getUTCHours() * 60 + due.getUTCMinutes() : 0;
-      const dayEndMin = isoDate(cur) === isoDate(deliv) ? deliv.getUTCHours() * 60 + deliv.getUTCMinutes() : 24 * 60;
+      const dayStartMin = isoDate(cur) === isoDate(from) ? from.getUTCHours() * 60 + from.getUTCMinutes() : 0;
+      const dayEndMin = isoDate(cur) === isoDate(to) ? to.getUTCHours() * 60 + to.getUTCMinutes() : 24 * 60;
       for (const b of dayBlocks(cur, area, ctx)) {
         const s = Math.max(b.s, dayStartMin);
         const e = Math.min(b.e, dayEndMin);
@@ -418,10 +426,64 @@ function scheduledSpanMinutes(card: ReorderCardInput, ctx: WorkCtx): number | nu
     }
     cur.setUTCDate(cur.getUTCDate() + 1);
   }
+  return total;
+}
 
+function cardArea(card: ReorderCardInput): ReorderWorkArea | null {
+  return card.work_area === "midia" || card.work_area === "sistemas" ? card.work_area : null;
+}
+
+/** Formata minutos como "4h20" / "45min" para os avisos do reorganizador. */
+export function fmtMinutes(min: number): string {
+  const total = Math.max(0, Math.round(min));
+  if (total < 60) return `${total}min`;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, "0")}`;
+}
+
+
+function scheduledSpanMinutes(card: ReorderCardInput, ctx: WorkCtx): number | null {
+  if (!card.due_date || !card.due_time || !card.delivery_date || !card.delivery_time) return null;
+  const due = toVirtualUtc(card.due_date, card.due_time.slice(0, 5));
+  const deliv = toVirtualUtc(card.delivery_date, card.delivery_time.slice(0, 5));
+  if (!(deliv > due)) return null;
+  const total = businessMinutesBetween(due, deliv, cardArea(card), ctx);
   if (total <= 0) return null;
   return Math.max(5, total);
 }
+
+/**
+ * Instante em que o card entrou na etapa atual, no relógio virtual do expediente.
+ * A base é o mais recente entre a entrada na etapa e o início registrado do card;
+ * assim, ao trocar de etapa o acumulado das etapas anteriores deixa de contar.
+ */
+function stageBaseStart(card: ReorderCardInput, tz: string): Date | null {
+  const origStart = card.due_date && card.due_time
+    ? toVirtualUtc(card.due_date, card.due_time.slice(0, 5))
+    : null;
+  let stageStart: Date | null = null;
+  if (card.stage_started_at) {
+    const parsed = new Date(card.stage_started_at);
+    if (!Number.isNaN(parsed.getTime())) stageStart = toZonedVirtualUtc(parsed, tz);
+  }
+  if (origStart && stageStart) return stageStart > origStart ? stageStart : origStart;
+  return stageStart ?? origStart;
+}
+
+/**
+ * Tempo útil já planejado DENTRO da etapa atual (entre a base da etapa e o
+ * término previsto). Sem teto de jornada: uma etapa pode legitimamente ocupar
+ * vários dias, e cortar isso reduziria 14h25 a poucos minutos.
+ */
+function stagePlannedMinutes(card: ReorderCardInput, ctx: WorkCtx, tz: string): number | null {
+  const base = stageBaseStart(card, tz);
+  const end = cardDeadline(card);
+  if (!base || !end || !(end > base)) return null;
+  const total = businessMinutesBetween(base, end, cardArea(card), ctx);
+  return total > 0 ? total : null;
+}
+
 
 
 export type StageDurationOverrides = Record<string, Partial<Record<DurationTypeGroup, number>>>;
@@ -677,9 +739,24 @@ export async function computeReorder(
     let treatAsStuck = false;
     if (inProgressFirst && origEnd && origEnd < now) treatAsStuck = true;
 
+    // Card atrasado em execução: o esforço da ETAPA ATUAL é a base da extensão.
+    // A folga de 30% incide sobre o tempo útil já planejado dentro da etapa
+    // (não sobre a estimativa genérica, nem sobre a vida inteira do card).
+    const stageBase = treatAsStuck ? stageBaseStart(card, wh.tz) : null;
+    const stagePlanned = treatAsStuck ? stagePlannedMinutes(card, ctx, wh.tz) : null;
+    let extensionMin: number | null = null;
+    let keepStart = false;
+
     if (treatAsStuck) {
-      const slack = Math.round(baseDur * 0.30);
-      dur = baseDur + slack;
+      if (stagePlanned && stagePlanned > baseDur) {
+        extensionMin = Math.max(5, Math.round((stagePlanned * 0.30) / 5) * 5);
+        dur = extensionMin;
+        keepStart = true;
+      } else {
+        const slack = Math.round(baseDur * 0.30);
+        dur = baseDur + slack;
+        extensionMin = slack;
+      }
       slackApplied = true;
     }
 
@@ -690,19 +767,29 @@ export async function computeReorder(
     if (pinnedStart) {
       // Início fixado manualmente: aloca exatamente ali (ainda fatiando entre blocos de expediente).
       ({ start, end, daysSpanned } = allocateAcrossDays(pinnedStart, dur, area, ctx, undefined));
+      keepStart = false;
     } else {
       ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
     }
 
+    // Atrasado em execução: preserva o início histórico apenas na exibição/gravação.
+    // O intervalo realmente ocupado na agenda é o da extensão (allocStart → end).
+    const allocStart = new Date(start);
+    if (keepStart && origStart) {
+      start = new Date(origStart);
+    }
+
+
     // Um card em andamento com término futuro já consumiu parte do esforço.
     // Preserva o término vigente e agenda somente o tempo restante desde agora,
     // inclusive para intervalos antigos invertidos (como 14:35 → 14:00).
-    if (inProgressFirst && origEnd && origEnd > now && isoDate(origEnd) === isoDate(now)) {
+    if (!treatAsStuck && inProgressFirst && origEnd && origEnd > now && isoDate(origEnd) === isoDate(now)) {
       start = new Date(now);
       end = origEnd;
       dur = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
       daysSpanned = 1;
     }
+
 
 
 
@@ -716,14 +803,17 @@ export async function computeReorder(
       reserve.setUTCHours(reserve.getUTCHours() - 1);
       if (end > reserve) warning = "Termina após o prazo de publicação recomendado.";
     }
-    if (daysSpanned > 1) {
+    if (daysSpanned > 1 && !keepStart) {
       const extra = `Se estende por ${daysSpanned} dias úteis.`;
       warning = warning ? `${warning} ${extra}` : extra;
     }
     if (slackApplied) {
-      const extra = "Tempo extra aplicado (atraso + folga).";
+      const extra = keepStart
+        ? `Atrasado: extensão de 30% do tempo da etapa (+${fmtMinutes(extensionMin || 0)}).`
+        : "Tempo extra aplicado (atraso + folga).";
       warning = warning ? `${warning} ${extra}` : extra;
     }
+
 
     const startISO = isoDate(start);
     const startTime = hhmm(start);
@@ -741,7 +831,7 @@ export async function computeReorder(
     let pausedByCaptar: ReorderProposal["pausedByCaptar"] = null;
     for (const b of blocked) {
       if (b.kind !== "captar" || !b.cardId) continue;
-      if (b.start >= start && b.start < end) {
+      if (b.start >= allocStart && b.start < end) {
         pausedByCaptar = {
           atISO: isoDate(b.start),
           atTime: hhmm(b.start),
@@ -766,11 +856,17 @@ export async function computeReorder(
       spansDays: daysSpanned,
       slackApplied,
       pinned: !!pinnedStart,
+      keepStart,
+      stageStartISO: stageBase ? isoDate(stageBase) : null,
+      stageStartTime: stageBase ? hhmm(stageBase) : null,
+      stagePlannedMin: stagePlanned ?? null,
+      extensionMin,
       pausedByCaptar,
     });
 
+
     // Adiciona intervalo recém-alocado à lista de bloqueados para o próximo card.
-    blocked.push({ start, end });
+    blocked.push({ start: allocStart, end });
     blocked.sort((a, b) => a.start.getTime() - b.start.getTime());
 
     // Próximo cursor: 5min após o fim do card (o skipBlocked cuidará de intervalos futuros).
