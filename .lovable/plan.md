@@ -1,38 +1,35 @@
-## Situação atual (confirmada no código)
+## Situação atual (verificada)
 
-Em `ReorderSequenceModal.tsx` o formulário "Ajustar" tem dois caminhos:
+- `flow_functions` (tenant Mídia) tem: planejar(0) → criar_roteiro(1) → criar_arte(2) → captar(3) → revisar_captacao(4) → gerar_video(5) → editar_video(6) → revisar(7) → enviar_cliente(8) → aguardando_cliente(9) → publicar(10) → revisar_publicacao(11). **Não existe `revisar_roteiro`.**
+- `proceedDemand()` sempre escolhe o próximo responsável por `pickAssigneeForFunction` (menor carga), **nunca mantém a pessoa atual** e **nunca pula etapa**. Ou seja: hoje o mesmo colaborador pode acabar revisando o próprio trabalho, e não existe "sticky" para quem já é responsável pela etapa seguinte.
+- `demand_type_flow_rules` define required/disabled por tipo (`criar_roteiro` é required em vídeo captado, vídeo gerado e anúncio; disabled em carrossel/estático/outro).
 
-- Card em execução (`p.keepStart`): pede apenas **novo término** — correto, o início não deve mudar.
-- Demais cards: pede **Início (data + hora)** e **Duração**. Não existe campo de término; a duração vem da estimativa do tipo (ex.: 3h) e só muda se você entrar no modo manual e digitar minutos.
+## O que será feito
 
-Em `computeReorder` (`src/lib/reorderSequence.ts`), quando existe `startISO`, o `endISO` do ajuste é ignorado: o término é sempre `início + duração`.
+### 1. Nova etapa `revisar_roteiro` (banco)
+- Inserir função `revisar_roteiro` — "Revisar roteiro" — logo após `criar_roteiro` (reposicionando as demais).
+- Inserir regras em `demand_type_flow_rules`: `required` exatamente nos tipos em que `criar_roteiro` é required; `disabled` nos outros.
+- Semear `collaborator_function_assignments` de `revisar_roteiro` para quem já tem `revisar` permitido (senão a etapa fica sem candidatos).
 
-## Correção
+### 2. Inteligência de atribuição no `proceedDemand`
+Duas regras novas, aplicadas ao calcular a próxima etapa:
 
-### 1. Campo de término nos cards não-em-execução
-No formulário de ajuste dos cards posteriores, além de Início (data + hora), passam a existir **Término (data + hora)**, pré-preenchidos com a proposta atual.
+- **Sticky em etapas de produção** (`criar_roteiro`, `criar_arte`, `captar`, `gerar_video`, `editar_video`, `enviar_cliente`, `publicar`): se o responsável atual (ou um dos `additional_assignees`) já tem essa função permitida, o card **fica com ele** em vez de sortear por carga. Caso contrário, mantém a escolha por menor carga.
+- **Revisão nunca é auto-revisão** (`revisar_roteiro`, `revisar_captacao`, `revisar`, `revisar_publicacao`): o candidato escolhido exclui quem executou a etapa anterior (responsável + entregas parciais registradas em `demand_flow_history`). Se sobrar candidato → vai para ele; **se o único candidato possível for o próprio executor → a etapa de revisão é pulada** e o fluxo avança para a etapa seguinte (com a mesma lógica, em cascata, registrando no histórico `action: proceeded` com `metadata.skipped: ["revisar_roteiro"]`).
 
-- Ao mudar o término, a **duração passa a ser derivada** do intervalo útil entre início e término (expediente + área + folgas) e o campo Duração fica somente-leitura com rótulo "auto (derivada do término)".
-- O modo Duração manual continua disponível: ao digitar minutos, o término é recalculado a partir do início e o campo de término fica derivado. Ou seja, você fixa **término OU duração** — o último editado manda, e um botão "voltar para automática" volta tudo à estimativa da etapa.
+Isso reproduz exatamente o exemplo: Lúcia cria (planejar) → prosseguir vai para `criar_roteiro` e **fica com ela** se ela tiver a função; se só outra pessoa tem, vai para essa pessoa; essa pessoa prossegue → `revisar_roteiro` cai na Lúcia (revisor diferente do executor); se a Lúcia mesma tivesse feito o roteiro e fosse a única revisora, a revisão é pulada.
 
-### 2. Validações
-- Término precisa ser posterior ao início; caso contrário o ajuste é rejeitado com mensagem no modal.
-- Término no passado (anterior ao instante-base) é rejeitado, como já ocorre nos cards em execução.
-- Início anterior ao instante-base continua sendo deslocado para o próximo horário útil com aviso.
+### 3. Pontas soltas que serão tratadas (do levantamento do fluxo)
+- `aguardando_cliente` e `publicar` continuam com o tratamento especial existente (mantêm responsável / carimbam envio) — o sticky não altera esse caminho.
+- `regressDemand` / popover "Voltar demanda": passa a considerar `revisar_roteiro` na sequência e continua respeitando etapas já concluídas por usuário (`stageCompletions`).
+- `resolveFunctionForAssignee` (troca manual de responsável) recebe a mesma exclusão de auto-revisão, para não empurrar alguém para revisar o próprio trabalho.
+- `AwaitingClientActions` e o atalho "Cliente aprovou · enviar para X" usam `getPipelineSequence`, que passa a incluir a etapa nova — o rótulo continua correto.
+- `reorderSequence` / durações por etapa: `revisar_roteiro` herda a duração padrão de revisão (mesmo tratamento de `revisar_captacao`); nada bloqueia a alocação.
+- Cards já existentes em `criar_roteiro` continuam válidos: ao prosseguir, passam pela nova etapa (ou pulam, conforme a regra).
+- Etapas de revisão pulada não geram entrega falsa: nenhum `partial_delivered` é gravado para etapa não executada.
 
-### 3. Motor de reorganização
-- `computeReorder` passa a aceitar `startISO+startTime` **e** `endISO+endTime` no mesmo override: novo caminho `pinnedKind: "both"` — início fixado (com clamp no agora), término fixado, e `durationMin` calculado por `businessMinutesBetween(start, end)`.
-- Os cards seguintes continuam partindo do término desse card (cursor nunca retrocede), então a cascata automática se mantém.
-- Selo do card passa a mostrar "início e término ajustados" quando ambos foram fixados.
-
-## Detalhes técnicos
-
-- `ReorderManualOverride`: já possui `startISO/startTime/endISO/endTime/durationMin`; a mudança é permitir a combinação start+end em vez de tratá-las como exclusivas.
-- No modal, o estado `draft` reutiliza `endDate/endTime` também no ramo não-`keepStart`, e ganha `pin: "duration" | "end"` para saber qual dos dois o usuário fixou por último.
-- Rótulo da duração exibe o valor calculado em cinza quando derivada.
-
-## Validação
-
-- Card 2 do exemplo (início 30/07 17:05): mudar término para 31/07 09:00 recalcula a duração para o tempo útil correspondente e empurra o card 3 a partir de 09:00 de 31/07.
-- Digitar duração manual continua funcionando e recalcula o término.
-- Card 1 (em execução) mantém o comportamento atual: só término editável.
+### Técnico
+- Migração SQL: insert em `flow_functions`, reposicionamento, inserts em `demand_type_flow_rules` e `collaborator_function_assignments` (com GRANTs já existentes nas tabelas).
+- `src/lib/flowFunctions.ts`: `isReviewFunction` passa a reconhecer `revisar_roteiro` (já cobre via prefixo `revis`), e novo helper `isProductionFunction`.
+- `src/lib/proceedDemand.ts`: nova função interna `resolveNextStageAndAssignee()` com sticky + skip em cascata, usada por `proceedDemand` e `jumpToFunction`.
+- `src/lib/initialFlowFunction.ts`: exclusão de auto-revisão em `resolveFunctionForAssignee`.
