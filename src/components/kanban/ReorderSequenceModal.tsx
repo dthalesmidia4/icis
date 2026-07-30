@@ -697,25 +697,32 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                                 Aplicar ajuste
                               </Button>
 
-                            {manualOverrides[p.id] && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 text-muted-foreground"
-                                onClick={() => {
-                                  setManualOverrides((prev) => {
-                                    const next = { ...prev };
-                                    delete next[p.id];
-                                    return next;
-                                  });
-                                  setEditingId(null);
-                                }}
-                              >
-                                Remover ajuste
-                              </Button>
-                            )}
+                              {manualOverrides[p.id] && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 text-muted-foreground"
+                                  onClick={() => {
+                                    setManualOverrides((prev) => {
+                                      const next = { ...prev };
+                                      delete next[p.id];
+                                      return next;
+                                    });
+                                    setEditingId(null);
+                                  }}
+                                >
+                                  Remover ajuste
+                                </Button>
+                              )}
+                            </div>
+                            <p className="mt-1.5 text-[10px] text-muted-foreground">
+                              {p.keepStart
+                                ? "Card em execução: o início histórico é preservado; apenas o término é recalculado."
+                                : "A duração automática segue a estimativa da etapa, o expediente da área e as folgas."}
+                            </p>
                           </div>
                         )}
+
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
 
                           {p.spansDays && p.spansDays > 1 && (
