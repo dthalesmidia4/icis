@@ -208,12 +208,44 @@ async function clearAdditionalAssignees(demandId: string): Promise<void> {
  * Chaves técnicas oficiais de tipo de demanda. Usadas pelo botão Prosseguir
  * e por `demand_type_flow_rules`. Nunca inventar novas keys aqui.
  */
-export type DemandTypeKey =
+export type MediaDemandTypeKey =
   | "criativo_estatico"
   | "carrossel"
   | "video_captado"
   | "video_gerado"
   | "outro";
+
+export type SystemsDemandTypeKey =
+  | "bug_n1"
+  | "bug_n2"
+  | "bug_n3"
+  | "desenvolvimento"
+  | "melhoria"
+  | "suporte";
+
+export type DemandTypeKey = MediaDemandTypeKey | SystemsDemandTypeKey;
+
+/** Origem da demanda — define se o fluxo passa pelas etapas de cliente. */
+export type DemandOrigin = "interno" | "cliente_solicitacao" | "cliente_feedback" | "suporte";
+
+export const DEMAND_ORIGINS: { key: DemandOrigin; label: string; description: string }[] = [
+  { key: "interno", label: "Interna", description: "Ideia ou manutenção da própria equipe" },
+  { key: "cliente_solicitacao", label: "Solicitação do cliente", description: "O cliente pediu" },
+  { key: "cliente_feedback", label: "Feedback coletado", description: "Veio de visita, reunião ou feedback" },
+  { key: "suporte", label: "Suporte", description: "Chamado ou incidente do cliente" },
+];
+
+export const DEMAND_ORIGIN_LABEL: Record<DemandOrigin, string> = {
+  interno: "Interna",
+  cliente_solicitacao: "Solicitação do cliente",
+  cliente_feedback: "Feedback coletado",
+  suporte: "Suporte",
+};
+
+export function isClientOrigin(origin?: string | null): boolean {
+  const o = (origin || "interno") as DemandOrigin;
+  return o !== "interno";
+}
 
 export const OFFICIAL_DEMAND_TYPES: { key: DemandTypeKey; label: string }[] = [
   { key: "criativo_estatico", label: "Criativo estático" },
@@ -223,16 +255,36 @@ export const OFFICIAL_DEMAND_TYPES: { key: DemandTypeKey; label: string }[] = [
   { key: "outro", label: "Outro" },
 ];
 
+export const SYSTEMS_DEMAND_TYPES: { key: DemandTypeKey; label: string }[] = [
+  { key: "bug_n1", label: "Bug nível 1" },
+  { key: "bug_n2", label: "Bug nível 2" },
+  { key: "bug_n3", label: "Bug nível 3" },
+  { key: "desenvolvimento", label: "Desenvolvimento" },
+  { key: "melhoria", label: "Melhoria" },
+  { key: "suporte", label: "Suporte" },
+];
+
+/** Tipos disponíveis para uma área de trabalho. */
+export function demandTypesForArea(workArea?: string | null): { key: DemandTypeKey; label: string }[] {
+  return workArea === "sistemas" ? SYSTEMS_DEMAND_TYPES : OFFICIAL_DEMAND_TYPES;
+}
+
 export const DEMAND_TYPE_LABEL: Record<DemandTypeKey, string> = {
   criativo_estatico: "Criativo estático",
   carrossel: "Carrossel",
   video_captado: "Vídeo captado",
   video_gerado: "Vídeo gerado",
   outro: "Outro",
+  bug_n1: "Bug nível 1",
+  bug_n2: "Bug nível 2",
+  bug_n3: "Bug nível 3",
+  desenvolvimento: "Desenvolvimento",
+  melhoria: "Melhoria",
+  suporte: "Suporte",
 };
 
 /**
- * Normaliza texto livre de tipo (vindo da IA/usuário) para uma das 4 keys
+ * Normaliza texto livre de tipo (vindo da IA/usuário) para uma das keys
  * oficiais — ou `null` quando não houver certeza.
  *
  * Segurança: nunca faz fallback silencioso para `criativo_estatico`.
@@ -261,21 +313,46 @@ export function normalizeDemandTypeKey(text?: string | null): DemandTypeKey | nu
   return null;
 }
 
-/** Aceita apenas uma das 4 keys oficiais; caso contrário retorna null. */
+const ALL_TYPE_KEYS = new Set<string>([
+  ...OFFICIAL_DEMAND_TYPES.map((t) => t.key),
+  ...SYSTEMS_DEMAND_TYPES.map((t) => t.key),
+]);
+
+/** Aceita apenas uma das keys oficiais; caso contrário retorna null. */
 export function coerceDemandTypeKey(value?: string | null): DemandTypeKey | null {
   if (!value) return null;
-  const v = String(value).trim() as DemandTypeKey;
-  if (
-    v === "criativo_estatico" ||
-    v === "carrossel" ||
-    v === "video_captado" ||
-    v === "video_gerado" ||
-    v === "outro"
-  ) {
-    return v;
-  }
-  return null;
+  const v = String(value).trim();
+  return ALL_TYPE_KEYS.has(v) ? (v as DemandTypeKey) : null;
 }
+
+export interface DemandFlowMeta {
+  workArea: "midia" | "sistemas";
+  origin: DemandOrigin;
+  typeKey: DemandTypeKey | null;
+}
+
+/**
+ * Área e origem da demanda — determinam qual conjunto de etapas vale e se as
+ * etapas de cliente (`requires_client_origin`) entram no fluxo.
+ */
+export async function getDemandFlowMeta(demandId: string): Promise<DemandFlowMeta> {
+  try {
+    const { data } = await supabase
+      .from("demands")
+      .select("work_area, origin, demand_type_key" as any)
+      .eq("id", demandId)
+      .maybeSingle();
+    const d: any = data || {};
+    return {
+      workArea: d.work_area === "sistemas" ? "sistemas" : "midia",
+      origin: (d.origin || "interno") as DemandOrigin,
+      typeKey: coerceDemandTypeKey(d.demand_type_key),
+    };
+  } catch {
+    return { workArea: "midia", origin: "interno", typeKey: null };
+  }
+}
+
 
 export interface ProceedResult {
   success: boolean;
