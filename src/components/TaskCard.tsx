@@ -2103,31 +2103,43 @@ export default function TaskCard({
                     </Select>
                   </div>
 
-                  {/* Cliente final atendido (só Sistemas, opcional) */}
+                  {/* Clientes finais solicitantes (só Sistemas, opcional, múltiplos) */}
                   {(card as any).work_area === "sistemas" && (
                     <>
                       <span className="text-muted-foreground/40 select-none">·</span>
                       <SubclientSelect
                         tenantId={card.tenant_id}
                         parentCompanyId={card.clientId}
-                        value={(card as any).subclient_id || null}
+                        value={
+                          (card as any).subclient_ids?.length
+                            ? (card as any).subclient_ids
+                            : (card as any).subclient_id
+                              ? [(card as any).subclient_id]
+                              : []
+                        }
                         disabled={readOnly}
-                        onChange={async (subclientId) => {
-                          onCardChange({ ...card, subclient_id: subclientId } as any);
+                        onChange={async (subclientIds) => {
+                          const primary = subclientIds[0] ?? null;
+                          onCardChange({
+                            ...card,
+                            subclient_ids: subclientIds,
+                            subclient_id: primary,
+                          } as any);
                           if (isDraft) return;
                           try {
                             await supabase
                               .from("demands")
-                              .update({ subclient_id: subclientId } as any)
+                              .update({ subclient_ids: subclientIds, subclient_id: primary } as any)
                               .eq("id", card.id);
                           } catch (e) {
-                            console.error("[TaskCard] update subclient_id error", e);
-                            toast.error("Erro ao atualizar cliente atendido");
+                            console.error("[TaskCard] update subclient_ids error", e);
+                            toast.error("Erro ao atualizar clientes solicitantes");
                           }
                         }}
                       />
                     </>
                   )}
+
 
 
 

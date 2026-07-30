@@ -806,6 +806,7 @@ export type Database = {
           source: string
           status_id: string
           subclient_id: string | null
+          subclient_ids: string[]
           template_id: string | null
           tenant_id: string
           title: string
@@ -860,6 +861,7 @@ export type Database = {
           source?: string
           status_id: string
           subclient_id?: string | null
+          subclient_ids?: string[]
           template_id?: string | null
           tenant_id: string
           title: string
@@ -914,6 +916,7 @@ export type Database = {
           source?: string
           status_id?: string
           subclient_id?: string | null
+          subclient_ids?: string[]
           template_id?: string | null
           tenant_id?: string
           title?: string
