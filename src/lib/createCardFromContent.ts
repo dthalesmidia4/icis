@@ -23,7 +23,7 @@ export interface CreateCardResult {
   duplicated?: boolean;
 }
 
-const TYPE_LABEL: Record<DemandTypeKey, string> = {
+const TYPE_LABEL: Partial<Record<DemandTypeKey, string>> = {
   criativo_estatico: "Post Estático",
   carrossel: "Carrossel",
   video_captado: "Vídeo",
