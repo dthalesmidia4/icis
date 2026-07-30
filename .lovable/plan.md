@@ -1,41 +1,26 @@
-## Objetivo
+## 1. Card: campos exclusivos da área Sistemas
 
-1. Corrigir o header das telas de Customer Success (header vazio no topo, título solto no corpo, botão Voltar isolado).
-2. Deixar visível e utilizável a classificação de contato/origem (solicitação, visita, reunião, etc.).
+Em `src/components/TaskCard.tsx`, na barra de metadados do card:
 
-## 1. Header padronizado
+- O seletor de **Origem** (Interna / Solicitação do cliente / Feedback coletado / Suporte) passa a ser renderizado apenas quando `work_area === "sistemas"` (junto com o separador "·"). Para Mídia, o valor permanece salvo como `interno` no banco, apenas deixa de aparecer.
+- O seletor de **Clientes solicitantes** (`SubclientSelect`) já é condicional a Sistemas — mantido.
+- O seletor de **Tipo/Nível da demanda** (Bug nível 1/2/3, etc.) hoje sempre aparece. Ele passa a listar apenas os tipos da área atual (já faz) e os itens de nível de Sistemas só existem em Sistemas; o campo "Tipo" continua visível nas duas áreas porque é ele que define o fluxo de etapas — se você quiser que ele desapareça em Mídia, é só dizer e eu escondo também.
 
-Telas afetadas: `src/pages/CustomerSuccessSistemas.tsx` e `src/pages/SystemsClients.tsx`.
+Nada de lógica de fluxo muda: `getPipelineSequence` continua usando `origin` (interno por padrão) e `work_area`.
 
-Hoje elas renderizam `<BackButton />` solto e um `<header>` próprio dentro do corpo, enquanto a barra superior do `Layout` fica vazia (só breadcrumb).
+## 2. Navegação: Clientes Sistemas na tela inicial
 
-Mudança:
-- Substituir o bloco `BackButton` + `<header>` pelo componente existente `PageHeader`, que já junta botão Voltar + título + subtítulo + ações à direita.
-- Customer Success: título "Customer Success · Sistemas", subtítulo atual, ações "Cadastro de clientes" e "Atualizar".
-- Clientes de Sistemas: título "Clientes de Sistemas", subtítulo atual, ações "Customer Success" e "Novo cliente".
-- Ajustar o padding do conteúdo (o `PageHeader` já tem container próprio), mantendo o corpo alinhado ao restante do sistema.
-- Definir o breadcrumb dessas rotas (override de breadcrumb já existente) para que a barra superior não fique vazia.
+- `src/lib/constants/navigation.ts`: remover os itens **Demandas Completas** (`/demandas-completas`) e **Cronograma Global** (`/cronograma-global`) e adicionar **Clientes Sistemas** apontando para `/clientes-sistemas`, usando um id de permissão existente para não quebrar o filtro de permissões (`clientes`).
+- `src/pages/KanbanCentralPage.tsx`: remover o botão "Clientes Sistemas" da barra de ações da Visão Geral.
+- As rotas `/demandas-completas` e `/cronograma-global` continuam existindo (acessíveis pela sidebar/links diretos), só saem dos cartões da tela inicial.
 
-## 2. Classificação do contato (Customer Success)
+## 3. Cabeçalhos de Customer Success padronizados
 
-O diálogo "Contato" já tem seletor de tipo, mas está pouco descoberto e falta o tipo "Solicitação".
+A Visão Geral das Tarefas não usa `PageHeader`: ela renderiza o título dentro do próprio conteúdo (`div.mt-4 px-3 sm:px-4` → bloco flex com ícone em caixa `bg-primary/10`, `h2` em `text-xl sm:text-2xl font-bold`, badge de contagem, e botões de ação à direita). O `PageHeader` cria uma segunda barra sticky, o que gera o cabeçalho vazio e o botão "voltar" solto que você viu.
 
-Mudanças:
-- Adicionar `solicitacao` ("Solicitação do cliente") à lista de tipos em `src/lib/recordTouchpoint.ts` e no diálogo, junto de visita/reunião/ligação/mensagem/treinamento/entrega/feedback/outro.
-- Transformar o seletor em botões-chip (tipo visível de imediato) no diálogo, com o resumo opcional.
-- Nova coluna/expansão "Histórico de contatos" por cliente: ao clicar na linha, abrir painel lateral com os últimos contatos (tipo, data, resumo, origem automática × manual), lendo de `client_touchpoints`.
-- Mostrar o tipo do último contato de forma legível na coluna "Último contato" (hoje aparece a chave crua).
+Serão convertidas para essa mesma estrutura:
 
-## 3. Origem da demanda (onde marcar)
+- `src/pages/CustomerSuccessSistemas.tsx`
+- `src/pages/SystemsClients.tsx`
 
-O seletor de Origem (Interno, Solicitação do cliente, Feedback do cliente, Suporte) existe no cabeçalho do card, mas fica no meio de vários chips e passa despercebido.
-
-Mudança:
-- Destacar o chip de Origem no card (ícone + rótulo "Origem: …", borda leve quando origem é de cliente), sem alterar a lógica de fluxo.
-- No Customer Success, exibir a origem das demandas abertas de cada cliente (contagem por origem no tooltip da coluna "Abertas"), para o registro ficar rastreável.
-
-## Detalhes técnicos
-
-- Sem migração de banco: `client_touchpoints.touchpoint_type` é texto livre; `solicitacao` entra apenas como novo valor aceito na UI/tipagem TS.
-- `PageHeader` já suporta `backTo`/`onBack`, ações com `variant`/`icon` e comportamento mobile (ação primária + dropdown).
-- Arquivos tocados: `CustomerSuccessSistemas.tsx`, `SystemsClients.tsx`, `recordTouchpoint.ts`, `clientHealth.ts` (agregação por origem), `TaskCard.tsx` (apenas apresentação do chip de origem).
+Em cada uma: remover o `PageHeader`, aplicar o container `mt-4 px-3 sm:px-4`, cabeçalho inline com ícone + título + badge de contagem (clientes/registros) e as ações atuais (Novo cliente, Contato, Histórico) alinhadas à direita. A navegação de retorno fica pelo breadcrumb do layout, igual à Visão Geral e a Conteúdos Agendados.
