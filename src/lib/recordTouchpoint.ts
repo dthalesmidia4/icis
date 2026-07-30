@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export type TouchpointType =
+  | "solicitacao"
   | "visita"
   | "reuniao"
   | "ligacao"
@@ -9,6 +10,37 @@ export type TouchpointType =
   | "entrega"
   | "feedback"
   | "outro";
+
+export const TOUCHPOINT_LABEL: Record<TouchpointType, string> = {
+  solicitacao: "Solicitação do cliente",
+  visita: "Visita",
+  reuniao: "Reunião",
+  ligacao: "Ligação",
+  mensagem: "Mensagem",
+  treinamento: "Treinamento",
+  entrega: "Entrega",
+  feedback: "Feedback",
+  outro: "Outro",
+};
+
+export const TOUCHPOINT_OPTIONS: { value: TouchpointType; label: string }[] = (
+  Object.keys(TOUCHPOINT_LABEL) as TouchpointType[]
+).map((value) => ({ value, label: TOUCHPOINT_LABEL[value] }));
+
+export function touchpointLabel(type?: string | null): string {
+  if (!type) return "—";
+  return TOUCHPOINT_LABEL[type as TouchpointType] || type;
+}
+
+/** Últimos contatos registrados de um cliente de Sistemas (subcliente). */
+export interface TouchpointRecord {
+  id: string;
+  touchpoint_type: string;
+  occurred_at: string;
+  summary: string | null;
+  source: string;
+}
+
 
 /** Etapas que representam contato real com o cliente. */
 const STAGE_TOUCHPOINT: Record<string, TouchpointType> = {
@@ -98,3 +130,20 @@ export async function recordManualTouchpoint(params: {
   return { success: true };
 }
 
+
+/** Histórico de contatos de um cliente de Sistemas (subcliente). */
+export async function loadSubclientTouchpoints(
+  tenantId: string,
+  subclientId: string,
+  limit = 30,
+): Promise<TouchpointRecord[]> {
+  const { data, error } = await supabase
+    .from("client_touchpoints")
+    .select("id, touchpoint_type, occurred_at, summary, source")
+    .eq("tenant_id", tenantId)
+    .eq("subclient_id", subclientId)
+    .order("occurred_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data || []) as TouchpointRecord[];
+}
