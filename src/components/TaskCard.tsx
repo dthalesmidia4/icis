@@ -467,11 +467,9 @@ export default function TaskCard({
         tenantId: card.tenant_id,
         demandTypeKey: card.demand_type_key,
         currentFunctionKey: card.current_function_key,
-        targetFunctionKey: targetFunctionKey ?? null,
       });
       if (result.success) {
         toast.success(result.message);
-        setRegressOpen(false);
         onCardChange({
           ...card,
           assigned_to: result.assignedTo || null,
@@ -530,9 +528,11 @@ export default function TaskCard({
         tenantId: card.tenant_id,
         demandTypeKey: card.demand_type_key,
         currentFunctionKey: card.current_function_key,
+        targetFunctionKey: targetFunctionKey ?? null,
       });
       if (result.success) {
         toast.success(result.message);
+        setRegressOpen(false);
         onCardChange({
           ...card,
           assigned_to: result.assignedTo || null,
