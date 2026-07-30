@@ -2905,7 +2905,7 @@ const KanbanCentralPage = () => {
                                           <div className="flex flex-wrap items-center gap-1 mb-1 px-1">
                                             {historyAt && (
                                               <span className="text-[9px] text-muted-foreground">
-                                                {new Date(historyAt).toLocaleDateString("pt-BR")}
+                                                {new Date(historyAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                                               </span>
                                             )}
                                             <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 ml-auto">
