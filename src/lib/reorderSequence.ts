@@ -548,6 +548,17 @@ function estimateDurationBase(
   const group = typeGroup(card);
   const stage = (card.current_function_key || "").toLowerCase();
 
+  // Sistemas: o tipo (nível do bug / desenvolvimento) define o esforço.
+  const systemsKey = (card.demand_type_key || "").toLowerCase();
+  if (SYSTEMS_TYPE_MINUTES[systemsKey] !== undefined) {
+    const overridden = pickFromOverrides(overrides, stage, "default");
+    if (overridden !== null) return overridden;
+    if (SYSTEMS_WORK_STAGES.has(stage)) return SYSTEMS_TYPE_MINUTES[systemsKey];
+    const stageRow = DURATION_MATRIX[stage];
+    if (stageRow) return stageRow.default;
+    return SYSTEMS_TYPE_MINUTES[systemsKey];
+  }
+
   if (isOtherType(card)) {
     const overridden = pickFromOverrides(overrides, stage, "outro");
     if (overridden !== null) return overridden;
