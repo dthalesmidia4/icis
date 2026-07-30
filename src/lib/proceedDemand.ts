@@ -583,12 +583,11 @@ export async function getPipelineSequence(
   const clientOrigin = isClientOrigin(origin);
 
   const [{ data: fns }, { data: rules }] = await Promise.all([
-    supabase
-      .from("flow_functions")
-      .select("function_key, name, position, active, work_area, requires_client_origin" as any)
+    (supabase.from("flow_functions") as any)
+      .select("function_key, name, position, active, work_area, requires_client_origin")
       .eq("tenant_id", tenantId)
       .eq("active", true)
-      .eq("work_area" as any, area)
+      .eq("work_area", area)
       .order("position"),
     supabase
       .from("demand_type_flow_rules")
