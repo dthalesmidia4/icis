@@ -72,6 +72,8 @@ export interface ReorderProposal {
   spansDays?: number;
   slackApplied?: boolean;
   pinned?: boolean;
+  /** Indica se o ajuste manual fixou o início ou o término. */
+  pinnedKind?: "start" | "end" | null;
   /** Card atrasado em execução: início histórico preservado, só o término é recalculado. */
   keepStart?: boolean;
   stageStartISO?: string | null;
@@ -618,6 +620,9 @@ export function sortForReorder(
 export interface ReorderManualOverride {
   startISO?: string;
   startTime?: string;
+  /** Término fixado manualmente (usado em cards em execução, cujo início não deve mudar). */
+  endISO?: string;
+  endTime?: string;
   durationMin?: number;
 }
 
@@ -718,6 +723,12 @@ export async function computeReorder(
       : null;
 
     const manual = opts?.manualOverrides?.[card.id];
+    const manualStart = manual?.startISO && manual?.startTime
+      ? toVirtualUtc(manual.startISO, manual.startTime.slice(0, 5))
+      : null;
+    const manualEnd = manual?.endISO && manual?.endTime
+      ? toVirtualUtc(manual.endISO, manual.endTime.slice(0, 5))
+      : null;
     const baseDur = manual?.durationMin && manual.durationMin > 0
       ? manual.durationMin
       : estimateDurationBase(card, ctx, opts?.durations);
@@ -726,6 +737,7 @@ export async function computeReorder(
     let start: Date;
     let end: Date;
     let daysSpanned = 1;
+    let clampWarning: string | undefined;
 
     // Card em execução no topo da fila: começou no passado.
     const origStart = card.due_date && card.due_time ? toVirtualUtc(card.due_date, card.due_time.slice(0, 5)) : null;
@@ -734,7 +746,8 @@ export async function computeReorder(
     // ficou invertido (início posterior ao fim), mas o término ainda está no
     // futuro. Isso evita descartar o prazo vigente e reiniciar toda a duração.
     const hasInvertedActiveWindow = !!origStart && !!origEnd && origStart >= origEnd && origEnd > now;
-    const inProgressFirst = isFirstActive && !manual && !!origStart && (origStart <= now || hasInvertedActiveWindow);
+    // Fixar o TÉRMINO não descaracteriza o card em execução — apenas fixar o início.
+    const inProgressFirst = isFirstActive && !manualStart && !!origStart && (origStart <= now || hasInvertedActiveWindow);
 
     let treatAsStuck = false;
     if (inProgressFirst && origEnd && origEnd < now) treatAsStuck = true;
@@ -760,15 +773,36 @@ export async function computeReorder(
       slackApplied = true;
     }
 
-    const pinnedStart = manual?.startISO && manual?.startTime
-      ? toVirtualUtc(manual.startISO, manual.startTime.slice(0, 5))
-      : null;
+    // Término fixado manualmente: mantém o início (histórico ou o do cursor) e
+    // deriva a duração pelo tempo útil até o término escolhido.
+    const usableManualEnd = manualEnd && manualEnd > now ? manualEnd : null;
+    let pinnedKind: "start" | "end" | null = null;
 
-    if (pinnedStart) {
-      // Início fixado manualmente: aloca exatamente ali (ainda fatiando entre blocos de expediente).
-      ({ start, end, daysSpanned } = allocateAcrossDays(pinnedStart, dur, area, ctx, undefined));
+    if (manualStart) {
+      pinnedKind = "start";
+      // Início fixado manualmente nunca pode cair no passado.
+      let effectiveStart = manualStart;
+      if (manualStart < now) {
+        effectiveStart = normalizeCursor(new Date(now), area, ctx);
+        clampWarning = "Ajuste anterior ao horário atual — movido para o próximo horário útil.";
+      }
+      ({ start, end, daysSpanned } = allocateAcrossDays(effectiveStart, dur, area, ctx, undefined));
       keepStart = false;
+    } else if (usableManualEnd) {
+      pinnedKind = "end";
+      const allocBase = normalizeCursor(new Date(now > cursor ? now : cursor), area, ctx);
+      start = allocBase;
+      end = usableManualEnd;
+      dur = Math.max(5, businessMinutesBetween(allocBase, usableManualEnd, area, ctx) || 5);
+      daysSpanned = 1;
+      if (treatAsStuck) {
+        keepStart = true;
+        extensionMin = dur;
+      }
     } else {
+      if (manualEnd && !usableManualEnd) {
+        clampWarning = "Término informado já passou — recalculado automaticamente.";
+      }
       ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
     }
 
@@ -783,12 +817,13 @@ export async function computeReorder(
     // Um card em andamento com término futuro já consumiu parte do esforço.
     // Preserva o término vigente e agenda somente o tempo restante desde agora,
     // inclusive para intervalos antigos invertidos (como 14:35 → 14:00).
-    if (!treatAsStuck && inProgressFirst && origEnd && origEnd > now && isoDate(origEnd) === isoDate(now)) {
+    if (!manualEnd && !treatAsStuck && inProgressFirst && origEnd && origEnd > now && isoDate(origEnd) === isoDate(now)) {
       start = new Date(now);
       end = origEnd;
       dur = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
       daysSpanned = 1;
     }
+
 
 
 
@@ -812,6 +847,9 @@ export async function computeReorder(
         ? `Atrasado: extensão de 30% do tempo da etapa (+${fmtMinutes(extensionMin || 0)}).`
         : "Tempo extra aplicado (atraso + folga).";
       warning = warning ? `${warning} ${extra}` : extra;
+    }
+    if (clampWarning) {
+      warning = warning ? `${warning} ${clampWarning}` : clampWarning;
     }
 
 
@@ -855,7 +893,8 @@ export async function computeReorder(
       changed,
       spansDays: daysSpanned,
       slackApplied,
-      pinned: !!pinnedStart,
+      pinned: !!pinnedKind,
+      pinnedKind,
       keepStart,
       stageStartISO: stageBase ? isoDate(stageBase) : null,
       stageStartTime: stageBase ? hhmm(stageBase) : null,
@@ -870,7 +909,9 @@ export async function computeReorder(
     blocked.sort((a, b) => a.start.getTime() - b.start.getTime());
 
     // Próximo cursor: 5min após o fim do card (o skipBlocked cuidará de intervalos futuros).
-    const nextCursor = new Date(end);
+    // O cursor nunca retrocede antes do instante-base: um ajuste manual antigo não
+    // pode jogar os cards seguintes para datas já vencidas.
+    const nextCursor = new Date(end > now ? end : now);
     nextCursor.setUTCMinutes(nextCursor.getUTCMinutes() + 5);
     cursor = normalizeCursor(nextCursor, null, ctx);
 
