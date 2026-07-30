@@ -909,7 +909,9 @@ export async function computeReorder(
     blocked.sort((a, b) => a.start.getTime() - b.start.getTime());
 
     // Próximo cursor: 5min após o fim do card (o skipBlocked cuidará de intervalos futuros).
-    const nextCursor = new Date(end);
+    // O cursor nunca retrocede antes do instante-base: um ajuste manual antigo não
+    // pode jogar os cards seguintes para datas já vencidas.
+    const nextCursor = new Date(end > now ? end : now);
     nextCursor.setUTCMinutes(nextCursor.getUTCMinutes() + 5);
     cursor = normalizeCursor(nextCursor, null, ctx);
 
