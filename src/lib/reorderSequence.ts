@@ -72,6 +72,8 @@ export interface ReorderProposal {
   spansDays?: number;
   slackApplied?: boolean;
   pinned?: boolean;
+  /** Indica se o ajuste manual fixou o início ou o término. */
+  pinnedKind?: "start" | "end" | null;
   /** Card atrasado em execução: início histórico preservado, só o término é recalculado. */
   keepStart?: boolean;
   stageStartISO?: string | null;
