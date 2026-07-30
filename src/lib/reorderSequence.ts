@@ -644,7 +644,10 @@ export async function computeReorder(
       ? card.work_area
       : null;
 
-    const baseDur = estimateDurationBase(card, ctx, opts?.durations);
+    const manual = opts?.manualOverrides?.[card.id];
+    const baseDur = manual?.durationMin && manual.durationMin > 0
+      ? manual.durationMin
+      : estimateDurationBase(card, ctx, opts?.durations);
     let dur = baseDur;
     let slackApplied = false;
     let start: Date;
@@ -652,7 +655,7 @@ export async function computeReorder(
     let daysSpanned = 1;
 
     let treatAsStuck = false;
-    if (isFirstActive) {
+    if (isFirstActive && !manual) {
       const deadline = cardDeadline(card);
       if (deadline && deadline < now) treatAsStuck = true;
     }
@@ -661,12 +664,19 @@ export async function computeReorder(
       const slack = Math.round(baseDur * 0.30);
       dur = baseDur + slack;
       slackApplied = true;
-      // Card atrasado/iniciado vira a próxima ação: começa no primeiro slot útil a partir de agora,
-      // nunca preservando um horário antigo que já passou.
-      ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
+    }
+
+    const pinnedStart = manual?.startISO && manual?.startTime
+      ? toVirtualUtc(manual.startISO, manual.startTime.slice(0, 5))
+      : null;
+
+    if (pinnedStart) {
+      // Início fixado manualmente: aloca exatamente ali (ainda fatiando entre blocos de expediente).
+      ({ start, end, daysSpanned } = allocateAcrossDays(pinnedStart, dur, area, ctx, undefined));
     } else {
       ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
     }
+
 
     let warning: string | undefined;
     let publishDeadline: string | null = null;
