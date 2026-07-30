@@ -530,6 +530,16 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
         </ScrollArea>
 
         <DialogFooter className="gap-2 sm:gap-2">
+          {Object.keys(manualOverrides).length > 0 && (
+            <Button
+              variant="outline"
+              className="mr-auto"
+              disabled={applying || loading}
+              onClick={() => { setManualOverrides({}); setEditingId(null); }}
+            >
+              <RotateCcw className="h-4 w-4 mr-2" /> Restaurar sugestão
+            </Button>
+          )}
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={applying}>
             Cancelar
           </Button>
