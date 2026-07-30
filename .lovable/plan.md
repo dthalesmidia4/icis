@@ -1,30 +1,26 @@
 ## Diagnóstico (verificado no código)
 
-1. **Duração absurda (2250 min / 6 dias)** — em `src/lib/reorderSequence.ts`, cards do tipo "Outro" não usam a matriz de durações: usam o intervalo agendado (`scheduledSpanMinutes`, linhas 387-409). Essa função calcula o span em **tempo corrido de relógio** (`deliv - due`) e só desconta o almoço — **não desconta noites, fins de semana, feriados nem os blocos de área (mídia × sistemas)**. Para o card "Templates personalizados" (28/07 14:35 → 30/07 14:00) isso dá ~2575 min, que é então cortado pelo teto de 5 jornadas = **2250 min**. Como uma jornada útil tem 450 min, 2250 min = 5 dias úteis inteiros, e com o resto da fila o fim cai em 06/08. Ou seja: o problema não é a folga de 30% (ela só é aplicada ao primeiro card atrasado), é a duração inflada.
+1. **Os horários se movem sozinhos.** Em `ReorderSequenceModal.tsx` (linhas 125-143) o `useEffect` que chama `computeReorder` tem `cards` nas dependências, e `KanbanCentralPage.tsx` (linha 3383) passa `cards={cards.filter(...)}` — um **array novo em cada render**. Cada re-render do Kanban (realtime, tick de relógio de 60s, hover/estado) recalcula tudo, e `computeReorder` usa `spNowVirtualUtc()` internamente (linha 584) — ou seja, um **"agora" novo a cada recálculo**. Resultado: a proposta que mostrava 13:50 vira 13:55, 14:00… sem o usuário fazer nada. Foi exatamente o que aconteceu entre os dois prints: 13:50 → 14:05 no primeiro, 13:55 → 14:10 no segundo.
 
-2. **"Fim 14h" vs "13:35" no modal** — a linha riscada mostra **apenas a data de início original** (28/07 14:35); o fim original (30/07 14:00) não aparece. O 13:35 é o **novo início** proposto (agora). A leitura fica ambígua.
+2. **"Ao clicar em ajustar vira 13:50".** O botão Ajustar preenche o rascunho com `p.startISO/p.startTime` do render corrente (linha 393). Como o recálculo acontece no mesmo instante do clique, o input fica com o valor **antigo** (13:50) enquanto a linha já exibe o novo (13:55). Não é um cálculo diferente — é a mesma deriva do item 1 aparecendo em dois lugares.
+
+3. **"Fim 14h vira 14:05".** O primeiro card ("Templates personalizados", 28/07 14:35 → 30/07 14:00) está atrasado/em andamento, então o motor o reinicia "agora" com a duração estimada da etapa (15min), gerando 13:50 → 14:05. O fim original de hoje às 14:00 é descartado mesmo estando a poucos minutos de distância.
 
 ## O que será feito
 
-### 1. Duração realista para cards "Outro" (`src/lib/reorderSequence.ts`)
-- Reescrever `scheduledSpanMinutes` para somar **apenas minutos úteis** dentro da janela original: itera dia a dia, ignora fins de semana e feriados, e soma a interseção com os blocos do dia (`dayBlocks`, já respeita área mídia × sistemas e almoço).
-- Reduzir o teto de 5 jornadas para **1 jornada útil** por padrão (≈450 min); acima disso, o span é considerado "resíduo de agendamento antigo" e cai na matriz/override da etapa. Um card "Outro" só ganha duração maior que uma jornada se houver override explícito de duração cadastrado.
-- Efeito: o card 1 deixa de valer 5 dias úteis; a fila do Eric volta a caber em 30/07–31/07.
+### 1. Congelar o instante de cálculo (correção principal)
+- `ReorderSequenceModal.tsx`: criar um `startFrom` fixado **uma vez por abertura do modal** (state definido quando `open` passa a true, limpo ao fechar) e passá-lo para `computeReorder` via `opts.startFrom` (parâmetro que já existe).
+- Estabilizar as dependências do efeito: usar uma assinatura estável dos cards (ids + due/delivery + função + área, via `useMemo`/JSON) em vez do array, e memoizar `workHours`/`durations`/`areaSchedule` por conteúdo. Assim o recálculo só acontece quando algo relevante muda de fato, não a cada render do Kanban.
+- Adicionar um botão discreto **"Recalcular (agora HH:mm)"** no cabeçalho do modal, para quando o usuário quiser propositalmente atualizar a base de tempo. O modal também passa a exibir o horário-base usado ("base: 13:51").
 
-### 2. Modal mais legível (`src/components/kanban/ReorderSequenceModal.tsx`)
-- Mostrar o intervalo original completo riscado (`28/07 14:35 → 30/07 14:00`) antes da seta, e depois o novo intervalo — acabando com a confusão de fim.
-- Badge de duração passa a exibir formato humano (`2h30` em vez de `150min`) quando > 60 min.
+### 2. Rascunho do "Ajustar" sempre coerente
+- Ao abrir o Ajustar, ler o valor da proposta corrente já estável (com o `startFrom` congelado o valor deixa de mudar); e se a proposta daquele card mudar enquanto o editor está aberto sem ajuste manual aplicado, o rascunho é ressincronizado em vez de manter número velho.
 
-### 3. Edição manual da proposta com recálculo em cascata
-- Cada linha do modal ganha um controle discreto de **início** (data + hora) e de **duração** (minutos), aberto por um botão "ajustar".
-- `computeReorder` recebe um novo parâmetro `overrides?: Record<string, { startISO?: string; startTime?: string; durationMin?: number }>`:
-  - um card com início fixado é alocado exatamente naquele instante (marcado como "fixado" na UI);
-  - a duração informada substitui a estimada;
-  - **todos os cards seguintes são recalculados automaticamente** a partir do fim do card fixado, respeitando jornada, almoço, blocos de área, fins de semana e feriados — logo, alterar o primeiro card adianta/posterga a fila inteira pelo mesmo delta, preservando as durações individuais (ex.: a atividade de 2h continua com 2h).
-- Botão "Restaurar sugestão" limpa os ajustes manuais e volta ao cálculo automático.
-- O estado editado vive apenas no modal; ao aplicar, grava os mesmos campos já usados hoje (`due_date/due_time/delivery_date/delivery_time`) com o mesmo lock otimista.
+### 3. Preservar o fim do card em andamento quando ele ainda é viável
+- `reorderSequence.ts`: para o **primeiro card da fila** que já está em execução (início no passado) e cujo fim original ainda está no futuro e comporta a duração restante a partir de agora, manter o **fim original** em vez de recalcular `agora + duração`. No exemplo: 13:51 → fim 14:00 permanece 14:00, e a folga de 30% não é inflada para além do prazo já combinado.
+- Se o fim original já passou (card realmente atrasado), o comportamento atual continua: reinicia agora com duração + folga.
 
 ## Detalhes técnicos
-- Sem mudanças de banco.
-- `sortForReorder` continua definindo a ordem; overrides de início não reordenam a fila, apenas deslocam o cursor (um início fixado anterior ao cursor é respeitado; se colidir com bloqueios de `captar`/diário, o card seguinte contorna normalmente).
-- `estimateDurationMinutes` (usado fora do modal) mantém a assinatura atual.
+- Sem mudanças de banco e sem alteração na gravação (`due_date/due_time/delivery_date/delivery_time` + lock otimista seguem iguais).
+- `computeReorder` mantém a assinatura; só passa a receber `startFrom` do modal e ganha a regra de preservação do fim do card em andamento.
+- Ajustes manuais (`manualOverrides`) continuam com precedência total e recálculo em cascata dos seguintes.
