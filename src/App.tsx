@@ -58,6 +58,7 @@ import CollaboratorDemands from "./pages/CollaboratorDemands";
 import Settings from "./pages/Settings";
 import VideoReferencesLibrary from "./pages/VideoReferencesLibrary";
 import ClientEvolution from "./pages/ClientEvolution";
+import CustomerSuccessSistemas from "./pages/CustomerSuccessSistemas";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -335,6 +336,15 @@ function AppRoutes() {
           <RequireTenant>
             <Layout>
               <CronogramaGlobal />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+      <Route path="/customer-success-sistemas" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <CustomerSuccessSistemas />
             </Layout>
           </RequireTenant>
         </ProtectedRoute>
