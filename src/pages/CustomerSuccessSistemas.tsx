@@ -215,7 +215,43 @@ export default function CustomerSuccessSistemas() {
           ))}
         </div>
 
+        {/* Barras de cadência: onde cada cliente está vs. onde deveria estar */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {filtered.map((r) => (
+            <HealthCadenceBar key={r.clientId} row={r} onClick={() => openHistory(r)} />
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-end gap-1">
+            {[30, 90, 180].map((d) => (
+              <Button
+                key={d}
+                size="sm"
+                variant={timelineDays === d ? "default" : "outline"}
+                onClick={() => setTimelineDays(d)}
+              >
+                {d}d
+              </Button>
+            ))}
+          </div>
+          <TouchpointTimeline
+            rows={filtered}
+            timeline={timeline}
+            days={timelineDays}
+            onSelect={openHistory}
+          />
+        </div>
+
+        <div className="flex justify-end">
+          <Button size="sm" variant="ghost" onClick={() => setShowTable((v) => !v)}>
+            {showTable ? "Ocultar tabela detalhada" : "Ver tabela detalhada"}
+          </Button>
+        </div>
+
+        {showTable && (
         <div className="border rounded-lg overflow-auto">
+
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
