@@ -67,7 +67,9 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     endTime: string;
     /** "auto": duração derivada do motor; "manual": valor digitado pelo usuário. */
     durMode: "auto" | "manual";
-  }>({ date: "", time: "", duration: "", endDate: "", endTime: "", durMode: "auto" });
+    /** true quando o usuário editou o término — nesse caso a duração é derivada do intervalo. */
+    endEdited: boolean;
+  }>({ date: "", time: "", duration: "", endDate: "", endTime: "", durMode: "auto", endEdited: false });
   // Instante-base congelado por abertura do modal: evita que a proposta "ande" sozinha
   // a cada re-render do Kanban (realtime / tick de relógio).
   const [startFrom, setStartFrom] = useState<Date | null>(null);
@@ -236,11 +238,13 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     if (!p) return;
     setDraft((d) => {
       const duration = d.durMode === "manual" ? d.duration : String(p.durationMin);
+      const endDate = d.endEdited ? d.endDate : p.endISO;
+      const endTime = d.endEdited ? d.endTime : p.endTime;
       if (
         d.date === p.startISO &&
         d.time === p.startTime &&
-        d.endDate === p.endISO &&
-        d.endTime === p.endTime &&
+        d.endDate === endDate &&
+        d.endTime === endTime &&
         d.duration === duration
       ) {
         return d;
@@ -249,12 +253,13 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
         ...d,
         date: p.startISO,
         time: p.startTime,
-        endDate: p.endISO,
-        endTime: p.endTime,
+        endDate,
+        endTime,
         duration,
       };
     });
   }, [editingId, proposals, manualOverrides]);
+
 
 
 
