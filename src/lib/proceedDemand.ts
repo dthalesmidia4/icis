@@ -429,6 +429,11 @@ export async function jumpToFunction({
     if (error) return { success: false, message: "Erro ao atualizar etapa." };
     await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: keep, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keep);
+    // A etapa que enviou ao cliente foi concluída: registra a entrega (trava regressão).
+    await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [
+      keep,
+      ...(await fetchExtraAssignees(demandId)),
+    ]);
     return { success: true, assignedTo: keep || undefined, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name}.` };
   }
 
