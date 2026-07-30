@@ -53,6 +53,7 @@ import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import { BlockEditor } from "@/components/BlockEditor";
 import { StartEndDatePopover, SingleDateTimePopover } from "@/components/kanban/StartEndDatePopover";
+import SubclientSelect from "@/components/SubclientSelect";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -2101,6 +2102,34 @@ export default function TaskCard({
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Cliente final atendido (só Sistemas, opcional) */}
+                  {(card as any).work_area === "sistemas" && (
+                    <>
+                      <span className="text-muted-foreground/40 select-none">·</span>
+                      <SubclientSelect
+                        tenantId={card.tenant_id}
+                        parentCompanyId={card.clientId}
+                        value={(card as any).subclient_id || null}
+                        disabled={readOnly}
+                        onChange={async (subclientId) => {
+                          onCardChange({ ...card, subclient_id: subclientId } as any);
+                          if (isDraft) return;
+                          try {
+                            await supabase
+                              .from("demands")
+                              .update({ subclient_id: subclientId } as any)
+                              .eq("id", card.id);
+                          } catch (e) {
+                            console.error("[TaskCard] update subclient_id error", e);
+                            toast.error("Erro ao atualizar cliente atendido");
+                          }
+                        }}
+                      />
+                    </>
+                  )}
+
+
 
                   {/* Datas — Produção (Início + Entrega) — mesmo visual da Visão Geral */}
                   {!card.is_daily_card && (() => {

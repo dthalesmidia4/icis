@@ -78,6 +78,7 @@ export async function recordStageTouchpoint(
 export async function recordManualTouchpoint(params: {
   tenantId: string;
   clientId: string;
+  subclientId?: string | null;
   touchpointType: TouchpointType;
   occurredAt: string;
   summary?: string | null;
@@ -86,6 +87,7 @@ export async function recordManualTouchpoint(params: {
   const { error } = await supabase.from("client_touchpoints").insert({
     tenant_id: params.tenantId,
     client_id: params.clientId,
+    subclient_id: params.subclientId || null,
     touchpoint_type: params.touchpointType,
     source: "manual",
     occurred_at: params.occurredAt,
@@ -95,3 +97,4 @@ export async function recordManualTouchpoint(params: {
   if (error) return { success: false, message: error.message };
   return { success: true };
 }
+

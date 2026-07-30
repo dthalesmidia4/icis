@@ -59,6 +59,8 @@ import Settings from "./pages/Settings";
 import VideoReferencesLibrary from "./pages/VideoReferencesLibrary";
 import ClientEvolution from "./pages/ClientEvolution";
 import CustomerSuccessSistemas from "./pages/CustomerSuccessSistemas";
+import SystemsClients from "./pages/SystemsClients";
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -349,6 +351,16 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      <Route path="/clientes-sistemas" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <SystemsClients />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+
       <Route path="/client-evolution" element={
         <ProtectedRoute>
           <RequireTenant>

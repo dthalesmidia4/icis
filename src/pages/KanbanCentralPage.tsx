@@ -21,7 +21,7 @@ import {
   Focus,
   Wand2,
   Activity
-, HeartPulse } from "lucide-react";
+, HeartPulse, Building2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ReorderSequenceModal from "@/components/kanban/ReorderSequenceModal";
 import AwaitingClientActions from "@/components/kanban/AwaitingClientActions";
@@ -1971,6 +1971,16 @@ const KanbanCentralPage = () => {
             <HeartPulse className="h-4 w-4 mr-1" />
             Customer Success
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            title="Cadastro dos clientes atendidos pelas empresas de Sistemas"
+            onClick={() => navigate("/clientes-sistemas", { state: { from: "/kanban-central" } })}
+          >
+            <Building2 className="h-4 w-4 mr-1" />
+            Clientes Sistemas
+          </Button>
+
           {/* Registro de Cards global — replica o filtro para todas as colunas */}
           <Popover open={globalHistoryPopoverOpen} onOpenChange={setGlobalHistoryPopoverOpen}>
             <PopoverTrigger asChild>
