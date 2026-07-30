@@ -338,6 +338,45 @@ const KanbanCentralPage = () => {
   // Entregas já registradas por usuário/card (cards multi-responsável)
   const [deliveredStagesByUser, setDeliveredStagesByUser] = useState<Map<string, Map<string, Set<string>>>>(new Map());
 
+  // Busca as entregas já registradas apenas dos cards multi-responsável
+  const multiAssigneeCardIds = useMemo(
+    () => cards.filter((c) => ((c as any).additional_assignees?.length ?? 0) > 0).map((c) => c.id).sort(),
+    [cards],
+  );
+  const multiAssigneeKey = multiAssigneeCardIds.join(",");
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (!tenantId || multiAssigneeCardIds.length === 0) {
+        if (!cancelled) setDeliveredStagesByUser(new Map());
+        return;
+      }
+      const { data, error } = await supabase
+        .from("demand_flow_history")
+        .select("demand_id, from_user_id, from_function_key, action")
+        .eq("tenant_id", tenantId)
+        .in("demand_id", multiAssigneeCardIds)
+        .in("action", ["partial_delivered", "delivered", "proceeded"]);
+      if (error || cancelled) return;
+      const byUser = new Map<string, Map<string, Set<string>>>();
+      (data || []).forEach((row: any) => {
+        const userId = row.from_user_id as string | null;
+        const stage = (row.from_function_key || "").toLowerCase().trim();
+        if (!userId || !stage) return;
+        let byCard = byUser.get(userId);
+        if (!byCard) { byCard = new Map(); byUser.set(userId, byCard); }
+        let stages = byCard.get(row.demand_id);
+        if (!stages) { stages = new Set(); byCard.set(row.demand_id, stages); }
+        stages.add(stage);
+      });
+      setDeliveredStagesByUser(byUser);
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [tenantId, multiAssigneeKey]);
+
+
+
   const [periods, setPeriods] = useState<Array<{
     id: string;
     period_title: string;
