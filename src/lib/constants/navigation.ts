@@ -52,7 +52,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     route: "/scheduled",
   },
   {
-    id: 'clientes',
+    id: 'clientes-sistemas',
     title: "Clientes Sistemas",
     icon: Briefcase,
     route: "/clientes-sistemas",
