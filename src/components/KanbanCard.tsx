@@ -39,6 +39,8 @@ interface KanbanCardProps {
   awaitingClient?: boolean;
   awaitingClientSince?: string | null;
   awaitingClientResendCount?: number | null;
+  awaitingClientActions?: React.ReactNode;
+
 
   onClick?: () => void;
   onDatesChange?: (changes: CardDatesChange) => Promise<void> | void;
