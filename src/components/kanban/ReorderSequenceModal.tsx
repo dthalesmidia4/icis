@@ -535,7 +535,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                         </div>
                         {p.keepStart && (
                           <div className="mt-1 text-[11px] text-muted-foreground">
-                            Na etapa atual desde {p.stageStartTime ? `${formatDayLabel(p.stageStartISO)} ${p.stageStartTime}` : "—"}
+                            Na etapa atual desde {p.stageStartISO && p.stageStartTime ? `${fmtDate(p.stageStartISO)} ${p.stageStartTime}` : "—"}
                             {p.stagePlannedMin ? ` · tempo planejado na etapa ${fmtDuration(p.stagePlannedMin)} · extensão de 30% = ${fmtDuration(p.extensionMin || 0)}` : ""}
                           </div>
                         )}
