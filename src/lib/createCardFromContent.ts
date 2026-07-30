@@ -224,7 +224,7 @@ export async function createCardFromContent(input: CreateCardInput): Promise<Cre
       title,
       description,
       instructions: null,
-      demand_type: TYPE_LABEL[typeKey],
+      demand_type: TYPE_LABEL[typeKey] || "Outro",
       demand_type_key: typeKey,
       source: "standalone_content",
       attachments: attachments as any,
