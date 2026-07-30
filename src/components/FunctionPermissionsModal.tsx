@@ -376,6 +376,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
         .from("flow_functions")
         .select("config")
         .eq("tenant_id", agencyId)
+        .eq("work_area", area)
         .eq("function_key", fn.key)
         .maybeSingle();
       const currentConfig = (current as any)?.config || {};
@@ -384,6 +385,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
         .from("flow_functions")
         .update({ config: newConfig })
         .eq("tenant_id", agencyId)
+        .eq("work_area", area)
         .eq("function_key", fn.key);
     }
     setDurations(nextDurations);
