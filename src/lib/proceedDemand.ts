@@ -1257,7 +1257,7 @@ export async function getRegressOptions(
   demandTypeKey?: string | null,
   currentFunctionKey?: string | null,
 ): Promise<RegressOption[]> {
-  const seq = await getPipelineSequence(tenantId, demandTypeKey);
+  const seq = await getPipelineSequence(tenantId, demandTypeKey, { demandId });
   if (seq.length === 0) return [];
   const curKey = await resolveCurrentStage(demandId, currentFunctionKey);
   const idx = seq.findIndex((f) => f.function_key === curKey);
