@@ -345,8 +345,10 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
               {proposals.map((p, i) => {
                 const orig = cardById.get(p.id);
                 const origStart = orig?.due_date ? `${fmtDate(orig.due_date)} ${(orig.due_time || "").slice(0, 5)}` : "—";
+                const origEnd = orig?.delivery_date ? `${fmtDate(orig.delivery_date)} ${(orig.delivery_time || "").slice(0, 5)}` : "—";
                 const newStart = p.startISO ? `${fmtDate(p.startISO)} ${p.startTime}` : "—";
                 const newEnd = p.endISO ? `${fmtDate(p.endISO)} ${p.endTime}` : "—";
+                const isEditing = editingId === p.id;
                 return (
                   <div
                     key={p.id}
@@ -379,22 +381,113 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                             );
                           })()}
                           <div className="text-sm font-medium truncate">{p.title}</div>
+                          {!p.skipped && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 ml-auto shrink-0 text-xs text-muted-foreground"
+                              disabled={applying || loading}
+                              onClick={() => {
+                                if (isEditing) { setEditingId(null); return; }
+                                setEditingId(p.id);
+                                setDraft({ date: p.startISO, time: p.startTime, duration: String(p.durationMin) });
+                              }}
+                            >
+                              <Pencil className="h-3 w-3 mr-1" /> Ajustar
+                            </Button>
+                          )}
                         </div>
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                           {p.skipped ? (
                             <span className="text-muted-foreground">{origStart}</span>
                           ) : (
                             <>
-                              <span className="text-muted-foreground line-through">{origStart}</span>
+                              <span className="text-muted-foreground line-through">{origStart} → {origEnd}</span>
                               <ArrowRight className="h-3 w-3 text-muted-foreground" />
                               <span className="font-semibold text-foreground">{newStart}</span>
                               <span className="text-muted-foreground">→</span>
                               <span className="font-semibold text-foreground">{newEnd}</span>
                               <Badge variant="outline" className="text-[10px]">
-                                {p.durationMin}min
+                                {fmtDuration(p.durationMin)}
                               </Badge>
+                              {p.pinned && (
+                                <Badge variant="outline" className="text-[10px] border-primary/60 text-primary">
+                                  <Pin className="h-3 w-3 mr-1" /> ajustado
+                                </Badge>
+                              )}
                             </>
                           )}
+                        </div>
+                        {isEditing && (
+                          <div className="mt-2 flex flex-wrap items-end gap-2 p-2 rounded-md border border-border/60 bg-muted/30">
+                            <div className="flex flex-col gap-1">
+                              <Label className="text-[10px] text-muted-foreground">Início</Label>
+                              <Input
+                                type="date"
+                                className="h-8 w-[9.5rem] text-xs"
+                                value={draft.date}
+                                onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))}
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <Label className="text-[10px] text-muted-foreground">Hora</Label>
+                              <Input
+                                type="time"
+                                className="h-8 w-[6.5rem] text-xs"
+                                value={draft.time}
+                                onChange={(e) => setDraft((d) => ({ ...d, time: e.target.value }))}
+                              />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <Label className="text-[10px] text-muted-foreground">Duração (min)</Label>
+                              <Input
+                                type="number"
+                                min={5}
+                                step={5}
+                                className="h-8 w-[6.5rem] text-xs"
+                                value={draft.duration}
+                                onChange={(e) => setDraft((d) => ({ ...d, duration: e.target.value }))}
+                              />
+                            </div>
+                            <Button
+                              size="sm"
+                              className="h-8"
+                              onClick={() => {
+                                const dur = parseInt(draft.duration, 10);
+                                if (!draft.date || !draft.time || !Number.isFinite(dur) || dur < 5) {
+                                  toast.error("Informe data, hora e duração (mín. 5 min).");
+                                  return;
+                                }
+                                setManualOverrides((prev) => ({
+                                  ...prev,
+                                  [p.id]: { startISO: draft.date, startTime: draft.time, durationMin: dur },
+                                }));
+                                setEditingId(null);
+                              }}
+                            >
+                              Aplicar ajuste
+                            </Button>
+                            {manualOverrides[p.id] && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 text-muted-foreground"
+                                onClick={() => {
+                                  setManualOverrides((prev) => {
+                                    const next = { ...prev };
+                                    delete next[p.id];
+                                    return next;
+                                  });
+                                  setEditingId(null);
+                                }}
+                              >
+                                Remover ajuste
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+
                           {p.spansDays && p.spansDays > 1 && (
                             <Badge variant="outline" className="text-[10px] border-blue-500/60 text-blue-600 dark:text-blue-400">
                               {p.spansDays} dias
