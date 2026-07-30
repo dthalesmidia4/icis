@@ -548,6 +548,11 @@ export async function proceedDemand({
       toFunctionKey: nextFn.function_key,
     });
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keepAssignee);
+    // Registra a entrega da etapa que enviou ao cliente (impede regressão para ela).
+    await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [
+      keepAssignee,
+      ...(await fetchExtraAssignees(demandId)),
+    ]);
 
     return {
       success: true,
