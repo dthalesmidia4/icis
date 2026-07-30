@@ -791,14 +791,17 @@ export async function computeReorder(
       reserve.setUTCHours(reserve.getUTCHours() - 1);
       if (end > reserve) warning = "Termina após o prazo de publicação recomendado.";
     }
-    if (daysSpanned > 1) {
+    if (daysSpanned > 1 && !keepStart) {
       const extra = `Se estende por ${daysSpanned} dias úteis.`;
       warning = warning ? `${warning} ${extra}` : extra;
     }
     if (slackApplied) {
-      const extra = "Tempo extra aplicado (atraso + folga).";
+      const extra = keepStart
+        ? `Atrasado: extensão de 30% do tempo da etapa (+${fmtMinutes(extensionMin || 0)}).`
+        : "Tempo extra aplicado (atraso + folga).";
       warning = warning ? `${warning} ${extra}` : extra;
     }
+
 
     const startISO = isoDate(start);
     const startTime = hhmm(start);
