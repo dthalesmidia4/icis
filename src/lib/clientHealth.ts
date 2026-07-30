@@ -163,10 +163,11 @@ export async function loadSystemsClientHealth(tenantId: string): Promise<Systems
         .order("occurred_at", { ascending: false }),
       supabase
         .from("demands")
-        .select("subclient_id, subclient_ids, due_date, delivery_date, archived_at, origin")
+        .select(
+          "subclient_id, subclient_ids, due_date, delivery_date, archived_at, origin, created_at, title",
+        )
         .eq("tenant_id", tenantId)
         .is("archived_at", null),
-
     ]);
 
   const companyName = new Map<string, string>();
@@ -178,12 +179,6 @@ export async function loadSystemsClientHealth(tenantId: string): Promise<Systems
   return (subclients || []).map((s: any) => {
     const cadenceDays = Number(s.contact_cadence_days) || 30;
     const tps = (touchpoints || []).filter((t: any) => t.subclient_id === s.id);
-    const last = tps[0] || null;
-    const lastTouchAt = last?.occurred_at || null;
-    const daysSinceTouch = lastTouchAt ? dayDiff(lastTouchAt) : null;
-    const touchpoints30d = tps.filter(
-      (t: any) => new Date(t.occurred_at).getTime() >= since30,
-    ).length;
 
     // Uma demanda pode ter vários clientes solicitantes: conta para todos eles.
     const own = (demands || []).filter((d: any) => {
@@ -194,6 +189,30 @@ export async function loadSystemsClientHealth(tenantId: string): Promise<Systems
           : [];
       return ids.includes(s.id);
     });
+
+    // Contatos derivados dos próprios cards (origem de cliente), caso o
+    // registro automático não tenha rodado — a tela nunca deve dizer
+    // "nunca registrado" havendo evidência de contato.
+    const derived = own
+      .filter((d: any) => derivedTouchpointType(d.origin) !== null)
+      .map((d: any) => ({
+        subclient_id: s.id,
+        touchpoint_type: derivedTouchpointType(d.origin) as string,
+        occurred_at: d.created_at as string,
+        derived: true,
+      }));
+
+    const allTps = [...tps.map((t: any) => ({ ...t, derived: false })), ...derived].sort(
+      (a: any, b: any) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime(),
+    );
+
+    const last = allTps[0] || null;
+    const lastTouchAt = last?.occurred_at || null;
+    const daysSinceTouch = lastTouchAt ? dayDiff(lastTouchAt) : null;
+    const touchpoints30d = allTps.filter(
+      (t: any) => new Date(t.occurred_at).getTime() >= since30,
+    ).length;
+
 
     const openDemands = own.length;
     const overdueDemands = own.filter(
