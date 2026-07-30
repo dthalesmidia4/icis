@@ -451,6 +451,7 @@ export async function jumpToFunction({
     updatePayload.client_wait_started_at = null;
     updatePayload.client_resend_count = 0;
     updatePayload.client_last_resend_at = null;
+    await applyReturnFromClientSchedule(updatePayload, tenantId, demandId, target.function_key, demandTypeKey);
   }
   if (currentFunctionKey === "captar") {
     updatePayload.additional_assignees = [];
