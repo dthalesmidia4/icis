@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { computeReorder, hasPublishDateCandidates, reorderTier, type ReorderCardInput, type ReorderProposal, type ReorderManualOverride, type StageDurationOverrides, type AreaScheduleMap } from "@/lib/reorderSequence";
-import { loadDurationsForTenant } from "@/lib/flowDurations";
+import { loadDurationsByArea } from "@/lib/flowDurations";
 import { useWorkHoursConfig } from "@/hooks/useWorkHoursConfig";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -112,7 +112,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   useEffect(() => {
     if (!open || !tenantId) return;
     let cancelled = false;
-    loadDurationsForTenant(tenantId).then((d) => {
+    loadDurationsByArea(tenantId).then((d) => {
       if (!cancelled) setDurations(d);
     });
     return () => { cancelled = true; };

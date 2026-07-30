@@ -20,24 +20,33 @@ interface FlowFunction {
   function_key: string;
   name: string;
   position: number;
+  work_area?: "midia" | "sistemas" | null;
 }
+
+type WorkAreaKey = "midia" | "sistemas";
+const AREA_TABS: { key: WorkAreaKey; label: string }[] = [
+  { key: "midia", label: "Mídia" },
+  { key: "sistemas", label: "Sistemas" },
+];
 
 export function CollaboratorFunctionAssignmentsModal({ open, onOpenChange }: Props) {
   const { agencyId } = useAgency();
   const { collaborators, loading: loadingCollabs } = useCollaborators(agencyId);
+  const [area, setArea] = useState<WorkAreaKey>("midia");
   const [functions, setFunctions] = useState<FlowFunction[]>([]);
   const [assignments, setAssignments] = useState<Record<string, Record<string, boolean>>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
 
-  const load = async (tenantId: string) => {
+  const load = async (tenantId: string, workArea: WorkAreaKey) => {
     setLoading(true);
     const [{ data: fns }, { data: rows }] = await Promise.all([
       supabase
         .from("flow_functions")
-        .select("function_key, name, position")
+        .select("function_key, name, position, work_area")
         .eq("tenant_id", tenantId)
         .eq("active", true)
+        .eq("work_area", workArea)
         .order("position"),
       supabase
         .from("collaborator_function_assignments")
@@ -55,8 +64,8 @@ export function CollaboratorFunctionAssignmentsModal({ open, onOpenChange }: Pro
   };
 
   useEffect(() => {
-    if (open && agencyId) load(agencyId);
-  }, [open, agencyId]);
+    if (open && agencyId) load(agencyId, area);
+  }, [open, agencyId, area]);
 
   const savingRef = useRef<string | null>(null);
   useEffect(() => { savingRef.current = saving; }, [saving]);
@@ -66,7 +75,7 @@ export function CollaboratorFunctionAssignmentsModal({ open, onOpenChange }: Pro
     enabled: open && !!agencyId,
     onChange: () => {
       if (savingRef.current) return;
-      if (agencyId) load(agencyId);
+      if (agencyId) load(agencyId, area);
     },
   });
 
@@ -127,9 +136,24 @@ export function CollaboratorFunctionAssignmentsModal({ open, onOpenChange }: Pro
         <DialogHeader>
           <DialogTitle>Atribuir funções aos colaboradores</DialogTitle>
           <DialogDescription>
-            Marque quais funções operacionais cada colaborador pode exercer. As colunas vêm das funções configuradas no fluxo.
+            Marque quais funções operacionais cada colaborador pode exercer. As colunas vêm das funções configuradas no fluxo da área selecionada.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="flex items-center gap-1 rounded-lg bg-muted p-1 w-fit">
+          {AREA_TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setArea(t.key)}
+              className={cn(
+                "px-3 py-1.5 text-xs font-semibold rounded-md transition-colors",
+                area === t.key ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
         {!isLoading && uncovered.length > 0 && (
           <Alert variant="destructive">
@@ -139,7 +163,7 @@ export function CollaboratorFunctionAssignmentsModal({ open, onOpenChange }: Pro
               <p className="mt-1">As seguintes funções ainda não têm colaborador atribuído:</p>
               <ul className="list-disc pl-5 mt-1 space-y-0.5">
                 {uncovered.map((f) => (
-                  <li key={f.function_key} className="font-medium">{f.name}</li>
+                  <li key={`${area}:${f.function_key}`} className="font-medium">{f.name}</li>
                 ))}
               </ul>
               <p className="mt-2 text-xs opacity-90">
@@ -162,7 +186,7 @@ export function CollaboratorFunctionAssignmentsModal({ open, onOpenChange }: Pro
                     const empty = count === 0;
                     return (
                       <th
-                        key={f.function_key}
+                        key={`${area}:${f.function_key}`}
                         className={cn(
                           "text-center p-3 font-semibold uppercase text-[10px] whitespace-nowrap border-l",
                           empty
@@ -243,7 +267,7 @@ export function CollaboratorFunctionAssignmentsModal({ open, onOpenChange }: Pro
                         const empty = (coverage[fn.function_key] ?? 0) === 0;
                         return (
                           <td
-                            key={fn.function_key}
+                            key={`${area}:${fn.function_key}`}
                             className={cn(
                               "p-2 text-center border-l",
                               empty
