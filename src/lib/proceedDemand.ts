@@ -1,6 +1,46 @@
 import { supabase } from "@/integrations/supabase/client";
 import { recordFlowHistory, recordFlowHistoryForUsers } from "@/lib/flowHistory";
 import { getStageCompletions, lastUserOfStage } from "@/lib/stageCompletions";
+import { buildReturnFromClientDates } from "@/lib/flowDurations";
+
+/**
+ * Duração anterior do card (fim − início), em minutos. Usada como fallback
+ * quando a etapa de destino não tem duração configurada.
+ */
+async function previousDurationMinutes(demandId: string): Promise<number | null> {
+  try {
+    const { data } = await supabase
+      .from("demands")
+      .select("due_date, due_time, delivery_date, delivery_time")
+      .eq("id", demandId)
+      .maybeSingle();
+    const d: any = data;
+    if (!d?.due_date || !d?.delivery_date) return null;
+    const s = new Date(`${d.due_date}T${(d.due_time || "00:00").slice(0, 5)}:00`).getTime();
+    const e = new Date(`${d.delivery_date}T${(d.delivery_time || "00:00").slice(0, 5)}:00`).getTime();
+    const min = Math.round((e - s) / 60000);
+    return Number.isFinite(min) && min > 0 ? min : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Ao sair de "Aguardando clientes" para uma etapa operacional, o card é
+ * reagendado para começar agora — evita reentrar em atraso por causa do
+ * tempo parado no cliente.
+ */
+async function applyReturnFromClientSchedule(
+  payload: any,
+  tenantId: string,
+  demandId: string,
+  targetStage: string,
+  demandTypeKey?: string | null,
+): Promise<void> {
+  const fallback = await previousDurationMinutes(demandId);
+  const dates = await buildReturnFromClientDates(tenantId, targetStage, demandTypeKey, fallback);
+  Object.assign(payload, dates);
+}
 
 /**
  * Fonte da verdade da etapa atual: o banco. O valor vindo da tela pode estar
@@ -389,6 +429,11 @@ export async function jumpToFunction({
     if (error) return { success: false, message: "Erro ao atualizar etapa." };
     await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: keep, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keep);
+    // A etapa que enviou ao cliente foi concluída: registra a entrega (trava regressão).
+    await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [
+      keep,
+      ...(await fetchExtraAssignees(demandId)),
+    ]);
     return { success: true, assignedTo: keep || undefined, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name}.` };
   }
 
@@ -406,6 +451,7 @@ export async function jumpToFunction({
     updatePayload.client_wait_started_at = null;
     updatePayload.client_resend_count = 0;
     updatePayload.client_last_resend_at = null;
+    await applyReturnFromClientSchedule(updatePayload, tenantId, demandId, target.function_key, demandTypeKey);
   }
   if (currentFunctionKey === "captar") {
     updatePayload.additional_assignees = [];
@@ -502,6 +548,11 @@ export async function proceedDemand({
       toFunctionKey: nextFn.function_key,
     });
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keepAssignee);
+    // Registra a entrega da etapa que enviou ao cliente (impede regressão para ela).
+    await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [
+      keepAssignee,
+      ...(await fetchExtraAssignees(demandId)),
+    ]);
 
     return {
       success: true,
@@ -532,6 +583,7 @@ export async function proceedDemand({
     proceedPayload.client_wait_started_at = null;
     proceedPayload.client_resend_count = 0;
     proceedPayload.client_last_resend_at = null;
+    await applyReturnFromClientSchedule(proceedPayload, tenantId, demandId, nextFn.function_key, typeKey);
   }
   if (currentFunctionKey === "captar") {
     proceedPayload.additional_assignees = [];
@@ -704,6 +756,7 @@ export async function regressDemand({
     regressPayload.client_wait_started_at = null;
     regressPayload.client_resend_count = 0;
     regressPayload.client_last_resend_at = null;
+    await applyReturnFromClientSchedule(regressPayload, tenantId, demandId, prevFn.function_key, typeKey);
   }
   if (currentFunctionKey === "captar") {
     regressPayload.additional_assignees = [];
