@@ -360,6 +360,7 @@ export type Database = {
           id: string
           occurred_at: string
           source: string
+          subclient_id: string | null
           summary: string | null
           tenant_id: string
           touchpoint_type: string
@@ -373,6 +374,7 @@ export type Database = {
           id?: string
           occurred_at?: string
           source?: string
+          subclient_id?: string | null
           summary?: string | null
           tenant_id: string
           touchpoint_type: string
@@ -386,6 +388,7 @@ export type Database = {
           id?: string
           occurred_at?: string
           source?: string
+          subclient_id?: string | null
           summary?: string | null
           tenant_id?: string
           touchpoint_type?: string
@@ -412,6 +415,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_demand_stage_misalignment"
             referencedColumns: ["demand_id"]
+          },
+          {
+            foreignKeyName: "client_touchpoints_subclient_id_fkey"
+            columns: ["subclient_id"]
+            isOneToOne: false
+            referencedRelation: "systems_clients"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "client_touchpoints_tenant_id_fkey"
@@ -795,6 +805,7 @@ export type Database = {
           reorder_meta: Json | null
           source: string
           status_id: string
+          subclient_id: string | null
           template_id: string | null
           tenant_id: string
           title: string
@@ -848,6 +859,7 @@ export type Database = {
           reorder_meta?: Json | null
           source?: string
           status_id: string
+          subclient_id?: string | null
           template_id?: string | null
           tenant_id: string
           title: string
@@ -901,6 +913,7 @@ export type Database = {
           reorder_meta?: Json | null
           source?: string
           status_id?: string
+          subclient_id?: string | null
           template_id?: string | null
           tenant_id?: string
           title?: string
@@ -934,6 +947,13 @@ export type Database = {
             columns: ["status_id"]
             isOneToOne: false
             referencedRelation: "pipeline_statuses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demands_subclient_id_fkey"
+            columns: ["subclient_id"]
+            isOneToOne: false
+            referencedRelation: "systems_clients"
             referencedColumns: ["id"]
           },
           {
@@ -1780,6 +1800,74 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      systems_clients: {
+        Row: {
+          city: string | null
+          contact_cadence_days: number
+          contact_name: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          onboarded_at: string | null
+          parent_company_id: string
+          phone: string | null
+          plan: string | null
+          state: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          contact_cadence_days?: number
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          onboarded_at?: string | null
+          parent_company_id: string
+          phone?: string | null
+          plan?: string | null
+          state?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          contact_cadence_days?: number
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          onboarded_at?: string | null
+          parent_company_id?: string
+          phone?: string | null
+          plan?: string | null
+          state?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "systems_clients_parent_company_id_fkey"
+            columns: ["parent_company_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenant_companies: {
         Row: {
