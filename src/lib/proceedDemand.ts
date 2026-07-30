@@ -532,11 +532,13 @@ export async function regressDemand({
   tenantId,
   demandTypeKey,
   currentFunctionKey,
-}: ProceedInput): Promise<ProceedResult> {
+  targetFunctionKey,
+}: ProceedInput & { targetFunctionKey?: string | null }): Promise<ProceedResult> {
   const typeKey = coerceDemandTypeKey(demandTypeKey);
   if (!typeKey) {
     return { success: false, needsTypeKey: true, message: "Defina o tipo da demanda antes de voltar." };
   }
+  currentFunctionKey = await resolveCurrentStage(demandId, currentFunctionKey);
   if (!currentFunctionKey) {
     return { success: false, message: "Esta demanda ainda não iniciou o fluxo." };
   }
@@ -561,7 +563,16 @@ export async function regressDemand({
   if (idx <= 0) {
     return { success: false, message: "Esta demanda já está na primeira etapa do fluxo." };
   }
-  const prevFn = sequence[idx - 1] as { function_key: string; name: string };
+  let prevFn = sequence[idx - 1] as { function_key: string; name: string };
+  if (targetFunctionKey) {
+    const chosen = sequence
+      .slice(0, idx)
+      .find((f: any) => f.function_key === targetFunctionKey) as any;
+    if (!chosen) {
+      return { success: false, message: "Etapa anterior inválida para este fluxo." };
+    }
+    prevFn = chosen;
+  }
 
   // Transição especial: aguardando_cliente → enviar_cliente mantém o mesmo responsável.
   if (currentFunctionKey === "aguardando_cliente" && prevFn.function_key === "enviar_cliente") {
@@ -609,7 +620,20 @@ export async function regressDemand({
   const previousAssignee = (currentDemand as any)?.assigned_to || null;
   const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
 
-  const picked = await pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name);
+  // Ao voltar, o responsável natural é quem já executou aquela etapa.
+  let picked = await (async (): Promise<PickAssigneeResult> => {
+    const completions = await getStageCompletions(tenantId, demandId);
+    const historic = lastUserOfStage(completions, prevFn.function_key);
+    if (historic) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", historic)
+        .maybeSingle();
+      return { success: true, userId: historic, name: (prof as any)?.full_name || "Colaborador" };
+    }
+    return pickAssigneeForFunction(tenantId, prevFn.function_key, prevFn.name);
+  })();
   if (!picked.success || !picked.userId) {
     return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
   }
