@@ -1,5 +1,29 @@
 import { supabase } from "@/integrations/supabase/client";
 import { recordFlowHistory, recordFlowHistoryForUsers } from "@/lib/flowHistory";
+import { getStageCompletions, lastUserOfStage } from "@/lib/stageCompletions";
+
+/**
+ * Fonte da verdade da etapa atual: o banco. O valor vindo da tela pode estar
+ * desatualizado (o card muda por realtime, por outro usuário ou por trigger),
+ * e usar valor velho já causou registros de histórico em etapas erradas.
+ */
+async function resolveCurrentStage(
+  demandId: string,
+  fallback?: string | null,
+): Promise<string | null> {
+  try {
+    const { data } = await supabase
+      .from("demands")
+      .select("current_function_key")
+      .eq("id", demandId)
+      .maybeSingle();
+    const key = (data as any)?.current_function_key;
+    if (key) return key as string;
+  } catch (e) {
+    console.warn("[proceedDemand] resolveCurrentStage error:", e);
+  }
+  return fallback ?? null;
+}
 
 /**
  * Quando um card "Captar" muda de etapa, todos os `additional_assignees`
@@ -295,6 +319,7 @@ export async function jumpToFunction({
   targetFunctionKey: string;
   currentFunctionKey?: string | null;
 }): Promise<ProceedResult> {
+  currentFunctionKey = await resolveCurrentStage(demandId, currentFunctionKey);
   const seq = await getPipelineSequence(tenantId, demandTypeKey);
   const target = seq.find((f) => f.function_key === targetFunctionKey);
   if (!target) return { success: false, message: "Etapa não encontrada no fluxo." };
@@ -361,6 +386,7 @@ export async function proceedDemand({
       message: "Defina o tipo da demanda antes de prosseguir.",
     };
   }
+  currentFunctionKey = await resolveCurrentStage(demandId, currentFunctionKey);
 
   const [{ data: fns, error: fnErr }, { data: rules, error: rErr }] = await Promise.all([
     supabase
