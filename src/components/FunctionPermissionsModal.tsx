@@ -448,7 +448,35 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs key="fpm-tabs-v3" defaultValue="participacao" className="w-full">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs font-semibold uppercase text-muted-foreground">Área</span>
+          <div className="inline-flex rounded-lg border p-0.5 bg-muted/40">
+            {([
+              { key: "midia" as const, label: "Mídia" },
+              { key: "sistemas" as const, label: "Sistemas" },
+            ]).map((a) => (
+              <button
+                key={a.key}
+                type="button"
+                onClick={() => setArea(a.key)}
+                className={cn(
+                  "px-3 py-1 rounded-md text-xs font-semibold transition-colors",
+                  area === a.key
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+          <span className="text-[11px] text-muted-foreground">
+            Cada área tem etapas, tipos de demanda e durações próprias.
+          </span>
+        </div>
+
+        <Tabs key={`fpm-tabs-v3-${area}`} defaultValue="participacao" className="w-full">
+
           <TabsList className="grid w-full max-w-3xl grid-cols-4">
             <TabsTrigger value="participacao">Participação</TabsTrigger>
             <TabsTrigger value="tempo">Tempo estimado</TabsTrigger>
