@@ -52,16 +52,10 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     route: "/scheduled",
   },
   {
-    id: 'completed',
-    title: "Demandas Completas",
-    icon: CheckCircle2,
-    route: "/demandas-completas",
-  },
-  {
-    id: 'cronograma-global',
-    title: "Cronograma Global",
-    icon: CalendarClock,
-    route: "/cronograma-global",
+    id: 'clientes',
+    title: "Clientes Sistemas",
+    icon: Briefcase,
+    route: "/clientes-sistemas",
   },
 ];
 
