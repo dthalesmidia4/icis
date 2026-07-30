@@ -2166,6 +2166,8 @@ export default function TaskCard({
                               subclient_ids: persistedIds,
                               subclient_id: data?.subclient_id ?? persistedIds[0] ?? null,
                             });
+                            await recordOriginTouchpoint(card.tenant_id, card.id);
+
                           } catch (e) {
                             console.error("[TaskCard] update subclient_ids error", e);
                             onCardChange({
