@@ -442,18 +442,18 @@ function estimateDurationBase(
   const stage = (card.current_function_key || "").toLowerCase();
 
   if (isOtherType(card)) {
-    const span = scheduledSpanMinutes(card, ctx);
-    if (span && span > 0) {
-      // teto ~5 jornadas na área do card
-      const cap = Math.max(60, workingMinutesInDay(new Date(), card.work_area, ctx) * 5);
-      return Math.min(span, cap);
-    }
     const overridden = pickFromOverrides(overrides, stage, "outro");
     if (overridden !== null) return overridden;
+    const span = scheduledSpanMinutes(card, ctx);
+    // Teto de 1 jornada útil: spans maiores são resíduo de agendamentos antigos
+    // (card arrastado por dias) e não representam esforço real.
+    const cap = Math.max(60, workingMinutesInDay(new Date(), card.work_area, ctx));
+    if (span && span > 0 && span <= cap) return span;
     const stageRow = DURATION_MATRIX[stage];
     if (stageRow) return stageRow.outro ?? stageRow.default;
     return FALLBACK_STAGE_DURATION.outro;
   }
+
 
   const overridden = pickFromOverrides(overrides, stage, group);
   if (overridden !== null) return overridden;
