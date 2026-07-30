@@ -2702,7 +2702,9 @@ const KanbanCentralPage = () => {
                           const remaining: CentralKanbanCard[] = [];
                           for (const c of columnCards) {
                             const cap = captarDue(c);
-                            if (cap !== Number.POSITIVE_INFINITY && cap <= nowMs) {
+                            // No Registro (histórico) não há priorização operacional:
+                            // são eventos passados, não fila de trabalho.
+                            if (!isHistoryMode && cap !== Number.POSITIVE_INFINITY && cap <= nowMs) {
                               captarNow.push(c);
                             } else {
                               remaining.push(c);
@@ -2713,10 +2715,18 @@ const KanbanCentralPage = () => {
                           // Group cards by chosen date
                           const _todayForGroup = new Date();
                           const _todayISOForGroup = `${_todayForGroup.getFullYear()}-${String(_todayForGroup.getMonth() + 1).padStart(2, "0")}-${String(_todayForGroup.getDate()).padStart(2, "0")}`;
+                          const historyDayOf = (c: CentralKanbanCard): string => {
+                            const at = (c as any)._historyAt as string | undefined;
+                            if (!at) return "__no_date__";
+                            const d = new Date(at);
+                            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                          };
                           const groups = new Map<string, CentralKanbanCard[]>();
                           for (const c of remaining) {
                             let key: string;
-                            if (dateGroupBy === "start") {
+                            if (isHistoryMode) {
+                              key = historyDayOf(c);
+                            } else if (dateGroupBy === "start") {
                               const start = c.due_date;
                               const end = c.delivery_date || c.due_date;
                               if (start && start < _todayISOForGroup && end && end >= _todayISOForGroup) {
