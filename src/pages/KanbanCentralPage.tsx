@@ -2696,9 +2696,12 @@ const KanbanCentralPage = () => {
                               const bActive = bCap <= nowMs ? 0 : 1;
                               if (aActive !== bActive) return aActive - bActive;
                               if (aActive === 0 && bActive === 0) return aCap - bCap;
-                              const ta = (dateGroupBy === "start" ? a.due_time : a.delivery_time) || "99:99";
-                              const tb = (dateGroupBy === "start" ? b.due_time : b.delivery_time) || "99:99";
-                              return ta.localeCompare(tb);
+                              const keyOf = (c: CentralKanbanCard) => {
+                                const d = (dateGroupBy === "start" ? c.due_date : c.delivery_date) || "9999-12-31";
+                                const t = ((dateGroupBy === "start" ? c.due_time : c.delivery_time) || "99:99").slice(0, 5);
+                                return `${d}T${t}`;
+                              };
+                              return keyOf(a).localeCompare(keyOf(b));
                             });
                             return { date, items: sorted };
                           });
