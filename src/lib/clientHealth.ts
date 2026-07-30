@@ -262,3 +262,46 @@ export async function loadSystemsClientHealth(tenantId: string): Promise<Systems
     };
   });
 }
+
+export interface TimelineTouchpoint {
+  subclientId: string;
+  type: string;
+  occurredAt: string;
+  summary: string | null;
+  source: string;
+}
+
+/**
+ * Carrega em UMA query os contatos dos últimos N dias de todos os subclientes
+ * do tenant, agrupados por subcliente — usado pela linha do tempo do CS.
+ */
+export async function loadSubclientTouchpointTimeline(
+  tenantId: string,
+  days = 90,
+): Promise<Record<string, TimelineTouchpoint[]>> {
+  const since = new Date(Date.now() - days * 86_400_000).toISOString();
+  const { data, error } = await supabase
+    .from("client_touchpoints")
+    .select("subclient_id, touchpoint_type, occurred_at, summary, source")
+    .eq("tenant_id", tenantId)
+    .not("subclient_id", "is", null)
+    .gte("occurred_at", since)
+    .order("occurred_at", { ascending: true });
+
+  if (error) throw error;
+
+  const grouped: Record<string, TimelineTouchpoint[]> = {};
+  (data || []).forEach((t: any) => {
+    const key = t.subclient_id as string;
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push({
+      subclientId: key,
+      type: t.touchpoint_type,
+      occurredAt: t.occurred_at,
+      summary: t.summary ?? null,
+      source: t.source,
+    });
+  });
+  return grouped;
+}
+

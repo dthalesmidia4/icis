@@ -19,9 +19,11 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   loadSystemsClientHealth,
+  loadSubclientTouchpointTimeline,
   HEALTH_LABEL,
   type SystemsClientHealth,
   type HealthLevel,
+  type TimelineTouchpoint,
 } from "@/lib/clientHealth";
 import {
   recordManualTouchpoint,
@@ -32,6 +34,9 @@ import {
   type TouchpointRecord,
 } from "@/lib/recordTouchpoint";
 import { DEMAND_ORIGIN_LABEL } from "@/lib/proceedDemand";
+import { HealthCadenceBar } from "@/components/customer-success/HealthCadenceBar";
+import { TouchpointTimeline } from "@/components/customer-success/TouchpointTimeline";
+
 
 const LEVEL_STYLES: Record<HealthLevel, string> = {
   ok: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900",
@@ -74,19 +79,28 @@ export default function CustomerSuccessSistemas() {
   const [historyClient, setHistoryClient] = useState<SystemsClientHealth | null>(null);
   const [history, setHistory] = useState<TouchpointRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [timeline, setTimeline] = useState<Record<string, TimelineTouchpoint[]>>({});
+  const [timelineDays, setTimelineDays] = useState(90);
+  const [showTable, setShowTable] = useState(false);
 
   const load = useCallback(async () => {
     if (!tenantId) return;
     setLoading(true);
     try {
-      setRows(await loadSystemsClientHealth(tenantId));
+      const [health, tl] = await Promise.all([
+        loadSystemsClientHealth(tenantId),
+        loadSubclientTouchpointTimeline(tenantId, timelineDays),
+      ]);
+      setRows(health);
+      setTimeline(tl);
     } catch (err) {
       console.error(err);
       toast.error("Não foi possível carregar o Customer Success.");
     } finally {
       setLoading(false);
     }
-  }, [tenantId]);
+  }, [tenantId, timelineDays]);
+
 
   useEffect(() => { load(); }, [load]);
 
@@ -201,7 +215,43 @@ export default function CustomerSuccessSistemas() {
           ))}
         </div>
 
+        {/* Barras de cadência: onde cada cliente está vs. onde deveria estar */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {filtered.map((r) => (
+            <HealthCadenceBar key={r.clientId} row={r} onClick={() => openHistory(r)} />
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-end gap-1">
+            {[30, 90, 180].map((d) => (
+              <Button
+                key={d}
+                size="sm"
+                variant={timelineDays === d ? "default" : "outline"}
+                onClick={() => setTimelineDays(d)}
+              >
+                {d}d
+              </Button>
+            ))}
+          </div>
+          <TouchpointTimeline
+            rows={filtered}
+            timeline={timeline}
+            days={timelineDays}
+            onSelect={openHistory}
+          />
+        </div>
+
+        <div className="flex justify-end">
+          <Button size="sm" variant="ghost" onClick={() => setShowTable((v) => !v)}>
+            {showTable ? "Ocultar tabela detalhada" : "Ver tabela detalhada"}
+          </Button>
+        </div>
+
+        {showTable && (
         <div className="border rounded-lg overflow-auto">
+
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
@@ -276,6 +326,8 @@ export default function CustomerSuccessSistemas() {
             </tbody>
           </table>
         </div>
+        )}
+
       </div>
 
       <Dialog open={!!dialogClient} onOpenChange={(v) => !v && setDialogClient(null)}>
