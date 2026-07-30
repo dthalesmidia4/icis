@@ -25,7 +25,7 @@ const FUNCTIONS: { key: string; name: string }[] = [
   { key: "revisar_roteiro", name: "Revisar roteiro" },
   { key: "criar_arte", name: "Criar arte" },
   { key: "captar", name: "Captar" },
-  { key: "revisar_captacao", name: "Revisar captação" },
+  { key: "revisar_captacao", name: "Descarregar captação" },
   { key: "gerar_video", name: "Gerar vídeo" },
   { key: "editar_video", name: "Editar vídeo" },
   { key: "revisar", name: "Revisar" },
