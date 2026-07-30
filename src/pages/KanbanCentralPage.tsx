@@ -52,6 +52,9 @@ import { useCollaborators } from "@/hooks/useCollaborators";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { assignInitialResponsible, resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from "@/lib/flowFunctions";
+import { resolveCurrentAndNext } from "@/lib/currentWorkCard";
+import { useNowTick } from "@/hooks/useNowTick";
+
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { usePendingEvaluationCards, type PendingEvaluationCard } from "@/hooks/usePendingEvaluationCards";
 import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
@@ -330,6 +333,51 @@ const KanbanCentralPage = () => {
   const [evolutionSearch, setEvolutionSearch] = useState("");
   const { activeDispatchIds, count: scheduledCount } = useActiveDispatchIds(tenantId);
   const { cards: pendingEvalCards, refetch: refetchEval } = usePendingEvaluationCards(tenantId);
+  // Relógio reativo (virada de dia / atraso não podem ficar congelados na sessão)
+  const nowTs = useNowTick(60_000);
+  // Entregas já registradas por usuário/card (cards multi-responsável)
+  const [deliveredStagesByUser, setDeliveredStagesByUser] = useState<Map<string, Map<string, Set<string>>>>(new Map());
+  const [deliveriesRefreshKey, setDeliveriesRefreshKey] = useState(0);
+
+  // Busca as entregas já registradas apenas dos cards multi-responsável
+  const multiAssigneeCardIds = useMemo(
+    () => cards.filter((c) => ((c as any).additional_assignees?.length ?? 0) > 0).map((c) => c.id).sort(),
+    [cards],
+  );
+  const multiAssigneeKey = multiAssigneeCardIds.join(",");
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (!tenantId || multiAssigneeCardIds.length === 0) {
+        if (!cancelled) setDeliveredStagesByUser(new Map());
+        return;
+      }
+      const { data, error } = await supabase
+        .from("demand_flow_history")
+        .select("demand_id, from_user_id, from_function_key, action")
+        .eq("tenant_id", tenantId)
+        .in("demand_id", multiAssigneeCardIds)
+        .in("action", ["partial_delivered", "delivered", "proceeded"]);
+      if (error || cancelled) return;
+      const byUser = new Map<string, Map<string, Set<string>>>();
+      (data || []).forEach((row: any) => {
+        const userId = row.from_user_id as string | null;
+        const stage = (row.from_function_key || "").toLowerCase().trim();
+        if (!userId || !stage) return;
+        let byCard = byUser.get(userId);
+        if (!byCard) { byCard = new Map(); byUser.set(userId, byCard); }
+        let stages = byCard.get(row.demand_id);
+        if (!stages) { stages = new Set(); byCard.set(row.demand_id, stages); }
+        stages.add(stage);
+      });
+      setDeliveredStagesByUser(byUser);
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [tenantId, multiAssigneeKey, deliveriesRefreshKey]);
+
+
+
   const [periods, setPeriods] = useState<Array<{
     id: string;
     period_title: string;
@@ -1012,11 +1060,13 @@ const KanbanCentralPage = () => {
 
   useRealtimeDemandFlowHistory({
     tenantId,
-    enabled: !!tenantId && columnHistory.size > 0,
+    enabled: !!tenantId,
     onInsert: () => {
       columnHistory.forEach((filter, columnId) => fetchColumnHistory(columnId, filter));
+      setDeliveriesRefreshKey((k) => k + 1);
     },
   });
+
 
   const [flowFunctionNames, setFlowFunctionNames] = useState<Record<string, string>>({});
 
@@ -2403,39 +2453,17 @@ const KanbanCentralPage = () => {
             const evaluateCardsSorted = [...evaluateCards].sort((a, b) =>
               (a.suggestedDate || "9999-12-31").localeCompare(b.suggestedDate || "9999-12-31"));
 
-            // --- "Em andamento" = card mais atrasado que já deveria estar sendo feito ---
-            // Considera a fila operacional inteira do colaborador; ignora cliente, captação
-            // (que tem lógica própria de pausa) e publicações já agendadas.
-            const nowTs = Date.now();
-            const startTsOf = (c: CentralKanbanCard): number => {
-              if (!c.due_date) return Number.POSITIVE_INFINITY;
-              const [y, mo, d] = c.due_date.split("-").map((x) => parseInt(x, 10));
-              const [h, mi] = ((c.due_time || "00:00").slice(0, 5)).split(":").map((x) => parseInt(x, 10));
-              return new Date(y, (mo || 1) - 1, d || 1, h || 0, mi || 0).getTime();
-            };
-            const allOperationalCards = isHistoryMode ? [] : activeColumnCards;
-            const flowCandidates = allOperationalCards.map((c) => ({
-              c,
-              tier: isReviewFunction(c.current_function_key) ? 1 : isEvaluationFunction(c.current_function_key) ? 2 : 0,
-            })).filter(({ c }) => {
-              const k = (c.current_function_key || "").toLowerCase();
-              if (isClientWaitingFunction(k) || k === "captar") return false;
-              if (activeDispatchIds.has(c.id)) return false;
-              if ((c as any).is_daily_card) return false;
-              return Number.isFinite(startTsOf(c));
-            }).sort((a, b) => {
-              const d = startTsOf(a.c) - startTsOf(b.c);
-              return d !== 0 ? d : a.tier - b.tier;
-            });
-            const startedCandidates = flowCandidates.filter(({ c }) => startTsOf(c) <= nowTs);
-            const currentFlowCardId = startedCandidates.length > 0 ? startedCandidates[0].c.id : null;
-            const nextFlowCardId = (() => {
-              if (currentFlowCardId) {
-                const idx = flowCandidates.findIndex((x) => x.c.id === currentFlowCardId);
-                return flowCandidates[idx + 1]?.c.id || null;
-              }
-              return flowCandidates[0]?.c.id || null;
-            })();
+            // --- "Em andamento" = primeiro card pendente da fila operacional deste colaborador ---
+            // A coluna só contém cards pendentes: a entrega remove o card daqui.
+            // Ver src/lib/currentWorkCard.ts para a regra completa.
+            const { currentId: currentFlowCardId, nextId: nextFlowCardId } = isHistoryMode
+              ? { currentId: null as string | null, nextId: null as string | null }
+              : resolveCurrentAndNext(activeColumnCards as any[], {
+                  now: nowTs,
+                  activeDispatchIds,
+                  deliveredStagesByCard: deliveredStagesByUser.get(columnUserId),
+                });
+
 
 
             const isAwaitingCollapsed = focusKind ? false : !expandedAwaiting.has(column.id);
