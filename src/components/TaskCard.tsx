@@ -2095,10 +2095,16 @@ export default function TaskCard({
                       disabled={readOnly}
                     >
                       <SelectTrigger
-                        className="h-7 text-sm border-0 shadow-none bg-transparent px-1.5 gap-1 hover:bg-background/60 focus:ring-0 w-auto min-w-[120px]"
+                        className={cn(
+                          "h-7 text-sm shadow-none px-1.5 gap-1 hover:bg-background/60 focus:ring-0 w-auto min-w-[120px]",
+                          isClientOrigin(((card as any).origin as DemandOrigin) || "interno")
+                            ? "border border-primary/40 bg-primary/5 rounded-full"
+                            : "border-0 bg-transparent",
+                        )}
                         aria-label="Origem"
                         title="Origem da demanda — origem interna pula as etapas de cliente"
                       >
+
                         <SelectValue placeholder="Origem" />
                       </SelectTrigger>
                       <SelectContent>
