@@ -738,6 +738,7 @@ export async function computeReorder(
       changed,
       spansDays: daysSpanned,
       slackApplied,
+      pinned: !!pinnedStart,
       pausedByCaptar,
     });
 
