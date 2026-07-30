@@ -187,11 +187,14 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     }
   }, [prioritizeByPublish, storageKey]);
 
+  const stageStartsSignature = useMemo(() => JSON.stringify(stageStarts), [stageStarts]);
+
   useEffect(() => {
     if (!open || !startFrom) return;
     let cancelled = false;
     setLoading(true);
-    computeReorder(cards, { startFrom, workHours, durations, areaSchedule, scheduledPublishIds, manualOverrides, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
+    const enriched = cards.map((c) => ({ ...c, stage_started_at: stageStarts[c.id] ?? null }));
+    computeReorder(enriched, { startFrom, workHours, durations, areaSchedule, scheduledPublishIds, manualOverrides, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
       .then((r) => {
         if (!cancelled) setProposals(r);
       })
@@ -206,7 +209,8 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, startFrom, cardsSignature, workHoursSignature, durationsSignature, areaSignature, publishIdsSignature, prioritizeByPublish, showPublishToggle, manualOverrides]);
+  }, [open, startFrom, cardsSignature, stageStartsSignature, workHoursSignature, durationsSignature, areaSignature, publishIdsSignature, prioritizeByPublish, showPublishToggle, manualOverrides]);
+
 
   // Limpa ajustes manuais ao fechar o modal
   useEffect(() => {
