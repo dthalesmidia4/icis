@@ -57,22 +57,22 @@ export default function AwaitingClientActions({
   };
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap mt-1 px-1 text-[10px]">
-      <button
-        type="button"
-        onClick={handleApprove}
-        onMouseLeave={() => setConfirming(false)}
-        disabled={loading}
-        className={cn(
-          "ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md border transition-colors font-semibold",
-          confirming
-            ? "border-emerald-500/60 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
-            : "border-border/60 text-muted-foreground hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/10",
-        )}
-      >
-        {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-        {confirming ? "Confirmar?" : "Cliente aprovou"}
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={handleApprove}
+      onMouseLeave={() => setConfirming(false)}
+      disabled={loading}
+      className={cn(
+        "shrink-0 inline-flex items-center gap-1 px-1.5 py-1 rounded-md border transition-colors font-semibold text-[10px] leading-tight",
+        confirming
+          ? "border-emerald-500/60 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+          : "border-border/60 text-muted-foreground hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/10",
+      )}
+      title={confirming ? "Confirmar aprovação" : "Cliente aprovou"}
+    >
+      {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+      {confirming ? "Confirmar" : "Aprovar"}
+    </button>
   );
+
 }
