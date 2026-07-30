@@ -280,7 +280,8 @@ const KanbanCard = ({
         <CardContent className="px-2.5 pb-2.5 pt-0 space-y-1">
           <SentToClientPill since={awaitingClientSince} resendCount={awaitingClientResendCount} demandId={_cardId} />
           {awaitingClientActions && (
-            <div className="flex justify-end">{awaitingClientActions}</div>
+            <div className="w-full">{awaitingClientActions}</div>
+
           )}
         </CardContent>
       ) : (
