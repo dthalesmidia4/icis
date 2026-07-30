@@ -228,17 +228,34 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     }
   }, [open]);
 
-  // Mantém o rascunho do "Ajustar" coerente com a proposta exibida
+  // Mantém o rascunho do "Ajustar" coerente com a proposta recalculada:
+  // ao mudar início/término a duração automática acompanha o motor.
   useEffect(() => {
     if (!editingId || manualOverrides[editingId]) return;
     const p = proposals.find((x) => x.id === editingId);
     if (!p) return;
-    setDraft((d) =>
-      d.date === p.startISO && d.time === p.startTime && d.duration === String(p.durationMin)
-        ? d
-        : { date: p.startISO, time: p.startTime, duration: String(p.durationMin) }
-    );
+    setDraft((d) => {
+      const duration = d.durMode === "manual" ? d.duration : String(p.durationMin);
+      if (
+        d.date === p.startISO &&
+        d.time === p.startTime &&
+        d.endDate === p.endISO &&
+        d.endTime === p.endTime &&
+        d.duration === duration
+      ) {
+        return d;
+      }
+      return {
+        ...d,
+        date: p.startISO,
+        time: p.startTime,
+        endDate: p.endISO,
+        endTime: p.endTime,
+        duration,
+      };
+    });
   }, [editingId, proposals, manualOverrides]);
+
 
 
   const changedCount = proposals.filter((p) => p.changed && !p.skipped).length;
