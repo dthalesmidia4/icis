@@ -351,6 +351,77 @@ export type Database = {
           },
         ]
       }
+      client_touchpoints: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          demand_id: string | null
+          id: string
+          occurred_at: string
+          source: string
+          summary: string | null
+          tenant_id: string
+          touchpoint_type: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          demand_id?: string | null
+          id?: string
+          occurred_at?: string
+          source?: string
+          summary?: string | null
+          tenant_id: string
+          touchpoint_type: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          demand_id?: string | null
+          id?: string
+          occurred_at?: string
+          source?: string
+          summary?: string | null
+          tenant_id?: string
+          touchpoint_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_touchpoints_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_touchpoints_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_touchpoints_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "v_demand_stage_misalignment"
+            referencedColumns: ["demand_id"]
+          },
+          {
+            foreignKeyName: "client_touchpoints_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collaborator_function_assignments: {
         Row: {
           allowed: boolean
@@ -642,6 +713,7 @@ export type Database = {
           requirement: string
           tenant_id: string
           updated_at: string
+          work_area: Database["public"]["Enums"]["work_area"]
         }
         Insert: {
           created_at?: string
@@ -652,6 +724,7 @@ export type Database = {
           requirement?: string
           tenant_id: string
           updated_at?: string
+          work_area?: Database["public"]["Enums"]["work_area"]
         }
         Update: {
           created_at?: string
@@ -662,6 +735,7 @@ export type Database = {
           requirement?: string
           tenant_id?: string
           updated_at?: string
+          work_area?: Database["public"]["Enums"]["work_area"]
         }
         Relationships: [
           {
@@ -710,6 +784,8 @@ export type Database = {
           is_draft: boolean
           objective: string | null
           observations: string | null
+          origin: string
+          origin_note: string | null
           period_plan_id: string | null
           pipeline_id: string
           post_caption: string | null
@@ -761,6 +837,8 @@ export type Database = {
           is_draft?: boolean
           objective?: string | null
           observations?: string | null
+          origin?: string
+          origin_note?: string | null
           period_plan_id?: string | null
           pipeline_id: string
           post_caption?: string | null
@@ -812,6 +890,8 @@ export type Database = {
           is_draft?: boolean
           objective?: string | null
           observations?: string | null
+          origin?: string
+          origin_note?: string | null
           period_plan_id?: string | null
           pipeline_id?: string
           post_caption?: string | null
@@ -959,8 +1039,10 @@ export type Database = {
           id: string
           name: string
           position: number
+          requires_client_origin: boolean
           tenant_id: string
           updated_at: string
+          work_area: Database["public"]["Enums"]["work_area"]
         }
         Insert: {
           active?: boolean
@@ -970,8 +1052,10 @@ export type Database = {
           id?: string
           name: string
           position?: number
+          requires_client_origin?: boolean
           tenant_id: string
           updated_at?: string
+          work_area?: Database["public"]["Enums"]["work_area"]
         }
         Update: {
           active?: boolean
@@ -981,8 +1065,10 @@ export type Database = {
           id?: string
           name?: string
           position?: number
+          requires_client_origin?: boolean
           tenant_id?: string
           updated_at?: string
+          work_area?: Database["public"]["Enums"]["work_area"]
         }
         Relationships: [
           {
@@ -1706,14 +1792,15 @@ export type Database = {
           brand_text_color: string | null
           cep: string | null
           city: string | null
-          cnpj_cpf: string
+          cnpj_cpf: string | null
           commercial_phone: string | null
           complement: string | null
+          contact_cadence_days: number
           content_requirements: string | null
           corporate_email: string | null
           created_at: string | null
           default_work_area: Database["public"]["Enums"]["work_area"] | null
-          email: string
+          email: string | null
           fantasy_name: string | null
           has_mascot: boolean
           id: string
@@ -1725,11 +1812,11 @@ export type Database = {
           name: string
           neighborhood: string | null
           number: string | null
-          phone: string
-          products_services: string
+          phone: string | null
+          products_services: string | null
           responsible_cpf: string | null
-          sector: string
-          size: string
+          sector: string | null
+          size: string | null
           state: string | null
           street: string | null
           tenant_id: string
@@ -1745,14 +1832,15 @@ export type Database = {
           brand_text_color?: string | null
           cep?: string | null
           city?: string | null
-          cnpj_cpf: string
+          cnpj_cpf?: string | null
           commercial_phone?: string | null
           complement?: string | null
+          contact_cadence_days?: number
           content_requirements?: string | null
           corporate_email?: string | null
           created_at?: string | null
           default_work_area?: Database["public"]["Enums"]["work_area"] | null
-          email: string
+          email?: string | null
           fantasy_name?: string | null
           has_mascot?: boolean
           id?: string
@@ -1764,11 +1852,11 @@ export type Database = {
           name: string
           neighborhood?: string | null
           number?: string | null
-          phone: string
-          products_services: string
+          phone?: string | null
+          products_services?: string | null
           responsible_cpf?: string | null
-          sector: string
-          size: string
+          sector?: string | null
+          size?: string | null
           state?: string | null
           street?: string | null
           tenant_id: string
@@ -1784,14 +1872,15 @@ export type Database = {
           brand_text_color?: string | null
           cep?: string | null
           city?: string | null
-          cnpj_cpf?: string
+          cnpj_cpf?: string | null
           commercial_phone?: string | null
           complement?: string | null
+          contact_cadence_days?: number
           content_requirements?: string | null
           corporate_email?: string | null
           created_at?: string | null
           default_work_area?: Database["public"]["Enums"]["work_area"] | null
-          email?: string
+          email?: string | null
           fantasy_name?: string | null
           has_mascot?: boolean
           id?: string
@@ -1803,11 +1892,11 @@ export type Database = {
           name?: string
           neighborhood?: string | null
           number?: string | null
-          phone?: string
-          products_services?: string
+          phone?: string | null
+          products_services?: string | null
           responsible_cpf?: string | null
-          sector?: string
-          size?: string
+          sector?: string | null
+          size?: string | null
           state?: string | null
           street?: string | null
           tenant_id?: string
