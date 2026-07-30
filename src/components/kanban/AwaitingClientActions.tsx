@@ -79,6 +79,8 @@ export default function AwaitingClientActions({
   tenantId,
   demandTypeKey,
   currentFunctionKey,
+  workArea,
+  origin,
   clientId,
   publishDate,
   publishTime,
