@@ -383,30 +383,41 @@ function nextBlockedStartInDay(
 // Duração base do card
 // ------------------------------------------------------------------
 
-/** Minutos entre due e delivery (aproximação: subtrai almoço quando cruzar). */
+/**
+ * Minutos ÚTEIS entre due e delivery: soma apenas a interseção com os blocos
+ * de expediente de cada dia (respeita almoço, área mídia×sistemas), ignorando
+ * noites, fins de semana e feriados.
+ */
 function scheduledSpanMinutes(card: ReorderCardInput, ctx: WorkCtx): number | null {
   if (!card.due_date || !card.due_time || !card.delivery_date || !card.delivery_time) return null;
   const due = toVirtualUtc(card.due_date, card.due_time.slice(0, 5));
   const deliv = toVirtualUtc(card.delivery_date, card.delivery_time.slice(0, 5));
   if (!(deliv > due)) return null;
-  const rawMin = Math.round((deliv.getTime() - due.getTime()) / 60000);
-  let lunchDeductions = 0;
-  if (ctx.hasLunch) {
-    const cur = new Date(due);
-    cur.setUTCHours(0, 0, 0, 0);
-    const endDay = new Date(deliv);
-    endDay.setUTCHours(0, 0, 0, 0);
-    while (cur <= endDay) {
-      const lunchStart = setMinuteOfDay(cur, ctx.lsMin);
-      const lunchEnd = setMinuteOfDay(cur, ctx.leMin);
-      if (lunchEnd > due && lunchStart < deliv) {
-        lunchDeductions += ctx.leMin - ctx.lsMin;
+
+  const area = card.work_area === "midia" || card.work_area === "sistemas" ? card.work_area : null;
+  let total = 0;
+  const cur = new Date(due);
+  cur.setUTCHours(0, 0, 0, 0);
+  const endDay = new Date(deliv);
+  endDay.setUTCHours(0, 0, 0, 0);
+
+  for (let guard = 0; guard < 400 && cur <= endDay; guard++) {
+    if (!isNonWorkingDay(cur, ctx.holidays)) {
+      const dayStartMin = isoDate(cur) === isoDate(due) ? due.getUTCHours() * 60 + due.getUTCMinutes() : 0;
+      const dayEndMin = isoDate(cur) === isoDate(deliv) ? deliv.getUTCHours() * 60 + deliv.getUTCMinutes() : 24 * 60;
+      for (const b of dayBlocks(cur, area, ctx)) {
+        const s = Math.max(b.s, dayStartMin);
+        const e = Math.min(b.e, dayEndMin);
+        if (e > s) total += e - s;
       }
-      cur.setUTCDate(cur.getUTCDate() + 1);
     }
+    cur.setUTCDate(cur.getUTCDate() + 1);
   }
-  return Math.max(5, rawMin - lunchDeductions);
+
+  if (total <= 0) return null;
+  return Math.max(5, total);
 }
+
 
 export type StageDurationOverrides = Record<string, Partial<Record<DurationTypeGroup, number>>>;
 
