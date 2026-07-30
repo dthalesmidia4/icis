@@ -2396,7 +2396,7 @@ const KanbanCentralPage = () => {
             });
 
             // Cards HISTÓRICOS: todos que já passaram por esse colaborador
-            let historyColumnCards: Array<CentralKanbanCard & { _historyAt?: string }> = [];
+            let historyColumnCards: Array<CentralKanbanCard & { _historyAt?: string; _historyStage?: string }> = [];
             if (isHistoryMode) {
               const rows = columnHistoryRows.get(columnUserId) || [];
               const cardIndex = new Map<string, CentralKanbanCard>();
@@ -2405,9 +2405,17 @@ const KanbanCentralPage = () => {
                 .map((r) => {
                   const c = cardIndex.get(r.demandId);
                   if (!c) return null;
-                  return { ...c, _historyAt: r.lastSeenAt } as CentralKanbanCard & { _historyAt?: string };
+                  // No Registro, o rótulo deve ser a ETAPA ENTREGUE naquele evento,
+                  // não a etapa atual do card (que pode já ter avançado).
+                  const stage = r.deliveredStage || c.current_function_key || null;
+                  return {
+                    ...c,
+                    current_function_key: stage,
+                    _historyAt: r.lastSeenAt,
+                    _historyStage: r.deliveredStage || undefined,
+                  } as CentralKanbanCard & { _historyAt?: string; _historyStage?: string };
                 })
-                .filter((x): x is CentralKanbanCard & { _historyAt?: string } => !!x);
+                .filter((x): x is CentralKanbanCard & { _historyAt?: string; _historyStage?: string } => !!x);
             }
 
             const allColumnCards = isHistoryMode ? historyColumnCards : activeColumnCards;
