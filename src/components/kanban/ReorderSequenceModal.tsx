@@ -108,6 +108,33 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     return () => { cancelled = true; };
   }, [open, tenantId]);
 
+  // Busca a entrada na etapa atual de cada card (histórico de fluxo).
+  useEffect(() => {
+    if (!open || cards.length === 0) {
+      setStageStarts({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("demand_flow_history")
+        .select("demand_id, to_function_key, created_at")
+        .in("demand_id", cards.map((c) => c.id))
+        .order("created_at", { ascending: true });
+      if (cancelled || error || !data) return;
+      const byCard: Record<string, string> = {};
+      const stageOf = new Map(cards.map((c) => [c.id, (c.current_function_key || "").trim()]));
+      for (const row of data as Array<{ demand_id: string; to_function_key: string | null; created_at: string }>) {
+        const stage = stageOf.get(row.demand_id);
+        if (!stage || (row.to_function_key || "").trim() !== stage) continue;
+        byCard[row.demand_id] = row.created_at; // último registro vence (ordem crescente)
+      }
+      setStageStarts(byCard);
+    })();
+    return () => { cancelled = true; };
+  }, [open, cardsSignature]);
+
+
   // Carrega alocação por área do colaborador da coluna
   useEffect(() => {
     if (!open || !tenantId || !assigneeId) {
