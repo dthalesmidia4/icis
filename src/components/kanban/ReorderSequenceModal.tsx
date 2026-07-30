@@ -59,7 +59,15 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   const [areaSchedule, setAreaSchedule] = useState<AreaScheduleMap | undefined>(undefined);
   const [manualOverrides, setManualOverrides] = useState<Record<string, ReorderManualOverride>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<{ date: string; time: string; duration: string }>({ date: "", time: "", duration: "" });
+  const [draft, setDraft] = useState<{
+    date: string;
+    time: string;
+    duration: string;
+    endDate: string;
+    endTime: string;
+    /** "auto": duração derivada do motor; "manual": valor digitado pelo usuário. */
+    durMode: "auto" | "manual";
+  }>({ date: "", time: "", duration: "", endDate: "", endTime: "", durMode: "auto" });
   // Instante-base congelado por abertura do modal: evita que a proposta "ande" sozinha
   // a cada re-render do Kanban (realtime / tick de relógio).
   const [startFrom, setStartFrom] = useState<Date | null>(null);
