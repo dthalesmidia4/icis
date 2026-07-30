@@ -161,10 +161,10 @@ export async function loadSystemsClientHealth(tenantId: string): Promise<Systems
         .order("occurred_at", { ascending: false }),
       supabase
         .from("demands")
-        .select("subclient_id, due_date, delivery_date, archived_at")
+        .select("subclient_id, subclient_ids, due_date, delivery_date, archived_at")
         .eq("tenant_id", tenantId)
-        .is("archived_at", null)
-        .not("subclient_id", "is", null),
+        .is("archived_at", null),
+
     ]);
 
   const companyName = new Map<string, string>();
