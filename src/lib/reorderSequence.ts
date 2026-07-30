@@ -69,6 +69,7 @@ export interface ReorderProposal {
   skipped?: boolean;
   spansDays?: number;
   slackApplied?: boolean;
+  pinned?: boolean;
   pausedByCaptar?: {
     atISO: string;
     atTime: string;
@@ -383,30 +384,41 @@ function nextBlockedStartInDay(
 // Duração base do card
 // ------------------------------------------------------------------
 
-/** Minutos entre due e delivery (aproximação: subtrai almoço quando cruzar). */
+/**
+ * Minutos ÚTEIS entre due e delivery: soma apenas a interseção com os blocos
+ * de expediente de cada dia (respeita almoço, área mídia×sistemas), ignorando
+ * noites, fins de semana e feriados.
+ */
 function scheduledSpanMinutes(card: ReorderCardInput, ctx: WorkCtx): number | null {
   if (!card.due_date || !card.due_time || !card.delivery_date || !card.delivery_time) return null;
   const due = toVirtualUtc(card.due_date, card.due_time.slice(0, 5));
   const deliv = toVirtualUtc(card.delivery_date, card.delivery_time.slice(0, 5));
   if (!(deliv > due)) return null;
-  const rawMin = Math.round((deliv.getTime() - due.getTime()) / 60000);
-  let lunchDeductions = 0;
-  if (ctx.hasLunch) {
-    const cur = new Date(due);
-    cur.setUTCHours(0, 0, 0, 0);
-    const endDay = new Date(deliv);
-    endDay.setUTCHours(0, 0, 0, 0);
-    while (cur <= endDay) {
-      const lunchStart = setMinuteOfDay(cur, ctx.lsMin);
-      const lunchEnd = setMinuteOfDay(cur, ctx.leMin);
-      if (lunchEnd > due && lunchStart < deliv) {
-        lunchDeductions += ctx.leMin - ctx.lsMin;
+
+  const area = card.work_area === "midia" || card.work_area === "sistemas" ? card.work_area : null;
+  let total = 0;
+  const cur = new Date(due);
+  cur.setUTCHours(0, 0, 0, 0);
+  const endDay = new Date(deliv);
+  endDay.setUTCHours(0, 0, 0, 0);
+
+  for (let guard = 0; guard < 400 && cur <= endDay; guard++) {
+    if (!isNonWorkingDay(cur, ctx.holidays)) {
+      const dayStartMin = isoDate(cur) === isoDate(due) ? due.getUTCHours() * 60 + due.getUTCMinutes() : 0;
+      const dayEndMin = isoDate(cur) === isoDate(deliv) ? deliv.getUTCHours() * 60 + deliv.getUTCMinutes() : 24 * 60;
+      for (const b of dayBlocks(cur, area, ctx)) {
+        const s = Math.max(b.s, dayStartMin);
+        const e = Math.min(b.e, dayEndMin);
+        if (e > s) total += e - s;
       }
-      cur.setUTCDate(cur.getUTCDate() + 1);
     }
+    cur.setUTCDate(cur.getUTCDate() + 1);
   }
-  return Math.max(5, rawMin - lunchDeductions);
+
+  if (total <= 0) return null;
+  return Math.max(5, total);
 }
+
 
 export type StageDurationOverrides = Record<string, Partial<Record<DurationTypeGroup, number>>>;
 
@@ -431,18 +443,18 @@ function estimateDurationBase(
   const stage = (card.current_function_key || "").toLowerCase();
 
   if (isOtherType(card)) {
-    const span = scheduledSpanMinutes(card, ctx);
-    if (span && span > 0) {
-      // teto ~5 jornadas na área do card
-      const cap = Math.max(60, workingMinutesInDay(new Date(), card.work_area, ctx) * 5);
-      return Math.min(span, cap);
-    }
     const overridden = pickFromOverrides(overrides, stage, "outro");
     if (overridden !== null) return overridden;
+    const span = scheduledSpanMinutes(card, ctx);
+    // Teto de 1 jornada útil: spans maiores são resíduo de agendamentos antigos
+    // (card arrastado por dias) e não representam esforço real.
+    const cap = Math.max(60, workingMinutesInDay(new Date(), card.work_area, ctx));
+    if (span && span > 0 && span <= cap) return span;
     const stageRow = DURATION_MATRIX[stage];
     if (stageRow) return stageRow.outro ?? stageRow.default;
     return FALLBACK_STAGE_DURATION.outro;
   }
+
 
   const overridden = pickFromOverrides(overrides, stage, group);
   if (overridden !== null) return overridden;
@@ -537,6 +549,12 @@ export function sortForReorder(
 // Reorganização principal
 // ------------------------------------------------------------------
 
+export interface ReorderManualOverride {
+  startISO?: string;
+  startTime?: string;
+  durationMin?: number;
+}
+
 export async function computeReorder(
   cards: ReorderCardInput[],
   opts?: {
@@ -546,7 +564,10 @@ export async function computeReorder(
     durations?: StageDurationOverrides;
     areaSchedule?: AreaScheduleMap;
     scheduledPublishIds?: Set<string>;
+    manualOverrides?: Record<string, ReorderManualOverride>;
   },
+
+
 
 ): Promise<ReorderProposal[]> {
   if (cards.length === 0) return [];
@@ -624,7 +645,10 @@ export async function computeReorder(
       ? card.work_area
       : null;
 
-    const baseDur = estimateDurationBase(card, ctx, opts?.durations);
+    const manual = opts?.manualOverrides?.[card.id];
+    const baseDur = manual?.durationMin && manual.durationMin > 0
+      ? manual.durationMin
+      : estimateDurationBase(card, ctx, opts?.durations);
     let dur = baseDur;
     let slackApplied = false;
     let start: Date;
@@ -632,7 +656,7 @@ export async function computeReorder(
     let daysSpanned = 1;
 
     let treatAsStuck = false;
-    if (isFirstActive) {
+    if (isFirstActive && !manual) {
       const deadline = cardDeadline(card);
       if (deadline && deadline < now) treatAsStuck = true;
     }
@@ -641,12 +665,19 @@ export async function computeReorder(
       const slack = Math.round(baseDur * 0.30);
       dur = baseDur + slack;
       slackApplied = true;
-      // Card atrasado/iniciado vira a próxima ação: começa no primeiro slot útil a partir de agora,
-      // nunca preservando um horário antigo que já passou.
-      ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
+    }
+
+    const pinnedStart = manual?.startISO && manual?.startTime
+      ? toVirtualUtc(manual.startISO, manual.startTime.slice(0, 5))
+      : null;
+
+    if (pinnedStart) {
+      // Início fixado manualmente: aloca exatamente ali (ainda fatiando entre blocos de expediente).
+      ({ start, end, daysSpanned } = allocateAcrossDays(pinnedStart, dur, area, ctx, undefined));
     } else {
       ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
     }
+
 
     let warning: string | undefined;
     let publishDeadline: string | null = null;
@@ -707,6 +738,7 @@ export async function computeReorder(
       changed,
       spansDays: daysSpanned,
       slackApplied,
+      pinned: !!pinnedStart,
       pausedByCaptar,
     });
 
