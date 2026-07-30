@@ -772,11 +772,13 @@ export async function computeReorder(
       ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
     }
 
-    // Atrasado em execução: preserva o início histórico e recalcula só o término,
-    // alocando a extensão a partir do instante-base.
+    // Atrasado em execução: preserva o início histórico apenas na exibição/gravação.
+    // O intervalo realmente ocupado na agenda é o da extensão (allocStart → end).
+    const allocStart = new Date(start);
     if (keepStart && origStart) {
       start = new Date(origStart);
     }
+
 
     // Um card em andamento com término futuro já consumiu parte do esforço.
     // Preserva o término vigente e agenda somente o tempo restante desde agora,
