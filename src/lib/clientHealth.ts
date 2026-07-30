@@ -142,7 +142,20 @@ export interface SystemsClientHealth extends ClientHealth {
  * Health score dos CLIENTES de uma empresa de Sistemas (ex.: as clínicas
  * atendidas pela SmartVety). Cada linha é um registro de `systems_clients`.
  */
+/** Origem do card → tipo de contato equivalente (contato derivado da demanda). */
+const DERIVED_ORIGIN_TOUCHPOINT: Record<string, string> = {
+  cliente_solicitacao: "solicitacao",
+  cliente_feedback: "feedback",
+  suporte: "solicitacao",
+};
+
+function derivedTouchpointType(origin?: string | null): string | null {
+  if (!origin) return null;
+  return DERIVED_ORIGIN_TOUCHPOINT[origin.toLowerCase().trim()] ?? null;
+}
+
 export async function loadSystemsClientHealth(tenantId: string): Promise<SystemsClientHealth[]> {
+
   const [{ data: companies }, { data: subclients }, { data: touchpoints }, { data: demands }] =
     await Promise.all([
       supabase
