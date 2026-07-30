@@ -1784,6 +1784,12 @@ const KanbanCentralPage = () => {
 
       await supabase.from("demands").update(extra).eq("id", result.demand_id);
 
+      // Registra o contato que originou o card (solicitação/feedback do cliente).
+      if (tenantId) {
+        await recordOriginTouchpoint(tenantId, result.demand_id);
+      }
+
+
       if (tenantId) {
         await assignInitialResponsible(
           result.demand_id,
