@@ -541,13 +541,25 @@ export async function jumpToFunction({
   }
 
 
-  const picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name);
-  if (!picked.success || !picked.userId) return { success: false, message: picked.message || "Nenhum responsável para a etapa." };
-
   const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
   const prevUser = (cur as any)?.assigned_to || null;
   const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
   const stageExtras = currentFunctionKey === "captar" ? captarExtras : await fetchExtraAssignees(demandId);
+  const jumpExecutors = await collectStageExecutors(tenantId, demandId, currentFunctionKey, prevUser, stageExtras);
+
+  // Salto manual: mantém quem já está no card quando a etapa é de produção;
+  // etapas de revisão nunca caem em quem executou a etapa anterior.
+  const isReviewTarget = isReviewFunction(target.function_key);
+  let picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name, {
+    preferUserIds: !isReviewTarget && STICKY_STAGES.has(target.function_key) ? jumpExecutors : [],
+    excludeUserIds: isReviewTarget ? jumpExecutors : [],
+  });
+  if (isReviewTarget && (!picked.success || !picked.userId)) {
+    // Sem revisor alternativo: usa a escolha normal por carga (o usuário pediu esta etapa).
+    picked = await pickAssigneeForFunction(tenantId, target.function_key, target.name);
+  }
+  if (!picked.success || !picked.userId) return { success: false, message: picked.message || "Nenhum responsável para a etapa." };
+
 
   const updatePayload: any = { assigned_to: picked.userId, current_function_key: target.function_key };
   if (currentFunctionKey === "aguardando_cliente" && target.function_key !== "enviar_cliente") {
