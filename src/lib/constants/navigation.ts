@@ -34,10 +34,16 @@ export interface NavigationItem {
 export const NAVIGATION_ITEMS: NavigationItem[] = [
   {
     id: 'clientes',
-    title: "Cliente",
+    title: "Clientes Mídia",
     icon: Users,
     route: "/client-hub",
     opensClientModal: true,
+  },
+  {
+    id: 'clientes-sistemas',
+    title: "Clientes Sistemas",
+    icon: Briefcase,
+    route: "/clientes-sistemas",
   },
   {
     id: 'kanban',
@@ -51,12 +57,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: CalendarDays,
     route: "/scheduled",
   },
-  {
-    id: 'clientes-sistemas',
-    title: "Clientes Sistemas",
-    icon: Briefcase,
-    route: "/clientes-sistemas",
-  },
+
 ];
 
 /**
