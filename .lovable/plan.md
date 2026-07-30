@@ -1,28 +1,20 @@
-## 1. Registro de entregas: mostrar a etapa realmente entregue
+## Problema
 
-**Situação confirmada:** no Registro, o card renderizado é o card *ao vivo*, então o subtítulo mostra a etapa **atual** dele (`current_function_key = editar_video`). Mas a linha do histórico da Letícia hoje é `from_function_key = captar` → ela entregou a **captação**, não a edição de vídeo. Logo o card deve continuar aparecendo no registro (está certo), apenas com o rótulo correto.
+No **Registro de entregas** (modo histórico de uma coluna), os cards passam pela mesma lógica de agrupamento dos cards ativos em `src/pages/KanbanCentralPage.tsx`. Essa lógica cria um pseudo-grupo prioritário `__captar_now__` ("CAPTAÇÃO · AGORA") para qualquer card cuja etapa seja `captar` e cujo horário de início já passou — o que é correto para produção, mas errado para um registro, que é um evento passado. Além disso, o cabeçalho do card em modo histórico mostra apenas `toLocaleDateString` (data sem hora).
 
-Correção:
-- `fetchColumnHistory` (`src/pages/KanbanCentralPage.tsx`) passa a selecionar também `from_function_key`, `to_function_key` e `action`, guardando-os junto de `demandId`/`lastSeenAt`.
-- Ao montar `historyColumnCards` no modo Registro, sobrescrever o `current_function_key` do card clonado pela **etapa entregue** daquela linha (`from_function_key`), de modo que o subtítulo e o chip do card mostrem "Captar" em vez de "Editar vídeo".
-- Se o mesmo colaborador entregou mais de uma etapa do mesmo card dentro do período filtrado, listar uma entrada por etapa (chave `demandId + etapa`), ordenadas pelo horário — assim "captar" e "editar vídeo" aparecem separadamente quando for o caso.
-- Fallback: se `from_function_key` for nulo (histórico antigo), manter o comportamento atual.
-- Nenhuma mudança em modo normal do Kanban, foco, reordenação ou gravação de histórico — só a leitura do Registro.
+## Correções
 
-## 2. Botão "Cliente aprovou" mais útil
+1. **Desativar priorização operacional no Registro** (`KanbanCentralPage.tsx`, bloco de agrupamento por data):
+   - Quando `isHistoryMode`, não separar `captarNow` — todos os cards vão para `remaining`, sem o pseudo-grupo `__captar_now__`.
+   - Também desativar no modo histórico o boost secundário de `captar` dentro do sort do grupo e o marcador "pausado por captação" (`isPausedByCaptarNow` → sempre falso), que só faz sentido na fila ativa.
 
-Hoje é um botão compacto alinhado à direita, sem indicar o destino. Novo comportamento em `src/components/kanban/AwaitingClientActions.tsx`:
+2. **Agrupar o Registro pela data da entrega**:
+   - Em modo histórico, a chave do grupo passa a ser o dia de `_historyAt` (data do evento em `demand_flow_history`), não `due_date`/`delivery_date`; ordenação decrescente (entregas mais recentes primeiro) dentro e entre grupos.
+   - Cabeçalhos continuam usando `formatHeader` (Hoje / Ontem / dd/mm/aaaa).
 
-- O botão passa a ocupar a largura do bloco (centralizado, logo abaixo do pill azul), com o rótulo:
-  `Cliente aprovou · Enviar para {próxima etapa} →`
-  Ex.: `Cliente aprovou · Enviar para Publicar →`
-- A próxima etapa é resolvida com `getPipelineSequence(tenantId, demandTypeKey)` (já existente em `proceedDemand.ts`): pega a etapa seguinte a `aguardando_cliente` na sequência exigida do tipo do card.
-- Enquanto carrega ou se não houver etapa seguinte identificável, o rótulo cai para `Cliente aprovou →` (sem quebrar nada).
-- Mantém o clique em dois passos (segundo clique confirma), agora com texto `Confirmar envio para {etapa}?`.
-- A ação executada continua exatamente a mesma (`proceedDemand`), sem alteração de fluxo.
+3. **Mostrar o horário da entrega**:
+   - No cabeçalho do card em modo histórico, trocar a data isolada por data + hora, ex.: `30/07 16:52`, usando `toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" })`, mantendo o badge "Hoje: {responsável atual}" à direita e o rótulo da etapa realmente entregue já existente.
 
-## Detalhes técnicos
+## Notas técnicas
 
-- Arquivos: `src/pages/KanbanCentralPage.tsx`, `src/components/kanban/AwaitingClientActions.tsx`, e ajuste mínimo de layout em `src/components/KanbanCard.tsx` (o container das ações passa de `justify-end` para largura total).
-- A sequência de etapas é buscada uma vez por combinação tenant + tipo de card e memoizada em módulo, evitando uma query por card na coluna.
-- Sem migrações de banco.
+- Mudanças restritas ao render da coluna em `src/pages/KanbanCentralPage.tsx` (bloco `captarNow` / `groups` / `entries` / cabeçalho `isHistory`). Nenhuma alteração em `fetchColumnHistory`, banco ou fluxo operacional — sem risco de regressão na visão ativa, pois todos os novos comportamentos são condicionados a `isHistoryMode`.

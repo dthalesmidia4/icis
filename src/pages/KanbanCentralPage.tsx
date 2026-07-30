@@ -2702,7 +2702,9 @@ const KanbanCentralPage = () => {
                           const remaining: CentralKanbanCard[] = [];
                           for (const c of columnCards) {
                             const cap = captarDue(c);
-                            if (cap !== Number.POSITIVE_INFINITY && cap <= nowMs) {
+                            // No Registro (histórico) não há priorização operacional:
+                            // são eventos passados, não fila de trabalho.
+                            if (!isHistoryMode && cap !== Number.POSITIVE_INFINITY && cap <= nowMs) {
                               captarNow.push(c);
                             } else {
                               remaining.push(c);
@@ -2713,10 +2715,18 @@ const KanbanCentralPage = () => {
                           // Group cards by chosen date
                           const _todayForGroup = new Date();
                           const _todayISOForGroup = `${_todayForGroup.getFullYear()}-${String(_todayForGroup.getMonth() + 1).padStart(2, "0")}-${String(_todayForGroup.getDate()).padStart(2, "0")}`;
+                          const historyDayOf = (c: CentralKanbanCard): string => {
+                            const at = (c as any)._historyAt as string | undefined;
+                            if (!at) return "__no_date__";
+                            const d = new Date(at);
+                            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                          };
                           const groups = new Map<string, CentralKanbanCard[]>();
                           for (const c of remaining) {
                             let key: string;
-                            if (dateGroupBy === "start") {
+                            if (isHistoryMode) {
+                              key = historyDayOf(c);
+                            } else if (dateGroupBy === "start") {
                               const start = c.due_date;
                               const end = c.delivery_date || c.due_date;
                               if (start && start < _todayISOForGroup && end && end >= _todayISOForGroup) {
@@ -2732,6 +2742,12 @@ const KanbanCentralPage = () => {
                           }
                           const entries = Array.from(groups.entries()).map(([date, items]) => {
                             const sorted = [...items].sort((a, b) => {
+                              if (isHistoryMode) {
+                                // Registro: mais recentes primeiro, pelo horário da entrega
+                                const aAt = ((a as any)._historyAt as string | undefined) || "";
+                                const bAt = ((b as any)._historyAt as string | undefined) || "";
+                                return bAt.localeCompare(aAt);
+                              }
                               // Boost secundário: captar futuros do próprio dia mantêm prioridade dentro do grupo
                               const aCap = captarDue(a);
                               const bCap = captarDue(b);
@@ -2751,7 +2767,9 @@ const KanbanCentralPage = () => {
                           entries.sort((a, b) => {
                             if (a.date === "__no_date__") return 1;
                             if (b.date === "__no_date__") return -1;
-                            return a.date.localeCompare(b.date);
+                            return isHistoryMode
+                              ? b.date.localeCompare(a.date)
+                              : a.date.localeCompare(b.date);
                           });
 
                           // Prepend pseudo-grupo "Captação · agora" quando houver
@@ -2843,6 +2861,7 @@ const KanbanCentralPage = () => {
                                 })();
                                 const cardStartsInFuture = !!card.due_date && card.due_date > todayISO;
                                 const isPausedByCaptarNow =
+                                  !isHistoryMode &&
                                   captarNow.length > 0 &&
                                   isTopNonCaptar &&
                                   !cardStartsInFuture &&
@@ -2886,7 +2905,7 @@ const KanbanCentralPage = () => {
                                           <div className="flex flex-wrap items-center gap-1 mb-1 px-1">
                                             {historyAt && (
                                               <span className="text-[9px] text-muted-foreground">
-                                                {new Date(historyAt).toLocaleDateString("pt-BR")}
+                                                {new Date(historyAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                                               </span>
                                             )}
                                             <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 ml-auto">
