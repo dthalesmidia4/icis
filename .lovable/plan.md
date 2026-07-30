@@ -1,42 +1,30 @@
-## Objetivo
+## Diagnóstico (verificado no código)
 
-No card em "Aguardando clientes", quando ele já está pronto para publicar, o atalho vira:
+1. **Duração absurda (2250 min / 6 dias)** — em `src/lib/reorderSequence.ts`, cards do tipo "Outro" não usam a matriz de durações: usam o intervalo agendado (`scheduledSpanMinutes`, linhas 387-409). Essa função calcula o span em **tempo corrido de relógio** (`deliv - due`) e só desconta o almoço — **não desconta noites, fins de semana, feriados nem os blocos de área (mídia × sistemas)**. Para o card "Templates personalizados" (28/07 14:35 → 30/07 14:00) isso dá ~2575 min, que é então cortado pelo teto de 5 jornadas = **2250 min**. Como uma jornada útil tem 450 min, 2250 min = 5 dias úteis inteiros, e com o resto da fila o fim cai em 06/08. Ou seja: o problema não é a folga de 30% (ela só é aplicada ao primeiro card atrasado), é a duração inflada.
 
-**Cliente aprovou · Agendar post para 05/08 09:00 →**
+2. **"Fim 14h" vs "13:35" no modal** — a linha riscada mostra **apenas a data de início original** (28/07 14:35); o fim original (30/07 14:00) não aparece. O 13:35 é o **novo início** proposto (agora). A leitura fica ambígua.
 
-Ao confirmar: cria o disparo de publicação, move o card para o status **Agendar Publicação**, desaloca o responsável, e o card some da coluna do colaborador — passando a ser visível em Conteúdos agendados.
+## O que será feito
 
-## Verificações feitas (sem premissas soltas)
+### 1. Duração realista para cards "Outro" (`src/lib/reorderSequence.ts`)
+- Reescrever `scheduledSpanMinutes` para somar **apenas minutos úteis** dentro da janela original: itera dia a dia, ignora fins de semana e feriados, e soma a interseção com os blocos do dia (`dayBlocks`, já respeita área mídia × sistemas e almoço).
+- Reduzir o teto de 5 jornadas para **1 jornada útil** por padrão (≈450 min); acima disso, o span é considerado "resíduo de agendamento antigo" e cai na matriz/override da etapa. Um card "Outro" só ganha duração maior que uma jornada se houver override explícito de duração cadastrado.
+- Efeito: o card 1 deixa de valer 5 dias úteis; a fila do Eric volta a caber em 30/07–31/07.
 
-- **A publicação automatizada NÃO exige que o card venha de `publicar`.** `run-scheduled-dispatches` lê exclusivamente a tabela `scheduled_publication_dispatches` (status `scheduled` + `scheduled_at` vencido). Ele nem consulta `current_function_key` ou `status_id` do card para decidir publicar. Só usa `demands` para pegar a legenda mais recente (`post_caption`).
-- **Depois de publicar, o próprio dispatcher reassume o card:** define status "Publicado", `current_function_key = 'revisar_publicacao'` e escolhe um revisor pela mesma regra de balanceamento do Prosseguir. Ou seja, deixar `assigned_to = null` durante o agendamento é seguro — o card volta com responsável na etapa de revisão de publicação.
-- **A saída da coluna é automática:** o Kanban já filtra `baseCards` por `activeDispatchIds` (disparos `scheduled`/`dispatching`), então basta o disparo existir.
-- **Conteúdos agendados** lista por dispatch (`Scheduled.tsx` busca dispatches e depois as demands por `card_id`), independente de responsável ou status — o card aparece lá corretamente.
-- **Legenda não é obrigatória** para o disparo: `createOrUpdateScheduleDispatch` valida mídia final por tipo de conteúdo, data futura e redes sociais ativas do cliente — mas não exige caption. Então a legenda não entra como requisito bloqueante (a legenda usada na hora da publicação é sempre a `post_caption` mais atual).
-- **Trigger `validate_demand_stage_assignment`** retorna cedo quando `assigned_to` é nulo — nenhum efeito colateral ao desalocar.
-- **Se o disparo falhar** no futuro (`status = failed`), o card reaparece no quadro sem responsável, na coluna "Sem responsável" que já existe no Kanban — fica visível e recuperável, não some.
+### 2. Modal mais legível (`src/components/kanban/ReorderSequenceModal.tsx`)
+- Mostrar o intervalo original completo riscado (`28/07 14:35 → 30/07 14:00`) antes da seta, e depois o novo intervalo — acabando com a confusão de fim.
+- Badge de duração passa a exibir formato humano (`2h30` em vez de `150min`) quando > 60 min.
 
-## Mudanças
+### 3. Edição manual da proposta com recálculo em cascata
+- Cada linha do modal ganha um controle discreto de **início** (data + hora) e de **duração** (minutos), aberto por um botão "ajustar".
+- `computeReorder` recebe um novo parâmetro `overrides?: Record<string, { startISO?: string; startTime?: string; durationMin?: number }>`:
+  - um card com início fixado é alocado exatamente naquele instante (marcado como "fixado" na UI);
+  - a duração informada substitui a estimada;
+  - **todos os cards seguintes são recalculados automaticamente** a partir do fim do card fixado, respeitando jornada, almoço, blocos de área, fins de semana e feriados — logo, alterar o primeiro card adianta/posterga a fila inteira pelo mesmo delta, preservando as durações individuais (ex.: a atividade de 2h continua com 2h).
+- Botão "Restaurar sugestão" limpa os ajustes manuais e volta ao cálculo automático.
+- O estado editado vive apenas no modal; ao aplicar, grava os mesmos campos já usados hoje (`due_date/due_time/delivery_date/delivery_time`) com o mesmo lock otimista.
 
-### 1. `src/components/kanban/AwaitingClientActions.tsx`
-- Novas props vindas do card: `clientId`, `publishDate`, `publishTime`, `caption`, `attachments`, `demandType`, `title`.
-- **Estado "pronto para agendar"** (usado só para escolher o rótulo): tem `publish_date` + `publish_time`, o horário ainda é futuro e existe ao menos 1 anexo. As regras completas continuam sendo aplicadas por `createOrUpdateScheduleDispatch` no clique.
-- Rótulos:
-  - pronto → `Cliente aprovou · Agendar post para dd/MM HH:mm`; confirmação: `Confirmar agendamento para dd/MM HH:mm?`
-  - não pronto → comportamento atual (`Cliente aprovou · Enviar para {próxima etapa}`).
-- Ação de agendar, em ordem:
-  1. `createOrUpdateScheduleDispatch(...)`. Se falhar, mostra o motivo exato em toast (ex.: "cliente sem redes conectadas", "anexe a imagem final") e **não altera o card** — nada de estado intermediário inconsistente.
-  2. Sucesso → atualiza `demands`: `status_id` do status "Agendar Publicação" **resolvido pelo `pipeline_id` do próprio card** (não por um pipeline global), `current_function_key = 'publicar'`, `assigned_to = null`, e limpa `client_wait_started_at` / `client_resend_count` / `client_last_resend_at`. Se o status não existir naquele pipeline, mantém o status atual e segue (o disparo já garante a saída da coluna).
-  3. Registra histórico: `proceeded` de `aguardando_cliente` → `publicar` e a entrega da etapa anterior via `recordStageDeliveries` (já exportado em `proceedDemand.ts`), preservando Registro de entregas e a trava anti-regressão.
-  4. Toast de sucesso com data/hora e `onDone()`.
-- Se já houver disparo ativo para o card (`hasActiveDispatch`), o helper apenas atualiza o disparo existente — sem duplicar.
-
-### 2. `src/pages/KanbanCentralPage.tsx`
-- Passar os dados do card para `AwaitingClientActions` (cliente, `publish_date`/`publish_time`, `post_caption` ou descrição, anexos, tipo, título).
-- Nenhuma mudança na renderização das colunas.
-
-## Pontas que este plano fecha
-
-- Não há dependência de o card passar por "Publicar" para a automação funcionar.
-- Regras de validação continuam em um único lugar (mesmo helper do modal de agendamento) — sem divergência entre atalho e modal.
-- Fallback intacto: faltando qualquer requisito, o botão volta a ser o fluxo normal para "Publicar", nunca bloqueando a aprovação do cliente.
+## Detalhes técnicos
+- Sem mudanças de banco.
+- `sortForReorder` continua definindo a ordem; overrides de início não reordenam a fila, apenas deslocam o cursor (um início fixado anterior ao cursor é respeitado; se colidir com bloqueios de `captar`/diário, o card seguinte contorna normalmente).
+- `estimateDurationMinutes` (usado fora do modal) mantém a assinatura atual.
