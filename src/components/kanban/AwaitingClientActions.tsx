@@ -47,7 +47,9 @@ export default function AwaitingClientActions({
     loadSequence(tenantId, demandTypeKey).then((seq) => {
       if (!alive || !seq?.length) return;
       const currentKey = (currentFunctionKey || "aguardando_cliente").toLowerCase();
-      const idx = seq.findIndex((f) => f.function_key === currentKey);
+      let idx = seq.findIndex((f) => f.function_key === currentKey);
+      // "aguardando_cliente" pode não constar na sequência exigida: usa "enviar_cliente" como âncora.
+      if (idx < 0) idx = seq.findIndex((f) => f.function_key === "enviar_cliente");
       const next = idx >= 0 ? seq[idx + 1] : null;
       if (next) setNextStageName(next.name);
     });
