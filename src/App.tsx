@@ -349,6 +349,16 @@ function AppRoutes() {
           </RequireTenant>
         </ProtectedRoute>
       } />
+      <Route path="/clientes-sistemas" element={
+        <ProtectedRoute>
+          <RequireTenant>
+            <Layout>
+              <SystemsClients />
+            </Layout>
+          </RequireTenant>
+        </ProtectedRoute>
+      } />
+
       <Route path="/client-evolution" element={
         <ProtectedRoute>
           <RequireTenant>
