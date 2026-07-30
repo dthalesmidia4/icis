@@ -3074,6 +3074,13 @@ const KanbanCentralPage = () => {
                                             tenantId={tenantId}
                                             demandTypeKey={(card as any).demand_type_key || card.demand_type}
                                             currentFunctionKey={card.current_function_key}
+                                            clientId={card.clientId}
+                                            publishDate={(card as any).publish_date}
+                                            publishTime={(card as any).publish_time}
+                                            caption={(card as any).post_caption || card.description}
+                                            attachments={card.attachments as any}
+                                            demandType={card.demand_type}
+                                            title={card.title}
                                             onDone={() => fetchAllCards()}
                                           />
                                         ) : null
