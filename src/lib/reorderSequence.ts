@@ -116,7 +116,41 @@ export const DURATION_MATRIX: Record<string, Record<DurationTypeGroup, number>> 
   enviar_cliente:     { estatico:  5, carrossel:  5, video_curto:  5, video_longo:  5, outro:  5, default:  5 },
   publicar:           { estatico:  5, carrossel:  5, video_curto:  5, video_longo:  5, outro:  5, default:  5 },
   revisar_publicacao: { estatico:  5, carrossel:  5, video_curto:  5, video_longo:  5, outro:  5, default:  5 },
+
+  // ---- Sistemas ----
+  especificar:        { estatico: 20, carrossel: 20, video_curto: 20, video_longo: 20, outro: 20, default: 20 },
+  desenvolver:        { estatico: 120, carrossel: 120, video_curto: 120, video_longo: 120, outro: 120, default: 120 },
+  corrigir_bug_n1:    { estatico: 30, carrossel: 30, video_curto: 30, video_longo: 30, outro: 30, default: 30 },
+  corrigir_bug_n2:    { estatico: 120, carrossel: 120, video_curto: 120, video_longo: 120, outro: 120, default: 120 },
+  corrigir_bug_n3:    { estatico: 240, carrossel: 240, video_curto: 240, video_longo: 240, outro: 240, default: 240 },
+  testar:             { estatico: 20, carrossel: 20, video_curto: 20, video_longo: 20, outro: 20, default: 20 },
+  ajustar:            { estatico: 45, carrossel: 45, video_curto: 45, video_longo: 45, outro: 45, default: 45 },
+  entregar_cliente:   { estatico: 10, carrossel: 10, video_curto: 10, video_longo: 10, outro: 10, default: 10 },
+  feedback_cliente:   { estatico: 15, carrossel: 15, video_curto: 15, video_longo: 15, outro: 15, default: 15 },
 };
+
+/**
+ * Demandas de Sistemas: o esforço vem do TIPO (nível do bug, desenvolvimento),
+ * não do formato de mídia. Estes valores substituem a matriz por etapa nas
+ * etapas de execução técnica.
+ */
+const SYSTEMS_TYPE_MINUTES: Record<string, number> = {
+  bug_n1: 30,
+  bug_n2: 120,
+  bug_n3: 240,
+  desenvolvimento: 240,
+  melhoria: 120,
+  suporte: 30,
+};
+
+const SYSTEMS_WORK_STAGES = new Set([
+  "desenvolver",
+  "corrigir_bug_n1",
+  "corrigir_bug_n2",
+  "corrigir_bug_n3",
+  "ajustar",
+]);
+
 
 const FALLBACK_STAGE_DURATION: Record<DurationTypeGroup, number> = {
   estatico: 20,
@@ -513,6 +547,17 @@ function estimateDurationBase(
   if (card.is_daily_card) return 20;
   const group = typeGroup(card);
   const stage = (card.current_function_key || "").toLowerCase();
+
+  // Sistemas: o tipo (nível do bug / desenvolvimento) define o esforço.
+  const systemsKey = (card.demand_type_key || "").toLowerCase();
+  if (SYSTEMS_TYPE_MINUTES[systemsKey] !== undefined) {
+    const overridden = pickFromOverrides(overrides, stage, "default");
+    if (overridden !== null) return overridden;
+    if (SYSTEMS_WORK_STAGES.has(stage)) return SYSTEMS_TYPE_MINUTES[systemsKey];
+    const stageRow = DURATION_MATRIX[stage];
+    if (stageRow) return stageRow.default;
+    return SYSTEMS_TYPE_MINUTES[systemsKey];
+  }
 
   if (isOtherType(card)) {
     const overridden = pickFromOverrides(overrides, stage, "outro");

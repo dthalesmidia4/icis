@@ -208,12 +208,44 @@ async function clearAdditionalAssignees(demandId: string): Promise<void> {
  * Chaves técnicas oficiais de tipo de demanda. Usadas pelo botão Prosseguir
  * e por `demand_type_flow_rules`. Nunca inventar novas keys aqui.
  */
-export type DemandTypeKey =
+export type MediaDemandTypeKey =
   | "criativo_estatico"
   | "carrossel"
   | "video_captado"
   | "video_gerado"
   | "outro";
+
+export type SystemsDemandTypeKey =
+  | "bug_n1"
+  | "bug_n2"
+  | "bug_n3"
+  | "desenvolvimento"
+  | "melhoria"
+  | "suporte";
+
+export type DemandTypeKey = MediaDemandTypeKey | SystemsDemandTypeKey;
+
+/** Origem da demanda — define se o fluxo passa pelas etapas de cliente. */
+export type DemandOrigin = "interno" | "cliente_solicitacao" | "cliente_feedback" | "suporte";
+
+export const DEMAND_ORIGINS: { key: DemandOrigin; label: string; description: string }[] = [
+  { key: "interno", label: "Interna", description: "Ideia ou manutenção da própria equipe" },
+  { key: "cliente_solicitacao", label: "Solicitação do cliente", description: "O cliente pediu" },
+  { key: "cliente_feedback", label: "Feedback coletado", description: "Veio de visita, reunião ou feedback" },
+  { key: "suporte", label: "Suporte", description: "Chamado ou incidente do cliente" },
+];
+
+export const DEMAND_ORIGIN_LABEL: Record<DemandOrigin, string> = {
+  interno: "Interna",
+  cliente_solicitacao: "Solicitação do cliente",
+  cliente_feedback: "Feedback coletado",
+  suporte: "Suporte",
+};
+
+export function isClientOrigin(origin?: string | null): boolean {
+  const o = (origin || "interno") as DemandOrigin;
+  return o !== "interno";
+}
 
 export const OFFICIAL_DEMAND_TYPES: { key: DemandTypeKey; label: string }[] = [
   { key: "criativo_estatico", label: "Criativo estático" },
@@ -223,16 +255,36 @@ export const OFFICIAL_DEMAND_TYPES: { key: DemandTypeKey; label: string }[] = [
   { key: "outro", label: "Outro" },
 ];
 
+export const SYSTEMS_DEMAND_TYPES: { key: DemandTypeKey; label: string }[] = [
+  { key: "bug_n1", label: "Bug nível 1" },
+  { key: "bug_n2", label: "Bug nível 2" },
+  { key: "bug_n3", label: "Bug nível 3" },
+  { key: "desenvolvimento", label: "Desenvolvimento" },
+  { key: "melhoria", label: "Melhoria" },
+  { key: "suporte", label: "Suporte" },
+];
+
+/** Tipos disponíveis para uma área de trabalho. */
+export function demandTypesForArea(workArea?: string | null): { key: DemandTypeKey; label: string }[] {
+  return workArea === "sistemas" ? SYSTEMS_DEMAND_TYPES : OFFICIAL_DEMAND_TYPES;
+}
+
 export const DEMAND_TYPE_LABEL: Record<DemandTypeKey, string> = {
   criativo_estatico: "Criativo estático",
   carrossel: "Carrossel",
   video_captado: "Vídeo captado",
   video_gerado: "Vídeo gerado",
   outro: "Outro",
+  bug_n1: "Bug nível 1",
+  bug_n2: "Bug nível 2",
+  bug_n3: "Bug nível 3",
+  desenvolvimento: "Desenvolvimento",
+  melhoria: "Melhoria",
+  suporte: "Suporte",
 };
 
 /**
- * Normaliza texto livre de tipo (vindo da IA/usuário) para uma das 4 keys
+ * Normaliza texto livre de tipo (vindo da IA/usuário) para uma das keys
  * oficiais — ou `null` quando não houver certeza.
  *
  * Segurança: nunca faz fallback silencioso para `criativo_estatico`.
@@ -261,21 +313,46 @@ export function normalizeDemandTypeKey(text?: string | null): DemandTypeKey | nu
   return null;
 }
 
-/** Aceita apenas uma das 4 keys oficiais; caso contrário retorna null. */
+const ALL_TYPE_KEYS = new Set<string>([
+  ...OFFICIAL_DEMAND_TYPES.map((t) => t.key),
+  ...SYSTEMS_DEMAND_TYPES.map((t) => t.key),
+]);
+
+/** Aceita apenas uma das keys oficiais; caso contrário retorna null. */
 export function coerceDemandTypeKey(value?: string | null): DemandTypeKey | null {
   if (!value) return null;
-  const v = String(value).trim() as DemandTypeKey;
-  if (
-    v === "criativo_estatico" ||
-    v === "carrossel" ||
-    v === "video_captado" ||
-    v === "video_gerado" ||
-    v === "outro"
-  ) {
-    return v;
-  }
-  return null;
+  const v = String(value).trim();
+  return ALL_TYPE_KEYS.has(v) ? (v as DemandTypeKey) : null;
 }
+
+export interface DemandFlowMeta {
+  workArea: "midia" | "sistemas";
+  origin: DemandOrigin;
+  typeKey: DemandTypeKey | null;
+}
+
+/**
+ * Área e origem da demanda — determinam qual conjunto de etapas vale e se as
+ * etapas de cliente (`requires_client_origin`) entram no fluxo.
+ */
+export async function getDemandFlowMeta(demandId: string): Promise<DemandFlowMeta> {
+  try {
+    const { data } = await supabase
+      .from("demands")
+      .select("work_area, origin, demand_type_key" as any)
+      .eq("id", demandId)
+      .maybeSingle();
+    const d: any = data || {};
+    return {
+      workArea: d.work_area === "sistemas" ? "sistemas" : "midia",
+      origin: (d.origin || "interno") as DemandOrigin,
+      typeKey: coerceDemandTypeKey(d.demand_type_key),
+    };
+  } catch {
+    return { workArea: "midia", origin: "interno", typeKey: null };
+  }
+}
+
 
 export interface ProceedResult {
   success: boolean;
@@ -473,21 +550,44 @@ async function resolveNextStage(
 }
 
 
+export interface SequenceOptions {
+  /** Quando informado, área e origem são lidas do próprio card. */
+  demandId?: string | null;
+  workArea?: "midia" | "sistemas" | null;
+  origin?: string | null;
+}
+
 /**
  * Devolve a sequência ordenada de funções obrigatórias para um `demand_type_key`.
+ * Filtros aplicados:
+ *  - `flow_functions.work_area` = área do card (Mídia × Sistemas);
+ *  - etapas com `requires_client_origin` só entram quando a demanda tem
+ *    origem de cliente (solicitação, feedback ou suporte).
  */
 export async function getPipelineSequence(
   tenantId: string,
   demandTypeKey?: string | null,
+  opts?: SequenceOptions,
 ): Promise<{ function_key: string; name: string }[]> {
   const typeKey = coerceDemandTypeKey(demandTypeKey);
   if (!typeKey || !tenantId) return [];
+
+  let workArea = opts?.workArea ?? null;
+  let origin = opts?.origin ?? null;
+  if ((!workArea || !origin) && opts?.demandId) {
+    const meta = await getDemandFlowMeta(opts.demandId);
+    workArea = workArea || meta.workArea;
+    origin = origin || meta.origin;
+  }
+  const area: "midia" | "sistemas" = workArea === "sistemas" ? "sistemas" : "midia";
+  const clientOrigin = isClientOrigin(origin);
+
   const [{ data: fns }, { data: rules }] = await Promise.all([
-    supabase
-      .from("flow_functions")
-      .select("function_key, name, position, active")
+    (supabase.from("flow_functions") as any)
+      .select("function_key, name, position, active, work_area, requires_client_origin")
       .eq("tenant_id", tenantId)
       .eq("active", true)
+      .eq("work_area", area)
       .order("position"),
     supabase
       .from("demand_type_flow_rules")
@@ -500,8 +600,10 @@ export async function getPipelineSequence(
   (rules || []).forEach((r: any) => req.set(r.function_key, r.requirement));
   return (fns as any[])
     .filter((f) => req.get(f.function_key) === "required")
+    .filter((f) => (f.requires_client_origin ? clientOrigin : true))
     .map((f) => ({ function_key: f.function_key, name: f.name }));
 }
+
 
 /**
  * Pula diretamente a demanda para uma função específica do pipeline configurado.
@@ -520,7 +622,7 @@ export async function jumpToFunction({
   currentFunctionKey?: string | null;
 }): Promise<ProceedResult> {
   currentFunctionKey = await resolveCurrentStage(demandId, currentFunctionKey);
-  const seq = await getPipelineSequence(tenantId, demandTypeKey);
+  const seq = await getPipelineSequence(tenantId, demandTypeKey, { demandId });
   const target = seq.find((f) => f.function_key === targetFunctionKey);
   if (!target) return { success: false, message: "Etapa não encontrada no fluxo." };
 
@@ -608,27 +710,9 @@ export async function proceedDemand({
   }
   currentFunctionKey = await resolveCurrentStage(demandId, currentFunctionKey);
 
-  const [{ data: fns, error: fnErr }, { data: rules, error: rErr }] = await Promise.all([
-    supabase
-      .from("flow_functions")
-      .select("function_key, name, position, active")
-      .eq("tenant_id", tenantId)
-      .eq("active", true)
-      .order("position"),
-    supabase
-      .from("demand_type_flow_rules")
-      .select("function_key, requirement")
-      .eq("tenant_id", tenantId)
-      .eq("demand_type_key", typeKey),
-  ]);
-  if (fnErr || rErr) return { success: false, message: "Erro ao carregar fluxo configurado." };
-  if (!fns || fns.length === 0) return { success: false, message: "Nenhuma função de fluxo configurada." };
-
-  const req = new Map<string, string>();
-  (rules || []).forEach((r: any) => req.set(r.function_key, r.requirement));
-
-  const sequence = fns.filter((f: any) => req.get(f.function_key) === "required");
+  const sequence = await getPipelineSequence(tenantId, typeKey, { demandId });
   if (sequence.length === 0) return { success: false, message: "Este tipo de demanda não tem funções configuradas." };
+
 
   let nextIndex = 0;
   if (currentFunctionKey) {
@@ -793,23 +877,8 @@ export async function regressDemand({
   if (!currentFunctionKey) {
     return { success: false, message: "Esta demanda ainda não iniciou o fluxo." };
   }
-  const [{ data: fns, error: fnErr }, { data: rules, error: rErr }] = await Promise.all([
-    supabase
-      .from("flow_functions")
-      .select("function_key, name, position, active")
-      .eq("tenant_id", tenantId)
-      .eq("active", true)
-      .order("position"),
-    supabase
-      .from("demand_type_flow_rules")
-      .select("function_key, requirement")
-      .eq("tenant_id", tenantId)
-      .eq("demand_type_key", typeKey),
-  ]);
-  if (fnErr || rErr) return { success: false, message: "Erro ao carregar fluxo configurado." };
-  const req = new Map<string, string>();
-  (rules || []).forEach((r: any) => req.set(r.function_key, r.requirement));
-  const sequence = (fns || []).filter((f: any) => req.get(f.function_key) === "required");
+  const sequence = await getPipelineSequence(tenantId, typeKey, { demandId });
+
   const idx = sequence.findIndex((f: any) => f.function_key === currentFunctionKey);
   if (idx <= 0) {
     return { success: false, message: "Esta demanda já está na primeira etapa do fluxo." };
@@ -939,30 +1008,15 @@ export async function isAtLastFlowFunction(
   tenantId: string,
   demandTypeKey?: string | null,
   currentFunctionKey?: string | null,
+  opts?: SequenceOptions,
 ): Promise<boolean> {
   const typeKey = coerceDemandTypeKey(demandTypeKey);
   if (!typeKey || !currentFunctionKey) return false;
-
-  const [{ data: fns }, { data: rules }] = await Promise.all([
-    supabase
-      .from("flow_functions")
-      .select("function_key, position, active")
-      .eq("tenant_id", tenantId)
-      .eq("active", true)
-      .order("position"),
-    supabase
-      .from("demand_type_flow_rules")
-      .select("function_key, requirement")
-      .eq("tenant_id", tenantId)
-      .eq("demand_type_key", typeKey),
-  ]);
-  if (!fns || fns.length === 0) return false;
-  const req = new Map<string, string>();
-  (rules || []).forEach((r: any) => req.set(r.function_key, r.requirement));
-  const sequence = fns.filter((f: any) => req.get(f.function_key) === "required");
+  const sequence = await getPipelineSequence(tenantId, typeKey, opts);
   if (sequence.length === 0) return false;
   return sequence[sequence.length - 1].function_key === currentFunctionKey;
 }
+
 
 export interface ResolveInitialFunctionResult {
   success: boolean;
@@ -984,30 +1038,14 @@ export async function resolveInitialFunctionKey(
   tenantId: string,
   demandTypeKey?: string | null,
   currentFunctionKey?: string | null,
+  opts?: SequenceOptions,
 ): Promise<ResolveInitialFunctionResult> {
   const typeKey = coerceDemandTypeKey(demandTypeKey);
   if (!typeKey) {
     return { success: false, shouldUpdate: false, message: "Tipo de demanda inválido." };
   }
-  const [{ data: fns, error: fErr }, { data: rules, error: rErr }] = await Promise.all([
-    supabase
-      .from("flow_functions")
-      .select("function_key, position, active")
-      .eq("tenant_id", tenantId)
-      .eq("active", true)
-      .order("position"),
-    supabase
-      .from("demand_type_flow_rules")
-      .select("function_key, requirement")
-      .eq("tenant_id", tenantId)
-      .eq("demand_type_key", typeKey),
-  ]);
-  if (fErr || rErr) {
-    return { success: false, shouldUpdate: false, message: "Erro ao carregar fluxo configurado." };
-  }
-  const req = new Map<string, string>();
-  (rules || []).forEach((r: any) => req.set(r.function_key, r.requirement));
-  const sequence = (fns || []).filter((f: any) => req.get(f.function_key) === "required");
+  const sequence = await getPipelineSequence(tenantId, typeKey, opts);
+
   if (sequence.length === 0) {
     return {
       success: false,
@@ -1219,7 +1257,7 @@ export async function getRegressOptions(
   demandTypeKey?: string | null,
   currentFunctionKey?: string | null,
 ): Promise<RegressOption[]> {
-  const seq = await getPipelineSequence(tenantId, demandTypeKey);
+  const seq = await getPipelineSequence(tenantId, demandTypeKey, { demandId });
   if (seq.length === 0) return [];
   const curKey = await resolveCurrentStage(demandId, currentFunctionKey);
   const idx = seq.findIndex((f) => f.function_key === curKey);

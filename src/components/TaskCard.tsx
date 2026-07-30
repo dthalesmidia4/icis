@@ -446,14 +446,19 @@ export default function TaskCard({
   useEffect(() => {
     let cancelled = false;
     if (!card?.tenant_id) { setIsLastFn(false); setPipelineSequence([]); return; }
-    isAtLastFlowFunction(card.tenant_id, card.demand_type_key, card.current_function_key)
+    const seqOpts = {
+      workArea: ((card as any)?.work_area === "sistemas" ? "sistemas" : "midia") as "midia" | "sistemas",
+      origin: ((card as any)?.origin || "interno") as string,
+    };
+    isAtLastFlowFunction(card.tenant_id, card.demand_type_key, card.current_function_key, seqOpts)
       .then((v) => { if (!cancelled) setIsLastFn(v); })
       .catch(() => { if (!cancelled) setIsLastFn(false); });
-    getPipelineSequence(card.tenant_id, card.demand_type_key)
+    getPipelineSequence(card.tenant_id, card.demand_type_key, seqOpts)
       .then((seq) => { if (!cancelled) setPipelineSequence(seq); })
       .catch(() => { if (!cancelled) setPipelineSequence([]); });
     return () => { cancelled = true; };
-  }, [card?.tenant_id, card?.demand_type_key, card?.current_function_key]);
+  }, [card?.tenant_id, card?.demand_type_key, card?.current_function_key, (card as any)?.work_area, (card as any)?.origin]);
+
 
   const handleProceed = async () => {
     if (!card || proceeding) return;

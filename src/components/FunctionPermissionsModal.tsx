@@ -18,8 +18,9 @@ interface Props {
 }
 
 type Requirement = "required" | "disabled";
+type WorkAreaKey = "midia" | "sistemas";
 
-const FUNCTIONS: { key: string; name: string }[] = [
+const MIDIA_FUNCTIONS: { key: string; name: string }[] = [
   { key: "planejar", name: "Planejar" },
   { key: "criar_roteiro", name: "Criar roteiro" },
   { key: "revisar_roteiro", name: "Revisar roteiro" },
@@ -36,7 +37,21 @@ const FUNCTIONS: { key: string; name: string }[] = [
   { key: "revisar_publicacao", name: "Revisar publicação" },
 ];
 
-const DEMAND_TYPES: { key: string; name: string; group: DurationTypeGroup }[] = [
+const SISTEMAS_FUNCTIONS: { key: string; name: string }[] = [
+  { key: "especificar", name: "Especificar" },
+  { key: "desenvolver", name: "Em desenvolvimento" },
+  { key: "corrigir_bug_n1", name: "Bug — Nível 1" },
+  { key: "corrigir_bug_n2", name: "Bug — Nível 2" },
+  { key: "corrigir_bug_n3", name: "Bug — Nível 3" },
+  { key: "testar", name: "Testar" },
+  { key: "ajustar", name: "Ajustar" },
+  { key: "revisar", name: "Revisar" },
+  { key: "entregar_cliente", name: "Entregar ao cliente" },
+  { key: "aguardando_cliente", name: "Aguardando cliente" },
+  { key: "feedback_cliente", name: "Feedback ao cliente" },
+];
+
+const MIDIA_DEMAND_TYPES: { key: string; name: string; group: DurationTypeGroup }[] = [
   { key: "criativo_estatico", name: "Criativo estático", group: "estatico" },
   { key: "carrossel", name: "Carrossel", group: "carrossel" },
   { key: "video_captado", name: "Vídeo captado", group: "video_curto" },
@@ -45,7 +60,17 @@ const DEMAND_TYPES: { key: string; name: string; group: DurationTypeGroup }[] = 
   { key: "outro", name: "Outro", group: "outro" },
 ];
 
-const DEFAULTS: Record<string, Record<string, Requirement>> = {
+const SISTEMAS_DEMAND_TYPES: { key: string; name: string; group: DurationTypeGroup }[] = [
+  { key: "bug_n1", name: "Bug nível 1", group: "default" },
+  { key: "bug_n2", name: "Bug nível 2", group: "default" },
+  { key: "bug_n3", name: "Bug nível 3", group: "default" },
+  { key: "desenvolvimento", name: "Desenvolvimento", group: "default" },
+  { key: "melhoria", name: "Melhoria", group: "default" },
+  { key: "suporte", name: "Suporte", group: "default" },
+];
+
+
+const MIDIA_DEFAULTS: Record<string, Record<string, Requirement>> = {
   criativo_estatico: {
     planejar: "required", criar_roteiro: "disabled", revisar_roteiro: "disabled", criar_arte: "required",
     captar: "disabled", descarregar_captacao: "disabled", revisar_captacao: "disabled", gerar_video: "disabled", editar_video: "disabled",
@@ -78,6 +103,40 @@ const DEFAULTS: Record<string, Record<string, Requirement>> = {
   },
 };
 
+const SISTEMAS_DEFAULTS: Record<string, Record<string, Requirement>> = {
+  bug_n1: {
+    especificar: "required", desenvolver: "disabled", corrigir_bug_n1: "required", corrigir_bug_n2: "disabled",
+    corrigir_bug_n3: "disabled", testar: "required", ajustar: "disabled", revisar: "disabled",
+    entregar_cliente: "required", aguardando_cliente: "required", feedback_cliente: "required",
+  },
+  bug_n2: {
+    especificar: "required", desenvolver: "disabled", corrigir_bug_n1: "disabled", corrigir_bug_n2: "required",
+    corrigir_bug_n3: "disabled", testar: "required", ajustar: "required", revisar: "disabled",
+    entregar_cliente: "required", aguardando_cliente: "required", feedback_cliente: "required",
+  },
+  bug_n3: {
+    especificar: "required", desenvolver: "disabled", corrigir_bug_n1: "disabled", corrigir_bug_n2: "disabled",
+    corrigir_bug_n3: "required", testar: "required", ajustar: "required", revisar: "required",
+    entregar_cliente: "required", aguardando_cliente: "required", feedback_cliente: "required",
+  },
+  desenvolvimento: {
+    especificar: "required", desenvolver: "required", corrigir_bug_n1: "disabled", corrigir_bug_n2: "disabled",
+    corrigir_bug_n3: "disabled", testar: "required", ajustar: "required", revisar: "required",
+    entregar_cliente: "required", aguardando_cliente: "required", feedback_cliente: "required",
+  },
+  melhoria: {
+    especificar: "required", desenvolver: "required", corrigir_bug_n1: "disabled", corrigir_bug_n2: "disabled",
+    corrigir_bug_n3: "disabled", testar: "required", ajustar: "disabled", revisar: "required",
+    entregar_cliente: "required", aguardando_cliente: "required", feedback_cliente: "disabled",
+  },
+  suporte: {
+    especificar: "required", desenvolver: "disabled", corrigir_bug_n1: "required", corrigir_bug_n2: "disabled",
+    corrigir_bug_n3: "disabled", testar: "disabled", ajustar: "disabled", revisar: "disabled",
+    entregar_cliente: "required", aguardando_cliente: "disabled", feedback_cliente: "required",
+  },
+};
+
+
 
 const NEXT: Record<Requirement, Requirement> = {
   required: "disabled",
@@ -103,6 +162,10 @@ function hardcodedDuration(functionKey: string, group: DurationTypeGroup): numbe
 
 export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
   const { agencyId } = useAgency();
+  const [area, setArea] = useState<WorkAreaKey>("midia");
+  const FUNCTIONS = area === "sistemas" ? SISTEMAS_FUNCTIONS : MIDIA_FUNCTIONS;
+  const DEMAND_TYPES = area === "sistemas" ? SISTEMAS_DEMAND_TYPES : MIDIA_DEMAND_TYPES;
+  const DEFAULTS = area === "sistemas" ? SISTEMAS_DEFAULTS : MIDIA_DEFAULTS;
   const [loading, setLoading] = useState(true);
   const [rules, setRules] = useState<Record<string, Record<string, Requirement>>>({});
   const [saving, setSaving] = useState<string | null>(null);
@@ -118,19 +181,19 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
   const [savingAwaiting, setSavingAwaiting] = useState(false);
 
   const seedIfEmpty = async (tenantId: string) => {
-    // Seed flow_functions
+    // Seed flow_functions da área
     const { data: existingFns } = await supabase
-      .from("flow_functions").select("function_key").eq("tenant_id", tenantId);
+      .from("flow_functions").select("function_key").eq("tenant_id", tenantId).eq("work_area", area);
     if (!existingFns || existingFns.length === 0) {
       await supabase.from("flow_functions").insert(
         FUNCTIONS.map((f, i) => ({
-          tenant_id: tenantId, function_key: f.key, name: f.name, position: i, active: true,
+          tenant_id: tenantId, function_key: f.key, name: f.name, position: i, active: true, work_area: area,
         }))
       );
     }
-    // Seed demand_type_flow_rules
+    // Seed demand_type_flow_rules da área
     const { data: existingRules } = await supabase
-      .from("demand_type_flow_rules").select("id").eq("tenant_id", tenantId).limit(1);
+      .from("demand_type_flow_rules").select("id").eq("tenant_id", tenantId).eq("work_area", area).limit(1);
     if (!existingRules || existingRules.length === 0) {
       const rows = DEMAND_TYPES.flatMap((dt) =>
         FUNCTIONS.map((fn) => ({
@@ -138,7 +201,8 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
           demand_type_key: dt.key,
           demand_type_name: dt.name,
           function_key: fn.key,
-          requirement: DEFAULTS[dt.key][fn.key],
+          requirement: DEFAULTS[dt.key]?.[fn.key] ?? "disabled",
+          work_area: area,
         }))
       );
       await supabase.from("demand_type_flow_rules").insert(rows);
@@ -152,11 +216,13 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
       supabase
         .from("demand_type_flow_rules")
         .select("demand_type_key, function_key, requirement")
-        .eq("tenant_id", tenantId),
+        .eq("tenant_id", tenantId)
+        .eq("work_area", area),
       supabase
         .from("flow_functions")
         .select("function_key, config")
-        .eq("tenant_id", tenantId),
+        .eq("tenant_id", tenantId)
+        .eq("work_area", area),
     ]);
     if (error) {
       console.error(error);
@@ -168,7 +234,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     DEMAND_TYPES.forEach((dt) => {
       map[dt.key] = {};
       FUNCTIONS.forEach((fn) => {
-        map[dt.key][fn.key] = DEFAULTS[dt.key][fn.key];
+        map[dt.key][fn.key] = DEFAULTS[dt.key]?.[fn.key] ?? "disabled";
       });
     });
     (data || []).forEach((r: any) => {
@@ -176,6 +242,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
       map[r.demand_type_key][r.function_key] = r.requirement;
     });
     setRules(map);
+
 
     const durMap: Record<string, Partial<Record<DurationTypeGroup, number>>> = {};
     (fnRows || []).forEach((r: any) => {
@@ -201,7 +268,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
 
   useEffect(() => {
     if (open && agencyId) load(agencyId);
-  }, [open, agencyId]);
+  }, [open, agencyId, area]);
 
   const savingRef = useRef<string | null>(null);
   useEffect(() => { savingRef.current = saving || savingDuration; }, [saving, savingDuration]);
@@ -235,6 +302,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
           demand_type_name: demandName,
           function_key: fnKey,
           requirement: next,
+          work_area: area,
         },
         { onConflict: "tenant_id,demand_type_key,function_key" }
       );
@@ -272,6 +340,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
       .from("flow_functions")
       .select("config")
       .eq("tenant_id", agencyId)
+      .eq("work_area", area)
       .eq("function_key", fnKey)
       .maybeSingle();
     const currentConfig = (current as any)?.config || {};
@@ -280,6 +349,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
       .from("flow_functions")
       .update({ config: newConfig })
       .eq("tenant_id", agencyId)
+      .eq("work_area", area)
       .eq("function_key", fnKey);
     if (error) {
       toast.error("Erro ao salvar duração");
@@ -306,6 +376,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
         .from("flow_functions")
         .select("config")
         .eq("tenant_id", agencyId)
+        .eq("work_area", area)
         .eq("function_key", fn.key)
         .maybeSingle();
       const currentConfig = (current as any)?.config || {};
@@ -314,6 +385,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
         .from("flow_functions")
         .update({ config: newConfig })
         .eq("tenant_id", agencyId)
+        .eq("work_area", area)
         .eq("function_key", fn.key);
     }
     setDurations(nextDurations);
@@ -348,6 +420,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
       .from("flow_functions")
       .select("config")
       .eq("tenant_id", agencyId)
+      .eq("work_area", area)
       .eq("function_key", "aguardando_cliente")
       .maybeSingle();
     const currentConfig = (current as any)?.config || {};
@@ -356,6 +429,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
       .from("flow_functions")
       .update({ config: newConfig })
       .eq("tenant_id", agencyId)
+      .eq("work_area", area)
       .eq("function_key", "aguardando_cliente");
     if (error) {
       toast.error("Erro ao salvar retorno automático");
@@ -374,7 +448,35 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs key="fpm-tabs-v3" defaultValue="participacao" className="w-full">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs font-semibold uppercase text-muted-foreground">Área</span>
+          <div className="inline-flex rounded-lg border p-0.5 bg-muted/40">
+            {([
+              { key: "midia" as const, label: "Mídia" },
+              { key: "sistemas" as const, label: "Sistemas" },
+            ]).map((a) => (
+              <button
+                key={a.key}
+                type="button"
+                onClick={() => setArea(a.key)}
+                className={cn(
+                  "px-3 py-1 rounded-md text-xs font-semibold transition-colors",
+                  area === a.key
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+          <span className="text-[11px] text-muted-foreground">
+            Cada área tem etapas, tipos de demanda e durações próprias.
+          </span>
+        </div>
+
+        <Tabs key={`fpm-tabs-v3-${area}`} defaultValue="participacao" className="w-full">
+
           <TabsList className="grid w-full max-w-3xl grid-cols-4">
             <TabsTrigger value="participacao">Participação</TabsTrigger>
             <TabsTrigger value="tempo">Tempo estimado</TabsTrigger>

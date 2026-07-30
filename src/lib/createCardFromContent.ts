@@ -23,7 +23,7 @@ export interface CreateCardResult {
   duplicated?: boolean;
 }
 
-const TYPE_LABEL: Record<DemandTypeKey, string> = {
+const TYPE_LABEL: Partial<Record<DemandTypeKey, string>> = {
   criativo_estatico: "Post Estático",
   carrossel: "Carrossel",
   video_captado: "Vídeo",
@@ -66,7 +66,7 @@ function extractStoragePath(url: string): string {
 }
 
 function buildTitle(typeKey: DemandTypeKey, prompt?: string | null): string {
-  const label = TYPE_LABEL[typeKey];
+  const label = TYPE_LABEL[typeKey] || "Demanda";
   const p = (prompt || "").trim();
   if (p) {
     const short = p.length > 60 ? `${p.slice(0, 60).trim()}…` : p;
@@ -224,7 +224,7 @@ export async function createCardFromContent(input: CreateCardInput): Promise<Cre
       title,
       description,
       instructions: null,
-      demand_type: TYPE_LABEL[typeKey],
+      demand_type: TYPE_LABEL[typeKey] || "Outro",
       demand_type_key: typeKey,
       source: "standalone_content",
       attachments: attachments as any,
