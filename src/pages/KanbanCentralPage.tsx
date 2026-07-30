@@ -2861,6 +2861,7 @@ const KanbanCentralPage = () => {
                                 })();
                                 const cardStartsInFuture = !!card.due_date && card.due_date > todayISO;
                                 const isPausedByCaptarNow =
+                                  !isHistoryMode &&
                                   captarNow.length > 0 &&
                                   isTopNonCaptar &&
                                   !cardStartsInFuture &&
