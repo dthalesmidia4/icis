@@ -716,7 +716,7 @@ export async function proceedDemand({
 
   if (currentFunctionKey === "captar" && captarExtras.length > 0) {
     await recordFlowHistoryForUsers(
-      { tenantId, demandId, action: "proceeded", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: nextFn.function_key },
+      { tenantId, demandId, action: "proceeded", toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: nextFn.function_key, metadata: skipMeta as any },
       [previousAssignee, ...captarExtras],
     );
   } else {
@@ -741,19 +741,24 @@ export async function proceedDemand({
       toUserId: picked.userId,
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: nextFn.function_key,
+      metadata: skipMeta as any,
     });
   }
 
   await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [previousAssignee, ...stageExtras]);
 
+  const samePerson = picked.userId === previousAssignee;
   return {
     success: true,
     assignedTo: picked.userId,
     assignedName: picked.name,
     functionKey: nextFn.function_key,
     functionName: nextFn.name,
-    message: `Demanda enviada para ${picked.name} na função ${nextFn.name}.`,
+    message: samePerson
+      ? `Demanda avançou para ${nextFn.name} e continua com ${picked.name}.${skipNote}`
+      : `Demanda enviada para ${picked.name} na função ${nextFn.name}.${skipNote}`,
   };
+
 
 }
 
