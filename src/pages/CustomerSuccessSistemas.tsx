@@ -215,10 +215,15 @@ export default function CustomerSuccessSistemas() {
           ))}
         </div>
 
-        {/* Barras de cadência: onde cada cliente está vs. onde deveria estar */}
+        {/* Cartões de cadência: último contato e próximo contato ideal */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.map((r) => (
-            <HealthCadenceBar key={r.clientId} row={r} onClick={() => openHistory(r)} />
+            <HealthCadenceBar
+              key={r.clientId}
+              row={r}
+              onHistory={() => openHistory(r)}
+              onRegister={() => openDialog(r)}
+            />
           ))}
         </div>
 
@@ -235,13 +240,9 @@ export default function CustomerSuccessSistemas() {
               </Button>
             ))}
           </div>
-          <TouchpointTimeline
-            rows={filtered}
-            timeline={timeline}
-            days={timelineDays}
-            onSelect={openHistory}
-          />
+          <CadenceLineChart rows={filtered} timeline={timeline} days={timelineDays} />
         </div>
+
 
         <div className="flex justify-end">
           <Button size="sm" variant="ghost" onClick={() => setShowTable((v) => !v)}>
