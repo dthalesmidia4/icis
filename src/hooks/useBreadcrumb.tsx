@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { useSelectedClient } from "@/contexts/SelectedClientContext";
 import { useBreadcrumbOverrideValues } from "@/contexts/BreadcrumbOverrideContext";
-import { Home, Users, Target, FileText, Lightbulb, Calendar, CalendarDays, ListTodo, LayoutGrid, Code, User, Settings } from "lucide-react";
+import { Home, Users, Target, FileText, Lightbulb, Calendar, CalendarDays, ListTodo, LayoutGrid, Code, User, Settings, HeartPulse, Building2 } from "lucide-react";
 
 export interface BreadcrumbItem {
   label: string;
@@ -75,6 +75,21 @@ const routeConfig: Record<string, BreadcrumbConfig> = {
     items: [
       { label: 'Home', href: '/home', icon: Home },
       { label: 'Visão Geral', icon: LayoutGrid }
+    ]
+  },
+  '/customer-success-sistemas': {
+    items: [
+      { label: 'Home', href: '/home', icon: Home },
+      { label: 'Visão Geral', href: '/kanban-central', icon: LayoutGrid },
+      { label: 'Customer Success', icon: HeartPulse }
+    ]
+  },
+  '/clientes-sistemas': {
+    items: [
+      { label: 'Home', href: '/home', icon: Home },
+      { label: 'Visão Geral', href: '/kanban-central', icon: LayoutGrid },
+      { label: 'Customer Success', href: '/customer-success-sistemas', icon: HeartPulse },
+      { label: 'Clientes Sistemas', icon: Building2 }
     ]
   },
   '/scheduled': {
