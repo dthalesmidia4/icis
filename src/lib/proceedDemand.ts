@@ -710,27 +710,9 @@ export async function proceedDemand({
   }
   currentFunctionKey = await resolveCurrentStage(demandId, currentFunctionKey);
 
-  const [{ data: fns, error: fnErr }, { data: rules, error: rErr }] = await Promise.all([
-    supabase
-      .from("flow_functions")
-      .select("function_key, name, position, active")
-      .eq("tenant_id", tenantId)
-      .eq("active", true)
-      .order("position"),
-    supabase
-      .from("demand_type_flow_rules")
-      .select("function_key, requirement")
-      .eq("tenant_id", tenantId)
-      .eq("demand_type_key", typeKey),
-  ]);
-  if (fnErr || rErr) return { success: false, message: "Erro ao carregar fluxo configurado." };
-  if (!fns || fns.length === 0) return { success: false, message: "Nenhuma função de fluxo configurada." };
-
-  const req = new Map<string, string>();
-  (rules || []).forEach((r: any) => req.set(r.function_key, r.requirement));
-
-  const sequence = fns.filter((f: any) => req.get(f.function_key) === "required");
+  const sequence = await getPipelineSequence(tenantId, typeKey, { demandId });
   if (sequence.length === 0) return { success: false, message: "Este tipo de demanda não tem funções configuradas." };
+
 
   let nextIndex = 0;
   if (currentFunctionKey) {
