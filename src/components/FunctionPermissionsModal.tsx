@@ -18,8 +18,9 @@ interface Props {
 }
 
 type Requirement = "required" | "disabled";
+type WorkAreaKey = "midia" | "sistemas";
 
-const FUNCTIONS: { key: string; name: string }[] = [
+const MIDIA_FUNCTIONS: { key: string; name: string }[] = [
   { key: "planejar", name: "Planejar" },
   { key: "criar_roteiro", name: "Criar roteiro" },
   { key: "revisar_roteiro", name: "Revisar roteiro" },
@@ -36,7 +37,21 @@ const FUNCTIONS: { key: string; name: string }[] = [
   { key: "revisar_publicacao", name: "Revisar publicação" },
 ];
 
-const DEMAND_TYPES: { key: string; name: string; group: DurationTypeGroup }[] = [
+const SISTEMAS_FUNCTIONS: { key: string; name: string }[] = [
+  { key: "especificar", name: "Especificar" },
+  { key: "desenvolver", name: "Em desenvolvimento" },
+  { key: "corrigir_bug_n1", name: "Bug — Nível 1" },
+  { key: "corrigir_bug_n2", name: "Bug — Nível 2" },
+  { key: "corrigir_bug_n3", name: "Bug — Nível 3" },
+  { key: "testar", name: "Testar" },
+  { key: "ajustar", name: "Ajustar" },
+  { key: "revisar", name: "Revisar" },
+  { key: "entregar_cliente", name: "Entregar ao cliente" },
+  { key: "aguardando_cliente", name: "Aguardando cliente" },
+  { key: "feedback_cliente", name: "Feedback ao cliente" },
+];
+
+const MIDIA_DEMAND_TYPES: { key: string; name: string; group: DurationTypeGroup }[] = [
   { key: "criativo_estatico", name: "Criativo estático", group: "estatico" },
   { key: "carrossel", name: "Carrossel", group: "carrossel" },
   { key: "video_captado", name: "Vídeo captado", group: "video_curto" },
@@ -44,6 +59,16 @@ const DEMAND_TYPES: { key: string; name: string; group: DurationTypeGroup }[] = 
   { key: "anuncio", name: "Anúncio", group: "estatico" },
   { key: "outro", name: "Outro", group: "outro" },
 ];
+
+const SISTEMAS_DEMAND_TYPES: { key: string; name: string; group: DurationTypeGroup }[] = [
+  { key: "bug_n1", name: "Bug nível 1", group: "default" },
+  { key: "bug_n2", name: "Bug nível 2", group: "default" },
+  { key: "bug_n3", name: "Bug nível 3", group: "default" },
+  { key: "desenvolvimento", name: "Desenvolvimento", group: "default" },
+  { key: "melhoria", name: "Melhoria", group: "default" },
+  { key: "suporte", name: "Suporte", group: "default" },
+];
+
 
 const DEFAULTS: Record<string, Record<string, Requirement>> = {
   criativo_estatico: {
