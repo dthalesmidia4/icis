@@ -268,7 +268,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
 
   useEffect(() => {
     if (open && agencyId) load(agencyId);
-  }, [open, agencyId]);
+  }, [open, agencyId, area]);
 
   const savingRef = useRef<string | null>(null);
   useEffect(() => { savingRef.current = saving || savingDuration; }, [saving, savingDuration]);
