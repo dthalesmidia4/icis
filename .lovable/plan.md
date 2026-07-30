@@ -1,42 +1,35 @@
-## 1. Tela inicial — o código já está correto
+## Diagnóstico (verificado no banco e no código)
 
-`src/lib/constants/navigation.ts` já contém, nesta ordem: **Clientes Mídia** → **Clientes Sistemas** → Visão Geral das Tarefas → Ver Conteúdos Agendados. O print mostra "Cliente" e a ordem antiga, ou seja, o navegador está servindo bundle antigo (o projeto tem service worker em `public/sw.js` / `registerSW.js`, que faz cache do app).
+- Existem **49 registros** em `client_touchpoints`, mas **todos** com `source = auto`, `touchpoint_type = entrega` e **`subclient_id` nulo** (são de clientes de Mídia, gerados ao passar por `enviar_cliente`/`aguardando_cliente`).
+- A tela lê `loadSystemsClientHealth`, que filtra `client_touchpoints` com `.not("subclient_id","is",null)` → resultado zero, logo "Último contato: nunca registrado" para Bellotti, LEAL e Pontes Gestal.
+- Existem **3 demandas** com cliente solicitante e origem de cliente (`cliente_solicitacao` ×2, `cliente_feedback` ×1, todas `work_area = sistemas`, com `subclient_id` e `subclient_ids` preenchidos) — ou seja, **há evidência de contato, mas nada no sistema converte isso em touchpoint**.
+- Causa raiz: `recordStageTouchpoint` é o único gerador automático, e ele (a) só dispara em etapas voltadas ao cliente, (b) grava apenas `client_id`, nunca `subclient_id`. Não existe nenhum registro de contato no momento da **criação** do card com origem de cliente.
 
-Ação: nenhuma mudança de lógica. No plano eu adiciono apenas uma limpeza de cache no registro do service worker (bump de versão de cache) para que atualizações de UI cheguem sem hard reload. Se preferir, testo antes com recarregamento forçado e só mexo no SW se persistir.
+## Correções propostas
 
-## 2. Customer Success — o que falta hoje
+### 1. Registrar contato na origem do card (novo gatilho)
+Criar `recordOriginTouchpoint(tenantId, demandId)` em `src/lib/recordTouchpoint.ts`:
+- Mapeia origem → tipo: `cliente_solicitacao` → `solicitacao`, `cliente_feedback` → `feedback`, `interno` → nenhum.
+- Grava **um touchpoint por subcliente** presente em `subclient_ids` (fallback para `subclient_id`), com `client_id` = empresa do card, `source = "auto"`, `occurred_at` = criação do card, resumo com o título.
+- Idempotente por (demanda, subcliente, tipo).
+- Chamado na criação do card e quando a origem/os solicitantes são alterados no `TaskCard`.
 
-O que existe hoje: barra de cadência sem número de data, e uma "linha do tempo" feita de blocos vermelhos/verdes — não mostra **quando foi o último contato** nem deixa clara a **faixa desejada**. É por isso que aparece tudo vermelho e ilegível.
+### 2. Fan-out por subcliente nas etapas de cliente
+`recordStageTouchpoint` passa a ler também `subclient_ids`/`subclient_id` da demanda e inserir uma linha por subcliente (mantendo a linha da empresa, para não quebrar o painel de Mídia). Idempotência por (demanda, subcliente, tipo, dia).
 
-## 3. Nova tela (referência: gráficos de SLA / "days since last touch" usados em CS)
+### 3. Backfill dos dados existentes (migração SQL)
+- Inserir touchpoints de origem para todas as demandas já criadas com `origin <> 'interno'` e subcliente definido (usa `created_at` como `occurred_at`).
+- Inserir touchpoints de entrega por subcliente a partir de `demand_flow_history` para transições que caíram em `enviar_cliente` / `aguardando_cliente` / `entregar_cliente` / `feedback_cliente`.
+- Com `NOT EXISTS` para não duplicar; sem alterar as 49 linhas atuais.
 
-A representação correta para "estou dentro da cadência?" é um **gráfico de linha do tempo de dias-desde-o-último-contato**, com faixas de meta ao fundo:
+### 4. Cálculo de saúde resiliente (não depender só da tabela)
+Em `loadSystemsClientHealth`: considerar como "último contato" o máximo entre (a) touchpoints do subcliente e (b) a data de criação da demanda mais recente com origem de cliente daquele subcliente. Assim a tela nunca mostra "nunca registrado" havendo evidência, mesmo que o registro automático falhe. O motivo exibido indica a fonte ("via demanda").
 
-- Eixo X: dias do período (30d / 90d / 180d).
-- Eixo Y: **dias desde o último contato** naquele dia (sobe 1 por dia sem contato, cai a zero em cada contato → dente de serra).
-- Faixas de fundo (`ReferenceArea` do recharts, já instalado):
-  - verde `0 → cadência` = **faixa desejável**
-  - amarelo `cadência → 2× cadência` = atenção
-  - vermelho acima de 2× = risco
-- `ReferenceLine` tracejada na meta (ex.: 30d) com rótulo "meta 30d".
-- Uma linha por cliente, cores distintas, legenda clicável para isolar um cliente.
-- Tooltip por data: cliente, dias sem contato, e último contato daquela data (tipo + data/hora).
-- Pontos marcados (`dot`) nos dias em que houve contato.
+### 5. Gráfico e histórico coerentes
+`loadSubclientTouchpointTimeline` e `buildCadenceSeries` passam a usar a mesma lista consolidada (touchpoints + contatos derivados de demandas), corrigindo as linhas retas de 90–185 dias do gráfico e populando o painel "Histórico" de cada cliente.
 
-### Cartões de resumo por cliente (acima do gráfico)
-Substituem a barra atual e passam a dizer explicitamente:
-- **Último contato: 12/07/2026 14:20 · Solicitação (há 18 dias)** — ou "Nunca registrado".
-- **Próximo contato ideal até: 11/08/2026** (último + cadência), com chip verde/amarelo/vermelho.
-- Mini barra de progresso dias/meta, mantendo a zona desejável sombreada.
-- Botão "Registrar contato" e "Histórico" direto no cartão.
+## Detalhes técnicos
 
-## 4. Detalhes técnicos
-
-- `src/lib/clientHealth.ts`: adicionar `buildCadenceSeries(rows, timeline, days)` que gera, por dia do período, `{ date, [clientId]: diasSemContato, ... }` e o mapa de contatos por dia para o tooltip. Sem mudança de banco.
-- Novo `src/components/customer-success/CadenceLineChart.tsx` com recharts (`ResponsiveContainer`, `LineChart`, `ReferenceArea`, `ReferenceLine`, `Tooltip` custom). Quando as cadências dos clientes diferirem, as faixas usam a cadência do cliente selecionado (ou a mediana, com nota) — por padrão hoje todos são 30d.
-- Reescrever `src/components/customer-success/HealthCadenceBar.tsx` como cartão "Último contato / próximo ideal".
-- Remover `TouchpointTimeline.tsx` (blocos) e atualizar `src/pages/CustomerSuccessSistemas.tsx`: cartões de resumo → gráfico de linha (com seletor 30/90/180) → "Ver tabela detalhada" mantido.
-- Tudo com tokens semânticos do design system (nada de cores hardcoded fora dos tokens já usados para saúde).
-
-## 5. Verificação
-Abrir `/customer-success-sistemas` no preview e confirmar: data do último contato visível em cada cliente, faixa verde/amarela/vermelha e linha de meta no gráfico, dentes de serra caindo nos dias de contato, e alternância 30/90/180 funcionando.
+- Arquivos: `src/lib/recordTouchpoint.ts`, `src/lib/clientHealth.ts`, `src/lib/proceedDemand.ts`, `src/components/TaskCard.tsx`, `src/components/customer-success/CadenceLineChart.tsx`, mais uma migração de backfill.
+- Sem mudanças de schema: `client_touchpoints.subclient_id` já existe e tem RLS/grants.
+- Nenhuma alteração no comportamento do painel de Mídia (`loadClientHealth` continua por `client_id`).

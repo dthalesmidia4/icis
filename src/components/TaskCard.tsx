@@ -18,6 +18,8 @@ import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Tag } from "lucide-react";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { proceedDemand, regressDemand, deliverDemand, deliverMyPart, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, demandTypesForArea, DEMAND_ORIGINS, DEMAND_ORIGIN_LABEL, isClientOrigin, type DemandOrigin, getPipelineSequence, jumpToFunction, getRegressOptions, type RegressOption, type DemandTypeKey } from "@/lib/proceedDemand";
+import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
+
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
@@ -2086,6 +2088,8 @@ export default function TaskCard({
                         if (isDraft) return;
                         try {
                           await supabase.from("demands").update({ origin: newOrigin } as any).eq("id", card.id);
+                          await recordOriginTouchpoint(card.tenant_id, card.id);
+
                           if (!isClientOrigin(newOrigin)) {
                             toast.info("Origem interna: etapas de cliente serão puladas no fluxo.");
                           }
@@ -2162,6 +2166,8 @@ export default function TaskCard({
                               subclient_ids: persistedIds,
                               subclient_id: data?.subclient_id ?? persistedIds[0] ?? null,
                             });
+                            await recordOriginTouchpoint(card.tenant_id, card.id);
+
                           } catch (e) {
                             console.error("[TaskCard] update subclient_ids error", e);
                             onCardChange({

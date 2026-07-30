@@ -51,6 +51,8 @@ import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createS
 import { useCollaborators } from "@/hooks/useCollaborators";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { assignInitialResponsible, resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
+import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
+
 import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from "@/lib/flowFunctions";
 import { resolveCurrentAndNext } from "@/lib/currentWorkCard";
 import { useNowTick } from "@/hooks/useNowTick";
@@ -1781,6 +1783,12 @@ const KanbanCentralPage = () => {
       }
 
       await supabase.from("demands").update(extra).eq("id", result.demand_id);
+
+      // Registra o contato que originou o card (solicitação/feedback do cliente).
+      if (tenantId) {
+        await recordOriginTouchpoint(tenantId, result.demand_id);
+      }
+
 
       if (tenantId) {
         await assignInitialResponsible(

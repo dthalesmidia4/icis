@@ -50,15 +50,62 @@ const STAGE_TOUCHPOINT: Record<string, TouchpointType> = {
   feedback_cliente: "feedback",
 };
 
+/** Origem do card → tipo de contato registrado na criação. */
+const ORIGIN_TOUCHPOINT: Record<string, TouchpointType> = {
+  cliente_solicitacao: "solicitacao",
+  cliente_feedback: "feedback",
+  suporte: "solicitacao",
+};
+
+
 export function touchpointTypeForStage(stage?: string | null): TouchpointType | null {
   if (!stage) return null;
   return STAGE_TOUCHPOINT[stage.toLowerCase().trim()] ?? null;
 }
 
+export function touchpointTypeForOrigin(origin?: string | null): TouchpointType | null {
+  if (!origin) return null;
+  return ORIGIN_TOUCHPOINT[origin.toLowerCase().trim()] ?? null;
+}
+
+/** Subclientes (clientes finais) de um card, sem duplicatas. */
+function subclientIdsOf(demand: any): string[] {
+  const list = Array.isArray(demand?.subclient_ids) && demand.subclient_ids.length
+    ? demand.subclient_ids
+    : demand?.subclient_id
+      ? [demand.subclient_id]
+      : [];
+  return Array.from(new Set(list.filter(Boolean))) as string[];
+}
+
+/**
+ * Insere touchpoints evitando duplicatas por (demanda, subcliente, tipo) dentro
+ * da janela informada. Nunca lança.
+ */
+async function insertTouchpoints(
+  rows: Array<Record<string, any>>,
+  demandId: string,
+  type: TouchpointType,
+  sinceIso: string,
+): Promise<void> {
+  if (rows.length === 0) return;
+  const { data: existing } = await supabase
+    .from("client_touchpoints")
+    .select("id, subclient_id")
+    .eq("demand_id", demandId)
+    .eq("touchpoint_type", type)
+    .gte("occurred_at", sinceIso);
+
+  const taken = new Set((existing || []).map((e: any) => e.subclient_id ?? "__company__"));
+  const pending = rows.filter((r) => !taken.has(r.subclient_id ?? "__company__"));
+  if (pending.length === 0) return;
+  await supabase.from("client_touchpoints").insert(pending as any);
+}
+
 /**
  * Registra automaticamente um ponto de contato quando um card avança para uma
- * etapa voltada ao cliente. Idempotente por (card, tipo, dia) para não inflar
- * a régua de relacionamento quando o card vai e volta no mesmo dia.
+ * etapa voltada ao cliente. Registra uma linha para a empresa (Mídia) e uma
+ * por cliente final solicitante (Sistemas). Idempotente por (card, tipo, dia).
  * Nunca lança — falhar aqui não pode bloquear o fluxo do card.
  */
 export async function recordStageTouchpoint(
@@ -72,7 +119,7 @@ export async function recordStageTouchpoint(
 
     const { data: demand } = await supabase
       .from("demands")
-      .select("client_id, title")
+      .select("client_id, title, subclient_id, subclient_ids")
       .eq("id", demandId)
       .maybeSingle();
     const clientId = (demand as any)?.client_id;
@@ -81,18 +128,8 @@ export async function recordStageTouchpoint(
     const dayStart = new Date();
     dayStart.setHours(0, 0, 0, 0);
 
-    const { data: existing } = await supabase
-      .from("client_touchpoints")
-      .select("id")
-      .eq("demand_id", demandId)
-      .eq("touchpoint_type", type)
-      .gte("occurred_at", dayStart.toISOString())
-      .limit(1);
-    if (existing && existing.length > 0) return;
-
     const { data: auth } = await supabase.auth.getUser();
-
-    await supabase.from("client_touchpoints").insert({
+    const base = {
       tenant_id: tenantId,
       client_id: clientId,
       demand_id: demandId,
@@ -100,11 +137,64 @@ export async function recordStageTouchpoint(
       source: "auto",
       summary: `Etapa "${stage}": ${(demand as any)?.title || "demanda"}`,
       created_by: auth?.user?.id ?? null,
-    } as any);
+    };
+
+    const subs = subclientIdsOf(demand);
+    const rows: Array<Record<string, any>> = [{ ...base, subclient_id: null }];
+    subs.forEach((sid) => rows.push({ ...base, subclient_id: sid }));
+
+    await insertTouchpoints(rows, demandId, type, dayStart.toISOString());
   } catch (err) {
     console.warn("[recordStageTouchpoint] falha ao registrar contato:", err);
   }
 }
+
+/**
+ * Registra o contato que ORIGINOU o card (solicitação do cliente, feedback
+ * presencial, visita...). Uma linha por cliente final solicitante, usando a
+ * data de criação do card. Idempotente por (card, subcliente, tipo).
+ * Nunca lança.
+ */
+export async function recordOriginTouchpoint(
+  tenantId: string,
+  demandId: string,
+): Promise<void> {
+  try {
+    const { data: demand } = await supabase
+      .from("demands")
+      .select("client_id, title, origin, created_at, subclient_id, subclient_ids")
+      .eq("id", demandId)
+      .maybeSingle();
+    if (!demand) return;
+    const type = touchpointTypeForOrigin((demand as any).origin);
+    if (!type) return;
+    const clientId = (demand as any).client_id;
+    if (!clientId) return;
+
+    const { data: auth } = await supabase.auth.getUser();
+    const occurredAt = (demand as any).created_at || new Date().toISOString();
+    const base = {
+      tenant_id: tenantId,
+      client_id: clientId,
+      demand_id: demandId,
+      touchpoint_type: type,
+      source: "auto",
+      occurred_at: occurredAt,
+      summary: `Origem do card: ${(demand as any).title || "demanda"}`,
+      created_by: auth?.user?.id ?? null,
+    };
+
+    const subs = subclientIdsOf(demand);
+    const rows = subs.map((sid) => ({ ...base, subclient_id: sid }));
+    if (rows.length === 0) rows.push({ ...base, subclient_id: null } as any);
+
+    // Janela ampla: o contato de origem é único por card, não por dia.
+    await insertTouchpoints(rows, demandId, type, new Date(0).toISOString());
+  } catch (err) {
+    console.warn("[recordOriginTouchpoint] falha ao registrar contato:", err);
+  }
+}
+
 
 /** Registro manual de contato feito pelo time (tela de Customer Success). */
 export async function recordManualTouchpoint(params: {
@@ -137,13 +227,45 @@ export async function loadSubclientTouchpoints(
   subclientId: string,
   limit = 30,
 ): Promise<TouchpointRecord[]> {
-  const { data, error } = await supabase
-    .from("client_touchpoints")
-    .select("id, touchpoint_type, occurred_at, summary, source")
-    .eq("tenant_id", tenantId)
-    .eq("subclient_id", subclientId)
-    .order("occurred_at", { ascending: false })
-    .limit(limit);
+  const [{ data, error }, { data: demands }] = await Promise.all([
+    supabase
+      .from("client_touchpoints")
+      .select("id, touchpoint_type, occurred_at, summary, source")
+      .eq("tenant_id", tenantId)
+      .eq("subclient_id", subclientId)
+      .order("occurred_at", { ascending: false })
+      .limit(limit),
+    supabase
+      .from("demands")
+      .select("id, title, origin, created_at, subclient_id, subclient_ids")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false })
+      .limit(200),
+  ]);
   if (error) throw error;
-  return (data || []) as TouchpointRecord[];
+
+  const rows = (data || []) as TouchpointRecord[];
+  const seen = new Set(rows.map((r) => (r.occurred_at || "").slice(0, 10)));
+
+  const derived: TouchpointRecord[] = [];
+  (demands || []).forEach((d: any) => {
+    const type = touchpointTypeForOrigin(d.origin);
+    if (!type) return;
+    if (!subclientIdsOf(d).includes(subclientId)) return;
+    const day = (d.created_at || "").slice(0, 10);
+    if (seen.has(day)) return;
+    seen.add(day);
+    derived.push({
+      id: `demand-${d.id}`,
+      touchpoint_type: type,
+      occurred_at: d.created_at,
+      summary: `Origem do card: ${d.title || "demanda"}`,
+      source: "demanda",
+    });
+  });
+
+  return [...rows, ...derived]
+    .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime())
+    .slice(0, limit);
 }
+

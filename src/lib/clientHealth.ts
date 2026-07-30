@@ -142,7 +142,20 @@ export interface SystemsClientHealth extends ClientHealth {
  * Health score dos CLIENTES de uma empresa de Sistemas (ex.: as clínicas
  * atendidas pela SmartVety). Cada linha é um registro de `systems_clients`.
  */
+/** Origem do card → tipo de contato equivalente (contato derivado da demanda). */
+const DERIVED_ORIGIN_TOUCHPOINT: Record<string, string> = {
+  cliente_solicitacao: "solicitacao",
+  cliente_feedback: "feedback",
+  suporte: "solicitacao",
+};
+
+function derivedTouchpointType(origin?: string | null): string | null {
+  if (!origin) return null;
+  return DERIVED_ORIGIN_TOUCHPOINT[origin.toLowerCase().trim()] ?? null;
+}
+
 export async function loadSystemsClientHealth(tenantId: string): Promise<SystemsClientHealth[]> {
+
   const [{ data: companies }, { data: subclients }, { data: touchpoints }, { data: demands }] =
     await Promise.all([
       supabase
@@ -163,10 +176,11 @@ export async function loadSystemsClientHealth(tenantId: string): Promise<Systems
         .order("occurred_at", { ascending: false }),
       supabase
         .from("demands")
-        .select("subclient_id, subclient_ids, due_date, delivery_date, archived_at, origin")
+        .select(
+          "subclient_id, subclient_ids, due_date, delivery_date, archived_at, origin, created_at, title",
+        )
         .eq("tenant_id", tenantId)
         .is("archived_at", null),
-
     ]);
 
   const companyName = new Map<string, string>();
@@ -178,12 +192,6 @@ export async function loadSystemsClientHealth(tenantId: string): Promise<Systems
   return (subclients || []).map((s: any) => {
     const cadenceDays = Number(s.contact_cadence_days) || 30;
     const tps = (touchpoints || []).filter((t: any) => t.subclient_id === s.id);
-    const last = tps[0] || null;
-    const lastTouchAt = last?.occurred_at || null;
-    const daysSinceTouch = lastTouchAt ? dayDiff(lastTouchAt) : null;
-    const touchpoints30d = tps.filter(
-      (t: any) => new Date(t.occurred_at).getTime() >= since30,
-    ).length;
 
     // Uma demanda pode ter vários clientes solicitantes: conta para todos eles.
     const own = (demands || []).filter((d: any) => {
@@ -194,6 +202,30 @@ export async function loadSystemsClientHealth(tenantId: string): Promise<Systems
           : [];
       return ids.includes(s.id);
     });
+
+    // Contatos derivados dos próprios cards (origem de cliente), caso o
+    // registro automático não tenha rodado — a tela nunca deve dizer
+    // "nunca registrado" havendo evidência de contato.
+    const derived = own
+      .filter((d: any) => derivedTouchpointType(d.origin) !== null)
+      .map((d: any) => ({
+        subclient_id: s.id,
+        touchpoint_type: derivedTouchpointType(d.origin) as string,
+        occurred_at: d.created_at as string,
+        derived: true,
+      }));
+
+    const allTps = [...tps.map((t: any) => ({ ...t, derived: false })), ...derived].sort(
+      (a: any, b: any) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime(),
+    );
+
+    const last = allTps[0] || null;
+    const lastTouchAt = last?.occurred_at || null;
+    const daysSinceTouch = lastTouchAt ? dayDiff(lastTouchAt) : null;
+    const touchpoints30d = allTps.filter(
+      (t: any) => new Date(t.occurred_at).getTime() >= since30,
+    ).length;
+
 
     const openDemands = own.length;
     const overdueDemands = own.filter(
@@ -226,6 +258,11 @@ export async function loadSystemsClientHealth(tenantId: string): Promise<Systems
       score -= 20;
       reasons.push(`Cadência estourada (${daysSinceTouch}d / ${cadenceDays}d)`);
     }
+
+    if (last?.derived) {
+      reasons.push("Último contato inferido de demanda do cliente");
+    }
+
 
     if (overdueDemands >= 3) {
       score -= 30;
@@ -280,30 +317,75 @@ export async function loadSubclientTouchpointTimeline(
   days = 90,
 ): Promise<Record<string, TimelineTouchpoint[]>> {
   const since = new Date(Date.now() - days * 86_400_000).toISOString();
-  const { data, error } = await supabase
-    .from("client_touchpoints")
-    .select("subclient_id, touchpoint_type, occurred_at, summary, source")
-    .eq("tenant_id", tenantId)
-    .not("subclient_id", "is", null)
-    .gte("occurred_at", since)
-    .order("occurred_at", { ascending: true });
+  const [{ data, error }, { data: demands }] = await Promise.all([
+    supabase
+      .from("client_touchpoints")
+      .select("subclient_id, touchpoint_type, occurred_at, summary, source")
+      .eq("tenant_id", tenantId)
+      .not("subclient_id", "is", null)
+      .gte("occurred_at", since)
+      .order("occurred_at", { ascending: true }),
+    supabase
+      .from("demands")
+      .select("subclient_id, subclient_ids, origin, created_at, title")
+      .eq("tenant_id", tenantId)
+      .gte("created_at", since),
+  ]);
 
   if (error) throw error;
 
   const grouped: Record<string, TimelineTouchpoint[]> = {};
-  (data || []).forEach((t: any) => {
-    const key = t.subclient_id as string;
+  const push = (key: string, tp: TimelineTouchpoint) => {
     if (!grouped[key]) grouped[key] = [];
-    grouped[key].push({
-      subclientId: key,
+    grouped[key].push(tp);
+  };
+
+  (data || []).forEach((t: any) => {
+    push(t.subclient_id as string, {
+      subclientId: t.subclient_id as string,
       type: t.touchpoint_type,
       occurredAt: t.occurred_at,
       summary: t.summary ?? null,
       source: t.source,
     });
   });
+
+  // Contatos derivados: cards com origem de cliente contam como contato mesmo
+  // que o touchpoint automático não tenha sido gravado.
+  const seen = new Set(
+    (data || []).map((t: any) => `${t.subclient_id}|${(t.occurred_at || "").slice(0, 10)}`),
+  );
+  (demands || []).forEach((d: any) => {
+    const type = derivedTouchpointType(d.origin);
+    if (!type) return;
+    const ids: string[] = Array.isArray(d.subclient_ids) && d.subclient_ids.length
+      ? d.subclient_ids
+      : d.subclient_id
+        ? [d.subclient_id]
+        : [];
+    ids.filter(Boolean).forEach((sid: string) => {
+      const key = `${sid}|${(d.created_at || "").slice(0, 10)}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      push(sid, {
+        subclientId: sid,
+        type,
+        occurredAt: d.created_at,
+        summary: `Origem do card: ${d.title || "demanda"}`,
+        source: "demanda",
+      });
+    });
+  });
+
+  Object.keys(grouped).forEach((key) => {
+    grouped[key].sort(
+      (a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime(),
+    );
+  });
+
   return grouped;
 }
+
 
 
 export interface CadenceSeriesPoint {
