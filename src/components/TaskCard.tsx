@@ -2088,6 +2088,8 @@ export default function TaskCard({
                         if (isDraft) return;
                         try {
                           await supabase.from("demands").update({ origin: newOrigin } as any).eq("id", card.id);
+                          await recordOriginTouchpoint(card.tenant_id, card.id);
+
                           if (!isClientOrigin(newOrigin)) {
                             toast.info("Origem interna: etapas de cliente serão puladas no fluxo.");
                           }
