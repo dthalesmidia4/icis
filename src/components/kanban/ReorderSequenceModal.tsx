@@ -523,6 +523,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                                   endDate: p.endISO,
                                   endTime: p.endTime,
                                   durMode: "auto",
+                                  endEdited: false,
                                 });
                               }}
                             >
