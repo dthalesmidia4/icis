@@ -103,6 +103,40 @@ const MIDIA_DEFAULTS: Record<string, Record<string, Requirement>> = {
   },
 };
 
+const SISTEMAS_DEFAULTS: Record<string, Record<string, Requirement>> = {
+  bug_n1: {
+    especificar: "required", desenvolver: "disabled", corrigir_bug_n1: "required", corrigir_bug_n2: "disabled",
+    corrigir_bug_n3: "disabled", testar: "required", ajustar: "disabled", revisar: "disabled",
+    entregar_cliente: "required", aguardando_cliente: "required", feedback_cliente: "required",
+  },
+  bug_n2: {
+    especificar: "required", desenvolver: "disabled", corrigir_bug_n1: "disabled", corrigir_bug_n2: "required",
+    corrigir_bug_n3: "disabled", testar: "required", ajustar: "required", revisar: "disabled",
+    entregar_cliente: "required", aguardando_cliente: "required", feedback_cliente: "required",
+  },
+  bug_n3: {
+    especificar: "required", desenvolver: "disabled", corrigir_bug_n1: "disabled", corrigir_bug_n2: "disabled",
+    corrigir_bug_n3: "required", testar: "required", ajustar: "required", revisar: "required",
+    entregar_cliente: "required", aguardando_cliente: "required", feedback_cliente: "required",
+  },
+  desenvolvimento: {
+    especificar: "required", desenvolver: "required", corrigir_bug_n1: "disabled", corrigir_bug_n2: "disabled",
+    corrigir_bug_n3: "disabled", testar: "required", ajustar: "required", revisar: "required",
+    entregar_cliente: "required", aguardando_cliente: "required", feedback_cliente: "required",
+  },
+  melhoria: {
+    especificar: "required", desenvolver: "required", corrigir_bug_n1: "disabled", corrigir_bug_n2: "disabled",
+    corrigir_bug_n3: "disabled", testar: "required", ajustar: "disabled", revisar: "required",
+    entregar_cliente: "required", aguardando_cliente: "required", feedback_cliente: "disabled",
+  },
+  suporte: {
+    especificar: "required", desenvolver: "disabled", corrigir_bug_n1: "required", corrigir_bug_n2: "disabled",
+    corrigir_bug_n3: "disabled", testar: "disabled", ajustar: "disabled", revisar: "disabled",
+    entregar_cliente: "required", aguardando_cliente: "disabled", feedback_cliente: "required",
+  },
+};
+
+
 
 const NEXT: Record<Requirement, Requirement> = {
   required: "disabled",
