@@ -62,10 +62,11 @@ export async function loadClientHealth(
   const todayStr = new Date().toISOString().slice(0, 10);
   const since30 = Date.now() - 30 * 86_400_000;
 
-  const relevant = (clients || []).filter((c: any) => {
-    const area = c.default_work_area;
-    return !area || area === workArea;
-  });
+  // Filtro estrito por área: empresas sem área definida contam como Mídia.
+  const relevant = (clients || []).filter(
+    (c: any) => (c.default_work_area || "midia") === workArea,
+  );
+
 
   return relevant.map((c: any) => {
     const cadenceDays = Number(c.contact_cadence_days) || 15;
