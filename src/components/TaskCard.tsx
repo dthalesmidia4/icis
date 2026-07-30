@@ -738,7 +738,7 @@ export default function TaskCard({
 
   // Partial delivery history (Captar multi-responsáveis) — quem já entregou sua parte
   const [partialDeliveries, setPartialDeliveries] = useState<
-    Array<{ user_id: string; created_at: string }>
+    Array<{ user_id: string; created_at: string; function_key: string }>
   >([]);
   useEffect(() => {
     if (!open || !card?.id) {
@@ -751,14 +751,17 @@ export default function TaskCard({
         .from("demand_flow_history")
         .select("from_user_id, created_at, from_function_key, action")
         .eq("demand_id", card.id)
-        .in("action", ["partial_delivered", "proceeded"])
-        .eq("from_function_key", "captar")
+        .in("action", ["partial_delivered", "proceeded", "delivered"])
         .order("created_at", { ascending: true });
       if (cancelled) return;
       setPartialDeliveries(
         (data || [])
-          .filter((r: any) => r?.from_user_id)
-          .map((r: any) => ({ user_id: r.from_user_id, created_at: r.created_at })),
+          .filter((r: any) => r?.from_user_id && r?.from_function_key && r.from_function_key !== "aguardando_cliente")
+          .map((r: any) => ({
+            user_id: r.from_user_id,
+            created_at: r.created_at,
+            function_key: r.from_function_key as string,
+          })),
       );
     })();
     return () => { cancelled = true; };
@@ -1921,12 +1924,27 @@ export default function TaskCard({
                   {partialDeliveries.length > 0 && (() => {
                     const nameOf = (uid: string) =>
                       collaborators.find((c) => c.id === uid)?.name || "Colaborador";
-                    // Deduplicar por user_id, manter a entrega mais recente
-                    const map = new Map<string, string>();
-                    for (const d of partialDeliveries) map.set(d.user_id, d.created_at);
-                    const list = Array.from(map.entries());
-                    const tooltip = list
-                      .map(([uid, when]) => `${nameOf(uid)} · ${new Date(when).toLocaleString("pt-BR")}`)
+                    const stageNameOf = (key: string) =>
+                      pipelineSequence.find((f: any) => f.function_key === key)?.name || key;
+                    // Agrupar por etapa, deduplicando por usuário (entrega mais recente)
+                    const byStage = new Map<string, Map<string, string>>();
+                    for (const d of partialDeliveries) {
+                      const inner = byStage.get(d.function_key) || new Map<string, string>();
+                      inner.set(d.user_id, d.created_at);
+                      byStage.set(d.function_key, inner);
+                    }
+                    const stages = Array.from(byStage.entries()).map(([key, inner]) => ({
+                      key,
+                      name: stageNameOf(key),
+                      people: Array.from(inner.entries()),
+                    }));
+                    const total = stages.reduce((acc, st) => acc + st.people.length, 0);
+                    const tooltip = stages
+                      .map((st) =>
+                        st.people
+                          .map(([uid, when]) => `${st.name}: ${nameOf(uid)} · ${new Date(when).toLocaleString("pt-BR")}`)
+                          .join("\n"),
+                      )
                       .join("\n");
                     return (
                       <>
@@ -1940,22 +1958,31 @@ export default function TaskCard({
                               aria-label="Já entregaram sua parte"
                             >
                               <CheckCircle2 className="h-3.5 w-3.5" />
-                              <span>{list.length} entregou parte</span>
+                              <span>{total} entrega{total > 1 ? "s" : ""}</span>
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent align="start" className="w-64 p-2">
+                          <PopoverContent align="start" className="w-72 p-2">
                             <div className="text-xs font-medium text-muted-foreground px-1 pb-1.5">
-                              Já entregaram sua parte (Captar)
+                              Entregas por etapa
                             </div>
-                            <div className="space-y-0.5">
-                              {list.map(([uid, when]) => (
-                                <div key={uid} className="flex items-center gap-2 px-2 py-1 text-sm">
-                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                                  <span className="truncate flex-1">{nameOf(uid)}</span>
-                                  <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                                    {new Date(when).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}{" "}
-                                    {new Date(when).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                                  </span>
+                            <div className="space-y-2">
+                              {stages.map((st) => (
+                                <div key={st.key}>
+                                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-2">
+                                    {st.name}
+                                  </div>
+                                  <div className="space-y-0.5">
+                                    {st.people.map(([uid, when]) => (
+                                      <div key={uid} className="flex items-center gap-2 px-2 py-1 text-sm">
+                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                                        <span className="truncate flex-1">{nameOf(uid)}</span>
+                                        <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                          {new Date(when).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}{" "}
+                                          {new Date(when).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
                               ))}
                             </div>
