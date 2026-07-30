@@ -583,6 +583,7 @@ export async function proceedDemand({
     proceedPayload.client_wait_started_at = null;
     proceedPayload.client_resend_count = 0;
     proceedPayload.client_last_resend_at = null;
+    await applyReturnFromClientSchedule(proceedPayload, tenantId, demandId, nextFn.function_key, typeKey);
   }
   if (currentFunctionKey === "captar") {
     proceedPayload.additional_assignees = [];
