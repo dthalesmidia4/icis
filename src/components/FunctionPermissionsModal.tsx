@@ -181,19 +181,19 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
   const [savingAwaiting, setSavingAwaiting] = useState(false);
 
   const seedIfEmpty = async (tenantId: string) => {
-    // Seed flow_functions
+    // Seed flow_functions da área
     const { data: existingFns } = await supabase
-      .from("flow_functions").select("function_key").eq("tenant_id", tenantId);
+      .from("flow_functions").select("function_key").eq("tenant_id", tenantId).eq("work_area", area);
     if (!existingFns || existingFns.length === 0) {
       await supabase.from("flow_functions").insert(
         FUNCTIONS.map((f, i) => ({
-          tenant_id: tenantId, function_key: f.key, name: f.name, position: i, active: true,
+          tenant_id: tenantId, function_key: f.key, name: f.name, position: i, active: true, work_area: area,
         }))
       );
     }
-    // Seed demand_type_flow_rules
+    // Seed demand_type_flow_rules da área
     const { data: existingRules } = await supabase
-      .from("demand_type_flow_rules").select("id").eq("tenant_id", tenantId).limit(1);
+      .from("demand_type_flow_rules").select("id").eq("tenant_id", tenantId).eq("work_area", area).limit(1);
     if (!existingRules || existingRules.length === 0) {
       const rows = DEMAND_TYPES.flatMap((dt) =>
         FUNCTIONS.map((fn) => ({
@@ -201,7 +201,8 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
           demand_type_key: dt.key,
           demand_type_name: dt.name,
           function_key: fn.key,
-          requirement: DEFAULTS[dt.key][fn.key],
+          requirement: DEFAULTS[dt.key]?.[fn.key] ?? "disabled",
+          work_area: area,
         }))
       );
       await supabase.from("demand_type_flow_rules").insert(rows);
@@ -215,11 +216,13 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
       supabase
         .from("demand_type_flow_rules")
         .select("demand_type_key, function_key, requirement")
-        .eq("tenant_id", tenantId),
+        .eq("tenant_id", tenantId)
+        .eq("work_area", area),
       supabase
         .from("flow_functions")
         .select("function_key, config")
-        .eq("tenant_id", tenantId),
+        .eq("tenant_id", tenantId)
+        .eq("work_area", area),
     ]);
     if (error) {
       console.error(error);
@@ -231,7 +234,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     DEMAND_TYPES.forEach((dt) => {
       map[dt.key] = {};
       FUNCTIONS.forEach((fn) => {
-        map[dt.key][fn.key] = DEFAULTS[dt.key][fn.key];
+        map[dt.key][fn.key] = DEFAULTS[dt.key]?.[fn.key] ?? "disabled";
       });
     });
     (data || []).forEach((r: any) => {
@@ -239,6 +242,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
       map[r.demand_type_key][r.function_key] = r.requirement;
     });
     setRules(map);
+
 
     const durMap: Record<string, Partial<Record<DurationTypeGroup, number>>> = {};
     (fnRows || []).forEach((r: any) => {
