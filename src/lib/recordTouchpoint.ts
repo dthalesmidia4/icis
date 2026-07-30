@@ -130,3 +130,20 @@ export async function recordManualTouchpoint(params: {
   return { success: true };
 }
 
+
+/** Histórico de contatos de um cliente de Sistemas (subcliente). */
+export async function loadSubclientTouchpoints(
+  tenantId: string,
+  subclientId: string,
+  limit = 30,
+): Promise<TouchpointRecord[]> {
+  const { data, error } = await supabase
+    .from("client_touchpoints")
+    .select("id, touchpoint_type, occurred_at, summary, source")
+    .eq("tenant_id", tenantId)
+    .eq("subclient_id", subclientId)
+    .order("occurred_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data || []) as TouchpointRecord[];
+}
