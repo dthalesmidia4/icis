@@ -626,16 +626,40 @@ export async function proceedDemand({
   if (nextIndex >= sequence.length) {
     return { success: false, end: true, message: "Essa demanda já chegou ao final do fluxo." };
   }
-  const nextFn = sequence[nextIndex] as { function_key: string; name: string };
+
+  const { data: currentDemand } = await supabase
+    .from("demands")
+    .select("assigned_to")
+    .eq("id", demandId)
+    .maybeSingle();
+  const previousAssignee = (currentDemand as any)?.assigned_to || null;
+  const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
+  const stageExtras = currentFunctionKey === "captar" ? captarExtras : await fetchExtraAssignees(demandId);
+  const executors = await collectStageExecutors(
+    tenantId,
+    demandId,
+    currentFunctionKey,
+    previousAssignee,
+    stageExtras,
+  );
+
+  const resolved = await resolveNextStage(
+    tenantId,
+    sequence as any,
+    nextIndex,
+    executors,
+  );
+  if (!resolved) {
+    return { success: false, end: true, message: "Essa demanda já chegou ao final do fluxo." };
+  }
+  const nextFn = resolved.fn;
+  const skipped = resolved.skipped;
+  const skipMeta = skipped.length > 0 ? { skipped } : undefined;
+  const skipNote = skipped.length > 0 ? " (revisão dispensada: mesma pessoa executou)" : "";
 
   // Qualquer entrada em "Aguardando clientes" mantém o mesmo responsável e carimba o envio.
   if (nextFn.function_key === "aguardando_cliente") {
-    const { data: current } = await supabase
-      .from("demands")
-      .select("assigned_to")
-      .eq("id", demandId)
-      .maybeSingle();
-    const keepAssignee = (current as any)?.assigned_to || null;
+    const keepAssignee = previousAssignee;
     const { error: upErr } = await supabase
       .from("demands")
       .update({ current_function_key: nextFn.function_key, client_wait_started_at: new Date().toISOString() } as any)
@@ -649,12 +673,13 @@ export async function proceedDemand({
       toUserId: keepAssignee,
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: nextFn.function_key,
+      metadata: skipMeta as any,
     });
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keepAssignee);
     // Registra a entrega da etapa que enviou ao cliente (impede regressão para ela).
     await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [
       keepAssignee,
-      ...(await fetchExtraAssignees(demandId)),
+      ...stageExtras,
     ]);
 
     return {
@@ -663,25 +688,17 @@ export async function proceedDemand({
       assignedName: "mesmo responsável",
       functionKey: nextFn.function_key,
       functionName: nextFn.name,
-      message: `Demanda marcada como enviada — aguardando retorno do cliente.`,
+      message: `Demanda marcada como enviada — aguardando retorno do cliente.${skipNote}`,
     };
   }
 
-  const { data: currentDemand } = await supabase
-    .from("demands")
-    .select("assigned_to")
-    .eq("id", demandId)
-    .maybeSingle();
-  const previousAssignee = (currentDemand as any)?.assigned_to || null;
-  const captarExtras = currentFunctionKey === "captar" ? await fetchCaptarExtras(demandId) : [];
-  const stageExtras = currentFunctionKey === "captar" ? captarExtras : await fetchExtraAssignees(demandId);
-
-  const picked = await pickAssigneeForFunction(tenantId, nextFn.function_key, nextFn.name);
-  if (!picked.success || !picked.userId) {
-    return { success: false, message: picked.message || "Não foi possível escolher colaborador." };
+  const picked = resolved.picked;
+  if (!picked || !picked.success || !picked.userId) {
+    return { success: false, message: picked?.message || "Não foi possível escolher colaborador." };
   }
 
   const proceedPayload: any = { assigned_to: picked.userId, current_function_key: nextFn.function_key };
+
   if (currentFunctionKey === "aguardando_cliente" && nextFn.function_key !== "enviar_cliente") {
     proceedPayload.client_wait_started_at = null;
     proceedPayload.client_resend_count = 0;
