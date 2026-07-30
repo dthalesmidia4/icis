@@ -3033,17 +3033,20 @@ const KanbanCentralPage = () => {
                                       awaitingClient
                                       awaitingClientSince={waitStart || null}
                                       awaitingClientResendCount={resendCount}
+                                      awaitingClientActions={
+                                        tenantId ? (
+                                          <AwaitingClientActions
+                                            demandId={card.id}
+                                            tenantId={tenantId}
+                                            demandTypeKey={(card as any).demand_type_key || card.demand_type}
+                                            currentFunctionKey={card.current_function_key}
+                                            onDone={() => fetchAllCards()}
+                                          />
+                                        ) : null
+                                      }
                                       onClick={() => handleCardClick(card, column.id)}
                                     />
-                                    {tenantId && (
-                                      <AwaitingClientActions
-                                        demandId={card.id}
-                                        tenantId={tenantId}
-                                        demandTypeKey={(card as any).demand_type_key || card.demand_type}
-                                        currentFunctionKey={card.current_function_key}
-                                        onDone={() => fetchAllCards()}
-                                      />
-                                    )}
+
                                   </div>
                                   );
                                 })}
