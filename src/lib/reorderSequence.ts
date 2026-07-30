@@ -668,7 +668,11 @@ export async function computeReorder(
     // Card em execução no topo da fila: começou no passado.
     const origStart = card.due_date && card.due_time ? toVirtualUtc(card.due_date, card.due_time.slice(0, 5)) : null;
     const origEnd = cardDeadline(card);
-    const inProgressFirst = isFirstActive && !manual && !!origStart && origStart < now;
+    // O primeiro card também é considerado em andamento quando um dado antigo
+    // ficou invertido (início posterior ao fim), mas o término ainda está no
+    // futuro. Isso evita descartar o prazo vigente e reiniciar toda a duração.
+    const hasInvertedActiveWindow = !!origStart && !!origEnd && origStart >= origEnd && origEnd > now;
+    const inProgressFirst = isFirstActive && !manual && !!origStart && (origStart <= now || hasInvertedActiveWindow);
 
     let treatAsStuck = false;
     if (inProgressFirst && origEnd && origEnd < now) treatAsStuck = true;
@@ -690,11 +694,14 @@ export async function computeReorder(
       ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
     }
 
-    // Se o card em andamento ainda tem um fim original no futuro que comporta a duração
-    // restante a partir de agora, preserva o prazo já combinado em vez de esticá-lo.
-    if (inProgressFirst && origEnd && origEnd > now && origEnd >= end && daysSpanned === 1) {
+    // Um card em andamento com término futuro já consumiu parte do esforço.
+    // Preserva o término vigente e agenda somente o tempo restante desde agora,
+    // inclusive para intervalos antigos invertidos (como 14:35 → 14:00).
+    if (inProgressFirst && origEnd && origEnd > now && isoDate(origEnd) === isoDate(now)) {
+      start = new Date(now);
       end = origEnd;
-      dur = Math.max(5, Math.round((end.getTime() - start.getTime()) / 60000));
+      dur = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
+      daysSpanned = 1;
     }
 
 
