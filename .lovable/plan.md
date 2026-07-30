@@ -1,35 +1,101 @@
-## Situação atual (verificada)
+## Resposta direta: sim, havia redundância
 
-- `flow_functions` (tenant Mídia) tem: planejar(0) → criar_roteiro(1) → criar_arte(2) → captar(3) → revisar_captacao(4) → gerar_video(5) → editar_video(6) → revisar(7) → enviar_cliente(8) → aguardando_cliente(9) → publicar(10) → revisar_publicacao(11). **Não existe `revisar_roteiro`.**
-- `proceedDemand()` sempre escolhe o próximo responsável por `pickAssigneeForFunction` (menor carga), **nunca mantém a pessoa atual** e **nunca pula etapa**. Ou seja: hoje o mesmo colaborador pode acabar revisando o próprio trabalho, e não existe "sticky" para quem já é responsável pela etapa seguinte.
-- `demand_type_flow_rules` define required/disabled por tipo (`criar_roteiro` é required em vídeo captado, vídeo gerado e anúncio; disabled em carrossel/estático/outro).
+O conjunto anterior misturava quatro coisas. Definição final, sem sobreposição:
 
-## O que será feito
+| Etapa | O que é | Quem age |
+|---|---|---|
+| ~~`triagem`~~ | **Removida.** Era o mesmo que `especificar` (entender/dimensionar o pedido). | — |
+| `especificar` | Entender o pedido, definir escopo, nível/estimativa | Equipe |
+| `entregar_cliente` | Colocar em produção/entregar e **avisar** o cliente | Equipe |
+| `aguardando_cliente` | Card parado esperando **validação/homologação** do cliente | Cliente |
+| `feedback_cliente` | Contato de **relacionamento** depois da entrega validada: como está, o que melhorou, o que falta | Equipe (CS) |
 
-### 1. Nova etapa `revisar_roteiro` (banco)
-- Inserir função `revisar_roteiro` — "Revisar roteiro" — logo após `criar_roteiro` (reposicionando as demais).
-- Inserir regras em `demand_type_flow_rules`: `required` exatamente nos tipos em que `criar_roteiro` é required; `disabled` nos outros.
-- Semear `collaborator_function_assignments` de `revisar_roteiro` para quem já tem `revisar` permitido (senão a etapa fica sem candidatos).
+`entregar_cliente` é ação, `aguardando_cliente` é espera, `feedback_cliente` é relacionamento — são momentos distintos. Para demanda **interna** as três desaparecem do fluxo.
 
-### 2. Inteligência de atribuição no `proceedDemand`
-Duas regras novas, aplicadas ao calcular a próxima etapa:
+## Fluxo por origem
 
-- **Sticky em etapas de produção** (`criar_roteiro`, `criar_arte`, `captar`, `gerar_video`, `editar_video`, `enviar_cliente`, `publicar`): se o responsável atual (ou um dos `additional_assignees`) já tem essa função permitida, o card **fica com ele** em vez de sortear por carga. Caso contrário, mantém a escolha por menor carga.
-- **Revisão nunca é auto-revisão** (`revisar_roteiro`, `revisar_captacao`, `revisar`, `revisar_publicacao`): o candidato escolhido exclui quem executou a etapa anterior (responsável + entregas parciais registradas em `demand_flow_history`). Se sobrar candidato → vai para ele; **se o único candidato possível for o próprio executor → a etapa de revisão é pulada** e o fluxo avança para a etapa seguinte (com a mesma lógica, em cascata, registrando no histórico `action: proceeded` com `metadata.skipped: ["revisar_roteiro"]`).
+Nova coluna `demands.origin`:
 
-Isso reproduz exatamente o exemplo: Lúcia cria (planejar) → prosseguir vai para `criar_roteiro` e **fica com ela** se ela tiver a função; se só outra pessoa tem, vai para essa pessoa; essa pessoa prossegue → `revisar_roteiro` cai na Lúcia (revisor diferente do executor); se a Lúcia mesma tivesse feito o roteiro e fosse a única revisora, a revisão é pulada.
+- `interno` — ideia/manutenção da própria equipe
+- `cliente_solicitacao` — o cliente pediu
+- `cliente_feedback` — veio de visita/reunião/feedback coletado
+- `suporte` — chamado/incidente do cliente
 
-### 3. Pontas soltas que serão tratadas (do levantamento do fluxo)
-- `aguardando_cliente` e `publicar` continuam com o tratamento especial existente (mantêm responsável / carimbam envio) — o sticky não altera esse caminho.
-- `regressDemand` / popover "Voltar demanda": passa a considerar `revisar_roteiro` na sequência e continua respeitando etapas já concluídas por usuário (`stageCompletions`).
-- `resolveFunctionForAssignee` (troca manual de responsável) recebe a mesma exclusão de auto-revisão, para não empurrar alguém para revisar o próprio trabalho.
-- `AwaitingClientActions` e o atalho "Cliente aprovou · enviar para X" usam `getPipelineSequence`, que passa a incluir a etapa nova — o rótulo continua correto.
-- `reorderSequence` / durações por etapa: `revisar_roteiro` herda a duração padrão de revisão (mesmo tratamento de `revisar_captacao`); nada bloqueia a alocação.
-- Cards já existentes em `criar_roteiro` continuam válidos: ao prosseguir, passam pela nova etapa (ou pulam, conforme a regra).
-- Etapas de revisão pulada não geram entrega falsa: nenhum `partial_delivered` é gravado para etapa não executada.
+Regra: as etapas marcadas como **"só com origem cliente"** (`entregar_cliente`, `aguardando_cliente`, `feedback_cliente`) são automaticamente puladas quando `origin = 'interno'`, reaproveitando o mecanismo de skip em cascata que já existe no `proceedDemand`. Sem duplicar configuração de fluxo: a mesma sequência serve às duas origens.
 
-### Técnico
-- Migração SQL: insert em `flow_functions`, reposicionamento, inserts em `demand_type_flow_rules` e `collaborator_function_assignments` (com GRANTs já existentes nas tabelas).
-- `src/lib/flowFunctions.ts`: `isReviewFunction` passa a reconhecer `revisar_roteiro` (já cobre via prefixo `revis`), e novo helper `isProductionFunction`.
-- `src/lib/proceedDemand.ts`: nova função interna `resolveNextStageAndAssignee()` com sticky + skip em cascata, usada por `proceedDemand` e `jumpToFunction`.
-- `src/lib/initialFlowFunction.ts`: exclusão de auto-revisão em `resolveFunctionForAssignee`.
+```text
+cliente_solicitacao / cliente_feedback / suporte:
+  especificar → desenvolver|corrigir_bug_N → testar → entregar_cliente
+              → aguardando_cliente → feedback_cliente → concluído
+
+interno:
+  especificar → desenvolver|corrigir_bug_N → testar → revisar → concluído
+```
+
+Origem é escolhida na criação da demanda de Sistemas (default `interno`); trocar a origem no card recalcula as etapas restantes.
+
+## Etapas de Sistemas (final)
+
+| key | Nome | Duração | Tipo |
+|---|---|---|---|
+| `especificar` | Especificar | 30 min | produção |
+| `desenvolver` | Em desenvolvimento | 4 h | produção (sticky) |
+| `corrigir_bug_n1` | Correção de bug — Nível 1 | 30 min | produção |
+| `corrigir_bug_n2` | Correção de bug — Nível 2 | 2 h | produção |
+| `corrigir_bug_n3` | Correção de bug — Nível 3 | 8 h (quebra em dias) | produção |
+| `testar` | Testar | 30 min | revisão (nunca auto-revisão) |
+| `ajustar` | Ajustar | 1 h | produção |
+| `entregar_cliente` | Entregar ao cliente | 15 min | só origem cliente |
+| `aguardando_cliente` | Aguardando cliente | — | só origem cliente |
+| `feedback_cliente` | Feedback ao cliente | 15 min | só origem cliente |
+
+Tipos de demanda de Sistemas: `bug_n1`, `bug_n2`, `bug_n3`, `desenvolvimento`, `melhoria`, `suporte`.
+`flow_functions` e `demand_type_flow_rules` ganham `work_area`, então Mídia e Sistemas passam a ter fluxos independentes e a tela de configuração ganha abas por área.
+
+## Cadastro leve de cliente (Sistemas)
+
+- Campos hoje obrigatórios em `tenant_companies` (cnpj_cpf, sector, size, products_services, email, phone) passam a opcionais com default `''` — o cadastro completo de mídia continua igual.
+- Modal **"Novo cliente (Sistemas)"**: só **nome** obrigatório; contato, responsável e observação opcionais; grava `default_work_area = 'sistemas'`.
+- Criável direto do formulário de demanda, sem passar por identidade visual/estratégia.
+- Campo por cliente: **cadência de contato desejada** (`contact_cadence_days`, default 30) — base do termômetro de relacionamento.
+
+## Customer Success de Sistemas — relacionamento medido, não adivinhado
+
+### Fonte de verdade: pontos de contato
+
+Nova tabela `client_touchpoints` (tenant, client, tipo, data, autor, resumo, `demand_id` opcional). É alimentada de duas formas:
+
+1. **Automática** — cada `entregar_cliente`, `aguardando_cliente` e `feedback_cliente` concluído grava um touchpoint vinculado à demanda (aproveita `demand_flow_history`, que já registra tudo).
+2. **Manual** — botão "Registrar contato": visita, reunião, ligação, WhatsApp/e-mail, treinamento. Com resumo curto e opção de gerar demanda a partir do que foi coletado (origem `cliente_feedback`).
+
+### Termômetro de relacionamento
+
+Para cada cliente: `dias_sem_contato = hoje − último touchpoint`, comparado com a cadência do cliente.
+
+| Faixa | Estado |
+|---|---|
+| ≤ 50% da cadência | Quente |
+| 50–100% | Morno |
+| 100–200% | Esfriando |
+| > 200% ou nunca contatado | Frio |
+
+Score de saúde (0–100), transparente e auditável no hover: recência de contato (peso 40), feedbacks pós-entrega dados vs. devidos (25), volume entregue no período (15), demandas atrasadas/travadas com o cliente (−15), tempo médio de resposta do cliente (5).
+
+### Tela
+
+- **Fila de ação no topo**: "entregues sem feedback", "clientes frios", "aguardando cliente há mais de X dias" — cada item com atalho para o card ou para registrar contato.
+- **Gráfico de último contato** (barras horizontais por cliente, ordenado por dias sem contato, colorido pela faixa do termômetro, com linha-alvo da cadência) — responde "com quem preciso falar agora".
+- **Timeline/heatmap de contatos** (12 meses × clientes): mostra visualmente relação que esfriou.
+- **Linha de contatos por mês** (total e por tipo), para acompanhar a rotina de CS.
+- **Detalhe do cliente**: histórico de touchpoints, demandas por origem e status, feedbacks pendentes, cadência editável.
+- Badge de "feedback pendente"/"cliente frio" na Home, no padrão dos alertas atuais.
+
+## Técnico
+
+- Migração 1 (estrutura): `flow_functions.work_area`, `demand_type_flow_rules.work_area`, etapas + tipos de Sistemas, `demands.origin`/`origin_note`, `tenant_companies` NOT NULLs afrouxados + `contact_cadence_days`.
+- Migração 2 (CS): tabela `client_touchpoints` com GRANTs (`authenticated`, `service_role`), RLS por tenant via `user_has_tenant_access`, trigger de `updated_at`, e backfill dos touchpoints históricos a partir de `demand_flow_history`.
+- `src/lib/proceedDemand.ts`: keys novas em `DemandTypeKey`, sequência filtrada por `work_area`, skip das etapas de cliente quando `origin = 'interno'`, sticky nas etapas de desenvolvimento/bug.
+- `src/lib/reorderSequence.ts`: grupos de duração `bug_n1|bug_n2|bug_n3|dev` e entradas na `DURATION_MATRIX` (N3 já respeita a quebra multi-dia existente).
+- `src/lib/clientHealth.ts` (novo): cálculo de dias sem contato, faixa do termômetro e score — puro, testável, usado pela tela e pelos badges.
+- `src/components/FunctionPermissionsModal.tsx`: abas Mídia/Sistemas lendo etapas e tipos do banco.
+- Novos: `src/components/SystemsClientQuickCreateModal.tsx`, `src/components/cs/RegisterTouchpointModal.tsx`, `src/pages/CustomerSuccessSistemas.tsx` (+ rota, card na Home e realtime em `client_touchpoints`).
