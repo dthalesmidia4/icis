@@ -51,6 +51,8 @@ import { createOrUpdateScheduleDispatch, hasActiveDispatch } from "@/lib/createS
 import { useCollaborators } from "@/hooks/useCollaborators";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { assignInitialResponsible, resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
+import { recordOriginTouchpoint } from "@/lib/recordTouchpoint";
+
 import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from "@/lib/flowFunctions";
 import { resolveCurrentAndNext } from "@/lib/currentWorkCard";
 import { useNowTick } from "@/hooks/useNowTick";
