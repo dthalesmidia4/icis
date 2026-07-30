@@ -317,30 +317,75 @@ export async function loadSubclientTouchpointTimeline(
   days = 90,
 ): Promise<Record<string, TimelineTouchpoint[]>> {
   const since = new Date(Date.now() - days * 86_400_000).toISOString();
-  const { data, error } = await supabase
-    .from("client_touchpoints")
-    .select("subclient_id, touchpoint_type, occurred_at, summary, source")
-    .eq("tenant_id", tenantId)
-    .not("subclient_id", "is", null)
-    .gte("occurred_at", since)
-    .order("occurred_at", { ascending: true });
+  const [{ data, error }, { data: demands }] = await Promise.all([
+    supabase
+      .from("client_touchpoints")
+      .select("subclient_id, touchpoint_type, occurred_at, summary, source")
+      .eq("tenant_id", tenantId)
+      .not("subclient_id", "is", null)
+      .gte("occurred_at", since)
+      .order("occurred_at", { ascending: true }),
+    supabase
+      .from("demands")
+      .select("subclient_id, subclient_ids, origin, created_at, title")
+      .eq("tenant_id", tenantId)
+      .gte("created_at", since),
+  ]);
 
   if (error) throw error;
 
   const grouped: Record<string, TimelineTouchpoint[]> = {};
-  (data || []).forEach((t: any) => {
-    const key = t.subclient_id as string;
+  const push = (key: string, tp: TimelineTouchpoint) => {
     if (!grouped[key]) grouped[key] = [];
-    grouped[key].push({
-      subclientId: key,
+    grouped[key].push(tp);
+  };
+
+  (data || []).forEach((t: any) => {
+    push(t.subclient_id as string, {
+      subclientId: t.subclient_id as string,
       type: t.touchpoint_type,
       occurredAt: t.occurred_at,
       summary: t.summary ?? null,
       source: t.source,
     });
   });
+
+  // Contatos derivados: cards com origem de cliente contam como contato mesmo
+  // que o touchpoint automático não tenha sido gravado.
+  const seen = new Set(
+    (data || []).map((t: any) => `${t.subclient_id}|${(t.occurred_at || "").slice(0, 10)}`),
+  );
+  (demands || []).forEach((d: any) => {
+    const type = derivedTouchpointType(d.origin);
+    if (!type) return;
+    const ids: string[] = Array.isArray(d.subclient_ids) && d.subclient_ids.length
+      ? d.subclient_ids
+      : d.subclient_id
+        ? [d.subclient_id]
+        : [];
+    ids.filter(Boolean).forEach((sid: string) => {
+      const key = `${sid}|${(d.created_at || "").slice(0, 10)}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      push(sid, {
+        subclientId: sid,
+        type,
+        occurredAt: d.created_at,
+        summary: `Origem do card: ${d.title || "demanda"}`,
+        source: "demanda",
+      });
+    });
+  });
+
+  Object.keys(grouped).forEach((key) => {
+    grouped[key].sort(
+      (a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime(),
+    );
+  });
+
   return grouped;
 }
+
 
 
 export interface CadenceSeriesPoint {
