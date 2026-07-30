@@ -227,13 +227,45 @@ export async function loadSubclientTouchpoints(
   subclientId: string,
   limit = 30,
 ): Promise<TouchpointRecord[]> {
-  const { data, error } = await supabase
-    .from("client_touchpoints")
-    .select("id, touchpoint_type, occurred_at, summary, source")
-    .eq("tenant_id", tenantId)
-    .eq("subclient_id", subclientId)
-    .order("occurred_at", { ascending: false })
-    .limit(limit);
+  const [{ data, error }, { data: demands }] = await Promise.all([
+    supabase
+      .from("client_touchpoints")
+      .select("id, touchpoint_type, occurred_at, summary, source")
+      .eq("tenant_id", tenantId)
+      .eq("subclient_id", subclientId)
+      .order("occurred_at", { ascending: false })
+      .limit(limit),
+    supabase
+      .from("demands")
+      .select("id, title, origin, created_at, subclient_id, subclient_ids")
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false })
+      .limit(200),
+  ]);
   if (error) throw error;
-  return (data || []) as TouchpointRecord[];
+
+  const rows = (data || []) as TouchpointRecord[];
+  const seen = new Set(rows.map((r) => (r.occurred_at || "").slice(0, 10)));
+
+  const derived: TouchpointRecord[] = [];
+  (demands || []).forEach((d: any) => {
+    const type = touchpointTypeForOrigin(d.origin);
+    if (!type) return;
+    if (!subclientIdsOf(d).includes(subclientId)) return;
+    const day = (d.created_at || "").slice(0, 10);
+    if (seen.has(day)) return;
+    seen.add(day);
+    derived.push({
+      id: `demand-${d.id}`,
+      touchpoint_type: type,
+      occurred_at: d.created_at,
+      summary: `Origem do card: ${d.title || "demanda"}`,
+      source: "demanda",
+    });
+  });
+
+  return [...rows, ...derived]
+    .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime())
+    .slice(0, limit);
 }
+
