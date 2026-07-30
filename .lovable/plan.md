@@ -1,34 +1,28 @@
-## Objetivo
+## Diagnóstico confirmado
 
-Hoje uma demanda de Sistemas aponta para **um único** cliente final (`demands.subclient_id`). No caso real do card "Agente de Vacinas" a demanda foi solicitada por dois clientes (Belloti e Pontes Gestal) e isso hoje só cabe escrito no corpo do texto. Vamos permitir marcar **vários clientes solicitantes** na mesma demanda.
+O banco **está salvando corretamente**: a demanda **“Agente de Vacinas”** possui atualmente dois clientes em `subclient_ids` — **Bellotti** e **Pontes Gestal**.
 
-## Como vai funcionar
+A perda acontece na interface atual, **Evolução das Demandas**: ao carregar os cards, `ClientEvolution.tsx` não inclui `subclient_id`, `subclient_ids` nem `origin` no mapeamento. Assim, ao fechar e reabrir, o modal recebe um card sem esses campos e mostra a seleção vazia, embora os dados continuem no banco.
 
-- O seletor "Cliente atendido" passa a ser **múltipla escolha** (checklist), com rótulo "Clientes solicitantes".
-- O chip no cabeçalho do card mostra:
-  - nenhum → "Sem cliente final"
-  - um → nome do cliente
-  - dois ou mais → "Belloti +1" (com todos os nomes no tooltip)
-- O Customer Success · Sistemas passa a contar a demanda para **cada** cliente vinculado (uma demanda solicitada por 2 clientes conta como aberta/atrasada para os dois), o que corrige a leitura de saúde por cliente.
-- Nada muda no fluxo de etapas, reorganização ou agendamento — o vínculo continua sendo apenas informativo/relatorial.
+## Correção
 
-## Detalhes técnicos
+1. **Completar o modelo compartilhado do card**
+   - Declarar `work_area`, `origin`, `origin_note`, `subclient_id` e `subclient_ids` em `KanbanCardData`, eliminando os casts frágeis e garantindo que todas as telas preservem esses campos.
 
-1. **Migração**
-   - `ALTER TABLE public.demands ADD COLUMN subclient_ids uuid[] NOT NULL DEFAULT '{}'`.
-   - Backfill: `UPDATE public.demands SET subclient_ids = ARRAY[subclient_id] WHERE subclient_id IS NOT NULL`.
-   - `subclient_id` é mantido como "cliente principal" (primeiro do array) para compatibilidade com o que já existe; a gravação sempre sincroniza os dois campos.
-   - Índice GIN em `subclient_ids` para os filtros do CS.
+2. **Corrigir a tela Evolução das Demandas**
+   - Mapear `subclient_id`, `subclient_ids` e `origin` ao carregar as demandas.
+   - Atualizar também a lista local de cards quando a seleção mudar, não apenas o card aberto.
+   - Reabrir o card usando os valores realmente persistidos.
 
-2. **`src/components/SubclientSelect.tsx`**
-   - Trocar `Select` por `Popover` + lista de `Checkbox` (mesmo padrão discreto já usado nos outros chips do cabeçalho), com props `value: string[]` e `onChange(ids: string[])`.
-   - Continua invisível quando a empresa não tem clientes cadastrados.
+3. **Fechar os caminhos equivalentes**
+   - Auditar os demais pontos que abrem `TaskCard` e garantir que seus mapeamentos não descartem os mesmos campos.
+   - Completar o handler de realtime do Kanban para propagar alterações de `subclient_id` e `subclient_ids`, evitando que uma atualização em tempo real substitua o estado correto por dados incompletos.
 
-3. **`src/components/TaskCard.tsx`**
-   - Passar/gravar `subclient_ids` (e `subclient_id` = primeiro item) no update da demanda, mantendo o guard de rascunho já existente.
+4. **Tornar o salvamento verificável**
+   - Após o `UPDATE`, ler de volta os campos salvos e sincronizar o estado do modal com a resposta do banco.
+   - Em caso de erro, restaurar a seleção anterior e mostrar a mensagem real, em vez de deixar uma seleção otimista que aparenta ter sido salva.
 
-4. **`src/lib/clientHealth.ts`**
-   - `loadSystemsClientHealth`: ler `subclient_ids` das demandas e casar por "contém o cliente", em vez de igualdade com `subclient_id`; fallback para `subclient_id` em linhas antigas.
-
-5. **`src/lib/recordTouchpoint.ts` / Customer Success**
-   - Sem mudança estrutural: o contato manual continua sendo por cliente (1 contato = 1 cliente).
+5. **Validar o fluxo real**
+   - Na tela `/client-evolution`, selecionar dois clientes, fechar o card, reabrir e confirmar que ambos permanecem marcados.
+   - Recarregar a página e repetir a verificação.
+   - Confirmar que a mesma demanda continua atribuída aos dois clientes no Customer Success.
