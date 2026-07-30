@@ -52,6 +52,9 @@ import { useCollaborators } from "@/hooks/useCollaborators";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { assignInitialResponsible, resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
 import { isReviewFunction, isEvaluationFunction, isClientWaitingFunction } from "@/lib/flowFunctions";
+import { resolveCurrentAndNext } from "@/lib/currentWorkCard";
+import { useNowTick } from "@/hooks/useNowTick";
+
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { usePendingEvaluationCards, type PendingEvaluationCard } from "@/hooks/usePendingEvaluationCards";
 import { EvaluatePlanCardModal } from "@/components/EvaluatePlanCardModal";
