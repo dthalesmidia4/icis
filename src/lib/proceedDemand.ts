@@ -1008,30 +1008,15 @@ export async function isAtLastFlowFunction(
   tenantId: string,
   demandTypeKey?: string | null,
   currentFunctionKey?: string | null,
+  opts?: SequenceOptions,
 ): Promise<boolean> {
   const typeKey = coerceDemandTypeKey(demandTypeKey);
   if (!typeKey || !currentFunctionKey) return false;
-
-  const [{ data: fns }, { data: rules }] = await Promise.all([
-    supabase
-      .from("flow_functions")
-      .select("function_key, position, active")
-      .eq("tenant_id", tenantId)
-      .eq("active", true)
-      .order("position"),
-    supabase
-      .from("demand_type_flow_rules")
-      .select("function_key, requirement")
-      .eq("tenant_id", tenantId)
-      .eq("demand_type_key", typeKey),
-  ]);
-  if (!fns || fns.length === 0) return false;
-  const req = new Map<string, string>();
-  (rules || []).forEach((r: any) => req.set(r.function_key, r.requirement));
-  const sequence = fns.filter((f: any) => req.get(f.function_key) === "required");
+  const sequence = await getPipelineSequence(tenantId, typeKey, opts);
   if (sequence.length === 0) return false;
   return sequence[sequence.length - 1].function_key === currentFunctionKey;
 }
+
 
 export interface ResolveInitialFunctionResult {
   success: boolean;
