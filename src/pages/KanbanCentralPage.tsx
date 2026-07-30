@@ -21,7 +21,7 @@ import {
   Focus,
   Wand2,
   Activity
-, HeartPulse } from "lucide-react";
+, HeartPulse, Building2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ReorderSequenceModal from "@/components/kanban/ReorderSequenceModal";
 import AwaitingClientActions from "@/components/kanban/AwaitingClientActions";
