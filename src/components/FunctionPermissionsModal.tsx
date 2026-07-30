@@ -70,7 +70,7 @@ const SISTEMAS_DEMAND_TYPES: { key: string; name: string; group: DurationTypeGro
 ];
 
 
-const DEFAULTS: Record<string, Record<string, Requirement>> = {
+const MIDIA_DEFAULTS: Record<string, Record<string, Requirement>> = {
   criativo_estatico: {
     planejar: "required", criar_roteiro: "disabled", revisar_roteiro: "disabled", criar_arte: "required",
     captar: "disabled", descarregar_captacao: "disabled", revisar_captacao: "disabled", gerar_video: "disabled", editar_video: "disabled",
