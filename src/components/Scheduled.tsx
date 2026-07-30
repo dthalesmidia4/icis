@@ -267,6 +267,11 @@ const Scheduled = () => {
             demand_id: demand.id,
             demand_type: demand.demand_type,
             additional_publish_dates: Array.isArray(demand.additional_publish_dates) ? demand.additional_publish_dates as string[] : [],
+            work_area: (demand.work_area as "midia" | "sistemas" | null) ?? null,
+            origin: demand.origin ?? "interno",
+            origin_note: demand.origin_note ?? null,
+            subclient_id: demand.subclient_id ?? null,
+            subclient_ids: Array.isArray(demand.subclient_ids) ? demand.subclient_ids : [],
             dispatch_status: dispatch?.status ?? null,
             dispatch_scheduled_at: dispatch?.scheduled_at ?? null,
             dispatch_dispatched_at: dispatch?.dispatched_at ?? null,
@@ -305,6 +310,8 @@ const Scheduled = () => {
       clientName: selectedCard?.clientName || "Cliente",
       clientId: selectedCard?.clientId || ""
     } as CentralKanbanCard;
+    setAllCards((prev) => prev.map((card) => card.id === updatedCentralCard.id ? { ...card, ...updatedCentralCard } : card));
+    setActiveCards((prev) => prev.map((card) => card.id === updatedCentralCard.id ? { ...card, ...updatedCentralCard } : card));
     setSelectedCard(updatedCentralCard);
   };
 

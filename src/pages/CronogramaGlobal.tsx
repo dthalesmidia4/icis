@@ -129,6 +129,11 @@ const CronogramaGlobal = () => {
           assigned_to: d.assigned_to || null,
           clientName: d.tenant_companies.fantasy_name || d.tenant_companies.name,
           clientId: d.client_id,
+          work_area: d.work_area ?? null,
+          origin: d.origin ?? "interno",
+          origin_note: d.origin_note ?? null,
+          subclient_id: d.subclient_id ?? null,
+          subclient_ids: Array.isArray(d.subclient_ids) ? d.subclient_ids : [],
         }));
         setCards(mapped);
 
@@ -341,7 +346,10 @@ const CronogramaGlobal = () => {
         open={!!selectedCard}
         onOpenChange={(open) => { if (!open) setSelectedCard(null); }}
         card={selectedCard}
-        onCardChange={(updated) => setSelectedCard((prev) => prev ? { ...prev, ...updated } : prev)}
+        onCardChange={(updated) => {
+          setCards((prev) => prev.map((card) => card.id === updated.id ? { ...card, ...updated } : card));
+          setSelectedCard((prev) => prev ? { ...prev, ...updated } : prev);
+        }}
         onSave={handleSave}
         onFileUpload={async () => {}}
         onRemoveAttachment={async () => {}}
