@@ -53,6 +53,7 @@ import { Separator } from "@/components/ui/separator";
 import { AttachmentPreviewModal } from "@/components/AttachmentPreviewModal";
 import { BlockEditor } from "@/components/BlockEditor";
 import { StartEndDatePopover, SingleDateTimePopover } from "@/components/kanban/StartEndDatePopover";
+import SubclientSelect from "@/components/SubclientSelect";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -2108,7 +2109,7 @@ export default function TaskCard({
                       <span className="text-muted-foreground/40 select-none">·</span>
                       <SubclientSelect
                         tenantId={card.tenant_id}
-                        parentCompanyId={card.client_id}
+                        parentCompanyId={card.clientId}
                         value={(card as any).subclient_id || null}
                         disabled={readOnly}
                         onChange={async (subclientId) => {
