@@ -259,6 +259,11 @@ export async function loadSystemsClientHealth(tenantId: string): Promise<Systems
       reasons.push(`Cadência estourada (${daysSinceTouch}d / ${cadenceDays}d)`);
     }
 
+    if (last?.derived) {
+      reasons.push("Último contato inferido de demanda do cliente");
+    }
+
+
     if (overdueDemands >= 3) {
       score -= 30;
       reasons.push(`${overdueDemands} demandas atrasadas`);
