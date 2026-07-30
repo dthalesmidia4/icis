@@ -2102,6 +2102,34 @@ export default function TaskCard({
                     </Select>
                   </div>
 
+                  {/* Cliente final atendido (só Sistemas, opcional) */}
+                  {(card as any).work_area === "sistemas" && (
+                    <>
+                      <span className="text-muted-foreground/40 select-none">·</span>
+                      <SubclientSelect
+                        tenantId={card.tenant_id}
+                        parentCompanyId={card.client_id}
+                        value={(card as any).subclient_id || null}
+                        disabled={readOnly}
+                        onChange={async (subclientId) => {
+                          onCardChange({ ...card, subclient_id: subclientId } as any);
+                          if (isDraft) return;
+                          try {
+                            await supabase
+                              .from("demands")
+                              .update({ subclient_id: subclientId } as any)
+                              .eq("id", card.id);
+                          } catch (e) {
+                            console.error("[TaskCard] update subclient_id error", e);
+                            toast.error("Erro ao atualizar cliente atendido");
+                          }
+                        }}
+                      />
+                    </>
+                  )}
+
+
+
                   {/* Datas — Produção (Início + Entrega) — mesmo visual da Visão Geral */}
                   {!card.is_daily_card && (() => {
                     const startStr = card.due_date ? `${formatShortDate(card.due_date)}${card.due_time ? ' ' + card.due_time : ''}` : null;
