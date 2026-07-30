@@ -831,7 +831,7 @@ export async function computeReorder(
     let pausedByCaptar: ReorderProposal["pausedByCaptar"] = null;
     for (const b of blocked) {
       if (b.kind !== "captar" || !b.cardId) continue;
-      if (b.start >= start && b.start < end) {
+      if (b.start >= allocStart && b.start < end) {
         pausedByCaptar = {
           atISO: isoDate(b.start),
           atTime: hhmm(b.start),
