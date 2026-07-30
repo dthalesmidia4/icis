@@ -1,30 +1,60 @@
-## Situação atual (verificada no código)
+## Diagnóstico real (verificado no código e no banco)
 
-- `src/lib/proceedDemand.ts` grava `partial_delivered` **apenas** na etapa `captar` (bloco `hadPriorCaptarPartialDelivery` e `recordFlowHistoryForUsers` em torno das linhas 485-513). Em qualquer outra etapa, prosseguir grava só um `proceeded`.
-- `src/components/TaskCard.tsx` (linhas 743-765) lista "quem entregou" com uma consulta fixa em `from_function_key = 'captar'` — por isso a entrega da Letícia em "Editar vídeo" nunca aparece.
-- `src/lib/stageCompletions.ts` já trata `proceeded`, `partial_delivered` e `delivered` como conclusão de etapa, mas não é usado nessa parte da UI.
+O rótulo "em andamento" hoje é calculado assim (`KanbanCentralPage.tsx`, ~2406-2438):
 
-Ou seja: o dado da entrega da Letícia até existe (como `proceeded` de `editar_video`), mas não é registrado como entrega nem exibido. É fácil de resolver.
+```
+candidatos = cards ativos do colaborador
+             − aguardando_cliente − captar − com dispatch ativo − daily cards
+ordenados por (início, tier)
+em andamento = primeiro candidato com  início <= Date.now()
+próximo      = o candidato seguinte
+```
 
-## Solução
+Dois problemas de fundo, e o segundo é o que você apontou:
 
-### 1. Registrar entrega em qualquer etapa (backend/lib)
-Em `src/lib/proceedDemand.ts`, ao avançar de uma etapa (`proceedDemand`, `deliverDemand` e `jumpToFunction` para frente):
-- gravar, além do `proceeded` da transição, um `partial_delivered` para **cada responsável da etapa de origem** (o `assigned_to` e todos os `additional_assignees`), com `from_function_key` = etapa de origem e `metadata: { auto: true }`.
-- generalizar a lógica hoje restrita a `captar`: a coleta de `additional_assignees` passa a valer para qualquer etapa.
-- evitar duplicidade: quem já tem `partial_delivered` naquela etapa (via "Entregar minha parte") não recebe outro registro.
-- não gravar entrega quando a transição é para/desde `aguardando_cliente` sem execução (envio ao cliente continua com o registro próprio) nem em `regressDemand`.
+1. **`Date.now()` é lido só na renderização.** Não existe nenhum `setInterval` na página. A tela aberta às 09:55 continua comparando com 09:55 — a fila nunca "vira" sozinha.
+2. **A regra usa relógio como se fosse estado de execução.** "Passou da hora agendada" não significa "está sendo feita", e "ainda não chegou a hora" não significa "não está sendo feita". Foi exatamente o que aconteceu com a Lúcia: fila dela começa 10:05, agora 10:05 — nada atrasado, logo nada "em andamento", só "próximo".
 
-### 2. Mostrar as entregas por etapa (UI)
-Em `src/components/TaskCard.tsx`:
-- trocar a consulta fixa em `captar` pelo `getStageCompletions()` de `src/lib/stageCompletions.ts`.
-- exibir as entregas agrupadas por etapa: nome da etapa + avatares/nomes de quem entregou + data/hora (mantendo o mesmo estilo de chip atual "N entregou parte").
-- a etapa atual continua mostrando o botão "Entregar minha parte" quando houver múltiplos responsáveis.
+**O que de fato define execução neste sistema:** a coluna do colaborador só contém cards **pendentes**. Quando ele entrega, o card muda de `current_function_key`/`assigned_to` e sai da coluna (ou vira `aguardando_cliente`/`publicar agendado`). Portanto o estado de "a anterior foi entregue?" já está representado pela própria presença dos cards. O trabalho corrente de uma pessoa é, por definição, **o primeiro card pendente da fila dela que já é para hoje ou antes** — não o que o relógio diz.
 
-### 3. Consistência com o "Voltar demanda"
-Como o seletor de etapas anteriores já lê `stageCompletions`, as novas entregas passam automaticamente a aparecer nele com o executor correto — sem mudança adicional.
+## Nova regra de "Em andamento"
 
-## Detalhes técnicos
-- Arquivos: `src/lib/proceedDemand.ts`, `src/components/TaskCard.tsx` (e uso de `src/lib/stageCompletions.ts`).
-- Sem mudança de schema: tudo usa `demand_flow_history` (`action = 'partial_delivered'`).
-- Opcional (recomendado): backfill único convertendo `proceeded` históricos em entregas exibíveis — não é necessário, pois a UI passa a considerar `proceeded` como conclusão de etapa.
+Fila operacional do colaborador (mantendo as exclusões atuais, que estão corretas):
+- fora: `aguardando_cliente` / envio ao cliente já feito, `captar` (tem pausa própria), cards com dispatch de publicação ativo, cards diários sem ocorrência para hoje, cards arquivados.
+- dentro: produção, `enviar_cliente`, revisão e avaliar — ordenados por data+hora de início e, em empate, por tier (produção → revisão → avaliar).
+
+Definição:
+- **Em andamento** = primeiro card da fila cuja **data de início é hoje ou anterior**. Independe da hora: se é o primeiro pendente do dia dela, é o que ela está (ou deveria estar) fazendo agora.
+- **Próximo** = o card seguinte na fila.
+- Se a fila só tem cards de dias futuros → **nenhum** "em andamento"; o primeiro recebe "próximo".
+- **Atrasado** continua sendo sinal separado (hora de término já passou), acumulável com "em andamento" — atraso é uma condição do card, não o critério de quem é o atual.
+
+Exclusão adicional, para não marcar como "em andamento" algo que a pessoa já entregou:
+- em cards multi-responsável (`additional_assignees`), se o colaborador já tem `partial_delivered`/`delivered` registrado em `demand_flow_history` para a etapa atual do card, esse card sai da fila **dele** (continua na fila de quem falta).
+
+## Implementação
+
+### 1. `src/hooks/useNowTick.ts` (novo)
+Hook simples que devolve um timestamp atualizado a cada 60s (`setInterval`, limpo no unmount). Usado para virada de dia e para o cálculo de "atrasado", que continuam dependendo do tempo real — sem ele qualquer regra temporal fica congelada na sessão.
+
+### 2. `src/lib/currentWorkCard.ts` (novo)
+Função pura `resolveCurrentAndNext(cards, { now, deliveredStageKeysByCard })` que:
+- aplica as exclusões acima;
+- ordena por `YYYY-MM-DDTHH:MM` completo + tier;
+- devolve `{ currentId, nextId }` conforme a definição acima.
+Concentrar isso num módulo evita que Kanban, modo foco e a lista do colaborador divirjam de novo.
+
+### 3. `src/pages/KanbanCentralPage.tsx`
+- Substituir o bloco inline (~2406-2438) por `resolveCurrentAndNext`, passando o `now` do ticker.
+- Buscar, junto com os cards, as entregas parciais (`demand_flow_history` com `action in ('partial_delivered','delivered','proceeded')`) apenas dos cards que têm `additional_assignees` — consulta pequena e feita uma vez por carga, com invalidação no realtime já existente.
+- Modo foco usa o mesmo resultado (hoje replica o filtro por conta própria).
+
+### 4. `src/pages/CollaboratorDemands.tsx`
+Usar o mesmo helper para que a lista do colaborador mostre o mesmo "em andamento" do Kanban.
+
+## Correção pontual do card do Hospital Veterinário Leal
+
+Confirmado no banco: ele está em `captar` com a Letícia, embora o histórico mostre `partial_delivered` dela em captar e um `proceeded` de `editar_video` → `revisar` feito pelo Eric. É resíduo do bug antigo de reatribuição gravado nos dados — a regra forward-only só age no momento de prosseguir/reatribuir e não reescreve cards já corrompidos. **Sim, esse precisa ser movido manualmente uma vez** (Voltar demanda → Editar vídeo, ou enviar direto para Revisar). Os próximos já roteiam corretamente.
+
+## Fora do escopo
+Nenhuma alteração em banco, no reordenador automático ou nas regras de fluxo — só o cálculo/rotulagem de qual card é o atual.
