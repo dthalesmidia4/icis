@@ -145,7 +145,7 @@ function parseHM(hm: string): { h: number; m: number } {
   return { h, m };
 }
 
-function spNowVirtualUtc(tz: string): Date {
+function toZonedVirtualUtc(source: Date, tz: string): Date {
   const fmt = new Intl.DateTimeFormat("en-CA", {
     timeZone: tz,
     year: "numeric",
@@ -156,12 +156,16 @@ function spNowVirtualUtc(tz: string): Date {
     hour12: false,
   });
   const parts: Record<string, string> = {};
-  fmt.formatToParts(new Date()).forEach((p) => {
+  fmt.formatToParts(source).forEach((p) => {
     if (p.type !== "literal") parts[p.type] = p.value;
   });
   let h = +parts.hour;
   if (h === 24) h = 0;
   return new Date(Date.UTC(+parts.year, +parts.month - 1, +parts.day, h, +parts.minute));
+}
+
+function spNowVirtualUtc(tz: string): Date {
+  return toZonedVirtualUtc(new Date(), tz);
 }
 
 function toVirtualUtc(dateISO: string, timeHM: string): Date {
@@ -581,7 +585,13 @@ export async function computeReorder(
 
   const wh = { ...DEFAULT_WORK_HOURS, ...(opts?.workHours || {}) };
 
-  const now = opts?.startFrom ? new Date(opts.startFrom) : spNowVirtualUtc(wh.tz);
+  // Todo o motor trabalha com um "UTC virtual": os campos UTC representam o
+  // relógio local do expediente. `startFrom`, porém, é um Date real (instante
+  // UTC). Convertê-lo diretamente mantinha 16:57 nos campos UTC quando o modal
+  // mostrava 13:57 em São Paulo, deslocando a proposta em três horas.
+  const now = opts?.startFrom
+    ? toZonedVirtualUtc(new Date(opts.startFrom), wh.tz)
+    : spNowVirtualUtc(wh.tz);
   const rangeStart = isoDate(now);
   const rangeEndDate = new Date(now);
   rangeEndDate.setUTCDate(rangeEndDate.getUTCDate() + 180);
@@ -658,7 +668,11 @@ export async function computeReorder(
     // Card em execução no topo da fila: começou no passado.
     const origStart = card.due_date && card.due_time ? toVirtualUtc(card.due_date, card.due_time.slice(0, 5)) : null;
     const origEnd = cardDeadline(card);
-    const inProgressFirst = isFirstActive && !manual && !!origStart && origStart < now;
+    // O primeiro card também é considerado em andamento quando um dado antigo
+    // ficou invertido (início posterior ao fim), mas o término ainda está no
+    // futuro. Isso evita descartar o prazo vigente e reiniciar toda a duração.
+    const hasInvertedActiveWindow = !!origStart && !!origEnd && origStart >= origEnd && origEnd > now;
+    const inProgressFirst = isFirstActive && !manual && !!origStart && (origStart <= now || hasInvertedActiveWindow);
 
     let treatAsStuck = false;
     if (inProgressFirst && origEnd && origEnd < now) treatAsStuck = true;
@@ -680,11 +694,14 @@ export async function computeReorder(
       ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
     }
 
-    // Se o card em andamento ainda tem um fim original no futuro que comporta a duração
-    // restante a partir de agora, preserva o prazo já combinado em vez de esticá-lo.
-    if (inProgressFirst && origEnd && origEnd > now && origEnd >= end && daysSpanned === 1) {
+    // Um card em andamento com término futuro já consumiu parte do esforço.
+    // Preserva o término vigente e agenda somente o tempo restante desde agora,
+    // inclusive para intervalos antigos invertidos (como 14:35 → 14:00).
+    if (inProgressFirst && origEnd && origEnd > now && isoDate(origEnd) === isoDate(now)) {
+      start = new Date(now);
       end = origEnd;
-      dur = Math.max(5, Math.round((end.getTime() - start.getTime()) / 60000));
+      dur = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
+      daysSpanned = 1;
     }
 
 

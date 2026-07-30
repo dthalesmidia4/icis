@@ -388,7 +388,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
               title="Recalcular usando o horário atual"
             >
               <RotateCcw className="h-3 w-3 mr-1" />
-              base {startFrom.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · recalcular
+               base {startFrom.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: workHours.tz })} · recalcular
             </Button>
           )}
         </div>
@@ -464,8 +464,10 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                             <span className="text-muted-foreground">{origStart}</span>
                           ) : (
                             <>
+                              <span className="text-muted-foreground">Anterior:</span>
                               <span className="text-muted-foreground line-through">{origStart} → {origEnd}</span>
                               <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-muted-foreground">Proposto:</span>
                               <span className="font-semibold text-foreground">{newStart}</span>
                               <span className="text-muted-foreground">→</span>
                               <span className="font-semibold text-foreground">{newEnd}</span>
