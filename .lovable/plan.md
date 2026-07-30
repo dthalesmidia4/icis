@@ -1,36 +1,21 @@
-## Diagnóstico (confirmado no banco)
+## Diagnóstico (confirmado no código)
 
-O card "Teste" está em `aguardando_cliente` com `client_wait_started_at = null`. O histórico mostra a transição real: `planejar → aguardando_cliente` (pulou `enviar_cliente`).
+No agrupamento por data da coluna do colaborador (`src/pages/KanbanCentralPage.tsx`, bloco que monta os `groups`/`entries`):
 
-Hoje o carimbo de data só é gravado quando a etapa **anterior** é exatamente `enviar_cliente` (`src/lib/proceedDemand.ts`, nas duas funções: `proceedDemand` e `jumpToFunction`). Qualquer outro caminho até `aguardando_cliente` entra sem data — por isso o pill mostra só "Enviado pela 1ª vez ao cliente", sem data/hora.
+- Um card que **começou em um dia anterior e ainda está em curso** é jogado para o grupo de "Hoje" (`start < hoje && end >= hoje → key = hoje`).
+- Mas a ordenação **dentro do grupo** compara apenas a hora do dia: `a.due_time` vs `b.due_time`.
 
-## O que fazer
+Resultado no print: "Templates personalizados" (início **28/07 14:35**) perde para "Correção de Bug" (início **30/07 14:00**), porque 14:00 < 14:35 — a data é ignorada. Por isso o card "em andamento" (detectado corretamente pelo timestamp completo em `startTsOf`) aparece abaixo do "próximo".
 
-### 1. Gravar a data em toda entrada em "Aguardando clientes"
-Em `src/lib/proceedDemand.ts`, trocar a condição: sempre que a etapa **destino** for `aguardando_cliente` (independentemente da origem), preencher `client_wait_started_at = now()`. Aplicar em `proceedDemand` e em `jumpToFunction`, mantendo a regra atual de preservar o responsável quando a origem é `enviar_cliente`.
+## Correção
 
-Também garantir que ao sair de `aguardando_cliente` os campos sejam limpos (já existe) e que o reenvio automático continue incrementando `client_resend_count`.
+Alinhar a ordenação do grupo com a mesma chave usada na detecção de "em andamento": **data + hora completas**.
 
-### 2. Backfill do card atual
-Migração simples: preencher `client_wait_started_at` dos cards em `aguardando_cliente` que estejam nulos, usando o `created_at` da última entrada em `demand_flow_history` com `to_function_key = 'aguardando_cliente'`.
+1. No comparador de cada grupo (`entries`), trocar a comparação de `due_time`/`delivery_time` por uma chave `YYYY-MM-DDTHH:MM` montada com `due_date + due_time` (modo "start") ou `delivery_date + delivery_time` (modo "delivery"). Cards sem data/hora vão para o fim.
+2. Manter o boost de `captar` já existente (prioridade de captação ativa continua acima).
+3. Aplicar a mesma chave completa na ordenação dos sub-agrupamentos "Em revisão" e "Aguardando clientes" (`startKeyOf` já usa data+hora — apenas confirmar consistência, sem mudança de comportamento).
 
-### 3. Registrar cada envio no histórico
-Ao entrar em `aguardando_cliente`, gravar em `demand_flow_history` uma linha com `action = 'sent_to_client'` e `metadata = { send_number }`, além da linha `proceeded` já existente. O reenvio automático (`return-awaiting-client-cards`) já sabe a contagem; a numeração vem de `client_resend_count + 1`.
-
-### 4. Consulta discreta dentro do card
-No card do Kanban (`src/components/KanbanCard.tsx`), o pill "Enviado pela Nª vez ao cliente em dd/mm hh:mm" vira clicável (ícone pequeno de histórico ao lado, sem aumentar a altura do card). Ao clicar, abre um popover leve listando os envios:
-
-```text
-Envios ao cliente
-1º envio — 29/07/2026 13:25
-2º envio — 30/07/2026 09:10  (reenvio automático)
-```
-
-Os dados vêm de `demand_flow_history` (entradas `sent_to_client`), carregados sob demanda ao abrir o popover. Se não houver registros históricos, mostra o envio atual a partir de `client_wait_started_at` / `client_last_resend_at`.
-
-O mesmo popover fica disponível na lista do colaborador (`src/pages/CollaboratorDemands.tsx`), acionado pelo mesmo texto.
+Efeito: o card mais antigo em andamento passa a ficar em primeiro no grupo "Hoje", e o rótulo "em andamento" volta a coincidir com a posição visual no topo.
 
 ## Detalhes técnicos
-- Arquivos: `src/lib/proceedDemand.ts`, `src/components/KanbanCard.tsx`, novo `src/components/kanban/ClientSendHistoryPopover.tsx`, `src/pages/CollaboratorDemands.tsx`, `src/pages/KanbanCentralPage.tsx` (passar `demandId`/`tenantId` ao pill).
-- Uma migração de backfill (somente UPDATE de dados, sem mudança de schema).
-- Nenhuma alteração no realtime além do que já existe.
+- Arquivo único: `src/pages/KanbanCentralPage.tsx`, apenas no comparador de ordenação (nenhuma mudança de dados, banco ou fluxo).
