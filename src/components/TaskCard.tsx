@@ -2127,10 +2127,11 @@ export default function TaskCard({
                           } as any);
                           if (isDraft) return;
                           try {
-                            await supabase
+                            const { error } = await supabase
                               .from("demands")
                               .update({ subclient_ids: subclientIds, subclient_id: primary } as any)
                               .eq("id", card.id);
+                            if (error) throw error;
                           } catch (e) {
                             console.error("[TaskCard] update subclient_ids error", e);
                             toast.error("Erro ao atualizar clientes solicitantes");
