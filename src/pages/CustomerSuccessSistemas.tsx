@@ -290,6 +290,8 @@ export default function CustomerSuccessSistemas() {
             </tbody>
           </table>
         </div>
+        )}
+
       </div>
 
       <Dialog open={!!dialogClient} onOpenChange={(v) => !v && setDialogClient(null)}>
