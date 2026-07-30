@@ -778,7 +778,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                             <p className="mt-1.5 text-[10px] text-muted-foreground">
                               {p.keepStart
                                 ? "Card em execução: o início histórico é preservado; apenas o término é recalculado."
-                                : "A duração automática segue a estimativa da etapa, o expediente da área e as folgas."}
+                                : "Edite início e/ou término — a duração é derivada do intervalo útil (expediente da área). Ou digite a duração para que o término seja calculado."}
                             </p>
                           </div>
                         )}
