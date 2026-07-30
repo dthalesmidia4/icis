@@ -54,9 +54,9 @@ const STAGE_TOUCHPOINT: Record<string, TouchpointType> = {
 const ORIGIN_TOUCHPOINT: Record<string, TouchpointType> = {
   cliente_solicitacao: "solicitacao",
   cliente_feedback: "feedback",
-  cliente_visita: "visita",
-  cliente_reuniao: "reuniao",
+  suporte: "solicitacao",
 };
+
 
 export function touchpointTypeForStage(stage?: string | null): TouchpointType | null {
   if (!stage) return null;
