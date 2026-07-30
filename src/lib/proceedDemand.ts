@@ -312,6 +312,7 @@ export async function pickAssigneeForFunction(
   tenantId: string,
   functionKey: string,
   functionName?: string,
+  opts?: { excludeUserIds?: Array<string | null | undefined>; preferUserIds?: Array<string | null | undefined> },
 ): Promise<PickAssigneeResult> {
   const label = functionName || functionKey;
 
@@ -334,9 +335,18 @@ export async function pickAssigneeForFunction(
     .eq("tenant_id", tenantId)
     .in("user_id", candidateIds)
     .in("role", ["agency_admin", "agency_manager", "agency_user"]);
-  const internalIds = Array.from(new Set((roles || []).map((r: any) => r.user_id)));
+  let internalIds = Array.from(new Set((roles || []).map((r: any) => r.user_id)));
   if (internalIds.length === 0) {
     return { success: false, message: `Nenhum colaborador interno com a função "${label}".` };
+  }
+
+  // Exclusão (ex.: etapas de revisão nunca caem em quem executou a etapa anterior).
+  const excluded = new Set((opts?.excludeUserIds || []).filter(Boolean) as string[]);
+  if (excluded.size > 0) {
+    internalIds = internalIds.filter((id) => !excluded.has(id));
+    if (internalIds.length === 0) {
+      return { success: false, message: `Nenhum outro colaborador disponível para "${label}".` };
+    }
   }
 
   const [{ data: profiles }, { data: demands }] = await Promise.all([
@@ -356,6 +366,13 @@ export async function pickAssigneeForFunction(
   const profileById = new Map<string, string>();
   (profiles || []).forEach((p: any) => profileById.set(p.id, p.full_name || "Colaborador"));
 
+  // Preferência (sticky): se alguém que já está no card pode exercer a função, fica com ele.
+  const preferred = (opts?.preferUserIds || []).filter(Boolean) as string[];
+  const stickyMatch = preferred.find((id) => internalIds.includes(id));
+  if (stickyMatch) {
+    return { success: true, userId: stickyMatch, name: profileById.get(stickyMatch) || "Colaborador" };
+  }
+
   internalIds.sort((a, b) => {
     const ca = counts.get(a) || 0;
     const cb = counts.get(b) || 0;
@@ -369,6 +386,90 @@ export async function pickAssigneeForFunction(
     name: profileById.get(chosen) || "Colaborador",
   };
 }
+
+/**
+ * Todos os usuários que executaram a etapa atual do card: responsável,
+ * `additional_assignees` e quem registrou entrega parcial no histórico.
+ * Usado para (a) manter o card com a mesma pessoa na próxima etapa de produção
+ * e (b) impedir auto-revisão.
+ */
+async function collectStageExecutors(
+  tenantId: string,
+  demandId: string,
+  currentFunctionKey: string | null | undefined,
+  previousAssignee: string | null,
+  extras: string[],
+): Promise<string[]> {
+  const set = new Set<string>();
+  if (previousAssignee) set.add(previousAssignee);
+  extras.filter(Boolean).forEach((id) => set.add(id));
+  if (currentFunctionKey) {
+    try {
+      const completions = await getStageCompletions(tenantId, demandId);
+      (completions.get(currentFunctionKey)?.userIds || []).forEach((id) => set.add(id));
+    } catch (e) {
+      console.warn("[proceedDemand] collectStageExecutors error:", e);
+    }
+  }
+  return Array.from(set);
+}
+
+/**
+ * Etapas de produção em que o card deve "colar" no responsável atual quando ele
+ * tem a função permitida (ex.: quem planejou e também cria roteiro continua com o card).
+ */
+const STICKY_STAGES = new Set([
+  "criar_roteiro",
+  "criar_arte",
+  "captar",
+  "gerar_video",
+  "editar_video",
+  "enviar_cliente",
+  "publicar",
+]);
+
+export interface ResolvedNextStage {
+  fn: { function_key: string; name: string };
+  /** `null` para `aguardando_cliente` (mantém o mesmo responsável). */
+  picked: PickAssigneeResult | null;
+  /** Etapas de revisão puladas por não haver revisor diferente do executor. */
+  skipped: string[];
+}
+
+/**
+ * Resolve a próxima etapa + responsável a partir de `startIndex`, aplicando:
+ *  - sticky nas etapas de produção (mantém quem já está no card);
+ *  - revisão nunca é auto-revisão: se o único revisor possível for quem executou,
+ *    a etapa de revisão é pulada e o fluxo avança (em cascata).
+ */
+async function resolveNextStage(
+  tenantId: string,
+  sequence: { function_key: string; name: string }[],
+  startIndex: number,
+  executors: string[],
+): Promise<ResolvedNextStage | null> {
+  const skipped: string[] = [];
+  for (let i = startIndex; i < sequence.length; i++) {
+    const fn = sequence[i];
+    if (fn.function_key === "aguardando_cliente") {
+      return { fn, picked: null, skipped };
+    }
+    if (isReviewFunction(fn.function_key)) {
+      const picked = await pickAssigneeForFunction(tenantId, fn.function_key, fn.name, {
+        excludeUserIds: executors,
+      });
+      if (picked.success && picked.userId) return { fn, picked, skipped };
+      skipped.push(fn.function_key);
+      continue;
+    }
+    const picked = await pickAssigneeForFunction(tenantId, fn.function_key, fn.name, {
+      preferUserIds: STICKY_STAGES.has(fn.function_key) ? executors : [],
+    });
+    return { fn, picked, skipped };
+  }
+  return null;
+}
+
 
 /**
  * Devolve a sequência ordenada de funções obrigatórias para um `demand_type_key`.
