@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,11 +18,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, HeartPulse, AlertTriangle, CheckCircle2, Plus, RefreshCw } from "lucide-react";
+import { Loader2, HeartPulse, AlertTriangle, CheckCircle2, Plus, RefreshCw, Building2 } from "lucide-react";
 import BackButton from "@/components/BackButton";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { loadClientHealth, HEALTH_LABEL, type ClientHealth, type HealthLevel } from "@/lib/clientHealth";
+import {
+  loadSystemsClientHealth,
+  HEALTH_LABEL,
+  type SystemsClientHealth,
+  type HealthLevel,
+} from "@/lib/clientHealth";
 import { recordManualTouchpoint, type TouchpointType } from "@/lib/recordTouchpoint";
 
 const LEVEL_STYLES: Record<HealthLevel, string> = {
@@ -55,10 +61,11 @@ const nowLocalInput = () => {
 
 export default function CustomerSuccessSistemas() {
   const { tenantId } = useTenant();
-  const [rows, setRows] = useState<ClientHealth[]>([]);
+  const navigate = useNavigate();
+  const [rows, setRows] = useState<SystemsClientHealth[]>([]);
   const [loading, setLoading] = useState(true);
   const [levelFilter, setLevelFilter] = useState<"all" | HealthLevel>("all");
-  const [dialogClient, setDialogClient] = useState<ClientHealth | null>(null);
+  const [dialogClient, setDialogClient] = useState<SystemsClientHealth | null>(null);
   const [tpType, setTpType] = useState<TouchpointType>("reuniao");
   const [tpWhen, setTpWhen] = useState(nowLocalInput());
   const [tpSummary, setTpSummary] = useState("");
@@ -68,7 +75,7 @@ export default function CustomerSuccessSistemas() {
     if (!tenantId) return;
     setLoading(true);
     try {
-      setRows(await loadClientHealth(tenantId, "sistemas"));
+      setRows(await loadSystemsClientHealth(tenantId));
     } catch (err) {
       console.error(err);
       toast.error("Não foi possível carregar o Customer Success.");
@@ -90,7 +97,7 @@ export default function CustomerSuccessSistemas() {
     risco: rows.filter((r) => r.level === "risco").length,
   }), [rows]);
 
-  const openDialog = (row: ClientHealth) => {
+  const openDialog = (row: SystemsClientHealth) => {
     setDialogClient(row);
     setTpType("reuniao");
     setTpWhen(nowLocalInput());
@@ -102,7 +109,8 @@ export default function CustomerSuccessSistemas() {
     setSaving(true);
     const res = await recordManualTouchpoint({
       tenantId,
-      clientId: dialogClient.clientId,
+      clientId: dialogClient.parentCompanyId,
+      subclientId: dialogClient.clientId,
       touchpointType: tpType,
       occurredAt: new Date(tpWhen).toISOString(),
       summary: tpSummary.trim() || null,
@@ -128,13 +136,24 @@ export default function CustomerSuccessSistemas() {
             Customer Success · Sistemas
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Saúde da relação com cada cliente: cadência de contato, demandas abertas e atrasos.
+            Saúde da relação com os clientes atendidos pelas empresas de Sistemas: cadência de contato,
+            demandas abertas e atrasos.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-          <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
-          Atualizar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/clientes-sistemas", { state: { from: "/customer-success-sistemas" } })}
+          >
+            <Building2 className="h-4 w-4 mr-2" />
+            Cadastro de clientes
+          </Button>
+          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+            <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
+            Atualizar
+          </Button>
+        </div>
       </header>
 
       <div className="grid grid-cols-3 gap-3">
@@ -166,6 +185,7 @@ export default function CustomerSuccessSistemas() {
           <thead className="bg-muted/50">
             <tr>
               <th className="text-left p-3 text-xs font-semibold uppercase">Cliente</th>
+              <th className="text-left p-3 text-xs font-semibold uppercase">Empresa</th>
               <th className="text-left p-3 text-xs font-semibold uppercase">Saúde</th>
               <th className="text-left p-3 text-xs font-semibold uppercase">Último contato</th>
               <th className="text-center p-3 text-xs font-semibold uppercase">Cadência</th>
@@ -177,9 +197,19 @@ export default function CustomerSuccessSistemas() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="p-10 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></td></tr>
+              <tr><td colSpan={9} className="p-10 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={8} className="p-10 text-center text-muted-foreground">Nenhum cliente de Sistemas encontrado.</td></tr>
+              <tr><td colSpan={9} className="p-10 text-center text-muted-foreground">
+                <div>Nenhum cliente de Sistemas cadastrado.</div>
+                <Button
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => navigate("/clientes-sistemas", { state: { from: "/customer-success-sistemas" } })}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Cadastrar clientes
+                </Button>
+              </td></tr>
             ) : (
               filtered.map((r) => (
                 <tr key={r.clientId} className="border-t align-top">
@@ -191,6 +221,7 @@ export default function CustomerSuccessSistemas() {
                       </ul>
                     )}
                   </td>
+                  <td className="p-3 text-muted-foreground">{r.parentCompanyName}</td>
                   <td className="p-3">
                     <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-semibold", LEVEL_STYLES[r.level])}>
                       {HEALTH_LABEL[r.level]} · {r.score}
@@ -224,7 +255,10 @@ export default function CustomerSuccessSistemas() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Registrar contato</DialogTitle>
-            <DialogDescription>{dialogClient?.clientName}</DialogDescription>
+            <DialogDescription>
+              {dialogClient?.clientName}
+              {dialogClient?.parentCompanyName ? ` · ${dialogClient.parentCompanyName}` : ""}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
