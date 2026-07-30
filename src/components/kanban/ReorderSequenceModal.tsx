@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Wand2, AlertTriangle, ArrowRight, Filter, Pencil, RotateCcw, Pin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -60,6 +60,41 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   const [manualOverrides, setManualOverrides] = useState<Record<string, ReorderManualOverride>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<{ date: string; time: string; duration: string }>({ date: "", time: "", duration: "" });
+  // Instante-base congelado por abertura do modal: evita que a proposta "ande" sozinha
+  // a cada re-render do Kanban (realtime / tick de relógio).
+  const [startFrom, setStartFrom] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (open) setStartFrom((prev) => prev ?? new Date());
+    else setStartFrom(null);
+  }, [open]);
+
+  // Assinatura estável dos cards: só recalcula quando algo relevante muda de fato.
+  const cardsSignature = useMemo(
+    () =>
+      JSON.stringify(
+        cards.map((c) => [
+          c.id,
+          c.due_date,
+          c.due_time,
+          c.delivery_date,
+          c.delivery_time,
+          c.current_function_key,
+          c.work_area,
+          c.publish_date,
+          c.publish_time,
+          c.is_daily_card,
+        ])
+      ),
+    [cards]
+  );
+  const publishIdsSignature = useMemo(
+    () => Array.from(scheduledPublishIds || []).sort().join(","),
+    [scheduledPublishIds]
+  );
+  const durationsSignature = useMemo(() => JSON.stringify(durations), [durations]);
+  const areaSignature = useMemo(() => JSON.stringify(areaSchedule ?? null), [areaSchedule]);
+  const workHoursSignature = useMemo(() => JSON.stringify(workHours), [workHours]);
 
   useEffect(() => {
     if (!open || !tenantId) return;
