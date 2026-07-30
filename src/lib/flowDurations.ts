@@ -50,3 +50,60 @@ export function defaultDurationFor(stage: string, group: DurationTypeGroup): num
   if (row) return row[group] ?? row.default ?? 15;
   return 15;
 }
+
+/** Mapeia a key oficial de tipo de demanda para o grupo de duração. */
+export function groupForDemandTypeKey(key?: string | null): DurationTypeGroup {
+  const k = (key || "").toLowerCase();
+  if (k === "criativo_estatico") return "estatico";
+  if (k === "carrossel") return "carrossel";
+  if (k === "video_gerado" || k === "video_captado") return "video_curto";
+  if (k === "outro") return "outro";
+  return "default";
+}
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * Datas de reentrada no fluxo operacional após a volta do cliente.
+ * O tempo parado no cliente não é responsabilidade do colaborador, então o card
+ * recomeça "agora" (arredondado para o próximo múltiplo de 5 min) com a duração
+ * configurada da etapa de destino.
+ */
+export async function buildReturnFromClientDates(
+  tenantId: string,
+  targetStage: string,
+  demandTypeKey?: string | null,
+  fallbackMinutes?: number | null,
+): Promise<{ due_date: string; due_time: string; delivery_date: string; delivery_time: string }> {
+  let overrides: StageDurations = {};
+  try {
+    overrides = await loadDurationsForTenant(tenantId);
+  } catch {
+    overrides = {};
+  }
+  const minutes =
+    resolveDurationMinutes(overrides, targetStage, groupForDemandTypeKey(demandTypeKey)) ??
+    (fallbackMinutes && fallbackMinutes > 0 ? fallbackMinutes : 15);
+
+  const start = new Date();
+  start.setSeconds(0, 0);
+  const rem = start.getMinutes() % 5;
+  if (rem !== 0) start.setMinutes(start.getMinutes() + (5 - rem));
+
+  let end = new Date(start.getTime() + minutes * 60_000);
+  // Não estoura o dia: no limite, encerra às 23:59 da mesma data.
+  if (end.getDate() !== start.getDate() || end.getMonth() !== start.getMonth()) {
+    end = new Date(start);
+    end.setHours(23, 59, 0, 0);
+  }
+
+  const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const hm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+  return {
+    due_date: iso(start),
+    due_time: hm(start),
+    delivery_date: iso(end),
+    delivery_time: hm(end),
+  };
+}
