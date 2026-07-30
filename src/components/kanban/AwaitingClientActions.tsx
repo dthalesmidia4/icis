@@ -105,7 +105,7 @@ export default function AwaitingClientActions({
   useEffect(() => {
     let alive = true;
     if (!tenantId || canSchedule) return;
-    loadSequence(tenantId, demandTypeKey).then((seq) => {
+    loadSequence(tenantId, demandTypeKey, workArea, origin).then((seq) => {
       if (!alive || !seq?.length) return;
       const currentKey = (currentFunctionKey || "aguardando_cliente").toLowerCase();
       let idx = seq.findIndex((f) => f.function_key === currentKey);
@@ -117,7 +117,8 @@ export default function AwaitingClientActions({
     return () => {
       alive = false;
     };
-  }, [tenantId, demandTypeKey, currentFunctionKey, canSchedule]);
+  }, [tenantId, demandTypeKey, currentFunctionKey, canSchedule, workArea, origin]);
+
 
   const handleSchedule = async () => {
     const result = await createOrUpdateScheduleDispatch({
