@@ -192,34 +192,28 @@ export default function SystemsClients() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <BackButton />
+    <div>
+      <PageHeader
+        title="Clientes de Sistemas"
+        subtitle="Base de clientes atendidos pelas empresas de Sistemas (ex.: clínicas da SmartVety)."
+        backTo="/customer-success-sistemas"
+        actions={[
+          {
+            label: "Novo cliente",
+            icon: <Plus className="h-4 w-4" />,
+            onClick: openCreate,
+          },
+          {
+            label: "Customer Success",
+            variant: "outline",
+            icon: <HeartPulse className="h-4 w-4" />,
+            onClick: () => navigate("/customer-success-sistemas", { state: { from: "/clientes-sistemas" } }),
+          },
+        ]}
+      />
 
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
-            <Building2 className="h-6 w-6 text-primary" />
-            Clientes de Sistemas
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Base de clientes atendidos pelas empresas de Sistemas (ex.: clínicas da SmartVety).
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate("/customer-success-sistemas", { state: { from: "/clientes-sistemas" } })}
-          >
-            <HeartPulse className="h-4 w-4 mr-2" />
-            Customer Success
-          </Button>
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo cliente
-          </Button>
-        </div>
-      </header>
+      <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
 
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[220px]">
