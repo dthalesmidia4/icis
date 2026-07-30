@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { pickAssigneeForFunction } from "@/lib/proceedDemand";
 import { recordFlowHistory } from "@/lib/flowHistory";
+import { getStageCompletions, hasUserCompletedStage } from "@/lib/stageCompletions";
 
 export interface InitialFunction {
   functionKey: string;
@@ -66,6 +67,7 @@ export async function resolveFunctionForAssignee(
   assigneeUserId: string,
   demandTypeKey?: string | null,
   currentFunctionKey?: string | null,
+  demandId?: string | null,
 ): Promise<string | null> {
   const [{ data: fns }, { data: rules }, { data: allowedRows }] = await Promise.all([
     supabase
@@ -109,15 +111,24 @@ export async function resolveFunctionForAssignee(
   const allowedSeq = sequence.filter((k) => allowedKeys.has(k));
   if (allowedSeq.length === 0) return null;
 
-  if (currentFunctionKey && allowedKeys.has(currentFunctionKey) && sequence.includes(currentFunctionKey)) {
+  // Etapas que este usuário já concluiu neste card nunca são reatribuídas a ele.
+  const completions = demandId ? await getStageCompletions(tenantId, demandId) : null;
+  const usable = (k: string) =>
+    allowedKeys.has(k) &&
+    !(completions && hasUserCompletedStage(completions, k, assigneeUserId));
+
+  if (currentFunctionKey && sequence.includes(currentFunctionKey)) {
+    if (usable(currentFunctionKey)) return currentFunctionKey;
+    const idx = sequence.indexOf(currentFunctionKey);
+    // Somente para frente: trocar de responsável nunca pode regredir o fluxo.
+    const next = sequence.slice(idx + 1).find(usable);
+    if (next) return next;
+    // Sem etapa válida à frente: mantém a etapa atual.
     return currentFunctionKey;
   }
-  if (currentFunctionKey && sequence.includes(currentFunctionKey)) {
-    const idx = sequence.indexOf(currentFunctionKey);
-    const next = sequence.slice(idx + 1).find((k) => allowedKeys.has(k));
-    if (next) return next;
-  }
-  return allowedSeq[0];
+
+  const firstUsable = allowedSeq.find(usable);
+  return firstUsable ?? allowedSeq[0];
 }
 
 /**
