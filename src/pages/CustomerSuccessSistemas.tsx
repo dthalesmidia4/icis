@@ -79,19 +79,28 @@ export default function CustomerSuccessSistemas() {
   const [historyClient, setHistoryClient] = useState<SystemsClientHealth | null>(null);
   const [history, setHistory] = useState<TouchpointRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [timeline, setTimeline] = useState<Record<string, TimelineTouchpoint[]>>({});
+  const [timelineDays, setTimelineDays] = useState(90);
+  const [showTable, setShowTable] = useState(false);
 
   const load = useCallback(async () => {
     if (!tenantId) return;
     setLoading(true);
     try {
-      setRows(await loadSystemsClientHealth(tenantId));
+      const [health, tl] = await Promise.all([
+        loadSystemsClientHealth(tenantId),
+        loadSubclientTouchpointTimeline(tenantId, timelineDays),
+      ]);
+      setRows(health);
+      setTimeline(tl);
     } catch (err) {
       console.error(err);
       toast.error("Não foi possível carregar o Customer Success.");
     } finally {
       setLoading(false);
     }
-  }, [tenantId]);
+  }, [tenantId, timelineDays]);
+
 
   useEffect(() => { load(); }, [load]);
 
