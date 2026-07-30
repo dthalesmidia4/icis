@@ -937,3 +937,64 @@ export async function deliverMyPart(
 }
 
 
+
+export interface RegressOption {
+  functionKey: string;
+  functionName: string;
+  /** Último responsável conhecido daquela etapa (histórico). */
+  lastUserId: string | null;
+  lastUserName: string | null;
+  lastAt: string | null;
+  /** true quando a etapa já foi concluída/entregue por alguém. */
+  completed: boolean;
+  /** true quando é a sugestão padrão do botão Voltar. */
+  suggested: boolean;
+}
+
+/**
+ * Opções de "Voltar demanda": todas as etapas anteriores do fluxo, com quem as
+ * executou. A sugestão padrão é a última etapa anterior **ainda não entregue**;
+ * se todas já foram entregues, sugere a imediatamente anterior.
+ */
+export async function getRegressOptions(
+  tenantId: string,
+  demandId: string,
+  demandTypeKey?: string | null,
+  currentFunctionKey?: string | null,
+): Promise<RegressOption[]> {
+  const seq = await getPipelineSequence(tenantId, demandTypeKey);
+  if (seq.length === 0) return [];
+  const curKey = await resolveCurrentStage(demandId, currentFunctionKey);
+  const idx = seq.findIndex((f) => f.function_key === curKey);
+  if (idx <= 0) return [];
+  const previous = seq.slice(0, idx);
+
+  const completions = await getStageCompletions(tenantId, demandId);
+  const userIds = Array.from(
+    new Set(previous.map((f) => lastUserOfStage(completions, f.function_key)).filter(Boolean) as string[]),
+  );
+  const nameById = new Map<string, string>();
+  if (userIds.length > 0) {
+    const { data } = await supabase.from("profiles").select("id, full_name").in("id", userIds);
+    (data as any[] | null)?.forEach((p) => nameById.set(p.id, p.full_name || "Colaborador"));
+  }
+
+  const pendingIdx = [...previous]
+    .map((f, i) => ({ f, i }))
+    .reverse()
+    .find(({ f }) => !completions.has(f.function_key))?.i;
+  const suggestedIdx = pendingIdx ?? previous.length - 1;
+
+  return previous.map((f, i) => {
+    const uid = lastUserOfStage(completions, f.function_key);
+    return {
+      functionKey: f.function_key,
+      functionName: f.name,
+      lastUserId: uid,
+      lastUserName: uid ? nameById.get(uid) || "Colaborador" : null,
+      lastAt: completions.get(f.function_key)?.lastAt ?? null,
+      completed: completions.has(f.function_key),
+      suggested: i === suggestedIdx,
+    };
+  });
+}
