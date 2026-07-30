@@ -721,12 +721,34 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                                     toast.error("Duração manual mínima de 5 min.");
                                     return;
                                   }
+                                  const parseLocal = (dISO: string, t: string) => {
+                                    const [hh, mm] = t.split(":").map((x) => parseInt(x, 10) || 0);
+                                    const [y, mo, dd] = dISO.split("-").map((x) => parseInt(x, 10) || 0);
+                                    return new Date(y, (mo || 1) - 1, dd || 1, hh, mm, 0, 0);
+                                  };
+                                  const pinEnd = draft.durMode === "auto" && draft.endEdited;
+                                  if (pinEnd) {
+                                    if (!draft.endDate || !draft.endTime) {
+                                      toast.error("Informe a data e a hora do término.");
+                                      return;
+                                    }
+                                    const endLocal = parseLocal(draft.endDate, draft.endTime);
+                                    if (endLocal.getTime() <= parseLocal(draft.date, draft.time).getTime()) {
+                                      toast.error("O término precisa ser posterior ao início.");
+                                      return;
+                                    }
+                                    if (endLocal.getTime() <= base.getTime()) {
+                                      toast.error("O término precisa ser posterior ao horário atual.");
+                                      return;
+                                    }
+                                  }
                                   setManualOverrides((prev) => ({
                                     ...prev,
                                     [p.id]: {
                                       startISO: draft.date,
                                       startTime: draft.time,
                                       ...(draft.durMode === "manual" ? { durationMin: dur } : {}),
+                                      ...(pinEnd ? { endISO: draft.endDate, endTime: draft.endTime } : {}),
                                     },
                                   }));
                                   setEditingId(null);
