@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Building2, Plus, Pencil, Trash2, Search, HeartPulse } from "lucide-react";
-import { PageHeader } from "@/components/PageHeader";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -203,7 +203,7 @@ export default function SystemsClients() {
             Clientes de Sistemas
           </h2>
           <Badge variant="secondary">
-            {clients.length} {clients.length === 1 ? "cliente" : "clientes"}
+            {filtered.length} {filtered.length === 1 ? "cliente" : "clientes"}
           </Badge>
         </div>
 
