@@ -655,11 +655,13 @@ export async function computeReorder(
     let end: Date;
     let daysSpanned = 1;
 
+    // Card em execução no topo da fila: começou no passado.
+    const origStart = card.due_date && card.due_time ? toVirtualUtc(card.due_date, card.due_time.slice(0, 5)) : null;
+    const origEnd = cardDeadline(card);
+    const inProgressFirst = isFirstActive && !manual && !!origStart && origStart < now;
+
     let treatAsStuck = false;
-    if (isFirstActive && !manual) {
-      const deadline = cardDeadline(card);
-      if (deadline && deadline < now) treatAsStuck = true;
-    }
+    if (inProgressFirst && origEnd && origEnd < now) treatAsStuck = true;
 
     if (treatAsStuck) {
       const slack = Math.round(baseDur * 0.30);
@@ -677,6 +679,14 @@ export async function computeReorder(
     } else {
       ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
     }
+
+    // Se o card em andamento ainda tem um fim original no futuro que comporta a duração
+    // restante a partir de agora, preserva o prazo já combinado em vez de esticá-lo.
+    if (inProgressFirst && origEnd && origEnd > now && origEnd >= end && daysSpanned === 1) {
+      end = origEnd;
+      dur = Math.max(5, Math.round((end.getTime() - start.getTime()) / 60000));
+    }
+
 
 
     let warning: string | undefined;
