@@ -66,7 +66,7 @@ function extractStoragePath(url: string): string {
 }
 
 function buildTitle(typeKey: DemandTypeKey, prompt?: string | null): string {
-  const label = TYPE_LABEL[typeKey];
+  const label = TYPE_LABEL[typeKey] || "Demanda";
   const p = (prompt || "").trim();
   if (p) {
     const short = p.length > 60 ? `${p.slice(0, 60).trim()}…` : p;
