@@ -123,7 +123,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     if (!open) return;
     let cancelled = false;
     setLoading(true);
-    computeReorder(cards, { workHours, durations, areaSchedule, scheduledPublishIds, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
+    computeReorder(cards, { workHours, durations, areaSchedule, scheduledPublishIds, manualOverrides, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
       .then((r) => {
         if (!cancelled) setProposals(r);
       })
@@ -137,7 +137,15 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     return () => {
       cancelled = true;
     };
-  }, [open, cards, workHours, durations, areaSchedule, prioritizeByPublish, showPublishToggle]);
+  }, [open, cards, workHours, durations, areaSchedule, prioritizeByPublish, showPublishToggle, manualOverrides]);
+
+  // Limpa ajustes manuais ao fechar o modal
+  useEffect(() => {
+    if (!open) {
+      setManualOverrides({});
+      setEditingId(null);
+    }
+  }, [open]);
 
   const changedCount = proposals.filter((p) => p.changed && !p.skipped).length;
   const warningCount = proposals.filter((p) => p.warning).length;
