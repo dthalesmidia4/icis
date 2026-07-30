@@ -37,6 +37,13 @@ function fmtDate(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
+function fmtDuration(min: number): string {
+  if (min < 60) return `${min}min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, "0")}`;
+}
+
 function toMinutes(t: string | null | undefined): number {
   if (!t) return 0;
   const [h, m] = t.split(":").map((x) => parseInt(x, 10) || 0);
