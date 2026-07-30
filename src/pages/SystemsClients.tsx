@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Building2, Plus, Pencil, Trash2, Search, HeartPulse } from "lucide-react";
-import BackButton from "@/components/BackButton";
+import { PageHeader } from "@/components/PageHeader";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
