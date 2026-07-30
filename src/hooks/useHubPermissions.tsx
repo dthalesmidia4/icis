@@ -6,6 +6,7 @@ import { useAgency } from '@/contexts/AgencyContext';
 // Seções do Hub que podem ter permissões controladas
 export const HUB_SECTIONS = [
   { id: 'clientes', label: 'Clientes', description: 'Acesso à lista e gestão de clientes' },
+  { id: 'clientes-sistemas', label: 'Clientes Sistemas', description: 'Cadastro dos clientes atendidos pelas empresas de Sistemas' },
   { id: 'kanban', label: 'Kanban Central', description: 'Visualização do quadro Kanban' },
   { id: 'schedule', label: 'Agendar Publicação', description: 'Programação de conteúdos' },
   { id: 'completed', label: 'Demandas Completas', description: 'Visualização de demandas finalizadas' },

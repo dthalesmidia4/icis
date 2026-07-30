@@ -1996,15 +1996,6 @@ const KanbanCentralPage = () => {
             <HeartPulse className="h-4 w-4 mr-1" />
             Customer Success
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            title="Cadastro dos clientes atendidos pelas empresas de Sistemas"
-            onClick={() => navigate("/clientes-sistemas", { state: { from: "/kanban-central" } })}
-          >
-            <Building2 className="h-4 w-4 mr-1" />
-            Clientes Sistemas
-          </Button>
 
           {/* Registro de Cards global — replica o filtro para todas as colunas */}
           <Popover open={globalHistoryPopoverOpen} onOpenChange={setGlobalHistoryPopoverOpen}>

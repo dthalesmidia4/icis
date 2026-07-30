@@ -2072,9 +2072,11 @@ export default function TaskCard({
                     </Select>
                   </div>
 
+                  {/* Origem — só faz sentido em Sistemas (define se passa pelas etapas de cliente) */}
+                  {card.work_area === "sistemas" && (
+                  <>
                   <span className="text-muted-foreground/40 select-none">·</span>
 
-                  {/* Origem — define se o fluxo passa pelas etapas de cliente */}
                   <div className="flex items-center gap-1 min-w-0">
                     <Select
                       value={((card as any).origin as DemandOrigin) || "interno"}
@@ -2114,6 +2116,8 @@ export default function TaskCard({
                       </SelectContent>
                     </Select>
                   </div>
+                  </>
+                  )}
 
                   {/* Clientes finais solicitantes (só Sistemas, opcional, múltiplos) */}
                   {card.work_area === "sistemas" && (

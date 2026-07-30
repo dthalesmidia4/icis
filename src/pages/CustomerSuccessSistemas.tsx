@@ -13,8 +13,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Loader2, AlertTriangle, CheckCircle2, Plus, RefreshCw, Building2, History } from "lucide-react";
-import { PageHeader } from "@/components/PageHeader";
+import { Loader2, AlertTriangle, CheckCircle2, Plus, RefreshCw, Building2, History, HeartPulse } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -145,29 +145,38 @@ export default function CustomerSuccessSistemas() {
   };
 
   return (
-    <div>
-      <PageHeader
-        title="Customer Success · Sistemas"
-        subtitle="Saúde da relação com os clientes atendidos pelas empresas de Sistemas: cadência de contato, demandas abertas e atrasos."
-        backTo="/kanban-central"
-        actions={[
-          {
-            label: "Cadastro de clientes",
-            variant: "outline",
-            icon: <Building2 className="h-4 w-4" />,
-            onClick: () => navigate("/clientes-sistemas", { state: { from: "/customer-success-sistemas" } }),
-          },
-          {
-            label: "Atualizar",
-            variant: "outline",
-            icon: <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />,
-            onClick: load,
-            disabled: loading,
-          },
-        ]}
-      />
+    <div className="mt-4 px-3 sm:px-4">
+      {/* Header — mesma estrutura da Visão Geral das Tarefas */}
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <HeartPulse className="h-5 w-5 text-primary" />
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">
+            Customer Success · Sistemas
+          </h2>
+          <Badge variant="secondary">
+            {rows.length} {rows.length === 1 ? "cliente" : "clientes"}
+          </Badge>
+        </div>
 
-      <div className="container max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/clientes-sistemas", { state: { from: "/customer-success-sistemas" } })}
+          >
+            <Building2 className="h-4 w-4 mr-1" />
+            Cadastro de clientes
+          </Button>
+          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+            <RefreshCw className={cn("h-4 w-4 mr-1", loading && "animate-spin")} />
+            Atualizar
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-6 pb-8">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {([
             { level: "ok" as HealthLevel, icon: CheckCircle2, count: summary.ok },
