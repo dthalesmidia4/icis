@@ -365,6 +365,19 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
               <AlertTriangle className="h-3 w-3 mr-1" /> {warningCount} com aviso
             </Badge>
           )}
+          {startFrom && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 ml-auto text-xs text-muted-foreground"
+              disabled={loading || applying}
+              onClick={() => setStartFrom(new Date())}
+              title="Recalcular usando o horário atual"
+            >
+              <RotateCcw className="h-3 w-3 mr-1" />
+              base {startFrom.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} · recalcular
+            </Button>
+          )}
         </div>
 
         <ScrollArea className="max-h-[55vh] pr-3">
