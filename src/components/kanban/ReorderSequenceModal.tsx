@@ -158,10 +158,10 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   }, [prioritizeByPublish, storageKey]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !startFrom) return;
     let cancelled = false;
     setLoading(true);
-    computeReorder(cards, { workHours, durations, areaSchedule, scheduledPublishIds, manualOverrides, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
+    computeReorder(cards, { startFrom, workHours, durations, areaSchedule, scheduledPublishIds, manualOverrides, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
       .then((r) => {
         if (!cancelled) setProposals(r);
       })
@@ -175,7 +175,8 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     return () => {
       cancelled = true;
     };
-  }, [open, cards, workHours, durations, areaSchedule, prioritizeByPublish, showPublishToggle, manualOverrides]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, startFrom, cardsSignature, workHoursSignature, durationsSignature, areaSignature, publishIdsSignature, prioritizeByPublish, showPublishToggle, manualOverrides]);
 
   // Limpa ajustes manuais ao fechar o modal
   useEffect(() => {
