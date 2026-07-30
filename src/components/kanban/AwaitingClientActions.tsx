@@ -214,18 +214,14 @@ export default function AwaitingClientActions({
     }
   };
 
-  const label = canSchedule
-    ? confirming
-      ? `Confirmar agendamento para ${scheduleLabel}?`
-      : `Cliente aprovou · Agendar post para ${scheduleLabel}`
-    : confirming
-      ? nextStageName
-        ? `Confirmar envio para ${nextStageName}?`
-        : "Confirmar aprovação?"
-      : nextStageName
-        ? `Cliente aprovou · Enviar para ${nextStageName}`
-        : "Cliente aprovou · Prosseguir";
+  // Duas linhas curtas: evita truncar dentro da largura da coluna.
+  const actionLine = canSchedule
+    ? `Agendar post · ${scheduleLabel}`
+    : nextStageName
+      ? `Enviar para ${nextStageName}`
+      : "Prosseguir no fluxo";
 
+  const topLine = confirming ? "Confirmar?" : "Cliente aprovou";
   const Icon = canSchedule ? CalendarClock : Check;
 
   return (
@@ -235,16 +231,24 @@ export default function AwaitingClientActions({
       onMouseLeave={() => setConfirming(false)}
       disabled={loading}
       className={cn(
-        "w-full inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md border transition-colors font-semibold text-[11px] leading-tight",
+        "w-full min-w-0 flex items-start gap-1.5 px-2 py-1.5 rounded-md border transition-colors text-[11px] leading-tight text-left",
         confirming
           ? "border-emerald-500/60 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
           : "border-border/60 text-muted-foreground hover:text-emerald-600 hover:border-emerald-500/50 hover:bg-emerald-500/10",
       )}
-      title={confirming ? "Confirmar" : canSchedule ? "Cliente aprovou · agendar publicação" : "Cliente aprovou"}
+      title={`Cliente aprovou · ${actionLine}`}
     >
-      {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3 shrink-0" />}
-      <span className="truncate">{label}</span>
-      {!loading && !confirming && <ArrowRight className="h-3 w-3 shrink-0" />}
+      {loading ? (
+        <Loader2 className="h-3 w-3 animate-spin shrink-0 mt-0.5" />
+      ) : (
+        <Icon className="h-3 w-3 shrink-0 mt-0.5" />
+      )}
+      <span className="min-w-0 flex-1 whitespace-normal break-words">
+        <span className="font-semibold">{topLine}</span>
+        <span className="block opacity-90">{actionLine}</span>
+      </span>
+      {!loading && <ArrowRight className="h-3 w-3 shrink-0 mt-0.5" />}
     </button>
   );
 }
+
