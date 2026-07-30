@@ -330,6 +330,11 @@ const KanbanCentralPage = () => {
   const [evolutionSearch, setEvolutionSearch] = useState("");
   const { activeDispatchIds, count: scheduledCount } = useActiveDispatchIds(tenantId);
   const { cards: pendingEvalCards, refetch: refetchEval } = usePendingEvaluationCards(tenantId);
+  // Relógio reativo (virada de dia / atraso não podem ficar congelados na sessão)
+  const nowTs = useNowTick(60_000);
+  // Entregas já registradas por usuário/card (cards multi-responsável)
+  const [deliveredStagesByUser, setDeliveredStagesByUser] = useState<Map<string, Map<string, Set<string>>>>(new Map());
+
   const [periods, setPeriods] = useState<Array<{
     id: string;
     period_title: string;
