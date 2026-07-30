@@ -145,7 +145,7 @@ function parseHM(hm: string): { h: number; m: number } {
   return { h, m };
 }
 
-function spNowVirtualUtc(tz: string): Date {
+function toZonedVirtualUtc(source: Date, tz: string): Date {
   const fmt = new Intl.DateTimeFormat("en-CA", {
     timeZone: tz,
     year: "numeric",
@@ -156,12 +156,16 @@ function spNowVirtualUtc(tz: string): Date {
     hour12: false,
   });
   const parts: Record<string, string> = {};
-  fmt.formatToParts(new Date()).forEach((p) => {
+  fmt.formatToParts(source).forEach((p) => {
     if (p.type !== "literal") parts[p.type] = p.value;
   });
   let h = +parts.hour;
   if (h === 24) h = 0;
   return new Date(Date.UTC(+parts.year, +parts.month - 1, +parts.day, h, +parts.minute));
+}
+
+function spNowVirtualUtc(tz: string): Date {
+  return toZonedVirtualUtc(new Date(), tz);
 }
 
 function toVirtualUtc(dateISO: string, timeHM: string): Date {
@@ -581,7 +585,13 @@ export async function computeReorder(
 
   const wh = { ...DEFAULT_WORK_HOURS, ...(opts?.workHours || {}) };
 
-  const now = opts?.startFrom ? new Date(opts.startFrom) : spNowVirtualUtc(wh.tz);
+  // Todo o motor trabalha com um "UTC virtual": os campos UTC representam o
+  // relógio local do expediente. `startFrom`, porém, é um Date real (instante
+  // UTC). Convertê-lo diretamente mantinha 16:57 nos campos UTC quando o modal
+  // mostrava 13:57 em São Paulo, deslocando a proposta em três horas.
+  const now = opts?.startFrom
+    ? toZonedVirtualUtc(new Date(opts.startFrom), wh.tz)
+    : spNowVirtualUtc(wh.tz);
   const rangeStart = isoDate(now);
   const rangeEndDate = new Date(now);
   rangeEndDate.setUTCDate(rangeEndDate.getUTCDate() + 180);
