@@ -844,8 +844,14 @@ export async function computeReorder(
       spansDays: daysSpanned,
       slackApplied,
       pinned: !!pinnedStart,
+      keepStart,
+      stageStartISO: stageBase ? isoDate(stageBase) : null,
+      stageStartTime: stageBase ? hhmm(stageBase) : null,
+      stagePlannedMin: stagePlanned ?? null,
+      extensionMin,
       pausedByCaptar,
     });
+
 
     // Adiciona intervalo recém-alocado à lista de bloqueados para o próximo card.
     blocked.push({ start, end });
