@@ -183,7 +183,16 @@ export async function loadSystemsClientHealth(tenantId: string): Promise<Systems
       (t: any) => new Date(t.occurred_at).getTime() >= since30,
     ).length;
 
-    const own = (demands || []).filter((d: any) => d.subclient_id === s.id);
+    // Uma demanda pode ter vários clientes solicitantes: conta para todos eles.
+    const own = (demands || []).filter((d: any) => {
+      const ids: string[] = Array.isArray(d.subclient_ids) && d.subclient_ids.length
+        ? d.subclient_ids
+        : d.subclient_id
+          ? [d.subclient_id]
+          : [];
+      return ids.includes(s.id);
+    });
+
     const openDemands = own.length;
     const overdueDemands = own.filter(
       (d: any) => d.due_date && d.due_date < todayStr && !d.delivery_date,
