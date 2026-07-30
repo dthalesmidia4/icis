@@ -52,6 +52,8 @@ export interface ReorderCardInput {
   current_function_key?: string | null;
   work_area?: ReorderWorkArea | null;
   updated_at?: string | null;
+  /** Instante (ISO) em que o card entrou na etapa atual — base do cálculo de atraso. */
+  stage_started_at?: string | null;
 }
 
 
@@ -70,6 +72,12 @@ export interface ReorderProposal {
   spansDays?: number;
   slackApplied?: boolean;
   pinned?: boolean;
+  /** Card atrasado em execução: início histórico preservado, só o término é recalculado. */
+  keepStart?: boolean;
+  stageStartISO?: string | null;
+  stageStartTime?: string | null;
+  stagePlannedMin?: number | null;
+  extensionMin?: number | null;
   pausedByCaptar?: {
     atISO: string;
     atTime: string;
