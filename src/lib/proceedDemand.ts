@@ -622,7 +622,7 @@ export async function jumpToFunction({
   currentFunctionKey?: string | null;
 }): Promise<ProceedResult> {
   currentFunctionKey = await resolveCurrentStage(demandId, currentFunctionKey);
-  const seq = await getPipelineSequence(tenantId, demandTypeKey);
+  const seq = await getPipelineSequence(tenantId, demandTypeKey, { demandId });
   const target = seq.find((f) => f.function_key === targetFunctionKey);
   if (!target) return { success: false, message: "Etapa não encontrada no fluxo." };
 
