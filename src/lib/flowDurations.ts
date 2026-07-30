@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { DURATION_MATRIX, type DurationTypeGroup } from "@/lib/reorderSequence";
+import type { WorkArea } from "@/lib/flowFunctions";
 
 export type StageDurations = Record<string, Partial<Record<DurationTypeGroup, number>>>;
 
@@ -8,17 +9,41 @@ export type StageDurations = Record<string, Partial<Record<DurationTypeGroup, nu
  * Retorna um mapa `{ function_key: { grupo: minutos } }`. Etapas sem override não
  * aparecem no mapa — o consumidor deve cair no `DURATION_MATRIX` hardcoded.
  */
-export async function loadDurationsForTenant(tenantId: string): Promise<StageDurations> {
+export async function loadDurationsForTenant(
+  tenantId: string,
+  workArea: WorkArea = "midia",
+): Promise<StageDurations> {
   const { data, error } = await supabase
     .from("flow_functions")
     .select("function_key, config")
-    .eq("tenant_id", tenantId);
+    .eq("tenant_id", tenantId)
+    .eq("work_area", workArea);
   if (error || !data) return {};
   const out: StageDurations = {};
   for (const row of data as any[]) {
     const dur = row?.config?.durations;
     if (dur && typeof dur === "object") {
       out[row.function_key] = { ...dur };
+    }
+  }
+  return out;
+}
+
+/**
+ * Carrega overrides de TODAS as áreas, com chaves prefixadas por área
+ * (`midia:revisar`, `sistemas:revisar`). Evita que etapas homônimas de áreas
+ * diferentes sobrescrevam uma à outra.
+ */
+export async function loadDurationsByArea(tenantId: string): Promise<StageDurations> {
+  const { data, error } = await (supabase.from("flow_functions") as any)
+    .select("function_key, config, work_area")
+    .eq("tenant_id", tenantId);
+  if (error || !data) return {};
+  const out: StageDurations = {};
+  for (const row of data as any[]) {
+    const dur = row?.config?.durations;
+    if (dur && typeof dur === "object") {
+      out[`${row.work_area || "midia"}:${row.function_key}`] = { ...dur };
     }
   }
   return out;
@@ -58,6 +83,8 @@ export function groupForDemandTypeKey(key?: string | null): DurationTypeGroup {
   if (k === "carrossel") return "carrossel";
   if (k === "video_gerado" || k === "video_captado") return "video_curto";
   if (k === "outro") return "outro";
+  // Sistemas: o esforço é definido pelo tipo (bug N1/N2/N3, dev, etc.),
+  // tratado no motor de reorganização — aqui cai no grupo default.
   return "default";
 }
 
@@ -74,10 +101,11 @@ export async function buildReturnFromClientDates(
   targetStage: string,
   demandTypeKey?: string | null,
   fallbackMinutes?: number | null,
+  workArea: WorkArea = "midia",
 ): Promise<{ due_date: string; due_time: string; delivery_date: string; delivery_time: string }> {
   let overrides: StageDurations = {};
   try {
-    overrides = await loadDurationsForTenant(tenantId);
+    overrides = await loadDurationsForTenant(tenantId, workArea);
   } catch {
     overrides = {};
   }

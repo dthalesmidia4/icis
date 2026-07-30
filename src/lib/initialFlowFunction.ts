@@ -2,8 +2,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { pickAssigneeForFunction } from "@/lib/proceedDemand";
 import { recordFlowHistory } from "@/lib/flowHistory";
 import { getStageCompletions, hasUserCompletedStage } from "@/lib/stageCompletions";
-import { isReviewFunction } from "@/lib/flowFunctions";
+import { isReviewFunction, normalizeWorkArea, type WorkArea } from "@/lib/flowFunctions";
+import { isClientOrigin } from "@/lib/proceedDemand";
 
+
+/** Contexto de área/origem do card — obrigatório para não misturar Mídia × Sistemas. */
+export interface FlowAreaContext {
+  workArea?: string | null;
+  origin?: string | null;
+}
 
 export interface InitialFunction {
   functionKey: string;
@@ -18,20 +25,23 @@ export interface InitialFunction {
 export async function resolveInitialFunction(
   tenantId: string,
   demandTypeKey?: string | null,
+  ctx?: FlowAreaContext,
 ): Promise<InitialFunction | null> {
+  const area: WorkArea = normalizeWorkArea(ctx?.workArea);
+  const clientOrigin = isClientOrigin(ctx?.origin);
   const [{ data: fns, error: fnErr }, { data: rules }] = await Promise.all([
-    supabase
-      .from("flow_functions")
-      .select("function_key, name, position, active")
+    (supabase.from("flow_functions") as any)
+      .select("function_key, name, position, active, requires_client_origin")
       .eq("tenant_id", tenantId)
       .eq("active", true)
+      .eq("work_area", area)
       .neq("function_key", "avaliar")
       .order("position"),
     demandTypeKey
-      ? supabase
-          .from("demand_type_flow_rules")
+      ? (supabase.from("demand_type_flow_rules") as any)
           .select("function_key, requirement")
           .eq("tenant_id", tenantId)
+          .eq("work_area", area)
           .eq("demand_type_key", demandTypeKey)
       : Promise.resolve({ data: [] as any[] }),
   ]);
@@ -43,9 +53,10 @@ export async function resolveInitialFunction(
       .map((r) => r.function_key),
   );
 
-  const sequence = required.size > 0
-    ? fns.filter((f: any) => required.has(f.function_key))
-    : fns;
+  const sequence = (required.size > 0
+    ? (fns as any[]).filter((f: any) => required.has(f.function_key))
+    : (fns as any[])
+  ).filter((f: any) => (f.requires_client_origin ? clientOrigin : true));
 
   if (sequence.length === 0) return null;
   const first: any = sequence[0];
@@ -70,20 +81,23 @@ export async function resolveFunctionForAssignee(
   demandTypeKey?: string | null,
   currentFunctionKey?: string | null,
   demandId?: string | null,
+  ctx?: FlowAreaContext,
 ): Promise<string | null> {
+  const area: WorkArea = normalizeWorkArea(ctx?.workArea);
+  const clientOrigin = isClientOrigin(ctx?.origin);
   const [{ data: fns }, { data: rules }, { data: allowedRows }] = await Promise.all([
-    supabase
-      .from("flow_functions")
-      .select("function_key, position, active")
+    (supabase.from("flow_functions") as any)
+      .select("function_key, position, active, requires_client_origin")
       .eq("tenant_id", tenantId)
       .eq("active", true)
+      .eq("work_area", area)
       .neq("function_key", "avaliar")
       .order("position"),
     demandTypeKey
-      ? supabase
-          .from("demand_type_flow_rules")
+      ? (supabase.from("demand_type_flow_rules") as any)
           .select("function_key, requirement")
           .eq("tenant_id", tenantId)
+          .eq("work_area", area)
           .eq("demand_type_key", demandTypeKey)
       : Promise.resolve({ data: [] as any[] }),
     supabase
@@ -105,7 +119,9 @@ export async function resolveFunctionForAssignee(
   const sequence: string[] = (required.size > 0
     ? (fns as any[]).filter((f) => required.has(f.function_key))
     : (fns as any[])
-  ).map((f) => f.function_key);
+  )
+    .filter((f: any) => (f.requires_client_origin ? clientOrigin : true))
+    .map((f) => f.function_key);
 
   const allowedKeys = new Set(
     ((allowedRows as any[]) || []).map((r) => r.function_key),
@@ -151,10 +167,11 @@ export async function assignInitialResponsible(
   demandId: string,
   tenantId: string,
   demandTypeKey?: string | null,
-  opts?: { metadataSource?: string },
+  opts?: { metadataSource?: string; workArea?: string | null; origin?: string | null },
 ): Promise<void> {
   try {
-    const initial = await resolveInitialFunction(tenantId, demandTypeKey);
+    const ctx: FlowAreaContext = { workArea: opts?.workArea, origin: opts?.origin };
+    const initial = await resolveInitialFunction(tenantId, demandTypeKey, ctx);
     if (!initial) {
       console.warn("[assignInitialResponsible] no initial function for", { tenantId, demandTypeKey });
       return;
@@ -178,6 +195,8 @@ export async function assignInitialResponsible(
         existingAssignee,
         demandTypeKey,
         initial.functionKey,
+        demandId,
+        ctx,
       );
       if (resolved) functionKey = resolved;
     } else {

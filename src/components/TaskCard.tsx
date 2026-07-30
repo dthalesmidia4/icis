@@ -17,7 +17,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Target, FileText, MessageSquare, Paperclip, Upload, X, File, Loader2, Trash2, Check, Plus, ChevronDown, ChevronRight, GripVertical, Link, Archive, ArchiveRestore, Wand2, Clock, MoreVertical, User, Calendar as CalendarIconOutline, RefreshCw, RotateCcw, AlignLeft, Megaphone, Sparkles, ArrowRight, ArrowLeft, CheckCircle2, Tag } from "lucide-react";
 import { recordFlowHistory } from "@/lib/flowHistory";
-import { proceedDemand, regressDemand, deliverDemand, deliverMyPart, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, getPipelineSequence, jumpToFunction, getRegressOptions, type RegressOption, type DemandTypeKey } from "@/lib/proceedDemand";
+import { proceedDemand, regressDemand, deliverDemand, deliverMyPart, isAtLastFlowFunction, resolveInitialFunctionKey, OFFICIAL_DEMAND_TYPES, DEMAND_TYPE_LABEL, demandTypesForArea, DEMAND_ORIGINS, DEMAND_ORIGIN_LABEL, isClientOrigin, type DemandOrigin, getPipelineSequence, jumpToFunction, getRegressOptions, type RegressOption, type DemandTypeKey } from "@/lib/proceedDemand";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveDispatchIds } from "@/hooks/useActiveDispatchIds";
 import { resolveFunctionForAssignee } from "@/lib/initialFlowFunction";
@@ -1806,6 +1806,7 @@ export default function TaskCard({
                               card.demand_type_key ?? null,
                               card.current_function_key ?? null,
                               card.id,
+                              { workArea: (card as any).work_area, origin: (card as any).origin },
                             );
                             if (resolved) nextFn = resolved;
                           } catch (e) { /* mantém etapa atual */ }
@@ -2007,9 +2008,24 @@ export default function TaskCard({
                       value={((card as any).work_area as WorkArea) || "midia"}
                       onValueChange={async (val) => {
                         const newArea = val as WorkArea;
-                        onCardChange({ ...card, work_area: newArea } as any);
+                        // Tipos são específicos por área: o tipo atual só permanece
+                        // se existir na nova área (senão o fluxo apontaria etapas erradas).
+                        const stillValid = demandTypesForArea(newArea).some((t) => t.key === card.demand_type_key);
+                        const patch: any = { ...card, work_area: newArea };
+                        const update: Record<string, any> = { work_area: newArea };
+                        if (!stillValid && card.demand_type_key) {
+                          patch.demand_type_key = null;
+                          patch.demand_type = null;
+                          update.demand_type_key = null;
+                          update.demand_type = null;
+                        }
+                        onCardChange(patch);
+                        if (isDraft) return;
                         try {
-                          await supabase.from("demands").update({ work_area: newArea } as any).eq("id", card.id);
+                          await supabase.from("demands").update(update as any).eq("id", card.id);
+                          if (!stillValid && card.demand_type_key) {
+                            toast.info("Tipo removido: selecione um tipo da nova área.");
+                          }
                         } catch (e) {
                           console.error("[TaskCard] update work_area error", e);
                           toast.error("Erro ao atualizar área");
@@ -2042,8 +2058,45 @@ export default function TaskCard({
                         <SelectValue placeholder="Definir tipo" />
                       </SelectTrigger>
                       <SelectContent>
-                        {OFFICIAL_DEMAND_TYPES.map((opt) => (
+                        {demandTypesForArea((card as any).work_area).map((opt) => (
                           <SelectItem key={opt.key} value={opt.key}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <span className="text-muted-foreground/40 select-none">·</span>
+
+                  {/* Origem — define se o fluxo passa pelas etapas de cliente */}
+                  <div className="flex items-center gap-1 min-w-0">
+                    <Select
+                      value={((card as any).origin as DemandOrigin) || "interno"}
+                      onValueChange={async (val) => {
+                        const newOrigin = val as DemandOrigin;
+                        onCardChange({ ...card, origin: newOrigin } as any);
+                        if (isDraft) return;
+                        try {
+                          await supabase.from("demands").update({ origin: newOrigin } as any).eq("id", card.id);
+                          if (!isClientOrigin(newOrigin)) {
+                            toast.info("Origem interna: etapas de cliente serão puladas no fluxo.");
+                          }
+                        } catch (e) {
+                          console.error("[TaskCard] update origin error", e);
+                          toast.error("Erro ao atualizar origem");
+                        }
+                      }}
+                      disabled={readOnly}
+                    >
+                      <SelectTrigger
+                        className="h-7 text-sm border-0 shadow-none bg-transparent px-1.5 gap-1 hover:bg-background/60 focus:ring-0 w-auto min-w-[120px]"
+                        aria-label="Origem"
+                        title="Origem da demanda — origem interna pula as etapas de cliente"
+                      >
+                        <SelectValue placeholder="Origem" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DEMAND_ORIGINS.map((o) => (
+                          <SelectItem key={o.key} value={o.key}>{o.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

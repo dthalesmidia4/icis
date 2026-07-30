@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { recordStageTouchpoint } from "@/lib/recordTouchpoint";
 import { recordFlowHistory, recordFlowHistoryForUsers } from "@/lib/flowHistory";
 import { getStageCompletions, lastUserOfStage } from "@/lib/stageCompletions";
 import { buildReturnFromClientDates } from "@/lib/flowDurations";
@@ -40,7 +41,14 @@ async function applyReturnFromClientSchedule(
   demandTypeKey?: string | null,
 ): Promise<void> {
   const fallback = await previousDurationMinutes(demandId);
-  const dates = await buildReturnFromClientDates(tenantId, targetStage, demandTypeKey, fallback);
+  const meta = await getDemandFlowMeta(demandId);
+  const dates = await buildReturnFromClientDates(
+    tenantId,
+    targetStage,
+    demandTypeKey,
+    fallback,
+    meta.workArea === "sistemas" ? "sistemas" : "midia",
+  );
   Object.assign(payload, dates);
 }
 
@@ -634,6 +642,7 @@ export async function jumpToFunction({
     if (error) return { success: false, message: "Erro ao atualizar etapa." };
     await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: keep, toUserId: keep, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keep);
+    await recordStageTouchpoint(tenantId, demandId, target.function_key);
     // A etapa que enviou ao cliente foi concluída: registra a entrega (trava regressão).
     await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [
       keep,
@@ -691,6 +700,7 @@ export async function jumpToFunction({
     await recordFlowHistory({ tenantId, demandId, action: "proceeded", fromUserId: prevUser, toUserId: picked.userId, fromFunctionKey: currentFunctionKey || null, toFunctionKey: target.function_key });
   }
   await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [prevUser, ...stageExtras]);
+  await recordStageTouchpoint(tenantId, demandId, target.function_key);
   return { success: true, assignedTo: picked.userId, assignedName: picked.name, functionKey: target.function_key, functionName: target.name, message: `Demanda movida para ${target.name} com ${picked.name}.` };
 }
 
@@ -772,6 +782,7 @@ export async function proceedDemand({
       metadata: skipMeta as any,
     });
     await recordClientSend(tenantId, demandId, currentFunctionKey || null, keepAssignee);
+    await recordStageTouchpoint(tenantId, demandId, nextFn.function_key);
     // Registra a entrega da etapa que enviou ao cliente (impede regressão para ela).
     await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [
       keepAssignee,
@@ -842,6 +853,7 @@ export async function proceedDemand({
   }
 
   await recordStageDeliveries(tenantId, demandId, currentFunctionKey || null, [previousAssignee, ...stageExtras]);
+  await recordStageTouchpoint(tenantId, demandId, nextFn.function_key);
 
   const samePerson = picked.userId === previousAssignee;
   return {

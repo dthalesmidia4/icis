@@ -532,8 +532,12 @@ function pickFromOverrides(
   overrides: StageDurationOverrides | undefined,
   stage: string,
   group: DurationTypeGroup,
+  area?: string | null,
 ): number | null {
-  const row = overrides?.[stage];
+  // Chaves são prefixadas por área (`sistemas:revisar`) para evitar colisão
+  // entre etapas homônimas de Mídia e Sistemas. Fallback: chave sem prefixo.
+  const areaKey = `${area === "sistemas" ? "sistemas" : "midia"}:${stage}`;
+  const row = overrides?.[areaKey] ?? overrides?.[stage];
   if (!row) return null;
   const v = row[group] ?? row.default;
   return typeof v === "number" && v > 0 ? v : null;
@@ -547,11 +551,12 @@ function estimateDurationBase(
   if (card.is_daily_card) return 20;
   const group = typeGroup(card);
   const stage = (card.current_function_key || "").toLowerCase();
+  const area = card.work_area === "sistemas" ? "sistemas" : "midia";
 
   // Sistemas: o tipo (nível do bug / desenvolvimento) define o esforço.
   const systemsKey = (card.demand_type_key || "").toLowerCase();
   if (SYSTEMS_TYPE_MINUTES[systemsKey] !== undefined) {
-    const overridden = pickFromOverrides(overrides, stage, "default");
+    const overridden = pickFromOverrides(overrides, stage, "default", area);
     if (overridden !== null) return overridden;
     if (SYSTEMS_WORK_STAGES.has(stage)) return SYSTEMS_TYPE_MINUTES[systemsKey];
     const stageRow = DURATION_MATRIX[stage];
@@ -560,7 +565,7 @@ function estimateDurationBase(
   }
 
   if (isOtherType(card)) {
-    const overridden = pickFromOverrides(overrides, stage, "outro");
+    const overridden = pickFromOverrides(overrides, stage, "outro", area);
     if (overridden !== null) return overridden;
     const span = scheduledSpanMinutes(card, ctx);
     // Teto de 1 jornada útil: spans maiores são resíduo de agendamentos antigos
@@ -573,7 +578,7 @@ function estimateDurationBase(
   }
 
 
-  const overridden = pickFromOverrides(overrides, stage, group);
+  const overridden = pickFromOverrides(overrides, stage, group, area);
   if (overridden !== null) return overridden;
   const stageRow = DURATION_MATRIX[stage];
   if (stageRow) return stageRow[group] ?? stageRow.default;

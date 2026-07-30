@@ -82,6 +82,7 @@ interface CentralKanbanCard extends KanbanCardData {
   additional_assignees?: string[];
   status_color?: string | null;
   work_area?: "midia" | "sistemas" | null;
+  origin?: string | null;
 }
 
 const FINAL_STATUS_NAMES = ['feito', 'feitos', 'publicado'];
@@ -1154,6 +1155,7 @@ const KanbanCentralPage = () => {
         card.demand_type_key ?? null,
         previousFunctionKey,
         card.id,
+        { workArea: (card as any).work_area, origin: (card as any).origin },
       );
       if (resolved) {
         nextFunctionKey = resolved;
@@ -1592,6 +1594,22 @@ const KanbanCentralPage = () => {
     rounded.setSeconds(0);
     rounded.setMilliseconds(0);
     const defaultStartTime = `${String(rounded.getHours()).padStart(2, '0')}:${String(rounded.getMinutes()).padStart(2, '0')}`;
+    // Área padrão do criador (perfil) — o usuário pode trocar no próprio card.
+    let draftDefaultArea: "midia" | "sistemas" = "midia";
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const uid = authData?.user?.id;
+      if (uid) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("default_work_area")
+          .eq("id", uid)
+          .maybeSingle();
+        const v = (prof as any)?.default_work_area;
+        if (v === "sistemas" || v === "midia") draftDefaultArea = v;
+      }
+    } catch { /* mantém midia */ }
+
     const blank: CentralKanbanCard = {
       id: "draft",
       title: "",
@@ -1629,6 +1647,9 @@ const KanbanCentralPage = () => {
       demand_id: "draft",
       demand_type: null,
       demand_type_key: null,
+      work_area: draftDefaultArea,
+      origin: "interno" as const,
+      periodPlanId: "",
       assigned_to: null,
       current_function_key: null,
       clientId: "",
@@ -1701,6 +1722,8 @@ const KanbanCentralPage = () => {
       // Persist the fields the RPC doesn't accept
       const extra: Record<string, any> = {
         demand_type_key: selectedCard.demand_type_key,
+        work_area: (selectedCard as any).work_area || "midia",
+        origin: (selectedCard as any).origin || "interno",
       };
       if (selectedCard.objective) extra.objective = selectedCard.objective;
       if (selectedCard.instructions) extra.instructions = selectedCard.instructions;
@@ -1739,7 +1762,11 @@ const KanbanCentralPage = () => {
           result.demand_id,
           tenantId,
           selectedCard.demand_type_key ?? null,
-          { metadataSource: "manual" },
+          {
+            metadataSource: "manual",
+            workArea: (selectedCard as any).work_area ?? null,
+            origin: (selectedCard as any).origin ?? null,
+          },
         );
       }
 
