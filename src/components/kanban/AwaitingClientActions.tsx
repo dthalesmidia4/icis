@@ -71,8 +71,9 @@ export default function AwaitingClientActions({
       title={confirming ? "Confirmar aprovação" : "Cliente aprovou"}
     >
       {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-      {confirming ? "Confirmar" : "Aprovar"}
+      {confirming ? "Confirmar?" : "Cliente aprovou"}
     </button>
+
   );
 
 }
