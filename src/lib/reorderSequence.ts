@@ -866,7 +866,7 @@ export async function computeReorder(
 
 
     // Adiciona intervalo recém-alocado à lista de bloqueados para o próximo card.
-    blocked.push({ start, end });
+    blocked.push({ start: allocStart, end });
     blocked.sort((a, b) => a.start.getTime() - b.start.getTime());
 
     // Próximo cursor: 5min após o fim do card (o skipBlocked cuidará de intervalos futuros).
