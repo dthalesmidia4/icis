@@ -762,6 +762,7 @@ export async function jumpToFunction({
   if (currentFunctionKey === "captar") {
     updatePayload.additional_assignees = [];
   }
+  await avoidScheduleConflict(updatePayload, tenantId, demandId, picked.userId, target.function_key);
   const { error } = await supabase
     .from("demands")
     .update(updatePayload)
