@@ -595,9 +595,14 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                 <span className="inline-block w-3 h-3 rounded-sm bg-primary/15 border border-primary/30" />
                 Etapas de produção (mão na massa)
               </span>
+              <span className="flex items-center gap-1">
+                <PauseCircle className="h-3 w-3" />
+                Estado de espera (sem prazo) — configurado na aba "Retorno do cliente"
+              </span>
               <span><strong className="text-foreground">Total produção</strong> = só produção.</span>
-              <span><strong className="text-foreground">Total do ciclo</strong> = inclui revisões, envio/retorno de cliente e publicação.</span>
+              <span><strong className="text-foreground">Total do ciclo</strong> = produção + revisões + envio ao cliente + publicação (não inclui o tempo parado com o cliente).</span>
             </div>
+
 
             <div className="border rounded-lg overflow-auto max-h-[65vh]">
               <table className="w-full text-sm">
