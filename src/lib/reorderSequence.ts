@@ -1218,6 +1218,9 @@ export async function computeReorder(
       changed: false,
       skipped: true,
       warning: "Cliente — não reagendado.",
+      stageKey: c.current_function_key ?? null,
+      demandTypeKey: c.demand_type_key ?? null,
+      workArea: (c.work_area as any) ?? null,
     });
   }
 
@@ -1234,6 +1237,9 @@ export async function computeReorder(
       changed: false,
       skipped: true,
       warning: "Captar — horário fixo, não reagendado.",
+      stageKey: c.current_function_key ?? null,
+      demandTypeKey: c.demand_type_key ?? null,
+      workArea: (c.work_area as any) ?? null,
     });
   }
 
@@ -1250,6 +1256,9 @@ export async function computeReorder(
       changed: false,
       skipped: true,
       warning: "Card diário — ciclo próprio, não reagendado.",
+      stageKey: c.current_function_key ?? null,
+      demandTypeKey: c.demand_type_key ?? null,
+      workArea: (c.work_area as any) ?? null,
     });
   }
 
