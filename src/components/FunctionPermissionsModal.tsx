@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
 import { toast } from "sonner";
-import { Loader2, RotateCcw } from "lucide-react";
+import { Loader2, RotateCcw, PauseCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRealtimeFlowConfig } from "@/hooks/realtime";
 import { DURATION_MATRIX, type DurationTypeGroup } from "@/lib/reorderSequence";
@@ -19,6 +19,10 @@ interface Props {
 
 type Requirement = "required" | "disabled";
 type WorkAreaKey = "midia" | "sistemas";
+
+/** Etapas que são ESTADO de espera (sem prazo): não têm duração e não somam nos totais. */
+const UNTIMED_STAGE_KEYS = new Set<string>(["aguardando_cliente"]);
+
 
 const MIDIA_FUNCTIONS: { key: string; name: string }[] = [
   { key: "planejar", name: "Planejar" },
@@ -402,8 +406,10 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     setSavingDuration(`reset:${demandKey}`);
     const nextDurations = { ...durations };
     for (const fn of FUNCTIONS) {
+      if (UNTIMED_STAGE_KEYS.has(fn.key)) continue;
       const req = rules[demandKey]?.[fn.key];
       if (req !== "required") continue;
+
       const fallback = hardcodedDuration(fn.key, group);
       const newRow = { ...(nextDurations[fn.key] || {}), [group]: fallback };
       nextDurations[fn.key] = newRow;
@@ -433,6 +439,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     let total = 0;
     const kindMap = STAGE_KIND[area] || {};
     for (const fn of FUNCTIONS) {
+      if (UNTIMED_STAGE_KEYS.has(fn.key)) continue;
       if (onlyKinds && !onlyKinds.includes(kindMap[fn.key] ?? "producao")) continue;
       if (rules[demandKey]?.[fn.key] === "required") {
         total += cellMinutes(fn.key, group);
@@ -440,6 +447,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     }
     return total;
   };
+
 
   const fmtMinutes = (m: number): string => {
     if (m < 60) return `${m}min`;
@@ -589,9 +597,14 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                 <span className="inline-block w-3 h-3 rounded-sm bg-primary/15 border border-primary/30" />
                 Etapas de produção (mão na massa)
               </span>
+              <span className="flex items-center gap-1">
+                <PauseCircle className="h-3 w-3" />
+                Estado de espera (sem prazo) — configurado na aba "Retorno do cliente"
+              </span>
               <span><strong className="text-foreground">Total produção</strong> = só produção.</span>
-              <span><strong className="text-foreground">Total do ciclo</strong> = inclui revisões, envio/retorno de cliente e publicação.</span>
+              <span><strong className="text-foreground">Total do ciclo</strong> = produção + revisões + envio ao cliente + publicação (não inclui o tempo parado com o cliente).</span>
             </div>
+
 
             <div className="border rounded-lg overflow-auto max-h-[65vh]">
               <table className="w-full text-sm">
@@ -605,12 +618,20 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                         key={f.key}
                         className={cn(
                           "text-center p-2 font-semibold uppercase text-[10px] whitespace-nowrap",
-                          (STAGE_KIND[area]?.[f.key] ?? "producao") === "producao" && "bg-primary/10"
+                          (STAGE_KIND[area]?.[f.key] ?? "producao") === "producao" && "bg-primary/10",
+                          UNTIMED_STAGE_KEYS.has(f.key) &&
+                            "bg-muted/40 text-muted-foreground border-x border-dashed border-border"
                         )}
+                        title={
+                          UNTIMED_STAGE_KEYS.has(f.key)
+                            ? "Estado de espera pelo cliente — sem prazo e fora dos totais"
+                            : undefined
+                        }
                       >
                         {f.name}
                       </th>
                     ))}
+
                     <th className="text-center p-2 font-semibold uppercase text-[10px] whitespace-nowrap bg-primary/10 border-l">
                       Total produção
                     </th>
@@ -641,6 +662,20 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                                 <td key={fn.key} className="p-2 text-center text-muted-foreground/40">—</td>
                               );
                             }
+                            if (UNTIMED_STAGE_KEYS.has(fn.key)) {
+                              return (
+                                <td key={fn.key} className="p-2 text-center align-middle">
+                                  <span
+                                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[10px] text-muted-foreground"
+                                    title='Estado de espera pelo cliente — sem prazo de produção. Configure na aba "Retorno do cliente".'
+                                  >
+                                    <PauseCircle className="h-3 w-3" />
+                                    sem prazo
+                                  </span>
+                                </td>
+                              );
+                            }
+
                             const value = cellMinutes(fn.key, dt.group);
                             const cellKey = `${fn.key}:${dt.group}`;
                             const isSaving = savingDuration === cellKey;
