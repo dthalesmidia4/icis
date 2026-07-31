@@ -1216,7 +1216,7 @@ export default function TaskCard({
         });
         return;
       }
-      res.softMessagesFallback?.forEach?.(() => {});
+      
       if (res.scheduleMessage && !res.scheduleHard) {
         toast.warning(res.scheduleMessage);
       }
