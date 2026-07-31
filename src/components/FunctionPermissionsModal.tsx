@@ -871,7 +871,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
               </div>
             </div>
           </TabsContent>
-          </TabsContent>
+
 
           <TabsContent value="prioridade" className="mt-4">
             <div className="max-w-3xl space-y-4">
