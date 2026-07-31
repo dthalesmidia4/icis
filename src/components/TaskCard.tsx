@@ -1134,6 +1134,52 @@ export default function TaskCard({
     | { items: AreaConflictInfo[]; targetArea: WorkArea; scheduleMessage?: string | null }
     | null
   >(null);
+  const [assignConflict, setAssignConflict] = useState<{
+    newAssignedTo: string | null;
+    targetName: string;
+    conflicts: AssignmentConflict[];
+    suggestion: FreeSlotSuggestion | null;
+    nextFunctionKey: string | null;
+  } | null>(null);
+  const [reschedulingAssign, setReschedulingAssign] = useState(false);
+
+  const applyAssignReschedule = async (slot: FreeSlotSuggestion) => {
+    if (!assignConflict || !card?.tenant_id) return;
+    setReschedulingAssign(true);
+    try {
+      const { error } = await applyReassign({
+        tenantId: card.tenant_id,
+        card: card as any,
+        newAssignedTo: assignConflict.newAssignedTo,
+        nextFunctionKey: assignConflict.nextFunctionKey,
+        reschedule: {
+          due_date: slot.date,
+          due_time: slot.startTime,
+          delivery_date: slot.date,
+          delivery_time: slot.endTime,
+        },
+        historySource: "task_card_rescheduled",
+      });
+      if (error) throw error;
+      onCardChange({
+        ...card,
+        assigned_to: assignConflict.newAssignedTo,
+        current_function_key: assignConflict.nextFunctionKey,
+        due_date: slot.date,
+        due_time: slot.startTime,
+        delivery_date: slot.date,
+        delivery_time: slot.endTime,
+      } as any);
+      toast.success(`Transferida e reagendada para ${slot.startTime}–${slot.endTime}`);
+      setAssignConflict(null);
+    } catch (e) {
+      console.error("[taskcard reschedule]", e);
+      toast.error("Não foi possível reagendar");
+    } finally {
+      setReschedulingAssign(false);
+    }
+  };
+
   const warnAreaConflict = async (
     dateStr: string | null | undefined,
     timeStr: string | null | undefined,
@@ -1142,41 +1188,37 @@ export default function TaskCard({
     if (!card || !dateStr || !card.assigned_to || !card.tenant_id) return;
     const area = (((card as any).work_area as WorkArea) || "midia") as WorkArea;
     try {
-      const [conflicts, scheduleResult] = await Promise.all([
-        findAreaConflicts({
-          tenantId: card.tenant_id,
-          userId: card.assigned_to,
-          area,
-          date: dateStr,
-          time: timeStr || null,
-          excludeDemandId: card.id,
-        }),
-        findScheduleAreaConflict({
-          tenantId: card.tenant_id,
-          userId: card.assigned_to,
-          area,
-          date: dateStr,
-          startTime: timeStr || null,
-          endTime: endTimeStr ?? timeStr ?? null,
-        }),
-      ]);
-      const hard = conflicts.filter((c) => c.hard);
-      if (hard.length > 0 || (scheduleResult && scheduleResult.hard)) {
+      // Motor único: pega conflito de ocupação na MESMA área e entre áreas.
+      const res = await checkAssignmentConflicts({
+        tenantId: card.tenant_id,
+        userId: card.assigned_to,
+        card: {
+          ...(card as any),
+          due_date: dateStr,
+          due_time: timeStr || null,
+          delivery_date: dateStr,
+          delivery_time: endTimeStr ?? null,
+        },
+        area,
+      });
+      if (res.hard.length > 0) {
         setHardConflict({
-          items: hard,
+          items: res.hard.map((c) => ({
+            id: c.id,
+            title: c.title,
+            work_area: c.area,
+            delivery_time: c.endTime,
+            time: c.startTime,
+            hard: true,
+          })),
           targetArea: area,
-          scheduleMessage: scheduleResult?.hard ? scheduleResult.message : null,
+          scheduleMessage: res.scheduleHard ? res.scheduleMessage : null,
         });
         return;
       }
-      if (scheduleResult && !scheduleResult.hard) {
-        toast.warning(scheduleResult.message);
-      }
-      const soft = conflicts[0];
-      if (soft) {
-        toast.warning(
-          `Conflito de área: o responsável já tem "${soft.title}" (${AREA_LABEL[soft.work_area]}) neste dia.`,
-        );
+      res.softMessagesFallback?.forEach?.(() => {});
+      if (res.scheduleMessage && !res.scheduleHard) {
+        toast.warning(res.scheduleMessage);
       }
     } catch { /* silencioso */ }
   };
