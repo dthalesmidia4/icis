@@ -2593,6 +2593,15 @@ export type Database = {
         Args: { _code: string; _user_id: string }
         Returns: Json
       }
+      user_can_hold_function: {
+        Args: {
+          _function_key: string
+          _tenant_id: string
+          _user_id: string
+          _work_area?: Database["public"]["Enums"]["work_area"]
+        }
+        Returns: boolean
+      }
       user_has_tenant_access: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
