@@ -20,6 +20,10 @@ interface Props {
 type Requirement = "required" | "disabled";
 type WorkAreaKey = "midia" | "sistemas";
 
+/** Etapas que são ESTADO de espera (sem prazo): não têm duração e não somam nos totais. */
+const UNTIMED_STAGE_KEYS = new Set<string>(["aguardando_cliente"]);
+
+
 const MIDIA_FUNCTIONS: { key: string; name: string }[] = [
   { key: "planejar", name: "Planejar" },
   { key: "criar_roteiro", name: "Criar roteiro" },
