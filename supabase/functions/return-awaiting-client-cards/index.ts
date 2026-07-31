@@ -92,13 +92,18 @@ Deno.serve(async (req) => {
       // Threshold: cards whose client_wait_started_at is older than wait_hours
       const threshold = new Date(Date.now() - waitHours * 3600 * 1000).toISOString();
 
-      // Find eligible cards
+      // Find eligible cards — restritos à área desta config de fluxo.
+      const area = row.work_area === "sistemas" ? "sistemas" : "midia";
+      // Etapa de retorno depende da área: Mídia reenvia, Sistemas reentrega.
+      const returnKey = area === "sistemas" ? "entregar_cliente" : "enviar_cliente";
       let q = supabase
         .from("demands")
         .select("id, assigned_to, client_resend_count, client_last_resend_at, tenant_id")
         .eq("tenant_id", row.tenant_id)
+        .eq("work_area", area)
         .eq("current_function_key", "aguardando_cliente")
         .lte("client_wait_started_at", threshold);
+
 
       const { data: cards, error: cErr } = await q;
       if (cErr) {
