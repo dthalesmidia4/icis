@@ -459,11 +459,22 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
           </DialogTitle>
         </DialogHeader>
 
-        <div className="text-xs text-muted-foreground -mt-2 mb-2">
-          Duração estimada por tipo × etapa do fluxo (ex.: Carrossel em <b>Criar arte</b> 40min, em <b>Revisar</b> 10min).
-          Janela {workHours.start}–{workHours.end}, almoço {workHours.lunchStart}–{workHours.lunchEnd} ({workHours.tz.replace("America/", "")}).
-          Pula finais de semana/feriados. Cards em <b>Aguardando cliente</b>, <b>Captar</b> e <b>diários</b> não são reagendados.
-        </div>
+        <Collapsible open={showHow} onOpenChange={setShowHow}>
+          <CollapsibleTrigger asChild>
+            <button type="button" className="-mt-2 mb-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+              <ChevronDown className={"h-3 w-3 transition-transform " + (showHow ? "rotate-180" : "")} />
+              Como funciona o cálculo
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mb-2 rounded-md border border-border/60 bg-muted/30 p-2 text-xs text-muted-foreground">
+              Duração estimada por tipo × etapa do fluxo (ex.: Carrossel em <b>Criar arte</b> 40min, em <b>Revisar</b> 10min).
+              Janela {workHours.start}–{workHours.end}, almoço {workHours.lunchStart}–{workHours.lunchEnd} ({workHours.tz.replace("America/", "")}).
+              Pula finais de semana/feriados. Cards em <b>Aguardando cliente</b>, <b>Captar</b> e <b>diários</b> não são reagendados.
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
 
         {hasActiveFilters && (
           <div className="mb-3 p-2.5 rounded-md border border-amber-500/50 bg-amber-500/10 flex items-start gap-2">
