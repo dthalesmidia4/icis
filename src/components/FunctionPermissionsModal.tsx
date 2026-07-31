@@ -666,7 +666,7 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                                     onKeyDown={(e) => {
                                       if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                                     }}
-                                    className="w-16 h-8 text-center text-xs px-1"
+                                    className="w-14 h-8 text-center text-xs px-1"
                                   />
                                   {isSaving && (
                                     <Loader2 className="h-3 w-3 animate-spin absolute -right-4 top-2.5 text-muted-foreground" />
@@ -675,7 +675,13 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                               </td>
                             );
                           })}
-                          <td className="p-3 text-center text-xs font-semibold whitespace-nowrap">
+                          <td className="p-2 text-center text-xs font-bold whitespace-nowrap bg-primary/5 border-l">
+                            {fmtMinutes(productionTotal)}
+                          </td>
+                          <td
+                            className="p-2 text-center text-xs font-medium whitespace-nowrap text-muted-foreground"
+                            title="Inclui revisões, envio/retorno de cliente e publicação"
+                          >
                             {fmtMinutes(subtotal)}
                           </td>
                           <td className="p-2">
