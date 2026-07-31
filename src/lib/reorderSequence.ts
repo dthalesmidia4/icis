@@ -721,7 +721,9 @@ export function sortForReorder(
   cards: ReorderCardInput[],
   opts?: {
     prioritizePublishDate?: boolean;
-    priority?: ReorderPriorityOptions;
+    /** Config única ou mapa por área ({ midia, sistemas }), mais o "agora" virtual. */
+    priority?: ReorderPriorityOptions & Record<string, any>;
+
     /** Base de duração da etapa atual (mesma usada pela alocação). */
     estimateMin?: (c: ReorderCardInput) => number;
   },
