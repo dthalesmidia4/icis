@@ -700,11 +700,18 @@ export function reorderTier(c: ReorderCardInput): 0 | 1 | 2 {
 
 export function sortForReorder(
   cards: ReorderCardInput[],
-  opts?: { prioritizePublishDate?: boolean; priority?: ReorderPriorityOptions },
+  opts?: {
+    prioritizePublishDate?: boolean;
+    priority?: ReorderPriorityOptions;
+    /** Base de duração da etapa atual (mesma usada pela alocação). */
+    estimateMin?: (c: ReorderCardInput) => number;
+  },
 ): ReorderCardInput[] {
   if (cards.length === 0) return [];
 
-  const riskOf = (c: ReorderCardInput) => computeRiskInfo(c, opts?.priority);
+  const riskOf = (c: ReorderCardInput) =>
+    computeRiskInfo(c, { ...opts?.priority, remainingMin: opts?.estimateMin?.(c) });
+
 
   const sortTier = (tierCards: { c: ReorderCardInput; i: number }[]) => {
     if (tierCards.length === 0) return [];

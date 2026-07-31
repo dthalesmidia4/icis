@@ -56,8 +56,8 @@ export async function saveReorderPriority(
     ...settings,
     reorder_priority: { ...current, [area]: sanitize(config) },
   };
-  const { error } = await supabase.from("tenants").update({ settings: next } as any).eq("id", tenantId);
   const { data: updated, error } = await supabase
+
     .from("tenants")
     .update({ settings: next } as any)
     .eq("id", tenantId)
