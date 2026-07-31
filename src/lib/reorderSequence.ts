@@ -96,6 +96,16 @@ export interface ReorderProposal {
     captarId: string;
     captarTitle: string;
   } | null;
+
+  /** Etapa atual e tipo do card (para o modal não precisar recalcular rótulos). */
+  stageKey?: string | null;
+  demandTypeKey?: string | null;
+  workArea?: ReorderWorkArea | null;
+  /**
+   * Explica por que a proposta "pulou" para um horário bem depois do próximo
+   * slot livre (ex.: a área não tem expediente à tarde naquele dia).
+   */
+  jumpReason?: string | null;
 }
 
 // ------------------------------------------------------------------
@@ -335,6 +345,44 @@ function normalizeCursor(d: Date, area: ReorderWorkArea | null | undefined, ctx:
     c.setUTCHours(0, 0, 0, 0);
   }
   return c;
+}
+
+const AREA_LABEL: Record<string, string> = { midia: "Mídia", sistemas: "Sistemas" };
+
+/**
+ * Explica um "pulo" grande entre o próximo slot livre e o início alocado.
+ * Sem isso o usuário lê "+20min" e vê a data saltar dois dias sem motivo aparente.
+ */
+function explainJump(
+  from: Date,
+  to: Date,
+  area: ReorderWorkArea | null | undefined,
+  ctx: WorkCtx,
+): string | null {
+  const gapMin = Math.round((to.getTime() - from.getTime()) / 60000);
+  if (gapMin < 45) return null;
+  const areaName = area ? AREA_LABEL[area] : null;
+  const dateLabel = (d: Date) => `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  const sameDay = isoDate(from) === isoDate(to);
+
+  if (!sameDay) {
+    if (isNonWorkingDay(from, ctx.holidays)) {
+      return `Sem expediente em ${dateLabel(from)} (fim de semana ou feriado) — primeiro horário útil é ${dateLabel(to)} ${hhmm(to)}.`;
+    }
+    if (areaName) {
+      const minutesToday = workingMinutesInDay(from, area, ctx);
+      if (minutesToday === 0) {
+        return `Este colaborador não tem horário de ${areaName} configurado em ${dateLabel(from)} — primeiro horário disponível é ${dateLabel(to)} ${hhmm(to)}.`;
+      }
+      return `Não há mais janela de ${areaName} depois de ${hhmm(from)} em ${dateLabel(from)} — continua em ${dateLabel(to)} ${hhmm(to)}.`;
+    }
+    return `Sem horário disponível depois de ${hhmm(from)} em ${dateLabel(from)} — continua em ${dateLabel(to)} ${hhmm(to)}.`;
+  }
+
+  if (areaName) {
+    return `Aguarda a próxima janela de ${areaName} do dia (${hhmm(to)}).`;
+  }
+  return `Aguarda o próximo horário livre do dia (${hhmm(to)}).`;
 }
 
 /**
@@ -948,6 +996,7 @@ export async function computeReorder(
     let end: Date;
     let daysSpanned = 1;
     let clampWarning: string | undefined;
+    let jumpReason: string | null = null;
 
     // Card em execução no topo da fila: começou no passado.
     const origStart = card.due_date && card.due_time ? toVirtualUtc(card.due_date, card.due_time.slice(0, 5)) : null;
@@ -1035,6 +1084,7 @@ export async function computeReorder(
         clampWarning = "Término informado já passou — recalculado automaticamente.";
       }
       ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
+      jumpReason = explainJump(cursor, start, area, ctx);
     }
 
     // Atrasado em execução: preserva o início histórico apenas na exibição/gravação.
@@ -1132,6 +1182,10 @@ export async function computeReorder(
       stagePlannedMin: stagePlanned ?? null,
       extensionMin,
       pausedByCaptar,
+      stageKey: card.current_function_key ?? null,
+      demandTypeKey: card.demand_type_key ?? null,
+      workArea: area,
+      jumpReason,
     });
 
 
