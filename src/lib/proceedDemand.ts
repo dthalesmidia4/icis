@@ -983,11 +983,11 @@ export async function regressDemand({
     });
     return {
       success: true,
-      assignedTo: keepAssignee || undefined,
-      assignedName: "mesmo responsável",
+      assignedTo: picked.userId,
+      assignedName: picked.name,
       functionKey: prevFn.function_key,
       functionName: prevFn.name,
-      message: `Demanda devolvida para "Enviar cliente" com o mesmo responsável.`,
+      message: `Demanda devolvida para "Enviar cliente" com ${picked.name}.`,
     };
   }
 
