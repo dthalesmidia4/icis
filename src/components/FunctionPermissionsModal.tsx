@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgency } from "@/contexts/AgencyContext";
 import { toast } from "sonner";
-import { Loader2, RotateCcw } from "lucide-react";
+import { Loader2, RotateCcw, PauseCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRealtimeFlowConfig } from "@/hooks/realtime";
 import { DURATION_MATRIX, type DurationTypeGroup } from "@/lib/reorderSequence";
