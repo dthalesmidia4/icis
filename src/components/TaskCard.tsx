@@ -1806,33 +1806,30 @@ export default function TaskCard({
                       value={card.assigned_to || "__none__"}
                       onValueChange={async (val) => {
                         const newVal = val === "__none__" ? "" : val;
-                        // Etapas de cliente exigem função atribuída ao novo responsável.
-                        const curKey = card.current_function_key ?? null;
-                        if (newVal && card.tenant_id && isClientStageKey(curKey)) {
-                          const ok = await userHasFunction(card.tenant_id, newVal, curKey as string);
-                          if (!ok) {
-                            const nome = collaborators.find((c) => c.id === newVal)?.name || "Este colaborador";
-                            toast.error(`${nome} não tem a função desta etapa (aguardando/enviar cliente) atribuída`);
-                            return;
+                        const nome = collaborators.find((c) => c.id === newVal)?.name || "Este colaborador";
+                        // Ponto único: função da etapa + ocupação de agenda (mesma área e entre áreas).
+                        const evaluation = await evaluateReassign({
+                          tenantId: card.tenant_id || "",
+                          card: card as any,
+                          newAssignedTo: newVal || null,
+                          collaboratorName: nome,
+                        });
+                        if (!evaluation.allowed) {
+                          if (evaluation.blockedBy === "schedule") {
+                            setAssignConflict({
+                              newAssignedTo: newVal || null,
+                              targetName: nome,
+                              conflicts: evaluation.hard,
+                              suggestion: evaluation.suggestion,
+                              nextFunctionKey: evaluation.nextFunctionKey,
+                            });
+                          } else {
+                            toast.error(evaluation.message || "Transferência bloqueada");
                           }
+                          return;
                         }
-                        // Ajusta a etapa para uma função permitida do novo responsável.
-                        let nextFn: string | null = card.current_function_key ?? null;
-                        if (newVal && card.tenant_id) {
-                          try {
-                            const resolved = await resolveFunctionForAssignee(
-                              card.tenant_id,
-                              newVal,
-                              card.demand_type_key ?? null,
-                              card.current_function_key ?? null,
-                              card.id,
-                              { workArea: (card as any).work_area, origin: (card as any).origin },
-                            );
-                            if (resolved) nextFn = resolved;
-                          } catch (e) { /* mantém etapa atual */ }
-                        } else if (!newVal) {
-                          nextFn = null;
-                        }
+                        const nextFn = evaluation.nextFunctionKey;
+                        evaluation.softMessages.forEach((m) => toast.warning(m));
                         onCardChange({ ...card, assigned_to: newVal || null, current_function_key: nextFn });
                         await onSave("assigned_to", newVal);
                         if (nextFn !== (card.current_function_key ?? null) && !isDraft) {
