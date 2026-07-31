@@ -583,7 +583,7 @@ function estimateDurationBase(
   // Sistemas: o tipo (nível do bug / desenvolvimento) define o esforço.
   const systemsKey = (card.demand_type_key || "").toLowerCase();
   if (SYSTEMS_TYPE_MINUTES[systemsKey] !== undefined) {
-    const overridden = pickFromOverrides(overrides, stage, "default", area);
+    const overridden = pickFromOverrides(overrides, stage, "default", area, systemsKey);
     if (overridden !== null) return overridden;
     if (SYSTEMS_WORK_STAGES.has(stage)) return SYSTEMS_TYPE_MINUTES[systemsKey];
     const stageRow = DURATION_MATRIX[stage];
@@ -592,7 +592,7 @@ function estimateDurationBase(
   }
 
   if (isOtherType(card)) {
-    const overridden = pickFromOverrides(overrides, stage, "outro", area);
+    const overridden = pickFromOverrides(overrides, stage, "outro", area, card.demand_type_key);
     if (overridden !== null) return overridden;
     const span = scheduledSpanMinutes(card, ctx);
     // Teto de 1 jornada útil: spans maiores são resíduo de agendamentos antigos
@@ -605,7 +605,7 @@ function estimateDurationBase(
   }
 
 
-  const overridden = pickFromOverrides(overrides, stage, group, area);
+  const overridden = pickFromOverrides(overrides, stage, group, area, card.demand_type_key);
   if (overridden !== null) return overridden;
   const stageRow = DURATION_MATRIX[stage];
   if (stageRow) return stageRow[group] ?? stageRow.default;
