@@ -755,8 +755,10 @@ export function sortForReorder(
       });
     }
 
-    // Janela de risco: cards cujo prazo está próximo do ciclo restante sobem;
-    // cards que acabaram de entrar na coluna (e sem risco) descem para o fim.
+    // Janela de risco: cards cujo prazo está próximo da duração estimada da
+    // etapa atual sobem; cards que acabaram de entrar na coluna (e sem risco)
+    // descem para o fim.
+
     const info = new Map(rest.map((x) => [x.c.id, riskOf(x.c)] as const));
     const risk = rest.filter((x) => info.get(x.c.id)!.status === "risk");
     const normal = rest.filter((x) => info.get(x.c.id)!.status === "normal");

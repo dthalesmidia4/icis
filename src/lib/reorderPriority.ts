@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 export type PriorityWorkArea = "midia" | "sistemas";
 
 export interface ReorderPriorityConfig {
-  /** Multiplicador da janela de risco: prazo - agora <= fator × ciclo restante → prioriza. */
+  /** Multiplicador da janela de risco: prazo - agora <= fator × duração estimada da etapa atual → prioriza. */
   riskFactor: number;
   /** Carência (min) para cards que acabaram de entrar na coluna: vão para o fim se não houver risco. */
   entryGraceMin: number;
