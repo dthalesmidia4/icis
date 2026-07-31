@@ -871,8 +871,66 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
               </div>
             </div>
           </TabsContent>
+          </TabsContent>
+
+          <TabsContent value="prioridade" className="mt-4">
+            <div className="max-w-3xl space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Define como o reorganizador automático prioriza os cards da coluna na área <strong>{area === "sistemas" ? "Sistemas" : "Mídia"}</strong>.
+                O primeiro card (em andamento) nunca muda de posição.
+              </p>
+
+              <div className="rounded-lg border p-4 space-y-1">
+                <label className="text-sm font-medium">Fator da janela de risco</label>
+                <p className="text-[11px] text-muted-foreground">
+                  Um card é priorizado quando <em>prazo − agora ≤ fator × ciclo restante</em>. Padrão: 3.
+                </p>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  step={0.5}
+                  className="mt-2 h-9 w-28 rounded-md border bg-background px-2 text-sm"
+                  value={priorityCfg.riskFactor}
+                  onChange={(e) => setPriorityCfg((p) => ({ ...p, riskFactor: Number(e.target.value) }))}
+                />
+              </div>
+
+              <div className="rounded-lg border p-4 space-y-1">
+                <label className="text-sm font-medium">Carência de entrada (minutos)</label>
+                <p className="text-[11px] text-muted-foreground">
+                  Cards que acabaram de chegar na coluna e não estão em risco entram por último. Padrão: 60.
+                </p>
+                <input
+                  type="number"
+                  min={0}
+                  max={1440}
+                  step={15}
+                  className="mt-2 h-9 w-28 rounded-md border bg-background px-2 text-sm"
+                  value={priorityCfg.entryGraceMin}
+                  onChange={(e) => setPriorityCfg((p) => ({ ...p, entryGraceMin: Number(e.target.value) }))}
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button size="sm" disabled={savingPriority} onClick={savePriorityCfg}>
+                  {savingPriority && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                  Salvar prioridade
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={savingPriority}
+                  onClick={() => setPriorityCfg({ ...DEFAULT_REORDER_PRIORITY })}
+                >
+                  Restaurar padrão
+                </Button>
+              </div>
+            </div>
+          </TabsContent>
         </Tabs>
       </DialogContent>
+
     </Dialog>
   );
 }
