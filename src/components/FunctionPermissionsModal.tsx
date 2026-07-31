@@ -616,12 +616,20 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
                         key={f.key}
                         className={cn(
                           "text-center p-2 font-semibold uppercase text-[10px] whitespace-nowrap",
-                          (STAGE_KIND[area]?.[f.key] ?? "producao") === "producao" && "bg-primary/10"
+                          (STAGE_KIND[area]?.[f.key] ?? "producao") === "producao" && "bg-primary/10",
+                          UNTIMED_STAGE_KEYS.has(f.key) &&
+                            "bg-muted/40 text-muted-foreground border-x border-dashed border-border"
                         )}
+                        title={
+                          UNTIMED_STAGE_KEYS.has(f.key)
+                            ? "Estado de espera pelo cliente — sem prazo e fora dos totais"
+                            : undefined
+                        }
                       >
                         {f.name}
                       </th>
                     ))}
+
                     <th className="text-center p-2 font-semibold uppercase text-[10px] whitespace-nowrap bg-primary/10 border-l">
                       Total produção
                     </th>
