@@ -722,7 +722,9 @@ export async function jumpToFunction({
   currentFunctionKey?: string | null;
 }): Promise<ProceedResult> {
   currentFunctionKey = await resolveCurrentStage(demandId, currentFunctionKey);
-  const seq = await getPipelineSequence(tenantId, demandTypeKey, { demandId });
+  const jumpMeta = await getDemandFlowMeta(demandId);
+  const jumpArea = jumpMeta.workArea;
+  const seq = await getPipelineSequence(tenantId, demandTypeKey, { demandId, workArea: jumpArea, origin: jumpMeta.origin });
   const target = seq.find((f) => f.function_key === targetFunctionKey);
   if (!target) return { success: false, message: "Etapa não encontrada no fluxo." };
 
@@ -731,7 +733,8 @@ export async function jumpToFunction({
   if (target.function_key === "aguardando_cliente") {
     const { data: cur } = await supabase.from("demands").select("assigned_to").eq("id", demandId).maybeSingle();
     const previous = (cur as any)?.assigned_to || null;
-    const keep = await resolveClientWaitOwner(tenantId, previous);
+    const keep = await resolveClientWaitOwner(tenantId, previous, jumpArea);
+
     if (!keep) return { success: false, message: 'Nenhum colaborador possui a função "Aguardando cliente" habilitada.' };
     const updateWait: any = {
       assigned_to: keep,
