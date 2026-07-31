@@ -202,18 +202,8 @@ export async function createCardFromContent(input: CreateCardInput): Promise<Cre
 
   // 8. Resolver etapa apropriada ao responsável (caso o usuário escolhido
   // via pickAssigneeForFunction("revisar") tenha múltiplas funções, respeitamos
-  // a sequência do tipo).
-  // Área de trabalho — default do perfil do criador (fallback 'midia').
-  let workArea: "midia" | "sistemas" = "midia";
-  try {
-    const { data: prof } = await supabase
-      .from("profiles")
-      .select("default_work_area")
-      .eq("id", user.id)
-      .maybeSingle();
-    const v = (prof as any)?.default_work_area;
-    if (v === "sistemas" || v === "midia") workArea = v;
-  } catch { /* mantém midia */ }
+  // a sequência do tipo). A área já foi resolvida acima.
+
 
   let functionKey: string = "revisar";
   if (picked.userId) {
