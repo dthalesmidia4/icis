@@ -229,7 +229,7 @@ export default function CustomerSuccessSistemas() {
 
         <div className="space-y-2">
           <div className="flex items-center justify-end gap-1">
-            {[30, 90, 180].map((d) => (
+            {[7, 30, 90, 180].map((d) => (
               <Button
                 key={d}
                 size="sm"
