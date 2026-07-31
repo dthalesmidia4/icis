@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Wand2, AlertTriangle, ArrowRight, Filter, Pencil, RotateCcw, Pin, CalendarClock } from "lucide-react";
+import { Loader2, Wand2, AlertTriangle, Filter, RotateCcw, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import ReorderProposalRow, { fmtDate } from "./ReorderProposalRow";
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
