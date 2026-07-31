@@ -1,35 +1,41 @@
-## Diagnóstico (verificado no banco e no código)
+## De onde vieram os "149 dias"
 
-- Existem **49 registros** em `client_touchpoints`, mas **todos** com `source = auto`, `touchpoint_type = entrega` e **`subclient_id` nulo** (são de clientes de Mídia, gerados ao passar por `enviar_cliente`/`aguardando_cliente`).
-- A tela lê `loadSystemsClientHealth`, que filtra `client_touchpoints` com `.not("subclient_id","is",null)` → resultado zero, logo "Último contato: nunca registrado" para Bellotti, LEAL e Pontes Gestal.
-- Existem **3 demandas** com cliente solicitante e origem de cliente (`cliente_solicitacao` ×2, `cliente_feedback` ×1, todas `work_area = sistemas`, com `subclient_id` e `subclient_ids` preenchidos) — ou seja, **há evidência de contato, mas nada no sistema converte isso em touchpoint**.
-- Causa raiz: `recordStageTouchpoint` é o único gerador automático, e ele (a) só dispara em etapas voltadas ao cliente, (b) grava apenas `client_id`, nunca `subclient_id`. Não existe nenhum registro de contato no momento da **criação** do card com origem de cliente.
+Não vem do banco. Os contatos reais existem e são recentes (Bellotti e Pontes Gestal em 27/07, LEAL em 30/07). O número é gerado pelo próprio gráfico:
 
-## Correções propostas
+Em `buildCadenceSeries` (`src/lib/clientHealth.ts`), quando um cliente ainda não tem nenhum contato **antes** do dia analisado, o código inventa um valor:
 
-### 1. Registrar contato na origem do card (novo gatilho)
-Criar `recordOriginTouchpoint(tenantId, demandId)` em `src/lib/recordTouchpoint.ts`:
-- Mapeia origem → tipo: `cliente_solicitacao` → `solicitacao`, `cliente_feedback` → `feedback`, `interno` → nenhum.
-- Grava **um touchpoint por subcliente** presente em `subclient_ids` (fallback para `subclient_id`), com `client_id` = empresa do card, `source = "auto"`, `occurred_at` = criação do card, resumo com o título.
-- Idempotente por (demanda, subcliente, tipo).
-- Chamado na criação do card e quando a origem/os solicitantes são alterados no `TaskCard`.
+```text
+valor = (dias desde o início da janela) + tamanho da janela
+```
 
-### 2. Fan-out por subcliente nas etapas de cliente
-`recordStageTouchpoint` passa a ler também `subclient_ids`/`subclient_id` da demanda e inserir uma linha por subcliente (mantendo a linha da empresa, para não quebrar o painel de Mídia). Idempotência por (demanda, subcliente, tipo, dia).
+Com a janela padrão de 90 dias, o primeiro dia já começa em 90 e vai subindo até ~149 no fim de julho — exatamente a rampa diagonal idêntica para todos os clientes que aparece no print. Ou seja, é um placeholder artificial, não histórico real.
 
-### 3. Backfill dos dados existentes (migração SQL)
-- Inserir touchpoints de origem para todas as demandas já criadas com `origin <> 'interno'` e subcliente definido (usa `created_at` como `occurred_at`).
-- Inserir touchpoints de entrega por subcliente a partir de `demand_flow_history` para transições que caíram em `enviar_cliente` / `aguardando_cliente` / `entregar_cliente` / `feedback_cliente`.
-- Com `NOT EXISTS` para não duplicar; sem alterar as 49 linhas atuais.
+Além disso, a busca da linha do tempo só traz contatos dentro da janela (`loadSubclientTouchpointTimeline(days)`), então o último contato anterior à janela é frequentemente desconhecido.
 
-### 4. Cálculo de saúde resiliente (não depender só da tabela)
-Em `loadSystemsClientHealth`: considerar como "último contato" o máximo entre (a) touchpoints do subcliente e (b) a data de criação da demanda mais recente com origem de cliente daquele subcliente. Assim a tela nunca mostra "nunca registrado" havendo evidência, mesmo que o registro automático falhe. O motivo exibido indica a fonte ("via demanda").
+## Correções
 
-### 5. Gráfico e histórico coerentes
-`loadSubclientTouchpointTimeline` e `buildCadenceSeries` passam a usar a mesma lista consolidada (touchpoints + contatos derivados de demandas), corrigindo as linhas retas de 90–185 dias do gráfico e populando o painel "Histórico" de cada cliente.
+### 1. Acabar com a rampa artificial
+- Em `buildCadenceSeries`: quando não houver nenhum contato conhecido até aquele dia, retornar `null` (Recharts corta a linha) em vez do valor inventado. A linha só começa a partir do primeiro contato conhecido.
+- Usar como semente o último contato real anterior à janela: `loadSystemsClientHealth` já calcula `lastTouchAt` sobre **todo** o histórico (contatos + demandas com origem de cliente); passar esse timestamp como ponto inicial sempre (hoje só é usado se cair antes do início da janela — manter, mas sem o fallback fake).
+- Resultado: nenhum cliente aparecerá com "149 dias" fantasma; quem nunca teve contato simplesmente não desenha linha e continua sinalizado nos cartões como "nunca registrado".
+
+### 2. Inverter a leitura do gráfico (bom em cima)
+Em `CadenceLineChart.tsx`:
+- `YAxis` com `reversed` — 0 dia sem contato passa a ficar no topo e os valores altos embaixo.
+- Reordenar as faixas de fundo conforme a nova orientação: verde (0 → cadência) no topo, âmbar (cadência → 2× cadência) no meio, vermelho (2× cadência → máximo) na base.
+- Reposicionar o rótulo da linha de meta (`meta 30d`) para não colidir com a faixa verde.
+- Ajustar a legenda para a nova leitura: "quanto mais alto, mais recente o contato".
+
+### 3. Período de 7 dias e novo padrão
+- Botões de período passam a ser `7 / 30 / 90 / 180`, com **7d selecionado por padrão** (`useState(7)` em `CustomerSuccessSistemas.tsx`).
+- Em janelas curtas o eixo X mostra todos os dias (ajustar `tickInterval` para não esconder rótulos quando houver poucos pontos).
+- Os cartões de cadência e a tabela continuam usando o histórico completo, sem depender da janela do gráfico.
 
 ## Detalhes técnicos
 
-- Arquivos: `src/lib/recordTouchpoint.ts`, `src/lib/clientHealth.ts`, `src/lib/proceedDemand.ts`, `src/components/TaskCard.tsx`, `src/components/customer-success/CadenceLineChart.tsx`, mais uma migração de backfill.
-- Sem mudanças de schema: `client_touchpoints.subclient_id` já existe e tem RLS/grants.
-- Nenhuma alteração no comportamento do painel de Mídia (`loadClientHealth` continua por `client_id`).
+Arquivos alterados:
+- `src/lib/clientHealth.ts` — `buildCadenceSeries` retorna `null` para dias sem contato conhecido; tipo do ponto passa a aceitar `number | null`.
+- `src/components/customer-success/CadenceLineChart.tsx` — eixo invertido, faixas reordenadas, `connectNulls={false}`, ticks adaptativos, legenda atualizada.
+- `src/pages/CustomerSuccessSistemas.tsx` — opções de janela `[7, 30, 90, 180]` e default `7`.
+
+Sem migração de banco: é correção de cálculo e apresentação.
