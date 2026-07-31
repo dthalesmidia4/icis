@@ -904,6 +904,7 @@ export async function proceedDemand({
   if (currentFunctionKey === "captar") {
     proceedPayload.additional_assignees = [];
   }
+  await avoidScheduleConflict(proceedPayload, tenantId, demandId, picked.userId, nextFn.function_key);
   const { error: upErr } = await supabase
     .from("demands")
     .update(proceedPayload)
