@@ -3551,6 +3551,15 @@ const KanbanCentralPage = () => {
       )}
 
 
+      <ScheduleConflictModal
+        open={!!scheduleConflict}
+        onOpenChange={(o) => { if (!o) setScheduleConflict(null); }}
+        targetName={scheduleConflict?.targetName}
+        conflicts={scheduleConflict?.conflicts || []}
+        suggestion={scheduleConflict?.suggestion || null}
+        onReschedule={handleConflictReschedule}
+        rescheduling={reschedulingConflict}
+      />
     </div>
   );
 };
