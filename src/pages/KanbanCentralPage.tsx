@@ -1243,11 +1243,14 @@ const KanbanCentralPage = () => {
       if (error) throw error;
 
       evaluation.softMessages.forEach((m) => sonnerToast.warning(m));
-      if (evaluation.functionRemapped) {
-        sonnerToast.warning(`${collabName} não tem função compatível — etapa mantida`);
+      if (nextFunctionKey && nextFunctionKey !== previousFunctionKey) {
+        sonnerToast.success(
+          `Atribuída a ${collabName} — etapa: ${flowFunctionNames[nextFunctionKey] || nextFunctionKey}`,
+        );
       } else {
         sonnerToast.success(`Atribuída a ${collabName}`);
       }
+
     } catch (error) {
       console.error("Error updating assigned_to:", error);
       sonnerToast.error("Erro ao atribuir demanda");
