@@ -96,6 +96,16 @@ export interface ReorderProposal {
     captarId: string;
     captarTitle: string;
   } | null;
+
+  /** Etapa atual e tipo do card (para o modal não precisar recalcular rótulos). */
+  stageKey?: string | null;
+  demandTypeKey?: string | null;
+  workArea?: ReorderWorkArea | null;
+  /**
+   * Explica por que a proposta "pulou" para um horário bem depois do próximo
+   * slot livre (ex.: a área não tem expediente à tarde naquele dia).
+   */
+  jumpReason?: string | null;
 }
 
 // ------------------------------------------------------------------
@@ -337,6 +347,44 @@ function normalizeCursor(d: Date, area: ReorderWorkArea | null | undefined, ctx:
   return c;
 }
 
+const AREA_LABEL: Record<string, string> = { midia: "Mídia", sistemas: "Sistemas" };
+
+/**
+ * Explica um "pulo" grande entre o próximo slot livre e o início alocado.
+ * Sem isso o usuário lê "+20min" e vê a data saltar dois dias sem motivo aparente.
+ */
+function explainJump(
+  from: Date,
+  to: Date,
+  area: ReorderWorkArea | null | undefined,
+  ctx: WorkCtx,
+): string | null {
+  const gapMin = Math.round((to.getTime() - from.getTime()) / 60000);
+  if (gapMin < 45) return null;
+  const areaName = area ? AREA_LABEL[area] : null;
+  const dateLabel = (d: Date) => `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  const sameDay = isoDate(from) === isoDate(to);
+
+  if (!sameDay) {
+    if (isNonWorkingDay(from, ctx.holidays)) {
+      return `Sem expediente em ${dateLabel(from)} (fim de semana ou feriado) — primeiro horário útil é ${dateLabel(to)} ${hhmm(to)}.`;
+    }
+    if (areaName) {
+      const minutesToday = workingMinutesInDay(from, area, ctx);
+      if (minutesToday === 0) {
+        return `Este colaborador não tem horário de ${areaName} configurado em ${dateLabel(from)} — primeiro horário disponível é ${dateLabel(to)} ${hhmm(to)}.`;
+      }
+      return `Não há mais janela de ${areaName} depois de ${hhmm(from)} em ${dateLabel(from)} — continua em ${dateLabel(to)} ${hhmm(to)}.`;
+    }
+    return `Sem horário disponível depois de ${hhmm(from)} em ${dateLabel(from)} — continua em ${dateLabel(to)} ${hhmm(to)}.`;
+  }
+
+  if (areaName) {
+    return `Aguarda a próxima janela de ${areaName} do dia (${hhmm(to)}).`;
+  }
+  return `Aguarda o próximo horário livre do dia (${hhmm(to)}).`;
+}
+
 /**
  * Aloca `durationMin` a partir de `cursor`, fatiando entre blocos da área,
  * pulando gaps/fins de expediente, fins de semana e feriados.
@@ -536,22 +584,39 @@ function stagePlannedMinutes(card: ReorderCardInput, ctx: WorkCtx, tz: string): 
 
 
 
-export type StageDurationOverrides = Record<string, Partial<Record<DurationTypeGroup, number>>>;
+/**
+ * Overrides de duração por etapa.
+ * - chaves de grupo (`estatico`, `video_curto`, ...) = formato legado, compartilhado
+ *   entre tipos do mesmo grupo;
+ * - `byType` = override por TIPO de demanda (`video_gerado` ≠ `video_captado`),
+ *   que tem prioridade sobre o grupo.
+ */
+export type StageDurationRow = Partial<Record<DurationTypeGroup, number>> & {
+  byType?: Record<string, number>;
+};
+export type StageDurationOverrides = Record<string, StageDurationRow>;
 
 function pickFromOverrides(
   overrides: StageDurationOverrides | undefined,
   stage: string,
   group: DurationTypeGroup,
   area?: string | null,
+  demandTypeKey?: string | null,
 ): number | null {
   // Chaves são prefixadas por área (`sistemas:revisar`) para evitar colisão
   // entre etapas homônimas de Mídia e Sistemas. Fallback: chave sem prefixo.
   const areaKey = `${area === "sistemas" ? "sistemas" : "midia"}:${stage}`;
   const row = overrides?.[areaKey] ?? overrides?.[stage];
   if (!row) return null;
+  const typeKey = (demandTypeKey || "").toLowerCase();
+  if (typeKey) {
+    const byType = row.byType?.[typeKey];
+    if (typeof byType === "number" && byType > 0) return byType;
+  }
   const v = row[group] ?? row.default;
   return typeof v === "number" && v > 0 ? v : null;
 }
+
 
 function estimateDurationBase(
   card: ReorderCardInput,
@@ -566,7 +631,7 @@ function estimateDurationBase(
   // Sistemas: o tipo (nível do bug / desenvolvimento) define o esforço.
   const systemsKey = (card.demand_type_key || "").toLowerCase();
   if (SYSTEMS_TYPE_MINUTES[systemsKey] !== undefined) {
-    const overridden = pickFromOverrides(overrides, stage, "default", area);
+    const overridden = pickFromOverrides(overrides, stage, "default", area, systemsKey);
     if (overridden !== null) return overridden;
     if (SYSTEMS_WORK_STAGES.has(stage)) return SYSTEMS_TYPE_MINUTES[systemsKey];
     const stageRow = DURATION_MATRIX[stage];
@@ -575,7 +640,7 @@ function estimateDurationBase(
   }
 
   if (isOtherType(card)) {
-    const overridden = pickFromOverrides(overrides, stage, "outro", area);
+    const overridden = pickFromOverrides(overrides, stage, "outro", area, card.demand_type_key);
     if (overridden !== null) return overridden;
     const span = scheduledSpanMinutes(card, ctx);
     // Teto de 1 jornada útil: spans maiores são resíduo de agendamentos antigos
@@ -588,7 +653,7 @@ function estimateDurationBase(
   }
 
 
-  const overridden = pickFromOverrides(overrides, stage, group, area);
+  const overridden = pickFromOverrides(overrides, stage, group, area, card.demand_type_key);
   if (overridden !== null) return overridden;
   const stageRow = DURATION_MATRIX[stage];
   if (stageRow) return stageRow[group] ?? stageRow.default;
@@ -931,6 +996,7 @@ export async function computeReorder(
     let end: Date;
     let daysSpanned = 1;
     let clampWarning: string | undefined;
+    let jumpReason: string | null = null;
 
     // Card em execução no topo da fila: começou no passado.
     const origStart = card.due_date && card.due_time ? toVirtualUtc(card.due_date, card.due_time.slice(0, 5)) : null;
@@ -1018,6 +1084,7 @@ export async function computeReorder(
         clampWarning = "Término informado já passou — recalculado automaticamente.";
       }
       ({ start, end, daysSpanned } = allocateAcrossDays(cursor, dur, area, ctx, blocked));
+      jumpReason = explainJump(cursor, start, area, ctx);
     }
 
     // Atrasado em execução: preserva o início histórico apenas na exibição/gravação.
@@ -1115,6 +1182,10 @@ export async function computeReorder(
       stagePlannedMin: stagePlanned ?? null,
       extensionMin,
       pausedByCaptar,
+      stageKey: card.current_function_key ?? null,
+      demandTypeKey: card.demand_type_key ?? null,
+      workArea: area,
+      jumpReason,
     });
 
 
@@ -1147,6 +1218,9 @@ export async function computeReorder(
       changed: false,
       skipped: true,
       warning: "Cliente — não reagendado.",
+      stageKey: c.current_function_key ?? null,
+      demandTypeKey: c.demand_type_key ?? null,
+      workArea: (c.work_area as any) ?? null,
     });
   }
 
@@ -1163,6 +1237,9 @@ export async function computeReorder(
       changed: false,
       skipped: true,
       warning: "Captar — horário fixo, não reagendado.",
+      stageKey: c.current_function_key ?? null,
+      demandTypeKey: c.demand_type_key ?? null,
+      workArea: (c.work_area as any) ?? null,
     });
   }
 
@@ -1179,6 +1256,9 @@ export async function computeReorder(
       changed: false,
       skipped: true,
       warning: "Card diário — ciclo próprio, não reagendado.",
+      stageKey: c.current_function_key ?? null,
+      demandTypeKey: c.demand_type_key ?? null,
+      workArea: (c.work_area as any) ?? null,
     });
   }
 
