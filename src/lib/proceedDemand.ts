@@ -440,7 +440,9 @@ export interface PickAssigneeResult {
 /**
  * Escolhe o colaborador de menor carga para uma função de fluxo.
  * Regras:
- *  - `collaborator_function_assignments.allowed = true` e `function_key = <fn>`.
+ *  - `collaborator_function_assignments.allowed = true`, `function_key = <fn>`
+ *    e `work_area` = área da demanda (chaves homônimas como `revisar` e
+ *    `aguardando_cliente` existem nas duas áreas e não podem se misturar).
  *  - Somente usuários internos (agency_admin / manager / user).
  *  - Menor contagem de `demands.assigned_to` não arquivadas; desempate alfabético.
  */
@@ -448,17 +450,24 @@ export async function pickAssigneeForFunction(
   tenantId: string,
   functionKey: string,
   functionName?: string,
-  opts?: { excludeUserIds?: Array<string | null | undefined>; preferUserIds?: Array<string | null | undefined> },
+  opts?: {
+    excludeUserIds?: Array<string | null | undefined>;
+    preferUserIds?: Array<string | null | undefined>;
+    workArea?: "midia" | "sistemas" | null;
+  },
 ): Promise<PickAssigneeResult> {
   const label = functionName || functionKey;
+  const area: "midia" | "sistemas" = opts?.workArea === "sistemas" ? "sistemas" : "midia";
 
-  const { data: assigns, error: aErr } = await supabase
-    .from("collaborator_function_assignments")
+  const { data: assigns, error: aErr } = await (supabase
+    .from("collaborator_function_assignments") as any)
     .select("user_id")
     .eq("tenant_id", tenantId)
     .eq("function_key", functionKey)
+    .eq("work_area", area)
     .eq("allowed", true);
   if (aErr) return { success: false, message: "Erro ao buscar colaboradores." };
+
 
   const candidateIds = Array.from(new Set((assigns || []).map((a: any) => a.user_id))).filter(Boolean);
   if (candidateIds.length === 0) {
