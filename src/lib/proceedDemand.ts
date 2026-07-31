@@ -945,18 +945,26 @@ export async function regressDemand({
     prevFn = chosen;
   }
 
-  // Transição especial: aguardando_cliente → enviar_cliente mantém o mesmo responsável.
+  // Transição especial: aguardando_cliente → enviar_cliente escolhe alguém com
+  // a função de envio; o responsável da espera pode não executar o reenvio.
   if (currentFunctionKey === "aguardando_cliente" && prevFn.function_key === "enviar_cliente") {
     const { data: current } = await supabase
       .from("demands")
       .select("assigned_to, client_resend_count")
       .eq("id", demandId)
       .maybeSingle();
-    const keepAssignee = (current as any)?.assigned_to || null;
+    const waitAssignee = (current as any)?.assigned_to || null;
+    const picked = await pickAssigneeForFunction(tenantId, "enviar_cliente", prevFn.name, {
+      preferUserIds: waitAssignee ? [waitAssignee] : [],
+    });
+    if (!picked.success || !picked.userId) {
+      return { success: false, message: picked.message || 'Nenhum colaborador possui a função "Enviar cliente" habilitada.' };
+    }
     const prevCount = (current as any)?.client_resend_count || 0;
     const { error: upErr } = await supabase
       .from("demands")
       .update({
+        assigned_to: picked.userId,
         current_function_key: prevFn.function_key,
         client_resend_count: prevCount + 1,
         client_last_resend_at: new Date().toISOString(),
@@ -968,8 +976,8 @@ export async function regressDemand({
       tenantId,
       demandId,
       action: "moved_back",
-      fromUserId: keepAssignee,
-      toUserId: keepAssignee,
+      fromUserId: waitAssignee,
+      toUserId: picked.userId,
       fromFunctionKey: currentFunctionKey || null,
       toFunctionKey: prevFn.function_key,
     });
