@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
         const { error: upErr } = await supabase
           .from("demands")
           .update({
-            current_function_key: "enviar_cliente",
+            current_function_key: returnKey,
             client_resend_count: newCount,
             client_last_resend_at: nowIso,
             client_wait_started_at: null,
@@ -144,9 +144,10 @@ Deno.serve(async (req) => {
           from_user_id: c.assigned_to,
           to_user_id: c.assigned_to,
           from_function_key: "aguardando_cliente",
-          to_function_key: "enviar_cliente",
-          metadata: { resend_count: newCount, wait_hours: waitHours },
+          to_function_key: returnKey,
+          metadata: { resend_count: newCount, wait_hours: waitHours, work_area: area },
         } as any);
+
 
         returned.push(c.id);
       }
