@@ -442,7 +442,10 @@ export function buildCadenceSeries(
     if (row.lastTouchAt) {
       const d = new Date(row.lastTouchAt);
       d.setHours(0, 0, 0, 0);
-      if (d.getTime() < startMs) stamps[row.clientId].unshift(d.getTime());
+      if (!stamps[row.clientId].includes(d.getTime())) {
+        stamps[row.clientId].push(d.getTime());
+        stamps[row.clientId].sort((a, b) => a - b);
+      }
     }
   });
 
@@ -451,12 +454,11 @@ export function buildCadenceSeries(
     const point: CadenceSeriesPoint = { t: ms, label: dayKey(ms) };
     rows.forEach((row) => {
       const previous = (stamps[row.clientId] || []).filter((s) => s <= ms);
-      if (previous.length === 0) {
-        // nunca houve contato até esse dia: conta desde o início da janela
-        point[row.clientId] = Math.round((ms - startMs) / DAY_MS) + days;
-      } else {
-        point[row.clientId] = Math.round((ms - previous[previous.length - 1]) / DAY_MS);
-      }
+      // sem contato conhecido até esse dia: não inventar valor (linha cortada)
+      point[row.clientId] =
+        previous.length === 0
+          ? null
+          : Math.round((ms - previous[previous.length - 1]) / DAY_MS);
     });
     points.push(point);
   }
