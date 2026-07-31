@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { useRealtimeFlowConfig } from "@/hooks/realtime";
 import { DURATION_MATRIX, type DurationTypeGroup } from "@/lib/reorderSequence";
 import { AreaAllocationTab } from "@/components/config/AreaAllocationTab";
+import { loadReorderPriority, saveReorderPriority, DEFAULT_REORDER_PRIORITY, type ReorderPriorityConfig } from "@/lib/reorderPriority";
+
 
 interface Props {
   open: boolean;
@@ -218,6 +220,32 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
     timezone: string;
   }>({ wait_hours: 24, return_times: ["10:00"], max_resends: null, timezone: "America/Sao_Paulo" });
   const [savingAwaiting, setSavingAwaiting] = useState(false);
+  const [priorityCfg, setPriorityCfg] = useState<ReorderPriorityConfig>({ ...DEFAULT_REORDER_PRIORITY });
+  const [savingPriority, setSavingPriority] = useState(false);
+
+  useEffect(() => {
+    if (!open || !agencyId) return;
+    let cancelled = false;
+    loadReorderPriority(agencyId).then((cfg) => {
+      if (!cancelled) setPriorityCfg({ ...cfg[area] });
+    });
+    return () => { cancelled = true; };
+  }, [open, agencyId, area]);
+
+  const savePriorityCfg = async () => {
+    if (!agencyId) return;
+    setSavingPriority(true);
+    try {
+      await saveReorderPriority(agencyId, area, priorityCfg);
+      toast.success("Prioridade atualizada.");
+    } catch (e) {
+      console.error("[flow] save priority", e);
+      toast.error("Não foi possível salvar a prioridade.");
+    } finally {
+      setSavingPriority(false);
+    }
+  };
+
 
   const seedIfEmpty = async (tenantId: string) => {
     // Seed flow_functions da área
@@ -522,12 +550,14 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
 
         <Tabs key={`fpm-tabs-v3-${area}`} defaultValue="participacao" className="w-full">
 
-          <TabsList className="grid w-full max-w-3xl grid-cols-4">
+          <TabsList className="grid w-full max-w-4xl grid-cols-5">
             <TabsTrigger value="participacao">Participação</TabsTrigger>
             <TabsTrigger value="tempo">Tempo estimado</TabsTrigger>
             <TabsTrigger value="alocacao">Alocação por área</TabsTrigger>
             <TabsTrigger value="retorno">Retorno do cliente</TabsTrigger>
+            <TabsTrigger value="prioridade">Prioridade e risco</TabsTrigger>
           </TabsList>
+
 
           <TabsContent value="participacao" className="mt-4">
             <div className="flex items-center gap-4 text-xs mb-2">
@@ -869,8 +899,66 @@ export function FunctionPermissionsModal({ open, onOpenChange }: Props) {
               </div>
             </div>
           </TabsContent>
+
+
+          <TabsContent value="prioridade" className="mt-4">
+            <div className="max-w-3xl space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Define como o reorganizador automático prioriza os cards da coluna na área <strong>{area === "sistemas" ? "Sistemas" : "Mídia"}</strong>.
+                O primeiro card (em andamento) nunca muda de posição.
+              </p>
+
+              <div className="rounded-lg border p-4 space-y-1">
+                <label className="text-sm font-medium">Fator da janela de risco</label>
+                <p className="text-[11px] text-muted-foreground">
+                  Um card é priorizado quando <em>prazo − agora ≤ fator × ciclo restante</em>. Padrão: 3.
+                </p>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  step={0.5}
+                  className="mt-2 h-9 w-28 rounded-md border bg-background px-2 text-sm"
+                  value={priorityCfg.riskFactor}
+                  onChange={(e) => setPriorityCfg((p) => ({ ...p, riskFactor: Number(e.target.value) }))}
+                />
+              </div>
+
+              <div className="rounded-lg border p-4 space-y-1">
+                <label className="text-sm font-medium">Carência de entrada (minutos)</label>
+                <p className="text-[11px] text-muted-foreground">
+                  Cards que acabaram de chegar na coluna e não estão em risco entram por último. Padrão: 60.
+                </p>
+                <input
+                  type="number"
+                  min={0}
+                  max={1440}
+                  step={15}
+                  className="mt-2 h-9 w-28 rounded-md border bg-background px-2 text-sm"
+                  value={priorityCfg.entryGraceMin}
+                  onChange={(e) => setPriorityCfg((p) => ({ ...p, entryGraceMin: Number(e.target.value) }))}
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button size="sm" disabled={savingPriority} onClick={savePriorityCfg}>
+                  {savingPriority && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                  Salvar prioridade
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={savingPriority}
+                  onClick={() => setPriorityCfg({ ...DEFAULT_REORDER_PRIORITY })}
+                >
+                  Restaurar padrão
+                </Button>
+              </div>
+            </div>
+          </TabsContent>
         </Tabs>
       </DialogContent>
+
     </Dialog>
   );
 }

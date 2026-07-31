@@ -13,7 +13,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { computeReorder, hasPublishDateCandidates, reorderTier, type ReorderCardInput, type ReorderProposal, type ReorderManualOverride, type StageDurationOverrides, type AreaScheduleMap } from "@/lib/reorderSequence";
+import { computeReorder, fmtMinutes, hasPublishDateCandidates, reorderTier, type ReorderCardInput, type ReorderProposal, type ReorderManualOverride, type StageDurationOverrides, type AreaScheduleMap } from "@/lib/reorderSequence";
+import { loadReorderPriority, DEFAULT_REORDER_PRIORITY, type ReorderPriorityConfig } from "@/lib/reorderPriority";
+
 import { loadDurationsByArea } from "@/lib/flowDurations";
 import { useWorkHoursConfig } from "@/hooks/useWorkHoursConfig";
 import { Switch } from "@/components/ui/switch";
@@ -184,7 +186,23 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
   }, [open, tenantId, assigneeId]);
 
 
+  // Configuração de prioridade/risco por área (definida em Configurações de fluxo).
+  const dominantArea: "midia" | "sistemas" = useMemo(() => {
+    const sist = cards.filter((c) => c.work_area === "sistemas").length;
+    return sist > cards.length - sist ? "sistemas" : "midia";
+  }, [cards]);
+  const [priority, setPriority] = useState<ReorderPriorityConfig>(DEFAULT_REORDER_PRIORITY);
+  useEffect(() => {
+    if (!open || !tenantId) return;
+    let cancelled = false;
+    loadReorderPriority(tenantId).then((cfg) => {
+      if (!cancelled) setPriority(cfg[dominantArea]);
+    });
+    return () => { cancelled = true; };
+  }, [open, tenantId, dominantArea]);
+
   const showPublishToggle = hasPublishDateCandidates(cards);
+
   const storageKey = `reorder-priority-mode:${tenantId || "default"}`;
   const [prioritizeByPublish, setPrioritizeByPublish] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -204,7 +222,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
     let cancelled = false;
     setLoading(true);
     const enriched = cards.map((c) => ({ ...c, stage_started_at: stageStarts[c.id] ?? null }));
-    computeReorder(enriched, { startFrom, workHours, durations, areaSchedule, scheduledPublishIds, manualOverrides, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
+    computeReorder(enriched, { startFrom, workHours, durations, areaSchedule, scheduledPublishIds, manualOverrides, priority, prioritizePublishDate: showPublishToggle && prioritizeByPublish })
       .then((r) => {
         if (!cancelled) setProposals(r);
       })
@@ -219,7 +237,7 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, startFrom, cardsSignature, stageStartsSignature, workHoursSignature, durationsSignature, areaSignature, publishIdsSignature, prioritizeByPublish, showPublishToggle, manualOverrides]);
+  }, [open, startFrom, cardsSignature, stageStartsSignature, workHoursSignature, durationsSignature, areaSignature, publishIdsSignature, prioritizeByPublish, showPublishToggle, manualOverrides, priority]);
 
 
   // Limpa ajustes manuais ao fechar o modal
@@ -784,12 +802,37 @@ export default function ReorderSequenceModal({ open, onOpenChange, columnName, c
                         )}
 
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                          {p.riskStatus === "risk" && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] border-red-500/60 text-red-600 dark:text-red-400"
+                              title={`Prazo em ${fmtMinutes(Math.max(p.slackMin ?? 0, 0))} · ciclo restante ${fmtMinutes(p.remainingCycleMin || 0)}`}
+                            >
+                              ⚠ risco de atraso
+                            </Badge>
+                          )}
+                          {p.riskStatus === "recent" && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] border-slate-400/60 text-muted-foreground"
+                              title="Entrou na coluna há pouco tempo e sem risco de atraso — alocado por último."
+                            >
+                              recém-chegado
+                            </Badge>
+                          )}
+                          {p.remainingCycleMin ? (
+                            <span className="text-muted-foreground">
+                              ciclo rest. {fmtMinutes(p.remainingCycleMin)}
+                              {p.slackMin != null ? ` · folga ${fmtMinutes(p.slackMin)}` : ""}
+                            </span>
+                          ) : null}
 
                           {p.spansDays && p.spansDays > 1 && (
                             <Badge variant="outline" className="text-[10px] border-blue-500/60 text-blue-600 dark:text-blue-400">
                               {p.spansDays} dias
                             </Badge>
                           )}
+
                           {p.slackApplied && (
                             <Badge variant="outline" className="text-[10px] border-orange-500/60 text-orange-600 dark:text-orange-400">
                               +folga

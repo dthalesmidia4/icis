@@ -80,6 +80,15 @@ export interface ReorderProposal {
   stageStartTime?: string | null;
   stagePlannedMin?: number | null;
   extensionMin?: number | null;
+  /** Diagnóstico de prioridade: risco (prazo apertado), normal ou recém-chegado. */
+  riskStatus?: "risk" | "normal" | "recent";
+  /** Folga até o prazo, em minutos. */
+  slackMin?: number | null;
+  /** Ciclo restante estimado, em minutos. */
+  remainingCycleMin?: number | null;
+  /** Minutos desde a entrada na etapa atual. */
+  inStageMin?: number | null;
+
   pausedByCaptar?: {
     atISO: string;
     atTime: string;
@@ -625,6 +634,60 @@ export function hasPublishDateCandidates(cards: ReorderCardInput[]): boolean {
   return rest.some((c) => !!c.publish_date);
 }
 
+
+export type ReorderRiskStatus = "risk" | "normal" | "recent";
+
+export interface ReorderRiskInfo {
+  status: ReorderRiskStatus;
+  /** Folga até o prazo, em minutos (null quando o card não tem prazo). */
+  slackMin: number | null;
+  /** Ciclo restante estimado (etapa atual + etapas seguintes) em minutos. */
+  remainingMin: number;
+  /** Limite da janela de risco (fator × ciclo restante), em minutos. */
+  riskWindowMin: number;
+  /** Minutos desde a entrada na etapa atual (null se desconhecido). */
+  inStageMin: number | null;
+}
+
+export interface ReorderPriorityOptions {
+  riskFactor?: number;
+  entryGraceMin?: number;
+  /** "Agora" virtual, no mesmo relógio usado pelo motor. */
+  now?: Date;
+}
+
+const DEFAULT_RISK_FACTOR = 3;
+const DEFAULT_ENTRY_GRACE_MIN = 60;
+
+export function computeRiskInfo(
+  card: ReorderCardInput,
+  opts?: ReorderPriorityOptions & { remainingMin?: number },
+): ReorderRiskInfo {
+  const factor = opts?.riskFactor && opts.riskFactor > 0 ? opts.riskFactor : DEFAULT_RISK_FACTOR;
+  const grace = opts?.entryGraceMin != null && opts.entryGraceMin >= 0 ? opts.entryGraceMin : DEFAULT_ENTRY_GRACE_MIN;
+  const now = opts?.now ? new Date(opts.now) : new Date();
+  const remainingMin = opts?.remainingMin ?? estimateDurationMinutes(card);
+  const riskWindowMin = Math.round(factor * remainingMin);
+
+  const deadline = cardDeadline(card);
+  const slackMin = deadline ? Math.round((deadline.getTime() - now.getTime()) / 60000) : null;
+
+  const inStageMin = card.stage_started_at
+    ? Math.round((now.getTime() - new Date(card.stage_started_at).getTime()) / 60000)
+    : null;
+
+  const atRisk = slackMin != null && slackMin <= riskWindowMin;
+  const recentlyArrived = !atRisk && inStageMin != null && inStageMin >= 0 && inStageMin < grace;
+
+  return {
+    status: atRisk ? "risk" : recentlyArrived ? "recent" : "normal",
+    slackMin,
+    remainingMin,
+    riskWindowMin,
+    inStageMin,
+  };
+}
+
 /**
  * Prioridade de alocação: Produção (0) → Em revisão (1) → Avaliar (2).
  */
@@ -637,9 +700,11 @@ export function reorderTier(c: ReorderCardInput): 0 | 1 | 2 {
 
 export function sortForReorder(
   cards: ReorderCardInput[],
-  opts?: { prioritizePublishDate?: boolean },
+  opts?: { prioritizePublishDate?: boolean; priority?: ReorderPriorityOptions },
 ): ReorderCardInput[] {
   if (cards.length === 0) return [];
+
+  const riskOf = (c: ReorderCardInput) => computeRiskInfo(c, opts?.priority);
 
   const sortTier = (tierCards: { c: ReorderCardInput; i: number }[]) => {
     if (tierCards.length === 0) return [];
@@ -648,7 +713,7 @@ export function sortForReorder(
       return cmp !== 0 ? cmp : a.i - b.i;
     });
     const inProgress = byDue[0];
-    const rest = byDue.slice(1);
+    let rest = byDue.slice(1);
     if (opts?.prioritizePublishDate) {
       rest.sort((a, b) => {
         const cmp = pubKey(a.c).localeCompare(pubKey(b.c));
@@ -656,6 +721,26 @@ export function sortForReorder(
         return dueKey(a.c).localeCompare(dueKey(b.c));
       });
     }
+
+    // Janela de risco: cards cujo prazo está próximo do ciclo restante sobem;
+    // cards que acabaram de entrar na coluna (e sem risco) descem para o fim.
+    const info = new Map(rest.map((x) => [x.c.id, riskOf(x.c)] as const));
+    const risk = rest.filter((x) => info.get(x.c.id)!.status === "risk");
+    const normal = rest.filter((x) => info.get(x.c.id)!.status === "normal");
+    const recent = rest.filter((x) => info.get(x.c.id)!.status === "recent");
+
+    risk.sort((a, b) => {
+      const sa = info.get(a.c.id)!.slackMin ?? Number.MAX_SAFE_INTEGER;
+      const sb = info.get(b.c.id)!.slackMin ?? Number.MAX_SAFE_INTEGER;
+      return sa !== sb ? sa - sb : a.i - b.i;
+    });
+    recent.sort((a, b) => {
+      const ia = info.get(a.c.id)!.inStageMin ?? 0;
+      const ib = info.get(b.c.id)!.inStageMin ?? 0;
+      return ib - ia;
+    });
+
+    rest = [...risk, ...normal, ...recent];
     return [inProgress, ...rest];
   };
 
@@ -666,6 +751,7 @@ export function sortForReorder(
 
   return [...sortTier(t0), ...sortTier(t1), ...sortTier(t2)].map((x) => x.c);
 }
+
 
 // ------------------------------------------------------------------
 // Reorganização principal
@@ -690,6 +776,9 @@ export async function computeReorder(
     areaSchedule?: AreaScheduleMap;
     scheduledPublishIds?: Set<string>;
     manualOverrides?: Record<string, ReorderManualOverride>;
+    /** Janela de risco / carência de entrada (configurável por área). */
+    priority?: { riskFactor?: number; entryGraceMin?: number };
+
   },
 
 
@@ -736,7 +825,11 @@ export async function computeReorder(
     return true;
   });
 
-  const ordered = sortForReorder(active, { prioritizePublishDate: opts?.prioritizePublishDate });
+  const ordered = sortForReorder(active, {
+    prioritizePublishDate: opts?.prioritizePublishDate,
+    priority: { ...(opts?.priority || {}), now },
+  });
+
 
   // Intervalos ocupados por cards fixos (captar, daily).
   // O alocador contornará esses intervalos em vez de agendar por cima.
@@ -1043,6 +1136,18 @@ export async function computeReorder(
     });
   }
 
-  return proposals;
+  // Anexa o diagnóstico de risco (janela de risco / recém-chegado) a cada proposta.
+  const byId = new Map(cards.map((c) => [c.id, c] as const));
+  return proposals.map((p) => {
+    const card = byId.get(p.id);
+    if (!card) return p;
+    const info = computeRiskInfo(card, {
+      ...(opts?.priority || {}),
+      now,
+      remainingMin: estimateDurationBase(card, ctx, opts?.durations),
+    });
+    return { ...p, riskStatus: info.status, slackMin: info.slackMin, remainingCycleMin: info.remainingMin, inStageMin: info.inStageMin };
+  });
 }
+
 
