@@ -1112,13 +1112,22 @@ const KanbanCentralPage = () => {
 
   useEffect(() => { fetchFlowFunctionNames(); }, [fetchFlowFunctionNames]);
 
-  // Colaboradores com a função "Aguardando cliente" habilitada (para sinalizar inconsistências).
+  // Colaboradores com a função "Aguardando cliente" habilitada, POR ÁREA
+  // (a chave existe em Mídia e em Sistemas): chaves `area:userId`.
   const [awaitingAllowedUsers, setAwaitingAllowedUsers] = useState<Set<string>>(new Set());
   const fetchAwaitingAllowedUsers = useCallback(async () => {
     if (!tenantId) return;
-    setAwaitingAllowedUsers(await fetchAllowedUsersForFunction(tenantId, "aguardando_cliente"));
+    const [midia, sistemas] = await Promise.all([
+      fetchAllowedUsersForFunction(tenantId, "aguardando_cliente", "midia"),
+      fetchAllowedUsersForFunction(tenantId, "aguardando_cliente", "sistemas"),
+    ]);
+    const keys = new Set<string>();
+    midia.forEach((u) => keys.add(`midia:${u}`));
+    sistemas.forEach((u) => keys.add(`sistemas:${u}`));
+    setAwaitingAllowedUsers(keys);
   }, [tenantId]);
   useEffect(() => { fetchAwaitingAllowedUsers(); }, [fetchAwaitingAllowedUsers]);
+
 
   const FALLBACK_FN_NAMES: Record<string, string> = {
     planejar: "Planejar",
@@ -3181,7 +3190,7 @@ const KanbanCentralPage = () => {
                                       highlightedCardId === card.id && "ring-2 ring-primary/50 rounded-lg"
                                     )}
                                   >
-                                    {columnUserId !== "__unassigned__" && !awaitingAllowedUsers.has(columnUserId) && (
+                                    {columnUserId !== "__unassigned__" && !awaitingAllowedUsers.has(`${(card as any).work_area === "sistemas" ? "sistemas" : "midia"}:${columnUserId}`) && (
                                       <div
                                         className="mb-1 flex items-center gap-1 text-[10px] font-semibold text-amber-700 dark:text-amber-400"
                                         title='Este responsável não tem a função "Aguardando cliente" atribuída. Ajuste em Atribuir funções aos colaboradores.'

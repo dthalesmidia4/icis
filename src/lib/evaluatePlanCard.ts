@@ -103,7 +103,10 @@ export async function approvePlanCard(ctx: PlanCardContext): Promise<string> {
 
   await assignInitialResponsible(demandId, ctx.tenantId, demandTypeKey, {
     metadataSource: ctx.source === "ultra" ? "ultra_card" : "card",
+    // Planejamento de período é sempre da área de Mídia.
+    workArea: "midia",
   });
+
 
   // Fire-and-forget: auto-geração de arte pra post estático / carrossel.
   // Decide pela chave técnica (demand_type_key) já normalizada. Fallback por

@@ -59,12 +59,14 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Load all tenants' aguardando_cliente flow_functions config
+    // Load all tenants' aguardando_cliente flow_functions config, POR ÁREA
+    // (a chave existe em Mídia e em Sistemas, com configs de retorno distintas).
     const { data: fns, error: fnErr } = await supabase
       .from("flow_functions")
-      .select("tenant_id, config")
+      .select("tenant_id, config, work_area")
       .eq("function_key", "aguardando_cliente")
       .eq("active", true);
+
 
     if (fnErr) throw fnErr;
 
@@ -90,13 +92,18 @@ Deno.serve(async (req) => {
       // Threshold: cards whose client_wait_started_at is older than wait_hours
       const threshold = new Date(Date.now() - waitHours * 3600 * 1000).toISOString();
 
-      // Find eligible cards
+      // Find eligible cards — restritos à área desta config de fluxo.
+      const area = row.work_area === "sistemas" ? "sistemas" : "midia";
+      // Etapa de retorno depende da área: Mídia reenvia, Sistemas reentrega.
+      const returnKey = area === "sistemas" ? "entregar_cliente" : "enviar_cliente";
       let q = supabase
         .from("demands")
         .select("id, assigned_to, client_resend_count, client_last_resend_at, tenant_id")
         .eq("tenant_id", row.tenant_id)
+        .eq("work_area", area)
         .eq("current_function_key", "aguardando_cliente")
         .lte("client_wait_started_at", threshold);
+
 
       const { data: cards, error: cErr } = await q;
       if (cErr) {
@@ -122,7 +129,7 @@ Deno.serve(async (req) => {
         const { error: upErr } = await supabase
           .from("demands")
           .update({
-            current_function_key: "enviar_cliente",
+            current_function_key: returnKey,
             client_resend_count: newCount,
             client_last_resend_at: nowIso,
             client_wait_started_at: null,
@@ -137,9 +144,10 @@ Deno.serve(async (req) => {
           from_user_id: c.assigned_to,
           to_user_id: c.assigned_to,
           from_function_key: "aguardando_cliente",
-          to_function_key: "enviar_cliente",
-          metadata: { resend_count: newCount, wait_hours: waitHours },
+          to_function_key: returnKey,
+          metadata: { resend_count: newCount, wait_hours: waitHours, work_area: area },
         } as any);
+
 
         returned.push(c.id);
       }

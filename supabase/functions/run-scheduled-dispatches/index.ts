@@ -309,7 +309,10 @@ Deno.serve(async (req) => {
           .select("user_id")
           .eq("tenant_id", raw.tenant_id)
           .eq("function_key", "revisar_publicacao")
+          // "Revisar publicação" existe apenas na área de Mídia.
+          .eq("work_area", "midia")
           .eq("allowed", true);
+
         const candidateIds = Array.from(new Set((assigns || []).map((a: any) => a.user_id))).filter(Boolean);
         if (candidateIds.length > 0) {
           const { data: roles } = await supabase

@@ -76,7 +76,13 @@ export async function evaluateReassign(params: {
 
   // 1. Etapas de cliente exigem função explícita.
   if (isClientStageKey(currentKey)) {
-    const ok = await userHasFunction(tenantId, newAssignedTo, currentKey as string);
+    const ok = await userHasFunction(
+      tenantId,
+      newAssignedTo,
+      currentKey as string,
+      (card.work_area as any) ?? undefined,
+    );
+
     if (!ok) {
       return {
         ...base,
