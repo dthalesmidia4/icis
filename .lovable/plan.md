@@ -1,41 +1,39 @@
-## De onde vieram os "149 dias"
+## Objetivo
+1. Modal de "Configurar funções do fluxo" mais largo (menos scroll horizontal).
+2. Na aba "Tempo estimado", separar o tempo real de produção do tempo total (que inclui esperas e handoffs).
 
-Não vem do banco. Os contatos reais existem e são recentes (Bellotti e Pontes Gestal em 27/07, LEAL em 30/07). O número é gerado pelo próprio gráfico:
+## 1. Largura do modal
+Em `src/components/FunctionPermissionsModal.tsx`, o `DialogContent` hoje é `max-w-[95vw] xl:max-w-[1400px]`. Passa a usar praticamente toda a largura da tela (`w-[98vw] max-w-[98vw]`), com as tabelas continuando roláveis só quando realmente necessário. Também comprimo levemente as colunas (padding menor nas células e inputs `w-14`) para caber mais colunas sem scroll.
 
-Em `buildCadenceSeries` (`src/lib/clientHealth.ts`), quando um cliente ainda não tem nenhum contato **antes** do dia analisado, o código inventa um valor:
+## 2. Classificação das colunas
+Cada etapa recebe uma categoria:
 
 ```text
-valor = (dias desde o início da janela) + tamanho da janela
+MÍDIA
+ produção : planejar, criar_roteiro, criar_arte, captar,
+            descarregar_captacao, gerar_video, editar_video
+ revisão  : revisar_roteiro, revisar_captacao, revisar, revisar_publicacao
+ espera/  : enviar_cliente, aguardando_cliente, publicar
+ handoff
+
+SISTEMAS
+ produção : especificar, desenvolver, corrigir_bug_n1/n2/n3, ajustar
+ revisão  : testar, revisar
+ espera/  : entregar_cliente, aguardando_cliente, feedback_cliente
+ handoff
 ```
 
-Com a janela padrão de 90 dias, o primeiro dia já começa em 90 e vai subindo até ~149 no fim de julho — exatamente a rampa diagonal idêntica para todos os clientes que aparece no print. Ou seja, é um placeholder artificial, não histórico real.
+Definição adotada: **Total produção = soma apenas das etapas de produção** (mão na massa). Revisão, envio/retorno de cliente e publicação são tempo de ciclo, não de produção.
 
-Além disso, a busca da linha do tempo só traz contatos dentro da janela (`loadSubclientTouchpointTimeline(days)`), então o último contato anterior à janela é frequentemente desconhecido.
+## 3. Colunas de total
+A tabela passa a ter duas colunas finais:
+- **Total produção** — soma das etapas de produção marcadas como "Sim" (destacada, em negrito).
+- **Total do ciclo** (renomeia o "Total" atual) — soma de todas as etapas, incluindo revisões e esperas. Fica em tom mais suave, com tooltip "Inclui revisões, envio/retorno de cliente e publicação".
 
-## Correções
-
-### 1. Acabar com a rampa artificial
-- Em `buildCadenceSeries`: quando não houver nenhum contato conhecido até aquele dia, retornar `null` (Recharts corta a linha) em vez do valor inventado. A linha só começa a partir do primeiro contato conhecido.
-- Usar como semente o último contato real anterior à janela: `loadSystemsClientHealth` já calcula `lastTouchAt` sobre **todo** o histórico (contatos + demandas com origem de cliente); passar esse timestamp como ponto inicial sempre (hoje só é usado se cair antes do início da janela — manter, mas sem o fallback fake).
-- Resultado: nenhum cliente aparecerá com "149 dias" fantasma; quem nunca teve contato simplesmente não desenha linha e continua sinalizado nos cartões como "nunca registrado".
-
-### 2. Inverter a leitura do gráfico (bom em cima)
-Em `CadenceLineChart.tsx`:
-- `YAxis` com `reversed` — 0 dia sem contato passa a ficar no topo e os valores altos embaixo.
-- Reordenar as faixas de fundo conforme a nova orientação: verde (0 → cadência) no topo, âmbar (cadência → 2× cadência) no meio, vermelho (2× cadência → máximo) na base.
-- Reposicionar o rótulo da linha de meta (`meta 30d`) para não colidir com a faixa verde.
-- Ajustar a legenda para a nova leitura: "quanto mais alto, mais recente o contato".
-
-### 3. Período de 7 dias e novo padrão
-- Botões de período passam a ser `7 / 30 / 90 / 180`, com **7d selecionado por padrão** (`useState(7)` em `CustomerSuccessSistemas.tsx`).
-- Em janelas curtas o eixo X mostra todos os dias (ajustar `tickInterval` para não esconder rótulos quando houver poucos pontos).
-- Os cartões de cadência e a tabela continuam usando o histórico completo, sem depender da janela do gráfico.
+Um cabeçalho de legenda curto acima da tabela explica a diferença.
 
 ## Detalhes técnicos
-
-Arquivos alterados:
-- `src/lib/clientHealth.ts` — `buildCadenceSeries` retorna `null` para dias sem contato conhecido; tipo do ponto passa a aceitar `number | null`.
-- `src/components/customer-success/CadenceLineChart.tsx` — eixo invertido, faixas reordenadas, `connectNulls={false}`, ticks adaptativos, legenda atualizada.
-- `src/pages/CustomerSuccessSistemas.tsx` — opções de janela `[7, 30, 90, 180]` e default `7`.
-
-Sem migração de banco: é correção de cálculo e apresentação.
+- Novo mapa `STAGE_KIND: Record<string, "producao" | "revisao" | "espera">` por área, no mesmo arquivo.
+- `rowSubtotal(demandKey, group, kinds?)` ganha um filtro opcional de categorias; usado duas vezes por linha.
+- Cabeçalhos das colunas de produção recebem um leve realce visual (fundo sutil) para deixar claro o que compõe o total de produção.
+- Nenhuma mudança em banco de dados, cálculos de reorganização de sequência ou em `reorderSequence.ts` — é só apresentação.
