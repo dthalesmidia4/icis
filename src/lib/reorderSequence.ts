@@ -625,15 +625,6 @@ export function hasPublishDateCandidates(cards: ReorderCardInput[]): boolean {
   return rest.some((c) => !!c.publish_date);
 }
 
-/**
- * Prioridade de alocação: Produção (0) → Em revisão (1) → Avaliar (2).
- */
-export function reorderTier(c: ReorderCardInput): 0 | 1 | 2 {
-  const k = (c.current_function_key || "").toLowerCase();
-  if (isEvaluationFunction(k)) return 2;
-  if (isReviewFunction(k)) return 1;
-  return 0;
-}
 
 export type ReorderRiskStatus = "risk" | "normal" | "recent";
 
