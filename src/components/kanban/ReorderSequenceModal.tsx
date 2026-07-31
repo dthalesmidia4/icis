@@ -37,65 +37,6 @@ interface Props {
 
 }
 
-function fmtDate(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${d}/${m}/${y}`;
-}
-
-function fmtDuration(min: number): string {
-  if (min < 60) return `${min}min`;
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, "0")}`;
-}
-
-/** Rótulos legíveis de etapa e tipo — o modal antes mostrava só "etapa". */
-const STAGE_LABELS: Record<string, string> = {
-  planejar: "Planejar",
-  criar_roteiro: "Criar roteiro",
-  revisar_roteiro: "Revisar roteiro",
-  criar_arte: "Criar arte",
-  captar: "Captar",
-  descarregar_captacao: "Descarregar captação",
-  revisar_captacao: "Revisar captação",
-  gerar_video: "Gerar vídeo",
-  editar_video: "Editar vídeo",
-  revisar: "Revisar",
-  enviar_cliente: "Enviar cliente",
-  aguardando_cliente: "Aguardando cliente",
-  publicar: "Publicar",
-  revisar_publicacao: "Revisar publicação",
-  especificar: "Especificar",
-  desenvolver: "Em desenvolvimento",
-  corrigir_bug_n1: "Bug — Nível 1",
-  corrigir_bug_n2: "Bug — Nível 2",
-  corrigir_bug_n3: "Bug — Nível 3",
-  testar: "Testar",
-  ajustar: "Ajustar",
-  entregar_cliente: "Entregar ao cliente",
-  feedback_cliente: "Feedback ao cliente",
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  criativo_estatico: "Criativo estático",
-  carrossel: "Carrossel",
-  video_captado: "Vídeo captado",
-  video_gerado: "Vídeo gerado",
-  anuncio: "Anúncio",
-  outro: "Outro",
-  bug_n1: "Bug nível 1",
-  bug_n2: "Bug nível 2",
-  bug_n3: "Bug nível 3",
-  desenvolvimento: "Desenvolvimento",
-  melhoria: "Melhoria",
-  suporte: "Suporte",
-};
-
-const labelFor = (map: Record<string, string>, key?: string | null): string | null => {
-  const k = (key || "").toLowerCase();
-  if (!k) return null;
-  return map[k] || k.replace(/_/g, " ");
-};
 
 function toMinutes(t: string | null | undefined): number {
   if (!t) return 0;
